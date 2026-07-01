@@ -823,6 +823,17 @@ function getU(id) { return state.users.find(u => u.id === id) || {}; }
 function getP(id) { return state.projects.find(p => p.id === id) || {}; }
 function getWBS(pid) { return state.wbs[pid] || []; }
 function getItems(pid) { return state.items[pid] || []; }
+/* Cowork 메일 자동분류 결과(개인별 briefing.schedule) → 캘린더 일정으로 자동 반영 */
+function getBriefingScheduleEvents() {
+  const b = state.briefings && state.briefings[state.currentUser];
+  if (!b || !Array.isArray(b.schedule)) return [];
+  return b.schedule.map((s, i) => ({
+    id: 'brf_' + state.currentUser + '_' + i,
+    title: s.proj ? `[${s.proj}] ${s.title}` : s.title,
+    date: s.date, time: s.time || '', color: s.color || 'blue', source: 'briefing',
+  }));
+}
+function allEvents() { return [...state.events, ...getBriefingScheduleEvents()]; }
 function fmt(n) { return n.toLocaleString(); }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1093,10 +1104,9 @@ function toggleSb() {
 function toggleMb() { document.getElementById('sb').classList.toggle('mobile-open'); }
 
 // ══════════ 로그인 / 인증 시스템 ══════════
+const COMPANY_DOMAIN = '@sejong-21c.com';
 function showLogin() {
   const ov = document.getElementById('authOverlay');
-  // 빠른 전환: 대표 계정 몇 개
-  const quickUsers = ['u1','u3','u8'].map(id=>state.users.find(u=>u.id===id)).filter(Boolean);
   ov.innerHTML = `
     <div class="login-wrap">
       <div class="login-left">
@@ -1124,10 +1134,8 @@ function showLogin() {
           <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0;"></div>
           <button class="login-btn" onclick="doLogin()">로그인</button>
           <div class="login-quick">
-            <div class="login-quick-title">빠른 전환 (테모) — 다른 사용자로 전입:</div>
-            <div class="login-quick-btns">
-              ${quickUsers.map(u=>`<button onclick="quickLogin('${u.username}')">${u.name} ${u.title}</button>`).join('')}
-            </div>
+            <div style="font-size:12px;text-align:center;">계정이 없으신가요? <a href="#" onclick="showSignup();return false;" style="color:var(--primary);font-weight:600;">계정 만들기</a></div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:8px;text-align:center;">🔑 초기 비밀번호는 <b style="color:var(--primary);">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
           </div>
         </div>
       </div>
@@ -1147,13 +1155,87 @@ function showLogin() {
   setTimeout(()=>{ const el=document.getElementById('loginId'); if(el) el.focus(); }, 100);
 }
 
-// 빠른 전환: 이메일 자동 채움 (데모)
-function quickLogin(username) {
-  const u = state.users.find(x => x.username === username);
-  if (!u) return;
-  document.getElementById('loginId').value = u.email || (username + '@sejong-21c.com');
-  document.getElementById('loginPw').value = u.password || '';
-  doLogin();
+// 계정 만들기 (@sejong-21c.com 사내 메일만 가입 가능)
+function showSignup() {
+  const ov = document.getElementById('authOverlay');
+  const deptOpts = ['품질관리부','설계부','영업부','생산부','총무부','재무부'].map(d=>`<option value="${d}">${d}</option>`).join('');
+  const titleOpts = TITLES.map(t=>`<option value="${t}">${t}</option>`).join('');
+  ov.innerHTML = `
+    <div class="login-wrap">
+      <div class="login-left">
+        <div class="login-brand">
+          <div class="login-logo">
+            <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="height:38px;width:auto;display:none;">
+            <span class="login-logo-dot"></span>
+            <span class="login-logo-txt">Sejong Technology WorkFlow System</span>
+          </div>
+        </div>
+        <div class="login-hero">
+          <h1>세종기술 <span style="color:var(--primary);">통합 협업</span><br>플랫폼</h1>
+          <p class="login-feat">WBS · 간트차트 · ITP · NCR · 견적 · OKR · 결재.<br>품질·설계·영업·생산까지, 하나의 워크플로우로 묶습니다.</p>
+        </div>
+        <div class="login-foot">v1.0 · EPC Control v28.5 · ㈜세종기술 품질관리부</div>
+      </div>
+      <div class="login-right">
+        <div class="login-form">
+          <h2>계정 만들기</h2>
+          <p class="login-sub">${COMPANY_DOMAIN} 사내 이메일만 가입할 수 있습니다.</p>
+          <label class="login-label">이름</label>
+          <input class="login-input" id="suName" placeholder="예: 홍길동">
+          <label class="login-label">이메일</label>
+          <input class="login-input" id="suEmail" placeholder="name${COMPANY_DOMAIN}" autocomplete="username">
+          <label class="login-label">부서</label>
+          <select class="login-input" id="suDept">${deptOpts}</select>
+          <label class="login-label">직급</label>
+          <select class="login-input" id="suTitle">${titleOpts}</select>
+          <div id="suErr" style="display:none;color:#fee;font-size:12px;margin:6px 0;"></div>
+          <button class="login-btn" onclick="doSignup()">계정 만들기</button>
+          <div class="login-quick">
+            <div style="font-size:12px;text-align:center;">이미 계정이 있으신가요? <a href="#" onclick="showLogin();return false;" style="color:var(--primary);font-weight:600;">로그인</a></div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:8px;text-align:center;">🔑 초기 비밀번호는 <b style="color:var(--primary);">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  ov.style.display = 'block';
+  document.querySelector('.app').style.display = 'none';
+  try {
+    const _logo = document.querySelector('.sb-logo img');
+    const _ll = document.getElementById('loginLogoImg');
+    if (_logo && _logo.getAttribute('src') && _ll) {
+      _ll.src = _logo.getAttribute('src');
+      _ll.style.display = '';
+      const dot = ov.querySelector('.login-logo-dot'); if (dot) dot.style.display = 'none';
+    }
+  } catch (e) {}
+  setTimeout(()=>{ const el=document.getElementById('suName'); if(el) el.focus(); }, 100);
+}
+
+function doSignup() {
+  const err = document.getElementById('suErr');
+  const showErr = (msg) => { err.textContent = msg; err.style.display = 'block'; };
+  const name = document.getElementById('suName').value.trim();
+  const email = document.getElementById('suEmail').value.trim().toLowerCase();
+  const dept = document.getElementById('suDept').value;
+  const title = document.getElementById('suTitle').value;
+  if (!name || !email) { showErr('이름과 이메일을 입력해주세요.'); return; }
+  if (!email.endsWith(COMPANY_DOMAIN)) { showErr(`${COMPANY_DOMAIN} 사내 이메일만 가입할 수 있습니다.`); return; }
+  if (state.users.find(u => (u.email||'').toLowerCase() === email)) { showErr('이미 가입된 이메일입니다.'); return; }
+  let username = email.split('@')[0];
+  if (state.users.find(u => u.username === username)) {
+    let i = 2;
+    while (state.users.find(u => u.username === username + i)) i++;
+    username = username + i;
+  }
+  const newUser = {
+    id: 'u' + Date.now(), name, title, dept, grade: gradeByTitle(title), username,
+    password: '0000', mustChangePw: true, email,
+  };
+  state.users.push(newUser);
+  save();
+  state.currentUser = newUser.id;
+  state.lastActive = Date.now();
+  showChangePw(true);
 }
 
 function doLogin() {
@@ -2027,7 +2109,7 @@ function dashboard() {
     kpiCards = `
       <div class="kpi"><div class="kpi-label">📋 내 업무</div><div class="kpi-value">${my.length}</div><div class="kpi-trend">미완료</div></div>
       <div class="kpi"><div class="kpi-label">🏗️ ${isExec?'전사':isManager?'부서':'참여'} 프로젝트</div><div class="kpi-value">${active.length}</div><div class="kpi-trend">진행 중</div></div>
-      <div class="kpi"><div class="kpi-label">📅 오늘 일정</div><div class="kpi-value">${state.events.filter(e=>e.date===today).length}</div><div class="kpi-trend">캘린더</div></div>
+      <div class="kpi"><div class="kpi-label">📅 오늘 일정</div><div class="kpi-value">${allEvents().filter(e=>e.date===today).length}</div><div class="kpi-trend">캘린더</div></div>
       <div class="kpi"><div class="kpi-label">📝 결재 대기</div><div class="kpi-value">${pendA.length}</div><div class="kpi-trend">확인 요망</div></div>`;
   }
 
@@ -2112,7 +2194,10 @@ function dashboard() {
     ${keyActionsCard}
     <div class="dash-grid">
       ${hasBriefing ? urgentCard : myTasksCard}
-      ${mandayCard || `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;">📅 다가오는 일정</h3>${state.events.slice(0,6).map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">${e.title}</div><div style="font-size:11px;color:var(--text-light);margin-top:2px;">${e.date}${e.time?' '+e.time:''}</div></div>`).join('')}</div>`}
+      ${mandayCard || (() => {
+        const upcoming = allEvents().filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date)).slice(0,6);
+        return `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;">📅 다가오는 일정</h3>${upcoming.length ? upcoming.map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">${e.title}</div><div style="font-size:11px;color:var(--text-light);margin-top:2px;">${e.date}${e.time?' '+e.time:''}</div></div>`).join('') : `<p style="font-size:12px;color:var(--text-light);">다가오는 일정이 없습니다</p>`}</div>`;
+      })()}
     </div>
     ${hasBriefing ? `<div style="margin-top:14px;">${myTasksCard}</div>` : ''}
     ${reportsCard}
@@ -2185,7 +2270,7 @@ function calendar() {
   for (let i = sw - 1; i >= 0; i--) h += `<div class="cal-day other"><div class="cal-date">${prevDim - i}</div></div>`;
   for (let d = 1; d <= dim; d++) {
     const ds = `${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const ev = state.events.filter(e => e.date === ds);
+    const ev = allEvents().filter(e => e.date === ds);
     const isT = ds === today;
     h += `<div class="cal-day ${isT?'today':''}" onclick="showDate('${ds}')">
       <div class="cal-date">${d}</div>
@@ -2207,7 +2292,7 @@ function calNav(d) {
 }
 function calToday() { const t = new Date(); calY = t.getFullYear(); calM = t.getMonth(); render(); }
 function showDate(ds) {
-  const ev = state.events.filter(e => e.date === ds);
+  const ev = allEvents().filter(e => e.date === ds);
   if (!ev.length) return openEvent(ds);
   openModal(`${ds} 일정`, `
     ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;"><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}</div></div>`).join('')}

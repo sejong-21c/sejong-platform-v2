@@ -11,6 +11,7 @@
     "manday": "숫자 — 오늘 내 공수(H)",
     "keyActions": "배열 [{text, proj, priority:'high'|'mid'|'low'}] — 오늘 핵심 액션",
     "urgentList": "배열 [{subject, from, proj}] — 긴급 답변 대기 메일",
+    "schedule": "배열 [{title, date:'YYYY-MM-DD', time:'HH:MM'(선택), proj(선택), color:'blue'|'orange'|'red'|'green'(선택, 기본 blue)}] — 메일에서 감지한 회의/미팅/현장방문 등 일정. 캘린더와 대시보드 '다가오는 일정'에 개인별로 자동 반영됨",
     "teamManday": "객체 {사용자id: 시간} — 부서장/임원만 표시(선택)"
   },
   "_users": { "u1": "김철우 부장", "u2": "김시원 대리", "u3": "신채완 과장", "u8": "곽노한 이사" },
@@ -31,6 +32,9 @@
     ],
     "urgentList": [
       { "subject": "[호스팅케이알] 14일 이내 도메인 소유자 정보 인증 필요 (sejong21c.com)", "from": "no-reply@hosting.kr", "proj": "IT/총무" }
+    ],
+    "schedule": [
+      { "title": "삼성전기 BT-3 현장 미팅 (테스트)", "date": "2026-07-08", "time": "14:00", "proj": "SJ435-26", "color": "blue" }
     ]
   }
 }
