@@ -178,6 +178,12 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .proj:hover .proj-hide-btn { opacity: 1; }
 .proj-hide-btn:hover { background: var(--primary-lighter); border-color: var(--primary); }
 .proj.proj-hidden .proj-hide-btn { opacity: 1; }
+.proj-edit-btn, .proj-del-btn { position: absolute; top: 10px; width: 24px; height: 24px; border: 1px solid var(--border); background: var(--white); border-radius: 4px; cursor: pointer; font-size: 12px; padding: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s; z-index: 2; }
+.proj-edit-btn { right: 38px; }
+.proj-del-btn { right: 66px; }
+.proj:hover .proj-edit-btn, .proj:hover .proj-del-btn { opacity: 1; }
+.proj-edit-btn:hover { background: var(--primary-lighter); border-color: var(--primary); }
+.proj-del-btn:hover { background: #fef2f2; border-color: #fca5a5; }
 
 .proj-mini-gantt { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .proj-gantt-months { display: grid; grid-template-columns: repeat(12, 1fr); height: 14px; margin-bottom: 3px; }
@@ -2290,7 +2296,8 @@ function projects() {
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${hideToggleBtn}
         <button class="btn" onclick="openProjectFilter()">🔍 필터</button>
-        ${canEditProject() ? `<button class="btn" onclick="openWorkOrderModal()" title="워크오더 PDF 기반 프로젝트 + WBS 대단락 자동 등록">📋 워크오더 자동 등록</button>
+        ${canEditProject() ? `<button class="btn" style="opacity:.55" onclick="openCoworkImportModal()" title="Cowork이 워크오더 PDF를 파싱해 만든 JSON을 붙여넣어 자동 등록">🤖</button>
+        <button class="btn" onclick="openWorkOrderModal()" title="워크오더 PDF 기반 프로젝트 + WBS 대단락 자동 등록">📋 워크오더 자동 등록</button>
         <button class="btn btn-primary" onclick="openNewProject()">+ 신규</button>` : ''}
       </div>
     </div>
@@ -2300,6 +2307,8 @@ function projects() {
         return `
         <div class="proj ${isHidden?'proj-hidden':''}" onclick="openProject('${p.id}')">
           <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
+          ${canEditProject() ? `<button class="proj-edit-btn" onclick="event.stopPropagation();openEditProject('${p.id}');" title="프로젝트 수정">✏️</button>
+          <button class="proj-del-btn" onclick="event.stopPropagation();deleteProject('${p.id}');" title="프로젝트 삭제">🗑</button>` : ''}
           <div class="proj-open-hint">→ 열기</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
@@ -2381,6 +2390,47 @@ function toggleHideProj(pid) {
   const p = state.projects.find(x => x.id === pid);
   if (!p) return;
   p.hidden = !p.hidden;
+  save();
+  render();
+}
+/* ═════════════ ✏ 프로젝트 수정 / 🗑 삭제 (구 wbs.html 사이드바 기능 이전) ═════════════ */
+function openEditProject(pid) {
+  const p = state.projects.find(x => x.id === pid);
+  if (!p) return;
+  openModal('✏ 프로젝트 수정', `
+    <div class="fg"><label class="fl">프로젝트 코드</label><input class="fi" id="epCode" value="${p.code||''}"></div>
+    <div class="fg"><label class="fl">프로젝트명</label><input class="fi" id="epName" value="${p.name||''}"></div>
+    <div class="fg"><label class="fl">고객사</label><input class="fi" id="epClient" value="${p.client||''}"></div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">시작일</label><input class="fi" type="date" id="epStart" value="${p.start||''}"></div>
+      <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="epEnd" value="${p.end||''}"></div>
+    </div>
+    <div class="fg"><label class="fl">PM</label><select class="fs" id="epPm">${state.users.map(u=>`<option value="${u.id}" ${u.id===p.pm?'selected':''}>${u.name} ${u.title}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">상태</label><select class="fs" id="epStatus"><option value="active" ${p.status==='active'?'selected':''}>진행중</option><option value="pre-close" ${p.status!=='active'?'selected':''}>마감예정</option></select></div>
+  `, () => {
+    const code = document.getElementById('epCode').value.trim();
+    const name = document.getElementById('epName').value.trim();
+    if (!code || !name) { alert('코드와 프로젝트명은 필수입니다.'); return; }
+    p.code = code; p.name = name;
+    p.client = document.getElementById('epClient').value.trim() || '-';
+    p.start = document.getElementById('epStart').value || p.start;
+    p.end = document.getElementById('epEnd').value || p.end;
+    p.pm = document.getElementById('epPm').value;
+    p.status = document.getElementById('epStatus').value;
+    save(); closeModal(); render();
+  });
+}
+function deleteProject(pid) {
+  const p = state.projects.find(x => x.id === pid);
+  if (!p) return;
+  const wbsCnt = (state.wbs[pid]||[]).length;
+  const itemCnt = (state.items[pid]||[]).length;
+  const msg = `프로젝트 "${p.code} ${p.name}"를 영구 삭제하시겠습니까?\n\n함께 삭제됩니다:\n  - WBS ${wbsCnt}개\n  - Item ${itemCnt}개\n\n※ 복구할 수 없습니다.`;
+  if (!confirm(msg)) return;
+  state.projects = state.projects.filter(x => x.id !== pid);
+  delete state.wbs[pid];
+  delete state.items[pid];
+  if (view.selectedProj && view.selectedProj.id === pid) view.selectedProj = null;
   save();
   render();
 }
@@ -2580,6 +2630,96 @@ function openWorkOrderModal() {
     alert(`✅ 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
     render();
   });
+}
+
+/* ═════════════ 🤖 Cowork 자동등록 가져오기 (구 wbs.html JSON 붙여넣기 기능 이전) ═════════════
+   Cowork이 매일 아침 워크오더 PDF를 파싱해 만든 JSON을 붙여넣으면 검증 후 즉시 프로젝트+WBS 생성 */
+const CI_SAMPLE = {
+  no: "SJ2026-036", name: "(VDS)MDI 분쇄기 교체공사", client: "㈜동성케미컬",
+  s: "2026-05-21", e: "2026-09-30", pm: "",
+  scopes: ["제작도 작성", "설비 제작", "설치공사", "시운전"],
+  items: [{ no: "V-101", name: "MDI 분쇄기", qty: "1", unit: "LOT" }],
+  remark: "포장 및 수출은 KDS에서 진행"
+};
+let _ciParsed = null;
+function ciValidate(data) {
+  const errors = [];
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return ['JSON은 객체여야 합니다 (예: {...})'];
+  ['no','name','client','s','e'].forEach(k => {
+    if (!data[k] || typeof data[k] !== 'string') errors.push(`필수 필드 누락 또는 잘못된 형식: ${k}`);
+  });
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (data.s && !dateRe.test(data.s)) errors.push(`시작일 형식 오류: ${data.s} (YYYY-MM-DD)`);
+  if (data.e && !dateRe.test(data.e)) errors.push(`완료일 형식 오류: ${data.e} (YYYY-MM-DD)`);
+  if (data.scopes && !Array.isArray(data.scopes)) errors.push('scopes는 배열이어야 합니다');
+  if (data.items && !Array.isArray(data.items)) errors.push('items는 배열이어야 합니다');
+  return errors;
+}
+function ciParseInput(text) {
+  const errBox = document.getElementById('ciErr');
+  const prevBox = document.getElementById('ciPreview');
+  const okBtn = document.getElementById('mOk');
+  if (!text || !text.trim()) { _ciParsed = null; errBox.innerHTML = ''; prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e) { _ciParsed = null; errBox.innerHTML = 'JSON 형식 오류: ' + e.message; prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
+  const errors = ciValidate(data);
+  if (errors.length) { _ciParsed = null; errBox.innerHTML = errors.join('<br>'); prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
+  _ciParsed = data;
+  errBox.innerHTML = '';
+  const scopesStr = Array.isArray(data.scopes) ? data.scopes.join(' / ') : '(없음)';
+  const itemsStr = Array.isArray(data.items) && data.items.length ? data.items.map(it => `${it.no?'['+it.no+'] ':''}${it.name}`).join(', ') : '(없음)';
+  prevBox.innerHTML = `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px;font-size:11px;line-height:1.6;">
+    ✅ 검증 통과 — 아래 내용으로 프로젝트가 생성됩니다<br>
+    <b>${data.no}</b> ${data.name} · ${data.client}<br>
+    기간: ${data.s} ~ ${data.e} · WBS 대단락: ${scopesStr}<br>
+    Items: ${itemsStr}
+  </div>`;
+  if (okBtn) okBtn.disabled = false;
+}
+function openCoworkImportModal() {
+  _ciParsed = null;
+  openModal('🤖 Cowork 자동등록 가져오기', `
+    <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:10px 12px;border-radius:4px;font-size:11px;color:#166534;margin-bottom:12px;line-height:1.5;">
+      💡 Cowork이 워크오더 PDF를 파싱해 생성한 JSON을 붙여넣으면, 검증 후 프로젝트와 WBS 대단락이 자동 등록됩니다.
+    </div>
+    <textarea class="fi" id="ciJson" rows="8" style="font-family:monospace;font-size:11px;" placeholder='{"no":"SJ2026-099","name":"...","client":"...","s":"2026-01-01","e":"2026-06-30","scopes":["설계","제작"]}'></textarea>
+    <div style="margin:8px 0;"><button class="btn btn-sm" onclick="document.getElementById('ciJson').value=JSON.stringify(CI_SAMPLE,null,2);ciParseInput(document.getElementById('ciJson').value);">📄 샘플 JSON 채우기</button></div>
+    <div id="ciErr" style="color:#dc2626;font-size:11px;margin-bottom:6px;"></div>
+    <div id="ciPreview"></div>
+  `, () => {
+    if (!_ciParsed) { alert('먼저 유효한 JSON을 입력해주세요.'); return; }
+    const data = _ciParsed;
+    const newId = 'p' + Date.now();
+    const pmUser = state.users.find(u => u.id === data.pm || u.name === data.pm);
+    state.projects.push({
+      id: newId, code: data.no, name: data.name, client: data.client,
+      pm: pmUser ? pmUser.id : state.currentUser, start: data.s, end: data.e,
+      progress: 0, status: 'active', hidden: false,
+      remark: data.remark || '', createdBy: 'Cowork 자동등록',
+    });
+    const scopes = Array.isArray(data.scopes) && data.scopes.length ? data.scopes : ['공정'];
+    const sd = new Date(data.s), ed = new Date(data.e);
+    const seg = (ed - sd) / scopes.length;
+    state.wbs[newId] = scopes.map((s, i) => {
+      const wsd = new Date(sd.getTime() + seg * i);
+      const wed = new Date(sd.getTime() + seg * (i + 1));
+      return {
+        id: `w_${newId}_${i+1}`, code: String(i+1), name: s, mgr: '',
+        start: wsd.toISOString().slice(0,10), end: wed.toISOString().slice(0,10),
+        status: 'todo', pct: 0, lv: 0, vendor: '㈜세종기술', memo: '',
+      };
+    });
+    state.items[newId] = Array.isArray(data.items) ? data.items.map((it, i) => ({
+      id: `i_${newId}_${i}`, tag: it.no || ('ITEM-'+(i+1)), name: it.name || '',
+      type: '', spec: '', material: '', vendor: '㈜세종기술', qty: it.qty || '', unit: it.unit || '',
+    })) : [];
+    save(); closeModal();
+    alert(`✅ Cowork 자동등록 완료\n• 프로젝트: ${data.no} ${data.name}\n• WBS 대단락: ${scopes.length}개 생성`);
+    render();
+  });
+  document.getElementById('mOk').disabled = true;
+  document.getElementById('ciJson').oninput = (e) => ciParseInput(e.target.value);
 }
 
 function tasks() {
