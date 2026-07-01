@@ -11,7 +11,7 @@
     getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc, updateDoc, getDocs, collection
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -27,7 +27,7 @@
   window.fb = {
     auth: getAuth(fbApp), db: getFirestore(fbApp),
     GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged,
-    doc, getDoc, setDoc, updateDoc, getDocs, collection,
+    doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
   };
 </script>
 <style>
@@ -837,6 +837,7 @@ function sessionExpired() { return !!state.currentUser && !!state.lastActive && 
 function checkSessionTimeout() {
   if (state.currentUser && sessionExpired()) {
     state.currentUser = null; state.lastActive = null; save();
+    stopFirestoreSync();
     if (window.fb) fb.signOut(fb.auth).catch(()=>{});
     showLogin();
   }
@@ -1251,7 +1252,36 @@ async function hydrateUsersAndEnter(uid) {
   state.currentUser = uid;
   state.lastActive = Date.now();
   save();
+  startFirestoreSync();
   finishLogin();
+}
+
+// 프로젝트/업무/WBS를 Firestore와 실시간 동기화 (여러 사람이 같은 데이터를 봄)
+let _fsUnsubs = [];
+function stopFirestoreSync() {
+  _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
+  _fsUnsubs = [];
+}
+function startFirestoreSync() {
+  stopFirestoreSync();
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
+    state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error('[Firestore] projects 동기화 오류:', err)));
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
+    state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error('[Firestore] tasks 동기화 오류:', err)));
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
+    snap.docChanges().forEach(ch => {
+      const pid = ch.doc.id;
+      if (ch.type === 'removed') { delete state.wbs[pid]; delete state.items[pid]; return; }
+      const data = ch.doc.data();
+      state.wbs[pid] = data.rows || [];
+      state.items[pid] = data.items || [];
+    });
+    render();
+  }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
 }
 
 function finishLogin() {
@@ -1300,6 +1330,7 @@ function doLogout() {
   if (!confirm('로그아웃 하시겠습니까?')) return;
   state.currentUser = null;
   save();
+  stopFirestoreSync();
   if (window.fb) fb.signOut(fb.auth).catch(()=>{});
   showLogin();
 }
@@ -2468,12 +2499,12 @@ function toggleShowHidden() {
   view.showHiddenProj = !view.showHiddenProj;
   render();
 }
-function toggleHideProj(pid) {
+async function toggleHideProj(pid) {
   const p = state.projects.find(x => x.id === pid);
   if (!p) return;
-  p.hidden = !p.hidden;
-  save();
-  render();
+  try {
+    await fb.updateDoc(fb.doc(fb.db, 'projects', pid), { hidden: !p.hidden });
+  } catch (e) { alert('처리 중 오류가 발생했습니다: ' + (e.message || e)); }
 }
 /* ═════════════ ✏ 프로젝트 수정 / 🗑 삭제 (구 wbs.html 사이드바 기능 이전) ═════════════ */
 function openEditProject(pid) {
@@ -2489,32 +2520,36 @@ function openEditProject(pid) {
     </div>
     <div class="fg"><label class="fl">PM</label><select class="fs" id="epPm">${state.users.map(u=>`<option value="${u.id}" ${u.id===p.pm?'selected':''}>${u.name} ${u.title}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">상태</label><select class="fs" id="epStatus"><option value="active" ${p.status==='active'?'selected':''}>진행중</option><option value="pre-close" ${p.status!=='active'?'selected':''}>마감예정</option></select></div>
-  `, () => {
+  `, async () => {
     const code = document.getElementById('epCode').value.trim();
     const name = document.getElementById('epName').value.trim();
     if (!code || !name) { alert('코드와 프로젝트명은 필수입니다.'); return; }
-    p.code = code; p.name = name;
-    p.client = document.getElementById('epClient').value.trim() || '-';
-    p.start = document.getElementById('epStart').value || p.start;
-    p.end = document.getElementById('epEnd').value || p.end;
-    p.pm = document.getElementById('epPm').value;
-    p.status = document.getElementById('epStatus').value;
-    save(); closeModal(); render();
+    const patch = {
+      code, name,
+      client: document.getElementById('epClient').value.trim() || '-',
+      start: document.getElementById('epStart').value || p.start,
+      end: document.getElementById('epEnd').value || p.end,
+      pm: document.getElementById('epPm').value,
+      status: document.getElementById('epStatus').value,
+    };
+    try {
+      await fb.updateDoc(fb.doc(fb.db, 'projects', pid), patch);
+      closeModal();
+    } catch (e) { alert('저장 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
-function deleteProject(pid) {
+async function deleteProject(pid) {
   const p = state.projects.find(x => x.id === pid);
   if (!p) return;
   const wbsCnt = (state.wbs[pid]||[]).length;
   const itemCnt = (state.items[pid]||[]).length;
   const msg = `프로젝트 "${p.code} ${p.name}"를 영구 삭제하시겠습니까?\n\n함께 삭제됩니다:\n  - WBS ${wbsCnt}개\n  - Item ${itemCnt}개\n\n※ 복구할 수 없습니다.`;
   if (!confirm(msg)) return;
-  state.projects = state.projects.filter(x => x.id !== pid);
-  delete state.wbs[pid];
-  delete state.items[pid];
-  if (view.selectedProj && view.selectedProj.id === pid) view.selectedProj = null;
-  save();
-  render();
+  try {
+    await fb.deleteDoc(fb.doc(fb.db, 'projects', pid));
+    await fb.deleteDoc(fb.doc(fb.db, 'wbsData', pid));
+    if (view.selectedProj && view.selectedProj.id === pid) view.selectedProj = null;
+  } catch (e) { alert('삭제 중 오류가 발생했습니다: ' + (e.message || e)); }
 }
 // ══════════ 모달 시스템 (openModal / closeModal) ══════════
 function openModal(title, bodyHtml, onConfirm) {
@@ -2602,12 +2637,12 @@ function openAssignPM(pid) {
         ${state.users.map(u=>`<option value="${u.id}"${u.id===p.pm?' selected':''}>${u.name} ${u.title} (${u.dept})</option>`).join('')}
       </select>
     </div>
-  `, () => {
+  `, async () => {
     const newPm = document.getElementById('pmSelect').value;
-    p.pm = newPm;
-    save();
-    closeModal();
-    render();
+    try {
+      await fb.updateDoc(fb.doc(fb.db, 'projects', pid), { pm: newPm });
+      closeModal();
+    } catch (e) { alert('저장 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
 
@@ -2621,22 +2656,23 @@ function openNewProject() {
       <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="npEnd"></div>
     </div>
     <div class="fg"><label class="fl">PM</label><select class="fs" id="npPm">${state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('')}</select></div>
-  `, () => {
+  `, async () => {
     const code = document.getElementById('npCode').value.trim();
     const name = document.getElementById('npName').value.trim();
     if (!code || !name) { alert('코드와 프로젝트명은 필수입니다.'); return; }
     const newId = 'p' + Date.now();
-    state.projects.push({
-      id: newId, code, name,
-      client: document.getElementById('npClient').value.trim() || '-',
-      pm: document.getElementById('npPm').value,
-      start: document.getElementById('npStart').value || '2026-01-01',
-      end: document.getElementById('npEnd').value || '2026-12-31',
-      progress: 0, status: 'active', hidden: false,
-    });
-    state.wbs[newId] = [];
-    state.items[newId] = [];
-    save(); closeModal(); render();
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'projects', newId), {
+        code, name,
+        client: document.getElementById('npClient').value.trim() || '-',
+        pm: document.getElementById('npPm').value,
+        start: document.getElementById('npStart').value || '2026-01-01',
+        end: document.getElementById('npEnd').value || '2026-12-31',
+        progress: 0, status: 'active', hidden: false,
+      });
+      await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows: [], items: [], updatedAt: Date.now() });
+      closeModal();
+    } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
 
@@ -2668,7 +2704,7 @@ function openWorkOrderModal() {
         ].map((s,i)=>`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:3px 0;"><input type="checkbox" class="woScope" value="${s}" ${i<6?'checked':''}> ${s}</label>`).join('')}
       </div>
     </div>
-  `, () => {
+  `, async () => {
     const code = document.getElementById('woCode').value.trim();
     const name = document.getElementById('woName').value.trim();
     const client = document.getElementById('woClient').value.trim();
@@ -2678,21 +2714,13 @@ function openWorkOrderModal() {
     const po = document.getElementById('woPO').value.trim();
     const scopes = Array.from(document.querySelectorAll('.woScope:checked')).map(c => c.value);
     if (scopes.length === 0) { alert('Work Scope 최소 1개를 선택하세요.'); return; }
-    
-    // 프로젝트 생성
-    const newId = 'p' + Date.now();
-    state.projects.push({
-      id: newId, code, name, client, po,
-      pm: state.currentUser, start, end,
-      progress: 0, status: 'active', hidden: false,
-      createdBy: '워크오더 자동등록',
-    });
-    
+
     // Scope를 WBS 대단락으로 자동 등록 (시작~끝 균등 분할)
     const sd = new Date(start), ed = new Date(end);
     const total = ed - sd;
     const seg = total / scopes.length;
-    state.wbs[newId] = scopes.map((s, i) => {
+    const newId = 'p' + Date.now();
+    const rows = scopes.map((s, i) => {
       const wsd = new Date(sd.getTime() + seg * i);
       const wed = new Date(sd.getTime() + seg * (i + 1));
       return {
@@ -2706,11 +2734,17 @@ function openWorkOrderModal() {
         vendor: '㈜세종기술', memo: '',
       };
     });
-    state.items[newId] = [];
-    
-    save(); closeModal();
-    alert(`✅ 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
-    render();
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'projects', newId), {
+        code, name, client, po,
+        pm: state.currentUser, start, end,
+        progress: 0, status: 'active', hidden: false,
+        createdBy: '워크오더 자동등록',
+      });
+      await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows, items: [], updatedAt: Date.now() });
+      closeModal();
+      alert(`✅ 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
+    } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
 
@@ -2769,21 +2803,15 @@ function openCoworkImportModal() {
     <div style="margin:8px 0;"><button class="btn btn-sm" onclick="document.getElementById('ciJson').value=JSON.stringify(CI_SAMPLE,null,2);ciParseInput(document.getElementById('ciJson').value);">📄 샘플 JSON 채우기</button></div>
     <div id="ciErr" style="color:#dc2626;font-size:11px;margin-bottom:6px;"></div>
     <div id="ciPreview"></div>
-  `, () => {
+  `, async () => {
     if (!_ciParsed) { alert('먼저 유효한 JSON을 입력해주세요.'); return; }
     const data = _ciParsed;
     const newId = 'p' + Date.now();
     const pmUser = state.users.find(u => u.id === data.pm || u.name === data.pm);
-    state.projects.push({
-      id: newId, code: data.no, name: data.name, client: data.client,
-      pm: pmUser ? pmUser.id : state.currentUser, start: data.s, end: data.e,
-      progress: 0, status: 'active', hidden: false,
-      remark: data.remark || '', createdBy: 'Cowork 자동등록',
-    });
     const scopes = Array.isArray(data.scopes) && data.scopes.length ? data.scopes : ['공정'];
     const sd = new Date(data.s), ed = new Date(data.e);
     const seg = (ed - sd) / scopes.length;
-    state.wbs[newId] = scopes.map((s, i) => {
+    const rows = scopes.map((s, i) => {
       const wsd = new Date(sd.getTime() + seg * i);
       const wed = new Date(sd.getTime() + seg * (i + 1));
       return {
@@ -2792,13 +2820,21 @@ function openCoworkImportModal() {
         status: 'todo', pct: 0, lv: 0, vendor: '㈜세종기술', memo: '',
       };
     });
-    state.items[newId] = Array.isArray(data.items) ? data.items.map((it, i) => ({
+    const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
       id: `i_${newId}_${i}`, tag: it.no || ('ITEM-'+(i+1)), name: it.name || '',
       type: '', spec: '', material: '', vendor: '㈜세종기술', qty: it.qty || '', unit: it.unit || '',
     })) : [];
-    save(); closeModal();
-    alert(`✅ Cowork 자동등록 완료\n• 프로젝트: ${data.no} ${data.name}\n• WBS 대단락: ${scopes.length}개 생성`);
-    render();
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'projects', newId), {
+        code: data.no, name: data.name, client: data.client,
+        pm: pmUser ? pmUser.id : state.currentUser, start: data.s, end: data.e,
+        progress: 0, status: 'active', hidden: false,
+        remark: data.remark || '', createdBy: 'Cowork 자동등록',
+      });
+      await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows, items, updatedAt: Date.now() });
+      closeModal();
+      alert(`✅ Cowork 자동등록 완료\n• 프로젝트: ${data.no} ${data.name}\n• WBS 대단락: ${scopes.length}개 생성`);
+    } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
   document.getElementById('mOk').disabled = true;
   document.getElementById('ciJson').oninput = (e) => ciParseInput(e.target.value);
@@ -2837,11 +2873,14 @@ function openTask() {
     <div class="fg"><label class="fl">담당자</label><select class="fs" id="tkA">${state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="tkD"></div>
     <div class="fg"><label class="fl">우선순위</label><select class="fs" id="tkPr"><option value="high">높음</option><option value="mid" selected>보통</option><option value="low">낮음</option></select></div>
-  `, () => {
+  `, async () => {
     const t = document.getElementById('tkT').value.trim();
     if (!t) return alert('업무명을 입력하세요');
-    state.tasks.push({ id: 't' + Date.now(), title: t, proj: document.getElementById('tkP').value, assignee: document.getElementById('tkA').value, due: document.getElementById('tkD').value, priority: document.getElementById('tkPr').value, status: 'todo' });
-    save(); closeModal(); render();
+    const newId = 't' + Date.now();
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'tasks', newId), { title: t, proj: document.getElementById('tkP').value, assignee: document.getElementById('tkA').value, due: document.getElementById('tkD').value, priority: document.getElementById('tkPr').value, status: 'todo' });
+      closeModal();
+    } catch (e) { alert('저장 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
 

@@ -1,5 +1,22 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/><title>EPC Control v28.5 · Sejong-Platform</title>
+<script type="module">
+  // Firebase Firestore — 프로젝트 메타/WBS 데이터를 index.html과 공유 (같은 오리진이라 로그인 세션도 자동 공유됨)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, onSnapshot, onAuthStateChanged };
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{margin:0;padding:0}
@@ -1491,8 +1508,6 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-a]");if(!
 // ═══════════════════════════════════════════════════════════
 // v28.0 신규 모듈: 주간 자동 정리 + localStorage + JSON I/O
 // ═══════════════════════════════════════════════════════════
-const V28_LS_KEY="epc_control_v28_state";
-
 function v28WeeklySummary(){
   if(!S.selproj)return"";
   const today=new Date();
@@ -1552,64 +1567,14 @@ function v28WeeklySummary(){
   </div>`;
 }
 
-// localStorage 자동 저장/복원
+// v29: Firestore 자동 저장 (WBS 행/아이템을 프로젝트당 wbsData/{pid} 문서 하나로)
 function v28Save(){
-  // v28.4.8 데모: 저장도 비활성화 (실제 데이터 덮어쓰기 방지)
-  return;
-  try{
-    const payload={PROJS,WBS,MITEM,REC,PIM,ITEM_TPL:typeof ITEM_TPL!=="undefined"?ITEM_TPL:{},ts:Date.now(),ver:"v28.4.1"};
-    localStorage.setItem(V28_LS_KEY,JSON.stringify(payload));
-  }catch(e){console.warn("v28Save fail",e);}
+  if(!window.fb || !_wbsPid) return;
+  const rows = WBS.filter(w=>w.projId===_wbsPid);
+  const items = MITEM[_wbsPid] || [];
+  fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, updatedAt: Date.now()}).catch(e=>console.warn("v28Save fail",e));
 }
-function v28Load(){
-  // v28.4.8 데모: 항상 코드 내 데모 데이터 사용 (localStorage 무시)
-  console.log("[데모 모드] localStorage 로드 비활성화 — 코드 내 데모 데이터 사용");
-  return false;
-  // 아래 원래 코드는 데모에서 실행되지 않음
-  try{
-    const raw=localStorage.getItem(V28_LS_KEY);
-    if(!raw)return false;
-    const d=JSON.parse(raw);
-    
-    // ═══ v28.4.1 마이그레이션: 옛 임의 데이터 자동 정리 ═══
-    const oldSampleProjIds=["p1","p1a","p1b","p2","p3","p4","p5"];
-    const oldSampleWbsIds=["w1","w1a","w1b","w1c","w2","w2a","w2b","w2c","w3","w3a","w3b","w4","w4a","w4b"];
-    const isOldVersion=!d.ver||d.ver==="v28.0"||d.ver==="v28.1"||d.ver==="v28.2"||d.ver==="v28.3"||d.ver==="v28.4";
-    
-    if(isOldVersion&&Array.isArray(d.PROJS)){
-      // 임의 데이터 자동 식별 (id가 p1~p5인 것)
-      const oldSamples=d.PROJS.filter(p=>oldSampleProjIds.includes(p.id));
-      if(oldSamples.length>0){
-        // 백업 후 제거
-        try{
-          const backupKey="epc_control_v28_backup_"+Date.now();
-          localStorage.setItem(backupKey,JSON.stringify({PROJS:oldSamples,WBS:Array.isArray(d.WBS)?d.WBS.filter(w=>oldSampleWbsIds.includes(w.id)||(!w.projId)):[],ts:Date.now()}));
-          d.PROJS=d.PROJS.filter(p=>!oldSampleProjIds.includes(p.id));
-          if(Array.isArray(d.WBS)){
-            d.WBS=d.WBS.filter(w=>!oldSampleWbsIds.includes(w.id)&&w.projId);  // projId 없는 옛 WBS도 제거
-          }
-          if(d.MITEM){oldSampleProjIds.forEach(pid=>delete d.MITEM[pid]);}
-        }catch(be){console.warn("backup fail",be);}
-      }
-    }
-    
-    if(Array.isArray(d.PROJS)&&d.PROJS.length>0){PROJS.length=0;d.PROJS.forEach(p=>PROJS.push(p));}
-    if(Array.isArray(d.WBS)&&d.WBS.length>0){WBS.length=0;d.WBS.forEach(w=>WBS.push(w));}
-    if(d.MITEM&&typeof d.MITEM==="object"){Object.keys(MITEM).forEach(k=>delete MITEM[k]);Object.assign(MITEM,d.MITEM);}
-    if(d.REC&&typeof d.REC==="object"){Object.keys(REC).forEach(k=>delete REC[k]);Object.assign(REC,d.REC);}
-    if(d.PIM&&typeof d.PIM==="object"){Object.keys(PIM).forEach(k=>delete PIM[k]);Object.assign(PIM,d.PIM);}
-    if(d.ITEM_TPL&&typeof d.ITEM_TPL==="object"&&typeof ITEM_TPL!=="undefined"){Object.keys(ITEM_TPL).forEach(k=>delete ITEM_TPL[k]);Object.assign(ITEM_TPL,d.ITEM_TPL);}
-    v28RecalcRange();
-    
-    if(isOldVersion){
-      addLog("🔄 v28.4.1 마이그레이션: 옛 임의 데이터 자동 정리됨 (백업 보관)","warn");
-    }else{
-      addLog("💾 v28: localStorage 복원 ("+(d.ts?new Date(d.ts).toLocaleString("ko-KR"):"")+")","info");
-    }
-    return true;
-  }catch(e){console.warn("v28Load fail",e);return false;}
-}
-// R() 호출 시마다 자동 저장 (디바운스)
+// R() 호출 시마다 자동 저장 (디바운스) — 초기 로드는 initFromFirestore()의 subscribeWbsData()가 담당
 let v28SaveTimer=null;
 const _origR=R;R=function(){_origR.apply(this,arguments);clearTimeout(v28SaveTimer);v28SaveTimer=setTimeout(v28Save,400);};
 
@@ -1656,8 +1621,6 @@ act=function(a,d){
   return _origAct.apply(this,arguments);
 };
 
-// 페이지 로드 시 localStorage 복원 시도
-v28Load();
 // 데이터 변경 시 GS/GE 자동 재계산을 R() 안에서 호출되도록 hook
 const _origR2=R;R=function(){v28RecalcRange();_origR2.apply(this,arguments);};
 
@@ -2587,70 +2550,58 @@ setTimeout(()=>{
   addLog("📄 PDF / 📊 Excel 두 버튼 다 테스트해보세요","info");
 },500);
 
-// v28.5.2 ★ SJ FLOW 4개 시연 프로젝트 데이터 주입 (브리지 호환성)
-// SJ FLOW의 p1~p4를 EPC PROJS에 추가하여 URL 파라미터 ?pid=p1 등으로 매칭 가능하도록 함
-(function injectSJFlowProjects(){
-  try {
-    const sjProjs = [
-      {id:"p1",no:"SJ2026-013",name:"국도화학 1호기 압력용기",client:"국도화학㈜",po:"PO-2026-013",pm:"이재기 차장",par:"",createdAt:"2026-01-15T09:00:00"},
-      {id:"p2",no:"SJ2026-020",name:"국도화학 2호기 열교환기",client:"국도화학㈜",po:"PO-2026-020",pm:"이재기 차장",par:"",createdAt:"2026-03-01T09:00:00"},
-      {id:"p3",no:"SJ435-26",name:"삼성전기 BT-3 라인증설 공사",client:"삼성전기㈜",po:"PO-435-26",pm:"김철우 부장",par:"",createdAt:"2026-02-10T09:00:00"},
-      {id:"p4",no:"SJ2025-098",name:"LG에너지솔루션 배관공사",client:"LG에너지솔루션㈜",po:"PO-2025-098",pm:"김민준 과장",par:"",createdAt:"2025-11-01T09:00:00"},
-    ];
-    sjProjs.forEach(sp => {
-      if (!PROJS.find(p => p.id === sp.id)) PROJS.unshift(sp);
-    });
-    // 각 SJ 프로젝트에 시연용 MITEM(Tag) 데이터 주입
-    if (!MITEM.p1) MITEM.p1 = [
-      {id:"i_p1_1",tagNo:"PV-101",type:"Pressure Vessel",spec:"ASME Sec.VIII Div.1",maker:"㈜세종기술",wbsLink:""},
-    ];
-    if (!MITEM.p2) MITEM.p2 = [
-      {id:"i_p2_1",tagNo:"E-201",type:"Heat Exchanger",spec:"ASME Sec.VIII Div.1 · TEMA Class R",maker:"㈜세종기술",wbsLink:""},
-    ];
-    if (!MITEM.p3) MITEM.p3 = [
-      {id:"i_p3_1",tagNo:"ST-001",type:"Steel Structure",spec:"KS B 6750-1",maker:"㈜세종기술",wbsLink:""},
-      {id:"i_p3_2",tagNo:"ST-002",type:"Steel Structure",spec:"KS B 6750-1",maker:"㈜세종기술",wbsLink:""},
-    ];
-    if (!MITEM.p4) MITEM.p4 = [];
-  } catch(e) { console.warn("[SJ FLOW bridge] project injection skipped:", e.message); }
-})();
-
-// v28.5.2 ★ SJ FLOW URL 파라미터 라우팅
-// ?view=mm  → Manufacture Manager 화면으로 직행
-// ?view=wbs → Project Manager (기본값)
-// ?pid=<id> → 특정 프로젝트 자동 선택
-// ?proj=<code> → pid 대안 (코드로 찾기)
-(function(){
+// v29: SJ FLOW(index.html)와 같은 Firestore를 직접 읽어서 프로젝트 메타 + WBS/아이템을 불러옴.
+// 같은 오리진이라 index.html에서 로그인한 Firebase Auth 세션이 이 iframe에도 자동으로 이어짐.
+let _wbsPid = null;
+function subscribeWbsData(pid){
+  fb.onSnapshot(fb.doc(fb.db, "wbsData", pid), snap => {
+    // hasPendingWrites=true면 방금 이 창에서 쓴 내용이 로컬에 반영된 것뿐이라 무시
+    // (그대로 다시 적용하면 저장→갱신→저장… 무한루프가 생김)
+    if (snap.metadata.hasPendingWrites) return;
+    if (!snap.exists()) return;
+    const d = snap.data();
+    WBS.length = 0; (d.rows||[]).forEach(w => WBS.push(w));
+    MITEM[pid] = d.items || [];
+    v28RecalcRange();
+    R();
+  }, err => console.warn("[SJ FLOW] wbsData 구독 실패:", err.message));
+}
+(async function initFromFirestore(){
   try {
     const qs = new URLSearchParams(window.location.search);
     const view = qs.get("view");
     const pid = qs.get("pid");
-    const projCode = qs.get("proj");
     // canEdit=0 이면 읽기전용 모드 (편집 버튼 숨김)
-    const canEdit = qs.get("canEdit");
-    if (canEdit === "0") {
-      document.body.classList.add("sjp-readonly");
-    }
-    
+    if (qs.get("canEdit") === "0") document.body.classList.add("sjp-readonly");
+
+    // 인증 준비 대기 — index.html에서 이미 로그인돼 있으면 거의 즉시 확인됨
+    await new Promise(resolve => { const unsub = fb.onAuthStateChanged(fb.auth, u => { unsub(); resolve(u); }); });
+
     let targetProj = null;
-    if (pid) targetProj = PROJS.find(p => p.id === pid);
-    if (!targetProj && projCode) targetProj = PROJS.find(p => p.no === projCode);
-    
-    if (view === "mm") {
-      // Manufacture Manager 모드
-      if (targetProj) {
-        S = {...S, mv:"mm", mp:"items", mproj:targetProj, mitem:null, mitpId:null};
-      } else {
-        S = {...S, mv:"mm", mp:"projects", mproj:null};
+    if (pid) {
+      const snap = await fb.getDoc(fb.doc(fb.db, "projects", pid));
+      if (snap.exists()) {
+        const d = snap.data();
+        targetProj = { id: pid, no: d.code, name: d.name, client: d.client||"", po: d.po||"", pm: d.pm||"" };
+        const idx = PROJS.findIndex(p => p.id === pid);
+        if (idx >= 0) PROJS[idx] = targetProj; else PROJS.unshift(targetProj);
       }
-    } else if (view === "wbs" && targetProj) {
-      // Project Manager 모드 + 특정 프로젝트 선택
+    }
+
+    if (view === "mm") {
+      S = targetProj ? {...S, mv:"mm", mp:"items", mproj:targetProj, mitem:null, mitpId:null}
+                     : {...S, mv:"mm", mp:"projects", mproj:null};
+    } else if (targetProj) {
       S = {...S, mv:"wbs", wp:"wbs", selproj:targetProj, wsel:null};
     }
-  } catch(e) { console.warn("[SJ FLOW bridge] URL routing skipped:", e.message); }
-})();
 
-R();
+    if (targetProj) {
+      _wbsPid = targetProj.id;
+      subscribeWbsData(_wbsPid);
+    }
+  } catch(e) { console.warn("[SJ FLOW] Firestore 초기화 실패:", e.message); }
+  R();
+})();
 
 // ═══════════════════════════════════════════════════════════
 // v28.5 — sejong-platform bridge adapter (Phase 2 통합)
