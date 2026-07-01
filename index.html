@@ -538,12 +538,14 @@ const TOOLS = {
   'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
 };
 const DEPTS = [
-  { id: 'quality',    icon: '📦', name: '품질관리부', tools: ['itp', 'qa', 'ncr', 'car', 'mobile'] },
-  { id: 'design',     icon: '📐', name: '설계부',     tools: [] },
-  { id: 'sales',      icon: '💼', name: '영업부',     tools: [] },
-  { id: 'production', icon: '🏭', name: '생산부',     tools: [] },
-  { id: 'general',    icon: '👔', name: '총무부',     tools: [] },
-  { id: 'finance',    icon: '💲', name: '재무부',     tools: [] },
+  { id: 'sales',        icon: '💼', name: '영업부',     tools: [] },
+  { id: 'design',       icon: '📐', name: '설계부',     tools: [] },
+  { id: 'purchase',     icon: '🛒', name: '구매부',     tools: [] },
+  { id: 'production',   icon: '🏭', name: '생산부',     tools: [] },
+  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['itp', 'qa', 'ncr', 'car', 'mobile'] },
+  { id: 'construction', icon: '🏗️', name: '현장시공',   tools: [] },
+  { id: 'general',      icon: '👔', name: '총무부',     tools: [] },
+  { id: 'finance',      icon: '💲', name: '재무부',     tools: [] },
 ];
 
 // ══════════ 권한 헬퍼 ══════════
@@ -1140,7 +1142,7 @@ async function doGoogleLogin() {
 // 최초 로그인 시 소속(부서/직급) 입력받아 Firestore 프로필 생성
 function showProfileSetup(fu) {
   const ov = document.getElementById('authOverlay');
-  const deptOpts = ['품질관리부','설계부','영업부','생산부','총무부','재무부'].map(d=>`<option value="${d}">${d}</option>`).join('');
+  const deptOpts = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','총무부','재무부'].map(d=>`<option value="${d}">${d}</option>`).join('');
   const titleOpts = TITLES.map(t=>`<option value="${t}">${t}</option>`).join('');
   ov.innerHTML = `
     <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;">
@@ -3501,8 +3503,8 @@ function okr() {
 function org() {
   const me = getU(state.currentUser);
   const isSuper = me && me.grade === 'super';
-  const deptList = ['품질관리부','설계부','영업부','생산부','총무부','재무부'];
-  const deptIco = {'품질관리부':'📦','설계부':'📐','영업부':'💼','생산부':'🏭','총무부':'📋','재무부':'💰'};
+  const deptList = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','총무부','재무부'];
+  const deptIco = {'영업부':'💼','설계부':'📐','구매부':'🛒','생산부':'🏭','품질관리부':'📦','현장시공':'🏗️','총무부':'👔','재무부':'💲'};
   const depts = deptList.map(name => ({ name, ico: deptIco[name]||'🏢', users: state.users.filter(u=>u.dept===name) }));
 
   // 사용자 한 줄 (컴팩트 테이블 row)
@@ -3586,7 +3588,7 @@ function openEditUserProfile(uid) {
   if (!me || me.grade !== 'super') return;
   const u = getU(uid);
   if (!u || u.grade === 'super') return;
-  const deptOpts = ['품질관리부','설계부','영업부','생산부','총무부','재무부'].map(d=>`<option value="${d}" ${d===u.dept?'selected':''}>${d}</option>`).join('');
+  const deptOpts = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','총무부','재무부'].map(d=>`<option value="${d}" ${d===u.dept?'selected':''}>${d}</option>`).join('');
   const titleOpts = TITLES.map(t=>`<option value="${t}" ${t===u.title?'selected':''}>${t}</option>`).join('');
   openModal(`✏️ ${u.name} 정보 수정`, `
     <div class="fg"><label class="fl">부서</label><select class="fs" id="euDept">${deptOpts}</select></div>
