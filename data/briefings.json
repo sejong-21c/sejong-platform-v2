@@ -17,24 +17,29 @@
   "_users": { "u1": "김철우 부장", "u2": "김시원 대리", "u3": "신채완 과장", "u8": "곽노한 이사" },
 
   "u1": {
-    "generatedAt": "2026-07-01 12:10 (테스트 실행)",
-    "newMails": 16,
-    "processed": 9,
-    "urgentReplies": 1,
+    "generatedAt": "2026-07-02 08:30",
+    "newMails": 24,
+    "processed": 14,
+    "urgentReplies": 2,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "manday": 0,
     "keyActions": [
-      { "text": "도메인 sejong21c.com 소유자 정보 인증 (14일 이내, 미인증 시 서비스 정지)", "proj": "IT/총무", "priority": "high" },
-      { "text": "GitHub 2FA 변경 알림 4건 — 본인 활동 여부 확인", "proj": "보안", "priority": "mid" },
-      { "text": "지원사업 공고 검토 — TIPA 중소기업 R&D 우수성과 50선 모집", "proj": "지원사업", "priority": "low" }
+      { "text": "sejong21c.com 도메인 소유자 정보 인증 (14일 이내, 미인증 시 서비스 정지)", "proj": "IT/총무", "priority": "high" },
+      { "text": "원자력산업실태조사 참여 (7/31 마감, 양병원 이사 독촉 — 실무자 독려 전화 받음)", "proj": "원자력", "priority": "high" },
+      { "text": "KHNP 유자격 보조기기 품질분야 심사결과 확인 (신규 신청번호 202600239)", "proj": "원자력", "priority": "high" },
+      { "text": "KHNP 중소기업협력연구개발 과제취소 알림 — 진행상황 재안내 (김명식→CEO/양이사/김부장/고부장)", "proj": "원자력/R&D", "priority": "mid" },
+      { "text": "SJE437-26 진양화성 PUMP STRUCTURE·SILO SUPPORT LEG 출도 도면 2건 확인", "proj": "SJE437-26", "priority": "mid" },
+      { "text": "국도화학 T-7171 산세 성적서 확인 (최가람 주임 → 품질관리부)", "proj": "품질", "priority": "mid" },
+      { "text": "GitHub 2FA 설정 완료 확인 (4건 알림)", "proj": "보안", "priority": "low" }
     ],
     "urgentList": [
-      { "subject": "[호스팅케이알] 14일 이내 도메인 소유자 정보 인증 필요 (sejong21c.com)", "from": "no-reply@hosting.kr", "proj": "IT/총무" }
+      { "subject": "[호스팅케이알] 14일 이내 도메인 소유자 정보 인증 필요 (sejong21c.com)", "from": "no-reply@hosting.kr", "proj": "IT/총무" },
+      { "subject": "Re: 2025년도(31회) 원자력산업실태조사 협조 요청 (양병원 이사 독촉)", "from": "bwyang@sejong-21c.com", "proj": "원자력" }
     ],
     "schedule": [
-      { "title": "삼성전기 BT-3 현장 미팅 (테스트)", "date": "2026-07-08", "time": "14:00", "proj": "SJ435-26", "color": "blue" }
+      { "title": "원자력산업실태조사 마감", "date": "2026-07-31", "proj": "원자력", "color": "red" }
     ]
   }
 }
