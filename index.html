@@ -4,6 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SJ FLOW v1.0 - 세종기술 통합 협업 플랫폼</title>
+<script type="module">
+  // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, updateDoc, getDocs, collection
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = {
+    auth: getAuth(fbApp), db: getFirestore(fbApp),
+    GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged,
+    doc, getDoc, setDoc, updateDoc, getDocs, collection,
+  };
+</script>
 <style>
 :root {
   --primary: #1976D2;
@@ -749,8 +775,8 @@ function defaultState() {
 }
 
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
-// 마이그레이션 안전장치: 로그인 필드(username) 없는 옛 사용자 데이터면 초기화
-if (!state.users || !state.users.length || !state.users[0].username) {
+// 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
+if (!state.users || !state.users.length || !state.users[0].email) {
   console.warn('[SJ FLOW] 로그인 필드 없는 구버전 데이터 감지 → 초기화');
   state = defaultState();
   localStorage.setItem(KEY, JSON.stringify(state));
@@ -811,6 +837,7 @@ function sessionExpired() { return !!state.currentUser && !!state.lastActive && 
 function checkSessionTimeout() {
   if (state.currentUser && sessionExpired()) {
     state.currentUser = null; state.lastActive = null; save();
+    if (window.fb) fb.signOut(fb.auth).catch(()=>{});
     showLogin();
   }
 }
@@ -1103,8 +1130,9 @@ function toggleSb() {
 }
 function toggleMb() { document.getElementById('sb').classList.toggle('mobile-open'); }
 
-// ══════════ 로그인 / 인증 시스템 ══════════
+// ══════════ 로그인 / 인증 시스템 (Firebase Auth · Google 로그인) ══════════
 const COMPANY_DOMAIN = '@sejong-21c.com';
+const GOOGLE_G_SVG = `<svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.81 2.73v2.27h2.92c1.71-1.57 2.69-3.88 2.69-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.96H.96A8.99 8.99 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.33C4.68 5.17 6.66 3.58 9 3.58z"/></svg>`;
 function showLogin() {
   const ov = document.getElementById('authOverlay');
   ov.innerHTML = `
@@ -1126,16 +1154,13 @@ function showLogin() {
       <div class="login-right">
         <div class="login-form">
           <h2>로그인</h2>
-          <p class="login-sub">사내 이메일로 접속하세요.</p>
-          <label class="login-label">이메일</label>
-          <input class="login-input" id="loginId" placeholder="name@sejong-21c.com" autocomplete="username">
-          <label class="login-label">비밀번호</label>
-          <input class="login-input" id="loginPw" type="password" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-          <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0;"></div>
-          <button class="login-btn" onclick="doLogin()">로그인</button>
+          <p class="login-sub">${COMPANY_DOMAIN} 사내 Google 계정으로 로그인하세요.</p>
+          <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0 14px;text-align:center;"></div>
+          <button class="login-btn" onclick="doGoogleLogin()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
+            ${GOOGLE_G_SVG}<span>Google 계정으로 로그인</span>
+          </button>
           <div class="login-quick">
-            <div style="font-size:12px;text-align:center;color:rgba(255,255,255,.85);">계정이 없으신가요? <a href="#" onclick="showSignup();return false;" style="color:#fff;font-weight:700;text-decoration:underline;">계정 만들기</a></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:8px;text-align:center;">🔑 초기 비밀번호는 <b style="color:#fff;">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.75);text-align:center;line-height:1.6;">${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.<br>처음 로그인하면 자동으로 계정이 생성됩니다.</div>
           </div>
         </div>
       </div>
@@ -1152,107 +1177,79 @@ function showLogin() {
       const dot = ov.querySelector('.login-logo-dot'); if (dot) dot.style.display = 'none';
     }
   } catch (e) {}
-  setTimeout(()=>{ const el=document.getElementById('loginId'); if(el) el.focus(); }, 100);
 }
 
-// 계정 만들기 (@sejong-21c.com 사내 메일만 가입 가능)
-function showSignup() {
+async function doGoogleLogin() {
+  const err = document.getElementById('loginErr');
+  if (err) err.style.display = 'none';
+  if (!window.fb) { alert('로그인 시스템을 초기화하는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  const provider = new fb.GoogleAuthProvider();
+  provider.setCustomParameters({ hd: 'sejong-21c.com' });
+  try {
+    await fb.signInWithPopup(fb.auth, provider);
+    // 이후 화면 전환은 onAuthStateChanged(handleAuthChange)가 담당
+  } catch (e) {
+    if (e && e.code === 'auth/popup-closed-by-user') return;
+    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request')) {
+      // 팝업이 차단된 브라우저(엔터프라이즈 정책 등) — 리디렉션 방식으로 재시도
+      fb.signInWithRedirect(fb.auth, provider);
+      return;
+    }
+    console.error(e);
+    if (err) { err.textContent = '로그인에 실패했습니다: ' + (e.message || e); err.style.display = 'block'; }
+  }
+}
+
+// 최초 로그인 시 소속(부서/직급) 입력받아 Firestore 프로필 생성
+function showProfileSetup(fu) {
   const ov = document.getElementById('authOverlay');
   const deptOpts = ['품질관리부','설계부','영업부','생산부','총무부','재무부'].map(d=>`<option value="${d}">${d}</option>`).join('');
   const titleOpts = TITLES.map(t=>`<option value="${t}">${t}</option>`).join('');
   ov.innerHTML = `
-    <div class="login-wrap">
-      <div class="login-left">
-        <div class="login-brand">
-          <div class="login-logo">
-            <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="height:38px;width:auto;display:none;">
-            <span class="login-logo-dot"></span>
-            <span class="login-logo-txt">Sejong Technology WorkFlow System</span>
-          </div>
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:38px 36px;width:420px;max-width:90vw;">
+        <div style="text-align:center;margin-bottom:22px;">
+          <div style="font-size:20px;font-weight:700;color:#1e3a5f;">👋 첫 로그인입니다</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:8px;">${fu.email} · 소속 정보를 입력하고 시작하세요.</div>
         </div>
-        <div class="login-hero">
-          <h1>세종기술 <span style="color:var(--primary);">통합 협업</span><br>플랫폼</h1>
-          <p class="login-feat">WBS · 간트차트 · ITP · NCR · 견적 · OKR · 결재.<br>품질·설계·영업·생산까지, 하나의 워크플로우로 묶습니다.</p>
-        </div>
-        <div class="login-foot">v1.0 · EPC Control v28.5 · ㈜세종기술 품질관리부</div>
-      </div>
-      <div class="login-right">
-        <div class="login-form">
-          <h2>계정 만들기</h2>
-          <p class="login-sub">${COMPANY_DOMAIN} 사내 이메일만 가입할 수 있습니다.</p>
-          <label class="login-label">이름</label>
-          <input class="login-input" id="suName" placeholder="예: 홍길동">
-          <label class="login-label">이메일</label>
-          <input class="login-input" id="suEmail" placeholder="name${COMPANY_DOMAIN}" autocomplete="username">
-          <label class="login-label">부서</label>
-          <select class="login-input" id="suDept">${deptOpts}</select>
-          <label class="login-label">직급</label>
-          <select class="login-input" id="suTitle">${titleOpts}</select>
-          <div id="suErr" style="display:none;color:#fee;font-size:12px;margin:6px 0;"></div>
-          <button class="login-btn" onclick="doSignup()">계정 만들기</button>
-          <div class="login-quick">
-            <div style="font-size:12px;text-align:center;color:rgba(255,255,255,.85);">이미 계정이 있으신가요? <a href="#" onclick="showLogin();return false;" style="color:#fff;font-weight:700;text-decoration:underline;">로그인</a></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:8px;text-align:center;">🔑 초기 비밀번호는 <b style="color:#fff;">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
-          </div>
-        </div>
+        <div class="fg"><label class="fl">이름</label><input class="fi" id="psName" value="${(fu.displayName||'').replace(/"/g,'&quot;')}"></div>
+        <div class="fg"><label class="fl">부서</label><select class="fs" id="psDept">${deptOpts}</select></div>
+        <div class="fg"><label class="fl">직급</label><select class="fs" id="psTitle">${titleOpts}</select></div>
+        <div id="psErr" style="display:none;color:#dc2626;font-size:12px;margin-bottom:10px;"></div>
+        <button class="btn btn-primary" style="width:100%;padding:11px;font-size:14px;" onclick="doProfileSetup('${fu.uid}')">시작하기</button>
       </div>
     </div>`;
   ov.style.display = 'block';
   document.querySelector('.app').style.display = 'none';
+}
+
+async function doProfileSetup(uid) {
+  const err = document.getElementById('psErr');
+  const name = document.getElementById('psName').value.trim();
+  const dept = document.getElementById('psDept').value;
+  const title = document.getElementById('psTitle').value;
+  if (!name) { err.textContent = '이름을 입력해주세요.'; err.style.display = 'block'; return; }
   try {
-    const _logo = document.querySelector('.sb-logo img');
-    const _ll = document.getElementById('loginLogoImg');
-    if (_logo && _logo.getAttribute('src') && _ll) {
-      _ll.src = _logo.getAttribute('src');
-      _ll.style.display = '';
-      const dot = ov.querySelector('.login-logo-dot'); if (dot) dot.style.display = 'none';
-    }
-  } catch (e) {}
-  setTimeout(()=>{ const el=document.getElementById('suName'); if(el) el.focus(); }, 100);
-}
-
-function doSignup() {
-  const err = document.getElementById('suErr');
-  const showErr = (msg) => { err.textContent = msg; err.style.display = 'block'; };
-  const name = document.getElementById('suName').value.trim();
-  const email = document.getElementById('suEmail').value.trim().toLowerCase();
-  const dept = document.getElementById('suDept').value;
-  const title = document.getElementById('suTitle').value;
-  if (!name || !email) { showErr('이름과 이메일을 입력해주세요.'); return; }
-  if (!email.endsWith(COMPANY_DOMAIN)) { showErr(`${COMPANY_DOMAIN} 사내 이메일만 가입할 수 있습니다.`); return; }
-  if (state.users.find(u => (u.email||'').toLowerCase() === email)) { showErr('이미 가입된 이메일입니다.'); return; }
-  let username = email.split('@')[0];
-  if (state.users.find(u => u.username === username)) {
-    let i = 2;
-    while (state.users.find(u => u.username === username + i)) i++;
-    username = username + i;
-  }
-  const newUser = {
-    id: 'u' + Date.now(), name, title, dept, grade: gradeByTitle(title), username,
-    password: '0000', mustChangePw: true, email,
-  };
-  state.users.push(newUser);
-  save();
-  state.currentUser = newUser.id;
-  state.lastActive = Date.now();
-  showChangePw(true);
-}
-
-function doLogin() {
-  const id = document.getElementById('loginId').value.trim().toLowerCase();
-  const pw = document.getElementById('loginPw').value;
-  const err = document.getElementById('loginErr');
-  // 이메일 또는 아이디(username) 둘 다 허용
-  const u = state.users.find(x => x.username.toLowerCase() === id || (x.email||'').toLowerCase() === id);
-  if (!u || u.password !== pw) {
-    err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
+    const email = fb.auth.currentUser.email;
+    await fb.setDoc(fb.doc(fb.db, 'users', uid), {
+      name, email, dept, title, grade: gradeByTitle(title), disabled: false, createdAt: Date.now(),
+    });
+    await hydrateUsersAndEnter(uid);
+  } catch (e) {
+    console.error(e);
+    err.textContent = '저장 중 오류가 발생했습니다: ' + (e.message || e);
     err.style.display = 'block';
-    return;
   }
-  state.currentUser = u.id;
+}
+
+// Firestore users 컬렉션 전체를 state.users로 채우고 로그인 완료 처리
+async function hydrateUsersAndEnter(uid) {
+  const snaps = await fb.getDocs(fb.collection(fb.db, 'users'));
+  const users = [];
+  snaps.forEach(s => users.push({ id: s.id, ...s.data() }));
+  state.users = users;
+  state.currentUser = uid;
   state.lastActive = Date.now();
-  // 비밀번호 변경이 필요한 계정은 아직 저장하지 않음 → 이 상태에서 새로고침하면 로그인 화면으로 돌아감
-  if (u.mustChangePw) { showChangePw(true); return; }
   save();
   finishLogin();
 }
@@ -1267,42 +1264,43 @@ function finishLogin() {
   touchSession();   // 세션 타이머 시작
 }
 
-function showChangePw(forced) {
-  const ov = document.getElementById('authOverlay');
-  ov.innerHTML = `
-    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;">
-      <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:38px 36px;width:400px;max-width:90vw;">
-        <div style="text-align:center;margin-bottom:22px;">
-          <div style="font-size:20px;font-weight:700;color:#1e3a5f;">🔐 비밀번호 변경</div>
-          <div style="font-size:12px;color:var(--text-light);margin-top:8px;">${forced?'첫 로그인입니다. 새 비밀번호를 설정하세요.':'새 비밀번호를 입력하세요.'}</div>
-        </div>
-        <div class="fg"><label class="fl">새 비밀번호 (8자 이상)</label><input class="fi" id="newPw1" type="password" placeholder="새 비밀번호"></div>
-        <div class="fg"><label class="fl">새 비밀번호 확인</label><input class="fi" id="newPw2" type="password" placeholder="다시 입력" onkeydown="if(event.key==='Enter')doChangePw()"></div>
-        <div id="pwErr" style="display:none;color:#dc2626;font-size:12px;margin-bottom:10px;"></div>
-        <button class="btn btn-primary" style="width:100%;padding:11px;font-size:14px;" onclick="doChangePw()">변경 후 시작</button>
-      </div>
-    </div>`;
-  ov.style.display = 'block';
-  document.querySelector('.app').style.display = 'none';
-}
-
-function doChangePw() {
-  const p1 = document.getElementById('newPw1').value;
-  const p2 = document.getElementById('newPw2').value;
-  const err = document.getElementById('pwErr');
-  if (p1.length < 8) { err.textContent='비밀번호는 8자 이상이어야 합니다.'; err.style.display='block'; return; }
-  if (p1 !== p2) { err.textContent='비밀번호가 일치하지 않습니다.'; err.style.display='block'; return; }
-  const u = getU(state.currentUser);
-  u.password = p1;
-  u.mustChangePw = false;
-  save();
-  finishLogin();
+// Firebase 인증 상태가 바뀔 때마다(최초 로드·로그인·로그아웃) 호출되는 단일 진입점
+async function handleAuthChange(fu) {
+  if (!fu) { showLogin(); return; }
+  if (!fu.email || !fu.email.toLowerCase().endsWith(COMPANY_DOMAIN)) {
+    await fb.signOut(fb.auth);
+    showLogin();
+    setTimeout(() => {
+      const err = document.getElementById('loginErr');
+      if (err) { err.textContent = `${COMPANY_DOMAIN} 사내 계정으로만 로그인할 수 있습니다.`; err.style.display = 'block'; }
+    }, 50);
+    return;
+  }
+  if (sessionExpired()) {
+    state.currentUser = null; state.lastActive = null; save();
+    await fb.signOut(fb.auth); // 다시 onAuthStateChanged(null) → showLogin()
+    return;
+  }
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, 'users', fu.uid));
+    if (!snap.exists()) { showProfileSetup(fu); return; }
+    if (snap.data().disabled) {
+      await fb.signOut(fb.auth);
+      setTimeout(() => alert('비활성화된 계정입니다. 관리자에게 문의하세요.'), 50);
+      return;
+    }
+    await hydrateUsersAndEnter(fu.uid);
+  } catch (e) {
+    console.error(e);
+    showLogin();
+  }
 }
 
 function doLogout() {
   if (!confirm('로그아웃 하시겠습니까?')) return;
   state.currentUser = null;
   save();
+  if (window.fb) fb.signOut(fb.auth).catch(()=>{});
   showLogin();
 }
 
@@ -1331,7 +1329,6 @@ function toggleUserMenu(e) {
       <div style="margin-top:6px;"><span class="b-pill ${g.color}">${g.label}</span> <span style="font-size:11px;color:var(--text-light);">${u.dept}</span></div>
     </div>
     ${u.grade==='super' ? `<div class="um-item" onclick="closeUserMenu();goOrg()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;">👥 조직 / 권한 관리</div>` : ''}
-    <div class="um-item" onclick="closeUserMenu();showChangePw(false)" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);">🔑 비밀번호 변경</div>
     <div class="um-item" onclick="closeUserMenu();doLogout()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);color:#dc2626;">🚪 로그아웃</div>`;
   menu.style.display = 'block';
   // 바깥 클릭 닫기
@@ -3536,30 +3533,26 @@ function org() {
   // 사용자 한 줄 (컴팩트 테이블 row)
   const userRow = (u) => {
     const g = GRADES[u.grade] || GRADES.member;
-    const isMe = u.id === state.currentUser;
     const extras = (u.extraPerms||[]).map(p => EXTRA_PERMS[p] ? `<span class="perm-chip">+${EXTRA_PERMS[p].label}</span>` : '').join('');
     let btns = '';
     if (isSuper) {
       btns += `<button class="org-ico-btn" onclick="openExtraPerms('${u.id}')" title="개별 권한 부여">⚙️</button>`;
       if (u.grade !== 'super') {
-        btns += `<button class="org-ico-btn" onclick="resetUserPw('${u.id}')" title="비밀번호 초기화">🔑</button>`;
-        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="deleteUser('${u.id}')" title="계정 삭제">🗑</button>`;
+        btns += `<button class="org-ico-btn" onclick="openEditUserProfile('${u.id}')" title="부서/직급 수정">✏️</button>`;
+        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화'}">${u.disabled?'🔓':'🔒'}</button>`;
       }
-    } else if (isMe) {
-      btns += `<button class="org-ico-btn" onclick="showChangePw(false)" title="내 비밀번호 변경">🔑</button>`;
     }
-    return `<tr>
-      <td style="white-space:nowrap;"><div style="display:flex;align-items:center;gap:7px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0;">${u.name.charAt(0)}</div><div><span style="font-weight:600;font-size:12px;">${u.name}</span> <span style="font-size:11px;color:var(--text-light);">${u.title}</span></div></div></td>
-      <td style="font-size:11px;color:var(--text-lighter);">${u.username}</td>
-      <td><span class="b-pill ${g.color}">${g.label}</span> ${u.mustChangePw?'<span style="font-size:9px;color:var(--warning);">●비번미변경</span>':''}</td>
+    return `<tr style="${u.disabled?'opacity:.5;':''}">
+      <td style="white-space:nowrap;"><div style="display:flex;align-items:center;gap:7px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0;">${(u.name||'?').charAt(0)}</div><div><span style="font-weight:600;font-size:12px;">${u.name}</span> <span style="font-size:11px;color:var(--text-light);">${u.title}</span>${u.disabled?' <span style="font-size:9px;color:var(--danger);">●비활성</span>':''}</div></div></td>
+      <td style="font-size:11px;color:var(--text-lighter);">${u.email||''}</td>
+      <td><span class="b-pill ${g.color}">${g.label}</span></td>
       <td>${extras||'<span style="color:var(--text-lighter);font-size:11px;">—</span>'}</td>
       <td style="text-align:right;white-space:nowrap;">${btns}</td>
     </tr>`;
   };
 
   return `<div class="mod-head">
-    <div><div class="mod-title">👥 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (계정 발급·권한 부여 가능)':'조회 전용'}</div></div>
-    ${isSuper ? `<button class="btn btn-primary" onclick="openAddUser()">+ 사용자 추가</button>` : ''}
+    <div><div class="mod-title">👥 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (부서/직급 수정·권한 부여·비활성화 가능)':'조회 전용'} · 계정은 Google 로그인으로 본인이 직접 생성</div></div>
   </div>
 
   <details style="margin-bottom:14px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);">
@@ -3577,7 +3570,7 @@ function org() {
 
   <div class="card" style="padding:0;overflow:hidden;">
     <table class="org-table">
-      <thead><tr><th>이름/직급</th><th>아이디</th><th>권한 등급</th><th>추가 권한</th><th style="text-align:right;">관리</th></tr></thead>
+      <thead><tr><th>이름/직급</th><th>이메일</th><th>권한 등급</th><th>추가 권한</th><th style="text-align:right;">관리</th></tr></thead>
       ${depts.filter(d=>d.users.length>0).map(d=>`
         <tbody>
           <tr class="org-dept-row"><td colspan="5">${d.ico} ${d.name} <span style="color:var(--text-lighter);font-weight:400;">(${d.users.length}명)</span></td></tr>
@@ -3612,99 +3605,48 @@ function openExtraPerms(uid) {
   });
 }
 
-// 계정 발급 (슈퍼관리자 전용)
-function openAddUser() {
+// 부서/직급 수정 (슈퍼관리자 전용) — 계정 자체는 Google 로그인으로 본인이 만들므로, 관리자는 소속 정보만 조정
+function openEditUserProfile(uid) {
   const me = getU(state.currentUser);
-  if (!me || me.grade !== 'super') { alert('계정 발급 권한이 없습니다.'); return; }
-  const deptOpts = ['품질관리부','설계부','영업부','생산부','총무부','재무부'].map(d=>`<option value="${d}">${d}</option>`).join('');
-  const titleOpts = TITLES.map(t=>`<option value="${t}">${t}</option>`).join('');
-  openModal('+ 사용자 추가 (계정 발급)', `
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">이름 *</label><input class="fi" id="auName" placeholder="예: 홍길동"></div>
-      <div style="flex:1;"><label class="fl">아이디 *</label><input class="fi" id="auUsername" placeholder="예: gdhong"></div>
-    </div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">부서 *</label><select class="fs" id="auDept">${deptOpts}</select></div>
-      <div style="flex:1;"><label class="fl">직급 *</label><select class="fs" id="auTitle" onchange="previewGrade()">${titleOpts}</select></div>
-    </div>
-    <div class="fg"><label class="fl">이메일</label><input class="fi" id="auEmail" placeholder="예: gdhong@sejong-21c.com"></div>
-    <div class="fg" style="padding:10px 12px;background:var(--bg);border-radius:8px;font-size:12px;">
-      <div>부여될 권한: <span id="gradePreview" style="font-weight:700;color:var(--primary);">일반</span></div>
-      <div style="font-size:11px;color:var(--text-light);margin-top:4px;">🔑 초기 비밀번호는 <b style="color:var(--primary);">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
-    </div>
-  `, () => {
-    const name = document.getElementById('auName').value.trim();
-    const username = document.getElementById('auUsername').value.trim();
-    const dept = document.getElementById('auDept').value;
-    const title = document.getElementById('auTitle').value;
-    const email = document.getElementById('auEmail').value.trim();
-    if (!name || !username) { alert('이름과 아이디는 필수입니다.'); return; }
-    if (state.users.find(u=>u.username===username)) { alert('이미 사용 중인 아이디입니다.'); return; }
-    const tempPw = '0000';  // 초기 비밀번호 고정 (첫 로그인 시 변경)
+  if (!me || me.grade !== 'super') return;
+  const u = getU(uid);
+  if (!u || u.grade === 'super') return;
+  const deptOpts = ['품질관리부','설계부','영업부','생산부','총무부','재무부'].map(d=>`<option value="${d}" ${d===u.dept?'selected':''}>${d}</option>`).join('');
+  const titleOpts = TITLES.map(t=>`<option value="${t}" ${t===u.title?'selected':''}>${t}</option>`).join('');
+  openModal(`✏️ ${u.name} 정보 수정`, `
+    <div class="fg"><label class="fl">부서</label><select class="fs" id="euDept">${deptOpts}</select></div>
+    <div class="fg"><label class="fl">직급</label><select class="fs" id="euTitle">${titleOpts}</select></div>
+    <div class="fg" style="font-size:11px;color:var(--text-light);">권한 등급은 직급에 따라 자동 결정됩니다 (이사 이상=임원, 부장=부서장, 그 외=일반).</div>
+  `, async () => {
+    const dept = document.getElementById('euDept').value;
+    const title = document.getElementById('euTitle').value;
     const grade = gradeByTitle(title);
-    state.users.push({
-      id: 'u'+Date.now(), name, title, dept, grade, username,
-      password: tempPw, mustChangePw: true, email: email || `${username}@sejong-21c.com`
-    });
-    save();
-    closeModal();
-    // 발급 결과 (임시 비번 표시)
-    setTimeout(()=>{
-      openModal('✅ 계정 발급 완료', `
-        <div style="text-align:center;padding:8px 0;">
-          <div style="font-size:13px;margin-bottom:14px;"><b>${name} ${title}</b> (${dept}) 계정이 생성되었습니다.</div>
-          <div style="background:var(--bg);border-radius:8px;padding:16px;margin-bottom:12px;">
-            <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">아이디</div>
-            <div style="font-size:16px;font-weight:700;font-family:monospace;margin-bottom:12px;">${username}</div>
-            <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">초기 비밀번호</div>
-            <div style="font-size:20px;font-weight:700;font-family:monospace;color:var(--primary);letter-spacing:1px;">${tempPw}</div>
-          </div>
-          <div style="font-size:11px;color:var(--warning);line-height:1.6;">⚠️ 이 비밀번호를 본인에게 전달하세요.<br>창을 닫으면 다시 볼 수 없습니다. (첫 로그인 시 변경됨)</div>
-        </div>
-      `);
+    try {
+      await fb.updateDoc(fb.doc(fb.db, 'users', uid), { dept, title, grade });
+      u.dept = dept; u.title = title; u.grade = grade;
+      closeModal();
       render();
-    }, 100);
+    } catch (e) {
+      alert('저장 중 오류가 발생했습니다: ' + (e.message || e));
+    }
   });
-  setTimeout(previewGrade, 50);
 }
 
-function previewGrade() {
-  const t = document.getElementById('auTitle');
-  const pv = document.getElementById('gradePreview');
-  if (t && pv) { const g = gradeByTitle(t.value); pv.textContent = GRADES[g].label; }
-}
-
-function resetUserPw(uid) {
+// 계정 비활성화/활성화 (슈퍼관리자 전용) — Firebase Auth 계정 자체는 클라이언트에서 삭제 불가하므로 접근만 차단
+async function toggleUserDisabled(uid) {
   const me = getU(state.currentUser);
   if (!me || me.grade !== 'super') return;
   const u = getU(uid);
-  if (!u) return;
-  if (!confirm(`${u.name} ${u.title}의 비밀번호를 초기화하시겠습니까?`)) return;
-  const tempPw = genTempPassword();
-  u.password = tempPw;
-  u.mustChangePw = true;
-  save();
-  openModal('🔑 비밀번호 초기화 완료', `
-    <div style="text-align:center;padding:8px 0;">
-      <div style="font-size:13px;margin-bottom:14px;"><b>${u.name} ${u.title}</b>의 새 임시 비밀번호</div>
-      <div style="background:var(--bg);border-radius:8px;padding:16px;">
-        <div style="font-size:20px;font-weight:700;font-family:monospace;color:var(--primary);letter-spacing:1px;">${tempPw}</div>
-      </div>
-      <div style="font-size:11px;color:var(--warning);margin-top:12px;">⚠️ 본인에게 전달하세요. 첫 로그인 시 변경됩니다.</div>
-    </div>
-  `);
-}
-
-function deleteUser(uid) {
-  const me = getU(state.currentUser);
-  if (!me || me.grade !== 'super') return;
-  const u = getU(uid);
-  if (!u) return;
-  if (u.grade === 'super') { alert('슈퍼관리자 계정은 삭제할 수 없습니다.'); return; }
-  if (!confirm(`${u.name} ${u.title} 계정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
-  state.users = state.users.filter(x=>x.id!==uid);
-  save();
-  render();
+  if (!u || u.grade === 'super') { if (u) alert('슈퍼관리자 계정은 비활성화할 수 없습니다.'); return; }
+  const next = !u.disabled;
+  if (!confirm(`${u.name} ${u.title} 계정을 ${next ? '비활성화' : '활성화'}하시겠습니까?`)) return;
+  try {
+    await fb.updateDoc(fb.doc(fb.db, 'users', uid), { disabled: next });
+    u.disabled = next;
+    render();
+  } catch (e) {
+    alert('처리 중 오류가 발생했습니다: ' + (e.message || e));
+  }
 }
 
 
@@ -3758,20 +3700,8 @@ function openApproval() {
 
 /* ═════════════ 🎬 초기화 ═════════════ */
 function init() {
-  // 세션 만료 시 로그인 화면으로 초기화 (비번변경 등 중간 상태도 함께 리셋)
-  if (sessionExpired()) { state.currentUser = null; state.lastActive = null; save(); }
-  // 로그인 체크 — currentUser 없으면 로그인 화면
-  if (!state.currentUser || !getU(state.currentUser)) {
-    showLogin();
-    return;
-  }
-  const u = getU(state.currentUser);
-  if (u.mustChangePw) { showChangePw(true); return; }
-  document.querySelector('.app').style.display = '';
-  refreshUserChip();
-  renderNav();
-  render();
-  loadBriefings();  // Cowork 아침 브리핑 자동 로드
+  if (!window.fb) { setTimeout(init, 100); return; } // Firebase SDK 로딩 대기
+  fb.onAuthStateChanged(fb.auth, handleAuthChange);
 }
 window.addEventListener('DOMContentLoaded', init);
 window.addEventListener('resize', () => {
