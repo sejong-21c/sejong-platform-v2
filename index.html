@@ -3,7 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SJ FLOW v0.7.7 - 세종기술 통합 협업 플랫폼</title>
+<title>SJ FLOW v1.0 - 세종기술 통합 협업 플랫폼</title>
+<script type="module">
+  // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = {
+    auth: getAuth(fbApp), db: getFirestore(fbApp),
+    GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged,
+    doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
+  };
+</script>
 <style>
 :root {
   --primary: #1976D2;
@@ -178,6 +204,12 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .proj:hover .proj-hide-btn { opacity: 1; }
 .proj-hide-btn:hover { background: var(--primary-lighter); border-color: var(--primary); }
 .proj.proj-hidden .proj-hide-btn { opacity: 1; }
+.proj-edit-btn, .proj-del-btn { position: absolute; top: 10px; width: 24px; height: 24px; border: 1px solid var(--border); background: var(--white); border-radius: 4px; cursor: pointer; font-size: 12px; padding: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s; z-index: 2; }
+.proj-edit-btn { right: 38px; }
+.proj-del-btn { right: 66px; }
+.proj:hover .proj-edit-btn, .proj:hover .proj-del-btn { opacity: 1; }
+.proj-edit-btn:hover { background: var(--primary-lighter); border-color: var(--primary); }
+.proj-del-btn:hover { background: #fef2f2; border-color: #fca5a5; }
 
 .proj-mini-gantt { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .proj-gantt-months { display: grid; grid-template-columns: repeat(12, 1fr); height: 14px; margin-bottom: 3px; }
@@ -357,7 +389,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .login-wrap { position:absolute; inset:0; display:grid; grid-template-columns:1fr 480px; background:#fff; }
 .login-left { padding:48px 56px; display:flex; flex-direction:column; }
 .login-brand { flex-shrink:0; }
-.login-logo { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:800; color:#1a2b3c; }
+.login-logo { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:800; color:var(--primary); }
 .login-logo-dot { width:26px; height:18px; border-radius:9px; background:linear-gradient(90deg,#2563eb,#7dd3fc); display:inline-block; }
 .login-hero { flex:1; display:flex; flex-direction:column; justify-content:flex-start; padding-top:48px; }
 .login-hero h1 { font-size:38px; font-weight:800; color:#1a2b3c; line-height:1.25; letter-spacing:-.5px; }
@@ -450,7 +482,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
       <button class="sb-toggle" onclick="toggleSb()" id="sbTog">◀</button>
     </div>
     <div class="sb-scroll" id="sbScroll"></div>
-    <div class="sb-foot">v0.7.7 <span>ⓒ Designed by Cwkim</span></div>
+    <div class="sb-foot">v1.0 <span>ⓒ Designed by Cwkim</span></div>
   </aside>
   <div class="main">
     <header class="header">
@@ -506,12 +538,15 @@ const TOOLS = {
   'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
 };
 const DEPTS = [
-  { id: 'quality',    icon: '📦', name: '품질관리부', tools: ['itp', 'qa', 'ncr', 'car', 'mobile'] },
-  { id: 'design',     icon: '📐', name: '설계부',     tools: [] },
-  { id: 'sales',      icon: '💼', name: '영업부',     tools: [] },
-  { id: 'production', icon: '🏭', name: '생산부',     tools: [] },
-  { id: 'general',    icon: '👔', name: '총무부',     tools: [] },
-  { id: 'finance',    icon: '💲', name: '재무부',     tools: [] },
+  { id: 'sales',        icon: '💼', name: '영업부',     tools: [] },
+  { id: 'design',       icon: '📐', name: '설계부',     tools: [] },
+  { id: 'purchase',     icon: '🛒', name: '구매부',     tools: [] },
+  { id: 'production',   icon: '🏭', name: '생산부',     tools: [] },
+  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['itp', 'qa', 'ncr', 'car', 'mobile'] },
+  { id: 'construction', icon: '🏗️', name: '현장시공',   tools: [] },
+  { id: 'safety',       icon: '🦺', name: '안전관리부', tools: [] },
+  { id: 'general',      icon: '👔', name: '총무부',     tools: [] },
+  { id: 'finance',      icon: '💲', name: '재무부',     tools: [] },
 ];
 
 // ══════════ 권한 헬퍼 ══════════
@@ -645,75 +680,11 @@ function defaultState() {
       { id: 'd1', name: '품질관리부' }, { id: 'd2', name: '설계부' },
       { id: 'd3', name: '영업부' },     { id: 'd4', name: '총무부' }, { id: 'd5', name: '현장팀' },
     ],
-    projects: [
-      { id: 'p3', code: 'SJ435-26',   name: '삼성전기 BT-3 라인증설 공사',  client: '삼성전기',       pm: 'u8', start: '2026-02-10', end: '2027-04-07', progress: 24, status: 'active'  },
-    ],
-    /* === 프로젝트별 WBS === */
-    wbs: {
-      p3: [
-        { id:'w_p3_1', code:'1', name:'설계',            mgr:'이윤호', start:'2026-04-13', end:'2026-08-30', status:'doing', pct:72, lv:0, vendor:'㈜세종기술', memo:'' },
-        { id:'w_p3_2', code:'2', name:'Tank 제작',        mgr:'곽노한', start:'2026-02-10', end:'2026-09-30', status:'doing', pct:43, lv:0, vendor:'㈜세종기술', memo:'06-26 기준 전체 43% · TA 탱크 본체 정상 / 라인쿨러·맥동방지기·UTILITY 지연 (SPI 0.62)' },
-        { id:'w_p3_2_1', code:'2.1', name:'순환계열 4.2㎥ (TA-6101~6103 A~D)', mgr:'곽노한', start:'2026-02-10', end:'2026-07-31', status:'doing', pct:74, lv:1, memo:'계획 73.4% / 실적 73.8% · 정상' },
-        { id:'w_p3_2_2', code:'2.2', name:'대형계열 25㎥ (TA-6104 A~D)',    mgr:'곽노한', start:'2026-02-10', end:'2026-09-30', status:'doing', pct:45, lv:1, memo:'계획 42.8% / 실적 44.7% · 정상' },
-        { id:'w_p3_2_3', code:'2.3', name:'대형계열 8.4㎥ (TA-6604 A~D)',   mgr:'곽노한', start:'2026-02-10', end:'2026-09-30', status:'doing', pct:45, lv:1, memo:'계획 42.8% / 실적 44.7% · 정상' },
-        { id:'w_p3_2_4', code:'2.4', name:'열교환 (TC-6111/6112 등)',       mgr:'곽노한', start:'2026-02-10', end:'2026-09-30', status:'doing', pct:27, lv:1, memo:'계획 27.3% / 실적 27.3% · 정상' },
-        { id:'w_p3_2_5', code:'2.5', name:'라인쿨러 20SET',                 mgr:'곽노한', start:'2026-02-10', end:'2026-09-30', status:'delay', pct:38, lv:1, memo:'공정 지연 — 일정 만회 필요' },
-        { id:'w_p3_2_6', code:'2.6', name:'맥동방지기 32SET',               mgr:'곽노한', start:'2026-02-10', end:'2026-09-30', status:'delay', pct:40, lv:1, memo:'공정 지연 — 일정 만회 필요' },
-        { id:'w_p3_2_7', code:'2.7', name:'기타 UTILITY / ACCESSORY',       mgr:'곽노한', start:'2026-02-10', end:'2026-09-30', status:'delay', pct:0,  lv:1, memo:'자재입고 단계 · 지연' },
-        { id:'w_p3_3', code:'3', name:'철골 제작',        mgr:'곽노한', start:'2026-06-03', end:'2026-08-31', status:'todo', pct:0, lv:0, vendor:'㈜세종기술', memo:'삼성전기 원료3동 BT-3 LINE 철골 제작 및 납품' },
-        { id:'w_p3_3_1',  code:'3.1',  name:'SHOP DWG',                mgr:'곽노한', start:'2026-06-03', end:'2026-06-30', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_2',  code:'3.2',  name:'현장자재입고',            mgr:'곽노한', start:'2026-06-27', end:'2026-07-09', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_3',  code:'3.3',  name:'기계가공',                mgr:'곽노한', start:'2026-07-03', end:'2026-07-12', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_4',  code:'3.4',  name:'1F미분쇄 제작 (취부,용접)', mgr:'곽노한', start:'2026-07-06', end:'2026-07-18', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_5',  code:'3.5',  name:'6F본혼합 제작 (취부,용접)', mgr:'곽노한', start:'2026-07-15', end:'2026-07-30', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_6',  code:'3.6',  name:'1F미분쇄 공장가조립',      mgr:'곽노한', start:'2026-07-21', end:'2026-07-30', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_7',  code:'3.7',  name:'6F본혼합 공장가조립',      mgr:'곽노한', start:'2026-08-03', end:'2026-08-09', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_8',  code:'3.8',  name:'1F MAIN 기둥 제작 (취부,용접)', mgr:'곽노한', start:'2026-08-03', end:'2026-08-08', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_9',  code:'3.9',  name:'6F MAIN 기둥 제작 (취부,용접)', mgr:'곽노한', start:'2026-08-09', end:'2026-08-15', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_10', code:'3.10', name:'1F미분쇄 도장 (하도,상도)', mgr:'곽노한', start:'2026-08-06', end:'2026-08-18', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_11', code:'3.11', name:'6F본혼합 도장 (하도,상도)', mgr:'곽노한', start:'2026-08-12', end:'2026-08-24', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_12', code:'3.12', name:'STAGE H/R,계단 제작·도장',  mgr:'곽노한', start:'2026-08-09', end:'2026-08-21', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_3_13', code:'3.13', name:'현장납품',                mgr:'곽노한', start:'2026-08-28', end:'2026-08-31', status:'todo', pct:0, lv:1 },
-        { id:'w_p3_pe', code:'4', name:'전기판넬 제작', mgr:'이윤호', start:'2026-05-15', end:'2027-02-13', status:'doing', pct:4, lv:0, vendor:'YS ENG', memo:'전기 마스터 발주·제작·검사 (MCC/VFD/PLC/HMI)' },
-        { id:'w_p3_4', code:'5', name:'Equipment 구매', mgr:'곽노한', start:'2026-03-04', end:'2026-09-25', status:'doing', pct:25, lv:0, vendor:'㈜세종기술', memo:'구매품 25개 · 발주완료 14 / 미발주 11 (구매담당 김대훈 대리)' },
-        { id:'w_p3_4_1',  code:'4.1',  name:'HOSE PUMP',                  mgr:'곽노한', start:'2026-03-04', end:'2026-09-20', status:'doing', pct:0, lv:1, memo:'PR-001 · 22EA · 서우코퍼레이션 오세준 부장' },
-        { id:'w_p3_4_2',  code:'4.2',  name:'AOD PUMP',                   mgr:'곽노한', start:'2026-06-17', end:'2026-08-16', status:'doing', pct:0, lv:1, memo:'PR-002 · 14EA · 올인테크 김남훈 사장' },
-        { id:'w_p3_4_3',  code:'4.3',  name:'HIGH-PRESSURE PUMP',         mgr:'곽노한', start:'2026-06-10', end:'2026-08-19', status:'doing', pct:0, lv:1, memo:'PR-003 · 4EA · 케이제이워터테크' },
-        { id:'w_p3_4_4',  code:'4.4',  name:'SAMPLING VALVE',             mgr:'곽노한', start:'2026-05-27', end:'2026-09-14', status:'doing', pct:0, lv:1, memo:'PR-004 · 20EA · 케이에스상사 천장록 사장' },
-        { id:'w_p3_4_5',  code:'4.5',  name:'고압세척기 및 세척노즐',      mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-005 · 2EA · 미발주' },
-        { id:'w_p3_4_6',  code:'4.6',  name:'청소용 싱크대',               mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-006 · 2EA · 미발주' },
-        { id:'w_p3_4_7',  code:'4.7',  name:'PRESSURE SAFETY VALVE',      mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-007 · 38EA · 미발주' },
-        { id:'w_p3_4_8',  code:'4.8',  name:'FLOWMETER',                  mgr:'곽노한', start:'2026-05-28', end:'2026-08-06', status:'doing', pct:0, lv:1, memo:'PR-009 · 24EA · 제일엠아이 유규상 차장' },
-        { id:'w_p3_4_9',  code:'4.9',  name:'CONDUCTIVITY SENSOR',        mgr:'곽노한', start:'2026-06-04', end:'2026-08-13', status:'doing', pct:0, lv:1, memo:'PR-010 · 28EA · 아이에프엠일렉트로닉 박태웅 과장' },
-        { id:'w_p3_4_10', code:'4.10', name:'LEVEL TRANSMITTER',          mgr:'곽노한', start:'2026-06-12', end:'2026-07-22', status:'doing', pct:0, lv:1, memo:'PR-011 · 4EA · 티에스아이 김남수 사장' },
-        { id:'w_p3_4_11', code:'4.11', name:'LEVEL SWITCH',               mgr:'곽노한', start:'2026-06-10', end:'2026-07-20', status:'doing', pct:0, lv:1, memo:'PR-012 · 64EA · 티에스아이 김남수 사장' },
-        { id:'w_p3_4_12', code:'4.12', name:'PRESSURE TRANSMITTER',       mgr:'곽노한', start:'2026-06-11', end:'2026-07-16', status:'doing', pct:0, lv:1, memo:'PR-013 · 26EA · 아이에프엠일렉트로닉 박태웅 과장' },
-        { id:'w_p3_4_13', code:'4.13', name:'PNEUMATIC VALVE',            mgr:'곽노한', start:'2026-06-12', end:'2026-08-11', status:'doing', pct:0, lv:1, memo:'PR-014 · 384EA · 브이아이테크 변길훈 사장' },
-        { id:'w_p3_4_14', code:'4.14', name:'WEIGHING MEASUREMENT',       mgr:'곽노한', start:'2026-06-05', end:'2026-07-05', status:'doing', pct:0, lv:1, memo:'PR-015 · 28EA · 한국 에이.엔.디 박상준 팀장' },
-        { id:'w_p3_4_15', code:'4.15', name:'TEMPERATURE SENSOR + TT',    mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-016 · 28EA · 미발주' },
-        { id:'w_p3_4_16', code:'4.16', name:'PRESSURE GAUGE',             mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-017 · 100EA · 미발주' },
-        { id:'w_p3_4_17', code:'4.17', name:'TEMP. GAUGE',                mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-018 · 212EA · 미발주' },
-        { id:'w_p3_4_18', code:'4.18', name:'HOIST',                      mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-019 · 4EA · 미발주' },
-        { id:'w_p3_4_19', code:'4.19', name:'SPRAY NOZZLE',               mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-020 · 56EA · 미발주' },
-        { id:'w_p3_4_20', code:'4.20', name:'SLIDE GATE VALVE',           mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-021 · 6EA · 미발주' },
-        { id:'w_p3_4_21', code:'4.21', name:'압력 맨홀',                   mgr:'곽노한', start:'2026-04-21', end:'2026-04-21', status:'done', pct:100, lv:1, memo:'PR-023 · 32EA · 해인21 최원광 팀장 · 입고완료(세종기술 본사)' },
-        { id:'w_p3_4_22', code:'4.22', name:'구동부 - MOTOR & REDUCER',   mgr:'곽노한', start:'2026-03-09', end:'2026-06-07', status:'doing', pct:0, lv:1, memo:'PR-024 · 30EA · 서창기전 박찬호 사장 · 일정 조정중' },
-        { id:'w_p3_4_23', code:'4.23', name:'구동부 - AGITATOR',          mgr:'곽노한', start:'2026-03-09', end:'2026-08-06', status:'doing', pct:0, lv:1, memo:'PR-025 · 30EA · 아지텍 정용식 이사 · 일정 조정중' },
-        { id:'w_p3_4_24', code:'4.24', name:'맨홀 LIMIT SWITCH',          mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-026 · 60EA · 미발주' },
-        { id:'w_p3_4_25', code:'4.25', name:'점도계 (추가공사)',           mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'PR-027 · 10EA · 미발주' },
-        { id:'w_p3_5', code:'6', name:'시공',            mgr:'곽노한', start:'2026-08-25', end:'2027-04-07', status:'doing', pct:0, lv:0, vendor:'㈜세종기술', memo:'현장 시공 6개 Part' },
-        { id:'w_p3_5_1', code:'5.1', name:'배관공사',   mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'SITE-001' },
-        { id:'w_p3_5_2', code:'5.2', name:'전기공사',   mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'SITE-002 · 영신시스템 정원혁 과장 · 현장소장 일정협의 필요' },
-        { id:'w_p3_5_3', code:'5.3', name:'도장공사',   mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'SITE-003' },
-        { id:'w_p3_5_4', code:'5.4', name:'보온공사',   mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'SITE-004' },
-        { id:'w_p3_5_5', code:'5.5', name:'철골설치',   mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'SITE-005 · 신안건업 조병관 과장 · 현장소장 일정협의 필요' },
-        { id:'w_p3_5_6', code:'5.6', name:'기계설치',   mgr:'곽노한', start:'', end:'', status:'todo', pct:0, lv:1, memo:'' },
-      ],
-    },
+    projects: [],
+    /* === 프로젝트별 WBS (Firestore wbsData 컬렉션과 동기화) === */
+    wbs: {},
     /* === 프로젝트별 검사 대상 아이템 === */
-    items: {
-      p3: [],
-    },
+    items: {},
     /* === Traveller 진척 데이터 (Tag별 ITP 9 항목 통과 여부) ===
        구조: travellers[itemId] = { '01': {status, worker, qc, witness, date, memo}, '02': {...}, ... }
        status: 'pending' | 'passed' | 'rejected'
@@ -743,8 +714,8 @@ function defaultState() {
 }
 
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
-// 마이그레이션 안전장치: 로그인 필드(username) 없는 옛 사용자 데이터면 초기화
-if (!state.users || !state.users.length || !state.users[0].username) {
+// 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
+if (!state.users || !state.users.length || !state.users[0].email) {
   console.warn('[SJ FLOW] 로그인 필드 없는 구버전 데이터 감지 → 초기화');
   state = defaultState();
   localStorage.setItem(KEY, JSON.stringify(state));
@@ -764,10 +735,72 @@ function resetData() {
     state = defaultState(); save(); render();
   }
 }
+// ══════════ Cowork 브리핑 자동 로더 ══════════
+// data/briefings.json (Cowork 아침 메일정리 루틴이 매일 덮어씀) → state.briefings 병합
+// 로그인 후 자동 호출. 파일 없거나 오프라인이면 조용히 무시(기존 데이터 유지).
+async function loadBriefings() {
+  try {
+    const res = await fetch('data/briefings.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || typeof data !== 'object') return;
+    state.briefings = state.briefings || {};
+    // '_'로 시작하는 메타 키(_readme/_schema/_users 등)는 무시
+    Object.keys(data).forEach(k => {
+      if (k.charAt(0) === '_') return;
+      state.briefings[k] = data[k];
+    });
+    save();
+    console.info('[SJ FLOW] Cowork 브리핑 로드 완료:', Object.keys(state.briefings).length, '명');
+    // 대시보드 보고 있으면 즉시 갱신
+    if (view.cur === 'dashboard' && state.currentUser) render();
+  } catch (e) {
+    console.warn('[SJ FLOW] Cowork 브리핑 로드 실패(무시):', e.message);
+  }
+}
+// Cowork 등 외부에서 수동 갱신 트리거 가능
+window.SJP = window.SJP || {};
+window.SJP.loadBriefings = loadBriefings;
+
+// ══════════ 유휴(idle) 자동 로그아웃 ══════════
+// 사용자 활동(마우스·키보드·클릭·스크롤)이 10분간 없으면 자동 로그아웃 → 로그인 화면으로.
+// 활동이 있을 때마다 타이머가 리셋되므로, 계속 사용 중이면 로그아웃되지 않는다.
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10분 무활동
+let _lastSave = 0;
+function touchSession() {
+  if (!state.currentUser) return;
+  state.lastActive = Date.now();
+  if (state.lastActive - _lastSave > 20000) { _lastSave = state.lastActive; save(); } // 저장은 20초마다만
+}
+function sessionExpired() { return !!state.currentUser && !!state.lastActive && (Date.now() - state.lastActive > SESSION_TIMEOUT_MS); }
+function checkSessionTimeout() {
+  if (state.currentUser && sessionExpired()) {
+    state.currentUser = null; state.lastActive = null; save();
+    stopFirestoreSync();
+    if (window.fb) fb.signOut(fb.auth).catch(()=>{});
+    showLogin();
+  }
+}
+setInterval(checkSessionTimeout, 30 * 1000);           // 30초마다 유휴 여부 확인
+['mousemove','mousedown','keydown','scroll','touchstart'].forEach(function(ev){
+  document.addEventListener(ev, touchSession, { passive: true });
+});
+
 function getU(id) { return state.users.find(u => u.id === id) || {}; }
 function getP(id) { return state.projects.find(p => p.id === id) || {}; }
 function getWBS(pid) { return state.wbs[pid] || []; }
 function getItems(pid) { return state.items[pid] || []; }
+/* Cowork 메일 자동분류 결과(개인별 briefing.schedule) → 캘린더 일정으로 자동 반영 */
+function getBriefingScheduleEvents() {
+  const b = state.briefings && state.briefings[state.currentUser];
+  if (!b || !Array.isArray(b.schedule)) return [];
+  return b.schedule.map((s, i) => ({
+    id: 'brf_' + state.currentUser + '_' + i,
+    title: s.proj ? `[${s.proj}] ${s.title}` : s.title,
+    date: s.date, time: s.time || '', color: s.color || 'blue', source: 'briefing',
+  }));
+}
+function allEvents() { return [...state.events, ...getBriefingScheduleEvents()]; }
 function fmt(n) { return n.toLocaleString(); }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1037,74 +1070,157 @@ function toggleSb() {
 }
 function toggleMb() { document.getElementById('sb').classList.toggle('mobile-open'); }
 
-// ══════════ 로그인 / 인증 시스템 ══════════
+// ══════════ 로그인 / 인증 시스템 (Firebase Auth · Google 로그인) ══════════
+const COMPANY_DOMAIN = '@sejong-21c.com';
+const GOOGLE_G_SVG = `<svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.81 2.73v2.27h2.92c1.71-1.57 2.69-3.88 2.69-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.96H.96A8.99 8.99 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.33C4.68 5.17 6.66 3.58 9 3.58z"/></svg>`;
 function showLogin() {
   const ov = document.getElementById('authOverlay');
-  // 빠른 전환: 대표 계정 몇 개
-  const quickUsers = ['u1','u3','u8'].map(id=>state.users.find(u=>u.id===id)).filter(Boolean);
   ov.innerHTML = `
     <div class="login-wrap">
       <div class="login-left">
         <div class="login-brand">
           <div class="login-logo">
+            <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="height:38px;width:auto;display:none;">
             <span class="login-logo-dot"></span>
-            <span>Sejong Technology WorkFlow</span>
+            <span class="login-logo-txt">Sejong Technology WorkFlow System</span>
           </div>
         </div>
         <div class="login-hero">
           <h1>세종기술 <span style="color:var(--primary);">통합 협업</span><br>플랫폼</h1>
           <p class="login-feat">WBS · 간트차트 · ITP · NCR · 견적 · OKR · 결재.<br>품질·설계·영업·생산까지, 하나의 워크플로우로 묶습니다.</p>
         </div>
-        <div class="login-foot">v0.6.2 · EPC Control v28.5 · ㈜세종기술 품질관리부</div>
+        <div class="login-foot">v1.0 · EPC Control v28.5 · ㈜세종기술 품질관리부</div>
       </div>
       <div class="login-right">
         <div class="login-form">
           <h2>로그인</h2>
-          <p class="login-sub">사내 이메일로 접속하세요.</p>
-          <label class="login-label">이메일</label>
-          <input class="login-input" id="loginId" placeholder="name@sejong-21c.com" autocomplete="username">
-          <label class="login-label">비밀번호</label>
-          <input class="login-input" id="loginPw" type="password" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-          <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0;"></div>
-          <button class="login-btn" onclick="doLogin()">로그인</button>
+          <p class="login-sub">${COMPANY_DOMAIN} 사내 Google 계정으로 로그인하세요.</p>
+          <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0 14px;text-align:center;"></div>
+          <button class="login-btn" onclick="doGoogleLogin()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
+            ${GOOGLE_G_SVG}<span>Google 계정으로 로그인</span>
+          </button>
           <div class="login-quick">
-            <div class="login-quick-title">빠른 전환 (테모) — 다른 사용자로 전입:</div>
-            <div class="login-quick-btns">
-              ${quickUsers.map(u=>`<button onclick="quickLogin('${u.username}')">${u.name} ${u.title}</button>`).join('')}
-            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,.75);text-align:center;line-height:1.6;">${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.<br>처음 로그인하면 자동으로 계정이 생성됩니다.</div>
           </div>
         </div>
       </div>
     </div>`;
   ov.style.display = 'block';
   document.querySelector('.app').style.display = 'none';
-  setTimeout(()=>{ const el=document.getElementById('loginId'); if(el) el.focus(); }, 100);
+  // 로그인 화면 좌상단에 회사 로고(사이드바 로고) 재사용
+  try {
+    const _logo = document.querySelector('.sb-logo img');
+    const _ll = document.getElementById('loginLogoImg');
+    if (_logo && _logo.getAttribute('src') && _ll) {
+      _ll.src = _logo.getAttribute('src');
+      _ll.style.display = '';
+      const dot = ov.querySelector('.login-logo-dot'); if (dot) dot.style.display = 'none';
+    }
+  } catch (e) {}
 }
 
-// 빠른 전환: 이메일 자동 채움 (데모)
-function quickLogin(username) {
-  const u = state.users.find(x => x.username === username);
-  if (!u) return;
-  document.getElementById('loginId').value = u.email || (username + '@sejong-21c.com');
-  document.getElementById('loginPw').value = u.password || '';
-  doLogin();
-}
-
-function doLogin() {
-  const id = document.getElementById('loginId').value.trim().toLowerCase();
-  const pw = document.getElementById('loginPw').value;
+async function doGoogleLogin() {
   const err = document.getElementById('loginErr');
-  // 이메일 또는 아이디(username) 둘 다 허용
-  const u = state.users.find(x => x.username.toLowerCase() === id || (x.email||'').toLowerCase() === id);
-  if (!u || u.password !== pw) {
-    err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
-    err.style.display = 'block';
-    return;
+  if (err) err.style.display = 'none';
+  if (!window.fb) { alert('로그인 시스템을 초기화하는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  const provider = new fb.GoogleAuthProvider();
+  provider.setCustomParameters({ hd: 'sejong-21c.com' });
+  try {
+    await fb.signInWithPopup(fb.auth, provider);
+    // 이후 화면 전환은 onAuthStateChanged(handleAuthChange)가 담당
+  } catch (e) {
+    if (e && e.code === 'auth/popup-closed-by-user') return;
+    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request')) {
+      // 팝업이 차단된 브라우저(엔터프라이즈 정책 등) — 리디렉션 방식으로 재시도
+      fb.signInWithRedirect(fb.auth, provider);
+      return;
+    }
+    console.error(e);
+    if (err) { err.textContent = '로그인에 실패했습니다: ' + (e.message || e); err.style.display = 'block'; }
   }
-  state.currentUser = u.id;
+}
+
+// 최초 로그인 시 소속(부서/직급) 입력받아 Firestore 프로필 생성
+function showProfileSetup(fu) {
+  const ov = document.getElementById('authOverlay');
+  const deptOpts = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'].map(d=>`<option value="${d}">${d}</option>`).join('');
+  const titleOpts = TITLES.map(t=>`<option value="${t}">${t}</option>`).join('');
+  ov.innerHTML = `
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:38px 36px;width:420px;max-width:90vw;">
+        <div style="text-align:center;margin-bottom:22px;">
+          <div style="font-size:20px;font-weight:700;color:#1e3a5f;">👋 첫 로그인입니다</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:8px;">${fu.email} · 소속 정보를 입력하고 시작하세요.</div>
+        </div>
+        <div class="fg"><label class="fl">이름</label><input class="fi" id="psName" value="${(fu.displayName||'').replace(/"/g,'&quot;')}"></div>
+        <div class="fg"><label class="fl">부서</label><select class="fs" id="psDept">${deptOpts}</select></div>
+        <div class="fg"><label class="fl">직급</label><select class="fs" id="psTitle">${titleOpts}</select></div>
+        <div id="psErr" style="display:none;color:#dc2626;font-size:12px;margin-bottom:10px;"></div>
+        <button class="btn btn-primary" style="width:100%;padding:11px;font-size:14px;" onclick="doProfileSetup('${fu.uid}')">시작하기</button>
+      </div>
+    </div>`;
+  ov.style.display = 'block';
+  document.querySelector('.app').style.display = 'none';
+}
+
+async function doProfileSetup(uid) {
+  const err = document.getElementById('psErr');
+  const name = document.getElementById('psName').value.trim();
+  const dept = document.getElementById('psDept').value;
+  const title = document.getElementById('psTitle').value;
+  if (!name) { err.textContent = '이름을 입력해주세요.'; err.style.display = 'block'; return; }
+  try {
+    const email = fb.auth.currentUser.email;
+    await fb.setDoc(fb.doc(fb.db, 'users', uid), {
+      name, email, dept, title, grade: gradeByTitle(title), disabled: false, createdAt: Date.now(),
+    });
+    await hydrateUsersAndEnter(uid);
+  } catch (e) {
+    console.error(e);
+    err.textContent = '저장 중 오류가 발생했습니다: ' + (e.message || e);
+    err.style.display = 'block';
+  }
+}
+
+// Firestore users 컬렉션 전체를 state.users로 채우고 로그인 완료 처리
+async function hydrateUsersAndEnter(uid) {
+  const snaps = await fb.getDocs(fb.collection(fb.db, 'users'));
+  const users = [];
+  snaps.forEach(s => users.push({ id: s.id, ...s.data() }));
+  state.users = users;
+  state.currentUser = uid;
+  state.lastActive = Date.now();
   save();
-  if (u.mustChangePw) { showChangePw(true); return; }
+  startFirestoreSync();
   finishLogin();
+}
+
+// 프로젝트/업무/WBS를 Firestore와 실시간 동기화 (여러 사람이 같은 데이터를 봄)
+let _fsUnsubs = [];
+function stopFirestoreSync() {
+  _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
+  _fsUnsubs = [];
+}
+function startFirestoreSync() {
+  stopFirestoreSync();
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
+    state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error('[Firestore] projects 동기화 오류:', err)));
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
+    state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error('[Firestore] tasks 동기화 오류:', err)));
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
+    snap.docChanges().forEach(ch => {
+      const pid = ch.doc.id;
+      if (ch.type === 'removed') { delete state.wbs[pid]; delete state.items[pid]; return; }
+      const data = ch.doc.data();
+      state.wbs[pid] = data.rows || [];
+      state.items[pid] = data.items || [];
+    });
+    render();
+  }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
 }
 
 function finishLogin() {
@@ -1113,44 +1229,48 @@ function finishLogin() {
   refreshUserChip();
   renderNav();
   render();
+  loadBriefings();  // Cowork 아침 브리핑 자동 로드
+  touchSession();   // 세션 타이머 시작
 }
 
-function showChangePw(forced) {
-  const ov = document.getElementById('authOverlay');
-  ov.innerHTML = `
-    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;">
-      <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:38px 36px;width:400px;max-width:90vw;">
-        <div style="text-align:center;margin-bottom:22px;">
-          <div style="font-size:20px;font-weight:700;color:#1e3a5f;">🔐 비밀번호 변경</div>
-          <div style="font-size:12px;color:var(--text-light);margin-top:8px;">${forced?'첫 로그인입니다. 새 비밀번호를 설정하세요.':'새 비밀번호를 입력하세요.'}</div>
-        </div>
-        <div class="fg"><label class="fl">새 비밀번호 (8자 이상)</label><input class="fi" id="newPw1" type="password" placeholder="새 비밀번호"></div>
-        <div class="fg"><label class="fl">새 비밀번호 확인</label><input class="fi" id="newPw2" type="password" placeholder="다시 입력" onkeydown="if(event.key==='Enter')doChangePw()"></div>
-        <div id="pwErr" style="display:none;color:#dc2626;font-size:12px;margin-bottom:10px;"></div>
-        <button class="btn btn-primary" style="width:100%;padding:11px;font-size:14px;" onclick="doChangePw()">변경 후 시작</button>
-      </div>
-    </div>`;
-  ov.style.display = 'block';
-  document.querySelector('.app').style.display = 'none';
-}
-
-function doChangePw() {
-  const p1 = document.getElementById('newPw1').value;
-  const p2 = document.getElementById('newPw2').value;
-  const err = document.getElementById('pwErr');
-  if (p1.length < 8) { err.textContent='비밀번호는 8자 이상이어야 합니다.'; err.style.display='block'; return; }
-  if (p1 !== p2) { err.textContent='비밀번호가 일치하지 않습니다.'; err.style.display='block'; return; }
-  const u = getU(state.currentUser);
-  u.password = p1;
-  u.mustChangePw = false;
-  save();
-  finishLogin();
+// Firebase 인증 상태가 바뀔 때마다(최초 로드·로그인·로그아웃) 호출되는 단일 진입점
+async function handleAuthChange(fu) {
+  if (!fu) { showLogin(); return; }
+  if (!fu.email || !fu.email.toLowerCase().endsWith(COMPANY_DOMAIN)) {
+    await fb.signOut(fb.auth);
+    showLogin();
+    setTimeout(() => {
+      const err = document.getElementById('loginErr');
+      if (err) { err.textContent = `${COMPANY_DOMAIN} 사내 계정으로만 로그인할 수 있습니다.`; err.style.display = 'block'; }
+    }, 50);
+    return;
+  }
+  if (sessionExpired()) {
+    state.currentUser = null; state.lastActive = null; save();
+    await fb.signOut(fb.auth); // 다시 onAuthStateChanged(null) → showLogin()
+    return;
+  }
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, 'users', fu.uid));
+    if (!snap.exists()) { showProfileSetup(fu); return; }
+    if (snap.data().disabled) {
+      await fb.signOut(fb.auth);
+      setTimeout(() => alert('비활성화된 계정입니다. 관리자에게 문의하세요.'), 50);
+      return;
+    }
+    await hydrateUsersAndEnter(fu.uid);
+  } catch (e) {
+    console.error(e);
+    showLogin();
+  }
 }
 
 function doLogout() {
   if (!confirm('로그아웃 하시겠습니까?')) return;
   state.currentUser = null;
   save();
+  stopFirestoreSync();
+  if (window.fb) fb.signOut(fb.auth).catch(()=>{});
   showLogin();
 }
 
@@ -1179,7 +1299,6 @@ function toggleUserMenu(e) {
       <div style="margin-top:6px;"><span class="b-pill ${g.color}">${g.label}</span> <span style="font-size:11px;color:var(--text-light);">${u.dept}</span></div>
     </div>
     ${u.grade==='super' ? `<div class="um-item" onclick="closeUserMenu();goOrg()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;">👥 조직 / 권한 관리</div>` : ''}
-    <div class="um-item" onclick="closeUserMenu();showChangePw(false)" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);">🔑 비밀번호 변경</div>
     <div class="um-item" onclick="closeUserMenu();doLogout()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);color:#dc2626;">🚪 로그아웃</div>`;
   menu.style.display = 'block';
   // 바깥 클릭 닫기
@@ -1957,7 +2076,7 @@ function dashboard() {
     kpiCards = `
       <div class="kpi"><div class="kpi-label">📋 내 업무</div><div class="kpi-value">${my.length}</div><div class="kpi-trend">미완료</div></div>
       <div class="kpi"><div class="kpi-label">🏗️ ${isExec?'전사':isManager?'부서':'참여'} 프로젝트</div><div class="kpi-value">${active.length}</div><div class="kpi-trend">진행 중</div></div>
-      <div class="kpi"><div class="kpi-label">📅 오늘 일정</div><div class="kpi-value">${state.events.filter(e=>e.date===today).length}</div><div class="kpi-trend">캘린더</div></div>
+      <div class="kpi"><div class="kpi-label">📅 오늘 일정</div><div class="kpi-value">${allEvents().filter(e=>e.date===today).length}</div><div class="kpi-trend">캘린더</div></div>
       <div class="kpi"><div class="kpi-label">📝 결재 대기</div><div class="kpi-value">${pendA.length}</div><div class="kpi-trend">확인 요망</div></div>`;
   }
 
@@ -2042,7 +2161,10 @@ function dashboard() {
     ${keyActionsCard}
     <div class="dash-grid">
       ${hasBriefing ? urgentCard : myTasksCard}
-      ${mandayCard || `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;">📅 다가오는 일정</h3>${state.events.slice(0,6).map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">${e.title}</div><div style="font-size:11px;color:var(--text-light);margin-top:2px;">${e.date}${e.time?' '+e.time:''}</div></div>`).join('')}</div>`}
+      ${mandayCard || (() => {
+        const upcoming = allEvents().filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date)).slice(0,6);
+        return `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;">📅 다가오는 일정</h3>${upcoming.length ? upcoming.map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">${e.title}</div><div style="font-size:11px;color:var(--text-light);margin-top:2px;">${e.date}${e.time?' '+e.time:''}</div></div>`).join('') : `<p style="font-size:12px;color:var(--text-light);">다가오는 일정이 없습니다</p>`}</div>`;
+      })()}
     </div>
     ${hasBriefing ? `<div style="margin-top:14px;">${myTasksCard}</div>` : ''}
     ${reportsCard}
@@ -2115,7 +2237,7 @@ function calendar() {
   for (let i = sw - 1; i >= 0; i--) h += `<div class="cal-day other"><div class="cal-date">${prevDim - i}</div></div>`;
   for (let d = 1; d <= dim; d++) {
     const ds = `${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const ev = state.events.filter(e => e.date === ds);
+    const ev = allEvents().filter(e => e.date === ds);
     const isT = ds === today;
     h += `<div class="cal-day ${isT?'today':''}" onclick="showDate('${ds}')">
       <div class="cal-date">${d}</div>
@@ -2137,7 +2259,7 @@ function calNav(d) {
 }
 function calToday() { const t = new Date(); calY = t.getFullYear(); calM = t.getMonth(); render(); }
 function showDate(ds) {
-  const ev = state.events.filter(e => e.date === ds);
+  const ev = allEvents().filter(e => e.date === ds);
   if (!ev.length) return openEvent(ds);
   openModal(`${ds} 일정`, `
     ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;"><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}</div></div>`).join('')}
@@ -2226,7 +2348,8 @@ function projects() {
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${hideToggleBtn}
         <button class="btn" onclick="openProjectFilter()">🔍 필터</button>
-        ${canEditProject() ? `<button class="btn" onclick="openWorkOrderModal()" title="워크오더 PDF 기반 프로젝트 + WBS 대단락 자동 등록">📋 워크오더 자동 등록</button>
+        ${canEditProject() ? `<button class="btn" style="opacity:.55" onclick="openCoworkImportModal()" title="Cowork이 워크오더 PDF를 파싱해 만든 JSON을 붙여넣어 자동 등록">🤖</button>
+        <button class="btn" onclick="openWorkOrderModal()" title="워크오더 PDF 기반 프로젝트 + WBS 대단락 자동 등록">📋 워크오더 자동 등록</button>
         <button class="btn btn-primary" onclick="openNewProject()">+ 신규</button>` : ''}
       </div>
     </div>
@@ -2236,6 +2359,8 @@ function projects() {
         return `
         <div class="proj ${isHidden?'proj-hidden':''}" onclick="openProject('${p.id}')">
           <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
+          ${canEditProject() ? `<button class="proj-edit-btn" onclick="event.stopPropagation();openEditProject('${p.id}');" title="프로젝트 수정">✏️</button>
+          <button class="proj-del-btn" onclick="event.stopPropagation();deleteProject('${p.id}');" title="프로젝트 삭제">🗑</button>` : ''}
           <div class="proj-open-hint">→ 열기</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
@@ -2313,12 +2438,57 @@ function toggleShowHidden() {
   view.showHiddenProj = !view.showHiddenProj;
   render();
 }
-function toggleHideProj(pid) {
+async function toggleHideProj(pid) {
   const p = state.projects.find(x => x.id === pid);
   if (!p) return;
-  p.hidden = !p.hidden;
-  save();
-  render();
+  try {
+    await fb.updateDoc(fb.doc(fb.db, 'projects', pid), { hidden: !p.hidden });
+  } catch (e) { alert('처리 중 오류가 발생했습니다: ' + (e.message || e)); }
+}
+/* ═════════════ ✏ 프로젝트 수정 / 🗑 삭제 (구 wbs.html 사이드바 기능 이전) ═════════════ */
+function openEditProject(pid) {
+  const p = state.projects.find(x => x.id === pid);
+  if (!p) return;
+  openModal('✏ 프로젝트 수정', `
+    <div class="fg"><label class="fl">프로젝트 코드</label><input class="fi" id="epCode" value="${p.code||''}"></div>
+    <div class="fg"><label class="fl">프로젝트명</label><input class="fi" id="epName" value="${p.name||''}"></div>
+    <div class="fg"><label class="fl">고객사</label><input class="fi" id="epClient" value="${p.client||''}"></div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">시작일</label><input class="fi" type="date" id="epStart" value="${p.start||''}"></div>
+      <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="epEnd" value="${p.end||''}"></div>
+    </div>
+    <div class="fg"><label class="fl">PM</label><select class="fs" id="epPm">${state.users.map(u=>`<option value="${u.id}" ${u.id===p.pm?'selected':''}>${u.name} ${u.title}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">상태</label><select class="fs" id="epStatus"><option value="active" ${p.status==='active'?'selected':''}>진행중</option><option value="pre-close" ${p.status!=='active'?'selected':''}>마감예정</option></select></div>
+  `, async () => {
+    const code = document.getElementById('epCode').value.trim();
+    const name = document.getElementById('epName').value.trim();
+    if (!code || !name) { alert('코드와 프로젝트명은 필수입니다.'); return; }
+    const patch = {
+      code, name,
+      client: document.getElementById('epClient').value.trim() || '-',
+      start: document.getElementById('epStart').value || p.start,
+      end: document.getElementById('epEnd').value || p.end,
+      pm: document.getElementById('epPm').value,
+      status: document.getElementById('epStatus').value,
+    };
+    try {
+      await fb.updateDoc(fb.doc(fb.db, 'projects', pid), patch);
+      closeModal();
+    } catch (e) { alert('저장 중 오류가 발생했습니다: ' + (e.message || e)); }
+  });
+}
+async function deleteProject(pid) {
+  const p = state.projects.find(x => x.id === pid);
+  if (!p) return;
+  const wbsCnt = (state.wbs[pid]||[]).length;
+  const itemCnt = (state.items[pid]||[]).length;
+  const msg = `프로젝트 "${p.code} ${p.name}"를 영구 삭제하시겠습니까?\n\n함께 삭제됩니다:\n  - WBS ${wbsCnt}개\n  - Item ${itemCnt}개\n\n※ 복구할 수 없습니다.`;
+  if (!confirm(msg)) return;
+  try {
+    await fb.deleteDoc(fb.doc(fb.db, 'projects', pid));
+    await fb.deleteDoc(fb.doc(fb.db, 'wbsData', pid));
+    if (view.selectedProj && view.selectedProj.id === pid) view.selectedProj = null;
+  } catch (e) { alert('삭제 중 오류가 발생했습니다: ' + (e.message || e)); }
 }
 // ══════════ 모달 시스템 (openModal / closeModal) ══════════
 function openModal(title, bodyHtml, onConfirm) {
@@ -2406,12 +2576,12 @@ function openAssignPM(pid) {
         ${state.users.map(u=>`<option value="${u.id}"${u.id===p.pm?' selected':''}>${u.name} ${u.title} (${u.dept})</option>`).join('')}
       </select>
     </div>
-  `, () => {
+  `, async () => {
     const newPm = document.getElementById('pmSelect').value;
-    p.pm = newPm;
-    save();
-    closeModal();
-    render();
+    try {
+      await fb.updateDoc(fb.doc(fb.db, 'projects', pid), { pm: newPm });
+      closeModal();
+    } catch (e) { alert('저장 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
 
@@ -2425,22 +2595,23 @@ function openNewProject() {
       <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="npEnd"></div>
     </div>
     <div class="fg"><label class="fl">PM</label><select class="fs" id="npPm">${state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('')}</select></div>
-  `, () => {
+  `, async () => {
     const code = document.getElementById('npCode').value.trim();
     const name = document.getElementById('npName').value.trim();
     if (!code || !name) { alert('코드와 프로젝트명은 필수입니다.'); return; }
     const newId = 'p' + Date.now();
-    state.projects.push({
-      id: newId, code, name,
-      client: document.getElementById('npClient').value.trim() || '-',
-      pm: document.getElementById('npPm').value,
-      start: document.getElementById('npStart').value || '2026-01-01',
-      end: document.getElementById('npEnd').value || '2026-12-31',
-      progress: 0, status: 'active', hidden: false,
-    });
-    state.wbs[newId] = [];
-    state.items[newId] = [];
-    save(); closeModal(); render();
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'projects', newId), {
+        code, name,
+        client: document.getElementById('npClient').value.trim() || '-',
+        pm: document.getElementById('npPm').value,
+        start: document.getElementById('npStart').value || '2026-01-01',
+        end: document.getElementById('npEnd').value || '2026-12-31',
+        progress: 0, status: 'active', hidden: false,
+      });
+      await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows: [], items: [], updatedAt: Date.now() });
+      closeModal();
+    } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
 
@@ -2472,7 +2643,7 @@ function openWorkOrderModal() {
         ].map((s,i)=>`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:3px 0;"><input type="checkbox" class="woScope" value="${s}" ${i<6?'checked':''}> ${s}</label>`).join('')}
       </div>
     </div>
-  `, () => {
+  `, async () => {
     const code = document.getElementById('woCode').value.trim();
     const name = document.getElementById('woName').value.trim();
     const client = document.getElementById('woClient').value.trim();
@@ -2482,21 +2653,13 @@ function openWorkOrderModal() {
     const po = document.getElementById('woPO').value.trim();
     const scopes = Array.from(document.querySelectorAll('.woScope:checked')).map(c => c.value);
     if (scopes.length === 0) { alert('Work Scope 최소 1개를 선택하세요.'); return; }
-    
-    // 프로젝트 생성
-    const newId = 'p' + Date.now();
-    state.projects.push({
-      id: newId, code, name, client, po,
-      pm: state.currentUser, start, end,
-      progress: 0, status: 'active', hidden: false,
-      createdBy: '워크오더 자동등록',
-    });
-    
+
     // Scope를 WBS 대단락으로 자동 등록 (시작~끝 균등 분할)
     const sd = new Date(start), ed = new Date(end);
     const total = ed - sd;
     const seg = total / scopes.length;
-    state.wbs[newId] = scopes.map((s, i) => {
+    const newId = 'p' + Date.now();
+    const rows = scopes.map((s, i) => {
       const wsd = new Date(sd.getTime() + seg * i);
       const wed = new Date(sd.getTime() + seg * (i + 1));
       return {
@@ -2510,12 +2673,110 @@ function openWorkOrderModal() {
         vendor: '㈜세종기술', memo: '',
       };
     });
-    state.items[newId] = [];
-    
-    save(); closeModal();
-    alert(`✅ 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
-    render();
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'projects', newId), {
+        code, name, client, po,
+        pm: state.currentUser, start, end,
+        progress: 0, status: 'active', hidden: false,
+        createdBy: '워크오더 자동등록',
+      });
+      await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows, items: [], updatedAt: Date.now() });
+      closeModal();
+      alert(`✅ 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
+    } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
+}
+
+/* ═════════════ 🤖 Cowork 자동등록 가져오기 (구 wbs.html JSON 붙여넣기 기능 이전) ═════════════
+   Cowork이 매일 아침 워크오더 PDF를 파싱해 만든 JSON을 붙여넣으면 검증 후 즉시 프로젝트+WBS 생성 */
+const CI_SAMPLE = {
+  no: "SJ2026-036", name: "(VDS)MDI 분쇄기 교체공사", client: "㈜동성케미컬",
+  s: "2026-05-21", e: "2026-09-30", pm: "",
+  scopes: ["제작도 작성", "설비 제작", "설치공사", "시운전"],
+  items: [{ no: "V-101", name: "MDI 분쇄기", qty: "1", unit: "LOT" }],
+  remark: "포장 및 수출은 KDS에서 진행"
+};
+let _ciParsed = null;
+function ciValidate(data) {
+  const errors = [];
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return ['JSON은 객체여야 합니다 (예: {...})'];
+  ['no','name','client','s','e'].forEach(k => {
+    if (!data[k] || typeof data[k] !== 'string') errors.push(`필수 필드 누락 또는 잘못된 형식: ${k}`);
+  });
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (data.s && !dateRe.test(data.s)) errors.push(`시작일 형식 오류: ${data.s} (YYYY-MM-DD)`);
+  if (data.e && !dateRe.test(data.e)) errors.push(`완료일 형식 오류: ${data.e} (YYYY-MM-DD)`);
+  if (data.scopes && !Array.isArray(data.scopes)) errors.push('scopes는 배열이어야 합니다');
+  if (data.items && !Array.isArray(data.items)) errors.push('items는 배열이어야 합니다');
+  return errors;
+}
+function ciParseInput(text) {
+  const errBox = document.getElementById('ciErr');
+  const prevBox = document.getElementById('ciPreview');
+  const okBtn = document.getElementById('mOk');
+  if (!text || !text.trim()) { _ciParsed = null; errBox.innerHTML = ''; prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e) { _ciParsed = null; errBox.innerHTML = 'JSON 형식 오류: ' + e.message; prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
+  const errors = ciValidate(data);
+  if (errors.length) { _ciParsed = null; errBox.innerHTML = errors.join('<br>'); prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
+  _ciParsed = data;
+  errBox.innerHTML = '';
+  const scopesStr = Array.isArray(data.scopes) ? data.scopes.join(' / ') : '(없음)';
+  const itemsStr = Array.isArray(data.items) && data.items.length ? data.items.map(it => `${it.no?'['+it.no+'] ':''}${it.name}`).join(', ') : '(없음)';
+  prevBox.innerHTML = `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px;font-size:11px;line-height:1.6;">
+    ✅ 검증 통과 — 아래 내용으로 프로젝트가 생성됩니다<br>
+    <b>${data.no}</b> ${data.name} · ${data.client}<br>
+    기간: ${data.s} ~ ${data.e} · WBS 대단락: ${scopesStr}<br>
+    Items: ${itemsStr}
+  </div>`;
+  if (okBtn) okBtn.disabled = false;
+}
+function openCoworkImportModal() {
+  _ciParsed = null;
+  openModal('🤖 Cowork 자동등록 가져오기', `
+    <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:10px 12px;border-radius:4px;font-size:11px;color:#166534;margin-bottom:12px;line-height:1.5;">
+      💡 Cowork이 워크오더 PDF를 파싱해 생성한 JSON을 붙여넣으면, 검증 후 프로젝트와 WBS 대단락이 자동 등록됩니다.
+    </div>
+    <textarea class="fi" id="ciJson" rows="8" style="font-family:monospace;font-size:11px;" placeholder='{"no":"SJ2026-099","name":"...","client":"...","s":"2026-01-01","e":"2026-06-30","scopes":["설계","제작"]}'></textarea>
+    <div style="margin:8px 0;"><button class="btn btn-sm" onclick="document.getElementById('ciJson').value=JSON.stringify(CI_SAMPLE,null,2);ciParseInput(document.getElementById('ciJson').value);">📄 샘플 JSON 채우기</button></div>
+    <div id="ciErr" style="color:#dc2626;font-size:11px;margin-bottom:6px;"></div>
+    <div id="ciPreview"></div>
+  `, async () => {
+    if (!_ciParsed) { alert('먼저 유효한 JSON을 입력해주세요.'); return; }
+    const data = _ciParsed;
+    const newId = 'p' + Date.now();
+    const pmUser = state.users.find(u => u.id === data.pm || u.name === data.pm);
+    const scopes = Array.isArray(data.scopes) && data.scopes.length ? data.scopes : ['공정'];
+    const sd = new Date(data.s), ed = new Date(data.e);
+    const seg = (ed - sd) / scopes.length;
+    const rows = scopes.map((s, i) => {
+      const wsd = new Date(sd.getTime() + seg * i);
+      const wed = new Date(sd.getTime() + seg * (i + 1));
+      return {
+        id: `w_${newId}_${i+1}`, code: String(i+1), name: s, mgr: '',
+        start: wsd.toISOString().slice(0,10), end: wed.toISOString().slice(0,10),
+        status: 'todo', pct: 0, lv: 0, vendor: '㈜세종기술', memo: '',
+      };
+    });
+    const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
+      id: `i_${newId}_${i}`, tag: it.no || ('ITEM-'+(i+1)), name: it.name || '',
+      type: '', spec: '', material: '', vendor: '㈜세종기술', qty: it.qty || '', unit: it.unit || '',
+    })) : [];
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'projects', newId), {
+        code: data.no, name: data.name, client: data.client,
+        pm: pmUser ? pmUser.id : state.currentUser, start: data.s, end: data.e,
+        progress: 0, status: 'active', hidden: false,
+        remark: data.remark || '', createdBy: 'Cowork 자동등록',
+      });
+      await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows, items, updatedAt: Date.now() });
+      closeModal();
+      alert(`✅ Cowork 자동등록 완료\n• 프로젝트: ${data.no} ${data.name}\n• WBS 대단락: ${scopes.length}개 생성`);
+    } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
+  });
+  document.getElementById('mOk').disabled = true;
+  document.getElementById('ciJson').oninput = (e) => ciParseInput(e.target.value);
 }
 
 function tasks() {
@@ -2551,11 +2812,14 @@ function openTask() {
     <div class="fg"><label class="fl">담당자</label><select class="fs" id="tkA">${state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="tkD"></div>
     <div class="fg"><label class="fl">우선순위</label><select class="fs" id="tkPr"><option value="high">높음</option><option value="mid" selected>보통</option><option value="low">낮음</option></select></div>
-  `, () => {
+  `, async () => {
     const t = document.getElementById('tkT').value.trim();
     if (!t) return alert('업무명을 입력하세요');
-    state.tasks.push({ id: 't' + Date.now(), title: t, proj: document.getElementById('tkP').value, assignee: document.getElementById('tkA').value, due: document.getElementById('tkD').value, priority: document.getElementById('tkPr').value, status: 'todo' });
-    save(); closeModal(); render();
+    const newId = 't' + Date.now();
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'tasks', newId), { title: t, proj: document.getElementById('tkP').value, assignee: document.getElementById('tkA').value, due: document.getElementById('tkD').value, priority: document.getElementById('tkPr').value, status: 'todo' });
+      closeModal();
+    } catch (e) { alert('저장 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
 
@@ -3240,37 +3504,33 @@ function okr() {
 function org() {
   const me = getU(state.currentUser);
   const isSuper = me && me.grade === 'super';
-  const deptList = ['품질관리부','설계부','영업부','생산부','총무부','재무부'];
-  const deptIco = {'품질관리부':'📦','설계부':'📐','영업부':'💼','생산부':'🏭','총무부':'📋','재무부':'💰'};
+  const deptList = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'];
+  const deptIco = {'영업부':'💼','설계부':'📐','구매부':'🛒','생산부':'🏭','품질관리부':'📦','현장시공':'🏗️','안전관리부':'🦺','총무부':'👔','재무부':'💲'};
   const depts = deptList.map(name => ({ name, ico: deptIco[name]||'🏢', users: state.users.filter(u=>u.dept===name) }));
 
   // 사용자 한 줄 (컴팩트 테이블 row)
   const userRow = (u) => {
     const g = GRADES[u.grade] || GRADES.member;
-    const isMe = u.id === state.currentUser;
     const extras = (u.extraPerms||[]).map(p => EXTRA_PERMS[p] ? `<span class="perm-chip">+${EXTRA_PERMS[p].label}</span>` : '').join('');
     let btns = '';
     if (isSuper) {
       btns += `<button class="org-ico-btn" onclick="openExtraPerms('${u.id}')" title="개별 권한 부여">⚙️</button>`;
       if (u.grade !== 'super') {
-        btns += `<button class="org-ico-btn" onclick="resetUserPw('${u.id}')" title="비밀번호 초기화">🔑</button>`;
-        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="deleteUser('${u.id}')" title="계정 삭제">🗑</button>`;
+        btns += `<button class="org-ico-btn" onclick="openEditUserProfile('${u.id}')" title="부서/직급 수정">✏️</button>`;
+        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화'}">${u.disabled?'🔓':'🔒'}</button>`;
       }
-    } else if (isMe) {
-      btns += `<button class="org-ico-btn" onclick="showChangePw(false)" title="내 비밀번호 변경">🔑</button>`;
     }
-    return `<tr>
-      <td style="white-space:nowrap;"><div style="display:flex;align-items:center;gap:7px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0;">${u.name.charAt(0)}</div><div><span style="font-weight:600;font-size:12px;">${u.name}</span> <span style="font-size:11px;color:var(--text-light);">${u.title}</span></div></div></td>
-      <td style="font-size:11px;color:var(--text-lighter);">${u.username}</td>
-      <td><span class="b-pill ${g.color}">${g.label}</span> ${u.mustChangePw?'<span style="font-size:9px;color:var(--warning);">●비번미변경</span>':''}</td>
+    return `<tr style="${u.disabled?'opacity:.5;':''}">
+      <td style="white-space:nowrap;"><div style="display:flex;align-items:center;gap:7px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0;">${(u.name||'?').charAt(0)}</div><div><span style="font-weight:600;font-size:12px;">${u.name}</span> <span style="font-size:11px;color:var(--text-light);">${u.title}</span>${u.disabled?' <span style="font-size:9px;color:var(--danger);">●비활성</span>':''}</div></div></td>
+      <td style="font-size:11px;color:var(--text-lighter);">${u.email||''}</td>
+      <td><span class="b-pill ${g.color}">${g.label}</span></td>
       <td>${extras||'<span style="color:var(--text-lighter);font-size:11px;">—</span>'}</td>
       <td style="text-align:right;white-space:nowrap;">${btns}</td>
     </tr>`;
   };
 
   return `<div class="mod-head">
-    <div><div class="mod-title">👥 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (계정 발급·권한 부여 가능)':'조회 전용'}</div></div>
-    ${isSuper ? `<button class="btn btn-primary" onclick="openAddUser()">+ 사용자 추가</button>` : ''}
+    <div><div class="mod-title">👥 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (부서/직급 수정·권한 부여·비활성화 가능)':'조회 전용'} · 계정은 Google 로그인으로 본인이 직접 생성</div></div>
   </div>
 
   <details style="margin-bottom:14px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);">
@@ -3288,7 +3548,7 @@ function org() {
 
   <div class="card" style="padding:0;overflow:hidden;">
     <table class="org-table">
-      <thead><tr><th>이름/직급</th><th>아이디</th><th>권한 등급</th><th>추가 권한</th><th style="text-align:right;">관리</th></tr></thead>
+      <thead><tr><th>이름/직급</th><th>이메일</th><th>권한 등급</th><th>추가 권한</th><th style="text-align:right;">관리</th></tr></thead>
       ${depts.filter(d=>d.users.length>0).map(d=>`
         <tbody>
           <tr class="org-dept-row"><td colspan="5">${d.ico} ${d.name} <span style="color:var(--text-lighter);font-weight:400;">(${d.users.length}명)</span></td></tr>
@@ -3323,99 +3583,48 @@ function openExtraPerms(uid) {
   });
 }
 
-// 계정 발급 (슈퍼관리자 전용)
-function openAddUser() {
+// 부서/직급 수정 (슈퍼관리자 전용) — 계정 자체는 Google 로그인으로 본인이 만들므로, 관리자는 소속 정보만 조정
+function openEditUserProfile(uid) {
   const me = getU(state.currentUser);
-  if (!me || me.grade !== 'super') { alert('계정 발급 권한이 없습니다.'); return; }
-  const deptOpts = ['품질관리부','설계부','영업부','생산부','총무부','재무부'].map(d=>`<option value="${d}">${d}</option>`).join('');
-  const titleOpts = TITLES.map(t=>`<option value="${t}">${t}</option>`).join('');
-  openModal('+ 사용자 추가 (계정 발급)', `
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">이름 *</label><input class="fi" id="auName" placeholder="예: 홍길동"></div>
-      <div style="flex:1;"><label class="fl">아이디 *</label><input class="fi" id="auUsername" placeholder="예: gdhong"></div>
-    </div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">부서 *</label><select class="fs" id="auDept">${deptOpts}</select></div>
-      <div style="flex:1;"><label class="fl">직급 *</label><select class="fs" id="auTitle" onchange="previewGrade()">${titleOpts}</select></div>
-    </div>
-    <div class="fg"><label class="fl">이메일</label><input class="fi" id="auEmail" placeholder="예: gdhong@sejong-21c.com"></div>
-    <div class="fg" style="padding:10px 12px;background:var(--bg);border-radius:8px;font-size:12px;">
-      <div>부여될 권한: <span id="gradePreview" style="font-weight:700;color:var(--primary);">일반</span></div>
-      <div style="font-size:11px;color:var(--text-light);margin-top:4px;">임시 비밀번호가 자동 생성되며, 첫 로그인 시 변경하게 됩니다.</div>
-    </div>
-  `, () => {
-    const name = document.getElementById('auName').value.trim();
-    const username = document.getElementById('auUsername').value.trim();
-    const dept = document.getElementById('auDept').value;
-    const title = document.getElementById('auTitle').value;
-    const email = document.getElementById('auEmail').value.trim();
-    if (!name || !username) { alert('이름과 아이디는 필수입니다.'); return; }
-    if (state.users.find(u=>u.username===username)) { alert('이미 사용 중인 아이디입니다.'); return; }
-    const tempPw = genTempPassword();
+  if (!me || me.grade !== 'super') return;
+  const u = getU(uid);
+  if (!u || u.grade === 'super') return;
+  const deptOpts = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'].map(d=>`<option value="${d}" ${d===u.dept?'selected':''}>${d}</option>`).join('');
+  const titleOpts = TITLES.map(t=>`<option value="${t}" ${t===u.title?'selected':''}>${t}</option>`).join('');
+  openModal(`✏️ ${u.name} 정보 수정`, `
+    <div class="fg"><label class="fl">부서</label><select class="fs" id="euDept">${deptOpts}</select></div>
+    <div class="fg"><label class="fl">직급</label><select class="fs" id="euTitle">${titleOpts}</select></div>
+    <div class="fg" style="font-size:11px;color:var(--text-light);">권한 등급은 직급에 따라 자동 결정됩니다 (이사 이상=임원, 부장=부서장, 그 외=일반).</div>
+  `, async () => {
+    const dept = document.getElementById('euDept').value;
+    const title = document.getElementById('euTitle').value;
     const grade = gradeByTitle(title);
-    state.users.push({
-      id: 'u'+Date.now(), name, title, dept, grade, username,
-      password: tempPw, mustChangePw: true, email: email || `${username}@sejong-21c.com`
-    });
-    save();
-    closeModal();
-    // 발급 결과 (임시 비번 표시)
-    setTimeout(()=>{
-      openModal('✅ 계정 발급 완료', `
-        <div style="text-align:center;padding:8px 0;">
-          <div style="font-size:13px;margin-bottom:14px;"><b>${name} ${title}</b> (${dept}) 계정이 생성되었습니다.</div>
-          <div style="background:var(--bg);border-radius:8px;padding:16px;margin-bottom:12px;">
-            <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">아이디</div>
-            <div style="font-size:16px;font-weight:700;font-family:monospace;margin-bottom:12px;">${username}</div>
-            <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">임시 비밀번호</div>
-            <div style="font-size:20px;font-weight:700;font-family:monospace;color:var(--primary);letter-spacing:1px;">${tempPw}</div>
-          </div>
-          <div style="font-size:11px;color:var(--warning);line-height:1.6;">⚠️ 이 비밀번호를 본인에게 전달하세요.<br>창을 닫으면 다시 볼 수 없습니다. (첫 로그인 시 변경됨)</div>
-        </div>
-      `);
+    try {
+      await fb.updateDoc(fb.doc(fb.db, 'users', uid), { dept, title, grade });
+      u.dept = dept; u.title = title; u.grade = grade;
+      closeModal();
       render();
-    }, 100);
+    } catch (e) {
+      alert('저장 중 오류가 발생했습니다: ' + (e.message || e));
+    }
   });
-  setTimeout(previewGrade, 50);
 }
 
-function previewGrade() {
-  const t = document.getElementById('auTitle');
-  const pv = document.getElementById('gradePreview');
-  if (t && pv) { const g = gradeByTitle(t.value); pv.textContent = GRADES[g].label; }
-}
-
-function resetUserPw(uid) {
+// 계정 비활성화/활성화 (슈퍼관리자 전용) — Firebase Auth 계정 자체는 클라이언트에서 삭제 불가하므로 접근만 차단
+async function toggleUserDisabled(uid) {
   const me = getU(state.currentUser);
   if (!me || me.grade !== 'super') return;
   const u = getU(uid);
-  if (!u) return;
-  if (!confirm(`${u.name} ${u.title}의 비밀번호를 초기화하시겠습니까?`)) return;
-  const tempPw = genTempPassword();
-  u.password = tempPw;
-  u.mustChangePw = true;
-  save();
-  openModal('🔑 비밀번호 초기화 완료', `
-    <div style="text-align:center;padding:8px 0;">
-      <div style="font-size:13px;margin-bottom:14px;"><b>${u.name} ${u.title}</b>의 새 임시 비밀번호</div>
-      <div style="background:var(--bg);border-radius:8px;padding:16px;">
-        <div style="font-size:20px;font-weight:700;font-family:monospace;color:var(--primary);letter-spacing:1px;">${tempPw}</div>
-      </div>
-      <div style="font-size:11px;color:var(--warning);margin-top:12px;">⚠️ 본인에게 전달하세요. 첫 로그인 시 변경됩니다.</div>
-    </div>
-  `);
-}
-
-function deleteUser(uid) {
-  const me = getU(state.currentUser);
-  if (!me || me.grade !== 'super') return;
-  const u = getU(uid);
-  if (!u) return;
-  if (u.grade === 'super') { alert('슈퍼관리자 계정은 삭제할 수 없습니다.'); return; }
-  if (!confirm(`${u.name} ${u.title} 계정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
-  state.users = state.users.filter(x=>x.id!==uid);
-  save();
-  render();
+  if (!u || u.grade === 'super') { if (u) alert('슈퍼관리자 계정은 비활성화할 수 없습니다.'); return; }
+  const next = !u.disabled;
+  if (!confirm(`${u.name} ${u.title} 계정을 ${next ? '비활성화' : '활성화'}하시겠습니까?`)) return;
+  try {
+    await fb.updateDoc(fb.doc(fb.db, 'users', uid), { disabled: next });
+    u.disabled = next;
+    render();
+  } catch (e) {
+    alert('처리 중 오류가 발생했습니다: ' + (e.message || e));
+  }
 }
 
 
@@ -3469,17 +3678,8 @@ function openApproval() {
 
 /* ═════════════ 🎬 초기화 ═════════════ */
 function init() {
-  // 로그인 체크 — currentUser 없으면 로그인 화면
-  if (!state.currentUser || !getU(state.currentUser)) {
-    showLogin();
-    return;
-  }
-  const u = getU(state.currentUser);
-  if (u.mustChangePw) { showChangePw(true); return; }
-  document.querySelector('.app').style.display = '';
-  refreshUserChip();
-  renderNav();
-  render();
+  if (!window.fb) { setTimeout(init, 100); return; } // Firebase SDK 로딩 대기
+  fb.onAuthStateChanged(fb.auth, handleAuthChange);
 }
 window.addEventListener('DOMContentLoaded', init);
 window.addEventListener('resize', () => {
