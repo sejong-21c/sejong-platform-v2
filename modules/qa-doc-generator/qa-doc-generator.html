@@ -339,8 +339,9 @@ const {useState, useEffect, useRef, useCallback} = React;
       window.EPC_ITEMS = host.EPC_ITEMS;
       window.EPC_DOC_NO_GENERATOR = host.EPC_DOC_NO_GENERATOR;
       window.EPC_INSPECTOR_MASTER = host.EPC_INSPECTOR_MASTER;
-      window.WPS_LIST = host.WPS_LIST;
-      window.WELDER_LIST = host.WELDER_LIST;
+      // v1.5 — host 값이 비어있을 때 ITP Builder가 올린 로컬 목록을 지우지 않도록 가드
+      if (host.WPS_LIST) window.WPS_LIST = host.WPS_LIST;
+      if (host.WELDER_LIST) window.WELDER_LIST = host.WELDER_LIST;
       return true;
     } catch(e){
       console.warn("[QA Doc Generator] host 접근 실패", e.message);
@@ -425,8 +426,18 @@ window.EPC_PROJECT = window.EPC_PROJECT || null;
 window.EPC_ITEMS = window.EPC_ITEMS || null;
 window.EPC_DOC_NO_GENERATOR = window.EPC_DOC_NO_GENERATOR || null;
 window.EPC_INSPECTOR_MASTER = window.EPC_INSPECTOR_MASTER || null;
-window.WPS_LIST = window.WPS_LIST || null;
-window.WELDER_LIST = window.WELDER_LIST || null;
+// v1.5 — ITP Builder에서 업로드한 WPS/Welder 목록(동일 origin localStorage 공유)을 우선 사용.
+// host(EPC Control)에서 못 받아온 경우에도 ITP Builder가 저장한 값을 직접 읽어온다.
+const MASTER_WPS_KEY = "sjp_master_wps_list";
+const MASTER_WELDER_KEY = "sjp_master_welder_list";
+const loadMasterList = (key) => { try { const v = JSON.parse(localStorage.getItem(key)||"null"); return (v && v.length>0) ? v : null; } catch(e) { return null; } };
+window.WPS_LIST = window.WPS_LIST || loadMasterList(MASTER_WPS_KEY) || null;
+window.WELDER_LIST = window.WELDER_LIST || loadMasterList(MASTER_WELDER_KEY) || null;
+// 다른 탭/모듈에서 ITP Builder로 업로드한 경우 즉시 반영되도록 짧은 주기로 재확인
+setInterval(() => {
+  if (!window.WPS_LIST) { const v = loadMasterList(MASTER_WPS_KEY); if (v) window.WPS_LIST = v; }
+  if (!window.WELDER_LIST) { const v = loadMasterList(MASTER_WELDER_KEY); if (v) window.WELDER_LIST = v; }
+}, 1000);
 
 const getWPS = () => window.WPS_LIST || WPS_SEED;
 const getWelders = () => window.WELDER_LIST || WELDER_SEED;
@@ -1321,9 +1332,9 @@ function FitupPreview({doc}){
   const[wps,sW]=useState(savedFitup.wps||"");
   const[mEq,sME]=useState(savedFitup.mEq||"");
   useEffect(()=>{IMG_STORE.set(fitupKey,{joints,wps,mEq});},[joints,wps,mEq,fitupKey]);
-  // 추후 회사 List 업로드 시 대체될 임시 풀 (window.WPS_LIST / window.WELDER_LIST 가 있으면 우선 사용)
-  const wpsList=(p.wpsList&&p.wpsList.length>0)?p.wpsList:((typeof window!=="undefined"&&window.WPS_LIST)||["SJTC-WPS-001","SJTC-WPS-002","SJTC-WPS-003"]);
-  const welderList=(p.welderList&&p.welderList.length>0)?p.welderList:((typeof window!=="undefined"&&window.WELDER_LIST)||["W-001","W-002","W-003","W-004"]);
+  // v1.5 — ITP Builder에서 업로드된 목록만 사용. 아직 업로드 전이면 빈 배열 → "N/A"로 표시(더미값 노출 금지).
+  const wpsList=(p.wpsList&&p.wpsList.length>0)?p.wpsList:((typeof window!=="undefined"&&window.WPS_LIST)||[]);
+  const welderList=(p.welderList&&p.welderList.length>0)?p.welderList:((typeof window!=="undefined"&&window.WELDER_LIST)||[]);
   const hc=hdr(),tc=bdr();const TH9={...hdr(),fontSize:9,textAlign:"center"};
   const moveJ=(i,dir)=>{const ni=i+dir;if(ni<0||ni>=joints.length)return;const j2=[...joints];[j2[i],j2[ni]]=[j2[ni],j2[i]];sJ(j2);};
   const upJ=(i,k,v)=>sJ(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
@@ -1374,16 +1385,16 @@ function FitupPreview({doc}){
           <input {...fitGrid.cellProps(i,0)} value={j.rootGap||""} onChange={e=>upJ(i,"rootGap",e.target.value)} placeholder="mm" style={{width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center",padding:"3px"}}/>
         </td>
         <td style={{...tc,padding:0}}>
-          <select value={j.wps||""} onChange={e=>upJ(i,"wps",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,padding:"3px"}}>
+          {wpsList.length>0 ? <select value={j.wps||""} onChange={e=>upJ(i,"wps",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,padding:"3px"}}>
             <option value="">—</option>
             {wpsList.map(w=> <option key={typeof w==="string"?w:w.wpsNo||w.id}>{typeof w==="string"?w:(w.wpsNo||w.id||"")}</option>)}
-          </select>
+          </select> : <span style={{fontSize:10,color:"#999",padding:"3px",display:"block"}} title="ITP Builder에서 WPS List 업로드 필요">N/A</span>}
         </td>
         <td style={{...tc,padding:0}}>
-          <select value={j.welder||""} onChange={e=>upJ(i,"welder",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,padding:"3px"}}>
+          {welderList.length>0 ? <select value={j.welder||""} onChange={e=>upJ(i,"welder",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,padding:"3px"}}>
             <option value="">—</option>
             {welderList.map(w=> <option key={typeof w==="string"?w:w.id}>{typeof w==="string"?w:(w.name?`${w.name} (${w.id})`:w.id||"")}</option>)}
-          </select>
+          </select> : <span style={{fontSize:10,color:"#999",padding:"3px",display:"block"}} title="ITP Builder에서 Welder List 업로드 필요">N/A</span>}
         </td>
         <td style={tc}><input type="date" value={j.date||""} onChange={e=>upJ(i,"date",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:9}}/></td>
         <td style={{...tc,padding:0,textAlign:"center"}}>
@@ -1824,6 +1835,7 @@ function HydroPreview({doc}){
   const apUnit=isNumeric(ap)?"MPa":"";
   const fluidLabel=fluid==="기타 (직접 입력)"?(fluidCustom||"기타"):fluid;
   const tNo=tagId(it.tag);
+  const hydroSeq=String(doc.partSeq||1).padStart(2,"0");
   const hk1=`hyro_${it.id||it.tag}_${doc.part}_1`,hk2=`hyro_${it.id||it.tag}_${doc.part}_2`;
   const W=420,H=160;
   // v1.8 — Full Water 모드: Actual에 텍스트(숫자 아님)가 있으면 그래프 라벨이 F.W 모드
@@ -1859,7 +1871,7 @@ function HydroPreview({doc}){
     <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
       <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
       <tbody>
-        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-HYR-{tNo}-01</td></tr>
+        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-HYR-{tNo}-{hydroSeq}</td></tr>
         <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name||"—"} / {p.no||"—"}</td></tr>
         <tr><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
         <tr><td style={HC1}>Material{isC?" (S/T)":""}</td><td style={tc}>{matStr}</td><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td></tr>
@@ -2465,7 +2477,7 @@ function App(){
                   {p}
                 </button>)}
               </div>
-              <HydroPreview key={`HYDRO_${activeItem.id||activeItem.tag||""}_${curPart}`} doc={{...doc, part: curPart}}/>
+              <HydroPreview key={`HYDRO_${activeItem.id||activeItem.tag||""}_${curPart}`} doc={{...doc, part: curPart, partSeq: hp.indexOf(curPart)+1}}/>
             </>;
           }
           if (activeDoc === "FINAL")   return <FinalPreview key={dKey} doc={doc}/>;
