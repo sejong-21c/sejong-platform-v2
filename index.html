@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SJ FLOW v0.7.7 - 세종기술 통합 협업 플랫폼</title>
+<title>SJ FLOW v1.0 - 세종기술 통합 협업 플랫폼</title>
 <style>
 :root {
   --primary: #1976D2;
@@ -450,7 +450,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
       <button class="sb-toggle" onclick="toggleSb()" id="sbTog">◀</button>
     </div>
     <div class="sb-scroll" id="sbScroll"></div>
-    <div class="sb-foot">v0.7.7 <span>ⓒ Designed by Cwkim</span></div>
+    <div class="sb-foot">v1.0 <span>ⓒ Designed by Cwkim</span></div>
   </aside>
   <div class="main">
     <header class="header">
@@ -791,6 +791,28 @@ async function loadBriefings() {
 window.SJP = window.SJP || {};
 window.SJP.loadBriefings = loadBriefings;
 
+// ══════════ 유휴(idle) 자동 로그아웃 ══════════
+// 사용자 활동(마우스·키보드·클릭·스크롤)이 10분간 없으면 자동 로그아웃 → 로그인 화면으로.
+// 활동이 있을 때마다 타이머가 리셋되므로, 계속 사용 중이면 로그아웃되지 않는다.
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10분 무활동
+let _lastSave = 0;
+function touchSession() {
+  if (!state.currentUser) return;
+  state.lastActive = Date.now();
+  if (state.lastActive - _lastSave > 20000) { _lastSave = state.lastActive; save(); } // 저장은 20초마다만
+}
+function sessionExpired() { return !!state.currentUser && !!state.lastActive && (Date.now() - state.lastActive > SESSION_TIMEOUT_MS); }
+function checkSessionTimeout() {
+  if (state.currentUser && sessionExpired()) {
+    state.currentUser = null; state.lastActive = null; save();
+    showLogin();
+  }
+}
+setInterval(checkSessionTimeout, 30 * 1000);           // 30초마다 유휴 여부 확인
+['mousemove','mousedown','keydown','scroll','touchstart'].forEach(function(ev){
+  document.addEventListener(ev, touchSession, { passive: true });
+});
+
 function getU(id) { return state.users.find(u => u.id === id) || {}; }
 function getP(id) { return state.projects.find(p => p.id === id) || {}; }
 function getWBS(pid) { return state.wbs[pid] || []; }
@@ -1074,15 +1096,16 @@ function showLogin() {
       <div class="login-left">
         <div class="login-brand">
           <div class="login-logo">
+            <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="height:38px;width:auto;display:none;">
             <span class="login-logo-dot"></span>
-            <span>Sejong Technology WorkFlow</span>
+            <span class="login-logo-txt">Sejong Technology WorkFlow</span>
           </div>
         </div>
         <div class="login-hero">
           <h1>세종기술 <span style="color:var(--primary);">통합 협업</span><br>플랫폼</h1>
           <p class="login-feat">WBS · 간트차트 · ITP · NCR · 견적 · OKR · 결재.<br>품질·설계·영업·생산까지, 하나의 워크플로우로 묶습니다.</p>
         </div>
-        <div class="login-foot">v0.6.2 · EPC Control v28.5 · ㈜세종기술 품질관리부</div>
+        <div class="login-foot">v1.0 · EPC Control v28.5 · ㈜세종기술 품질관리부</div>
       </div>
       <div class="login-right">
         <div class="login-form">
@@ -1105,6 +1128,17 @@ function showLogin() {
     </div>`;
   ov.style.display = 'block';
   document.querySelector('.app').style.display = 'none';
+  // 로그인 화면 좌상단에 회사 로고(사이드바 로고) 재사용
+  try {
+    const _logo = document.querySelector('.sb-logo img');
+    const _ll = document.getElementById('loginLogoImg');
+    if (_logo && _logo.getAttribute('src') && _ll) {
+      _ll.src = _logo.getAttribute('src');
+      _ll.style.display = '';
+      const dot = ov.querySelector('.login-logo-dot'); if (dot) dot.style.display = 'none';
+      const txt = ov.querySelector('.login-logo-txt'); if (txt) txt.style.display = 'none';
+    }
+  } catch (e) {}
   setTimeout(()=>{ const el=document.getElementById('loginId'); if(el) el.focus(); }, 100);
 }
 
@@ -1129,8 +1163,10 @@ function doLogin() {
     return;
   }
   state.currentUser = u.id;
-  save();
+  state.lastActive = Date.now();
+  // 비밀번호 변경이 필요한 계정은 아직 저장하지 않음 → 이 상태에서 새로고침하면 로그인 화면으로 돌아감
   if (u.mustChangePw) { showChangePw(true); return; }
+  save();
   finishLogin();
 }
 
@@ -1141,6 +1177,7 @@ function finishLogin() {
   renderNav();
   render();
   loadBriefings();  // Cowork 아침 브리핑 자동 로드
+  touchSession();   // 세션 타이머 시작
 }
 
 function showChangePw(forced) {
@@ -3369,7 +3406,7 @@ function openAddUser() {
     <div class="fg"><label class="fl">이메일</label><input class="fi" id="auEmail" placeholder="예: gdhong@sejong-21c.com"></div>
     <div class="fg" style="padding:10px 12px;background:var(--bg);border-radius:8px;font-size:12px;">
       <div>부여될 권한: <span id="gradePreview" style="font-weight:700;color:var(--primary);">일반</span></div>
-      <div style="font-size:11px;color:var(--text-light);margin-top:4px;">임시 비밀번호가 자동 생성되며, 첫 로그인 시 변경하게 됩니다.</div>
+      <div style="font-size:11px;color:var(--text-light);margin-top:4px;">🔑 초기 비밀번호는 <b style="color:var(--primary);">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
     </div>
   `, () => {
     const name = document.getElementById('auName').value.trim();
@@ -3379,7 +3416,7 @@ function openAddUser() {
     const email = document.getElementById('auEmail').value.trim();
     if (!name || !username) { alert('이름과 아이디는 필수입니다.'); return; }
     if (state.users.find(u=>u.username===username)) { alert('이미 사용 중인 아이디입니다.'); return; }
-    const tempPw = genTempPassword();
+    const tempPw = '0000';  // 초기 비밀번호 고정 (첫 로그인 시 변경)
     const grade = gradeByTitle(title);
     state.users.push({
       id: 'u'+Date.now(), name, title, dept, grade, username,
@@ -3395,7 +3432,7 @@ function openAddUser() {
           <div style="background:var(--bg);border-radius:8px;padding:16px;margin-bottom:12px;">
             <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">아이디</div>
             <div style="font-size:16px;font-weight:700;font-family:monospace;margin-bottom:12px;">${username}</div>
-            <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">임시 비밀번호</div>
+            <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">초기 비밀번호</div>
             <div style="font-size:20px;font-weight:700;font-family:monospace;color:var(--primary);letter-spacing:1px;">${tempPw}</div>
           </div>
           <div style="font-size:11px;color:var(--warning);line-height:1.6;">⚠️ 이 비밀번호를 본인에게 전달하세요.<br>창을 닫으면 다시 볼 수 없습니다. (첫 로그인 시 변경됨)</div>
@@ -3497,6 +3534,8 @@ function openApproval() {
 
 /* ═════════════ 🎬 초기화 ═════════════ */
 function init() {
+  // 세션 만료 시 로그인 화면으로 초기화 (비번변경 등 중간 상태도 함께 리셋)
+  if (sessionExpired()) { state.currentUser = null; state.lastActive = null; save(); }
   // 로그인 체크 — currentUser 없으면 로그인 화면
   if (!state.currentUser || !getU(state.currentUser)) {
     showLogin();
