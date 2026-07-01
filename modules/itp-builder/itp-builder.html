@@ -315,6 +315,16 @@ body {
 .cowork-info-title { font-weight: 700; color: var(--sjp-primary); margin-bottom: 2px; }
 .cowork-info-sub { color: var(--sjp-text-sub); font-size: 10px; line-height: 1.5; }
 
+/* v1.7 — API 키 입력 모달 */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal-box {
+  background: #fff; border-radius: var(--sjp-radius-lg); padding: 18px 20px;
+  width: 420px; max-width: 90vw; box-shadow: var(--sjp-shadow-md);
+}
+
 /* ═══════════════════════════════════════════════════════════
    메시지
 ═══════════════════════════════════════════════════════════ */
@@ -429,6 +439,11 @@ body {
 <script type="text/babel" data-presets="env,react">
 const {useState, useEffect, useCallback, useRef} = React;
 
+// v1.6 — 프로젝트 스코프 키. index.html이 iframe에 넘기는 ?pid=... 기준으로 저장소를 분리해서
+// 프로젝트를 바꿔 열어도 WO/시방서/견적서/WPS/Welder/프로젝트 정보가 서로 섞이지 않도록 함.
+const URL_PARAMS = new URLSearchParams(location.search);
+const PID = URL_PARAMS.get("pid") || "standalone";
+
 // ════════ 0. EPC Control 데이터 상속 (v1.4 — 새 창/iframe 둘 다 지원) ════════
 // v1.4 (sejong-platform Phase 2):
 // - window.opener (새 창에서 열린 경우) 와 window.parent (iframe 임베드) 모두 지원
@@ -492,9 +507,13 @@ const DEF_ITEM = {
   dwgUrl:null, dwgName:""
 };
 
-// ════════ 2. AI 파싱 (Cowork 연동 대기) ════════
-// v1.3 — AI Provider 직접 호출 제거. Cowork에서 PDF 파싱 후 JSON 형태로 주입 예정.
-// 임시: 파일 업로드 시 사용자에게 "Cowork에 전달하세요" 안내만 표시.
+// ════════ 2. AI 파싱 (v1.7 — 접속자 본인의 Claude API 키로 브라우저에서 직접 호출) ════════
+// 이 저장소(GitHub Pages)는 정적 파일만 서빙하므로 서버 프록시가 없다. 각 사용자가 자신의
+// Anthropic API 키를 브라우저 localStorage에 넣어두면, 그 브라우저에서만 api.anthropic.com을
+// 직접 호출한다. 키는 이 파일이나 git에 절대 저장되지 않고 사용자 로컬에만 남는다.
+const API_KEY_LS = "sjp_claude_api_key";
+const getApiKey = () => { try { return localStorage.getItem(API_KEY_LS) || ""; } catch(e) { return ""; } };
+const setStoredApiKey = (k) => { try { if (k) localStorage.setItem(API_KEY_LS, k); else localStorage.removeItem(API_KEY_LS); } catch(e){} };
 const fileToBase64 = (file) => new Promise((res, rej) => {
   const r = new FileReader();
   r.onload = () => res(r.result.split(",")[1]);
@@ -507,20 +526,36 @@ const extractJSON = (text) => {
   if (!m) throw new Error("JSON 추출 실패");
   return JSON.parse(m[0]);
 };
-// v1.3 Cowork stub: 부장님이 Cowork에 PDF 업로드 → 파싱된 JSON을 clipboard로 복사 → 이 도구에 붙여넣기
-const callAI = async () => {
-  throw new Error("AI 파싱은 Cowork에서 진행 후 결과를 가져오는 방식으로 전환되었습니다.");
+const callAPI = async (body) => {
+  const key = getApiKey();
+  if (!key) throw new Error("Claude API 키가 설정되지 않았습니다 — 우측 상단 🔑 API 키에서 입력해주세요.");
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({}));
+    throw new Error(e.error?.message || `API ${r.status}`);
+  }
+  return r.json();
 };
 
-// ════════ 3. localStorage ════════
-const STORAGE_KEY = "sjp_itp_builder_v1";
+// ════════ 3. localStorage (v1.6 — 프로젝트별 분리) ════════
+const STORAGE_KEY = `sjp_itp_builder_v1__${PID}`;
 const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} };
 const loadLS = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"); } catch(e) { return null; } };
 
-// v1.5 — WPS/Welder Master List: 플랫폼 전역(localStorage, 동일 origin) 공유 키.
+// v1.5 — WPS/Welder Master List: 프로젝트별(pid) localStorage 공유 키.
 // ITP Builder에서 업로드한 목록을 QA Doc Generator가 그대로 읽어감(N/A 대신 실데이터).
-const MASTER_WPS_KEY = "sjp_master_wps_list";
-const MASTER_WELDER_KEY = "sjp_master_welder_list";
+// v1.6 — "해당 PJT 공통"이므로 전역 공유가 아니라 프로젝트(pid) 단위로 분리.
+const MASTER_WPS_KEY = `sjp_master_wps_list__${PID}`;
+const MASTER_WELDER_KEY = `sjp_master_welder_list__${PID}`;
 const saveMasterList = (kind, arr) => { try { localStorage.setItem(kind==="wps"?MASTER_WPS_KEY:MASTER_WELDER_KEY, JSON.stringify(arr)); } catch(e){} };
 const loadMasterList = (kind) => { try { return JSON.parse(localStorage.getItem(kind==="wps"?MASTER_WPS_KEY:MASTER_WELDER_KEY)||"null"); } catch(e) { return null; } };
 
@@ -553,6 +588,35 @@ function EPCSlots(){
   )}</div>;
 }
 
+// v1.6 — 엑셀식 복사/붙여넣기 그리드 (QA Doc Generator makeGrid 포팅, textarea/input 공통 지원)
+function makeGrid(onCellPaste){
+  const findCell=(container,row,col)=>container.querySelector(`[data-r="${row}"][data-c="${col}"]`);
+  const moveTo=(el,dr,dc)=>{
+    const container=el.closest("[data-grid]");if(!container)return;
+    const r=parseInt(el.dataset.r),c=parseInt(el.dataset.c);
+    let nr=r+dr,nc=c+dc;
+    let target=findCell(container,nr,nc);
+    if(!target&&dc!==0){target=findCell(container,r+(dc>0?1:-1),0);}
+    if(target){target.focus();target.select&&target.select();}
+  };
+  const onKeyDown=(e)=>{
+    const el=e.target;if(!el.dataset||el.dataset.r===undefined)return;
+    if(e.key==="Tab"){e.preventDefault();moveTo(el,0,e.shiftKey?-1:1);}
+    else if(e.key==="ArrowDown"&&e.ctrlKey){e.preventDefault();moveTo(el,1,0);}
+    else if(e.key==="ArrowUp"&&e.ctrlKey){e.preventDefault();moveTo(el,-1,0);}
+  };
+  const onPaste=(e)=>{
+    const el=e.target;if(!el.dataset||el.dataset.r===undefined)return;
+    const text=(e.clipboardData||window.clipboardData).getData("text");
+    if(!text||(!text.includes("\t")&&!text.includes("\n"))){return;}
+    e.preventDefault();
+    const rows=text.replace(/\r/g,"").replace(/\n$/,"").split("\n").map(line=>line.split("\t"));
+    const startR=parseInt(el.dataset.r),startC=parseInt(el.dataset.c);
+    onCellPaste&&onCellPaste(startR,startC,rows);
+  };
+  return {gridProps:{"data-grid":"1",onKeyDown,onPaste},cellProps:(r,c)=>({"data-r":r,"data-c":c})};
+}
+
 // ════════ 5. Revision 계산 ════════
 function calcRev({items, specReqs, revComments}){
   const hasItems = items?.length > 0;
@@ -565,19 +629,27 @@ function calcRev({items, specReqs, revComments}){
   return {rev:"—", percent:0, color:"#6b7280", label:"입력 대기"};
 }
 
-// ════════ 6. ITP 기본 행 ════════
-const mkR = (id, activity, code, criteria, doc, sj, client, active, specOnly=false) =>
-  ({id, activity, code, criteria, doc, sj, client, active, specOnly, remarks:""});
+// ════════ 6. ITP 기본 행 (v1.6 — 회사 표준 ITP Sample_rev.1 기준 17개 항목으로 확장) ════════
+const mkR = (id, activity, code, criteria, doc, sj, qc, client, active, specOnly=false) =>
+  ({id, activity, code, criteria, doc, witness:{sj, qc, client}, active, specOnly, remarks:""});
 const ITP_BASE = [
-  mkR(1, "General Welding Inspection", "Applied DWG & WPS\n- ASME BPVC Sec.IX", "WPS/PQR Review, Qualified Welder List\n- Welder Test if required", "NDE Report\nWPS&PQR", "S", "W", true),
-  mkR(2, "Material Inspection", "Applied DWG\n- ASTM / ASME Sec.II", "Visual & marking (Heat No.)\n- Chemical composition & mechanical properties", "Mill Certifi.", "R", "R", true),
-  mkR(3, "Nozzle Marking Check", "Applied DWG", "Nozzle orientation, elevation, size marking\n- Flange face finish & rating check", "Drawings", "S", "R", true),
-  mkR(4, "Fit-up Inspection", "Applied DWG & WPS", "Alignment, root face & root gap check\n- Reinf. pad position confirmed", "Fit-up Report", "S", "W", true),
-  mkR(5, "Non-Destructive Inspection", "Applied DWG\n- ASME Sec.VIII", "PT 100% (1st layer & after Full welding)\n- RT (if required per code or DWG)", "NDE Report", "S", "W", true),
-  mkR(6, "Final Visual & Dimension Check", "Applied DWG", "All dimensions per applicable code / DWG tolerance\n- Interior & exterior: no slag, scale, or spatter", "DIM Report", "S", "W", true),
-  mkR(7, "Hydrostatic Test & Leak Test", "Applied DWG", "Pressure test (Water): [     ] hr\n- As per Design Data or DWG", "Hydrostatic Test Report", "S", "W", true),
-  mkR(8, "Acid Cleaning Inspection", "Applied DWG", "Free of rust, weld scale, and foreign matter\n- Surface condition: uniform and clean", "Acid Cleaning Report", "S", "R", true),
-  mkR(9, "Shipping Preparation", "Applied DWG", "All nozzle openings: Plastic Cap installed\n- Fixed to transport saddle\n- Name plate installed", "Packing List", "S", "R", true),
+  mkR(1, "Material Inspection", "Applied DWG & Requirements code", "Visual and marking (Heat no.)\n- Chemical composition\n- Tensile properties", "Mill Certifi.", "S", "S", "R", true),
+  mkR(2, "General Welding Inspection", "Applied DWG & Requirements code & WPS\n- WPS & PQR Requirements code", "WPS/PQR Review, Qualified Welder List Review\n- Qualification of Welder\n- Visual Inspection & NDE Test", "WPS&PQR", "S", "S", "R", true),
+  mkR(3, "Fit-up Inspection (for L-seam)", "Applied DWG & Requirements code", "Shell Length\n- Groove angle\n- Heat No. Verification for Shell", "Fit-up Inspection Report", "S", "S", "R", true),
+  mkR(4, "Bending Inspection", "Applied DWG & Requirements code & WPS\n- WPS & PQR Requirements code", "Dimension & Visual Inspection for Shell\n- Heat No. Verification for Shell", "Bending Report", "S", "S", "R", true),
+  mkR(5, "Forming Inspection", "Applied DWG & Requirements code & WPS\n- WPS & PQR Requirements code", "Dimension & Visual Inspection after forming\n- Heat No. Verification for Head\n- If required, Knuckle Part NDE Test (PT) after forming", "Forming Report", "S", "S", "R", true),
+  mkR(6, "Nozzle Marking Check", "Applied DWG & Requirements code & WPS\n- WPS & PQR Requirements code", "Orientation, Elevation and size of marking\n- Heat No. Verification for Shell & Head", "Drawings", "S", "H", "R", true),
+  mkR(7, "Fit-up Inspection (for C-seam)", "Applied DWG & Requirements code", "Root Hi-Ro & Gap\n- Groove Angle\n- Heat No. Verification for Shell & Head", "Fit-up Inspection Report", "S", "H", "R", true),
+  mkR(8, "Non-destructive Inspection (RT, PT, MT)", "Applied DWG & Requirements code", "Requirements Code\n- Attachment removal surface", "NDE Report", "R", "R", "R", true),
+  mkR(9, "Visual & Dimension Check", "Applied DWG & Requirements code", "Welding Condition\n- Rating/Size/surface finish of nozzle\n- Overall visual & Dimension", "Dimension Inspection Report", "S", "H", "SW", true),
+  mkR(10, "Hydrostatic Test", "Applied DWG & Test as per applicable code and standard\n- Shell : Full Water Test\n- Jacket : 1.04MPa", "Manufacture test : Full water Test for Min. 1 hours, Pressure Test for Min. 1 hours\n- Witness Test : Min. 1 hours after Manufacture test\n- No leakage", "Pressure Test Report", "S", "H", "SW", true),
+  mkR(11, "Acid Cleaning Inspection (For austenitic stainless steel)", "Applied Acid cleaning system", "Visual Inspection\n(Uniform silver white, No stain, rust, heat affect)", "Acid Cleaning Report", "S", "S", "R", true),
+  mkR(12, "Buffing Inspection (For austenitic stainless steel)", "Applied Buffing Process", "Visual Inspection\n(Gloss, No stain, rust, heat affect)", "Completion Photo", "S", "S", "SW", true),
+  mkR(13, "Surface Preparation", "Applied Paint system", "SSPC-SP 10\n- NACE No. 2 (ISO 8501-1)", "Roughness Report", "S", "S", "R", true),
+  mkR(14, "Painting (For C.S.)", "Applied Paint system", "Finish Color: 7.5Y 9/1 or 5Y 8/1.5\n- Finish Thickness Check: 60 ㎛", "Painting Photo Report", "S", "S", "R", true),
+  mkR(15, "Mechanical running / Performance test", "Applied DWG & Requirements code\n- SJ-agitator-ITP", "Mechanical running test : Min. 1hour(Include performance test)\n- Performance test\n- Vibration : Less than 4.5 mm/s\n- Sound level : 85db\n- Bearing temperature : Should not exceed 70℃ or ambient temperature + 40℃ whichever is less\n- Mixing Efficiency : ±5%\n- Torque & RPM Check : ±6%", "Performance Test report", "S", "W", "SW", true),
+  mkR(16, "Shipping preparation Inspection", "Procedure", "Rust prevent\n- Spare Part Check\n- Final Visual & Dimension Check (If applicable)\n- Final Painting Condition Check (If applicable)\n- Size of wooden packing material\n- Marking for shipping, handling", "Packing List", "S", "S", "R", true),
+  mkR(17, "Manufacturers Data Report", "", "N/A", "QVD", "S", "S", "R", true),
 ];
 
 // ════════ 7. ITP Preview ════════
@@ -599,6 +671,28 @@ function ITPPreview({proj, items, specReqs, revInfo, rows, setRows, docNo, setDo
     [newRows[realIdx], newRows[targetReal]] = [newRows[targetReal], newRows[realIdx]];
     setRows(newRows);
   };
+
+  // v1.6 — 엑셀식 복사/붙여넣기 (Activity/Code/Criteria/Doc 4개 컬럼, QA Doc Generator와 동일 방식)
+  const gridCols = ["activity", "code", "criteria", "doc"];
+  const itpGrid = makeGrid((startR, startC, matrix) => {
+    setRows(prev => {
+      const activeRows = prev.filter(r => r.active);
+      const next = [...prev];
+      matrix.forEach((rowVals, ri) => {
+        const targetRow = activeRows[startR + ri];
+        if (!targetRow) return;
+        const idx = next.findIndex(x => x.id === targetRow.id);
+        if (idx < 0) return;
+        const patch = {};
+        rowVals.forEach((val, ci) => {
+          const col = gridCols[startC + ci];
+          if (col) patch[col] = val;
+        });
+        next[idx] = {...next[idx], ...patch};
+      });
+      return next;
+    });
+  });
 
   // 신규 행 추가 (v1.5 — 사용자 검사활동 추가)
   const [newRow, setNewRow] = useState({activity:"", code:"", criteria:"", doc:"", remarks:""});
@@ -656,7 +750,7 @@ function ITPPreview({proj, items, specReqs, revInfo, rows, setRows, docNo, setDo
       </tbody>
     </table>
 
-    <table style={{width:"100%", borderCollapse:"collapse"}}>
+    <table {...itpGrid.gridProps} style={{width:"100%", borderCollapse:"collapse"}}>
       <thead><tr>
         <th style={{...TH, width:"5%"}}>No.</th>
         <th style={{...TH, width:"13%"}}>Inspection Activity</th>
@@ -704,12 +798,12 @@ function ITPPreview({proj, items, specReqs, revInfo, rows, setRows, docNo, setDo
             </div>
           </td>
           <td style={TD}>
-            <textarea style={TS} value={r.activity} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, activity:e.target.value}:x))}/>
+            <textarea {...itpGrid.cellProps(i,0)} style={TS} value={r.activity} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, activity:e.target.value}:x))}/>
             {r.specOnly && <div style={{fontSize:8, color:"#d4a017", fontWeight:600, marginTop:2}}>📋 Spec 추출</div>}
           </td>
-          <td style={{...TD, fontSize:9}}><textarea style={TS} value={r.code} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, code:e.target.value}:x))}/></td>
-          <td style={{...TD, fontSize:9}}><textarea style={TS} value={r.criteria} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, criteria:e.target.value}:x))}/></td>
-          <td style={{...TD, textAlign:"center", fontSize:9}}><textarea style={{...TS, textAlign:"center"}} value={r.doc} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, doc:e.target.value}:x))}/></td>
+          <td style={{...TD, fontSize:9}}><textarea {...itpGrid.cellProps(i,1)} style={TS} value={r.code} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, code:e.target.value}:x))}/></td>
+          <td style={{...TD, fontSize:9}}><textarea {...itpGrid.cellProps(i,2)} style={TS} value={r.criteria} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, criteria:e.target.value}:x))}/></td>
+          <td style={{...TD, textAlign:"center", fontSize:9}}><textarea {...itpGrid.cellProps(i,3)} style={{...TS, textAlign:"center"}} value={r.doc} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, doc:e.target.value}:x))}/></td>
           {witnessCols.map((wc) => (
             <td key={wc.key} style={{...TD, textAlign:"center", background:"#f8fbff"}}>
               <select
@@ -769,30 +863,19 @@ const parseDWG = async () => { throw new Error("Cowork 연동 대기 - 수동 �
 // ════════ 9. 메인 App ════════
 function App(){
   const [step, setStep] = useState(0);
+  // v1.6 — PJT를 클릭해서 들어온 경우(EPC 연결)만 아래 mount effect에서 정보를 채운다.
+  // PJT 선택 없이 단독으로 열었다면 예전처럼 빈칸에서 직접 입력.
   const [proj, setProj] = useState({
-    no: "SJ2026-030",
-    name: "(VDS)ESTER 공정용 수평콘덴서 교체공사",
-    customer: "㈜동성케미컬",
-    po: "SJT-WO-2026-030",
-    scope: "수평콘덴서 1LOT 제작·검사 (Detail Design + Manufacturing + Owner 입회검사)",
+    no: "",
+    name: "",
+    customer: "",
+    po: "",
+    scope: "",
     codes: {KS:true, ASME:true, TEMA:true, EN:false, API:false, Others:false}
   });
-  const [items, setItems] = useState([{
-    id: 17790000001,
-    tag: "E-101",
-    name: "VDS ESTER 공정용 수평콘덴서",
-    type: "Condenser / Heat Exchanger",
-    appl_code: "ASME Sec.VIII Div.1, TEMA Class R",
-    shell_mat: "SA-516 Gr.70",
-    tube_mat: "SUS316L",
-    head_mat: "SA-516 Gr.70",
-    design_p: "0.5 MPa",
-    design_t: "150°C",
-    test_p: "0.65 MPa",
-    fluid_shell: "Cooling Water",
-    fluid_tube: "ESTER Vapor",
-    remarks: "동성케미컬 베트남공장 · 납품지 부산공사 (수출은 KDS Scope)"
-  }]);
+  // v1.6 — 좌측 "검사 대상 아이템"(제작공정관리)에서 기본으로 불러와 나열하는 것이 기본 동작.
+  // 샘플 더미 아이템 대신 빈 배열로 시작하고, mount effect에서 EPC 목록과 병합한다.
+  const [items, setItems] = useState([]);
   const [newItem, setNewItem] = useState({...DEF_ITEM});
   const [specReqs, setSpecReqs] = useState([]);
   const [quoteItems, setQuoteItems] = useState([]);
@@ -802,19 +885,38 @@ function App(){
   const [itpRows, setItpRows] = useState([...ITP_BASE]);
   const [witnessCols, setWitnessCols] = useState([
     {key:"sj",     name:"SJ",     bg:"#eef3fb"},
+    {key:"qc",     name:"QC",     bg:"#eef3fb"},
     {key:"client", name:"Client", bg:"#eef3fb"}
   ]);
-  const [itpDocNo, setItpDocNo] = useState("SJ2026-030-ITP-001");
+  const [itpDocNo, setItpDocNo] = useState("");
   const [itpRev, setItpRev] = useState("0");
   // v1.3 — AI Provider 상태 제거 (Cowork 연동 대기)
   const [msg, setMsg] = useState("");
   const [parsing, setParsing] = useState(null);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyInput, setKeyInput] = useState(() => getApiKey());
 
   // v1.3 — sjp-bridge.js 외부 의존성 제거 (안전한 optional chaining 유지)
   useEffect(() => {
     if (window.SJP?.bridge?.renderTopbar) {
       window.SJP.bridge.renderTopbar("ITP Builder v1.4", "신채완 과장");
     }
+  }, []);
+
+  // v1.6 — 좌측에서 선택된 아이템의 기본정보(Tag/Type/Spec/Material)를 "아이템 추가" 폼에
+  // 기본값으로 미리 채워둔다. 이후 도면 업로드 시 그 위에 덮어써서 보강하는 방식(도면 파싱 자체는
+  // Cowork 통합 대기 중이라 현재는 미동작).
+  useEffect(() => {
+    const tag = URL_PARAMS.get("tag");
+    if (!tag) return;
+    setNewItem(prev => prev.tag ? prev : {
+      ...prev,
+      tag,
+      name: prev.name || tag,
+      type: URL_PARAMS.get("type") || prev.type,
+      appl_code: URL_PARAMS.get("spec") || prev.appl_code,
+      shell_mat: URL_PARAMS.get("material") || prev.shell_mat,
+    });
   }, []);
 
   useEffect(() => {
@@ -834,7 +936,15 @@ function App(){
       const epcProj = window.SJP.bridge.getProject?.();
       const epcItems = window.SJP.bridge.getItems?.();
       if (epcProj) setProj(p => ({...p, ...epcProj}));
-      if (epcItems?.length) setItems(epcItems);
+      // v1.6 — 좌측 목록(제작공정관리)을 기본 나열 소스로 사용. 덮어쓰지 않고 tag 기준으로 병합해서
+      // ITP Builder 안에서 직접 추가/수정한 아이템은 그대로 보존한다.
+      if (epcItems) {
+        setItems(prev => {
+          const byTag = new Map(prev.map(it => [it.tag, it]));
+          epcItems.forEach(ei => { if (!byTag.has(ei.tag)) byTag.set(ei.tag, ei); });
+          return Array.from(byTag.values());
+        });
+      }
       setTimeout(()=>showMsg("✓ EPC Control에서 데이터 동기화 완료", 5000), 100);
     }
   }, []);
@@ -858,7 +968,7 @@ function App(){
       const specRows = specReqs.map((req, i) => mkR(
         1000+i, req.activity||"Customer Special Requirement",
         req.code||"Per Customer Spec.", req.criteria||req.description||"—",
-        req.doc||"Inspection Record", "S", req.hold?"H":"W", true, true
+        req.doc||"Inspection Record", "S", "S", req.hold?"H":"W", true, true
       ));
       return [...base, ...specRows];
     });
@@ -881,11 +991,71 @@ function App(){
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
 
-  // v1.3 — AI Provider 직접 호출 제거. 모든 PDF 업로드는 Cowork 안내로 대체
+  // v1.7 — 접속자 본인 API 키로 실제 AI 파싱 수행 (WO/시방서/견적서/도면)
   const handleFile = async (file, kind, targetItemId=null) => {
     const kindLabel = kind==="wo"?"Work Order":kind==="spec"?"시방서":kind==="quote"?"견적서":"도면";
-    showMsg(`📋 ${kindLabel} 파싱은 Cowork에서 진행 후 결과를 가져오는 방식으로 통합 예정입니다. 임시로 수동 입력 부탁드립니다.`, 8000);
-    return;
+    setParsing(kind);
+    showMsg(`⏳ ${kindLabel} 분석 중... (최대 1분 정도 걸릴 수 있습니다)`, 60000);
+    try {
+      const b64 = await fileToBase64(file);
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const mediaType = isPdf ? "application/pdf" : (file.type || "image/png");
+      const blockType = isPdf ? "document" : "image";
+      let prompt;
+      if (kind === "wo") {
+        prompt = `Extract project info from this Work Order document. Return JSON only, no explanation: {"no":"","name":"","customer":"","po":"","scope":""}. Use "" for anything not found.`;
+      } else if (kind === "spec") {
+        prompt = `Extract customer special inspection/test requirements (beyond standard ITP items) from this specification document. Return JSON only: {"requirements":[{"category":"","activity":"","code":"","criteria":"","hold":false,"doc":""}]}. "hold" is true only if it is explicitly a hold/witness point requiring approval before proceeding. Return {"requirements":[]} if none found.`;
+      } else if (kind === "quote") {
+        prompt = `Extract the list of equipment/items to be manufactured from this quotation document. Return JSON only: {"items":[{"tag":"","name":"","type":"","appl_code":""}]}. "type" must be one of: ${JSON.stringify(ITYPES)}. Return {"items":[]} if none found.`;
+      } else {
+        prompt = `You are an expert pressure vessel engineer. Extract equipment data from this drawing. Return JSON only: {"tag":"","name":"","type":"","appl_code":"","shell_mat":"","shell_id":"","shell_len":"","design_p":"","design_t":"","head_top_type":"","head_top_mat":"","head_bot_type":"","head_bot_mat":"","jacket":false,"incoil":false,"halfcoil":false}. "type" must be one of: ${JSON.stringify(ITYPES)}. "head_top_type"/"head_bot_type" must be one of: ${JSON.stringify(HEAD_TYPES)}. Use "" (or false) for anything unreadable — do not guess.`;
+      }
+      const res = await callAPI({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2048,
+        messages: [{role:"user", content:[{type:blockType, source:{type:"base64", media_type:mediaType, data:b64}}, {type:"text", text:prompt}]}]
+      });
+      const text = (res.content||[]).map(c=>c.text||"").join("");
+      const parsed = extractJSON(text);
+
+      if (kind === "wo") {
+        setProj(p => ({
+          ...p,
+          no: parsed.no || p.no, name: parsed.name || p.name, customer: parsed.customer || p.customer,
+          po: parsed.po || p.po, scope: parsed.scope || p.scope
+        }));
+        showMsg(`✓ Work Order 분석 완료 — 프로젝트 정보 반영`, 5000);
+      } else if (kind === "spec") {
+        const reqs = Array.isArray(parsed.requirements) ? parsed.requirements : [];
+        setSpecReqs(reqs);
+        showMsg(`✓ 시방서 분석 완료 — 추가 요구사항 ${reqs.length}개 추출`, 5000);
+      } else if (kind === "quote") {
+        const qi = Array.isArray(parsed.items) ? parsed.items : [];
+        setQuoteItems(qi);
+        // 견적서 기반 사전 등록 (Rev.0) — 이미 있는 Tag는 건드리지 않고 신규 Tag만 추가
+        setItems(prev => {
+          const byTag = new Map(prev.map(it => [it.tag, it]));
+          qi.forEach(qi2 => { if (qi2.tag && !byTag.has(qi2.tag)) byTag.set(qi2.tag, {...DEF_ITEM, ...qi2, id: Date.now()+Math.random()}); });
+          return Array.from(byTag.values());
+        });
+        showMsg(`✓ 견적서 분석 완료 — 아이템 ${qi.length}개 추출/사전 등록`, 5000);
+      } else {
+        const dwgUrl = `data:${mediaType};base64,${b64}`;
+        if (targetItemId) {
+          setItems(prev => prev.map(it => it.id === targetItemId ? {...it, ...parsed, dwgUrl, dwgName: file.name} : it));
+          showMsg(`✓ 도면 분석 완료 — 기존 아이템에 반영 (Rev. 1 승격)`, 5000);
+        } else {
+          setNewItem(prev => ({...prev, ...parsed, tag: prev.tag || parsed.tag || "", dwgUrl, dwgName: file.name}));
+          showMsg(`✓ 도면 분석 완료 — 아이템 필드 자동 채움`, 5000);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showMsg(`⚠ ${kindLabel} 분석 실패 — ${err.message||"알 수 없는 오류"}`, 8000);
+    } finally {
+      setParsing(null);
+    }
   };
 
   // v1.5 — WPS/Welder List 업로드 (xlsx/pdf/csv). AI(Cowork) 의존 없이 클라이언트에서 직접 파싱.
@@ -1021,7 +1191,8 @@ function App(){
           const tplItems = (itpRows || []).filter(r => r.active !== false).map((r, idx) => {
             const rid = String(r.id || (idx+1)).padStart(2, "0");
             const ph = rid <= "05" ? 0 : rid <= "14" ? 1 : 2;
-            const pt = ["H","W","R","S","N/A"].includes(r.client) ? r.client : "W";
+            const clientVal = (r.witness && r.witness.client) || r.client;
+            const pt = ["H","W","R","S","N/A"].includes(clientVal) ? clientVal : "W";
             return { id: rid, item: r.activity || "", ph: ph, pt: pt, crit: r.criteria || "" };
           });
           if (tplItems.length > 0) {
@@ -1056,7 +1227,7 @@ function App(){
     setItems([]); setNewItem({...DEF_ITEM});
     setSpecReqs([]); setQuoteItems([]); setRevComments([]);
     setItpRows([...ITP_BASE]); setItpDocNo(""); setItpRev("0"); setStep(0);
-        setWitnessCols([{key:"sj",name:"SJ",bg:"#eef3fb"},{key:"client",name:"Client",bg:"#eef3fb"}]);
+        setWitnessCols([{key:"sj",name:"SJ",bg:"#eef3fb"},{key:"qc",name:"QC",bg:"#eef3fb"},{key:"client",name:"Client",bg:"#eef3fb"}]);
     showMsg(`✓ 새 프로젝트`);
   };
 
@@ -1069,19 +1240,26 @@ function App(){
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
       <div className="epc-topbar-badge">{revInfo.rev}</div>
+      <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}>🔑 API 키{getApiKey()?" ✓":""}</button>
       <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
     </div>
 
-    {/* v1.3 Cowork 통합 안내 (구 AI Provider 자리) */}
-    <div className="cowork-info no-print">
-      <div className="cowork-info-icon">🤖</div>
-      <div className="cowork-info-text">
-        <div className="cowork-info-title">Cowork AI 파싱 (통합 대기)</div>
-        <div className="cowork-info-sub">
-          Work Order · 시방서 · 견적서 · 도면 PDF 파싱은 Claude Cowork에서 진행 후 결과를 자동 주입하는 방식으로 통합 예정입니다. 현재는 수동 입력 또는 EPC Control System 연동을 통해 데이터를 가져옵니다.
+    {showKeyModal && <div className="modal-overlay no-print" onClick={()=>setShowKeyModal(false)}>
+      <div className="modal-box" onClick={e=>e.stopPropagation()}>
+        <div style={{fontWeight:700, marginBottom:8}}>🔑 Claude API 키</div>
+        <div style={{fontSize:10.5, color:"var(--sjp-text-sub)", marginBottom:10, lineHeight:1.5}}>
+          Work Order·시방서·견적서·도면 PDF 자동 파싱에 사용됩니다. 이 키는 이 브라우저의 localStorage에만 저장되며,
+          api.anthropic.com으로만 직접 전송됩니다 — 저장소(git)나 서버로는 전송/저장되지 않습니다.
+          공용 PC에서는 사용 후 "삭제"를 눌러주세요.
+        </div>
+        <input type="password" value={keyInput} onChange={e=>setKeyInput(e.target.value)} placeholder="sk-ant-..." style={{width:"100%", padding:"6px 8px", fontSize:12, border:"1px solid var(--sjp-border)", borderRadius:5, marginBottom:10}}/>
+        <div style={{display:"flex", gap:6, justifyContent:"flex-end"}}>
+          <button onClick={()=>{ setStoredApiKey(""); setKeyInput(""); showMsg("API 키를 삭제했습니다"); }} className="btn-secondary">삭제</button>
+          <button onClick={()=>setShowKeyModal(false)} className="btn-secondary">닫기</button>
+          <button onClick={()=>{ setStoredApiKey(keyInput.trim()); setShowKeyModal(false); showMsg("✓ API 키 저장 완료"); }} className="btn-primary">저장</button>
         </div>
       </div>
-    </div>
+    </div>}
 
     <EPCSlots/>
 

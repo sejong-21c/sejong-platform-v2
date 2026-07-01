@@ -428,8 +428,10 @@ window.EPC_DOC_NO_GENERATOR = window.EPC_DOC_NO_GENERATOR || null;
 window.EPC_INSPECTOR_MASTER = window.EPC_INSPECTOR_MASTER || null;
 // v1.5 — ITP Builder에서 업로드한 WPS/Welder 목록(동일 origin localStorage 공유)을 우선 사용.
 // host(EPC Control)에서 못 받아온 경우에도 ITP Builder가 저장한 값을 직접 읽어온다.
-const MASTER_WPS_KEY = "sjp_master_wps_list";
-const MASTER_WELDER_KEY = "sjp_master_welder_list";
+// v1.6 — "해당 PJT 공통" 데이터이므로 ITP Builder와 동일한 ?pid=... 기준으로 프로젝트별 분리.
+const QAG_PID = new URLSearchParams(location.search).get("pid") || "standalone";
+const MASTER_WPS_KEY = `sjp_master_wps_list__${QAG_PID}`;
+const MASTER_WELDER_KEY = `sjp_master_welder_list__${QAG_PID}`;
 const loadMasterList = (key) => { try { const v = JSON.parse(localStorage.getItem(key)||"null"); return (v && v.length>0) ? v : null; } catch(e) { return null; } };
 window.WPS_LIST = window.WPS_LIST || loadMasterList(MASTER_WPS_KEY) || null;
 window.WELDER_LIST = window.WELDER_LIST || loadMasterList(MASTER_WELDER_KEY) || null;
