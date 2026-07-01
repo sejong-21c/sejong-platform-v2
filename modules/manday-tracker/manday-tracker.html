@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Man/Day Tracker v1.2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f5f7fa;
+    --border: #e0e4ea;
+    --accent: #e8f1fb;
+    --accent-strong: #4a90d9;
+    --accent-dark: #2c6cb0;
+    --text: #2c3e50;
+    --text-soft: #6b7888;
+    --warning: #e8a04a;
+    --danger: #d9534f;
+    --admin: #8b5cf6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
+    background: var(--bg-soft);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+  
+  /* === 로그인 화면 === */
+  #login-screen {
+    position: fixed; top:0; left:0; right:0; bottom:0;
+    background: linear-gradient(135deg, #e8f1fb 0%, #f5f7fa 100%);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2000;
+  }
+  .login-box {
+    background: white;
+    border-radius: 12px;
+    padding: 40px 32px;
+    width: 380px; max-width: 92vw;
+    box-shadow: 0 10px 40px rgba(44,108,176,0.15);
+  }
+  .login-box h1 { color: var(--accent-dark); font-size: 22px; text-align: center; margin-bottom: 4px; }
+  .login-box .subtitle { color: var(--text-soft); font-size: 13px; text-align: center; margin-bottom: 24px; }
+  .login-box label { font-size: 12px; color: var(--text-soft); display: block; margin: 12px 0 4px 0; font-weight: 500; }
+  .login-box input, .login-box select {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 6px; font-size: 15px;
+  }
+  .login-box button.primary {
+    width: 100%; padding: 12px; margin-top: 20px;
+    font-size: 15px; font-weight: 600;
+  }
+  .login-error {
+    background: #fde8e8; color: var(--danger);
+    padding: 8px 12px; border-radius: 4px; font-size: 12px;
+    margin-top: 12px; display: none;
+  }
+  .login-error.show { display: block; }
+  .first-time-banner {
+    background: var(--accent); color: var(--accent-dark);
+    padding: 10px 12px; border-radius: 6px; font-size: 12px;
+    margin-bottom: 16px; text-align: center; line-height: 1.6;
+  }
+  .login-hint {
+    font-size: 11px; color: var(--text-soft);
+    text-align: center; margin-top: 16px; line-height: 1.6;
+    padding-top: 16px; border-top: 1px solid var(--border);
+  }
+  .pin-input { letter-spacing: 8px; text-align: center; font-size: 20px !important; }
+
+  /* === 헤더 === */
+  header {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 24px; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px;
+  }
+  header h1 { font-size: 18px; color: var(--accent-dark); }
+  header .subtitle { color: var(--text-soft); font-size: 12px; }
+  .user-bar { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .user-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; background: var(--bg-soft); border-radius: 20px;
+  }
+  .role-badge {
+    padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .role-badge.admin { background: #ede9fe; color: var(--admin); }
+  .role-badge.inspector { background: var(--accent); color: var(--accent-dark); }
+  .role-badge.warning { background: #fde4d4; color: #c77a33; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid var(--border); flex-wrap: wrap; }
+  .tab {
+    padding: 10px 20px; border: none; background: transparent;
+    cursor: pointer; font-size: 14px; font-weight: 500;
+    color: var(--text-soft); border-bottom: 3px solid transparent;
+    margin-bottom: -2px; transition: all 0.15s;
+  }
+  .tab:hover { color: var(--accent-strong); }
+  .tab.active { color: var(--accent-dark); border-bottom-color: var(--accent-strong); }
+  .tab.admin-only::after { content: ' 🔒'; font-size: 10px; }
+  .tab.hidden { display: none; }
+
+  .panel { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .panel h2 {
+    font-size: 15px; color: var(--accent-dark);
+    margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 180px; }
+  label { display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 4px; font-weight: 500; }
+  input, select, textarea {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 4px;
+    font-size: 14px; font-family: inherit; background: white;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--accent-strong);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  button {
+    padding: 8px 16px; border: 1px solid var(--accent-strong);
+    border-radius: 4px; background: var(--accent-strong);
+    color: white; cursor: pointer; font-size: 14px; font-weight: 500;
+    transition: all 0.15s;
+  }
+  button:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  button.secondary { background: white; color: var(--accent-dark); }
+  button.secondary:hover { background: var(--accent); }
+  button.danger { background: white; color: var(--danger); border-color: var(--danger); }
+  button.danger:hover { background: var(--danger); color: white; }
+  button.small { padding: 4px 10px; font-size: 12px; }
+  
+  .kakao-input { display: flex; gap: 8px; align-items: flex-start; }
+  .kakao-input textarea { flex: 1; font-family: 'Consolas', monospace; min-height: 80px; }
+  .hint {
+    background: var(--bg-soft); border-left: 3px solid var(--accent-strong);
+    padding: 10px 12px; border-radius: 4px; font-size: 12px;
+    color: var(--text-soft); margin-bottom: 12px; line-height: 1.7;
+  }
+  .hint code {
+    background: white; padding: 1px 6px; border-radius: 3px;
+    color: var(--accent-dark); font-size: 12px;
+  }
+  .preview {
+    background: var(--bg-soft); border: 1px dashed var(--border);
+    border-radius: 4px; padding: 12px; margin-top: 12px; font-size: 13px;
+  }
+  .preview-title { font-weight: 600; color: var(--accent-dark); margin-bottom: 8px; }
+  .preview-item {
+    padding: 10px; border: 1px solid var(--border);
+    border-radius: 4px; margin: 6px 0; background: white;
+  }
+  .preview-item.error { background: #fde8e8; border-color: var(--danger); }
+  .preview-row { display: grid; grid-template-columns: 90px 1fr; gap: 8px; margin-bottom: 3px; }
+  .preview-row .k { color: var(--text-soft); font-size: 12px; }
+  .preview-row .v { color: var(--text); }
+  
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-left: 4px solid var(--accent-strong);
+    border-radius: 6px; padding: 16px;
+  }
+  .card .label { font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
+  .card .value { font-size: 22px; font-weight: 700; color: var(--accent-dark); }
+  .card .unit { font-size: 13px; color: var(--text-soft); font-weight: 400; margin-left: 4px; }
+  
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--accent); color: var(--accent-dark);
+    padding: 10px 8px; text-align: left; font-weight: 600;
+    border: 1px solid var(--border); white-space: nowrap;
+  }
+  tbody td { padding: 8px; border: 1px solid var(--border); }
+  tbody tr:hover { background: var(--bg-soft); }
+  
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .chart-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+  .chart-box h3 { font-size: 14px; color: var(--accent-dark); margin-bottom: 12px; }
+  .chart-wrap { position: relative; height: 280px; }
+  
+  .badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .badge-regular { background: var(--accent); color: var(--accent-dark); }
+  .badge-ot { background: #fde4d4; color: #c77a33; }
+  
+  .empty { padding: 40px; text-align: center; color: var(--text-soft); font-size: 13px; }
+  
+  .list-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: 4px; margin-bottom: 6px; background: var(--bg-soft);
+    gap: 10px; flex-wrap: wrap;
+  }
+  .list-item .info { flex: 1; min-width: 200px; }
+  .list-item .info strong { color: var(--accent-dark); }
+  .list-item .info small { color: var(--text-soft); margin-left: 8px; }
+  .list-item .actions { display: flex; gap: 4px; }
+  
+  footer { text-align: center; padding: 20px; color: var(--text-soft); font-size: 12px; }
+  
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); display: flex;
+    align-items: center; justify-content: center; z-index: 1500;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal {
+    background: white; border-radius: 8px; padding: 24px;
+    min-width: 320px; max-width: 500px; margin: 20px;
+  }
+  .modal h3 { color: var(--accent-dark); margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--accent-dark); color: white;
+    padding: 10px 16px; border-radius: 4px; font-size: 13px;
+    opacity: 0; transition: opacity 0.3s; z-index: 1001;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--danger); }
+  
+  @media (max-width: 768px) {
+    .container { padding: 10px; }
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: 1fr; }
+    .col { min-width: 100%; }
+    .kakao-input { flex-direction: column; }
+    .kakao-input button { width: 100%; }
+    header { flex-direction: column; align-items: flex-start; }
+    header h1 { font-size: 16px; }
+    .tab { padding: 8px 12px; font-size: 13px; }
+    table { font-size: 12px; }
+    thead th, tbody td { padding: 6px 4px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- === 로그인 화면 === -->
+<!-- === 메인 앱 (로그인 제거 — SJ FLOW 단일 인증) === -->
+<div id="main-app">
+<div class="container">
+  <header>
+    <div>
+      <h1>📊 Man/Day Tracker v1.2</h1>
+      <div class="subtitle">오늘 내가 한 일, 로그인해서 바로 입력</div>
+    </div>
+    <div class="user-bar">
+      <button class="secondary small" id="md-newwin-btn" onclick="openMandayNewWindow()" style="display:none;">↗ 새 창</button>
+      <div class="user-badge">
+        <span>🧑 <strong id="u-name"></strong> <span id="u-title"></span></span>
+        <span class="role-badge" id="u-role"></span>
+      </div>
+      <!-- 로그인 제거됨 — SJ FLOW 단일 인증 -->
+    </div>
+  </header>
+  
+  <div class="tabs">
+    <button class="tab active" data-tab="entry" onclick="switchTab('entry')">⚡ 오늘 업무 입력</button>
+    <button class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">📈 대시보드</button>
+    <button class="tab admin-only" data-tab="manage" onclick="switchTab('manage')">⚙️ 관리</button>
+  </div>
+
+  <!-- Tab 1: Entry -->
+  <div class="tab-content" id="tab-entry">
+    <div class="panel">
+      <h2>📱 한 줄 입력 (카톡처럼)</h2>
+      <div class="hint">
+        <b>형식:</b> <code>[코드] [프로젝트명], [아이템] [업무] [시간]</code><br>
+        <b>예시 1:</b> <code>SJ456-25 삼성전기, V-103 외관검사 4시간</code><br>
+        <b>예시 2 (야근):</b> <code>SJ456-25 삼성전기, V-103 PWHT입회 정규8시간 야근2시간</code><br>
+        <b>예시 3 (날짜):</b> <code>4/24 SJ456-25 삼성전기, V-103 외관검사 8h</code><br>
+        <span style="color:var(--accent-dark);">✓ 로그인한 본인으로 자동 기록 · 여러 줄 동시 입력 가능</span>
+      </div>
+      <div class="kakao-input">
+        <textarea id="kakao-input" placeholder="SJ456-25 삼성전기, V-103 외관검사 4시간"></textarea>
+        <button onclick="parseKakao()">파싱 미리보기</button>
+      </div>
+      <div id="preview-area"></div>
+    </div>
+
+    <div class="panel">
+      <h2>✍️ 수동 입력</h2>
+      <div class="row">
+        <div class="col">
+          <label>날짜</label>
+          <input type="date" id="m-date">
+        </div>
+        <div class="col">
+          <label>프로젝트</label>
+          <select id="m-project"></select>
+        </div>
+        <div class="col">
+          <label>아이템</label>
+          <input type="text" id="m-item" placeholder="예: V-103">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label>업무</label>
+          <input type="text" id="m-work" placeholder="예: 외관검사, PWHT입회">
+        </div>
+        <div class="col">
+          <label>정규 (시간)</label>
+          <input type="number" id="m-regular" step="0.5" min="0" value="8">
+        </div>
+        <div class="col">
+          <label>야근 (시간)</label>
+          <input type="number" id="m-ot" step="0.5" min="0" value="0">
+        </div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button onclick="addManual()">추가</button>
+        <button class="secondary" onclick="clearManual()">초기화</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 id="recent-title">📋 내 최근 입력 (최신 20건)</h2>
+      <div id="recent-list"></div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Dashboard -->
+  <div class="tab-content" id="tab-dashboard" style="display:none;">
+    <div class="panel">
+      <h2>🔍 필터</h2>
+      <div class="row">
+        <div class="col">
+          <label>시작일</label>
+          <input type="date" id="f-from">
+        </div>
+        <div class="col">
+          <label>종료일</label>
+          <input type="date" id="f-to">
+        </div>
+        <div class="col" id="f-inspector-col">
+          <label>검사관</label>
+          <select id="f-inspector"><option value="">전체</option></select>
+        </div>
+        <div class="col">
+          <label>프로젝트</label>
+          <select id="f-project"><option value="">전체</option></select>
+        </div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button onclick="applyFilter()">조회</button>
+        <button class="secondary" onclick="quickFilter('today')">오늘</button>
+        <button class="secondary" onclick="quickFilter('week')">이번주</button>
+        <button class="secondary" onclick="quickFilter('month')">이번달</button>
+        <button class="secondary" onclick="resetFilter()">초기화</button>
+        <button class="secondary" onclick="exportCSV()">📥 CSV Export</button>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="label">총 M/D</div>
+        <div class="value"><span id="c-total-md">0</span><span class="unit">M/D</span></div>
+      </div>
+      <div class="card">
+        <div class="label">정규 / 야근</div>
+        <div class="value" style="font-size:16px;"><span id="c-reg">0</span>h <span style="color:var(--text-soft);">+</span> <span id="c-ot" style="color:#c77a33;">0</span>h</div>
+      </div>
+      <div class="card">
+        <div class="label">프로젝트 수</div>
+        <div class="value"><span id="c-proj">0</span></div>
+      </div>
+      <div class="card">
+        <div class="label" id="c-insp-label">참여 검사관</div>
+        <div class="value"><span id="c-insp">0</span><span class="unit" id="c-insp-unit">명</span></div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-box">
+        <h3>프로젝트별 M/D</h3>
+        <div class="chart-wrap"><canvas id="chart-project"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>일자별 M/D 추이</h3>
+        <div class="chart-wrap"><canvas id="chart-daily"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>📊 프로젝트별 집계</h2>
+      <div style="overflow-x:auto;">
+        <table id="project-summary-table">
+          <thead>
+            <tr>
+              <th>프로젝트 코드</th>
+              <th>프로젝트명</th>
+              <th>정규</th>
+              <th>야근</th>
+              <th>총 시간</th>
+              <th>M/D</th>
+              <th>검사관</th>
+              <th>기록</th>
+              <th>비율</th>
+              <th>동작</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>📄 상세 기록</h2>
+      <div style="overflow-x:auto;">
+        <table id="detail-table">
+          <thead>
+            <tr>
+              <th>날짜</th>
+              <th>검사관</th>
+              <th>코드</th>
+              <th>프로젝트</th>
+              <th>아이템</th>
+              <th>업무</th>
+              <th>정규</th>
+              <th>야근</th>
+              <th>M/D</th>
+              <th>동작</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Manage (Admin only) -->
+  <div class="tab-content" id="tab-manage" style="display:none;">
+    <div class="panel">
+      <h2>📁 프로젝트 관리</h2>
+      <div class="row">
+        <div class="col">
+          <label>프로젝트 코드</label>
+          <input type="text" id="p-code" placeholder="예: SJ456-25">
+        </div>
+        <div class="col">
+          <label>프로젝트명</label>
+          <input type="text" id="p-name" placeholder="예: 삼성전기 BT-2">
+        </div>
+        <div class="col" style="flex:0 0 auto; align-self:flex-end;">
+          <button onclick="addProject()">등록</button>
+        </div>
+      </div>
+      <div id="project-list" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>👤 검사관 관리</h2>
+      <div class="hint" style="margin-bottom:12px;">
+        🔑 등록된 검사관은 <strong style="color:var(--accent-dark);">기본 PIN "0000"</strong>으로 로그인합니다.<br>
+        첫 로그인 시 본인이 원하는 PIN으로 <strong>반드시 변경</strong>해야 메인 화면에 진입할 수 있습니다.
+      </div>
+      <div class="row">
+        <div class="col">
+          <label>이름</label>
+          <input type="text" id="i-name" placeholder="예: 이영수">
+        </div>
+        <div class="col">
+          <label>직함</label>
+          <input type="text" id="i-title" placeholder="예: 과장">
+        </div>
+        <div class="col">
+          <label>권한</label>
+          <select id="i-role">
+            <option value="inspector">검사관</option>
+            <option value="admin">관리자</option>
+          </select>
+        </div>
+        <div class="col" style="flex:0 0 auto; align-self:flex-end;">
+          <button onclick="addInspector()">등록</button>
+        </div>
+      </div>
+      <div id="inspector-list" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>💾 데이터 관리</h2>
+      <p style="color: var(--text-soft); font-size:13px; margin-bottom:12px;">
+        데이터는 공유 저장소에 저장되어 검사관들 간 공유됩니다.
+      </p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="secondary" onclick="exportAll()">📦 전체 백업 (JSON)</button>
+        <button class="secondary" onclick="document.getElementById('import-file').click()">📂 백업 불러오기</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAll(event)">
+        <button class="danger" onclick="clearAll()">🗑 전체 삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>ⓒ Designed by Cwkim · Man/Day Tracker v1.2 · EPC Control System</footer>
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">확인</h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal(false)">취소</button>
+      <button onclick="closeModal(true)">확인</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ 상태 ============
+let state = { entries: [], projects: [], inspectors: [] };
+let currentUser = null;
+let charts = { project: null, daily: null };
+let modalResolve = null;
+let parsedResults = [];
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+function toast(msg, isError) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+function showModal(title, bodyHtml) {
+  $('#modal-title').textContent = title;
+  $('#modal-body').innerHTML = bodyHtml;
+  $('#modal').classList.remove('hidden');
+  return new Promise(res => modalResolve = res);
+}
+function closeModal(result) {
+  $('#modal').classList.add('hidden');
+  if (modalResolve) { modalResolve(result); modalResolve = null; }
+}
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function uid() { return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+// ============ 저장소 ============
+async function safeGet(key) {
+  try { const r = await window.storage.get(key, true); return r ? JSON.parse(r.value) : null; }
+  catch { return null; }
+}
+async function safeSet(key, val) {
+  try { return await window.storage.set(key, JSON.stringify(val), true); }
+  catch (err) { toast('저장 실패: ' + err.message, true); }
+}
+async function loadAll() {
+  const [e, p, i] = await Promise.all([
+    safeGet('md-entries'), safeGet('md-projects'), safeGet('md-inspectors')
+  ]);
+  state.entries = e || [];
+  state.projects = p || [];
+  state.inspectors = i || [];
+}
+async function saveEntries() { await safeSet('md-entries', state.entries); }
+async function saveProjects() { await safeSet('md-projects', state.projects); }
+async function saveInspectors() { await safeSet('md-inspectors', state.inspectors); }
+
+// ============ 세션 ============
+// (로그인 시스템 제거 — SJ FLOW 단일 인증으로 통합)
+
+function enterApp() {
+  const _mainApp = $('#main-app'); if (_mainApp) _mainApp.style.display = '';
+  
+  $('#u-name').textContent = currentUser.name;
+  $('#u-title').textContent = currentUser.title || '';
+  const roleBadge = $('#u-role');
+  if (currentUser.role === 'admin') {
+    roleBadge.textContent = '관리자';
+    roleBadge.className = 'role-badge admin';
+  } else {
+    roleBadge.textContent = '검사관';
+    roleBadge.className = 'role-badge inspector';
+  }
+  
+  const isAdmin = currentUser.role === 'admin';
+  $$('.tab.admin-only').forEach(t => t.classList.toggle('hidden', !isAdmin));
+  $('#f-inspector-col').style.display = isAdmin ? '' : 'none';
+  $('#recent-title').textContent = isAdmin ? '📋 최근 입력 (최신 20건)' : '📋 내 최근 입력 (최신 20건)';
+  $('#c-insp-label').textContent = isAdmin ? '참여 검사관' : '내 기록일수';
+  
+  $('#m-date').value = todayStr();
+
+  // 로그인 제거됨 — 로그아웃·PIN변경 버튼 항상 숨김
+  const lo = $('#md-logout-btn'); if (lo) lo.style.display = 'none';
+  const pn = $('#md-pin-btn'); if (pn) pn.style.display = 'none';
+  // SJ FLOW iframe 안에서만 '새 창' 버튼 표시
+  const nw = $('#md-newwin-btn');
+  if (nw && new URLSearchParams(window.location.search).get('embed') === '1') {
+    nw.style.display = '';
+  }
+
+  refreshAll();
+  switchTab('entry');
+}
+
+// 새 창으로 Manday Tracker 단독 열기 (embed 떼고)
+function openMandayNewWindow() {
+  const url = window.location.pathname; // 파라미터 없이 = 단독 모드
+  window.open(url, '_blank');
+}
+
+// ============ 파서 ============
+function parseLine(line) {
+  const raw = line;
+  let date = todayStr();
+  const dateMatch = line.match(/^(\d{1,2})\/(\d{1,2})\s+/);
+  if (dateMatch) {
+    const mm = dateMatch[1].padStart(2,'0');
+    const dd = dateMatch[2].padStart(2,'0');
+    const yyyy = new Date().getFullYear();
+    date = `${yyyy}-${mm}-${dd}`;
+    line = line.slice(dateMatch[0].length);
+  }
+  const parts = line.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length < 2) return { error: '쉼표로 2블록(프로젝트 / 업무시간) 구분해 주세요.', raw };
+
+  const p1 = parts[0].split(/\s+/);
+  const projCode = p1[0] || '';
+  const projName = p1.slice(1).join(' ') || '';
+
+  const p2 = parts[1];
+  let regular = 0, ot = 0;
+  let remaining = p2;
+
+  const regRe = /정규\s*(\d+(?:\.\d+)?)\s*(?:시간|h|H)/g;
+  const otRe = /(?:야근|잔업|OT|ot)\s*(\d+(?:\.\d+)?)\s*(?:시간|h|H)/g;
+  let m;
+  while ((m = regRe.exec(p2)) !== null) { regular += parseFloat(m[1]); remaining = remaining.replace(m[0], ''); }
+  while ((m = otRe.exec(p2)) !== null) { ot += parseFloat(m[1]); remaining = remaining.replace(m[0], ''); }
+  if (regular === 0 && ot === 0) {
+    const solo = p2.match(/(\d+(?:\.\d+)?)\s*(?:시간|h|H)/);
+    if (solo) { regular = parseFloat(solo[1]); remaining = remaining.replace(solo[0], ''); }
+  }
+
+  const p2tokens = remaining.replace(/\s+/g, ' ').trim().split(/\s+/).filter(Boolean);
+  const item = p2tokens[0] || '';
+  const work = p2tokens.slice(1).join(' ') || '';
+
+  if (regular + ot === 0) return { error: '시간 정보를 찾을 수 없습니다. (예: 4시간, 정규8h 야근2h)', raw };
+  if (!projCode) return { error: '프로젝트 코드가 비었습니다.', raw };
+  return { date, projCode, projName, item, work, regular, ot, raw };
+}
+
+function renderPreview(results) {
+  const area = $('#preview-area');
+  if (!results.length) { area.innerHTML = ''; return; }
+  let html = '<div class="preview"><div class="preview-title">📝 파싱 결과 (' + results.length + '건)</div>';
+  let validCount = 0;
+  results.forEach((r, idx) => {
+    if (r.error) {
+      html += `<div class="preview-item error">
+        <div style="color:var(--danger); font-weight:600; margin-bottom:4px;">❌ 줄 ${idx+1}: ${escapeHtml(r.error)}</div>
+        <div style="font-family:monospace; color:var(--text-soft); font-size:12px;">${escapeHtml(r.raw||'')}</div>
+      </div>`;
+    } else {
+      validCount++;
+      const md = ((r.regular + r.ot) / 8).toFixed(2);
+      html += `<div class="preview-item">
+        <div class="preview-row"><span class="k">날짜</span><span class="v">${r.date}</span></div>
+        <div class="preview-row"><span class="k">검사관</span><span class="v"><strong style="color:var(--accent-dark);">${escapeHtml(currentUser.name)} ${escapeHtml(currentUser.title||'')}</strong> <small style="color:var(--text-soft);">(자동)</small></span></div>
+        <div class="preview-row"><span class="k">프로젝트</span><span class="v"><strong>${escapeHtml(r.projCode)}</strong> ${escapeHtml(r.projName)}</span></div>
+        <div class="preview-row"><span class="k">아이템/업무</span><span class="v">${escapeHtml(r.item)} · ${escapeHtml(r.work)}</span></div>
+        <div class="preview-row"><span class="k">시간</span><span class="v">
+          <span class="badge badge-regular">정규 ${r.regular}h</span>
+          ${r.ot > 0 ? `<span class="badge badge-ot">야근 ${r.ot}h</span>` : ''}
+          <strong style="margin-left:8px; color:var(--accent-dark);">= ${md} M/D</strong>
+        </span></div>
+      </div>`;
+    }
+  });
+  html += `<div style="margin-top:10px; display:flex; gap:8px;">
+    <button onclick="confirmParse()" ${validCount===0?'disabled style="opacity:0.5;cursor:not-allowed"':''}>✓ 유효 항목 ${validCount}건 저장</button>
+    <button class="secondary" onclick="cancelParse()">취소</button>
+  </div></div>`;
+  area.innerHTML = html;
+}
+
+function parseKakao() {
+  const text = $('#kakao-input').value.trim();
+  if (!text) { toast('입력이 비어있습니다.', true); return; }
+  const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+  parsedResults = lines.map(parseLine);
+  renderPreview(parsedResults);
+}
+
+async function confirmParse() {
+  const valid = parsedResults.filter(r => !r.error);
+  if (!valid.length) { toast('저장할 유효 항목이 없습니다.', true); return; }
+  for (const r of valid) {
+    if (r.projCode && !state.projects.find(p => p.code === r.projCode)) {
+      state.projects.push({ id: uid(), code: r.projCode, name: r.projName });
+    }
+    state.entries.push({
+      id: uid(),
+      inspectorId: currentUser.id,
+      inspectorName: currentUser.name,
+      inspectorTitle: currentUser.title || '',
+      date: r.date, projCode: r.projCode, projName: r.projName,
+      item: r.item, work: r.work,
+      regular: r.regular, ot: r.ot,
+      createdAt: new Date().toISOString()
+    });
+  }
+  await Promise.all([saveEntries(), saveProjects()]);
+  toast(`${valid.length}건 저장 완료`);
+  $('#kakao-input').value = '';
+  $('#preview-area').innerHTML = '';
+  parsedResults = [];
+  refreshAll();
+}
+function cancelParse() { $('#preview-area').innerHTML = ''; parsedResults = []; }
+
+// ============ 수동 입력 ============
+async function addManual() {
+  const date = $('#m-date').value;
+  const projId = $('#m-project').value;
+  const item = $('#m-item').value.trim();
+  const work = $('#m-work').value.trim();
+  const regular = parseFloat($('#m-regular').value) || 0;
+  const ot = parseFloat($('#m-ot').value) || 0;
+  if (!date) { toast('날짜를 입력하세요.', true); return; }
+  if (!projId) { toast('프로젝트를 선택하세요.', true); return; }
+  if (regular + ot === 0) { toast('시간을 입력하세요.', true); return; }
+  const proj = state.projects.find(p => p.id === projId);
+  state.entries.push({
+    id: uid(),
+    inspectorId: currentUser.id,
+    inspectorName: currentUser.name,
+    inspectorTitle: currentUser.title || '',
+    date, projCode: proj.code, projName: proj.name,
+    item, work, regular, ot,
+    createdAt: new Date().toISOString()
+  });
+  await saveEntries();
+  toast('추가 완료');
+  clearManual();
+  refreshAll();
+}
+function clearManual() {
+  $('#m-date').value = todayStr();
+  $('#m-item').value = '';
+  $('#m-work').value = '';
+  $('#m-regular').value = '8';
+  $('#m-ot').value = '0';
+}
+
+// ============ 렌더 ============
+function renderDropdowns() {
+  const proj = state.projects;
+  const projOpts = proj.map(p => `<option value="${p.id}">${escapeHtml(p.code)} · ${escapeHtml(p.name)}</option>`).join('');
+  $('#m-project').innerHTML = projOpts || '<option value="">(관리 탭에서 프로젝트 등록 필요)</option>';
+  const insp = state.inspectors;
+  $('#f-inspector').innerHTML = '<option value="">전체</option>' + insp.map(i => `<option value="${i.id}">${escapeHtml(i.name)} ${escapeHtml(i.title||'')}</option>`).join('');
+  $('#f-project').innerHTML = '<option value="">전체</option>' + proj.map(p => `<option value="${escapeHtml(p.code)}">${escapeHtml(p.code)} · ${escapeHtml(p.name)}</option>`).join('');
+}
+
+function getMyVisibleEntries() {
+  if (currentUser.role === 'admin') return state.entries;
+  return state.entries.filter(e => e.inspectorId === currentUser.id);
+}
+
+function renderRecent() {
+  const list = $('#recent-list');
+  const visible = getMyVisibleEntries();
+  const recent = [...visible].sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||'')).slice(0, 20);
+  if (!recent.length) {
+    list.innerHTML = '<div class="empty">아직 입력된 기록이 없습니다.</div>';
+    return;
+  }
+  const isAdmin = currentUser.role === 'admin';
+  list.innerHTML = recent.map(e => {
+    const md = ((e.regular + e.ot) / 8).toFixed(2);
+    const canDelete = isAdmin || e.inspectorId === currentUser.id;
+    return `<div class="list-item">
+      <div class="info">
+        <strong>${e.date}</strong>
+        ${isAdmin ? `<small>${escapeHtml(e.inspectorName||'')} ${escapeHtml(e.inspectorTitle||'')}</small>` : ''}
+        <small>· ${escapeHtml(e.projCode)} ${escapeHtml(e.projName)}</small>
+        <small>· ${escapeHtml(e.item)} ${escapeHtml(e.work)}</small>
+        <br><small><span class="badge badge-regular">정규 ${e.regular}h</span> ${e.ot>0?`<span class="badge badge-ot">야근 ${e.ot}h</span>`:''} <strong style="color:var(--accent-dark);">${md} M/D</strong></small>
+      </div>
+      ${canDelete ? `<button class="danger small" onclick="deleteEntry('${e.id}')">삭제</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderProjectList() {
+  const list = $('#project-list');
+  if (!state.projects.length) { list.innerHTML = '<div class="empty">등록된 프로젝트가 없습니다.</div>'; return; }
+  list.innerHTML = state.projects.map(p => `
+    <div class="list-item">
+      <div class="info"><strong>${escapeHtml(p.code)}</strong> <small>${escapeHtml(p.name)}</small></div>
+      <button class="danger small" onclick="deleteProject('${p.id}')">삭제</button>
+    </div>
+  `).join('');
+}
+
+function renderInspectorList() {
+  const list = $('#inspector-list');
+  if (!state.inspectors.length) { list.innerHTML = '<div class="empty">등록된 검사관이 없습니다.</div>'; return; }
+  list.innerHTML = state.inspectors.map(i => {
+    const isMe = i.id === currentUser.id;
+    const roleBadge = i.role === 'admin' 
+      ? '<span class="role-badge admin">관리자</span>' 
+      : '<span class="role-badge inspector">검사관</span>';
+    const pinBadge = i.pinChanged === false 
+      ? '<span class="role-badge warning">⚠️ 기본 PIN</span>' 
+      : '';
+    return `<div class="list-item">
+      <div class="info">
+        <strong>${escapeHtml(i.name)}</strong> 
+        <small>${escapeHtml(i.title||'')}</small>
+        ${roleBadge}
+        ${pinBadge}
+        ${isMe ? '<small style="color:var(--accent-strong);">· 나</small>' : ''}
+      </div>
+      <div class="actions">
+        ${!isMe ? `<button class="secondary small" onclick="resetPin('${i.id}')">PIN 초기화</button>` : ''}
+        ${!isMe ? `<button class="danger small" onclick="deleteInspector('${i.id}')">삭제</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============ 대시보드 ============
+function getFiltered() {
+  const from = $('#f-from').value;
+  const to = $('#f-to').value;
+  const inspId = $('#f-inspector').value;
+  const projCode = $('#f-project').value;
+  const base = getMyVisibleEntries();
+  return base.filter(e => {
+    if (from && e.date < from) return false;
+    if (to && e.date > to) return false;
+    if (inspId && e.inspectorId !== inspId) return false;
+    if (projCode && e.projCode !== projCode) return false;
+    return true;
+  });
+}
+
+function renderDashboard() {
+  const data = getFiltered();
+  const totalReg = data.reduce((s,e) => s + e.regular, 0);
+  const totalOt = data.reduce((s,e) => s + e.ot, 0);
+  const totalMd = ((totalReg + totalOt) / 8).toFixed(2);
+  const projSet = new Set(data.map(e => e.projCode));
+  
+  $('#c-total-md').textContent = totalMd;
+  $('#c-reg').textContent = totalReg.toFixed(1);
+  $('#c-ot').textContent = totalOt.toFixed(1);
+  $('#c-proj').textContent = projSet.size;
+  
+  if (currentUser.role === 'admin') {
+    const inspSet = new Set(data.map(e => e.inspectorId));
+    $('#c-insp').textContent = inspSet.size;
+    $('#c-insp-unit').textContent = '명';
+  } else {
+    const daySet = new Set(data.map(e => e.date));
+    $('#c-insp').textContent = daySet.size;
+    $('#c-insp-unit').textContent = '일';
+  }
+
+  const projMd = {};
+  data.forEach(e => {
+    const k = e.projCode + (e.projName?' '+e.projName:'');
+    projMd[k] = (projMd[k] || 0) + (e.regular + e.ot) / 8;
+  });
+  if (charts.project) charts.project.destroy();
+  charts.project = new Chart($('#chart-project'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(projMd),
+      datasets: [{ label: 'M/D', data: Object.values(projMd).map(v => Number(v.toFixed(2))),
+        backgroundColor: '#4a90d9', borderColor: '#2c6cb0', borderWidth: 1 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  const dailyMd = {};
+  data.forEach(e => { dailyMd[e.date] = (dailyMd[e.date] || 0) + (e.regular + e.ot) / 8; });
+  const sortedDates = Object.keys(dailyMd).sort();
+  if (charts.daily) charts.daily.destroy();
+  charts.daily = new Chart($('#chart-daily'), {
+    type: 'line',
+    data: {
+      labels: sortedDates,
+      datasets: [{ label: 'M/D',
+        data: sortedDates.map(d => Number(dailyMd[d].toFixed(2))),
+        borderColor: '#4a90d9', backgroundColor: 'rgba(74,144,217,0.15)',
+        fill: true, tension: 0.3, pointRadius: 4 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  const tbody = $('#detail-table tbody');
+  const sorted = [...data].sort((a,b) => b.date.localeCompare(a.date) || (b.createdAt||'').localeCompare(a.createdAt||''));
+  const isAdmin = currentUser.role === 'admin';
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">조건에 맞는 기록이 없습니다.</td></tr>';
+  } else {
+    tbody.innerHTML = sorted.map(e => {
+      const md = ((e.regular + e.ot) / 8).toFixed(2);
+      const canDelete = isAdmin || e.inspectorId === currentUser.id;
+      return `<tr>
+        <td>${e.date}</td>
+        <td>${escapeHtml(e.inspectorName||'')} ${escapeHtml(e.inspectorTitle||'')}</td>
+        <td>${escapeHtml(e.projCode)}</td>
+        <td>${escapeHtml(e.projName)}</td>
+        <td>${escapeHtml(e.item)}</td>
+        <td>${escapeHtml(e.work)}</td>
+        <td>${e.regular}h</td>
+        <td style="color:#c77a33;">${e.ot>0?e.ot+'h':'-'}</td>
+        <td><strong style="color:var(--accent-dark);">${md}</strong></td>
+        <td>${canDelete ? `<button class="danger small" onclick="deleteEntry('${e.id}')">삭제</button>` : '-'}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function applyFilter() { renderDashboard(); }
+function resetFilter() {
+  $('#f-from').value = ''; $('#f-to').value = '';
+  $('#f-inspector').value = ''; $('#f-project').value = '';
+  renderDashboard();
+}
+function quickFilter(type) {
+  const today = new Date();
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if (type === 'today') { $('#f-from').value = fmt(today); $('#f-to').value = fmt(today); }
+  else if (type === 'week') {
+    const day = today.getDay();
+    const diffToMon = day === 0 ? 6 : day - 1;
+    const mon = new Date(today); mon.setDate(today.getDate() - diffToMon);
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    $('#f-from').value = fmt(mon); $('#f-to').value = fmt(sun);
+  } else if (type === 'month') {
+    const first = new Date(today.getFullYear(), today.getMonth(), 1);
+    const last = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    $('#f-from').value = fmt(first); $('#f-to').value = fmt(last);
+  }
+  renderDashboard();
+}
+
+// ============ 관리 ============
+async function addProject() {
+  const code = $('#p-code').value.trim();
+  const name = $('#p-name').value.trim();
+  if (!code) { toast('프로젝트 코드를 입력하세요.', true); return; }
+  if (state.projects.find(p => p.code === code)) { toast('이미 등록된 코드입니다.', true); return; }
+  state.projects.push({ id: uid(), code, name });
+  await saveProjects();
+  $('#p-code').value = ''; $('#p-name').value = '';
+  toast('등록 완료');
+  refreshAll();
+}
+
+async function deleteProject(id) {
+  const p = state.projects.find(x => x.id === id);
+  if (!p) return;
+  const used = state.entries.some(e => e.projCode === p.code);
+  const ok = await showModal('프로젝트 삭제', `<p><strong>${escapeHtml(p.code)}</strong> ${escapeHtml(p.name)}를 삭제하시겠습니까?</p>${used ? '<p style="color:var(--danger);margin-top:8px;font-size:13px;">⚠️ 이 프로젝트의 입력 기록이 있습니다. 기록 자체는 유지됩니다.</p>' : ''}`);
+  if (!ok) return;
+  state.projects = state.projects.filter(x => x.id !== id);
+  await saveProjects();
+  toast('삭제 완료');
+  refreshAll();
+}
+
+async function addInspector() {
+  const name = $('#i-name').value.trim();
+  const title = $('#i-title').value.trim();
+  const role = $('#i-role').value;
+  if (!name) { toast('이름을 입력하세요.', true); return; }
+  if (state.inspectors.find(i => i.name === name)) { toast('이미 등록된 이름입니다.', true); return; }
+  
+  state.inspectors.push({
+    id: uid(), name, title,
+    pin: '0000',
+    pinChanged: false,
+    role,
+    createdAt: new Date().toISOString()
+  });
+  await saveInspectors();
+  $('#i-name').value = ''; $('#i-title').value = ''; $('#i-role').value = 'inspector';
+  
+  await showModal('✅ 등록 완료', `
+    <p><strong>${escapeHtml(name)} ${escapeHtml(title||'')}</strong>님이 등록되었습니다.</p>
+    <div style="background:var(--accent); padding:12px; border-radius:6px; margin-top:12px;">
+      <p style="font-size:13px; color:var(--accent-dark); margin-bottom:6px;"><strong>📢 본인에게 전달하실 안내</strong></p>
+      <p style="font-size:13px;">• 이름: <strong>${escapeHtml(name)}</strong></p>
+      <p style="font-size:13px;">• 기본 PIN: <strong>0000</strong></p>
+      <p style="font-size:13px;">• 첫 로그인 시 본인의 새 PIN을 설정하셔야 합니다.</p>
+    </div>
+  `);
+  refreshAll();
+}
+
+async function deleteInspector(id) {
+  const i = state.inspectors.find(x => x.id === id);
+  if (!i) return;
+  if (i.id === currentUser.id) { toast('본인은 삭제할 수 없습니다.', true); return; }
+  const ok = await showModal('검사관 삭제', `<p><strong>${escapeHtml(i.name)}</strong> ${escapeHtml(i.title||'')}를 삭제하시겠습니까?</p><p style="color:var(--text-soft);font-size:12px;margin-top:8px;">해당 검사관의 입력 기록은 유지됩니다.</p>`);
+  if (!ok) return;
+  state.inspectors = state.inspectors.filter(x => x.id !== id);
+  await saveInspectors();
+  toast('삭제 완료');
+  refreshAll();
+}
+
+async function resetPin(id) {
+  const i = state.inspectors.find(x => x.id === id);
+  if (!i) return;
+  const ok = await showModal('🔑 PIN 초기화', `
+    <p><strong>${escapeHtml(i.name)} ${escapeHtml(i.title||'')}</strong>의 PIN을 기본값 <strong>"0000"</strong>으로 초기화합니다.</p>
+    <p style="margin-top:8px; color:var(--text-soft); font-size:13px;">초기화 후 해당 검사관은 다음 로그인 시 새 PIN을 다시 설정해야 합니다.</p>
+  `);
+  if (!ok) return;
+  i.pin = '0000';
+  i.pinChanged = false;
+  await saveInspectors();
+  toast(`${i.name} PIN 초기화 완료 (0000)`);
+  refreshAll();
+}
+
+async function deleteEntry(id) {
+  const entry = state.entries.find(e => e.id === id);
+  if (!entry) return;
+  const canDelete = currentUser.role === 'admin' || entry.inspectorId === currentUser.id;
+  if (!canDelete) { toast('삭제 권한이 없습니다.', true); return; }
+  const ok = await showModal('기록 삭제', '<p>선택한 기록을 삭제하시겠습니까?</p>');
+  if (!ok) return;
+  state.entries = state.entries.filter(e => e.id !== id);
+  await saveEntries();
+  toast('삭제 완료');
+  refreshAll();
+}
+
+// ============ Export ============
+function exportCSV() {
+  const data = getFiltered();
+  if (!data.length) { toast('내보낼 데이터가 없습니다.', true); return; }
+  const headers = ['날짜','검사관','직함','프로젝트코드','프로젝트','아이템','업무','정규(h)','야근(h)','M/D'];
+  const rows = data.map(e => [
+    e.date, e.inspectorName||'', e.inspectorTitle||'',
+    e.projCode, e.projName, e.item, e.work,
+    e.regular, e.ot, ((e.regular+e.ot)/8).toFixed(2)
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `manday_${todayStr()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV 내보내기 완료');
+}
+
+function exportAll() {
+  const data = { entries: state.entries, projects: state.projects, inspectors: state.inspectors,
+    exportedAt: new Date().toISOString(), version: 3 };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `manday_backup_${todayStr()}.json`; a.click();
+  URL.revokeObjectURL(url);
+  toast('백업 완료');
+}
+
+async function importAll(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const ok = await showModal('백업 불러오기', '<p>현재 데이터에 <strong>추가</strong>됩니다. (중복 코드/이름은 제외)</p><p style="margin-top:8px; font-size:13px; color:var(--text-soft);">진행하시겠습니까?</p>');
+  if (!ok) { ev.target.value = ''; return; }
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (data.entries) state.entries = [...state.entries, ...data.entries];
+    if (data.projects) data.projects.forEach(p => {
+      if (!state.projects.find(x => x.code === p.code)) state.projects.push(p);
+    });
+    if (data.inspectors) data.inspectors.forEach(i => {
+      if (!state.inspectors.find(x => x.name === i.name)) state.inspectors.push(i);
+    });
+    await Promise.all([saveEntries(), saveProjects(), saveInspectors()]);
+    toast('불러오기 완료');
+    refreshAll();
+  } catch (err) {
+    toast('불러오기 실패: ' + err.message, true);
+  }
+  ev.target.value = '';
+}
+
+async function clearAll() {
+  const ok = await showModal('⚠️ 전체 삭제', '<p style="color:var(--danger);">모든 기록/프로젝트/검사관 데이터가 삭제됩니다.</p><p style="margin-top:8px;">현재 관리자 계정도 삭제되어 재생성이 필요합니다. 계속하시겠습니까?</p>');
+  if (!ok) return;
+  state.entries = []; state.projects = []; state.inspectors = [];
+  await Promise.all([ safeSet('md-entries', []), safeSet('md-projects', []), safeSet('md-inspectors', []) ]);
+  toast('전체 삭제 완료');
+  location.reload();
+}
+
+// ============ 탭 ============
+function switchTab(name) {
+  if (!currentUser) return;
+  if (name === 'manage' && currentUser.role !== 'admin') return;
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  $$('.tab-content').forEach(c => c.style.display = c.id === 'tab-' + name ? '' : 'none');
+  if (name === 'dashboard') renderDashboard();
+}
+
+function refreshAll() {
+  renderDropdowns();
+  renderRecent();
+  if (currentUser.role === 'admin') {
+    renderProjectList();
+    renderInspectorList();
+  }
+  const active = $('.tab.active');
+  if (active && active.dataset.tab === 'dashboard') renderDashboard();
+}
+
+// ============ 초기화 ============
+async function init() {
+  await loadAll();
+  // 로그인 없음 — SJ FLOW 단일 인증. URL로 받은 사용자로 바로 진입.
+  const _qs = new URLSearchParams(window.location.search);
+  const uname = _qs.get('uname') || '관리자';
+  const utitle = _qs.get('utitle') || '';
+  let admin = state.inspectors.find(i => i.role === 'admin');
+  if (!admin) {
+    admin = { id: uid(), name: uname, title: utitle, pin: '0000', role: 'admin', pinChanged: true };
+    state.inspectors.push(admin);
+    await saveInspectors();
+  }
+  currentUser = { id: admin.id, name: uname, title: utitle, role: 'admin' };
+  enterApp();
+  $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+}
+init();
+</script>
+</body>
+</html>

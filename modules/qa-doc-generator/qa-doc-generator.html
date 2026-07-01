@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QA Doc Generator v1.4 (V25 form) · Sejong-Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   EPC Control System 디자인 토큰 (인라인 정의)
+   v1.2 — 부장님 EPC Control 톤 통일 + sjp-tokens.css 의존성 제거
+═══════════════════════════════════════════════════════════ */
+:root {
+  --sjp-primary:        #4a7fc1;
+  --sjp-primary-hover:  #3a6bb5;
+  --sjp-primary-light:  #eef3fb;
+  --sjp-success:        #16a34a;
+  --sjp-success-bg:     #f0fdf4;
+  --sjp-warning:        #f59e0b;
+  --sjp-warning-bg:     #fef3c7;
+  --sjp-danger:         #dc2626;
+  --sjp-danger-bg:      #fee2e2;
+  --sjp-border:         #e4e7ec;
+  --sjp-border-strong:  #c3d6f0;
+  --sjp-bg-card:        #ffffff;
+  --sjp-bg-app:         #f0f4f8;
+  --sjp-bg-table-head:  #f8fafc;
+  --sjp-bg-row-hover:   #f9fafb;
+  --sjp-text-main:      #1a2332;
+  --sjp-text-body:      #4b5563;
+  --sjp-text-sub:       #6b7280;
+  --sjp-text-muted:     #9ca3af;
+  --sjp-radius-sm:      4px;
+  --sjp-radius:         5px;
+  --sjp-radius-lg:      8px;
+  --sjp-shadow:         0 1px 3px rgba(0,0,0,.05);
+  --sjp-shadow-md:      0 2px 8px rgba(0,0,0,.08);
+}
+
+/* 글로벌 */
+*{box-sizing:border-box;margin:0;padding:0}
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--sjp-bg-app);
+  font-family: 'Segoe UI','Malgun Gothic',Arial,sans-serif;
+  color: var(--sjp-text-main);
+  font-size: 12px;
+  line-height: 1.5;
+}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:#c4cdd8;border-radius:3px}
+
+/* v1.2 EPC Control 톤 Topbar */
+.epc-topbar {
+  background: #fff;
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius-lg);
+  padding: 12px 18px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--sjp-shadow);
+}
+.epc-topbar-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--sjp-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.epc-topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sjp-text-main);
+}
+.epc-topbar-sub { font-size: 10px; color: var(--sjp-text-sub); }
+.epc-topbar-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+
+/* v1.2 ITP 연동 안내 */
+.itp-link-info {
+  padding: 10px 14px;
+  background: var(--sjp-primary-light);
+  border: 1px solid var(--sjp-border-strong);
+  border-radius: var(--sjp-radius-lg);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--sjp-text-main);
+}
+.itp-link-info-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--sjp-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.itp-link-info-text { flex: 1; }
+.itp-link-info-title { font-weight: 700; color: var(--sjp-primary); margin-bottom: 2px; }
+.itp-link-info-sub { color: var(--sjp-text-sub); font-size: 10px; line-height: 1.5; }
+
+/* 버튼 */
+.btn-primary {
+  padding: 6px 14px;
+  background: var(--sjp-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--sjp-radius);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background .12s;
+}
+.btn-primary:hover { background: var(--sjp-primary-hover); }
+.btn-secondary {
+  padding: 6px 12px;
+  background: #fff;
+  color: var(--sjp-text-body);
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius);
+  font-size: 11px;
+  cursor: pointer;
+}
+.btn-secondary:hover { background: var(--sjp-primary-light); border-color: var(--sjp-border-strong); color: var(--sjp-primary); }
+.btn-success {
+  padding: 6px 12px;
+  background: var(--sjp-success);
+  color: #fff;
+  border: none;
+  border-radius: var(--sjp-radius);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-success:hover { background: #15803d; }
+
+/* 카드 */
+.epc-card {
+  background: #fff;
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--sjp-shadow);
+  margin-bottom: 12px;
+}
+.epc-card-h {
+  padding: 10px 16px;
+  background: var(--sjp-bg-table-head);
+  border-bottom: 1px solid var(--sjp-border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sjp-text-main);
+}
+.epc-card-b { padding: 14px 16px; }
+
+/* 빈 상태 */
+.empty-state {
+  padding: 40px;
+  text-align: center;
+  background: #fff;
+  border: 2px dashed var(--sjp-border-strong);
+  border-radius: var(--sjp-radius-lg);
+  color: var(--sjp-text-sub);
+  box-shadow: var(--sjp-shadow);
+}
+
+/* 입력 */
+input:focus, select:focus, textarea:focus { outline: none; }
+
+@media print {
+  /* v2.0 A안 풀-블리드: A4 한 페이지를 보고서가 꽉 채우도록 강제 */
+  @page { size: A4 portrait; margin: 0 }
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  .no-print, .epc-topbar, .itp-link-info, .ic, .fc, .bc, .vc { display: none !important; }
+
+  /* v2.2 — max-height/overflow:hidden 제거 (잘림 원인이었음).
+     min-height만 275mm로 줄여 자연 하단 버퍼 확보 + 서명·표 보호 */
+  .qa-report-body {
+    box-sizing: border-box !important;
+    padding: 10mm 8mm !important;
+    min-height: 275mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  /* 마지막 페이지 끝에서 빈 페이지 생성 방지 */
+  .qa-report-body:last-child { page-break-after: avoid !important; }
+
+  /* Final VI 페이지 2 (PHOTO REPORT) — 명시적 페이지 분리 + 동일 사이즈 */
+  .qa-report-body > div[style*="pageBreakBefore"] {
+    box-sizing: border-box !important;
+    padding: 10mm 8mm !important;
+    min-height: 275mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    page-break-before: always !important;
+  }
+
+  /* 서명·표·핵심 블록은 페이지 중간에서 잘리지 않도록 */
+  table { page-break-inside: avoid !important; }
+  div[style*="borderTop"] { page-break-inside: avoid !important; }
+  /* v2.8 — Fitup Joint 20+ 케이스: Joint 표는 페이지 분할 허용, end-block은 함께 유지 */
+  table.fitup-joint-many {
+    page-break-inside: auto !important;
+  }
+  table.fitup-joint-many tr {
+    page-break-inside: avoid !important;   /* 개별 row는 잘리지 않음 */
+  }
+  table.fitup-joint-many thead {
+    display: table-header-group;            /* 페이지마다 헤더 자동 반복 */
+  }
+  .fitup-end-block {
+    page-break-inside: avoid !important;    /* 측정장비 + 서명은 마지막 페이지에 함께 */
+  }
+
+  /* v2.6 — 이미지 높이 90mm로 감축 (Bending/Hydro 표·계산 콘텐츠 무거움 대응)
+     계산: 90mm 이미지 + 평균 콘텐츠 180mm + 패딩 20mm ≈ 290mm (안전 마진 7mm) */
+  .pf-img {
+    height: 90mm !important;
+    min-height: 90mm !important;
+    max-height: 90mm !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+  }
+  /* Final VI 페이지 2: 사진 2매 각 90mm — 헤더 25 + 90*2 + gap 12 = 217mm + padding 20 = 237mm (38mm 버퍼) */
+  .qa-report-body > div[style*="pageBreakBefore"] .pf-img {
+    height: 90mm !important;
+    min-height: 90mm !important;
+    max-height: 90mm !important;
+  }
+  /* v2.6 — IDZ UI 오버레이 인쇄 숨김 ("✕ 클릭 초기화", "클릭 후 Ctrl+V 붙여넣기" 등) */
+  .pf-img > span,
+  .pf-img > div[style*="position:absolute"],
+  .pf-img div[style*="color:red"],
+  .pf-img div[style*="color:#aaa"] {
+    display: none !important;
+  }
+  /* 이미지가 로딩된 경우만 표시 — img가 있으면 placeholder span은 자동 숨김 (조건부 렌더) */
+  /* Final VI 페이지 2 wrapper의 marginTop 무력화 (페이지 3 넘김 방지) */
+  .qa-report-body > div[style*="pageBreakBefore"] {
+    margin-top: 0 !important;
+  }
+  /* Nozzle 15+ 노즐: 이미지 영역 페이지 1 풀로 */
+  .noz-big .pf-img {
+    height: 220mm !important;
+    min-height: 220mm !important;
+    max-height: 220mm !important;
+  }
+  /* v2.7 — PinImg/IDZ 내부 wrapper 무력화 + img는 absolute 중앙정렬
+     중첩 wrapper(.pf-img > div > div ...)들이 flex 중앙정렬 안 통과시키는 문제 해결 */
+  .pf-img > div {
+    width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
+    min-height: 0 !important;
+    flex: none !important;
+  }
+  .pf-img > div > div {
+    width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
+  }
+  /* 핵심: img를 .pf-img 안에 absolute 중앙정렬 (어떤 중첩에서도 동작) */
+  .pf-img {
+    position: relative !important;
+  }
+  .pf-img img {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+    display: block !important;
+  }
+  /* PinImg의 핀 표시는 인쇄에서도 유지 (pins은 image와 함께 표시) */
+
+  /* 표는 그대로 (자연 높이 유지) */
+  table { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="env,react">
+const {useState, useEffect, useRef, useCallback} = React;
+
+// ════════════ 0. iframe 임베드 모드 — parent window의 EPC Control 데이터 자동 사용 ════════════
+// v1.3 (sejong-platform Phase 2):
+// - window.opener (새 창에서 열린 경우) 와 window.parent (iframe 임베드) 모두 지원
+// - 250ms 폴링으로 EPC Control의 데이터 변경을 자동 반영
+(function inheritFromHost(){
+  function getHost(){
+    try {
+      if (window.opener && !window.opener.closed && window.opener.SJP) return window.opener;
+    } catch(e){}
+    try {
+      if (window.parent && window.parent !== window && window.parent.SJP) return window.parent;
+    } catch(e){}
+    return null;
+  }
+  function syncOnce(){
+    const host = getHost();
+    if (!host) return false;
+    try {
+      window.SJP = host.SJP;
+      window.EPC_PROJECT = host.EPC_PROJECT;
+      window.EPC_ITEMS = host.EPC_ITEMS;
+      window.EPC_DOC_NO_GENERATOR = host.EPC_DOC_NO_GENERATOR;
+      window.EPC_INSPECTOR_MASTER = host.EPC_INSPECTOR_MASTER;
+      window.WPS_LIST = host.WPS_LIST;
+      window.WELDER_LIST = host.WELDER_LIST;
+      return true;
+    } catch(e){
+      console.warn("[QA Doc Generator] host 접근 실패", e.message);
+      return false;
+    }
+  }
+  const ok = syncOnce();
+  console.log("[QA Doc Generator v1.4] 호스트 연결 " + (ok ? "성공 — EPC Control 데이터 상속 완료" : "실패 (Standalone 모드)"));
+  if (ok) setInterval(syncOnce, 250);
+})();
+
+// ════════════ 1. 상수 ════════════
+const SJB = "#4a7fc1";
+const CO = ["(주)세종기술", "Sejong Tech Co., Ltd."];
+const LOGO_URL = "data:image/jpeg;base64,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";
+const LOGO_FB = LOGO_URL;  // SEJONG 로고 base64 (LOGO_URL 동일)
+
+const DOC_TYPES = [
+  {key:"BOM",     label:"Bill of Materials",        color:"#1d9e75"},
+  {key:"BENDING", label:"Bending Inspection Report",color:"#ba7517"},
+  {key:"FITUP",   label:"Fit-up & Welding IR",      color:"#534ab7"},
+  {key:"DIM",     label:"Dimensional IR",           color:"#993c1d"},
+  {key:"NOZZLE",  label:"Nozzle Orientation IR",    color:"#0f6e56"},
+  {key:"HYDRO",   label:"Hydrostatic Test Report",  color:"#a32d2d"},
+  {key:"FINAL",   label:"Final Visual IR",          color:"#3c3489"}
+];
+
+// ════════════ 2. 시드 데이터 (EPC 미연결 시 사용) ════════════
+const WPS_SEED = [
+  {id:"GTAW-001", wpsNo:"SJTC-WPS-GTAW-001", pqrNo:"SJTC-PQ-GTAW-001", process:"GTAW", type:"Manual", joint:"GROOVE & FILLET", pNo:"1 to 1", thkRange:"1.5~17.48mm", filler:"6/ER70S-6", pos:"All"},
+  {id:"FCAW-001", wpsNo:"SJTC-WPS-FCAW-001", pqrNo:"SJTC-PQ-FCAW-001", process:"FCAW", type:"Semi-Auto", joint:"GROOVE & FILLET", pNo:"1 to 1", thkRange:"1.5~20mm", filler:"6/E71T-1C", pos:"F,V,F.H,V"},
+  {id:"GTFC-001", wpsNo:"SJTC-WPS-GTAW-001/FCAW-001", pqrNo:"SJTC-PQ-GTAW-001/FCAW-001", process:"GTAW/FCAW", type:"Manual/Semi-Auto", joint:"GROOVE & FILLET", pNo:"1 to 1", thkRange:"GT:1.5~17.48 FC:1.5~20", filler:"6/ER70S-6+E71T-1C", pos:"Refer to No.1,2"},
+  {id:"GTAW-002", wpsNo:"SJTC-WPS-GTAW-002", pqrNo:"SJTC-PQ-GTAW-002", process:"GTAW", type:"Manual", joint:"GROOVE & FILLET", pNo:"8 to 8", thkRange:"5~36mm", filler:"6/E308T1-1/4", pos:"F.V F.H.V"},
+  {id:"FCAW-002", wpsNo:"SJTC-WPS-FCAW-002", pqrNo:"SJTC-PQ-FCAW-002", process:"FCAW", type:"Semi-Auto", joint:"GROOVE & FILLET", pNo:"8 to 8", thkRange:"5~36mm", filler:"6/E308T1-1/4", pos:"F.H F.H"},
+  {id:"GTFC-002", wpsNo:"SJTC-WPS-GTAW-002/FCAW-002", pqrNo:"SJTC-PQ-GTAW-002/FCAW-002", process:"GTAW/FCAW", type:"Manual/Semi-Auto", joint:"GROOVE & FILLET", pNo:"8 to 8", thkRange:"5~36mm", filler:"6/ER308+E308T1-1/4", pos:"Refer to No.5,6"},
+  {id:"SS-GTAW-001", wpsNo:"SJTC-WPS-SS-GTAW-001", pqrNo:"SS-GTAW-001", process:"GTAW", type:"Manual", joint:"GROOVE & FILLET", pNo:"8 to 8", thkRange:"1.5~6mm", filler:"6/ER308", pos:"All"},
+  {id:"GTAW-004", wpsNo:"SJTC-WPS-GTAW-004", pqrNo:"SJTC-PQ-GTAW-004-01", process:"GTAW", type:"Manual", joint:"GROOVE & FILLET", pNo:"1 to 8", thkRange:"1.5~16mm", filler:"6/ER309L", pos:"F.V F.H.V"},
+  {id:"FCAW-003", wpsNo:"SJTC-WPS-FCAW-003", pqrNo:"SJTC-PQ-FCAW-003", process:"FCAW", type:"Semi-Auto", joint:"GROOVE & FILLET", pNo:"1 to 8", thkRange:"1.5~16mm", filler:"6/E309LT0-1(4)", pos:"F.H F.H"},
+  {id:"GTFC-003", wpsNo:"SJTC-WPS-GTAW-004/FCAW-003", pqrNo:"SJTC-PQ-GTAW-004-01 & FCAW-003", process:"GTAW/FCAW", type:"Manual/Semi-Auto", joint:"GROOVE & FILLET", pNo:"1 to 8", thkRange:"1.5~16mm", filler:"6/ER309+E309LT0-1(4)", pos:"All/F,H"}
+];
+
+// 자격 만료 임박자 (2026-07 cluster) 표시용 더미 유효기간 — 추후 EPC가 실데이터 주입
+const WELDER_SEED = [
+  {id:"SJ-KYG-GT-01", name:"강용구",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-07"},
+  {id:"SJ-KYG-FC-01", name:"강용구",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-25"},
+  {id:"SJ-KHS-GT-01", name:"강희석",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-04-04"},
+  {id:"SJ-KHS-FC-01", name:"강희석",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-18"},
+  {id:"SJ-KOG-GT-01", name:"권오근",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-04"},
+  {id:"SJ-KOG-FC-01", name:"권오근",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-05"},
+  {id:"SJ-KOG-SAW-01", name:"권오근", process:"SAW(M)",   pNo:"1~15F, 34, 41~49 *3", thk:"Max.44mm",    pos:"F",    dueDate:"2026-06-02"},
+  {id:"SJ-KKD-GT-01", name:"김기동",  process:"GTAW(MC)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-15"},
+  {id:"SJ-KKD-FC-01", name:"김기동",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-08"},
+  {id:"SJ-KDY-GT-01", name:"김두용",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-18"},
+  {id:"SJ-KDY-FC-01", name:"김두용",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-27"},
+  {id:"SJ-SSH-GT-01", name:"서석현",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"All",  dueDate:"2026-07-07"},
+  {id:"SJ-SSH-FC-01", name:"서석현",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F",    dueDate:"2026-07-04"},
+  {id:"SJ-SBC-GT-01", name:"석병찬",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-16"},
+  {id:"SJ-SBC-FC-01", name:"석병찬",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F,V",  dueDate:"2026-06-19"},
+  {id:"SJ-SDB-GT-01", name:"신동범",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-05"},
+  {id:"SJ-SDB-FC-01", name:"신동범",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-04"},
+  {id:"SJ-LSG-GT-01", name:"이상근",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-18"},
+  {id:"SJ-LSG-FC-01", name:"이상근",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-02"},
+  {id:"SJ-CBY-GT-01", name:"최병유",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.36mm",    pos:"F,V",  dueDate:"2026-07-18"},
+  {id:"SJ-CBY-FC-01", name:"최병유",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-13"},
+  {id:"SJ-HDY-GT-01", name:"하동윤",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-07"},
+  {id:"SJ-HDY-FC-01", name:"하동윤",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F",    dueDate:"2026-07-05"}
+];
+
+const INSPECTOR_SEED = [
+  {id:"INS-001", name:"김철우", title:"부장", role:"QA Manager"},
+  {id:"INS-002", name:"신채완", title:"과장", role:"QA Engineer"},
+  {id:"INS-003", name:"김시원", title:"대리", role:"QA Inspector"}
+];
+
+const THIRD_PARTY_AGENCIES = [
+  "KGS (한국가스안전공사)", "KOSHA (한국산업안전보건공단)",
+  "ABS", "Lloyd's Register", "Bureau Veritas", "DNV", "기타 (직접 입력)"
+];
+
+// ════════════ 3. EPC 글로벌 슬롯 ════════════
+window.EPC_PROJECT = window.EPC_PROJECT || null;
+window.EPC_ITEMS = window.EPC_ITEMS || null;
+window.EPC_DOC_NO_GENERATOR = window.EPC_DOC_NO_GENERATOR || null;
+window.EPC_INSPECTOR_MASTER = window.EPC_INSPECTOR_MASTER || null;
+window.WPS_LIST = window.WPS_LIST || null;
+window.WELDER_LIST = window.WELDER_LIST || null;
+
+const getWPS = () => window.WPS_LIST || WPS_SEED;
+const getWelders = () => window.WELDER_LIST || WELDER_SEED;
+const generateDocNo = (projNo, type, seq) => {
+  if (window.EPC_DOC_NO_GENERATOR) return window.EPC_DOC_NO_GENERATOR(projNo, type, seq);
+  return `${projNo||"PROJ"}-${type}-${String(seq).padStart(3,"0")}`;
+};
+
+// 용접사 상태 분류
+const welderStatus = (dueDate) => {
+  if (!dueDate) return {label:"valid", color:"#1d9e75"};
+  const due = new Date(dueDate);
+  const now = new Date("2026-05-26");
+  const days = (due - now) / (1000*60*60*24);
+  if (days < 0) return {label:"expired", color:"#c00", emoji:"❌"};
+  if (days < 30) return {label:"expiring_soon", color:"#d4a017", emoji:"⚠"};
+  return {label:"valid", color:"#1d9e75", emoji:"✓"};
+};
+
+// ════════════ 4. 공차 함수 (UG-81 / B16.9) ════════════
+// ═══════════════════════════════════════════════════════════
+// V25 PORTABLE HELPERS — Preview들이 의존하는 외부 기호
+// (v1.3 IMG_STORE/dimTolASME/dimTolTEMA는 본 V25 버전으로 대체됨)
+// ═══════════════════════════════════════════════════════════
+
+/* ── 이미지/핀/객체 메모리 캐시 (V25 표준) ── */
+const IMG_STORE = new Map();
+
+/* ── window.storage 영속화 레이어 (V25 표준) ── */
+const STORAGE_OK = typeof window!=="undefined" && window.storage;
+const escKey = k => String(k).replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,80);
+
+/* ── V25 표준 셀 스타일 (모든 Preview가 사용) ── */
+const bdr = (x={}) => ({border:"0.5px solid #bbb",padding:"2px 5px",fontSize:11,lineHeight:1.25,...x});  // v1.5 — 헤더 높이 축소
+const hdr = (x={}) => bdr({background:"#e8f0f8",fontWeight:500,...x});
+
+/* ── NPS 표 (Pipe OD 조회) ── */
+const NPS_OD = {"15":21.7,"20":27.2,"25":34.0,"32":42.7,"40":48.6,"50":60.5,"65":76.3,"80":89.1,"90":101.6,"100":114.3,"125":139.8,"150":165.2,"200":216.3,"250":267.4,"300":318.5,"350":355.6,"400":406.4,"450":457.2,"500":508.0,"550":558.8,"600":609.6,"650":660.4,"700":711.2,"750":762.0,"800":812.8,"850":863.6,"900":914.4,"1000":1016.0};
+const NPS_B = {"1/2":"15","3/4":"20","1":"25","1.25":"32","1.5":"40","2":"50","2.5":"65","3":"80","3.5":"90","4":"100","5":"125","6":"150","8":"200","10":"250","12":"300","14":"350","16":"400","18":"450","20":"500","24":"600"};
+function parsePipe(spec){if(!spec)return{isPipe:false,od:"",display:""};let a="";const B=spec.match(/(\d+(?:\.\d+)?)\s*[Bb]/),A=spec.match(/(\d+)\s*[Aa]/);if(B){a=NPS_B[B[1]]||String(Math.round(parseFloat(B[1])*25.4));}else if(A){a=A[1];}else{const m=spec.match(/^(\d+)/);if(m)a=m[1];}const od=NPS_OD[a];if(od)return{isPipe:true,od:String(od),display:`${od}mm (${spec})`};return{isPipe:!!(B||A||spec.toUpperCase().includes("SCH")),od:"",display:spec};}
+const tagId = t => (t||"").replace(/-/g,"");
+
+/* ── 경판 형상 (Head Type) ── */
+const HEAD_OPTIONS = ["2:1 Ellip.","10% (F&D)","Hemispherical","Flat","Conical","Dished","CAP","Torispherical"];
+const normalizeHeadType = (raw) => {
+  if(!raw) return "2:1 Ellip.";
+  const r = String(raw).toUpperCase().replace(/[\s_-]/g,"");
+  if(/2[:.]?1|2TO1|ELLIP/.test(r)) return "2:1 Ellip.";
+  if(/10%?(F&?D|FAD|FANDDISH|FANDD)|FANDD/.test(r) || /F&D/.test(raw||"")) return "10% (F&D)";
+  if(/HEMI|HEMISPHE/.test(r)) return "Hemispherical";
+  if(/FLAT/.test(r)) return "Flat";
+  if(/CONICAL|CONE/.test(r)) return "Conical";
+  if(/TORI|TORISPHE/.test(r)) return "Torispherical";
+  if(/CAP|B16\.?9|PIPECAP/.test(r)) return "CAP";
+  if(/DISH/.test(r)) return "Dished";
+  return raw;
+};
+const headEFFactor = (headType) => {
+  const h = normalizeHeadType(headType);
+  if(h === "2:1 Ellip.") return 0.25;
+  if(h === "10% (F&D)")  return 0.194;
+  if(h === "Hemispherical") return 0.5;
+  if(h === "Torispherical") return 0.20;
+  return 0.25;
+};
+// V25 원본 시그니처: object 반환 {height, crown, knuckle, note} — DIM/Bending 호환
+const headTolerance = (headType, nominalD) => {
+  const t = String(headType||"").toUpperCase();
+  const D = parseFloat(nominalD)||0;
+  if(t.includes("CAP"))   return {height:"메이커 사양", crown:"메이커 사양", knuckle:"메이커 사양", note:"PIPE CAP — 별도 검사 없음"};
+  if(t.includes("FLAT"))  return {height:"±2", crown:"—", knuckle:"—", note:"Flat Head"};
+  if(t.includes("HEMI"))  return {height:"±5", crown:`R = ${(D/2).toFixed(0)} ±${Math.max(3,(D*0.0125).toFixed(1))}`, knuckle:"—", note:"Hemispherical R=D/2"};
+  if(t.includes("2:1"))   return {height:`${(D/4).toFixed(0)} ±${Math.max(3,(D*0.005).toFixed(1))}`, crown:`R ≈ 0.9·D = ${(D*0.9).toFixed(0)}`, knuckle:`r ≈ 0.17·D = ${(D*0.17).toFixed(0)}`, note:"2:1 Semi-Ellip. (h=D/4)"};
+  if(t.includes("10%"))   return {height:`${(D*0.194).toFixed(0)} ±${Math.max(3,(D*0.005).toFixed(1))}`, crown:`L = D = ${D.toFixed(0)}`, knuckle:`r = 0.1·D = ${(D*0.1).toFixed(0)}`, note:"10% F&D (Torispherical L=D, r=0.1D)"};
+  if(t.includes("CONIC")) return {height:"각도 ±1°", crown:"—", knuckle:"—", note:"Conical Head"};
+  return {height:"±5", crown:"—", knuckle:"—", note:headType};
+};
+
+/* ── V25 표준 DEF_ITEM / 분류 ── */
+const ITYPES = ["Pressure Vessel","Reactor (Mixing Tank)","Condenser / Heat Exchanger","Storage Tank"];
+const CODES  = ["KS","ASME","TEMA","EN","API","Others"];
+const DCOL   = {ITP:"#1a6fa8",BOM:"#1d9e75",BENDING:"#ba7517",FITUP:"#534ab7",DIM:"#993c1d",NOZZLE:"#0f6e56",HYDRO:"#a32d2d",FINAL:"#3c3489"};
+const POPTS  = ["S","H","W","R","N/A"];
+
+/* ── ITP 시드 (9행 표준) ── */
+const mkR = (id,activity,code,criteria,doc,sj,client,active) => ({id,activity,code,criteria,doc,sj,client,active,remarks:""});
+const ITP_BASE = [
+  mkR(1,"General Welding Inspection","Applied DWG & WPS\n- ASME BPVC Sec.IX","WPS/PQR Review, Qualified Welder List\n- Welder Test if required","NDE Report\nWPS&PQR","S","W",true),
+  mkR(2,"Material Inspection","Applied DWG\n- ASTM / ASME Sec.II","Visual & marking (Heat No.)\n- Chemical composition & mechanical properties","Mill Certifi.","R","R",true),
+  mkR(3,"Nozzle Marking Check","Applied DWG","Nozzle orientation, elevation, size marking\n- Flange face finish & rating check","Drawings","S","R",true),
+  mkR(4,"Fit-up Inspection","Applied DWG & WPS","Alignment, root face & root gap check\n- Reinf. pad position confirmed","Fit-up\nReport","S","W",true),
+  mkR(5,"Non-Destructive Inspection","Applied DWG\n- ASME Sec.VIII","PT 100% (1st layer & after Full welding)\n- RT (if required per code or DWG)","NDE Report","S","W",true),
+  mkR(6,"Final Visual & Dimension Check","Applied DWG","All dimensions per applicable code / DWG tolerance\n- Interior & exterior: no slag, scale, or spatter","DIM Report","S","W",true),
+  mkR(7,"Hydrostatic Test & Leak Test","Applied DWG","Pressure test (Water): [     ] hr\n- As per Design Data or DWG","Hydrostatic\nTest Report","S","W",true),
+  mkR(8,"Acid Cleaning Inspection","Applied DWG","Free of rust, weld scale, and foreign matter\n- Surface condition: uniform and clean","Acid Cleaning\nReport","S","R",true),
+  mkR(9,"Shipping Preparation","Applied DWG","All nozzle openings: Plastic Cap installed\n- Fixed to transport saddle\n- Name plate installed","Packing List","S","R",true),
+];
+
+/* ── DIM Report 라이브러리 + V25 표준 공차 (v1.3 dimTol* 대체) ── */
+const DIM_LIB = ["Shell ID","Shell Length","Head ID","Head Length","Jacket ID","Jacket Length","Channel ID","Channel Length","Bracket PCD","Leg PCD","Skid PCD","Saddle PCD","Mount Flange to Bracket"];
+// V25 ASME UG-80 표준
+function dimTolASME(v){const n=parseFloat(v)||0;if(!n)return"";if(n<=120)return"±1";if(n<=400)return"±2";if(n<=1000)return"±3";if(n<=2000)return"±4";if(n<=4000)return"±6";return"±8";}
+function dimTolTEMA(v){const n=parseFloat(v)||0;if(!n)return"";if(n<=300)return"±3";if(n<=1500)return"±5";return"±8";}
+
+/* ── Nozzle 공차 ── */
+function tolPos(std){return std==="TEMA"?"±1.5°":"±0.5°";}
+function tolH(std,v){const n=parseFloat(v)||0;if(std==="TEMA"){return n<=300?"±3":"±5";}if(n<=120)return"±1";if(n<=400)return"±2";if(n<=1000)return"±3";return"±5";}
+function tolL(std,v){const n=parseFloat(v)||0;if(std==="TEMA"){return n<=300?"±3":"±5";}return tolH(std,v);}
+
+/* ── Final VI 체크리스트 시드 ── */
+const mkVI = (id,text,criterion,cat,active) => ({id,text,criterion,cat,active,remarks:""});
+const VI_EA = [mkVI(1,"Crack, Under-Cut & Crater at weld zone","None","a",true),mkVI(2,"Uniform weld surface condition","Acceptable","a",true),mkVI(3,"Fillet weld uniformity check","Acceptable","a",true),mkVI(4,"Dimensional non-conformance","Within tolerance","a",true),mkVI(5,"Nozzle finishing & flange face","Acceptable","a",true),mkVI(6,"Attachments installation","Per DWG","a",true),mkVI(7,"Tell-tale hole sealing","Sealed","a",true),mkVI(8,"Name plate installation","Installed","a",true)];
+const VI_ES = [mkVI(20,"Acid cleaning stain / Passivation","No stain","se",false),mkVI(21,"Surface discoloration after pickling","None","se",false),mkVI(22,"Buffing uniformity","Uniform finish","se",false)];
+const VI_EC = [mkVI(30,"Paint film (holiday, runs, sags)","None","ce",false),mkVI(31,"Paint film DFT check","Per spec.","ce",false),mkVI(32,"Paint adhesion & cohesion","Acceptable","ce",false)];
+const VI_IA = [mkVI(50,"Internal water & foreign matter","None","ai",true),mkVI(51,"Internal crater, scratch & dent","None","ai",true),mkVI(52,"Internal dust & contaminant","None","ai",true)];
+const VI_IS = [mkVI(60,"Internal acid cleaning / residue","None","si",false),mkVI(61,"Internal buffing condition","Uniform","si",false),mkVI(62,"Lining / coating condition","Intact","si",false)];
+const VI_IC = [mkVI(70,"Internal coating / lining","Per spec.","ci",false),mkVI(71,"Internal paint condition","Acceptable","ci",false),mkVI(72,"Lining integrity","No delamination","ci",false)];
+// UG-81 Formed Head 공차
+const headTolUG81 = (shellID, type, dimension) => {
+  const D = parseFloat(shellID); if(!D) return "";
+  if (dimension === "crownID")  return `+${(D*0.0125).toFixed(0)}/-${(D*0.00625).toFixed(0)}`;
+  if (dimension === "knuckle")  return "≥ spec (no neg.)";
+  if (dimension === "height")   return `±${Math.max(3, D*0.01).toFixed(0)}`;
+  if (dimension === "OD")       return `+${(D*0.0125).toFixed(0)}/-${(D*0.00625).toFixed(0)}`;
+  return "";
+};
+// B16.9 CAP 공차 (간략)
+const capTolB169 = (NPS, dim) => {
+  const n = parseFloat(NPS); if(!n) return "";
+  if (dim === "OD")     return n <= 600 ? "±1.6" : "±3.2";
+  if (dim === "length") return n <= 600 ? "±2.5" : "±5";
+  if (dim === "thk")    return "-12.5%";
+  return "±1.6";
+};
+
+// ════════════ 5. localStorage ════════════
+const STORAGE_KEY = "sjp_qa_doc_generator_v1";
+const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} };
+const loadLS = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch(e) { return null; } };
+
+const imgKey = (kind, tag, suffix="") => `${kind}_${tag}${suffix?"_"+suffix:""}`;
+
+// ════════════ 6. UI 헬퍼 ════════════
+function FI({value, onChange, placeholder, style={}}){
+  return <input value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+    style={{width:"100%", fontSize:12, padding:"5px 7px", borderRadius:5, border:"0.5px solid #ccc", ...style}}/>;
+}
+function FS({value, onChange, options}){
+  return <select value={value} onChange={e=>onChange(e.target.value)}
+    style={{fontSize:12, padding:"5px 7px", borderRadius:5, width:"100%", border:"0.5px solid #ccc"}}>
+    {options.map(o => <option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}
+  </select>;
+}
+function FR({label, children}){
+  return <div style={{display:"flex", alignItems:"flex-start", gap:6, marginBottom:8}}>
+    <label style={{minWidth:115, fontSize:11, color:"#555", paddingTop:6}}>{label}</label>
+    <div style={{flex:1}}>{children}</div>
+  </div>;
+}
+function PC({title, children, badge, color}){
+  return <div style={{border:"0.5px solid #ccc", borderRadius:8, marginBottom:12, overflow:"hidden", background:"#fff"}}>
+    <div style={{background: color || "#f0f4f8", padding:"7px 12px", display:"flex", alignItems:"center", gap:8, borderBottom:"0.5px solid #ccc"}}>
+      <span style={{fontSize:12, fontWeight:500, flex:1}}>{title}</span>
+      {badge && <span style={{fontSize:10, background:SJB, color:"#fff", padding:"1px 8px", borderRadius:10}}>{badge}</span>}
+    </div>
+    <div style={{padding:"10px 12px"}}>{children}</div>
+  </div>;
+}
+function AB({label, onClick, style={}, disabled=false}){
+  return <button onClick={onClick} disabled={disabled}
+    style={{padding:"7px 16px", background:disabled?"#ccc":SJB, color:"#fff", border:"none", borderRadius:6, fontSize:12, cursor:disabled?"not-allowed":"pointer", fontWeight:500, ...style}}>
+    {label}
+  </button>;
+}
+function Logo({h=46}){
+  const [err, sErr] = useState(false);
+  return <img src={err?LOGO_FB:LOGO_URL} onError={()=>sErr(true)} style={{maxWidth:96, maxHeight:h, objectFit:"contain"}} alt="SJ"/>;
+}
+function LogoCell(){
+  // v1.5 — 회사명 텍스트 제거, 로고만 표시 (헤더 표 높이 축소)
+  return <div style={{display:"flex", alignItems:"center", justifyContent:"center", padding:"2px 4px", height:"100%"}}>
+    <Logo h={42}/>
+  </div>;
+}
+function EPCSlots(){
+  const slots = [
+    {key:"project", title:"Project", connected:!!window.EPC_PROJECT},
+    {key:"items", title:"Items", connected:!!window.EPC_ITEMS},
+    {key:"docno", title:"Doc No.", connected:!!window.EPC_DOC_NO_GENERATOR},
+    {key:"inspector", title:"Inspector", connected:!!window.EPC_INSPECTOR_MASTER},
+    {key:"wps", title:"WPS Master", connected:!!window.WPS_LIST},
+    {key:"welder", title:"Welder Master", connected:!!window.WELDER_LIST}
+  ];
+  return <div className="no-print" style={{display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:6, marginBottom:12}}>
+    {slots.map(s =>
+      <div key={s.key} style={{
+        border:`1.5px solid ${s.connected?"var(--sjp-success)":"var(--sjp-border)"}`,
+        background: s.connected ? "var(--sjp-success-bg)" : "#fafafa",
+        padding:"8px 12px", borderRadius:"var(--sjp-radius)", fontSize:10, textAlign:"center",
+        transition:"all .15s"
+      }}>
+        <div style={{fontWeight:700, fontSize:11, color:"var(--sjp-text-main)", marginBottom:2}}>{s.title}</div>
+        <div style={{color: s.connected?"var(--sjp-success)":"var(--sjp-text-muted)", fontWeight: s.connected?700:500, fontSize:9}}>
+          {s.connected ? "✓ EPC 연결" : "⊘ Standalone"}
+        </div>
+      </div>
+    )}
+  </div>;
+}
+
+// ════════════ 7. Inspector 입력 패널 ════════════
+function InspectorPanel({inspectors, value, onChange}){
+  const [editMode, sEM] = useState(false);
+  const [newName, sNN] = useState(""); const [newTitle, sNT] = useState("");
+  const addInspector = (cb) => { if(!newName.trim()) return; cb({id:"INS-"+Date.now(), name:newName.trim(), title:newTitle.trim()||"검사관", role:"QA"}); sNN(""); sNT(""); };
+  return <div style={{border:"0.5px solid #ddd", borderRadius:6, padding:"8px 10px", background:"#fafafa"}}>
+    <div style={{fontSize:11, fontWeight:600, marginBottom:6, color:"#444"}}>👤 검사자 정보</div>
+    <FR label="내부 검사자">
+      <FS value={value.internal} onChange={v=>onChange({...value, internal:v})} options={["—", ...inspectors.map(i=>`${i.name} ${i.title}`)]}/>
+    </FR>
+    <FR label="발주처 입회자">
+      <FI value={value.client} onChange={v=>onChange({...value, client:v})} placeholder="ex. 국도화학 김OO 차장"/>
+    </FR>
+    <FR label="제3자 검사자">
+      <div style={{display:"flex", gap:4}}>
+        <select value={value.thirdParty} onChange={e=>onChange({...value, thirdParty:e.target.value})}
+          style={{fontSize:11, padding:"4px 6px", border:"0.5px solid #ccc", borderRadius:3, flex:1}}>
+          <option value="">— 없음 —</option>
+          {THIRD_PARTY_AGENCIES.map(a => <option key={a}>{a}</option>)}
+        </select>
+        {value.thirdParty === "기타 (직접 입력)" && <FI value={value.thirdPartyCustom||""} onChange={v=>onChange({...value, thirdPartyCustom:v})} placeholder="기관명 직접 입력"/>}
+      </div>
+    </FR>
+    <FR label="협력업체 검사자">
+      <FI value={value.vendor} onChange={v=>onChange({...value, vendor:v})} placeholder="(선택) ex. ABC산업 박QA"/>
+    </FR>
+    <div className="no-print" style={{borderTop:"0.5px dashed #ccc", paddingTop:6, marginTop:6}}>
+      <button onClick={()=>sEM(p=>!p)} style={{fontSize:10, padding:"3px 10px", border:"0.5px solid #ccc", background:editMode?"#fffbe5":"#fff", borderRadius:3, cursor:"pointer"}}>
+        {editMode ? "✕ 닫기" : "✏ 내부 검사자 편집"}
+      </button>
+      {editMode && <div style={{marginTop:6, padding:"6px 8px", background:"#fffbe5", borderRadius:4}}>
+        <div style={{fontSize:10, marginBottom:4, color:"#664d03"}}>현재 등재: {inspectors.length}명</div>
+        {inspectors.map((ins, i) =>
+          <div key={ins.id} style={{display:"flex", gap:4, alignItems:"center", marginBottom:3, fontSize:10}}>
+            <span style={{flex:1}}>{ins.name} {ins.title} <span style={{color:"#888"}}>({ins.role})</span></span>
+            <button onClick={()=>onChange({...value, _removeId: ins.id})} style={{fontSize:9, padding:"1px 6px", background:"#fff0f0", color:"#c00", border:"0.5px solid #fbb", borderRadius:2, cursor:"pointer"}}>✕</button>
+          </div>
+        )}
+        <div style={{display:"flex", gap:3, marginTop:6}}>
+          <input value={newName} onChange={e=>sNN(e.target.value)} placeholder="이름" style={{fontSize:10, padding:"3px 6px", border:"0.5px solid #ccc", borderRadius:2, flex:1}}/>
+          <input value={newTitle} onChange={e=>sNT(e.target.value)} placeholder="직급" style={{fontSize:10, padding:"3px 6px", border:"0.5px solid #ccc", borderRadius:2, width:80}}/>
+          <button onClick={()=>onChange({...value, _addInspector:{name:newName, title:newTitle}})} style={{fontSize:10, padding:"3px 10px", background:SJB, color:"#fff", border:"none", borderRadius:2, cursor:"pointer"}}>+ 추가</button>
+        </div>
+      </div>}
+    </div>
+  </div>;
+}
+
+// ════════════ 8. BOM Preview (v25 헤드 패치) ════════════
+function IDZ({label,defaultImg,persistKey}){
+  const[img,sI]=useState(()=>persistKey?(IMG_STORE.get(persistKey)||null):null);
+  const src=img||defaultImg||null;
+  const handle=useCallback(v=>{sI(v);if(persistKey)IMG_STORE.set(persistKey,v);},[persistKey]);
+  return <div className="pf-img" tabIndex={0} style={{flex:1,border:"1px dashed #bbb",borderRadius:4,minHeight:130,background:"#fafafa",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",overflow:"hidden",outline:"none"}} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handle(ev.target.result);r.readAsDataURL(f);}}} onClick={()=>{if(img)handle(null);}}>
+    {src?<img src={src} alt={label} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>:<span className="no-print" style={{fontSize:9,color:"#aaa",textAlign:"center",padding:"0 8px"}}>[ {label} ]<br/>클릭 후 Ctrl+V 붙여넣기</span>}
+    {img&&<div className="no-print" style={{position:"absolute",top:2,right:4,fontSize:9,color:"red",fontWeight:"bold",pointerEvents:"none"}}>✕ 클릭 초기화</div>}
+  </div>;
+}
+function PinImg({src,cps,pk,onPinChange}){
+  const PK=pk+"_pins";
+  const[pins,sP]=useState(()=>IMG_STORE.get(PK)||[]);
+  const[mode,sM]=useState(false);
+  const[next,sN]=useState("A");
+  const ref=useRef(null);
+  const LBLS=cps.map(c=>c.p);
+  const sync=np=>{sP(np);IMG_STORE.set(PK,np);if(onPinChange)onPinChange(np);};
+  const addPin=useCallback(e=>{
+    if(!mode||!ref.current)return;
+    const r=ref.current.getBoundingClientRect();
+    const np=[...pins,{x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height,label:next}];
+    sync(np);
+    const i=LBLS.indexOf(next);if(i<LBLS.length-1)sN(LBLS[i+1]);
+  },[mode,pins,next,LBLS]);
+  const clr=()=>{sync([]);sN(LBLS[0]||"A");};
+  return <div style={{flex:1,position:"relative",border:"1px dashed #bbb",borderRadius:4,minHeight:140,background:"#fafafa",overflow:"hidden",height:"100%"}}>
+    {src?<div style={{position:"relative",width:"100%",height:"100%"}}>
+      <img ref={ref} src={src} style={{width:"100%",maxHeight:440,objectFit:"contain",display:"block",cursor:mode?"crosshair":"default"}} onClick={addPin}/>
+      {pins.map((pin,i)=> <div key={i} onClick={e=>{e.stopPropagation();sync(pins.filter((_,j)=>j!==i));}} style={{position:"absolute",left:`${pin.x*100}%`,top:`${pin.y*100}%`,transform:"translate(-50%,-50%)",background:"#e53e3e",color:"#fff",borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,cursor:"pointer",zIndex:10,border:"1.5px solid #fff"}}>{pin.label}</div>)}
+    </div>:<span style={{fontSize:9,color:"#aaa",display:"flex",alignItems:"center",justifyContent:"center",height:140}}>Ctrl+V 붙여넣기 후 📍핀 배치</span>}
+    <div className="fc" style={{position:"absolute",bottom:4,right:4,display:"flex",gap:3,zIndex:20}}>
+      <button onClick={()=>sM(p=>!p)} style={{fontSize:9,padding:"2px 7px",background:mode?"#e53e3e":SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>{mode?`📍${next} 배치중(OFF)`:"📍핀 배치 ON"}</button>
+      {pins.length>0&&<button onClick={()=>{const np=pins.slice(0,-1);sync(np);if(np.length<LBLS.length)sN(LBLS[np.length]||"A");}} style={{fontSize:9,padding:"2px 6px",background:"#888",color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>↶ 마지막 핀 취소</button>}
+      {pins.length>0&&<button onClick={clr} style={{fontSize:9,padding:"2px 6px",background:"#666",color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>핀 초기화</button>}
+    </div>
+  </div>;
+}
+function ITPPreview({proj,items}){
+  const[rows,sR]=useState(ITP_BASE.map(r=>({...r})));
+  const[nr,sNR]=useState({activity:"",code:"",criteria:"",doc:"",sj:"S",client:"W",active:true,remarks:""});
+  const[docNo,sDN]=useState(proj.no?`${proj.no}-ITP-001`:"");
+  const[rev,sRV]=useState("A");
+  const active=rows.filter(r=>r.active);
+  const isHX=items.some(i=>i.type.includes("Condenser")||i.type.includes("Heat"));
+  const isSUS=!isHX&&items.some(i=>/(316|304|sus|sts)/i.test(i.shell_mat||""));
+  const iLbl=items.map(i=>`${i.name||i.tag} / ${i.tag}`).join(", ");
+  const TH={border:"1px solid #555",padding:"5px 6px",background:"#fff",fontSize:10,fontWeight:500,textAlign:"center",verticalAlign:"middle"};
+  const TD={border:"1px solid #888",padding:"4px 5px",fontSize:10,verticalAlign:"top"};
+  const TS={width:"100%",minHeight:36,border:"none",fontSize:9,resize:"none",background:"transparent",fontFamily:"Arial,sans-serif",lineHeight:1.5};
+  const B9={fontSize:9,padding:"1px 4px",border:"1px solid #ccc",borderRadius:2,background:"#f5f5f5",cursor:"pointer"};
+  const moveA=(ai,dir)=>{const ids=rows.filter(r=>r.active).map(r=>r.id);const tid=ids[ai];const fi=rows.findIndex(r=>r.id===tid);let si=fi+dir;while(si>=0&&si<rows.length&&!rows[si].active)si+=dir;if(si<0||si>=rows.length)return;const nr2=[...rows];[nr2[fi],nr2[si]]=[nr2[si],nr2[fi]];sR(nr2);};
+  return <div style={{fontFamily:"Arial,sans-serif",fontSize:10}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}.ic{display:none!important}}`}</style>
+    <table style={{width:"100%",borderCollapse:"collapse"}}>
+      <colgroup><col style={{width:"30%"}}/><col style={{width:"15%"}}/><col style={{width:"25%"}}/><col style={{width:"10%"}}/><col style={{width:"20%"}}/></colgroup>
+      <tbody>
+        <tr><td rowSpan={4} style={{border:"1px solid #555",padding:"4px 6px",textAlign:"left",verticalAlign:"middle"}}><LogoCell/></td>
+          <td colSpan={4} style={{border:"1px solid #555",padding:"6px 10px",fontSize:13,fontWeight:700,textAlign:"center"}}>Inspection and Test Plan for {isHX?"HEAT EXCHANGER":isSUS?"SUS TANK":"CARBON TANK"}</td></tr>
+        <tr><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10,fontWeight:500,whiteSpace:"nowrap"}}>Document No.</td><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10}}><input value={docNo} onChange={e=>sDN(e.target.value)} style={{width:"100%",border:"none",fontSize:10,background:"transparent"}}/></td><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10,fontWeight:500,whiteSpace:"nowrap"}}>Rev.</td><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10,textAlign:"center"}}><input value={rev} onChange={e=>sRV(e.target.value)} style={{width:30,border:"none",fontSize:10,fontWeight:700,textAlign:"center",background:"transparent"}}/></td></tr>
+        <tr><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10,fontWeight:500,whiteSpace:"nowrap"}}>Project Name / Job No.</td><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10}} colSpan={3}>{proj.name||"—"} / {proj.no||"—"}</td></tr>
+        <tr><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10,fontWeight:500,whiteSpace:"nowrap"}}>Item Name / Tag No.</td><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10}}>{iLbl||"—"}</td><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10,fontWeight:500,whiteSpace:"nowrap"}}>Customer</td><td style={{border:"1px solid #555",padding:"3px 6px",fontSize:10}}>{proj.customer||"—"}</td></tr>
+      </tbody>
+    </table>
+    <table style={{width:"100%",borderCollapse:"collapse"}}>
+      <thead><tr>
+        <th style={{...TH,width:"5%"}}>No.</th><th style={{...TH,width:"14%"}}>Inspection Activity</th>
+        <th style={{...TH,width:"23%"}}>Applicable Code / DWG / Reference</th><th style={{...TH,width:"31%"}}>Acceptance Criteria</th>
+        <th style={{...TH,width:"10%"}}>Verifying Doc.</th><th style={{...TH,width:"5%",background:"#f0f4f8"}}>SJ</th>
+        <th style={{...TH,width:"6%",background:"#f0f4f8"}}>Client</th><th style={{...TH,width:"6%"}}>Remarks</th>
+      </tr></thead>
+      <tbody>{active.map((r,i)=> <tr key={r.id}>
+        <td style={{...TD,textAlign:"center",verticalAlign:"middle",padding:"2px"}}>
+          <div style={{fontWeight:600,fontSize:11}}>{i+1}</div>
+          <div className="ic" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,marginTop:2}}>
+            <button style={{...B9,color:i===0?"#ccc":"#444"}} onClick={()=>moveA(i,-1)} disabled={i===0}>▲</button>
+            <button style={{...B9,color:i===active.length-1?"#ccc":"#444"}} onClick={()=>moveA(i,1)} disabled={i===active.length-1}>▼</button>
+            <button style={{...B9,border:"1px solid #fbb",background:"#fff0f0",color:"#c00",marginTop:1}} onClick={()=>sR(p=>p.filter(x=>x.id!==r.id))}>✕</button>
+          </div>
+        </td>
+        <td style={TD}><textarea style={TS} value={r.activity} onChange={e=>sR(p=>p.map(x=>x.id===r.id?{...x,activity:e.target.value}:x))}/></td>
+        <td style={{...TD,fontSize:9}}><textarea style={TS} value={r.code} onChange={e=>sR(p=>p.map(x=>x.id===r.id?{...x,code:e.target.value}:x))}/></td>
+        <td style={{...TD,fontSize:9}}><textarea style={TS} value={r.criteria} onChange={e=>sR(p=>p.map(x=>x.id===r.id?{...x,criteria:e.target.value}:x))}/></td>
+        <td style={{...TD,textAlign:"center",fontSize:9}}><textarea style={{...TS,textAlign:"center"}} value={r.doc} onChange={e=>sR(p=>p.map(x=>x.id===r.id?{...x,doc:e.target.value}:x))}/></td>
+        <td style={{...TD,textAlign:"center",background:"#f8fbff"}}><select value={r.sj} onChange={e=>sR(p=>p.map(x=>x.id===r.id?{...x,sj:e.target.value}:x))} style={{fontSize:10,border:"none",background:"transparent",width:"100%"}}>{POPTS.map(o=> <option key={o}>{o}</option>)}</select></td>
+        <td style={{...TD,textAlign:"center",background:"#f8fbff"}}><select value={r.client.split("\n")[0]} onChange={e=>sR(p=>p.map(x=>x.id===r.id?{...x,client:e.target.value}:x))} style={{fontSize:10,border:"none",background:"transparent",width:"100%"}}>{POPTS.map(o=> <option key={o}>{o}</option>)}</select></td>
+        <td style={TD}><input style={{width:"100%",fontSize:9,border:"none",background:"transparent"}} value={r.remarks} onChange={e=>sR(p=>p.map(x=>x.id===r.id?{...x,remarks:e.target.value}:x))}/></td>
+      </tr>)}</tbody>
+    </table>
+    <div style={{marginTop:4,fontSize:9,color:"#444",lineHeight:1.7}}>1. The inspection process may be changed by the supplier's manufacturing condition.<br/>2. I&amp;T Activities: S-Supplier, R-Report Review, W-Witness, H-Hold Point</div>
+    <div className="ic" style={{marginTop:6,padding:"7px 10px",background:"#f0f4f8",borderRadius:5,border:"1px dashed #aac"}}>
+      <div style={{fontSize:10,fontWeight:500,color:"#555",marginBottom:5}}>➕ 행 추가 <span style={{fontWeight:400,color:"#999"}}>(프린트 시 숨김)</span></div>
+      <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"flex-end"}}>
+        {[["activity","Activity *",2],["code","Code",1],["criteria","Criteria",2],["doc","Doc",1]].map(([k,ph,f])=> <div key={k} style={{flex:f,minWidth:80}}><div style={{fontSize:9,color:"#888",marginBottom:2}}>{ph}</div><textarea value={nr[k]||""} onChange={e=>sNR(p=>({...p,[k]:e.target.value}))} rows={2} style={{width:"100%",fontSize:10,padding:"3px 5px",border:"0.5px solid #bbb",borderRadius:3,resize:"vertical",boxSizing:"border-box"}}/></div>)}
+        <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"center"}}>
+          <div style={{display:"flex",gap:4}}>{["sj","client"].map(k=> <div key={k}><div style={{fontSize:9,color:"#888",marginBottom:2}}>{k==="sj"?"SJ":"Client"}</div><select value={nr[k]} onChange={e=>sNR(p=>({...p,[k]:e.target.value}))} style={{fontSize:10,border:"0.5px solid #bbb",borderRadius:3,width:44,padding:"3px"}}>{POPTS.map(o=> <option key={o}>{o}</option>)}</select></div>)}</div>
+          <button onClick={()=>{if(!nr.activity)return;sR(p=>[...p,{...nr,id:Date.now(),active:true,remarks:""}]);sNR({activity:"",code:"",criteria:"",doc:"",sj:"S",client:"W",active:true,remarks:""});}} style={{padding:"5px 14px",background:SJB,color:"#fff",border:"none",borderRadius:4,cursor:"pointer",fontSize:11,fontWeight:500}}>+ 추가</button>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+function BOMPreview({doc}){
+  const{item:it,proj:p}=doc;
+  const isC=it.type.includes("Condenser")||it.type.includes("Heat"),isR=it.type.includes("Reactor"),isEPC=p.clientType==="epc";
+  // 모든 행에 heat 필드와 qty 추가
+  const mkRow=(name,mat,sz,qty="1")=>({name,mat:mat||"",sz:sz||"",qty,heat:"",remark:""});
+  const odVal=(it.shell_od&&it.shell_od!=="N/A")?it.shell_od:"";
+  const odDisp=(it.shell_od_display&&it.shell_od_display!=="N/A")?it.shell_od_display:odVal;
+  // DETAIL OF BODY에서 파싱된 bom_rows가 있으면 우선 사용
+  const parsedBom=(it.bom_rows||[]).filter(r=>r&&r.name).map(r=>({
+    name:r.name||"",
+    mat:r.mat||"",
+    sz:r.sz||(r.thk?`t${r.thk}`:""),
+    qty:r.qty||"1",
+    heat:"",
+    remark:r.remark||""
+  }));
+  // Head Type 상/하 분리 (호환: head_type_top/bottom 없으면 head_type로 fallback)
+  const htTop=it.head_type_top||it.head_type||"2:1 Ellip.";
+  const htBtm=it.head_type_bottom||it.head_type||"2:1 Ellip.";
+  const hMatTop=it.head_mat_top||it.head_mat||it.shell_mat||"";
+  const hMatBtm=it.head_mat_bottom||it.head_mat||it.shell_mat||"";
+  const hThkTop=it.head_thk_top?`t${it.head_thk_top}`:"t";
+  const hThkBtm=it.head_thk_bottom?`t${it.head_thk_bottom}`:"t";
+  const baseInit=parsedBom.length>0?parsedBom:(isC
+    ?[mkRow("CHANNEL HEAD",it.shell_mat,htTop==="CAP"?`${odDisp||it.shell_id||"—"} PIPE CAP`:`${it.shell_id||odVal||"—"}A x SCH.20`),mkRow("CHANNEL",it.shell_mat,`${it.shell_id||odVal||"—"}A x SCH.20`),mkRow("SHELL",it.shell_mat,it.shell_is_pipe?`${odDisp||"—"}, ${it.shell_len||"—"}L`:`${it.shell_id||"—"}A x SCH.20, ${it.shell_len||"—"}L`),mkRow("GIRTH FLANGE",it.gf_mat||it.shell_mat,it.gf_thk?`t${it.gf_thk}`:"t"),mkRow("TUBE SHEET",it.ts_mat||it.shell_mat,it.ts_thk?`t${it.ts_thk}`:"t"),mkRow("TUBE",it.tube_mat||it.shell_mat,`${it.tube_od||"3/4\""}xSCH.10`)]
+    :[mkRow("SHELL",it.shell_mat,it.shell_is_pipe?`${odDisp||"—"}, ${it.shell_len||"—"}L`:`${it.shell_id||"—"}ID x ${it.shell_len||"—"}L${it.shell_thk?`, t${it.shell_thk}`:""}`),mkRow("TOP HEAD",hMatTop,`${hThkTop}, ${htTop}`),mkRow("BOTTOM HEAD",hMatBtm,`${hThkBtm}, ${htBtm}`)]);
+  // 파싱된 BOM이 없을 때만 기본 Jacket/EPC 추가
+  if(parsedBom.length===0){
+    if(isR&&!isC){baseInit.push(mkRow("JACKET SHELL","SA240-304","t"));baseInit.push(mkRow("JACKET HEAD","SA240-304","t, 2:1 ELLIP."));}
+    if(isEPC){baseInit.push(mkRow("NOZZLE PIPE (NECK)",it.shell_mat,"A x SCH.XX"));baseInit.push(mkRow("NOZZLE FLANGE",it.shell_mat,"ASME 150# SORF"));baseInit.push(mkRow("REINFORCE PAD",it.shell_mat,"t"));}
+  }
+  // ── 영속화 ──
+  const bomKey=`bom_${it.id||it.tag}`;
+  const savedBOM=IMG_STORE.get(bomKey);
+  const[rows,sR]=useState(savedBOM&&Array.isArray(savedBOM)&&savedBOM.length>0?savedBOM:baseInit);
+  const[nw,sNW]=useState({name:"",mat:"",sz:"",qty:"1",remark:""});
+  const upR=(i,k,v)=>sR(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
+  const delR=i=>sR(p=>p.filter((_,j)=>j!==i));
+  useEffect(()=>{IMG_STORE.set(bomKey,rows);},[rows,bomKey]);
+  const hc=hdr(),tc=bdr();
+  const cellInput={width:"100%",border:"none",background:"transparent",fontSize:11,padding:"2px 3px",boxSizing:"border-box"};
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}.bc{display:none!important}}`}</style>
+    <div style={{textAlign:"center",fontSize:14,fontWeight:700,marginBottom:8}}>BILL OF MATERIAL</div>
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+      <tbody>
+        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={{...hc,whiteSpace:"nowrap"}}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Doc. No.</td><td style={tc}>{p.no?`${p.no}-BOM-${it.tag}-01`:"—"}</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Project Name / Job No.</td><td style={tc}>{p.name||"—"} / {p.no||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
+      </tbody>
+    </table>
+    <table style={{width:"100%",borderCollapse:"collapse"}}>
+      <colgroup><col style={{width:"6%"}}/><col style={{width:"19%"}}/><col style={{width:"18%"}}/><col style={{width:"28%"}}/><col style={{width:"7%"}}/><col style={{width:"12%"}}/><col style={{width:"10%"}}/></colgroup>
+      <thead><tr>{["PART NO.","Description","Material","Size / Specification","Q'TY","HEAT NO.","REMARK"].map((h,i)=> <th key={i} style={{...hc,textAlign:"center"}}>{h}</th>)}</tr></thead>
+      <tbody>{rows.map((r,i)=> <tr key={i}>
+        <td style={{...tc,textAlign:"center",position:"relative"}}>{i+1}<button className="bc" onClick={()=>delR(i)} style={{position:"absolute",left:2,top:2,fontSize:9,border:"none",background:"#fff0f0",color:"#c00",cursor:"pointer",padding:"0 3px",borderRadius:2}}>✕</button></td>
+        <td style={tc}><input value={r.name} onChange={e=>upR(i,"name",e.target.value)} style={cellInput}/></td>
+        <td style={tc}><input value={r.mat} onChange={e=>upR(i,"mat",e.target.value)} style={cellInput}/></td>
+        <td style={tc}><input value={r.sz} onChange={e=>upR(i,"sz",e.target.value)} style={cellInput}/></td>
+        <td style={tc}><input value={r.qty} onChange={e=>upR(i,"qty",e.target.value)} style={{...cellInput,textAlign:"center"}}/></td>
+        <td style={tc}><input value={r.heat} onChange={e=>upR(i,"heat",e.target.value)} placeholder="Heat No." style={cellInput}/></td>
+        <td style={tc}><input value={r.remark} onChange={e=>upR(i,"remark",e.target.value)} style={cellInput}/></td>
+      </tr>)}</tbody>
+    </table>
+    <div className="bc" style={{marginTop:6,padding:"8px 10px",background:"#f0f8f4",border:"1px dashed #1d9e75",borderRadius:5}}>
+      <div style={{fontSize:10,fontWeight:500,color:"#1d9e75",marginBottom:6}}>➕ Add BOM Row <span style={{fontWeight:400,color:"#999"}}>(hidden in print)</span></div>
+      <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"flex-end"}}>
+        {[["name","Description *",2],["mat","Material",1.5],["sz","Size",2],["qty","Q'TY",0.5],["remark","Remark",1]].map(([k,ph,f])=> <div key={k} style={{flex:f,minWidth:50}}><div style={{fontSize:9,color:"#888",marginBottom:2}}>{ph}</div><input value={nw[k]} onChange={e=>sNW(p=>({...p,[k]:e.target.value}))} style={{width:"100%",fontSize:11,padding:"4px 6px",border:"0.5px solid #bbb",borderRadius:3,boxSizing:"border-box"}}/></div>)}
+        <button onClick={()=>{if(!nw.name)return;sR(p=>[...p,{...nw,heat:""}]);sNW({name:"",mat:"",sz:"",qty:"1",remark:""});}} style={{padding:"6px 16px",background:"#1d9e75",color:"#fff",border:"none",borderRadius:4,cursor:"pointer",fontSize:11,fontWeight:500,alignSelf:"flex-end"}}>+ Add</button>
+      </div>
+    </div>
+    <div style={{display:"flex",gap:24,marginTop:12,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+  </div>;
+}
+function BendingPreview({doc}){
+  const{item:it,proj:p}=doc;const tNo=tagId(it.tag);
+  const odIsNA=!it.shell_od||it.shell_od==="N/A";
+  // I.D는 plate면 shell_id, pipe면 shell_od
+  const idVal=it.shell_is_pipe?(parseFloat(it.shell_od)||0):(parseFloat(it.shell_id)||0);
+  const odL=it.shell_is_pipe?(it.shell_od_display||it.shell_od||"—"):(odIsNA?(it.shell_id||"—"):it.shell_od);
+  // SHELL 두께: shell_thk 우선, 없으면 BOM에서 추출, 없으면 "—"
+  const shellThk=(()=>{
+    if(it.shell_thk)return parseFloat(it.shell_thk)||0;
+    const bomShell=(it.bom_rows||[]).find(r=>(r.name||"").toUpperCase().includes("SHELL")&&!String(r.name||"").toUpperCase().includes("JACKET"));
+    if(bomShell&&bomShell.thk)return parseFloat(bomShell.thk)||0;
+    return 0;
+  })();
+  const thkDisp=shellThk>0?String(shellThk):"—";
+  // Joint SL 각도에서 Bevel Angle θ₁ 계산: ROOT/2, 공차도 /2
+  const slJoint=(it.joint_details||[]).find(j=>(j.joint_no||"").toUpperCase().startsWith("SL"));
+  const θ1Design=slJoint?(parseFloat(slJoint.root_angle)/2).toFixed(1):"—";
+  const θ1Tol=slJoint?`± ${(parseFloat(slJoint.root_tol)/2).toFixed(1)}°`:"± 2.5°";
+  // ── UG-79 한계% 재질별 자동 추론 ──
+  // ASME BPVC Section IX Table QW-422 P-Number 기준 + UG-79(d) 표준 한계
+  // P-No.1: Carbon steel (SA-285, SA-516, SA-36) → 5%
+  // P-No.3: Low-alloy steel (1¼Cr, 2¼Cr-1Mo) → 5%
+  // P-No.4: Cr-Mo (5Cr-½Mo) → 10%
+  // P-No.5: Cr-Mo (9Cr-1Mo, 9Cr-1Mo-V) → 10%
+  // P-No.6: Martensitic stainless (SA-240 Type 410, 13Cr) → 10%
+  // P-No.7: Ferritic stainless (Type 405, 430) → 15%
+  // P-No.8: Austenitic stainless (SA-240 Type 304/304L/316/316L/321/347) → 15%
+  // P-No.10H: Duplex (UNS S31803, S32205) → 10%
+  // P-No.41-49: Ni-base alloys → 10~15%
+  // Aluminum (SB-209) → 15%
+  // Titanium → 10%
+  const inferUG79Limit=(mat)=>{
+    if(!mat)return{limit:"5",pNo:"P-No.1 (default)",reason:"재질 미지정 — 기본 P-No.1"};
+    const m=mat.toUpperCase().replace(/[-\s]/g,"");
+    // Austenitic SS first (most permissive)
+    if(/SA240(304|316|321|347|309|310|TP30|TP31|TP32|TP34)/.test(m)||/304L|316L|316TI/.test(m)||/AUSTENITIC/.test(m))return{limit:"15",pNo:"P-No.8 (Austenitic SS)",reason:"오스테나이트계 스테인리스 → 15%"};
+    if(/SB209|ALUMIN|AL6061|AL5083/.test(m))return{limit:"15",pNo:"P-No.21-25 (Aluminum)",reason:"알루미늄 합금 → 15%"};
+    if(/SA240(405|430|TYPE405|TYPE430)/.test(m)||/FERRITICSS/.test(m))return{limit:"15",pNo:"P-No.7 (Ferritic SS)",reason:"페라이트계 스테인리스 → 15%"};
+    if(/DUPLEX|S31803|S32205|S32750/.test(m))return{limit:"10",pNo:"P-No.10H (Duplex SS)",reason:"듀플렉스 → 10%"};
+    if(/SA240(410|TYPE410)|13CR/.test(m))return{limit:"10",pNo:"P-No.6 (Martensitic SS)",reason:"마르텐사이트계 → 10%"};
+    if(/9CR1MO|SA213T9|SA335P9|SA387GR91|9CR/.test(m))return{limit:"10",pNo:"P-No.5 (9Cr-1Mo)",reason:"9Cr-1Mo → 10%"};
+    if(/5CR|SA335P5|SA387GR5/.test(m))return{limit:"10",pNo:"P-No.4 (5Cr-½Mo)",reason:"5Cr-½Mo → 10%"};
+    if(/INCONEL|HASTELLOY|MONEL|N0660|N06022|N06625|SB168|SB443/.test(m))return{limit:"10",pNo:"P-No.41-49 (Ni-base)",reason:"니켈베이스 합금 → 10%"};
+    if(/SA387|SA204|CRMO|CR1MO|225CR/.test(m))return{limit:"5",pNo:"P-No.3 (Low-alloy)",reason:"저합금강 → 5%"};
+    if(/SA285|SA515|SA516|SA36|SA106|SA53|SA178|SA105|CARBONSTEEL|MILDSTEEL/.test(m))return{limit:"5",pNo:"P-No.1 (Carbon Steel)",reason:"탄소강 → 5%"};
+    return{limit:"5",pNo:"Unknown (default)",reason:`재질 "${mat}" 미인식 — 기본 5%`};
+  };
+  const ug79Info=inferUG79Limit(it.shell_mat);
+  // ── 영속화 키 ──
+  const itId=it.id||it.tag;
+  const bvKey=`bend_bv_${itId}`;
+  const shKey=`bend_sh_${itId}`;
+  const setKey=`bend_set_${itId}`;  // settings 통합 (θ2, F, tolStd, feShape, feLimit, bvLabels)
+  const eqKey=`bend_eq_${itId}`;     // Used Equipment
+  const avKey=`bend_av_${itId}`;     // Actual values
+  // 이미지 / 핀
+  const[bvImg,sBVI]=useState(()=>IMG_STORE.get(bvKey)||null);
+  const[shImg,sSHI]=useState(()=>IMG_STORE.get(shKey)||null);
+  const handleBV=v=>{sBVI(v);IMG_STORE.set(bvKey,v);};
+  const handleSH=v=>{sSHI(v);IMG_STORE.set(shKey,v);};
+  // ── settings 통합 (영속화) ──
+  const savedSet=IMG_STORE.get(setKey)||{};
+  const[bvLabels,sBVL]=useState(savedSet.bvLabels||["θ₁","θ₂","ID","L","t₁","t₂","t₃","t₄"]);
+  const[tolStd,sTS]=useState(savedSet.tolStd||"ASME");
+  const[feShape,sFES]=useState(savedSet.feShape||"cylindrical");
+  const[feLimit,sFEL]=useState(savedSet.feLimit||ug79Info.limit);
+  const[θ2Design,sθ2D]=useState(savedSet.θ2Design||"N/A");
+  const[θ2Tol,sθ2T]=useState(savedSet.θ2Tol||"N/A");
+  const[fDesign,sFD]=useState(savedSet.fDesign||"2");
+  const[fTol,sFT]=useState(savedSet.fTol||"± 0.8");
+  // settings 변경 시 자동 저장 (useEffect로 통합)
+  useEffect(()=>{IMG_STORE.set(setKey,{bvLabels,tolStd,feShape,feLimit,θ2Design,θ2Tol,fDesign,fTol});},[bvLabels,tolStd,feShape,feLimit,θ2Design,θ2Tol,fDesign,fTol,setKey]);
+  const bvCps=bvLabels.map(s=>({p:s}));
+  const shCps=["A","B","C","D","E","F","G"].map(s=>({p:s}));
+  // 공차 함수
+  const tolCirc=v=>{const n=parseFloat(v)||0;return n>0?(tolStd==="TEMA"?"±π×3":"±π×2"):"—";};
+  const tolLen=v=>{const n=parseFloat(v)||0;return tolStd==="TEMA"?(n<=6000?"±5":"±10"):(n<=3000?"±5":"±10");};
+  // Fiber Elongation 계산
+  const Rf=(idVal+shellThk)/2;
+  const feFactor=feShape==="double_curved"?75:50;
+  const feVal=(Rf>0&&shellThk>0)?((feFactor*shellThk)/Rf):0;
+  const feStr=feVal>0?feVal.toFixed(2):"—";
+  const feFormula=feShape==="double_curved"?`75t / Rf`:`50t / Rf`;
+  const feAccept=feVal>0&&feVal<=parseFloat(feLimit);
+  // ── Used Equipment 체크박스 (영속화) ──
+  const savedEq=IMG_STORE.get(eqKey)||{};
+  const[eqRuler,sER]=useState(savedEq.eqRuler!==undefined?savedEq.eqRuler:true);
+  const[eqBevel,sEB]=useState(savedEq.eqBevel!==undefined?savedEq.eqBevel:true);
+  const[eqUT,sEU]=useState(savedEq.eqUT!==undefined?savedEq.eqUT:true);
+  const[eqOther,sEO]=useState(savedEq.eqOther||false);
+  const[eqOtherTxt,sEOT]=useState(savedEq.eqOtherTxt||"");
+  useEffect(()=>{IMG_STORE.set(eqKey,{eqRuler,eqBevel,eqUT,eqOther,eqOtherTxt});},[eqRuler,eqBevel,eqUT,eqOther,eqOtherTxt,eqKey]);
+  const hc=hdr(),tc=bdr();const HC1={...hc,whiteSpace:"nowrap"};
+  // 측정 위치: SHELL 4쌍 (A-B/C-D/E-F/G-H) + CHANNEL 4쌍 (HX인 경우만)
+  const isC=it.type.includes("Condenser")||it.type.includes("Heat");
+  const sections=isC?[{label:"SHELL 1/2",pts:["A-B","C-D","E-F","G-H"]},{label:"CHANNEL 1/2",pts:["A-B","C-D","E-F","G-H"]}]:[{label:"SHELL 1/2",pts:["A-B","C-D","E-F","G-H"]}];
+  // Thickness 측정점 (A, B, E, F per 참조 이미지)
+  const thkPoints=["A","B","E","F"];
+  // 실측값 state — 영속화 (avKey)
+  const[actVals,sAV]=useState(()=>{
+    const saved=IMG_STORE.get(avKey);
+    if(saved)return saved;
+    const init={};
+    sections.forEach((s,si)=>{
+      init[si]={
+        id:Array(s.pts.length).fill(""),
+        circ:Array(s.pts.length).fill(""),
+        length:Array(s.pts.length).fill(""),
+        t1:Array(thkPoints.length).fill(""),
+        t2:Array(thkPoints.length).fill(""),
+        t3:Array(thkPoints.length).fill(""),
+        t4:Array(thkPoints.length).fill(""),
+        f:Array(thkPoints.length).fill(""),
+        θ1:Array(thkPoints.length).fill(""),
+        θ2:Array(thkPoints.length).fill(""),
+        rootGap:Array(thkPoints.length).fill("")
+      };
+    });
+    return init;
+  });
+  useEffect(()=>{IMG_STORE.set(avKey,actVals);},[actVals,avKey]);
+  const updAV=(si,key,idx,v)=>sAV(p=>({...p,[si]:{...p[si],[key]:p[si][key].map((x,j)=>j===idx?v:x)}}));
+  const ci={width:"100%",border:"none",background:"transparent",fontSize:9,padding:"1px 2px",boxSizing:"border-box",textAlign:"center"};
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:8mm}.fc{display:none!important}.bc{display:none!important} html,body{font-size:10px} table{page-break-inside:avoid}}`}</style>
+    <div style={{textAlign:"center",fontSize:14,fontWeight:700,marginBottom:4}}>BENDING INSPECTION REPORT</div>
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+      <tbody>
+        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-BR-{tNo}-01</td></tr>
+        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name||"—"} / {p.no||"—"}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+        <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
+      </tbody>
+    </table>
+    {/* Head Type 정보 박스 — Shell Bending Report이지만 Head Forming 관련 안내 */}
+    {(()=>{
+      const bendHtTop=it.head_type_top||it.head_type||"2:1 Ellip.";
+      const bendHtBtm=it.head_type_bottom||it.head_type||"2:1 Ellip.";
+      const headDiffers=bendHtTop!==bendHtBtm;
+      const hasCAPanywhere=bendHtTop==="CAP"||bendHtBtm==="CAP";
+      const bothCAP=bendHtTop==="CAP"&&bendHtBtm==="CAP";
+      return <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:hasCAPanywhere?"#fef2f2":(headDiffers?"#fff7eb":"#f5f9ff"),borderRadius:4,border:`1px dashed ${hasCAPanywhere?"#c33":(headDiffers?"#ba7517":SJB)}`,fontSize:10,flexWrap:"wrap"}}>
+        <span style={{fontWeight:500,color:"#555"}}>🪣 Head Forming:</span>
+        <span><strong>TOP</strong>: {bendHtTop}{bendHtTop==="CAP"&&<span style={{color:"#c33",marginLeft:3}}>(Forming 불필요)</span>}</span>
+        <span style={{color:"#bbb"}}>|</span>
+        <span><strong>BTM</strong>: {bendHtBtm}{bendHtBtm==="CAP"&&<span style={{color:"#c33",marginLeft:3}}>(Forming 불필요)</span>}</span>
+        {bothCAP&&<span style={{color:"#c33",fontWeight:600,marginLeft:"auto"}}>⚠ 양쪽 CAP — 별도 Forming Report 필요 없음, Shell-Bending만 진행</span>}
+        {!bothCAP&&hasCAPanywhere&&<span style={{color:"#c33",fontWeight:500,marginLeft:"auto"}}>⚠ 한쪽 CAP — 해당 Head는 Forming Report 제외</span>}
+        {headDiffers&&!hasCAPanywhere&&<span style={{color:"#ba7517",fontWeight:500,marginLeft:"auto"}}>⚠ 상/하 형상 다름 — 각각 Forming Report 필요</span>}
+      </div>;
+    })()}
+    <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#fff7eb",borderRadius:4,border:"1px dashed #ba7517",flexWrap:"wrap"}}>
+      <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance:</span>
+      {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="bendTol" checked={tolStd===v} onChange={()=>sTS(v)} style={{accentColor:"#ba7517"}}/>{l}</label>)}
+      <span style={{fontSize:10,color:"#555",marginLeft:10}}>UG-79 Shell형태:</span>
+      {[["cylindrical","Cylindrical (50t/Rf)"],["double_curved","Double-curved (75t/Rf)"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="feShape" checked={feShape===v} onChange={()=>sFES(v)} style={{accentColor:"#ba7517"}}/>{l}</label>)}
+      <span style={{fontSize:10,color:"#555"}}>한계:</span>
+      <input value={feLimit} onChange={e=>sFEL(e.target.value)} style={{width:34,fontSize:10,padding:"1px 3px",border:"0.5px solid #ccc",borderRadius:2,textAlign:"center"}}/><span style={{fontSize:10,color:"#888"}}>%</span>
+      <button onClick={()=>sFEL(ug79Info.limit)} title={`재질 "${it.shell_mat||"미지정"}" → ${ug79Info.reason}`} style={{fontSize:9,padding:"1px 6px",background:feLimit===ug79Info.limit?"#1d9e75":"#fff",color:feLimit===ug79Info.limit?"#fff":"#1d9e75",border:`0.5px solid #1d9e75`,borderRadius:3,cursor:"pointer",whiteSpace:"nowrap"}}>{feLimit===ug79Info.limit?`✓ ${ug79Info.pNo}`:`🔄 자동(${ug79Info.limit}%)`}</button>
+      {slJoint&&<span style={{fontSize:9,color:"#1d9e75",marginLeft:"auto"}}>✓ Joint {slJoint.joint_no}: {slJoint.root_angle}°±{slJoint.root_tol}° → θ₁={θ1Design}°{θ1Tol}</span>}
+    </div>
+    {/* Bevel + Shell 도면 — 동일 높이로 정렬 (요구사항 #3) */}
+    <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"stretch"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column"}}>
+        <div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:3,color:"#ba7517",minHeight:30}}>📐 Detail of Bevel — Ctrl+V → 📍핀: {bvLabels.join("·")}</div>
+        <div className="fc" style={{display:"flex",gap:2,marginBottom:3,flexWrap:"wrap",alignItems:"center",fontSize:9,minHeight:22}}>
+          <span style={{color:"#888"}}>핀 라벨:</span>
+          {bvLabels.map((lbl,i)=> <input key={i} value={lbl} onChange={e=>sBVL(p=>p.map((x,j)=>j===i?e.target.value:x))} style={{width:28,fontSize:9,padding:"1px 2px",border:"0.5px solid #ccc",borderRadius:2,textAlign:"center"}}/>)}
+          <button onClick={()=>sBVL(["θ₁","θ₂","ID","L","t₁","t₂","t₃","t₄"])} style={{fontSize:8,padding:"1px 4px",background:"#eee",border:"0.5px solid #ccc",borderRadius:2,cursor:"pointer"}}>기본값</button>
+        </div>
+        <div className="pf-img" style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,flex:1,minHeight:220,background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleBV(ev.target.result);r.readAsDataURL(f);}}}>
+          {bvImg?<PinImg src={bvImg} cps={bvCps} pk={bvKey}/>:<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:220,fontSize:11,color:"#aaa",textAlign:"center"}}>[ Bevel 단면도 Ctrl+V ]<br/>※ 도면 캡처 후 핀 배치</div>}
+          {bvImg&&<button className="fc" onClick={()=>handleBV(null)} style={{position:"absolute",top:4,right:4,fontSize:9,padding:"1px 6px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:3,cursor:"pointer",zIndex:30}}>✕</button>}
+        </div>
+      </div>
+      <div style={{flex:1,display:"flex",flexDirection:"column"}}>
+        <div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:3,color:"#ba7517",minHeight:30}}>📐 Sketch of Shell — Ctrl+V → 📍핀: A·B·C·D·E·F·G</div>
+        <div className="fc" style={{minHeight:22,marginBottom:3}}>{/* 좌측 핀 라벨 영역과 높이 맞춤용 빈 공간 */}</div>
+        <div className="pf-img" style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,flex:1,minHeight:220,background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleSH(ev.target.result);r.readAsDataURL(f);}}}>
+          {shImg?<PinImg src={shImg} cps={shCps} pk={shKey}/>:<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:220,fontSize:11,color:"#aaa",textAlign:"center"}}>[ Shell 전개/측면도 Ctrl+V ]<br/>※ Circumference 마크는 핀 제외</div>}
+          {shImg&&<button className="fc" onClick={()=>handleSH(null)} style={{position:"absolute",top:4,right:4,fontSize:9,padding:"1px 6px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:3,cursor:"pointer",zIndex:30}}>✕</button>}
+        </div>
+      </div>
+    </div>
+    {/* Actual Dimension 표 — 폰트/정렬 통일, Root Gap MAX 자동 */}
+    {(()=>{
+      const FS=9.5; // 통일 폰트 사이즈
+      const cell={...tc,fontSize:FS,textAlign:"center",verticalAlign:"middle"};
+      const tolCell={...cell,fontSize:FS}; // Tolerance 가운데 정렬
+      const ciU={width:"100%",border:"none",background:"transparent",fontSize:FS,padding:"1px 2px",boxSizing:"border-box",textAlign:"center"};
+      const inlineInput={fontSize:FS,border:"none",background:"transparent",textAlign:"center"};
+      // Root Gap MAX 값 (Joint SL에서)
+      const rootGapMax=slJoint?.root_gap_max||0;
+      const rootGapTolStr=rootGapMax>0?`MAX. ${rootGapMax}`:"—";
+      return <table style={{width:"100%",borderCollapse:"collapse",fontSize:FS}}>
+        <thead>
+          <tr style={{background:"#e8f0f8"}}>
+            <th style={{...hc,width:"7%",fontSize:FS}} rowSpan={2}>Description</th>
+            <th style={{...hc,width:"7%",fontSize:FS}} rowSpan={2}>Design<br/>Dimension</th>
+            <th style={{...hc,width:"7%",fontSize:FS}} rowSpan={2}>Tolerance</th>
+            <th style={{...hc,width:"5%",fontSize:FS}} rowSpan={2}>Mark</th>
+            <th style={{...hc,textAlign:"center",fontSize:FS}} colSpan={sections.reduce((a,s)=>a+s.pts.length,0)}>Actual Dimension</th>
+          </tr>
+          <tr style={{background:"#e8f0f8"}}>
+            {sections.map((s,si)=> <th key={si} style={{...hc,textAlign:"center",fontSize:FS}} colSpan={s.pts.length}>{s.label}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {/* I.D — 2 rows merged */}
+          <tr>
+            <td style={cell} rowSpan={2}>I.D</td>
+            <td style={cell} rowSpan={2}>{idVal||"—"}</td>
+            <td style={tolCell}>MAX-MIN</td>
+            <td style={cell} rowSpan={2}>I.D</td>
+            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}-${i}`} style={{...cell,minWidth:42}} rowSpan={2}><input value={actVals[si]?.id?.[i]||""} onChange={e=>updAV(si,"id",i,e.target.value)} placeholder={pt} style={ciU}/></td>))}
+          </tr>
+          <tr><td style={tolCell}>E ≤ 1%</td></tr>
+          {/* Circumference */}
+          <tr>
+            <td style={cell}>Circumference</td>
+            <td style={cell}>{idVal?Math.round(idVal*Math.PI):"—"}</td>
+            <td style={tolCell}>{tolCirc(idVal)}</td>
+            <td style={cell}>a (π×O.D)</td>
+            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}c${i}`} style={cell}><input value={actVals[si]?.circ?.[i]||""} onChange={e=>updAV(si,"circ",i,e.target.value)} style={ciU}/></td>))}
+          </tr>
+          {/* Length */}
+          <tr>
+            <td style={cell}>Length</td>
+            <td style={cell}>{it.shell_len||"—"}</td>
+            <td style={tolCell}>{tolLen(it.shell_len)}</td>
+            <td style={cell}>L</td>
+            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}l${i}`} style={cell}><input value={actVals[si]?.length?.[i]||""} onChange={e=>updAV(si,"length",i,e.target.value)} style={ciU}/></td>))}
+          </tr>
+          {/* Thickness — Header + 4 t rows */}
+          <tr style={{background:"#fafafa"}}>
+            <td style={cell} rowSpan={5}>Thickness</td>
+            <td style={cell} rowSpan={5}>{thkDisp}</td>
+            <td style={tolCell} rowSpan={5}>Min Th'k<br/><span style={{fontSize:FS-1,color:"#666"}}>(ASME UG-77<br/>t × 0.875)</span><br/><strong>{shellThk>0?(shellThk*0.875).toFixed(2):"—"}</strong></td>
+            <td style={cell}>Point</td>
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}p${i}`} style={{...cell,background:"#f0f0f0",fontWeight:500}} colSpan={s.pts.length/thkPoints.length}>{pt}</td>))}
+          </tr>
+          {["t1","t2","t3","t4"].map(tk=> <tr key={tk}>
+            <td style={cell}>{tk}</td>
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}${tk}${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.[tk]?.[i]||""} onChange={e=>updAV(si,tk,i,e.target.value)} style={ciU}/></td>))}
+          </tr>)}
+          {/* Bevel Angle — F + θ1 + θ2 + Root Gap */}
+          <tr>
+            <td style={cell} rowSpan={4}>Bevel<br/>Angle</td>
+            <td style={cell}>F = <input value={fDesign} onChange={e=>sFD(e.target.value)} style={{...inlineInput,width:24}}/></td>
+            <td style={tolCell}><input value={fTol} onChange={e=>sFT(e.target.value)} style={{...inlineInput,width:50}}/></td>
+            <td style={cell}>F</td>
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}f${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.f?.[i]||""} onChange={e=>updAV(si,"f",i,e.target.value)} style={ciU}/></td>))}
+          </tr>
+          <tr>
+            <td style={cell}>θ₁ = {θ1Design}°</td>
+            <td style={tolCell}>{θ1Tol}</td>
+            <td style={cell}>θ₁</td>
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}θ1${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.θ1?.[i]||""} onChange={e=>updAV(si,"θ1",i,e.target.value)} style={ciU}/></td>))}
+          </tr>
+          <tr>
+            <td style={cell}>θ₂ = <input value={θ2Design} onChange={e=>sθ2D(e.target.value)} style={{...inlineInput,width:36}}/></td>
+            <td style={tolCell}><input value={θ2Tol} onChange={e=>sθ2T(e.target.value)} style={{...inlineInput,width:50}}/></td>
+            <td style={cell}>θ₂</td>
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}θ2${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.θ2?.[i]||""} onChange={e=>updAV(si,"θ2",i,e.target.value)} style={ciU}/></td>))}
+          </tr>
+          <tr>
+            <td style={cell}>Root Gap</td>
+            <td style={tolCell}>{rootGapTolStr}{rootGapMax>0&&<span style={{fontSize:FS-1,color:"#1d9e75",display:"block"}}>✓ Joint 자동</span>}</td>
+            <td style={cell}>Root Gap</td>
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}rg${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.rootGap?.[i]||""} onChange={e=>updAV(si,"rootGap",i,e.target.value)} style={ciU}/></td>))}
+          </tr>
+          {/* Used Equipment */}
+          <tr>
+            <td style={{...cell,fontWeight:500}} colSpan={4}>Used Equipment</td>
+            <td style={{...cell,padding:"4px 6px",textAlign:"left"}} colSpan={sections.reduce((a,s)=>a+s.pts.length,0)}>
+              <div style={{display:"flex",gap:14,fontSize:FS,flexWrap:"wrap",alignItems:"center"}}>
+                <label style={{display:"flex",gap:3,cursor:"pointer"}}><input type="checkbox" checked={eqRuler} onChange={e=>sER(e.target.checked)} style={{accentColor:SJB}}/>Ruler</label>
+                <label style={{display:"flex",gap:3,cursor:"pointer"}}><input type="checkbox" checked={eqBevel} onChange={e=>sEB(e.target.checked)} style={{accentColor:SJB}}/>Bevel Angle Gauge</label>
+                <label style={{display:"flex",gap:3,cursor:"pointer"}}><input type="checkbox" checked={eqUT} onChange={e=>sEU(e.target.checked)} style={{accentColor:SJB}}/>UT Thickness Gauge</label>
+                <label style={{display:"flex",gap:3,cursor:"pointer"}}><input type="checkbox" checked={eqOther} onChange={e=>sEO(e.target.checked)} style={{accentColor:SJB}}/>Other ( <input value={eqOtherTxt} onChange={e=>sEOT(e.target.value)} disabled={!eqOther} style={{width:90,fontSize:FS,border:"none",borderBottom:"0.5px solid #888",background:"transparent"}}/> )</label>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>;
+    })()}
+    {/* Fiber Elongation + Judgement 자동 */}
+    <div style={{marginTop:8,display:"flex",gap:16,alignItems:"center",fontSize:11,padding:"6px 10px",background:feVal>0?(feAccept?"#e6f7f0":"#fee"):"#fafafa",border:`1px solid ${feVal>0?(feAccept?"#1d9e75":"#c33"):"#ddd"}`,borderRadius:4}}>
+      <div><span style={{fontWeight:500}}>Fiber Elongation (ASME UG-79):</span> %EF = {feFormula} = <strong style={{color:feAccept?"#1d9e75":"#c33"}}>{feStr}%</strong></div>
+      <div style={{fontSize:10,color:"#666"}}>(Rf = {Rf.toFixed(1)}mm, t = {thkDisp}mm, 한계 {feLimit}%)</div>
+      <div style={{marginLeft:"auto",display:"flex",gap:10,alignItems:"center"}}>
+        <span style={{fontWeight:500}}>Judgement:</span>
+        <label style={{display:"flex",gap:3,cursor:"pointer",padding:"2px 6px",background:feAccept&&feVal>0?"#1d9e75":"transparent",color:feAccept&&feVal>0?"#fff":"#333",borderRadius:3}}><input type="checkbox" checked={feAccept&&feVal>0} readOnly style={{accentColor:"#1d9e75"}}/>Accept</label>
+        <label style={{display:"flex",gap:3,cursor:"pointer",padding:"2px 6px",background:!feAccept&&feVal>0?"#c33":"transparent",color:!feAccept&&feVal>0?"#fff":"#333",borderRadius:3}}><input type="checkbox" checked={!feAccept&&feVal>0} readOnly style={{accentColor:"#c33"}}/>Reject</label>
+      </div>
+    </div>
+    <div style={{display:"flex",gap:24,marginTop:12,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+  </div>;
+}
+function FitupPreview({doc}){
+  const{item:it,proj:p}=doc;const tNo=tagId(it.tag);
+  // 도면 파싱한 weld_seams 사용 (없으면 fallback)
+  const seamDesc=n=>{const u=n.toUpperCase();if(u.startsWith("SC"))return"Shell Circ. Seam";if(u.startsWith("SL"))return"Shell Long. Seam";if(u.startsWith("JC"))return"Jacket Circ. Seam";if(u.startsWith("JL"))return"Jacket Long. Seam";if(u.startsWith("HC"))return"Head Circ. Seam";return"Weld Seam";};
+  const seams=(it.weld_seams&&it.weld_seams.length>0)?it.weld_seams:["SC-01","SL-01"];
+  // 노즐별 자동 Joint No: 일반=2개(N-X-01 Shell측, N-X-02 Pipe+Flange), PAD=1개(N-X-01 Shell측)
+  // N-으로 시작 = Nozzle + Flange: 기본 Fillet, 사용자 토글로 Butt 변경 가능
+  const nozJoints=(it.nozzles||[]).flatMap(n=>{
+    const base=n.no||"N-?";
+    if(n.is_pad)return[{no:`${base}-01`,desc:`${base} (PAD) Shell-to-Nozzle`,weld:"Fillet"}];
+    return[{no:`${base}-01`,desc:`${base} Shell-to-Nozzle`,weld:"Fillet"},{no:`${base}-02`,desc:`${base} Pipe-to-Flange`,weld:"Fillet"}];
+  });
+  // v1.6 — joint_details에서 root_gap 자동 파싱 (도면값 우선)
+  const findRootGap = (jno) => {
+    const d = (it.joint_details||[]).find(j => (j.joint_no||"").toUpperCase() === String(jno||"").toUpperCase());
+    if (!d) return "";
+    // 도면에서 root_gap 또는 root_gap_max 우선
+    return d.root_gap || (d.root_gap_max!==undefined?String(d.root_gap_max):"") || "";
+  };
+  const init=[
+    ...seams.map((s,i)=>({id:`s${i}`,no:s,desc:seamDesc(s),weld:"Butt",rootGap:findRootGap(s)})),
+    ...nozJoints.map((j,i)=>({id:`n${i}`,...j,rootGap:findRootGap(j.no)}))
+  ];
+  // fallback if completely empty
+  const safeInit=init.length>0?init:[{id:"sc1",no:"SC-01",desc:"Shell Circ. Seam",weld:"Butt"},{id:"sl1",no:"SL-01",desc:"Shell Long. Seam",weld:"Butt"}];
+  // ── 영속화 키 ──
+  const fitupKey=`fitup_${it.id||it.tag}`;
+  const savedFitup=IMG_STORE.get(fitupKey)||{};
+  const[joints,sJ]=useState(savedFitup.joints||safeInit);
+  const[nw,sNW]=useState({no:"",desc:"",weld:"Fillet"});
+  const[wps,sW]=useState(savedFitup.wps||"");
+  const[mEq,sME]=useState(savedFitup.mEq||"");
+  useEffect(()=>{IMG_STORE.set(fitupKey,{joints,wps,mEq});},[joints,wps,mEq,fitupKey]);
+  // 추후 회사 List 업로드 시 대체될 임시 풀 (window.WPS_LIST / window.WELDER_LIST 가 있으면 우선 사용)
+  const wpsList=(p.wpsList&&p.wpsList.length>0)?p.wpsList:((typeof window!=="undefined"&&window.WPS_LIST)||["SJTC-WPS-001","SJTC-WPS-002","SJTC-WPS-003"]);
+  const welderList=(p.welderList&&p.welderList.length>0)?p.welderList:((typeof window!=="undefined"&&window.WELDER_LIST)||["W-001","W-002","W-003","W-004"]);
+  const hc=hdr(),tc=bdr();const TH9={...hdr(),fontSize:9,textAlign:"center"};
+  const moveJ=(i,dir)=>{const ni=i+dir;if(ni<0||ni>=joints.length)return;const j2=[...joints];[j2[i],j2[ni]]=[j2[ni],j2[i]];sJ(j2);};
+  const upJ=(i,k,v)=>sJ(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
+  const HC1={...hc,whiteSpace:"nowrap"};
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{.fc{display:none!important}col.fc{width:0!important}@page{size:A4 portrait;margin:10mm}}`}</style>
+    <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
+    <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+      <tbody>
+        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-WI-{tNo}-01</td></tr>
+        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
+        <tr><td style={HC1}>Appl. Code</td><td style={tc} colSpan={3}>{it.appl_code||"—"}</td></tr>
+      </tbody>
+    </table>
+    <table className={joints.length>=20?"fitup-joint-many":"fitup-joint-table"} style={{width:"100%",borderCollapse:"collapse",fontSize:10,tableLayout:"fixed"}}>
+      <colgroup><col className="fc" style={{width:"4%"}}/><col style={{width:"9%"}}/><col style={{width:"20%"}}/><col style={{width:"9%"}}/><col style={{width:"8%"}}/><col style={{width:"12%"}}/><col style={{width:"13%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col className="fc" style={{width:"4%"}}/></colgroup>
+      <thead><tr><th className="fc" style={TH9}>순서</th><th style={TH9}>Joint No.</th><th style={TH9}>Description</th><th style={TH9}>Weld Type</th><th style={TH9}>Root Gap</th><th style={TH9}>WPS</th><th style={TH9}>Welder</th><th style={TH9}>Date</th><th style={TH9}>Result</th><th className="fc" style={TH9}></th></tr></thead>
+      <tbody>{joints.map((j,i)=> <tr key={j.id}>
+        <td className="fc" style={{...tc,textAlign:"center",padding:"2px",verticalAlign:"middle"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:1,alignItems:"center"}}>
+            <button onClick={()=>moveJ(i,-1)} disabled={i===0} style={{fontSize:9,padding:"1px 3px",border:"1px solid #ccc",borderRadius:2,background:"#f5f5f5",color:i===0?"#ccc":"#444",cursor:i===0?"default":"pointer"}}>▲</button>
+            <button onClick={()=>moveJ(i,1)} disabled={i===joints.length-1} style={{fontSize:9,padding:"1px 3px",border:"1px solid #ccc",borderRadius:2,background:"#f5f5f5",color:i===joints.length-1?"#ccc":"#444",cursor:i===joints.length-1?"default":"pointer"}}>▼</button>
+          </div>
+        </td>
+        <td style={tc}>{j.no}</td>
+        <td style={{...tc,fontSize:9}}>{j.desc}</td>
+        <td style={{...tc,textAlign:"center",padding:0}}>
+          <select value={j.weld==="Butt"?"GROOVE":j.weld==="Fillet"?"FILLET":j.weld} onChange={e=>upJ(i,"weld",e.target.value==="GROOVE"?"Butt":e.target.value==="FILLET"?"Fillet":e.target.value)} style={{width:"100%",border:"none",background:(j.no||"").toUpperCase().startsWith("N-")?"#fff7eb":"transparent",fontSize:10,textAlign:"center",cursor:"pointer",fontWeight:500,padding:"3px"}}>
+            <option value="GROOVE">GROOVE</option>
+            <option value="FILLET">FILLET</option>
+          </select>
+        </td>
+        <td style={{...tc,padding:0,textAlign:"center"}}>
+          <input value={j.rootGap||""} onChange={e=>upJ(i,"rootGap",e.target.value)} placeholder="mm" style={{width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center",padding:"3px"}}/>
+        </td>
+        <td style={{...tc,padding:0}}>
+          <select value={j.wps||""} onChange={e=>upJ(i,"wps",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,padding:"3px"}}>
+            <option value="">—</option>
+            {wpsList.map(w=> <option key={typeof w==="string"?w:w.wpsNo||w.id}>{typeof w==="string"?w:(w.wpsNo||w.id||"")}</option>)}
+          </select>
+        </td>
+        <td style={{...tc,padding:0}}>
+          <select value={j.welder||""} onChange={e=>upJ(i,"welder",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,padding:"3px"}}>
+            <option value="">—</option>
+            {welderList.map(w=> <option key={typeof w==="string"?w:w.id}>{typeof w==="string"?w:(w.name?`${w.name} (${w.id})`:w.id||"")}</option>)}
+          </select>
+        </td>
+        <td style={tc}><input type="date" value={j.date||""} onChange={e=>upJ(i,"date",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:9}}/></td>
+        <td style={{...tc,padding:0,textAlign:"center"}}>
+          <select value={j.result||""} onChange={e=>upJ(i,"result",e.target.value)} style={{width:"100%",border:"none",fontSize:10,padding:"3px",cursor:"pointer",fontWeight:500,background:j.result==="Accept"?"#e6f7f0":j.result==="Reject"?"#fee":"transparent",color:j.result==="Accept"?"#1d9e75":j.result==="Reject"?"#c33":"inherit",textAlign:"center"}}>
+            <option value="">☐</option>
+            <option value="Accept">✓ Accept</option>
+            <option value="Reject">✗ Reject</option>
+          </select>
+        </td>
+        <td className="fc" style={{...tc,textAlign:"center",cursor:"pointer",color:"#c33",fontSize:12}} onClick={()=>sJ(joints.filter(x=>x.id!==j.id))}>✕</td>
+      </tr>)}</tbody>
+    </table>
+    <div className="fc" style={{display:"flex",gap:4,marginTop:5,alignItems:"center",flexWrap:"wrap",padding:"6px 8px",background:"#f5f5f5",borderRadius:4,border:"1px dashed #ccc"}}>
+      <span style={{fontSize:10,fontWeight:500,color:"#666"}}>➕ Joint 추가:</span>
+      <input placeholder="No." value={nw.no} onChange={e=>sNW({...nw,no:e.target.value})} style={{fontSize:10,padding:"2px 5px",border:"1px solid #ccc",borderRadius:3,width:90}}/>
+      <input placeholder="Description" value={nw.desc} onChange={e=>sNW({...nw,desc:e.target.value})} style={{fontSize:10,padding:"2px 5px",border:"1px solid #ccc",borderRadius:3,width:140}}/>
+      <select value={nw.weld} onChange={e=>sNW({...nw,weld:e.target.value})} style={{fontSize:10,padding:"2px",border:"1px solid #ccc",borderRadius:3}}><option>Butt</option><option>Fillet</option></select>
+      <button onClick={()=>{if(nw.no){sJ([...joints,{...nw,id:Date.now()}]);sNW({no:"",desc:"",weld:"Butt"});}}} style={{fontSize:10,padding:"3px 10px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>+ 추가</button>
+    </div>
+    <div className="fitup-end-block">
+      <div style={{marginTop:6,fontSize:9,color:"#666"}}>* GROOVE: Butt joint (개선) &nbsp;|&nbsp; FILLET: Fillet joint (필렛). 추가 측정값은 WPS·검사사양 별도 기록.</div>
+      <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}><tbody><tr><td style={{...hc,width:"22%",whiteSpace:"nowrap"}}>Measuring Equipment</td><td style={tc}><input value={mEq} onChange={e=>sME(e.target.value)} placeholder="ex. Caliper / Tape Measure / Welding Gauge / Penetration Test Kit" style={{width:"100%",border:"none",background:"transparent",fontSize:11}}/></td></tr></tbody></table>
+      <div style={{display:"flex",gap:24,marginTop:10,fontSize:10}}>{["Prepared by","Reviewed by","Approved by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+    </div>
+  </div>;
+}
+/* ── DIM Description 라이브러리 ── */
+function MountFlangeTable({rows:initialRows,supportType,onChange,hc,tc}){
+  const[rows,setRows]=useState(initialRows);
+  const upd=(i,k,v)=>{
+    const nr=rows.map((r,j)=>j===i?{...r,[k]:v}:r);
+    setRows(nr);onChange&&onChange(nr);
+  };
+  const cellC={...tc,textAlign:"center",fontSize:10,verticalAlign:"middle"};
+  const ci={width:"100%",border:"none",background:"transparent",fontSize:10,padding:"1px 3px",boxSizing:"border-box",textAlign:"center"};
+  return <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,marginBottom:6}}>
+    <thead><tr>{["Check Item","Design","Tolerance","Actual","Result"].map((h,k)=> <th key={h} style={{...hc,background:"#f0eeff",width:k===0?"38%":k===4?"14%":"16%"}}>{h}</th>)}</tr></thead>
+    <tbody>{rows.map((r,i)=> <tr key={i}>
+      <td style={cellC}>{r.item}</td>
+      <td style={cellC}><input value={r.design} onChange={e=>upd(i,"design",e.target.value)} placeholder="—" style={ci}/></td>
+      <td style={cellC}><input value={r.tol} onChange={e=>upd(i,"tol",e.target.value)} style={{...ci,fontWeight:500,color:"#1a6fa8"}}/></td>
+      <td style={cellC}><input value={r.actual} onChange={e=>upd(i,"actual",e.target.value)} style={ci}/></td>
+      <td style={{...cellC,padding:0}}>
+        <select value={r.result} onChange={e=>upd(i,"result",e.target.value)} style={{width:"100%",border:"none",fontSize:10,padding:"3px",cursor:"pointer",fontWeight:500,background:r.result==="Accept"?"#e6f7f0":r.result==="Reject"?"#fee":"transparent",color:r.result==="Accept"?"#1d9e75":r.result==="Reject"?"#c33":"inherit",textAlign:"center",textAlignLast:"center"}}>
+          <option value="">—</option>
+          <option value="Accept">✓ Accept</option>
+          <option value="Reject">✗ Reject</option>
+        </select>
+      </td>
+    </tr>)}</tbody>
+    {supportType&&<tfoot><tr><td colSpan={5} style={{fontSize:9,padding:"3px 6px",background:"#f8fafc",color:"#1d9e75",borderTop:"0.5px solid #ddd"}}>✓ BOM에서 "{supportType.toUpperCase()}" 자동 감지 → 해당 측정 항목 추가됨. 공차값은 직접 수정 가능 (고객사별 사양 반영).</td></tr></tfoot>}
+  </table>;
+}
+function DIMPreview({doc}){
+  const{item:it,proj:p}=doc;const isR=it.type.includes("Reactor"),isC=it.type.includes("Condenser")||it.type.includes("Heat");
+  const tNo=tagId(it.tag);const hc=hdr(),tc=bdr();const HC1={...hc,whiteSpace:"nowrap"};
+  const dk=`dim_${it.id||it.tag}`;
+  const[dImg,sDI]=useState(()=>IMG_STORE.get(dk)||null);
+  const handleDI=v=>{sDI(v);IMG_STORE.set(dk,v);};
+  // 핀 데이터 동기화 - PinImg가 IMG_STORE에 저장한 핀 배열 읽기
+  const PK=dk+"_pins";
+  const[pinTick,sTick]=useState(0);
+  const pins=IMG_STORE.get(PK)||[];
+  // ── 영속화 키 ──
+  const dimSetKey=`dim_set_${it.id||it.tag}`;
+  const dimRowsKey=`dim_rows_${it.id||it.tag}`;
+  const savedDimSet=IMG_STORE.get(dimSetKey)||{};
+  // 표준 (ASME / TEMA) 선택
+  const[tolStd,sTS]=useState(savedDimSet.tolStd||(isC?"TEMA":"ASME"));
+  const tolFn=tolStd==="TEMA"?dimTolTEMA:dimTolASME;
+  // CheckPoint Row: 사용자가 추가/편집 가능, 기본은 핀 개수에 맞게 채움
+  // v1.5 — A~Z (26) + AA~ZZ (676) = 총 702개 라벨
+  const LBL = (() => {
+    const arr = [];
+    for(let i=0;i<26;i++) arr.push(String.fromCharCode(65+i));
+    for(let i=0;i<26;i++) for(let j=0;j<26;j++) arr.push(String.fromCharCode(65+i)+String.fromCharCode(65+j));
+    return arr;
+  })();
+  const isST=it.type.includes("Storage Tank");
+  // ── Head Type 상/하 분리 (호환) ──
+  const dimHtTop=it.head_type_top||it.head_type||"2:1 Ellip.";
+  const dimHtBtm=it.head_type_bottom||it.head_type||"2:1 Ellip.";
+  const dimD=parseFloat(it.shell_id)||parseFloat(it.shell_od)||0;
+  const tolTop=headTolerance(dimHtTop,dimD);
+  const tolBtm=headTolerance(dimHtBtm,dimD);
+  const initRows=()=>{
+    const saved=IMG_STORE.get(dimRowsKey);
+    if(saved&&Array.isArray(saved)&&saved.length>0)return saved;
+    const def=isC?[
+      {desc:"Shell ID",dwg:it.shell_id||"",tol:"±5"},
+      {desc:"Channel ID",dwg:it.shell_id||"",tol:"±5"},
+      {desc:"Tube Sheet OD",dwg:"",tol:"±2"},
+      {desc:"Girth Flange",dwg:"",tol:"±2"},
+      {desc:"Shell Length",dwg:it.shell_len||"",tol:"±10"},
+      // CAP인 경우 Head Height/Crown 검사 불필요
+      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:tolTop.height!=="메이커 사양"?String(tolTop.height).replace(/[±\s]/g,"").split("±")[0]:"",tol:`${tolTop.height} mm`,remark:tolTop.note}]),
+      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:tolBtm.height!=="메이커 사양"?String(tolBtm.height).replace(/[±\s]/g,"").split("±")[0]:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note}])
+    ]:isST?[
+      {desc:"Shell ID (Top)",dwg:it.shell_id||"",tol:"±5"},
+      {desc:"Shell ID (Mid)",dwg:it.shell_id||"",tol:"±5"},
+      {desc:"Shell ID (Btm)",dwg:it.shell_id||"",tol:"±5"},
+      {desc:"Shell Length",dwg:it.shell_len||"",tol:"±10"},
+      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:"",tol:`${tolTop.height} mm`,remark:tolTop.note}]),
+      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note}])
+    ]:[
+      {desc:"Shell ID",dwg:it.shell_id||"",tol:"±5"},
+      {desc:"Shell Length",dwg:it.shell_len||"",tol:"±10"},
+      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:"",tol:`${tolTop.height} mm`,remark:tolTop.note}]),
+      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note}])
+    ];
+    return def.map((d,i)=>({p:LBL[i],desc:d.desc,dwg:d.dwg||"",actual:"",remark:d.remark||"",customTol:d.tol||""}));
+  };
+  const[rows,sRows]=useState(initRows);
+  // 핀 개수 변경 시 Check Point 자동 동기화
+  const ensureRowsForPins=()=>{
+    if(pins.length>rows.length){
+      const newRows=[...rows];
+      for(let i=rows.length;i<pins.length;i++){newRows.push({p:LBL[i]||`P${i+1}`,desc:"",dwg:"",actual:"",remark:""});}
+      sRows(newRows);
+    }
+  };
+  const upR=(i,k,v)=>sRows(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
+  const addRow=()=>sRows(p=>[...p,{p:LBL[p.length]||`P${p.length+1}`,desc:"",dwg:"",actual:"",remark:""}]);
+  const delRow=i=>sRows(p=>p.filter((_,j)=>j!==i).map((r,j)=>({...r,p:LBL[j]||`P${j+1}`})));
+  // v2.0 — 11열 단위 chunk + overflow 시 마지막 chunk를 placeholder로 padding
+  // 1~10개 체크포인트: 1 chunk만 (빈 두 번째 줄 없음 — 사용자 확정)
+  // 11+ 체크포인트: 2 chunk 이상, 마지막 chunk가 partial이면 첫 줄과 동일 너비로 padding
+  const COLS_PER_ROW=10;
+  const chunks=[];for(let i=0;i<rows.length;i+=COLS_PER_ROW)chunks.push(rows.slice(i,i+COLS_PER_ROW));
+  if(chunks.length===0)chunks.push([]);
+  // overflow 시 마지막 chunk 패딩 (chunks.length>=2 인 경우만)
+  if(chunks.length>=2){
+    const last=chunks[chunks.length-1];
+    const need=COLS_PER_ROW-last.length;
+    for(let k=0;k<need;k++){
+      last.push({p:"",desc:"",dwg:"",actual:"",remark:"",_placeholder:true});
+    }
+  }
+  const[mEq,sME]=useState(savedDimSet.mEq||"");
+  // 영속화 자동 동기화
+  useEffect(()=>{IMG_STORE.set(dimSetKey,{tolStd,mEq});},[tolStd,mEq,dimSetKey]);
+  useEffect(()=>{IMG_STORE.set(dimRowsKey,rows);},[rows,dimRowsKey]);
+  const renderTable=(chunk,startIdx)=>{
+    const colCount=chunk.length;
+    return <table key={startIdx} style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <thead>
+        <tr><th style={{...hc,width:"14%"}}>Check Point</th>{chunk.map((r,i)=> <th key={i} style={{...hc,textAlign:"center"}}>{r.p}</th>)}<th className="fc" style={hc}>+</th></tr>
+        <tr><td style={{...hc,fontSize:9}}>Description</td>{chunk.map((r,i)=> <td key={i} style={{...tc,fontSize:9,padding:"2px"}}><select value={r.desc} onChange={e=>upR(startIdx+i,"desc",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:9,textAlign:"center"}}><option value="">— 선택 —</option>{DIM_LIB.map(d=> <option key={d}>{d}</option>)}<option value="custom">[ 직접입력 ]</option></select>{r.desc==="custom"&&<input value={r.descCustom||""} onChange={e=>upR(startIdx+i,"descCustom",e.target.value)} placeholder="custom" style={{width:"100%",border:"none",fontSize:9,marginTop:1}}/>}</td>)}<td className="fc" style={{...tc,padding:"2px",textAlign:"center"}}><button onClick={addRow} style={{fontSize:10,padding:"0 5px",background:SJB,color:"#fff",border:"none",borderRadius:2,cursor:"pointer"}}>+</button></td></tr>
+      </thead>
+      <tbody>
+        <tr><td style={hc}>D.W.G</td>{chunk.map((r,i)=> <td key={i} style={{...tc,padding:"2px"}}><input value={r.dwg} onChange={e=>upR(startIdx+i,"dwg",e.target.value)} placeholder="mm" style={{width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"}}/></td>)}<td className="fc" style={tc}></td></tr>
+        <tr><td style={hc}>Actual</td>{chunk.map((r,i)=> <td key={i} style={{...tc,padding:"2px"}}><input value={r.actual} onChange={e=>upR(startIdx+i,"actual",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"}}/></td>)}<td className="fc" style={tc}></td></tr>
+        <tr><td style={hc}>Tolerance</td>{chunk.map((r,i)=> <td key={i} style={{...tc,fontSize:9,color:r.customTol?"#1a6fa8":"#888",textAlign:"center",fontWeight:r.customTol?500:"normal"}}>{r.customTol||tolFn(r.dwg)||"—"}</td>)}<td className="fc" style={tc}></td></tr>
+        <tr><td style={hc}>Remark</td>{chunk.map((r,i)=> <td key={i} style={{...tc,padding:"2px"}}><input value={r.remark} onChange={e=>upR(startIdx+i,"remark",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:9}}/></td>)}<td className="fc" style={{...tc,textAlign:"center"}}><button onClick={()=>chunk.length>0&&delRow(startIdx+chunk.length-1)} style={{fontSize:10,padding:"0 5px",background:"#fff0f0",color:"#c00",border:"none",borderRadius:2,cursor:"pointer"}}>−</button></td></tr>
+      </tbody>
+    </table>;
+  };
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
+    <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>SHELL DIMENSIONAL INSPECTION REPORT</div>
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+      <tbody>
+        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-01</td></tr>
+        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+        <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
+      </tbody>
+    </table>
+    <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
+      <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
+      {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="dimTol" checked={tolStd===v} onChange={()=>sTS(v)} style={{accentColor:SJB}}/>{l}</label>)}
+      <span style={{fontSize:9,color:"#888",marginLeft:"auto"}}>D.W.G 입력 시 Tolerance 자동 적용 / 핀 배치 시 Check Point 자동 추가</span>
+    </div>
+    {/* Head Type 정보 박스 — 상/하 분리 + 공차 자동 적용 안내 */}
+    <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:dimHtTop!==dimHtBtm?"#fff7eb":"#f5f9ff",borderRadius:4,border:`1px dashed ${dimHtTop!==dimHtBtm?"#ba7517":SJB}`,fontSize:10}}>
+      <span style={{fontWeight:500,color:"#555"}}>🪣 Head:</span>
+      <span><strong>TOP</strong>: {dimHtTop}{dimHtTop!=="CAP"&&dimD>0&&<span style={{color:"#888",marginLeft:4}}>(h ≈ {tolTop.height}{typeof tolTop.height==="string"&&tolTop.height.includes("±")?"":" mm"})</span>}</span>
+      <span style={{color:"#bbb"}}>|</span>
+      <span><strong>BTM</strong>: {dimHtBtm}{dimHtBtm!=="CAP"&&dimD>0&&<span style={{color:"#888",marginLeft:4}}>(h ≈ {tolBtm.height}{typeof tolBtm.height==="string"&&tolBtm.height.includes("±")?"":" mm"})</span>}</span>
+      {dimHtTop!==dimHtBtm&&<span style={{color:"#ba7517",fontWeight:500,marginLeft:"auto"}}>⚠ 상/하 형상 다름 — 각각 적용됨</span>}
+      {(dimHtTop==="CAP"||dimHtBtm==="CAP")&&<span style={{color:"#c33",fontWeight:500,marginLeft:dimHtTop!==dimHtBtm?0:"auto"}}>⚠ CAP — Forming Report 제외</span>}
+    </div>
+    <div style={{marginBottom:6}}>
+      <div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:3,color:"#993c1d",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>📐 Side Elevation — Ctrl+V 붙여넣기 → 📍핀 배치 ON → 클릭으로 A·B·C 마킹 (핀 개수 = Check Point 개수)</span>
+        {pins.length>0&&<span style={{color:SJB,fontSize:9}}>현재 핀 {pins.length}개 / Row {rows.length}개<button onClick={ensureRowsForPins} style={{marginLeft:6,fontSize:9,padding:"1px 6px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>핀 → Row 동기화</button></span>}
+      </div>
+      <div className="pf-img" style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,minHeight:Math.max(180,460-chunks.length*70),maxHeight:Math.max(220,500-chunks.length*70),background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleDI(ev.target.result);r.readAsDataURL(f);}}}>
+        {dImg?<PinImg src={dImg} cps={rows} pk={dk} onPinChange={()=>sTick(t=>t+1)}/>:<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:Math.max(180,460-chunks.length*70),fontSize:12,color:"#aaa"}}>[ Side Elevation — Ctrl+V 붙여넣기 → 핀 배치 ]</div>}
+        {dImg&&<button className="fc" onClick={()=>handleDI(null)} style={{position:"absolute",top:4,right:4,fontSize:9,padding:"1px 6px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:3,cursor:"pointer",zIndex:30}}>✕ 삭제</button>}
+      </div>
+    </div>
+    {chunks.map((ch,ci)=>renderTable(ch,ci*COLS_PER_ROW))}
+    {(isR||it.reactor_mount)&&(()=>{
+      // BRACKET / LEG 자동 감지 (BOM에서)
+      const bomNames=(it.bom_rows||[]).map(r=>(r.name||"").toUpperCase());
+      const hasBracket=bomNames.some(n=>n.includes("BRACKET"));
+      const hasLeg=bomNames.some(n=>n.includes("LEG")&&!n.includes("PLATE"));
+      // 지지구조 우선순위: LEG > BRACKET (LEG가 있으면 BRACKET 항 삭제)
+      const supportType=hasLeg?"Leg":(hasBracket?"Bracket":null);
+      // 영속화 키
+      const mfKey=`dim_mf_${it.id||it.tag}`;
+      const savedMF=IMG_STORE.get(mfKey)||{};
+      const buildInitRows=()=>{
+        const base=[
+          {item:"Mount Flange Levelness",design:"",tol:"≤ 1mm/m",actual:"",result:""},
+          {item:"Mount Flange ↔ Outlet PAD Alignment",design:"",tol:"≤ 2mm",actual:"",result:""}
+        ];
+        if(supportType){
+          base.push({item:`Mount Flange ↔ ${supportType} Parallelism`,design:"",tol:"≤ 2mm",actual:"",result:""});
+          base.push({item:`${supportType} Elevation Variance`,design:"",tol:"≤ 3mm",actual:"",result:""});
+        }
+        return base;
+      };
+      // 저장된 데이터에서 항목 자동 갱신 (supportType 바뀌면 새로 초기화)
+      const savedRows=savedMF.rows;
+      const savedSupport=savedMF.supportType;
+      const mfRows=(savedRows&&savedSupport===supportType)?savedRows:buildInitRows();
+      const MFRow=({i})=> null; // placeholder
+      return <MountFlangeTable
+        rows={mfRows}
+        supportType={supportType}
+        onChange={newRows=>{IMG_STORE.set(mfKey,{rows:newRows,supportType});}}
+        hc={hc} tc={tc}
+      />;
+    })()}
+    {(() => {
+      // v1.8 — DIM 측정장비: Fitup/Nozzle과 동일 단순 1줄 (향후 서버 리스트 연동 예정)
+      // 역호환: 이전 JSON 구조가 저장돼 있으면 첫 장비명만 표시 (혹은 빈 값)
+      let displayVal = mEq || "";
+      try {
+        const parsed = JSON.parse(mEq);
+        if (Array.isArray(parsed)) {
+          displayVal = parsed.filter(e=>e&&e.active!==false&&e.name).map(e=>e.serial?`${e.name} (${e.serial})`:e.name).join(" / ");
+        }
+      } catch(e){}
+      return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}><tbody><tr>
+        <td style={{...hc,width:"22%",whiteSpace:"nowrap"}}>Measuring Equipment</td>
+        <td style={tc}><input value={displayVal} onChange={e=>sME(e.target.value)} placeholder="ex. Steel Tape (SN-001) / Vernier Caliper (SN-045) / UT Gauge (Cal. Cert. UT-2026-12)" style={{width:"100%",border:"none",background:"transparent",fontSize:11}}/></td>
+      </tr></tbody></table>;
+    })()}
+    <div style={{display:"flex",gap:24,marginTop:8,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+  </div>;
+}
+function NozzlePreview({doc}){
+  const{item:it,proj:p}=doc;const isR=it.type.includes("Reactor"),isC=it.type.includes("Condenser")||it.type.includes("Heat");
+  const nk1=`noz_${it.id||it.tag}_1`,nk2=`noz_${it.id||it.tag}_2`;
+  const mkN=(no,sz,pos,h="",l="")=>({no,sz,pos,h,l,ap:"",ah:"",al:"",remark:""});
+  // 도면에서 파싱한 노즐 사용 (없으면 type별 fallback)
+  const nozFromDwg=(it.nozzles||[]).map(n=>mkN(n.no||"",n.size||"",n.pos||""));
+  const fallback=isC?[mkN("N-1","200A","BTM"),mkN("N-2","40A","TOP/25"),mkN("N-3","25A","SIDE/90")]:isR?[mkN("AG-1","300A","TOP"),mkN("M-1","450A","TOP/180"),mkN("N-1","50A","TOP/10")]:[mkN("N-1","250A","TOP/0"),mkN("N-2","50A","TOP/30")];
+  // ── 영속화 키 ──
+  const nozKey=`noz_set_${it.id||it.tag}`;
+  const savedNoz=IMG_STORE.get(nozKey)||{};
+  const[noz,sNz]=useState(savedNoz.noz||(nozFromDwg.length>0?nozFromDwg:fallback));
+  const[nw,sNW]=useState({no:"",sz:"",pos:"",h:"",l:""});
+  const[std,sStd]=useState(savedNoz.std||(isC?"TEMA":"ASME"));
+  const[mEqN,sMEN]=useState(savedNoz.mEqN||"");
+  const up=(i,k,v)=>sNz(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
+  const td2={border:"0.5px solid #bbb",padding:"3px 4px",fontSize:10,textAlign:"center",verticalAlign:"middle"};
+  const tInput={width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"};
+  const hc=hdr(),tc=bdr();const tNo=tagId(it.tag);const HC1={...hc,whiteSpace:"nowrap"};
+  const rcDef=isR?[{item:"Mount Flange Levelness",tol:"≤ 1mm/m",act:"",res:""},{item:"Mount Flange ↔ Outlet PAD Alignment",tol:"≤ 2mm",act:"",res:""},{item:"Mount Flange ↔ Bracket Parallelism",tol:"≤ 2mm",act:"",res:""},{item:"Impeller Clearance",tol:"50±20mm",act:"",res:""}]:[];
+  const[rcV,sRC]=useState(savedNoz.rcV||rcDef);
+  useEffect(()=>{IMG_STORE.set(nozKey,{noz,std,mEqN,rcV});},[noz,std,mEqN,rcV,nozKey]);
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
+    <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+      <tbody>
+        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-02</td></tr>
+        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+        <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material{isC?" (S/T)":""}</td><td style={tc}>{isC?`${it.shell_mat||"—"} / ${it.tube_mat||"—"}`:(it.shell_mat||"—")}</td></tr>
+      </tbody>
+    </table>
+    {/* v2.3 — 15+ 노즐일 때 이미지 영역이 페이지 1을 독차지하고 데이터 표는 페이지 2로 */}
+    <div className={noz.length>=15?"noz-big":""} style={{display:"flex",gap:6,marginBottom:6,minHeight:240,flex:noz.length>=15?1:undefined}}>
+      <IDZ label="Nozzle Orientation — Ctrl+V (VIEW A-A) — 노즐 각도/위치 표시" persistKey={nk2}/>
+    </div>
+    <div style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
+    <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
+      <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
+      {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="tolStd" checked={std===v} onChange={()=>sStd(v)} style={{accentColor:SJB}}/>{l}</label>)}
+      <span style={{fontSize:9,color:"#888",marginLeft:"auto"}}>D.W.G H/L 입력 시 Tolerance 자동 적용</span>
+    </div>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,marginBottom:5}}>
+      <thead><tr><th style={{...td2,background:"#e8f0f8",fontWeight:500}} rowSpan={2}>NO.</th><th style={{...td2,background:"#e8f0f8",fontWeight:500}} rowSpan={2}>SIZE</th><th style={{...td2,background:"#dce8f5",fontWeight:500}} colSpan={3}>D.W.G</th><th style={{...td2,background:"#dce8f5",fontWeight:500}} colSpan={3}>Tolerance</th><th style={{...td2,background:"#e6f7f0",fontWeight:500}} colSpan={3}>ACTUAL</th><th style={{...td2,background:"#e8f0f8",fontWeight:500}} rowSpan={2}>Remark</th></tr>
+      <tr>{["POS'(°)","H(mm)","L(mm)","POS'(°)","H(mm)","L(mm)","POS'(°)","H(mm)","L(mm)"].map((h,i)=> <th key={i} style={{...td2,background:i<6?"#dce8f5":"#e6f7f0",fontWeight:500,fontSize:9}}>{h}</th>)}</tr></thead>
+      <tbody>{noz.map((r,i)=> <tr key={i}>
+        <td style={td2}><input value={r.no} onChange={e=>up(i,"no",e.target.value)} style={tInput}/></td>
+        <td style={td2}><input value={r.sz} onChange={e=>up(i,"sz",e.target.value)} style={tInput}/></td>
+        <td style={td2}><input value={r.pos} onChange={e=>up(i,"pos",e.target.value)} style={tInput} placeholder="TOP/0"/></td>
+        <td style={td2}><input value={r.h} onChange={e=>up(i,"h",e.target.value)} style={tInput} placeholder="mm"/></td>
+        <td style={td2}><input value={r.l} onChange={e=>up(i,"l",e.target.value)} style={tInput} placeholder="mm"/></td>
+        <td style={{...td2,color:"#888"}}>{tolPos(std)}</td>
+        <td style={{...td2,color:"#888"}}>{r.h?tolH(std,r.h):"—"}</td>
+        <td style={{...td2,color:"#888"}}>{r.l?tolL(std,r.l):"—"}</td>
+        {["ap","ah","al"].map(k=> <td key={k} style={td2}><input value={r[k]} onChange={e=>up(i,k,e.target.value)} style={tInput}/></td>)}
+        <td style={td2}><input value={r.remark} onChange={e=>up(i,"remark",e.target.value)} style={{...tInput,textAlign:"left"}}/></td>
+      </tr>)}</tbody>
+    </table>
+    <div className="fc" style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
+      {[["no","No.","60px"],["sz","Size","70px"],["pos","POS","80px"],["h","H","60px"],["l","L","60px"]].map(([k,ph,w])=> <input key={k} placeholder={ph} value={nw[k]||""} onChange={e=>sNW(p=>({...p,[k]:e.target.value}))} style={{width:w,fontSize:10,padding:"2px 4px",border:"0.5px solid #ccc",borderRadius:3}}/>)}
+      <button onClick={()=>{if(!nw.no)return;sNz(p=>[...p,mkN(nw.no,nw.sz,nw.pos,nw.h,nw.l)]);sNW({no:"",sz:"",pos:"",h:"",l:""});}} style={{padding:"2px 8px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer",fontSize:10}}>+ 노즐</button>
+      <button onClick={()=>sNz(p=>p.slice(0,-1))} style={{padding:"2px 6px",border:"0.5px solid #ccc",borderRadius:3,background:"#fff",cursor:"pointer",fontSize:10,color:"#888"}}>− 삭제</button>
+    </div>
+    {isR&&rcV.length>0&&<div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:500,marginBottom:4,color:"#534ab7"}}>Reactor — Mount Flange &amp; Impeller Check</div><table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}><thead><tr>{["Check Item","Tolerance","Actual","Result"].map(h=> <th key={h} style={{...td2,background:"#f0eeff",fontWeight:500}}>{h}</th>)}</tr></thead><tbody>{rcV.map((r,i)=> <tr key={i}><td style={td2}>{r.item}</td><td style={td2}>{r.tol}</td><td style={td2}><input value={r.act} onChange={e=>sRC(p=>p.map((x,j)=>j===i?{...x,act:e.target.value}:x))} style={tInput}/></td><td style={td2}><select value={r.res} onChange={e=>sRC(p=>p.map((x,j)=>j===i?{...x,res:e.target.value}:x))} style={{fontSize:10,border:"none",background:"transparent"}}><option value="">—</option><option>ACCEPT</option><option>REJECT</option></select></td></tr>)}</tbody></table></div>}
+    <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}><tbody><tr><td style={{...hc,width:"22%",whiteSpace:"nowrap"}}>Measuring Equipment</td><td style={tc}><input value={mEqN} onChange={e=>sMEN(e.target.value)} placeholder="ex. Protractor / Steel Tape / Plumb Bob / Level Gauge" style={{width:"100%",border:"none",background:"transparent",fontSize:11}}/></td></tr></tbody></table>
+    <div style={{display:"flex",gap:24,marginTop:10,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+    </div>{/* v2.3 — 15+ 노즐 페이지 2 wrapper 닫기 */}
+  </div>;
+}
+function HydroPreview({doc}){
+  const{item:it,proj:p}=doc;const isC=it.type.includes("Condenser")||it.type.includes("Heat");
+  const isTube=doc.part==="Tube Side";
+  // Design Pressure 표시: 슬래시/하이폰 없이 해당 part 값만
+  // v1.5 — 입력값에 이미 "MPa"가 있으면 중복 부착 안 함
+  const dpVal=isTube?(it.tube_side_p||""):(it.design_p||"");
+  const dpClean=String(dpVal).replace(/\s*M\s*Pa?\s*$/i,"").trim();  // 끝의 MPa/MPa 제거
+  const dpStr=dpClean?(`${dpClean} MPa`):"—";
+  // Test Pressure: 도면 파싱값 우선, 없으면 1.5×Design Pressure
+  const tpFromDwg=isTube?(it.test_p_tube||""):(it.test_p_shell||"");
+  const dpNum=parseFloat(dpVal)||0;
+  const tpc=tpFromDwg||(dpNum>0?(dpNum*1.5).toFixed(2):"—");
+  // ── 영속화 키 (v1.5 — Pneumatic/Fluid/MAWP/Holding 추가) ──
+  const hydroSetKey=`hydro_set_${it.id||it.tag}_${doc.part}`;
+  const savedHydro=IMG_STORE.get(hydroSetKey)||{};
+  const[tpcVal,sTpc]=useState(savedHydro.tpcVal||tpc);
+  const[ap,sAP]=useState(savedHydro.ap||"");
+  const[dt,sDT]=useState(savedHydro.dt||"");
+  const[mEqH,sMEH]=useState(savedHydro.mEqH||"");
+  const[tTemp,sTT]=useState(savedHydro.tTemp||"AMB");
+  // 신규 — 테스트 종류, 유체, MAWP, Holding Time
+  const[testType,sTestType]=useState(savedHydro.testType||"Hydrostatic"); // Hydrostatic | Pneumatic
+  const FLUID_PRESETS=["Water","Air","Nitrogen (N₂)","Hydrogen (H₂)","Helium (He)","Argon (Ar)","Oil","기타 (직접 입력)"];
+  const[fluid,sFluid]=useState(savedHydro.fluid||(isC?"Water / Water":"Water"));
+  const[fluidCustom,sFluidCustom]=useState(savedHydro.fluidCustom||"");
+  const[mawp,sMawp]=useState(savedHydro.mawp||(it.mawp||""));
+  const[holdMin,sHoldMin]=useState(savedHydro.holdMin||"60");  // 분 단위
+  useEffect(()=>{IMG_STORE.set(hydroSetKey,{tpcVal,ap,dt,mEqH,tTemp,testType,fluid,fluidCustom,mawp,holdMin});},[tpcVal,ap,dt,mEqH,tTemp,testType,fluid,fluidCustom,mawp,holdMin,hydroSetKey]);
+  // 단위 자동 판정 — Test/Actual Pressure가 숫자면 MPa, 텍스트(Full Water 등)면 단위 숨김
+  const isNumeric=v=>v!==""&&v!==null&&!isNaN(parseFloat(v))&&/^[\d.\s]+$/.test(String(v).trim());
+  const tpUnit=isNumeric(tpcVal)?"MPa":"";
+  const apUnit=isNumeric(ap)?"MPa":"";
+  const fluidLabel=fluid==="기타 (직접 입력)"?(fluidCustom||"기타"):fluid;
+  const tNo=tagId(it.tag);
+  const hk1=`hyro_${it.id||it.tag}_${doc.part}_1`,hk2=`hyro_${it.id||it.tag}_${doc.part}_2`;
+  const W=420,H=160;
+  // v1.8 — Full Water 모드: Actual에 텍스트(숫자 아님)가 있으면 그래프 라벨이 F.W 모드
+  const isFullWater = ap !== "" && !isNumeric(ap);
+  // tp는 그래프 정규화용. Full Water 모드면 가상 단위 1 사용, 아니면 Actual > Test 순
+  const tp = isFullWater ? 1 : (isNumeric(ap)?parseFloat(ap):(isNumeric(tpcVal)?parseFloat(tpcVal):1));
+  const hmin = parseInt(holdMin) || 60;
+  // v1.8 — ASME Sec.VIII Div.1 UG-99 표준 단순 램프형 곡선
+  // X축은 "시각 비율 고정" — Ramp 10% / Hold 80% / Ramp 10% (실제 시간 무관하게 라벨 가독성 유지)
+  // 8h, 12h, 24h 어떤 hold이든 동일한 시각적 비율로 표시
+  const tRampUp = 30, tRampDown = 30;  // 실제 시간 (label 용)
+  const totalT = tRampUp + hmin + tRampDown;
+  const tHoldStart = tRampUp;
+  const tHoldEnd = tHoldStart + hmin;
+  const tEnd = totalT;
+  // 시각 좌표 (visual position): 0~1 사이 비율
+  const vRampWidth = 0.10;  // 양쪽 ramp 각 10%
+  const vRampUpEnd = vRampWidth;          // = 0.10
+  const vHoldEnd = 1 - vRampWidth;        // = 0.90
+  const vEnd = 1;                          // = 1.00
+  // 4-포인트 사다리꼴 — 실제 시간이 아닌 시각 비율로 좌표 계산
+  const xs = [0, vRampUpEnd, vHoldEnd, vEnd];
+  const xsTime = [0, tHoldStart, tHoldEnd, tEnd];  // 실제 시간 (라벨용)
+  const ys = [0, tp, tp, 0];
+  const sx = vRatio => 26 + vRatio * (W - 36);  // 시각 비율 → SVG x좌표
+  const sy = v => H - 16 - v * ((H-32)/(tp*1.2||1));
+  const pts = xs.map((x,i) => `${sx(x)},${sy(ys[i])}`).join(" ");
+  const hc=hdr(),tc=bdr();const HC1={...hc,whiteSpace:"nowrap"};
+  const matStr=isC?`${it.shell_mat||"—"} / ${it.tube_mat||"—"}`:it.shell_mat||"—";
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
+    <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>PRESSURE TEST REPORT</div>
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+      <tbody>
+        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-HYR-{tNo}-01</td></tr>
+        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name||"—"} / {p.no||"—"}</td></tr>
+        <tr><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+        <tr><td style={HC1}>Material{isC?" (S/T)":""}</td><td style={tc}>{matStr}</td><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td></tr>
+      </tbody>
+    </table>
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"22%"}}/><col style={{width:"28%"}}/><col style={{width:"22%"}}/><col style={{width:"28%"}}/></colgroup>
+      <tbody>
+        <tr><td style={HC1}>Type of Test</td><td style={tc}>
+          <select value={testType} onChange={e=>sTestType(e.target.value)} style={{fontSize:11,fontWeight:500,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"95%"}}>
+            <option>Hydrostatic</option>
+            <option>Pneumatic (공압)</option>
+          </select>
+        </td><td style={HC1}>Test Part</td><td style={{...tc,fontWeight:500}}>{doc.part}</td></tr>
+        <tr><td style={HC1}>Fluid Type</td><td style={tc}>
+          <select value={fluid} onChange={e=>sFluid(e.target.value)} style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:fluid==="기타 (직접 입력)"?"45%":"95%"}}>
+            {FLUID_PRESETS.map(f=> <option key={f}>{f}</option>)}
+          </select>
+          {fluid==="기타 (직접 입력)"&&<input value={fluidCustom} onChange={e=>sFluidCustom(e.target.value)} placeholder="유체명 입력" style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"48%",marginLeft:4}}/>}
+        </td><td style={HC1}>Holding Time</td><td style={tc}>
+          <input value={holdMin} onChange={e=>sHoldMin(e.target.value)} style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"50%"}} type="number" min="1"/> min
+          <span style={{fontSize:9,color:"#666",marginLeft:6}}>({(parseInt(holdMin)||0)>=60?`= ${((parseInt(holdMin)||0)/60).toFixed(1)} hr`:""})</span>
+        </td></tr>
+        <tr><td style={HC1}>Design Pressure</td><td style={tc}>{dpStr}</td><td style={HC1}>MAWP</td><td style={tc}>
+          <input value={mawp} onChange={e=>sMawp(e.target.value)} placeholder={it.mawp?"":"도면값 없음 — 직접 입력"} style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"70%"}}/>
+          {isNumeric(mawp)?" MPa":""}
+          {it.mawp&&<span style={{fontSize:9,color:"#1d9e75",marginLeft:4}}>✓ 도면값</span>}
+        </td></tr>
+        <tr><td style={HC1}>Test Pressure</td><td style={tc}>
+          <input value={tpcVal} onChange={e=>sTpc(e.target.value)} placeholder={tpFromDwg?"":"숫자(MPa) 또는 Full Water"} style={{fontSize:11,fontWeight:700,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"60%"}}/>
+          {tpUnit&&` ${tpUnit}`}
+          {tpFromDwg&&<span style={{fontSize:9,color:"#1d9e75",marginLeft:6}}>✓ 도면값</span>}
+        </td><td style={HC1}>Test Temp.</td><td style={tc}><input value={tTemp} onChange={e=>sTT(e.target.value)} placeholder="ex. AMB" style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"90%"}}/></td></tr>
+        <tr><td style={HC1}>Actual Pressure</td><td style={tc}>
+          <input value={ap} onChange={e=>sAP(e.target.value)} placeholder="숫자(MPa) 또는 Full Water" style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"70%"}}/>
+          {apUnit&&` ${apUnit}`}
+        </td><td style={HC1}>Test Date</td><td style={tc}><input type="date" value={dt} onChange={e=>sDT(e.target.value)} style={{fontSize:11,padding:"2px 4px",border:"0.5px solid #bbb",borderRadius:3}}/></td></tr>
+        <tr><td style={HC1}>Result</td><td style={tc} colSpan={3}><label style={{marginRight:16}}><input type="checkbox" style={{accentColor:SJB}}/> ACCEPT</label><label><input type="checkbox" style={{accentColor:SJB}}/> REJECT</label></td></tr>
+      </tbody>
+    </table>
+    <div style={{marginBottom:6,display:"flex",justifyContent:"center"}}><div style={{textAlign:"center"}}><div style={{fontSize:10,fontWeight:500,marginBottom:2}}>Pressure — Time Graph ({doc.part}) <span style={{fontSize:8,fontWeight:400,color:"#888",marginLeft:6}}>※ Ramp per ASME Sec.VIII Div.1 UG-99 / TEMA / Customer Spec.</span></div>
+      <svg width={W} height={H} style={{border:"0.5px solid #ccc",borderRadius:4,background:"#fafafa",display:"block"}}>
+        <line x1={26} y1={H-16} x2={W-6} y2={H-16} stroke="#999" strokeWidth={0.8}/><line x1={26} y1={6} x2={26} y2={H-16} stroke="#999" strokeWidth={0.8}/>
+        {/* Y축 라벨: 숫자모드 vs Full Water 모드 */}
+        {isFullWater
+          ? <g><line x1={24} y1={sy(tp)} x2={W-6} y2={sy(tp)} stroke="#eee" strokeWidth={0.5} strokeDasharray="2,2"/><text x={22} y={sy(tp)-2} fontSize={7} textAnchor="end" fill="#1d9e75" fontWeight={600}>F.W</text><text x={22} y={sy(tp)+8} fontSize={6} textAnchor="end" fill="#1d9e75">(FULL WATER)</text></g>
+          : [0,0.5,1].map(f=>{const yy=sy(tp*f);return <g key={f}><line x1={24} y1={yy} x2={W-6} y2={yy} stroke="#eee" strokeWidth={0.5}/><text x={22} y={yy+3} fontSize={7} textAnchor="end" fill="#888">{(tp*f).toFixed(2)}</text></g>;})}
+        {/* Y축 단위 */}
+        <text x={28} y={12} fontSize={7} fill="#888">{isFullWater?"":"MPa"}</text>
+        {/* v1.8 — X축 라벨: 시각 비율 좌표 + 실제 시간 표시 (긴 hold도 겹침 없음) */}
+        {(() => {
+          const useHour = totalT >= 60;
+          const fmt = (v) => {
+            if (v === 0) return "0";
+            if (useHour) {
+              const h = v / 60;
+              return h % 1 === 0 ? `${h}h` : `${h.toFixed(1)}h`;
+            }
+            return `${v}m`;
+          };
+          // 시각 좌표 + 실제 시간 페어
+          const markers = [
+            {vx:0,           t:0},
+            {vx:vRampUpEnd,  t:tHoldStart},
+            {vx:vHoldEnd,    t:tHoldEnd},
+            {vx:vEnd,        t:tEnd}
+          ];
+          const seen = new Set();
+          return markers.filter(m => {
+            if (seen.has(m.t)) return false;
+            seen.add(m.t); return true;
+          }).map((m,i) => <text key={i} x={sx(m.vx)} y={H-4} fontSize={7} textAnchor={m.vx===0?"start":(m.vx>=1?"end":"middle")} fill="#888">{fmt(m.t)}</text>);
+        })()}
+        {/* X축 단위 표시 — 그래프 우측 끝 */}
+        <text x={W-4} y={H-4} fontSize={6} textAnchor="end" fill="#aaa">{totalT>=60?"(h)":"(min)"}</text>
+        <polyline points={pts} fill="none" stroke={isFullWater?"#1d9e75":SJB} strokeWidth={1.5}/><text x={sx((vRampUpEnd+vHoldEnd)/2)} y={sy(tp)-5} fontSize={8} fill={isFullWater?"#1d9e75":SJB} textAnchor="middle">{`HOLD : ${hmin>=60?((hmin/60).toFixed(hmin%60===0?0:1)+" Hour"):(hmin+" min")}`}</text>
+      </svg>
+    </div></div>
+    <div style={{marginBottom:6}}><div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:4,color:"#a32d2d"}}>📸 사진대지 (Ctrl+V — 페이지 이동 후에도 유지)</div>
+      <div style={{display:"flex",gap:8,minHeight:240}}><div style={{flex:1,display:"flex",flexDirection:"column"}}><div style={{fontSize:10,color:"#666",marginBottom:3,textAlign:"center",fontWeight:500}}>① Holding Start</div><IDZ label="Holding Start 사진" persistKey={hk1}/></div><div style={{flex:1,display:"flex",flexDirection:"column"}}><div style={{fontSize:10,color:"#666",marginBottom:3,textAlign:"center",fontWeight:500}}>② Holding END</div><IDZ label="Holding END 사진" persistKey={hk2}/></div></div>
+    </div>
+    <table style={{width:"100%",borderCollapse:"collapse",marginTop:6,marginBottom:8}}><tbody><tr><td style={{...HC1,width:"22%"}}>Measuring Equipment</td><td style={tc}><input value={mEqH} onChange={e=>sMEH(e.target.value)} placeholder="ex. Pressure Gauge / Calibration Cert. No. / Recorder" style={{width:"100%",border:"none",background:"transparent",fontSize:11}}/></td></tr></tbody></table>
+    <div style={{display:"flex",gap:24,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+  </div>;
+}
+function FinalPreview({doc}){
+  const{item:it,proj:p}=doc;const tNo=tagId(it.tag);
+  const isSUS=/(316|304|sus|sts|ss|inox)/i.test(it.shell_mat||"");
+  const dimKey=`dim_${it.id||it.tag}`; // DIM 사진과 연동
+  const nk2=`noz_${it.id||it.tag}_2`;
+  // ── 영속화 키 ──
+  const viKey=`vi_set_${it.id||it.tag}`;
+  const savedVI=IMG_STORE.get(viKey)||{};
+  const initE=[...VI_EA.map(r=>({...r,active:true})),...VI_ES.map(r=>({...r,active:isSUS})),...VI_EC.map(r=>({...r,active:!isSUS}))];
+  const initI=[...VI_IA.map(r=>({...r,active:true})),...VI_IS.map(r=>({...r,active:isSUS})),...VI_IC.map(r=>({...r,active:!isSUS}))];
+  const[extI,sEI]=useState(savedVI.extI||initE);
+  const[intI,sII]=useState(savedVI.intI||initI);
+  const[nE,sNE]=useState(savedVI.nE||{text:"",criterion:"None"});
+  const[nI,sNI]=useState(savedVI.nI||{text:"",criterion:"없음"});
+  const[showM,sSM]=useState(false);
+  const[wType,sWT]=useState(savedVI.wType||{GTAW:true,FCAW:false,SAW:false,SMAW:false,Other:false});
+  const[wOther,sWO]=useState(savedVI.wOther||"");
+  const[sCond,sSC]=useState(savedVI.sCond||{Acid:isSUS,Buffing:false,Paint:!isSUS,Other:false});
+  const[sCondOther,sSCO]=useState(savedVI.sCondOther||"");
+  const[oEq,sOE]=useState(savedVI.oEq||{"Ruler/Tape Measure":true,"Thickness Gauge":false,"Coating Thickness Gauge":false,Other:false});
+  const[oEqOther,sOEO]=useState(savedVI.oEqOther||"");
+  const[lEq,sLE]=useState(savedVI.lEq||{"Hand Flash":true,"Plant Lighting":false,Other:false});
+  const[lEqOther,sLEO]=useState(savedVI.lEqOther||"");
+  // 자동 동기화
+  useEffect(()=>{IMG_STORE.set(viKey,{extI,intI,nE,nI,wType,wOther,sCond,sCondOther,oEq,oEqOther,lEq,lEqOther});},[extI,intI,nE,nI,wType,wOther,sCond,sCondOther,oEq,oEqOther,lEq,lEqOther,viKey]);
+  const hc=hdr(),tc=bdr();
+  const aE=extI.filter(r=>r.active),aI=intI.filter(r=>r.active);
+  const mvVI=(arr,sArr,i,dir)=>{const ni=i+dir;if(ni<0||ni>=arr.length)return;const a=[...arr];[a[i],a[ni]]=[a[ni],a[i]];sArr(a);};
+  const VITogRow=(r,i,arr,sArr,col)=> <div key={r.id} style={{display:"flex",alignItems:"center",gap:2,background:r.active?`${col}22`:"#f5f5f5",border:`1px solid ${r.active?col:"#ddd"}`,borderRadius:10,padding:"2px 7px"}}>
+    <input type="checkbox" checked={r.active} style={{accentColor:col}} onChange={e=>sArr(p=>p.map((x,j)=>j===i?{...x,active:e.target.checked}:x))}/>
+    <span style={{fontSize:9,color:r.active?col:"#aaa",maxWidth:130}}>{r.text.substring(0,24)}</span>
+    <button onClick={()=>mvVI(arr,sArr,i,-1)} style={{fontSize:8,padding:"0 2px",cursor:"pointer",background:"none",border:"none",color:"#555"}}>▲</button>
+    <button onClick={()=>mvVI(arr,sArr,i,1)} style={{fontSize:8,padding:"0 2px",cursor:"pointer",background:"none",border:"none",color:"#555"}}>▼</button>
+    <button onClick={()=>sArr(p=>p.filter((_,j)=>j!==i))} style={{fontSize:8,padding:"0 2px",cursor:"pointer",background:"none",border:"none",color:"#c00"}}>✕</button>
+  </div>;
+  // 체크박스 그룹 with Other input
+  const renderChkGroup=(stateObj,setter,otherVal,otherSetter)=> <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"center"}}>
+    {Object.keys(stateObj).map(k=> k==="Other"
+      ? <span key={k} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><input type="checkbox" checked={stateObj[k]} onChange={e=>setter(p=>({...p,Other:e.target.checked}))} style={{accentColor:SJB}}/>Other (<input value={otherVal} onChange={e=>otherSetter(e.target.value)} disabled={!stateObj.Other} placeholder="직접 입력" style={{fontSize:10,padding:"1px 4px",border:"0.5px solid #bbb",borderRadius:3,width:120,background:stateObj.Other?"#fff":"#f5f5f5"}}/>)</span>
+      : <label key={k} style={{fontSize:11,display:"flex",gap:4,cursor:"pointer"}}><input type="checkbox" checked={stateObj[k]} onChange={e=>setter(p=>({...p,[k]:e.target.checked}))} style={{accentColor:SJB}}/>{k}</label>
+    )}
+  </div>;
+  // 도면에서 surface cond 정보가 명시적으로 있는지 - 현재는 도면 파싱에 없으므로 항상 체크박스 표시
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}.vc{display:none!important}.fr-photo-page{page-break-before:always}}`}</style>
+    <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>육안탐상검사보고서</div>
+    <div style={{textAlign:"center",fontSize:12,marginBottom:6}}>VISUAL INSPECTION REPORT</div>
+    {/* v1.6 — Hydro와 동일한 4행 헤더 구조 (로고 여백 축소) */}
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+      <tbody>
+        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={{...hc,whiteSpace:"nowrap"}}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Report No.</td><td style={tc}>{p.no}-FI-{tNo}-01</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Project Name / Job No.</td><td style={tc}>{p.name||"—"} / {p.no||"—"}</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Item No.</td><td style={tc}>{it.tag||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Material</td><td style={tc}>{it.shell_mat||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td></tr>
+      </tbody>
+    </table>
+
+    {/* v1.6 — 검사 조건 (Surface/Welding/Other/Lighting)을 별도 표로 분리 (Hydro의 "Type of Test" 표 형태) */}
+    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+      <colgroup><col style={{width:"22%"}}/><col style={{width:"78%"}}/></colgroup>
+      <tbody>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Surface Cond.</td><td style={tc}>{renderChkGroup(sCond,sSC,sCondOther,sSCO)}</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Welding Type</td><td style={tc}>{renderChkGroup(wType,sWT,wOther,sWO)}</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Other Equipment (보조장비)</td><td style={tc}>{renderChkGroup(oEq,sOE,oEqOther,sOEO)}</td></tr>
+        <tr><td style={{...hc,whiteSpace:"nowrap"}}>Lighting Equipment (조명장치)</td><td style={tc}>{renderChkGroup(lEq,sLE,lEqOther,sLEO)}</td></tr>
+      </tbody>
+    </table>
+    {/* 사진 영역은 페이지 2 PHOTO REPORT로 이동됨 (Final VI 2-page layout) */}
+    <div className="vc" style={{marginBottom:6,display:"flex",gap:6,alignItems:"center"}}>
+      <button onClick={()=>sSM(p=>!p)} style={{fontSize:10,padding:"3px 10px",border:`1px solid ${SJB}`,borderRadius:4,background:"#f0f8ff",color:SJB,cursor:"pointer"}}>{showM?"▲ 항목 관리 닫기":"▼ 항목 관리 열기"}</button>
+      <span style={{fontSize:10,color:"#888"}}>외부/내부 항목 추가·삭제·순서 (프린트 숨김)</span>
+    </div>
+    {showM&&<div className="vc" style={{marginBottom:8,padding:"8px 10px",background:"#f5f5f5",borderRadius:5,border:"1px dashed #ccc"}}>
+      <div style={{fontSize:10,fontWeight:500,marginBottom:4,color:"#444"}}>외부 항목</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:6}}>{extI.map((r,i)=>VITogRow(r,i,extI,sEI,SJB))}</div>
+      <div style={{display:"flex",gap:4,marginBottom:8,alignItems:"center"}}>
+        <input placeholder="외부 항목 추가" value={nE.text} onChange={e=>sNE(p=>({...p,text:e.target.value}))} style={{flex:2,fontSize:10,padding:"3px 6px",border:"0.5px solid #ccc",borderRadius:3}}/>
+        <input placeholder="기준치" value={nE.criterion} onChange={e=>sNE(p=>({...p,criterion:e.target.value}))} style={{flex:1,fontSize:10,padding:"3px 6px",border:"0.5px solid #ccc",borderRadius:3}}/>
+        <button onClick={()=>{if(!nE.text)return;sEI(p=>[...p,{id:Date.now(),text:nE.text,criterion:nE.criterion||"None",cat:"custom",active:true,remarks:""}]);sNE({text:"",criterion:"None"});}} style={{fontSize:10,padding:"3px 10px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>+ 추가</button>
+      </div>
+      <div style={{fontSize:10,fontWeight:500,marginBottom:4,color:"#444"}}>내부 항목</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:6}}>{intI.map((r,i)=>VITogRow(r,i,intI,sII,"#1d9e75"))}</div>
+      <div style={{display:"flex",gap:4,alignItems:"center"}}>
+        <input placeholder="내부 항목 추가" value={nI.text} onChange={e=>sNI(p=>({...p,text:e.target.value}))} style={{flex:2,fontSize:10,padding:"3px 6px",border:"0.5px solid #ccc",borderRadius:3}}/>
+        <input placeholder="기준치" value={nI.criterion} onChange={e=>sNI(p=>({...p,criterion:e.target.value}))} style={{flex:1,fontSize:10,padding:"3px 6px",border:"0.5px solid #ccc",borderRadius:3}}/>
+        <button onClick={()=>{if(!nI.text)return;sII(p=>[...p,{id:Date.now(),text:nI.text,criterion:nI.criterion||"없음",cat:"custom",active:true,remarks:""}]);sNI({text:"",criterion:"없음"});}} style={{fontSize:10,padding:"3px 10px",background:"#1d9e75",color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>+ 추가</button>
+      </div>
+    </div>}
+    <table style={{width:"100%",borderCollapse:"collapse"}}>
+      <thead><tr style={{background:"#e8f0f8"}}><th style={{...hc,width:"5%"}}></th><th style={hc}>검사 항목</th><th style={{...hc,width:"20%"}}>기준치</th><th style={{...hc,width:"8%",textAlign:"center"}}>합격</th><th style={{...hc,width:"8%",textAlign:"center"}}>불합격</th><th style={{...hc,width:"12%"}}>비고</th></tr></thead>
+      <tbody>
+        <tr><td style={{...hc,background:"#e6f1fb"}} colSpan={7}>External Surface Irregularity (외부) {isSUS?"— SUS":"— Carbon"}</td></tr>
+        {aE.map((r,i)=> <tr key={r.id}><td style={{...tc,textAlign:"center",fontSize:9}}>{i+1}</td><td style={tc}>{r.text}</td><td style={tc}>{r.criterion}</td><td style={{...tc,textAlign:"center"}}>☐</td><td style={{...tc,textAlign:"center"}}>☐</td><td style={tc}></td></tr>)}
+        <tr><td style={{...hc,background:"#e6f7f0"}} colSpan={7}>Internal Surface Irregularity (내부) {isSUS?"— SUS":"— Carbon"}</td></tr>
+        {aI.map((r,i)=> <tr key={r.id}><td style={{...tc,textAlign:"center",fontSize:9}}>{i+1}</td><td style={tc}>{r.text}</td><td style={tc}>{r.criterion}</td><td style={{...tc,textAlign:"center"}}>☐</td><td style={{...tc,textAlign:"center"}}>☐</td><td style={tc}></td></tr>)}
+        <tr><td colSpan={2} style={hc}>Final Acceptance Criteria</td><td style={tc} colSpan={5}><label style={{marginRight:16}}><input type="checkbox" style={{accentColor:SJB}}/> ACCEPTABLE</label><label><input type="checkbox" style={{accentColor:SJB}}/> UNACCEPTABLE</label></td></tr>
+      </tbody>
+    </table>
+    <div style={{marginTop:4,fontSize:10,color:"#666"}}>상기 내용이 적용 규격 및 계약 요구사항에 따라 검사되었음을 증명함.</div>
+    <div style={{display:"flex",gap:24,marginTop:8,fontSize:10}}>{["Prepared by","Reviewed by","Approved by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+
+    {/* ─── 페이지 2: PHOTO REPORT (v1.5 신규) ─── */}
+    <div style={{pageBreakBefore:"always", breakBefore:"page", marginTop:18}}>
+      <table style={{width:"100%",borderCollapse:"collapse",marginBottom:8}}>
+        <colgroup><col style={{width:"15%"}}/><col style={{width:"22%"}}/><col style={{width:"30%"}}/><col style={{width:"15%"}}/><col style={{width:"18%"}}/></colgroup>
+        <tbody>
+          <tr><td rowSpan={2} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td>
+            <td colSpan={4} style={{...hc,textAlign:"center",fontSize:13,fontWeight:700,background:"#fff"}}>PHOTO REPORT — Visual Inspection</td></tr>
+          <tr><td style={hc}>Item No.</td><td style={tc}>{it.tag||"—"}</td><td style={hc}>Report No.</td><td style={tc}>{p.no}-FI-{tNo}-01</td></tr>
+        </tbody>
+      </table>
+
+      {/* v2.7 — DIM/Nozzle 자동 공유 제거, 독립 IDZ 2개로 (DIM/Nozzle IR과 동일 형태) */}
+      <div style={{display:"flex",flexDirection:"column",gap:12,flex:1,minHeight:0}}>
+        {/* ① Photo 1 — 독립 붙여넣기 */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>① Photo 1 — Side Elevation / 전체 외관</div>
+          <div style={{flex:1,minHeight:0,display:"flex"}}>
+            <IDZ label="Photo 1 — Ctrl+V 붙여넣기" persistKey={`final_p2a_${it.id||it.tag}`}/>
+          </div>
+        </div>
+        {/* ② Photo 2 — 독립 붙여넣기 */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>② Photo 2 — Nozzle Orientation / 추가 사진</div>
+          <div style={{flex:1,minHeight:0,display:"flex"}}>
+            <IDZ label="Photo 2 — Ctrl+V 붙여넣기" persistKey={`final_p2b_${it.id||it.tag}`}/>
+          </div>
+        </div>
+      </div>
+      {/* v1.6 — 페이지 2는 사진대지이므로 서명란 제거 */}
+    </div>
+  </div>;
+}
+function SignatureBlock({inspector}){
+  return <div style={{display:"flex", gap:18, marginTop:12, fontSize:10}}>
+    {[
+      {label:"Prepared by", value:inspector.internal || ""},
+      {label:"Reviewed by", value:""},
+      {label:"Approved by", value:""},
+      {label:"Witnessed by", value:inspector.client || inspector.thirdParty || ""}
+    ].map(s =>
+      <div key={s.label} style={{flex:1, borderTop:"0.5px solid #999", paddingTop:4}}>
+        <div style={{fontSize:9, color:"#666"}}>{s.label}</div>
+        <div style={{minHeight:24, fontSize:10, fontWeight:500}}>{s.value}</div>
+        <div style={{fontSize:9, color:"#888"}}>Date:</div>
+      </div>
+    )}
+  </div>;
+}
+
+// ════════════ 14. PrintBar ════════════
+function PrintBar({title}){
+  // v2.0 Hybrid — 인쇄 다이얼로그 옵션 안내문 (Safari·Default margin 대비)
+  return <div className="no-print" style={{marginBottom:8}}>
+    <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:"#f0f4f8", borderRadius:5}}>
+      <span style={{fontSize:11, fontWeight:500}}>📄 {title}</span>
+      <button onClick={()=>window.print()} style={{padding:"4px 12px", background:SJB, color:"#fff", border:"none", borderRadius:4, cursor:"pointer", fontSize:11}}>🖨 인쇄</button>
+    </div>
+    <div style={{fontSize:10, color:"#666", padding:"4px 10px", marginTop:3, background:"#fffdf5", border:"0.5px dashed #ecd6a3", borderRadius:4}}>
+      <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 권장 옵션:</span>
+      &nbsp;Chrome/Edge 다이얼로그 → <strong>여백(Margins): "기본값" 또는 "없음"</strong> &nbsp;|&nbsp;
+      <strong>"머리글 및 바닥글" 체크 해제</strong> &nbsp;|&nbsp;
+      <strong>"배경 그래픽" 체크</strong>
+    </div>
+  </div>;
+}
+
+// ════════════ 15. 메인 App ════════════
+function App(){
+  const [proj, setProj] = useState({
+    no: "SJ2026-030",
+    name: "(VDS)ESTER 공정용 수평콘덴서 교체공사",
+    customer: "㈜동성케미컬",
+    po: "SJT-WO-2026-030"
+  });
+  const [items, setItems] = useState([{
+    id: "i_dong_e101",
+    tagNo: "E-101",
+    type: "Condenser / Heat Exchanger",
+    spec: "ASME Sec.VIII Div.1 · TEMA Class R",
+    maker: "㈜세종기술",
+    status: "진행중"
+  }]);
+  const [activeItemId, setActiveItemId] = useState("i_dong_e101");
+  const [activeDoc, setActiveDoc] = useState("BOM");
+  const [hydroPart, sHydroPart] = useState("Shell");
+  const [docData, setDocData] = useState({}); // {itemId: {BOM:{rows:[]}, BENDING:{}, ...}}
+  const [inspectors, setInspectors] = useState(INSPECTOR_SEED);
+  const [inspector, setInspector] = useState({
+    internal: "신채완 과장",
+    client: "동성케미컬 김OO 차장",
+    thirdParty: "",
+    thirdPartyCustom: "",
+    vendor: "㈜세종기술"
+  });
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    // v1.2 sjp-bridge optional chaining (외부 의존성 안전 처리)
+    if (window.SJP?.bridge?.renderTopbar) {
+      window.SJP.bridge.renderTopbar("QA Doc Generator v1.4", "신채완 과장");
+    }
+    const s = loadLS();
+    if (s) {
+      if (s.proj) setProj(s.proj);
+      if (s.items) setItems(s.items);
+      if (s.docData) setDocData(s.docData);
+      if (s.inspectors) setInspectors(s.inspectors);
+      if (s.inspector) setInspector(s.inspector);
+      if (s.activeItemId) setActiveItemId(s.activeItemId);
+      if (s.activeDoc) setActiveDoc(s.activeDoc);
+    }
+    // ITP Builder가 sjp-bridge에 저장한 데이터 자동 인식 (안전 처리)
+    if (window.SJP?.bridge) {
+      const bridgeProj = window.SJP.bridge.getProject?.();
+      const bridgeItems = window.SJP.bridge.getItems?.();
+      if (bridgeProj && (!s || !s.proj || !s.proj.no)) {
+        setProj(bridgeProj);
+        setTimeout(()=>showMsg("✓ ITP Builder의 프로젝트 데이터를 자동 인식했습니다", 4000), 100);
+      }
+      if (bridgeItems?.length && (!s || !s.items || s.items.length === 0)) {
+        setItems(bridgeItems);
+        if (bridgeItems[0]) setActiveItemId(bridgeItems[0].id);
+        setTimeout(()=>showMsg(`✓ ITP Builder에서 ${bridgeItems.length}개 아이템 자동 동기화`, 4000), 200);
+      }
+    }
+  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => saveLS({proj, items, docData, inspectors, inspector, activeItemId, activeDoc}), 1000);
+    return () => clearTimeout(t);
+  }, [proj, items, docData, inspectors, inspector, activeItemId, activeDoc]);
+
+  // Inspector master 편집 핸들러
+  const updateInspector = (next) => {
+    if (next._addInspector) {
+      setInspectors(p => [...p, {id:"INS-"+Date.now(), ...next._addInspector, role:"QA"}]);
+      const {_addInspector, ...rest} = next;
+      setInspector(rest);
+      return;
+    }
+    if (next._removeId) {
+      setInspectors(p => p.filter(i => i.id !== next._removeId));
+      const {_removeId, ...rest} = next;
+      setInspector(rest);
+      return;
+    }
+    setInspector(next);
+  };
+
+  const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
+
+  const handleImport = (file) => {
+    const r = new FileReader();
+    r.onload = e => {
+      try {
+        const d = JSON.parse(e.target.result);
+        if (d.proj) setProj(d.proj);
+        if (d.items) { setItems(d.items); if (d.items.length > 0) setActiveItemId(d.items[0].id); }
+        showMsg(`✓ ITP Builder에서 Import 완료 — ${d.items?.length||0}개 아이템`);
+      } catch(err) {
+        showMsg(`⚠ Import 실패: ${err.message}`);
+      }
+    };
+    r.readAsText(file);
+  };
+
+  const handleExportData = () => {
+    const data = {proj, items, docData, inspectors, inspector, exported_at: new Date().toISOString(), version:"qc_generator_v1"};
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${proj.no || "project"}_qc_data.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showMsg(`✓ 데이터 Export 완료`);
+  };
+
+  const handleNew = () => {
+    if (!confirm("새 프로젝트로 초기화하시겠습니까?")) return;
+    setProj({no:"", name:"", customer:"", po:""});
+    setItems([]); setActiveItemId(null);
+    setDocData({});
+    setInspector({internal:"", client:"", thirdParty:"", thirdPartyCustom:"", vendor:""});
+    showMsg("✓ 새 프로젝트");
+  };
+
+  const activeItem = items.find(i => i.id === activeItemId);
+  const itemDocs = activeItemId ? (docData[activeItemId] || {}) : {};
+  const setDocFor = (key, val) => {
+    if (!activeItemId) return;
+    setDocData(p => ({...p, [activeItemId]: {...(p[activeItemId]||{}), [key]:val}}));
+  };
+
+  // 만료 임박 용접사 카운트
+  const expiringWelders = getWelders().filter(w => welderStatus(w.dueDate).label === "expiring_soon").length;
+  const expiredWelders = getWelders().filter(w => welderStatus(w.dueDate).label === "expired").length;
+
+  return <div style={{maxWidth:1200, margin:"0 auto", padding:"14px"}}>
+    {/* v1.2 EPC Control 톤 Topbar */}
+    <div className="epc-topbar no-print">
+      <div className="epc-topbar-icon">🛠</div>
+      <div>
+        <div className="epc-topbar-title">QA Doc Generator v1.4</div>
+        <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
+      </div>
+      <div className="epc-topbar-actions">
+        {(expiringWelders > 0 || expiredWelders > 0) &&
+          <span style={{fontSize:10, padding:"4px 10px", background:"var(--sjp-warning-bg)", color:"#996b04", borderRadius:5, fontWeight:700, border:"1px solid var(--sjp-warning)"}}>
+            ⚠ 만료임박 {expiringWelders}명 / 만료 {expiredWelders}명
+          </span>}
+        <input type="file" accept=".json" id="impFile" style={{display:"none"}}
+          onChange={e => e.target.files[0] && handleImport(e.target.files[0])}/>
+        <button onClick={()=>document.getElementById("impFile").click()} className="btn-success">📥 ITP에서 Import</button>
+        <button onClick={handleExportData} className="btn-secondary">💾 Export</button>
+        <button onClick={handleNew} className="btn-secondary">🗋 New</button>
+      </div>
+    </div>
+
+    {/* v1.2 ITP Builder 연동 안내 */}
+    <div className="itp-link-info no-print">
+      <div className="itp-link-info-icon">🔗</div>
+      <div className="itp-link-info-text">
+        <div className="itp-link-info-title">ITP Builder 연동</div>
+        <div className="itp-link-info-sub">
+          ITP Builder에서 작성한 프로젝트·아이템 정보가 자동으로 동기화됩니다. EPC Control System과 연결 시 WBS 진척률·검사 기록이 양방향으로 갱신됩니다.
+        </div>
+      </div>
+    </div>
+
+    <EPCSlots/>
+
+    {msg && <div className="no-print" style={{
+      padding:"9px 14px", marginBottom:10, fontSize:11, fontWeight:500,
+      background: msg.startsWith("✓") ? "var(--sjp-success-bg)" : msg.startsWith("⚠") ? "var(--sjp-warning-bg)" : "var(--sjp-primary-light)",
+      color: msg.startsWith("✓") ? "#155724" : msg.startsWith("⚠") ? "#856404" : "#004085",
+      border: `1px solid ${msg.startsWith("✓") ? "#c3e6cb" : msg.startsWith("⚠") ? "#ffe69c" : "var(--sjp-border-strong)"}`,
+      borderRadius:5
+    }}>{msg}</div>}
+
+    {/* 프로젝트 정보 + 검사자 */}
+    <div className="no-print" style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10}}>
+      <PC title="프로젝트 정보">
+        <FR label="Project No."><FI value={proj.no} onChange={v=>setProj(p=>({...p, no:v}))}/></FR>
+        <FR label="프로젝트명"><FI value={proj.name} onChange={v=>setProj(p=>({...p, name:v}))}/></FR>
+        <FR label="발주처"><FI value={proj.customer} onChange={v=>setProj(p=>({...p, customer:v}))}/></FR>
+        <FR label="PO No."><FI value={proj.po} onChange={v=>setProj(p=>({...p, po:v}))}/></FR>
+      </PC>
+      <InspectorPanel inspectors={inspectors} value={inspector} onChange={updateInspector}/>
+    </div>
+
+    {items.length === 0 ?
+      <div className="empty-state">
+        <div style={{fontSize:14, marginBottom:8, fontWeight:600, color:"var(--sjp-text-main)"}}>📥 아이템이 없습니다</div>
+        <div style={{fontSize:11, lineHeight:1.7}}>상단의 <strong style={{color:"var(--sjp-success)"}}>"📥 ITP에서 Import"</strong> 버튼으로 ITP Builder에서 Export한 JSON을 불러오거나,<br/>
+        EPC Control System 연결 시 자동으로 동기화됩니다.</div>
+      </div>
+      :
+      <div className="no-print" style={{marginBottom:12, padding:"12px 14px", background:"#fff", border:"1px solid var(--sjp-border)", borderRadius:"var(--sjp-radius-lg)", boxShadow:"var(--sjp-shadow)"}}>
+        <div style={{fontSize:11, fontWeight:700, marginBottom:8, color:"var(--sjp-text-main)"}}>📦 아이템 선택 ({items.length}개):</div>
+        <div style={{display:"flex", gap:6, flexWrap:"wrap"}}>{items.map(it =>
+          <button key={it.id} onClick={()=>setActiveItemId(it.id)}
+            style={{padding:"8px 14px", fontSize:11, background: activeItemId===it.id?SJB:"#fff", color:activeItemId===it.id?"#fff":"var(--sjp-text-body)", border:`1px solid ${activeItemId===it.id?SJB:"var(--sjp-border)"}`, borderRadius:5, cursor:"pointer", fontWeight: activeItemId===it.id?700:500, transition:"all .12s"}}>
+            <strong>{it.tag}</strong> · {it.name}
+            {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
+              <span style={{marginLeft:5, fontSize:9, color: activeItemId===it.id?"#fff":"var(--sjp-warning)", fontWeight:700, padding:"1px 5px", background:activeItemId===it.id?"rgba(255,255,255,.2)":"var(--sjp-warning-bg)", borderRadius:3}}>CAP</span>}
+          </button>
+        )}</div>
+      </div>
+    }
+
+    {activeItem && <>
+      <div className="no-print" style={{marginBottom:10, padding:"10px 14px", background:"var(--sjp-primary-light)", borderRadius:"var(--sjp-radius-lg)", fontSize:11, border:"1px solid var(--sjp-border-strong)"}}>
+        <strong style={{color:SJB, fontSize:12}}>{activeItem.tag}</strong> · {activeItem.name} · <em style={{color:"var(--sjp-text-sub)"}}>{activeItem.type}</em>
+        <div style={{marginTop:4, color:"var(--sjp-text-sub)", fontSize:10}}>
+          Top: <b style={{color:"var(--sjp-text-main)"}}>{activeItem.head_top_type}</b> &nbsp;|&nbsp; Bot: <b style={{color:"var(--sjp-text-main)"}}>{activeItem.head_bot_type}</b>
+          {activeItem.shell_mat && <> &nbsp;|&nbsp; Material: <b style={{color:"var(--sjp-text-main)"}}>{activeItem.shell_mat}</b></>}
+        </div>
+      </div>
+
+      <div className="no-print" style={{display:"flex", gap:4, marginBottom:12, overflowX:"auto", padding:"4px"}}>
+        {DOC_TYPES.map(d => {
+          const isBendingExcluded = d.key === "BENDING" && activeItem.head_top_type === "CAP (B16.9)" && activeItem.head_bot_type === "CAP (B16.9)";
+          return <button key={d.key} onClick={()=>setActiveDoc(d.key)}
+            style={{padding:"8px 14px", fontSize:11, background: activeDoc===d.key?d.color:"#fff", color:activeDoc===d.key?"#fff":d.color, border:`1.5px solid ${d.color}`, borderRadius:5, cursor:"pointer", whiteSpace:"nowrap", fontWeight:activeDoc===d.key?700:600, opacity: isBendingExcluded?0.5:1, transition:"all .12s", boxShadow: activeDoc===d.key?`0 2px 4px ${d.color}40`:"none"}}>
+            {d.label}
+            {isBendingExcluded && <span style={{marginLeft:4, fontSize:9}}>⊘</span>}
+          </button>;
+        })}
+      </div>
+
+      <PrintBar title={`${DOC_TYPES.find(d=>d.key===activeDoc)?.label} — ${activeItem.tag}`}/>
+
+      <div className="qa-report-body" style={{border:"1px solid var(--sjp-border)", borderRadius:"var(--sjp-radius-lg)", padding:16, background:"#fff", boxShadow:"var(--sjp-shadow)"}}>
+        {(() => {
+          // V25 doc 객체 합성 어댑터 — V25 Preview는 {doc:{type,item,proj,...}} 시그니처
+          const doc = { type: activeDoc, item: activeItem, proj };
+          if (activeDoc === "BOM")     return <BOMPreview doc={doc}/>;
+          if (activeDoc === "BENDING") {
+            if (activeItem.head_top_type === "CAP (B16.9)" && activeItem.head_bot_type === "CAP (B16.9)") {
+              return <div style={{padding:24, textAlign:"center", color:"#888", fontSize:12}}>
+                ⊘ Bending Report 생략 (Top/Bot 모두 CAP — Pipe Cap은 메이커 사양품)
+              </div>;
+            }
+            return <BendingPreview doc={doc}/>;
+          }
+          if (activeDoc === "FITUP")   return <FitupPreview doc={doc}/>;
+          if (activeDoc === "DIM")     return <DIMPreview doc={doc}/>;
+          if (activeDoc === "NOZZLE")  return <NozzlePreview doc={doc}/>;
+          if (activeDoc === "HYDRO") {
+            // HYDRO는 part별 별도 보고서. part 서브탭 표시.
+            const hp = ["Shell"];
+            if ((activeItem.type||"").includes("Condenser") || (activeItem.type||"").includes("Heat")) hp.push("Tube Side");
+            if (activeItem.jacket) { if(activeItem.jacket_partition){ hp.push("Jacket Upper"); hp.push("Jacket Lower"); } else hp.push("Jacket"); }
+            if (activeItem.incoil) { hp.push(activeItem.incoil_double?"In-Coil #1":"In-Coil"); if(activeItem.incoil_double) hp.push("In-Coil #2"); }
+            if (activeItem.halfcoil) { if(activeItem.halfcoil_partition){ hp.push("Half-Coil Upper"); hp.push("Half-Coil Lower"); } else hp.push("Half-Coil"); }
+            const curPart = hp.includes(hydroPart) ? hydroPart : hp[0];
+            return <>
+              <div className="no-print" style={{display:"flex", gap:6, marginBottom:10, flexWrap:"wrap"}}>
+                {hp.map(p => <button key={p} onClick={()=>sHydroPart(p)}
+                  style={{padding:"6px 12px", fontSize:11, background: curPart===p?"#a32d2d":"#fff", color: curPart===p?"#fff":"#a32d2d", border:"1px solid #a32d2d", borderRadius:4, cursor:"pointer", fontWeight: curPart===p?700:500}}>
+                  {p}
+                </button>)}
+              </div>
+              <HydroPreview doc={{...doc, part: curPart}}/>
+            </>;
+          }
+          if (activeDoc === "FINAL")   return <FinalPreview doc={doc}/>;
+          return null;
+        })()}
+      </div>
+    </>}
+
+    <div className="no-print" style={{textAlign:"center", marginTop:20, fontSize:9, color:"var(--sjp-text-muted)"}}>
+      QA Doc Generator v1.4 · ㈜세종기술 품질관리부 · ⓒ Designed by Cwkim · 신채완 과장
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+// (sejong-platform 헤더 버튼 제거됨 — SJ FLOW iframe 통합 구조로 전환)
+</script>
+</body>
+</html>

@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ITP Builder v1.4 · Sejong-Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   EPC Control System 디자인 토큰 (인라인 정의 — sjp-tokens.css 의존성 제거)
+   v1.3 부장님 EPC Control 톤 통일 + AI Provider 제거 (Cowork 연동 대기)
+═══════════════════════════════════════════════════════════ */
+:root {
+  --sjp-primary:        #4a7fc1;
+  --sjp-primary-hover:  #3a6bb5;
+  --sjp-primary-light:  #eef3fb;
+  --sjp-success:        #16a34a;
+  --sjp-success-bg:     #f0fdf4;
+  --sjp-warning:        #f59e0b;
+  --sjp-warning-bg:     #fef3c7;
+  --sjp-danger:         #dc2626;
+  --sjp-danger-bg:      #fee2e2;
+  --sjp-border:         #e4e7ec;
+  --sjp-border-strong:  #c3d6f0;
+  --sjp-bg-card:        #ffffff;
+  --sjp-bg-app:         #f0f4f8;
+  --sjp-bg-table-head:  #f8fafc;
+  --sjp-bg-row-hover:   #f9fafb;
+  --sjp-text-main:      #1a2332;
+  --sjp-text-body:      #4b5563;
+  --sjp-text-sub:       #6b7280;
+  --sjp-text-muted:     #9ca3af;
+  --sjp-radius-sm:      4px;
+  --sjp-radius:         5px;
+  --sjp-radius-lg:      8px;
+  --sjp-shadow:         0 1px 3px rgba(0,0,0,.05);
+  --sjp-shadow-md:      0 2px 8px rgba(0,0,0,.08);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   글로벌 리셋 + 기본
+═══════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--sjp-bg-app);
+  font-family: 'Segoe UI','Malgun Gothic',Arial,sans-serif;
+  color: var(--sjp-text-main);
+  font-size: 12px;
+  line-height: 1.5;
+}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:#c4cdd8;border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ═══════════════════════════════════════════════════════════
+   App 레이아웃 (EPC Control 톤)
+═══════════════════════════════════════════════════════════ */
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   v1.3 EPC Control 톤 헤더 (sjp-bridge.js 미사용 시 자체 표시)
+═══════════════════════════════════════════════════════════ */
+.epc-topbar {
+  background: #fff;
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius-lg);
+  padding: 12px 18px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--sjp-shadow);
+}
+.epc-topbar-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--sjp-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.epc-topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sjp-text-main);
+}
+.epc-topbar-sub {
+  font-size: 10px;
+  color: var(--sjp-text-sub);
+}
+.epc-topbar-badge {
+  margin-left: auto;
+  padding: 4px 10px;
+  background: var(--sjp-primary-light);
+  color: var(--sjp-primary);
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   버튼 (EPC Control 톤)
+═══════════════════════════════════════════════════════════ */
+.btn-primary {
+  padding: 6px 14px;
+  background: var(--sjp-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--sjp-radius);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background .12s;
+}
+.btn-primary:hover { background: var(--sjp-primary-hover); }
+.btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+.btn-secondary {
+  padding: 6px 12px;
+  background: #fff;
+  color: var(--sjp-text-body);
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.btn-secondary:hover { background: var(--sjp-primary-light); border-color: var(--sjp-border-strong); color: var(--sjp-primary); }
+.btn-success {
+  padding: 6px 14px;
+  background: var(--sjp-success);
+  color: #fff;
+  border: none;
+  border-radius: var(--sjp-radius);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background .12s;
+}
+.btn-success:hover { background: #15803d; }
+
+/* ═══════════════════════════════════════════════════════════
+   탭 (EPC Control 톤)
+═══════════════════════════════════════════════════════════ */
+.tab {
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #fff;
+  color: var(--sjp-text-sub);
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius);
+  cursor: pointer;
+  transition: all .15s;
+}
+.tab.on {
+  background: var(--sjp-primary);
+  color: #fff;
+  border-color: var(--sjp-primary);
+  box-shadow: 0 2px 4px rgba(74,127,193,.2);
+}
+.tab:not(.on):hover {
+  background: var(--sjp-primary-light);
+  color: var(--sjp-primary);
+  border-color: var(--sjp-border-strong);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   카드 (EPC Control 톤 — 둥근 모서리 + 명확한 외곽선)
+═══════════════════════════════════════════════════════════ */
+.card {
+  background: var(--sjp-bg-card);
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius-lg);
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: var(--sjp-shadow);
+  transition: box-shadow .15s;
+}
+.card:hover { box-shadow: var(--sjp-shadow-md); }
+.card-h {
+  padding: 10px 16px;
+  background: var(--sjp-bg-table-head);
+  border-bottom: 1px solid var(--sjp-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sjp-text-main);
+}
+.card-b { padding: 14px 16px; }
+
+/* ═══════════════════════════════════════════════════════════
+   뱃지
+═══════════════════════════════════════════════════════════ */
+.badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: var(--sjp-primary);
+  color: #fff;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.badge-warn { background: var(--sjp-warning); color: #fff; }
+.badge-new { background: var(--sjp-success); color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════
+   필드 (입력)
+═══════════════════════════════════════════════════════════ */
+.fld { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.fld label {
+  min-width: 120px;
+  font-size: 11px;
+  color: var(--sjp-text-sub);
+  padding-top: 6px;
+  font-weight: 600;
+}
+.fld input, .fld select, .fld textarea {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius-sm);
+  font-family: inherit;
+  background: #fff;
+  transition: border-color .12s;
+}
+.fld input:focus, .fld select:focus, .fld textarea:focus {
+  outline: none;
+  border-color: var(--sjp-primary);
+  box-shadow: 0 0 0 2px rgba(74,127,193,.1);
+}
+.chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--sjp-text-body);
+  cursor: pointer;
+  margin-right: 12px;
+  margin-bottom: 4px;
+}
+.chk input { accent-color: var(--sjp-primary); }
+
+/* ═══════════════════════════════════════════════════════════
+   슬롯 (EPC 연동 표시)
+═══════════════════════════════════════════════════════════ */
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.slot {
+  border: 1.5px solid var(--sjp-border);
+  background: #fafafa;
+  padding: 8px 12px;
+  border-radius: var(--sjp-radius);
+  font-size: 10px;
+  transition: all .15s;
+}
+.slot.connected {
+  border-color: var(--sjp-success);
+  background: var(--sjp-success-bg);
+}
+.slot-title {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--sjp-text-main);
+  margin-bottom: 2px;
+}
+.slot-status { font-size: 9px; color: var(--sjp-text-sub); }
+.slot.connected .slot-status { color: var(--sjp-success); font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════════════
+   v1.3 Cowork 통합 안내 (구 AI Provider 자리)
+═══════════════════════════════════════════════════════════ */
+.cowork-info {
+  padding: 10px 14px;
+  background: var(--sjp-primary-light);
+  border: 1px solid var(--sjp-border-strong);
+  border-radius: var(--sjp-radius-lg);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--sjp-text-main);
+}
+.cowork-info-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--sjp-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.cowork-info-text { flex: 1; }
+.cowork-info-title { font-weight: 700; color: var(--sjp-primary); margin-bottom: 2px; }
+.cowork-info-sub { color: var(--sjp-text-sub); font-size: 10px; line-height: 1.5; }
+
+/* ═══════════════════════════════════════════════════════════
+   메시지
+═══════════════════════════════════════════════════════════ */
+.msg {
+  padding: 9px 14px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  border-radius: var(--sjp-radius);
+  font-weight: 500;
+}
+.msg.ok { background: var(--sjp-success-bg); color: #155724; border: 1px solid #c3e6cb; }
+.msg.warn { background: var(--sjp-warning-bg); color: #856404; border: 1px solid #ffe69c; }
+.msg.info { background: var(--sjp-primary-light); color: #004085; border: 1px solid var(--sjp-border-strong); }
+
+/* ═══════════════════════════════════════════════════════════
+   기타 (시방서, 도면 등)
+═══════════════════════════════════════════════════════════ */
+.spec-row {
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  background: var(--sjp-warning-bg);
+  border-left: 4px solid var(--sjp-warning);
+  border-radius: var(--sjp-radius-sm);
+  font-size: 11px;
+}
+.cap-warn {
+  background: var(--sjp-warning-bg);
+  border: 1px dashed var(--sjp-warning);
+  padding: 8px 12px;
+  border-radius: var(--sjp-radius);
+  font-size: 11px;
+  color: #664d03;
+  margin-bottom: 10px;
+}
+.head-block {
+  background: var(--sjp-warning-bg);
+  border: 1px dashed var(--sjp-warning);
+  padding: 10px 12px;
+  border-radius: var(--sjp-radius);
+  margin: 10px 0;
+}
+.head-block-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #996b04;
+  margin-bottom: 6px;
+}
+.item-card {
+  border: 1.5px solid var(--sjp-border);
+  border-radius: var(--sjp-radius);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  background: #fafafa;
+  transition: all .15s;
+}
+.item-card:hover { background: var(--sjp-bg-row-hover); border-color: var(--sjp-border-strong); }
+.item-card.has-dwg {
+  background: var(--sjp-success-bg);
+  border-color: var(--sjp-success);
+}
+.item-card-h { display: flex; justify-content: space-between; align-items: center; }
+.item-tag {
+  color: var(--sjp-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.rev-banner {
+  padding: 10px 14px;
+  border-radius: var(--sjp-radius);
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-left: 4px solid;
+}
+.rev-pending {
+  background: var(--sjp-warning-bg);
+  border-left-color: var(--sjp-warning);
+  color: #664d03;
+}
+.print-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: var(--sjp-bg-table-head);
+  border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius);
+  margin-bottom: 10px;
+}
+
+@media print {
+  /* v2.0 A안 풀-블리드 — A4 한 페이지 가득 채움 + 브라우저 머리글/꼬리글 차단 */
+  @page { size: A4 portrait; margin: 0 }
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  .app {
+    padding: 10mm 8mm !important;
+    max-width: 100% !important;
+    min-height: 297mm !important;
+    box-sizing: border-box !important;
+  }
+  .card { border: none !important; box-shadow: none !important; }
+  .epc-topbar, .cowork-info, .slots-grid, .tab, .print-bar, .rev-banner, .msg, .no-print { display: none !important; }
+  .ic { display: none !important; }
+  /* ITP 표가 페이지 중간 잘림 방지 */
+  table { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+const {useState, useEffect, useCallback, useRef} = React;
+
+// ════════ 0. EPC Control 데이터 상속 (v1.4 — 새 창/iframe 둘 다 지원) ════════
+// v1.4 (sejong-platform Phase 2):
+// - window.opener (새 창에서 열린 경우) 와 window.parent (iframe 임베드) 모두 지원
+// - 250ms 폴링으로 EPC Control의 데이터 변경을 자동 반영
+(function inheritFromHost(){
+  function getHost(){
+    try {
+      if (window.opener && !window.opener.closed && window.opener.SJP) return window.opener;
+    } catch(e){}
+    try {
+      if (window.parent && window.parent !== window && window.parent.SJP) return window.parent;
+    } catch(e){}
+    return null;
+  }
+  function syncOnce(){
+    const host = getHost();
+    if (!host) return false;
+    try {
+      window.SJP = host.SJP;
+      window.EPC_PROJECT = host.EPC_PROJECT;
+      window.EPC_ITEMS = host.EPC_ITEMS;
+      window.EPC_DOC_NO_GENERATOR = host.EPC_DOC_NO_GENERATOR;
+      window.EPC_INSPECTOR_MASTER = host.EPC_INSPECTOR_MASTER;
+      window.WPS_LIST = host.WPS_LIST;
+      window.WELDER_LIST = host.WELDER_LIST;
+      return true;
+    } catch(e){
+      console.warn("[ITP Builder] host 접근 실패", e.message);
+      return false;
+    }
+  }
+  const ok = syncOnce();
+  console.log("[ITP Builder v1.4] 호스트 연결 " + (ok ? "성공 — EPC Control 데이터 상속 완료" : "실패 (Standalone 모드)"));
+  // 250ms 주기로 host 데이터 폴링 (EPC에서 변경 시 자동 반영)
+  if (ok) setInterval(syncOnce, 250);
+})();
+
+// ════════ 1. 상수 ════════
+const SJB = "#4a7fc1";
+const CO = ["(주)세종기술", "Sejong Tech Co., Ltd."];
+const LOGO_URL = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAB/AVwDASIAAhEBAxEB/8QAHQABAAICAwEBAAAAAAAAAAAAAAcIBQYDBAkCAf/EAFEQAAEDAwIDBAUGCAcPBQAAAAECAwQABQYHEQgSITFBUWETFCJxgQkycnWRsRUYIzdCUoKhOFZilbPR0xYzNFNXY3SSk5SissHC0hckNkRz/8QAGwEBAAMAAwEAAAAAAAAAAAAAAAQFBgEDBwL/xAAyEQEAAQQAAwQJAwUBAAAAAAAAAQIDBBEFEiEGMUFREyIyYXGB0eHwFJGhFRZCUsGx/9oADAMBAAIRAxEAPwC5dKV17lOh22A9PnyWo0VhBW664rlSkDvJrmImZ1B3OxXRvN5tFmj+sXe6Qre13LkvpbB93MRvVb9VOIafLedtmDp9TiglKrg4gF1zzQk9EjzO591QRdLjPukxcy5TZEySs7qdfcK1H4mtjw7sdkX6YryKuSPLvn7fnRAu51NM6oja6szWjTGI4W3crYUR/io7zo+1CCK+4Gsmmc1wNs5ZFQT/AI9p1kfatIFUepV5/ZOFr26t/L6I/wCvueUPRS13O3XWMJVsnxZzB7HI7yXE/akkV2q877JeLrY5qZtnuMqBIT2OMOlB9x27R5GrBaT8Qq1vM2nOkoAUQlFyaRygH/OJHT9ofZ31QcS7IZONTNyxPPEeHdP7eP50SbWdTVOquix1K+I7zMlht+O6h1pxIUhaDuFA9hBr7rITGk4pSlApSlApSlApSlApSlApSlApSlApSlApSlApSlApSlApSlApSlApSlApSlApSlApSlB+LUlCFLWoJSkbqUTsAPGqd8QmqEjMb05Z7W+tFhhuEICTt6ysdC4ry8B/XU2cUWXLxzADbojpRMu6iwkg9UtAe2fjuB7iap1XoHY/hFM0zm3Y34U/9n/kfNWZ16d+jj5lKUr0BWlKUoFKUoJu4b9VnMentYtkEom0SFcsZ5xX+CrPdv8AqH9xq16VBSQpJBSRuCD0NecVSlpprdlWHxm7dIS3ebY30QxIWQ42PBDnUgeRB8tqxXaDsxOVXORi65p747t++Pen42XyRy19y5lKgiPxNYyqOFSMdvDb23VDam1p3+kVA/urT804kr9PZVGxi1M2hJ6esPKD7vwGwSn4hVZSz2X4ndr5Zt698zGvz4JlWZaiN7WnpXn3dstym7PF65ZFdZSyd/ykpZA9w32HwrvY3qFmuPSEO2zJLihKTv6Jx4utH3oVuP3Vc1dh7/JuLsb8tTr9/s6I4hTv2V9qVEmiOskPN1Js93aag3xKd0hJ/JyAO0p37D/J+ypbrIZmFewrs2r1Opj86J1u5Tcp5qSlKVFfZSlKBSlKBSlKBSlKBSlRZxOaiZDpnpu7kGO2JNyfLgaU84r8nE37HFJHVQ37ug8aDZdUdR8S02sKrvlN0bjJIPoI6faekK/VQjtPv7B3mquYlxh3K66xRW7nbWLfhslfqyWAnnebKjsl5a+8+KR02+2q9Wy26l66Z6tTfr1/uz53dfdOzUdG/efmtoHgPgKu7w+8NWK6boYvF6DV+yUAK9YcRuzGV4NJPf8Ayj18NqCd21ocbS42oKQoApI7CD319UpQKUpQKUpQKUpQKUpQKUpQKUpQVK4vbouXqNHt3MfRwYaE8vdzK3UT9hH2VC1ShxSJUNZroSDsWY5H+xTUX17XwOiKOHWYj/WJ/fqoMid3aviUpSrV0lKUoFKUoFKUoFK5EsPLG6WXFDxCSa+FJUg7KSUnwI2rjcONw/KUpXLl2bVPlWu5R7jCdU1JjuBxtaTsQQav1gd9RkuH2u9o6GXHStQ8FbdR9teflXY4bm3W9ILQHgd1Bak7/qlXSsT22sUTjW7v+UTr5TH2T8CqeeYSNSlK81WxUN6scSWmenk921Spsm8XVo7ORLYhLhaPgtaiEpPluSPCuxxcZvOwTRW53K1OlmfLWmEw6n5zZXvuoeYAP21Rzhs0ik6yZpLhSbo5BgQ2xInSUjndVzHYBO/TmJ36nfbwNBZCJxu4guUEysKvjUffq42+0te30SQP31O2lGrGD6nQVyMUu4eeaAL8N5Po5DP0kHu8xuPOobvPBZpy9aVtWm+5HEnhP5N955p1BV/KQG07j3EVUeCco0V1n5UPLauNknejeW1vyPN7+0PNKk91B6a6i5Zb8Hwy5ZVdWJT8O3NeldbjJSpxQ3A9kKIG/XvIqA/x19Mf4u5h/u0b+3rf+JuYm48MWSXBCeVMq1IeA8ArlO376oZw4YDatS9UomKXmXNiw32HXFORFJDgKRuNipKh+6gtp+Ovpj/F3MP92jf29c0HjO00mTmIjePZclb7iW0lUaPsCo7Df8t511vxJ9Nv4y5b/to/9jXNA4MNOYc5iW3kmVqWw6lxIU9H2JSdxv8AkvKgstHdS8w28kEJcSFAHt2I3rrXy1wL3Z5doukZuVCltKafaWNwtJGxFdmO0llhtlJJS2kJBPbsBtX3QRZlF20/4ddNUS4eOSI9nQ+hos25tK3lrV05lFxaeY+ZUTXDodr3iWrt5uFrx213uG9AjiQ6qe00hKklXLsORxR33PftWn/KB/mIP1ix99Q/8mx+cDKvqpv+lFBd+7XGBabbIuVzlsw4cZBcefeWEoQkdpJNVlzrjRwu0T3ImL45cMiDZKTIW+IjK/NJKVKI96RWmfKIahTjd7dp1BkLaiIZTMnpSdvSqJ9hJ8hsTt41q/DJwwo1HxxOWZbdZlts7yimIxDCQ8+B2rKlAhKd+g6HfyoJMxbjcxuXNQzkmE3G0sKOxfizEy+XzKShs7e7c1ZvDsnsOYWCPfcbubFxt8gbodaPYe9KgeqVDvB61T7XbhDt+PYjMyLAbvc5S4LZefgTyhxTiB2lC0JTsQO4g7+IrReBfUKdjGrEbGHZCzab+fQLZJ9lL36CwPHfp7jQXS1w1ax7SOyQLvkUG6TGJ0kxm0wG21qCgkq3POtI22HjWP0P1zw3Vx+fGx5q5QpcFKVrjz220LWg9OZPItQIB2B699RL8pL+bjGPrdX9Cqqg6P5zctOtQLZlNtUd4zgD7W/R5o9FoPvFB601Cmr/ABKYTphmK8WvtnyGVMQwh8uQmWVN8qt9hup1J36eFSviV+tuUY1b8gtD4fgz2EvMrB7j3HzB3B8xXn1x8/wgZH1bH+9dBffTXL7dnuE23LbTHlx4VwQpbTcpKUupAUU+0EkjtB7Cax+q2puHaZWVNzyu5iP6TcR4zSed98juQjv952A7zWp8JLyI/DRishz5jUN1avcHXCaoRrFl161Y1dmz0qclKky/VbYwkkhDQVyoSkefafMmgspdeOO2tzFJtenMuTGB6OSbqllZH0UtLA/1jUi6Q8VOn2d3Jmz3BuTjN0fIS03NWlTDqj2JS6Nhv9IJ8q0TCeCjGzjzLmY5NeVXdxsKcRblNNssqI+b7aFFe3j0qvXEjopdNHcgipE43KzztzCmcnIsKT2oWB0Ch4jt8qD08pUCcEWo8zO9K1W+7yFSLpYXExXHVHdTjRG7aie87Aj4Cp7oKrcYtmXGzG23pKCGpsX0aleK0Hr/AMJTUFVd/XvDVZlp/Kixm+e4Qz6zE2HVSkjqj4jf4gVSFaVIWpC0lKknYg9xr1rspnU5OBTb361HSfh4fnuUuZb5Lkz5vylKVpkQpSlAr6abW64lttClrUdgkDcmvxtCnFpQhJUpR2AHeakbFrE1bGA88kLlrHtK/V8hUTMy6cajc9/hCLlZVOPTue/wYey4cpaUvXNwo36+iQevxP8AVW0QrXb4YAjQ2kEfpcu6vtPWu6kFSglIJJOwAHU1u+OYC7JaTIu7y46FDdLLe3P8Seg93X4VlMziVc+tdq1Hkz9zIvZE9Z+jR6+HWmnU8jraHE+CkgipiThONBIBt6lHxMhzr9iqxd409gvJUu1yHIznc24edHu37R7+tVlHEbMz4w6/QVx1hC9zxa2S0lTTfqrncpvs+zs+zatLvVlm2pz8ujnaJ9l1PzT/AFGp0kYTkbTqkJgpeSP00PI2Pu3IP7q/WdP73cAqPNisR2FDZRdcSoEeQST1+yrnG416H2q4mn4pmNmX7U6q6whHC8duGVZJEsltaUt6QsBSgOjaP0lHyAq+2OWqPY7DCtEQbMxGUtI+ArT9HsKxvD7a41a2Cqe5/hEl3qtY7gPBPl99b/WV7Sca/qN2KKI1RT3e+fP6Nxw+imbfpIneylKVmU9FPFZgc7ULRu5We0t+luUdaZcZsdrikb+wPMgmqBaMam5Pozmz9wgQ0rUoer3C3ygUekSD8096VA9h/ca9U6jnVDRLTbUZxUnI8ea/CBG3r8RRYkfFSei/2gaCMsI4x9NLwG2cihXXHJCvnLca9YYB+k37X2oFT3ieUY7llrTdMavUG7Q1dPSxXgsJPgoDqk+R2NVLz7glCWXZGDZetawCUQ7q0Pa8vSt7bfFHxqu2G5Hmuh+qKiPT2+fAkBm4QirdD6AeqVAdFAjqDQegXFn/AAecw/0L/uFUJ4Yc4senmrULJshMkQGY7ra/V2ude6hsOm4q83EfdWL5ws5BeI3RmbaUPoHgFFJ2+FUL4fNPoupupUXE5txet7L7LjhfabC1DlG+2x6UF0fxw9H/ANbIP5vH/nWZwnif0xy/LLbjNoVevX7i8GWPTQglHMfE8x2HSo2/Egxv+Pd2/wBzb/rrYtNuEmw4TndnyyNmFymPWySH0MORUJSsgHoSDuO2gspSlKCu3ygf5iD9YsffUP8AybH5wMq+qm/6UVMHygf5iD9YsffUP/JsfnAyr6qb/pRQaFxyqKuIW67nfaMyB9hq8XDUhDehGIIQkJSLcnoPpGqOccgI4hbt/o7P3Gry8NpB0KxAg7j8HJ+80G55GArHrklQ3BiOgj9g15aaK/ktdcaDfs8t5bCdu7269TMi/wDj9x/0V3/kNeWejHXXXG9uu95b7Pp0Fr/lJfzcYx9bq/oVVUjEtPrjk+neSZTa+d1ywLaXIYSN+ZlW/MoeadgfdvVt/lJfzcYx9bq/oVVrfycMdiXCzSLJbS6y8llDiFDcKSQoEGg6fADqx6lcXdM71J2jy1F61LWr5rv6TX7Q6jzHnWg8fP8ACBkfVsf711r/ABE6f3LRrWDntKnWILj3r1nkJ3HKArfkB8Unp7tqwWvefI1JzCFk5bLcpdrYZmI22AeRzBRHkeh+O1BeLh7UpHB5aloJChaJWxH03KpHwwtId1+wxLiQoC6tHY+IVV2+H7+Bza/qiV/zuVSfhd6cQGGfWjX30Hp1lF/s+MWORe79PbgW6MAXn3ASlA3267Amo7f4gND3wEv51aHQOoC2nDt9qKzuveHXPPtKrzilnfhsTZzaUtOS1qS0CFA9SlKj3dwNUD1l4ds10rxdvIshuuOyYrj6WEogyHlucx37ltJG3TxoPQXTzUDT/NHpTOFXuBcVxkhUhMZtSeUHoCd0itxqk/ya4P4by07dPVmf+arsUCq1cSWkbyJMjMsYilxle7lwiNp6oPe6kd4PeO7t7OyytKseGcTvcOvxetfOPCYdV6zTdp5ZecNKtzqnoLY8lddueOut2a5r3Utvl3juq80jqg+Y6eVV5yzS3O8ZcX+EMflusJ/+xFSXmiPHdO/L+1tXqvDuP4WdTHLVy1eU9J+/yU13HuW56x0aZSv1SSlRSoEEdCCOyiUqUoJSkqUewAbk1dOhtOn9tD0ldwdTulr2W9/1vGt5rkwPEb29ZorTNteb5khalvJLaRv17T2/DepRxjCYVsWiVOUmZKTsUjb8mg+Q7z5n7BWG4pxG3N6qZneukQzOVNd+9M+DGae4qttSLvc2ilXawyodR/KI+4VIFKVlr96q9VzVPummKY1BSlK6X0UpSg5oMhUaSh5J7D1HiK3FtYcbStJ3ChuK0itpx90uW5IJ6oJTUTKo6RUv+BX5iuq1PdPVkKUpUJp1b+PzHr1cNL4N/srspBs8orlBhakn0SxtzHbuB++oJ4ReIGFp1In2PNXZz9onOB1ExPM8uMsDY7p7Skjw3Pka9AZkaPMiOxJbDb8d5BQ424kKStJGxBB7RVW9TeDLGb1cXrjhl/ex5Tqiown2PTxwT3IPMFIHkeagkG88UOitvta5rOW/hBwJ3RGiwni6s+HtIAH7RFUI1NyWfqvq1NvMO3qbfu8tLcWKn2lAE8qAdu0+NTzE4IcrVJCZeb2VpjfqtqM6tW30Tyj99T5oZw34TpfMReA49fb8kbJmykBKWfH0bY3CT5kk+dBwa4WdzH+D+62V47uw7I2059Icu/796pdwqZlj+B6wwciyeYuJbWo7yFupZW4QVDYeykE/ur0Y1bxA57p3eMSFwFvNyY9F6yWfS+j6g78vMnfs8RVWvxGXf8pyP5jP9vQTB+Nboh/GmV/Ncn/wr7j8U+iciQ2w1k8kuOLCEj8GSRuSdh+hUOfiMu/5TkfzGf7eueBwQOxZ8eV/6loX6F1LnL+BCN9iDt/f6Db+OXJs8xjF8fybCr/cbZAW4WpSoquUHmG6Crp8K0bhS4mI8RNws2rOUTFuPOJchXCWFOISNti2opBI8d9tqtxfMYs9/wATcxm/Q2rhb3o4YebcTsFADbceB7wR2VVLNeCNp24OP4fmYjxVqJTFuMYrLY8PSIPUe9PxNBhuNvW/DszxiFh+HXIXYesCRLlNoUlpIT81IKgOY7+HSsz8m9i8xlrJMueaUiNISiEwojo4QeZRHu6D41+4RwSMs3BuRmOZCVFQoFUW3RigueRcWeg9yfjVtMXsNoxmwxLHYoLUG3xEBDLLY2CR/wBT4k0FJflEcKmQs4t2bsMKVBuEdMV5aR0Q6jfYH3gn7KyvCfxMYzi2GR8Kz52RBagkiFcEMqdb9GTvyLSgFQIJOxAPb3Vb/MsZseYY7Kx/IoDU63Sk8rjS/wBxB7QR3EVULO+CW4+vuPYRl0IxVqJRHuyFoU2PD0jYVzf6ooNr184rsIThk6zafzX7xdZzKmRJEZxlmOFDYqJcCSo7dgA286gHgqwqZlettsuIZUYFkV67JdI9kFPzE+8mpDxbgjyl2ag5RmFmiRAd1i3IdfcUPAc6UAe/r7qtxpXp3i+muMosOMQvQtb8z7zh5nZC/wBZau8+XYO4UEA/KS/m4xj63V/QqrAfJq/My/3sf91TnxK6PK1jxu12dOQiyeoTDJ9KYfrHPugp5dudO3bvvuax/DRoavRpN4CsnTe/wkW+yD6v6Pl3/wA4vft8qDI8UOl7Gp+mcqAy2gXmCDJtzp7fSAdUb+Ch0rzClx34kp2LJaWy+ytTbjaxspCgdiCPEGvZOqy608JVtz3PJeU2jKk4/wCugKkxvwb6dKne9YIcRtv03G3b176DeOFKKidwv4zCXtyvwXmzv/KccFef18hXzSXV51kNqYuNhuIcjlY+cEq3Qr3FOx+Nem2juGHT7Tez4ebiLkba0pv1kM+i9JutSt+XmVt87btNavrxoXiGrUVD1y9Lbbywjlj3KMkFYH6q0notPl0I7iKDUcM4udJbrY2pOQXGXYLiED00V2E88Ofv5FtJUCPDfY1W7i915g6qyINixpiS1YLe6Xi9ITyLku7EBXL3JAJ236nfsG1bDdeCXP25ak2vK8YlRt/ZckqfYWR9FLax/wAVb5pTwY2613Nm5Z/f27uGlBQt0FtSGVkfruK2UoeQCffQZv5PfCZlh05uWUXBlTS74+n1ZKxsfQt7jm9ylE/6tWcrihxo8OI1EiMtsR2UBtpptISlCQNgAB2ACuWgUpSgUpSg60y32+Z/hkGLI/8A1aSv7xX7CgQYQIhwo0YHtDTSUfcK7FK+uerWt9HGo3tpD25eXv28xr5rsXNstT3kbfpHb3V16taZ3ES89u0zTXMT4SUpSuXwUpSgUpSgVsOLb+qu/T/6Vr1bNjbZRb+Y/pqJroyZ9RbcFpmcqJ8olk6UpVc2BSutdZ8O125+4z30R4sdBW64rsSkd9azimouN5JdBbYZnR5LiC4wmXEWyJCB+k2VD2hQbfSsTkuQ27HmojlxLoTKkJjtejRze2rs38qDIbccpVje7vr4j+sEcns8m+3b40GWpWDzPKbZiduan3RMpTbroZQmOyXFqUewBI6194pkUbIorsmNAucNLS+QpnRFMKPmArtFBmaVr8XMLJIzORiKHnBdGGg6pCkbJKfI99MZzCyZFdrnbLW8469bXPRyCUbJ38j30GwUrEuZDbm8paxtRd9fdjmQkcns8g7evjXLkd7tmPWh663eSI8Rke0rYkknsAA6knwFBkaVrGHZzYsplPQ4PrsaYygOKjTYymXCg9iwFdoPlWWyW9QMescq83N0txIqOdwpG528h3mgyNKxeK363ZNYo16tTqnIkgEoKk8qhsdtiO418vZDbmspYxtRd9ffYU+gBHs8ie3r40GWpSlApWiy9VcViXmRbZX4Sa9WkCO/JMJZjtrPYCsbgdtblPmsQrc9PdUSwy2XFFHXdIG/TxoOxSuhj12iX2yxbvAKzGlI9I2Vp5VbeYr8yO8QLBZJV4ubpbiRWy44oDc7DwHeaDIUrFYnkFtyewx71aXVORJAPIVJ5VDY7EEdxrguOV2W35VBxqXIU1cJ6FLjhSfYXt3b+PgKDOUrE45kNuv6pybeXSYMlUZ7nRy+2nt28RWByrUmx41dhbLjAvhdUtLba2betbbqyNwlCh0UfIUG6UrqWa4N3W1sXBpiSwh5PMluS0W3E9dvaSeort0ClKUClKUClKUGByeMQtEpI6H2Ve/urCVu0hpD7KmnBulQ2NajcIjkN8trG6f0VeIqfj3NxyyynGcKbdz01MdJ7/j93XpSlSVIUpSgUpSg+2GlPPJaQN1KOwrco7SWWENJ7EjasbYbeWE+sPJ2cUPZB/RFZaq/Iuc06jwa3g+HNi3NyuOtX/hSlKjrlqerllnX/AbjbragOyilK22idg7ykHk+NYfEskl3+82uInBJ8NEJjaTNucX0RjrAA5GiQSrfxG1SJSgjvXa1T7vZbPFgNzSv8KNFbsRBUtlO/VfQHbbxNY7EsYuVj1kecfuF7u8ZVsAE2f7eyt/mBYSB8KlWlBGnELDmzMWt/qUe5vFq4tOLNvZLjzaQeqkgA9RWa0pf9NZpH/ucrkcr3z8gY9G92fojYbprcaUEC59Ycka1AvuV2G2S13CF6D1YhlXK+hSSlaQQPa23B6VsGhmNTsbyG+sS4shHpGWFqfW0UpdcI3WQT0J3PdUtUoNBlwZp1zgzxDkGIm0uIL4bPowrfs5uzfyrk1ptFxueNRZFshqnO2+a1LVET855CTuQB3nwFb1Sg0nD8hkZNkjktGGTLZEYj8vr9yjehkKWT1bQCNykeO+1Y3XCHfL5Hs2NWSEXjLmJdkOutrMdtDftflFJHQE93fUkUoI10UhXywyr9jd6gpZS1K9ajOx21+rKS51UEKUO493dXWzec/YdYLZfXLJep8JNtcaUuBBW/sonoDt0qU6UHWtcxNwtzE1DEhhLyAsNvtlDifJST2GuzSlBClpwS95DfMrizrrMtVlfuyXXI3qA3lpAB3S6rqB7galTKIx/uQuESK0tZENbbbaAVE+zsAB31l6UEb6J38qxq1Y1IsN/gy4kXZx2Xb1tM7gnoFq7a/dc4d7vkC04zZIanlT5qFSHXG1lhptHtflFJHQEgdO+pHpQRpovCvtguOQY5eoKGUCT67GdjNr9WUHPnpQpQ7jt0rHao4jKyjU22JQzKZQ3bXlMTkNq5WHwQUHm7Adx2b9alylBGegEK/RLVfDkUJ2LPdui1uczZSlw7AFSd+1JPXcdK72r0KZMm4eYkSRIDF+ZcdLTZV6NAB3UrbsHma36lApSlApSlApSlApSlArilR2pLRaeTzJ/eK5aVzE66w+aqYriaao3DWJ9nkMEqZBeb8u0fCsaQQdiNjW81xPRo7399ZQvzKetSqMqY9qFFkcCoqndqrXulpdK2w2m3k7mOPgpQ/619t26C2d0xkftdfvrs/VU+SHHAb++tUfz9GrRosiSrZlpSvPuHxrP2u0NxiHXyHHR2DuTWUSAkbJAAHcKV0XMiqrpHRa4nCLViear1p/gpSlR1sUpSgUpSgUpSgUpSgUpSgUpSgUpSgUpSgUpSgUpSgUpSgUpSgUpSgUpSg//2Q==";
+const LOGO_FB = "data:image/jpeg;base64,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";  // base64 동일 (Google Drive URL 폴백 제거)
+
+
+const ITYPES = ["Pressure Vessel", "Reactor (Mixing Tank)", "Condenser / Heat Exchanger", "Storage Tank"];
+const CODES = ["KS", "ASME", "TEMA", "EN", "API", "Others"];
+const POPTS = ["S", "H", "W", "R", "N/A"];
+const HEAD_TYPES = ["2:1 Ellip.", "10% Torispherical (F&D)", "Torispherical", "Hemispherical", "Flat", "Conical", "CAP (B16.9)"];
+
+const DEF_ITEM = {
+  tag:"", name:"", type:"Pressure Vessel", appl_code:"",
+  shell_mat:"", shell_id:"", shell_len:"", shell_thk:"",
+  design_p:"", design_t:"",
+  head_top_type:"2:1 Ellip.", head_top_mat:"",
+  head_bot_type:"2:1 Ellip.", head_bot_mat:"",
+  jacket:false, jacket_partition:false,
+  incoil:false, incoil_double:false,
+  halfcoil:false, halfcoil_partition:false,
+  reactor_mount:false, reactor_impeller:false,
+  dwgUrl:null, dwgName:""
+};
+
+// ════════ 2. AI 파싱 (Cowork 연동 대기) ════════
+// v1.3 — AI Provider 직접 호출 제거. Cowork에서 PDF 파싱 후 JSON 형태로 주입 예정.
+// 임시: 파일 업로드 시 사용자에게 "Cowork에 전달하세요" 안내만 표시.
+const fileToBase64 = (file) => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result.split(",")[1]);
+  r.onerror = rej;
+  r.readAsDataURL(file);
+});
+const extractJSON = (text) => {
+  const clean = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const m = clean.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("JSON 추출 실패");
+  return JSON.parse(m[0]);
+};
+// v1.3 Cowork stub: 부장님이 Cowork에 PDF 업로드 → 파싱된 JSON을 clipboard로 복사 → 이 도구에 붙여넣기
+const callAI = async () => {
+  throw new Error("AI 파싱은 Cowork에서 진행 후 결과를 가져오는 방식으로 전환되었습니다.");
+};
+
+// ════════ 3. localStorage ════════
+const STORAGE_KEY = "sjp_itp_builder_v1";
+const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} };
+const loadLS = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"); } catch(e) { return null; } };
+
+// ════════ 4. UI 헬퍼 ════════
+function Logo({h=46}){
+  const [err, sErr] = useState(false);
+  return <img src={err?LOGO_FB:LOGO_URL} onError={()=>sErr(true)} style={{maxWidth:96, maxHeight:h, objectFit:"contain"}} alt="SJ"/>;
+}
+function LogoCell(){
+  return <div style={{display:"flex", alignItems:"center", gap:10, padding:"6px 8px", height:"100%"}}>
+    <Logo h={50}/>
+    <div style={{fontSize:8.5, lineHeight:1.5, color:"#222", whiteSpace:"nowrap"}}>
+      {CO.map((l,i) => <div key={i} style={i===0?{fontWeight:700, fontSize:10}:{}}>{l}</div>)}
+    </div>
+  </div>;
+}
+function EPCSlots(){
+  const isConnected = window.SJP?.bridge?.isConnected?.() || false;
+  const slots = [
+    {key:"project", title:"Project", connected:!!window.EPC_PROJECT},
+    {key:"items", title:"Items", connected:!!window.EPC_ITEMS},
+    {key:"docno", title:"Doc No.", connected:!!window.EPC_DOC_NO_GENERATOR},
+    {key:"inspector", title:"Inspector", connected:!!window.EPC_INSPECTOR_MASTER}
+  ];
+  return <div className="slots-grid">{slots.map(s =>
+    <div key={s.key} className={"slot" + (s.connected?" connected":"")}>
+      <div className="slot-title">{s.title}</div>
+      <div className="slot-status">{s.connected ? "✓ EPC 연결" : "⊘ Standalone"}</div>
+    </div>
+  )}</div>;
+}
+
+// ════════ 5. Revision 계산 ════════
+function calcRev({items, specReqs, revComments}){
+  const hasItems = items?.length > 0;
+  const hasSpec = specReqs?.length > 0;
+  const hasDWG = items?.some(i => i.dwgUrl);
+  const hasComments = revComments?.length > 0;
+  if (hasComments && hasDWG) return {rev:"Rev. 2", percent:100, color:"#4a7fc1", label:"Comment 반영 — 발주처 송부 가능"};
+  if (hasDWG) return {rev:"Rev. 1", percent:90, color:"#1d9e75", label:"도면 반영 완료"};
+  if (hasItems || hasSpec) return {rev:"Rev. 0", percent:60, color:"#d4a017", label:"Draft — 도면 추가 시 Rev. 1 자동 승격"};
+  return {rev:"—", percent:0, color:"#6b7280", label:"입력 대기"};
+}
+
+// ════════ 6. ITP 기본 행 ════════
+const mkR = (id, activity, code, criteria, doc, sj, client, active, specOnly=false) =>
+  ({id, activity, code, criteria, doc, sj, client, active, specOnly, remarks:""});
+const ITP_BASE = [
+  mkR(1, "General Welding Inspection", "Applied DWG & WPS\n- ASME BPVC Sec.IX", "WPS/PQR Review, Qualified Welder List\n- Welder Test if required", "NDE Report\nWPS&PQR", "S", "W", true),
+  mkR(2, "Material Inspection", "Applied DWG\n- ASTM / ASME Sec.II", "Visual & marking (Heat No.)\n- Chemical composition & mechanical properties", "Mill Certifi.", "R", "R", true),
+  mkR(3, "Nozzle Marking Check", "Applied DWG", "Nozzle orientation, elevation, size marking\n- Flange face finish & rating check", "Drawings", "S", "R", true),
+  mkR(4, "Fit-up Inspection", "Applied DWG & WPS", "Alignment, root face & root gap check\n- Reinf. pad position confirmed", "Fit-up Report", "S", "W", true),
+  mkR(5, "Non-Destructive Inspection", "Applied DWG\n- ASME Sec.VIII", "PT 100% (1st layer & after Full welding)\n- RT (if required per code or DWG)", "NDE Report", "S", "W", true),
+  mkR(6, "Final Visual & Dimension Check", "Applied DWG", "All dimensions per applicable code / DWG tolerance\n- Interior & exterior: no slag, scale, or spatter", "DIM Report", "S", "W", true),
+  mkR(7, "Hydrostatic Test & Leak Test", "Applied DWG", "Pressure test (Water): [     ] hr\n- As per Design Data or DWG", "Hydrostatic Test Report", "S", "W", true),
+  mkR(8, "Acid Cleaning Inspection", "Applied DWG", "Free of rust, weld scale, and foreign matter\n- Surface condition: uniform and clean", "Acid Cleaning Report", "S", "R", true),
+  mkR(9, "Shipping Preparation", "Applied DWG", "All nozzle openings: Plastic Cap installed\n- Fixed to transport saddle\n- Name plate installed", "Packing List", "S", "R", true),
+];
+
+// ════════ 7. ITP Preview ════════
+function ITPPreview({proj, items, specReqs, revInfo, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols}){
+  const active = rows.filter(r => r.active);
+  const isHX = items.some(i => i.type.includes("Condenser") || i.type.includes("Heat"));
+  const isSUS = !isHX && items.some(i => /(316|304|sus|sts)/i.test(i.shell_mat||""));
+  const iLbl = items.map(i => `${i.name||i.tag} / ${i.tag}`).join(", ");
+  const TH = {border:"1px solid #555", padding:"5px 6px", background:"#fff", fontSize:10, fontWeight:500, textAlign:"center", verticalAlign:"middle"};
+  const TD = {border:"1px solid #888", padding:"4px 5px", fontSize:10, verticalAlign:"top"};
+  const TS = {width:"100%", minHeight:36, border:"none", fontSize:9, resize:"none", background:"transparent", fontFamily:"Arial,sans-serif", lineHeight:1.5};
+
+  const moveRow = (idx, dir) => {
+    const idxList = rows.map((r,i) => r.active ? i : -1).filter(i => i >= 0);
+    const realIdx = idxList[idx];
+    const targetReal = idxList[idx + dir];
+    if (realIdx === undefined || targetReal === undefined) return;
+    const newRows = [...rows];
+    [newRows[realIdx], newRows[targetReal]] = [newRows[targetReal], newRows[realIdx]];
+    setRows(newRows);
+  };
+
+  // 신규 행 추가 (v1.5 — 사용자 검사활동 추가)
+  const [newRow, setNewRow] = useState({activity:"", code:"", criteria:"", doc:"", remarks:""});
+  const handleAddRow = () => {
+    if (!newRow.activity.trim()) { alert("검사활동(Activity)명은 필수입니다"); return; }
+    const newId = Math.max(0, ...rows.map(r => r.id||0)) + 1;
+    const w = {};
+    witnessCols.forEach(c => { w[c.key] = "W"; });
+    setRows(p => [...p, { id:newId, ...newRow, sj:"S", client:"W", witness:w, active:true, specOnly:false }]);
+    setNewRow({activity:"", code:"", criteria:"", doc:"", remarks:""});
+  };
+
+  const pendingNote = revInfo.rev === "Rev. 0" && items.length > 0 && !items.some(i => i.dwgUrl);
+
+  return <div style={{fontFamily:"Arial,sans-serif", fontSize:10}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}.ic{display:none!important}}`}</style>
+    <div className="no-print rev-banner" style={{borderLeftColor: revInfo.color, background: revInfo.color+"15"}}>
+      <strong style={{color:revInfo.color}}>{revInfo.rev}</strong>
+      <span style={{marginLeft:8, color:"#666"}}>{revInfo.label}</span>
+      <span style={{marginLeft:8, color:"#999", fontSize:11}}>({revInfo.percent}%)</span>
+    </div>
+    {pendingNote && <div className="no-print rev-banner rev-pending">
+      ⚠ 도면 미도착 — 시방서·견적서 기반 Draft. 도면 추가 시 Tag·치수·재질이 자동 확정되며 Rev. 1로 승격됩니다.
+    </div>}
+
+    <table style={{width:"100%", borderCollapse:"collapse"}}>
+      <colgroup><col style={{width:"30%"}}/><col style={{width:"15%"}}/><col style={{width:"25%"}}/><col style={{width:"10%"}}/><col style={{width:"20%"}}/></colgroup>
+      <tbody>
+        <tr>
+          <td rowSpan={4} style={{border:"1px solid #555", padding:"4px 6px", textAlign:"left", verticalAlign:"middle"}}><LogoCell/></td>
+          <td colSpan={4} style={{border:"1px solid #555", padding:"6px 10px", fontSize:13, fontWeight:700, textAlign:"center"}}>
+            Inspection and Test Plan for {isHX?"HEAT EXCHANGER":isSUS?"SUS TANK":"CARBON TANK"}
+          </td>
+        </tr>
+        <tr>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, fontWeight:500, whiteSpace:"nowrap"}}>Document No.</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}}>
+            <input value={docNo} onChange={e=>setDocNo(e.target.value)} style={{width:"100%", border:"none", fontSize:10, background:"transparent"}}/>
+          </td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, fontWeight:500, whiteSpace:"nowrap"}}>Rev.</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, textAlign:"center"}}>
+            <input value={rev} onChange={e=>setRev(e.target.value)} style={{width:30, border:"none", fontSize:10, fontWeight:700, textAlign:"center", background:"transparent"}}/>
+          </td>
+        </tr>
+        <tr>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, fontWeight:500, whiteSpace:"nowrap"}}>Project Name / Job No.</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}} colSpan={3}>{proj.name||"—"} / {proj.no||"—"}</td>
+        </tr>
+        <tr>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, fontWeight:500, whiteSpace:"nowrap"}}>Item Name / Tag No.</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}}>{iLbl||"—"}</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, fontWeight:500, whiteSpace:"nowrap"}}>Customer</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}}>{proj.customer||"—"}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table style={{width:"100%", borderCollapse:"collapse"}}>
+      <thead><tr>
+        <th style={{...TH, width:"5%"}}>No.</th>
+        <th style={{...TH, width:"13%"}}>Inspection Activity</th>
+        <th style={{...TH, width:"21%"}}>
+          Applicable Code / DWG / Reference
+          <div style={{fontSize:7, color:"#888", fontWeight:400}}>※ 시방서·견적서 반영 / 직접 편집</div>
+        </th>
+        <th style={{...TH, width:"28%"}}>
+          Acceptance Criteria
+          <div style={{fontSize:7, color:"#888", fontWeight:400}}>※ 직접 편집</div>
+        </th>
+        <th style={{...TH, width:"9%"}}>Verifying Doc.</th>
+        {witnessCols.map((wc, ci) => (
+          <th key={wc.key} style={{...TH, width:"6%", background:"#eef3fb", padding:"2px"}}>
+            <input
+              value={wc.name}
+              onChange={e=>setWitnessCols(p=>p.map((x,j)=>j===ci?{...x, name:e.target.value}:x))}
+              style={{width:"100%", fontSize:10, fontWeight:600, border:"none", background:"transparent", textAlign:"center"}}
+            />
+            <button
+              className="ic"
+              onClick={()=>{ if(witnessCols.length<=1){alert("최소 1개 컬럼"); return;} setWitnessCols(p=>p.filter((_,j)=>j!==ci)); }}
+              style={{fontSize:8, padding:"0 3px", border:"1px solid #fbb", background:"#fff0f0", color:"#c00", borderRadius:2, cursor:"pointer", marginTop:1}}
+              title="삭제"
+            >✕</button>
+          </th>
+        ))}
+        <th className="ic" style={{...TH, width:"3%", background:"#f0fdf4", padding:"2px"}}>
+          <button
+            onClick={()=>setWitnessCols(p=>[...p, {key:"w"+Date.now(), name:"Vendor"}])}
+            style={{fontSize:11, padding:"2px 6px", border:"1px solid #1d9e75", background:"#dcfce7", color:"#15803d", borderRadius:3, cursor:"pointer", fontWeight:700}}
+            title="Witness 컬럼 추가"
+          >＋</button>
+        </th>
+        <th style={{...TH, width:"6%"}}>Remarks</th>
+      </tr></thead>
+      <tbody>{active.map((r, i) =>
+        <tr key={r.id} style={r.specOnly ? {background:"#fffbe5"} : {}}>
+          <td style={{...TD, textAlign:"center", verticalAlign:"middle", padding:"2px"}}>
+            <div style={{fontWeight:600, fontSize:11}}>{i+1}</div>
+            <div className="ic" style={{display:"flex", flexDirection:"column", alignItems:"center", gap:1, marginTop:2}}>
+              <button style={{fontSize:9, padding:"1px 4px", border:"1px solid #ccc", background:"#f5f5f5", cursor:"pointer", color:i===0?"#ccc":"#444"}} onClick={()=>moveRow(i, -1)} disabled={i===0}>▲</button>
+              <button style={{fontSize:9, padding:"1px 4px", border:"1px solid #ccc", background:"#f5f5f5", cursor:"pointer", color:i===active.length-1?"#ccc":"#444"}} onClick={()=>moveRow(i, 1)} disabled={i===active.length-1}>▼</button>
+              <button style={{fontSize:9, padding:"1px 4px", border:"1px solid #fbb", background:"#fff0f0", color:"#c00", cursor:"pointer"}} onClick={()=>setRows(p => p.filter(x => x.id !== r.id))}>✕</button>
+            </div>
+          </td>
+          <td style={TD}>
+            <textarea style={TS} value={r.activity} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, activity:e.target.value}:x))}/>
+            {r.specOnly && <div style={{fontSize:8, color:"#d4a017", fontWeight:600, marginTop:2}}>📋 Spec 추출</div>}
+          </td>
+          <td style={{...TD, fontSize:9}}><textarea style={TS} value={r.code} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, code:e.target.value}:x))}/></td>
+          <td style={{...TD, fontSize:9}}><textarea style={TS} value={r.criteria} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, criteria:e.target.value}:x))}/></td>
+          <td style={{...TD, textAlign:"center", fontSize:9}}><textarea style={{...TS, textAlign:"center"}} value={r.doc} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, doc:e.target.value}:x))}/></td>
+          {witnessCols.map((wc) => (
+            <td key={wc.key} style={{...TD, textAlign:"center", background:"#f8fbff"}}>
+              <select
+                value={(r.witness && r.witness[wc.key]) || r[wc.key] || ""}
+                onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, witness:{...((x.witness)||{}), [wc.key]:e.target.value}}:x))}
+                style={{fontSize:10, border:"none", background:"transparent", width:"100%"}}
+              >
+                <option value="">—</option>
+                {POPTS.map(o => <option key={o}>{o}</option>)}
+              </select>
+            </td>
+          ))}
+          <td className="ic" style={{...TD, background:"#fafafa"}}></td>
+          <td style={TD}>
+            <input style={{width:"100%", fontSize:9, border:"none", background:"transparent"}} value={r.remarks} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, remarks:e.target.value}:x))}/>
+          </td>
+        </tr>
+      )}</tbody>
+    </table>
+
+    {/* 신규 검사활동 행 추가 (인쇄 비표시) */}
+    <div className="ic" style={{marginTop:8, padding:"8px 10px", background:"#f8fbff", border:"1px dashed var(--sjp-border-strong)", borderRadius:6}}>
+      <div style={{fontSize:11, fontWeight:600, color:"var(--sjp-primary)", marginBottom:5}}>➕ 검사활동 추가</div>
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1.4fr 1.8fr 0.8fr auto", gap:5, alignItems:"start"}}>
+        <input value={newRow.activity} onChange={e=>setNewRow(p=>({...p, activity:e.target.value}))} placeholder="Inspection Activity *"
+          style={{fontSize:10, padding:"4px 6px", border:"1px solid var(--sjp-border)", borderRadius:3}}/>
+        <textarea value={newRow.code} onChange={e=>setNewRow(p=>({...p, code:e.target.value}))} placeholder="Applicable Code / DWG"
+          style={{fontSize:9, padding:"4px 6px", border:"1px solid var(--sjp-border)", borderRadius:3, minHeight:32, resize:"vertical", fontFamily:"inherit"}}/>
+        <textarea value={newRow.criteria} onChange={e=>setNewRow(p=>({...p, criteria:e.target.value}))} placeholder="Acceptance Criteria"
+          style={{fontSize:9, padding:"4px 6px", border:"1px solid var(--sjp-border)", borderRadius:3, minHeight:32, resize:"vertical", fontFamily:"inherit"}}/>
+        <input value={newRow.doc} onChange={e=>setNewRow(p=>({...p, doc:e.target.value}))} placeholder="Verifying Doc."
+          style={{fontSize:10, padding:"4px 6px", border:"1px solid var(--sjp-border)", borderRadius:3}}/>
+        <button onClick={handleAddRow}
+          style={{padding:"6px 14px", background:"var(--sjp-primary)", color:"#fff", border:"none", borderRadius:4, cursor:"pointer", fontWeight:600, fontSize:11, whiteSpace:"nowrap"}}>
+          + 추가
+        </button>
+      </div>
+    </div>
+
+    <div style={{marginTop:4, fontSize:9, color:"#444", lineHeight:1.7}}>
+      1. The inspection process may be changed by the supplier's manufacturing condition.<br/>
+      2. I&amp;T Activities: S-Supplier, R-Report Review, W-Witness, H-Hold Point<br/>
+      3. 노란색 행(📋 Spec)은 고객 시방서에서 추출한 추가 요구사항입니다.
+    </div>
+  </div>;
+}
+
+// ════════ 8. 파서 (v1.3 - Cowork 통합 대기, 호출 시 안내 메시지) ════════
+// 원래는 AI Provider가 PDF를 직접 파싱했으나, v1.3부터 Cowork 통합 방식으로 전환.
+// 부장님이 Cowork에서 PDF 파싱 후 JSON 결과를 이 도구에 주입하는 방식으로 작동.
+// 현재는 수동 입력 또는 EPC Control 연동을 통해 데이터를 가져옵니다.
+const parseWO = async () => { throw new Error("Cowork 연동 대기 - 수동 입력 부탁드립니다"); };
+const parseSpec = async () => { throw new Error("Cowork 연동 대기 - 수동 입력 부탁드립니다"); };
+const parseQuote = async () => { throw new Error("Cowork 연동 대기 - 수동 입력 부탁드립니다"); };
+const parseDWG = async () => { throw new Error("Cowork 연동 대기 - 수동 입력 부탁드립니다"); };
+
+// ════════ 9. 메인 App ════════
+function App(){
+  const [step, setStep] = useState(0);
+  const [proj, setProj] = useState({
+    no: "SJ2026-030",
+    name: "(VDS)ESTER 공정용 수평콘덴서 교체공사",
+    customer: "㈜동성케미컬",
+    po: "SJT-WO-2026-030",
+    scope: "수평콘덴서 1LOT 제작·검사 (Detail Design + Manufacturing + Owner 입회검사)",
+    codes: {KS:true, ASME:true, TEMA:true, EN:false, API:false, Others:false}
+  });
+  const [items, setItems] = useState([{
+    id: 17790000001,
+    tag: "E-101",
+    name: "VDS ESTER 공정용 수평콘덴서",
+    type: "Condenser / Heat Exchanger",
+    appl_code: "ASME Sec.VIII Div.1, TEMA Class R",
+    shell_mat: "SA-516 Gr.70",
+    tube_mat: "SUS316L",
+    head_mat: "SA-516 Gr.70",
+    design_p: "0.5 MPa",
+    design_t: "150°C",
+    test_p: "0.65 MPa",
+    fluid_shell: "Cooling Water",
+    fluid_tube: "ESTER Vapor",
+    remarks: "동성케미컬 베트남공장 · 납품지 부산공사 (수출은 KDS Scope)"
+  }]);
+  const [newItem, setNewItem] = useState({...DEF_ITEM});
+  const [specReqs, setSpecReqs] = useState([]);
+  const [quoteItems, setQuoteItems] = useState([]);
+  const [revComments, setRevComments] = useState([]);
+  const [itpRows, setItpRows] = useState([...ITP_BASE]);
+  const [witnessCols, setWitnessCols] = useState([
+    {key:"sj",     name:"SJ",     bg:"#eef3fb"},
+    {key:"client", name:"Client", bg:"#eef3fb"}
+  ]);
+  const [itpDocNo, setItpDocNo] = useState("SJ2026-030-ITP-001");
+  const [itpRev, setItpRev] = useState("0");
+  // v1.3 — AI Provider 상태 제거 (Cowork 연동 대기)
+  const [msg, setMsg] = useState("");
+  const [parsing, setParsing] = useState(null);
+
+  // v1.3 — sjp-bridge.js 외부 의존성 제거 (안전한 optional chaining 유지)
+  useEffect(() => {
+    if (window.SJP?.bridge?.renderTopbar) {
+      window.SJP.bridge.renderTopbar("ITP Builder v1.4", "신채완 과장");
+    }
+  }, []);
+
+  useEffect(() => {
+    const s = loadLS();
+    if (s) {
+      if (s.proj) setProj(s.proj);
+      if (s.items) setItems(s.items);
+      if (s.specReqs) setSpecReqs(s.specReqs);
+      if (s.quoteItems) setQuoteItems(s.quoteItems);
+      if (s.revComments) setRevComments(s.revComments);
+      if (s.itpRows) setItpRows(s.itpRows);
+      if (s.itpDocNo) setItpDocNo(s.itpDocNo);
+      if (s.itpRev) setItpRev(s.itpRev);
+    }
+    // EPC Control System에서 데이터 동기화 (window.SJP.bridge 존재 시)
+    if (window.SJP?.bridge?.isConnected?.()) {
+      const epcProj = window.SJP.bridge.getProject?.();
+      const epcItems = window.SJP.bridge.getItems?.();
+      if (epcProj) setProj(p => ({...p, ...epcProj}));
+      if (epcItems?.length) setItems(epcItems);
+      setTimeout(()=>showMsg("✓ EPC Control에서 데이터 동기화 완료", 5000), 100);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveLS({proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev});
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev]);
+
+  const revInfo = calcRev({items, specReqs, revComments});
+
+  useEffect(() => {
+    setItpRows(prev => {
+      const base = prev.filter(r => r.id < 1000);
+      const specRows = specReqs.map((req, i) => mkR(
+        1000+i, req.activity||"Customer Special Requirement",
+        req.code||"Per Customer Spec.", req.criteria||req.description||"—",
+        req.doc||"Inspection Record", "S", req.hold?"H":"W", true, true
+      ));
+      return [...base, ...specRows];
+    });
+  }, [specReqs]);
+
+  useEffect(() => {
+    if (proj.no && !itpDocNo && window.SJP?.bridge?.generateDocNo) {
+      setItpDocNo(window.SJP.bridge.generateDocNo(proj.no, "ITP", 1));
+    } else if (proj.no && !itpDocNo) {
+      // v1.3 fallback: SJP bridge 없을 때 기본 Doc No. 생성
+      const yr = new Date().getFullYear().toString().slice(-2);
+      setItpDocNo(`SJ-QA-ITP-${proj.no}-${yr}-001`);
+    }
+  }, [proj.no]);
+
+  useEffect(() => {
+    const newRev = revInfo.rev === "Rev. 0" ? "0" : revInfo.rev === "Rev. 1" ? "1" : revInfo.rev === "Rev. 2" ? "2" : itpRev;
+    if (newRev !== itpRev) setItpRev(newRev);
+  }, [revInfo.rev]);
+
+  const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
+
+  // v1.3 — AI Provider 직접 호출 제거. 모든 PDF 업로드는 Cowork 안내로 대체
+  const handleFile = async (file, kind, targetItemId=null) => {
+    const kindLabel = kind==="wo"?"Work Order":kind==="spec"?"시방서":kind==="quote"?"견적서":"도면";
+    showMsg(`📋 ${kindLabel} 파싱은 Cowork에서 진행 후 결과를 가져오는 방식으로 통합 예정입니다. 임시로 수동 입력 부탁드립니다.`, 8000);
+    return;
+  };
+
+  const addItem = () => {
+    if (!newItem.tag || !newItem.name) { showMsg("⚠ Tag와 Name은 필수"); return; }
+    setItems(p => [...p, {...newItem, id: Date.now()}]);
+    setNewItem({...DEF_ITEM});
+    showMsg(`✓ 아이템 추가 — ${newItem.tag}`);
+  };
+
+  const removeItem = (id) => {
+    if (!confirm("이 아이템을 삭제하시겠습니까?")) return;
+    setItems(p => p.filter(i => i.id !== id));
+  };
+
+  const handleExport = () => {
+    const data = {proj, items, specReqs, quoteItems, exported_at:new Date().toISOString(), version:"itp_builder_v1.2"};
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `${proj.no||"project"}_data.json`;
+    a.click(); URL.revokeObjectURL(url);
+    // SJP bridge에도 저장 (단계 6: ITP→Manufacture Manager 자동 생성)
+    if (window.SJP?.bridge) {
+      // 1. 프로젝트 전달
+      window.SJP.bridge.setProject(proj);
+      // 2. 아이템 전달 (tag → tagNo 변환, appl_code → spec)
+      const epcItems = items.map(it => ({
+        tagNo: it.tag,
+        type: it.type,
+        spec: it.appl_code,
+        maker: it.maker || ""
+      }));
+      window.SJP.bridge.setItems(epcItems);
+      // 3. ITP 18개 항목을 각 아이템의 ITP 템플릿으로 등록 (MM 검사 단계용)
+      setTimeout(() => {
+        const epcItemsAfter = window.SJP.bridge.getItems();
+        items.forEach(localItem => {
+          const epc = epcItemsAfter.find(e => e.tagNo === localItem.tag);
+          if (!epc) return;
+          const tplItems = (itpRows || []).filter(r => r.active !== false).map((r, idx) => {
+            const rid = String(r.id || (idx+1)).padStart(2, "0");
+            const ph = rid <= "05" ? 0 : rid <= "14" ? 1 : 2;
+            const pt = ["H","W","R","S","N/A"].includes(r.client) ? r.client : "W";
+            return { id: rid, item: r.activity || "", ph: ph, pt: pt, crit: r.criteria || "" };
+          });
+          if (tplItems.length > 0) {
+            window.SJP.bridge.setItpTemplate(epc.id, tplItems);
+          }
+        });
+      }, 80);
+      showMsg(`✓ Export 완료 — EPC Control · QA Doc Generator로 자동 전송`);
+    } else {
+      showMsg(`✓ Export 완료 — Standalone 모드 (EPC 미연결)`);
+    }
+  };
+  const handleImport = (file) => {
+    const r = new FileReader();
+    r.onload = e => {
+      try {
+        const d = JSON.parse(e.target.result);
+        if (d.proj) setProj(d.proj);
+        if (d.items) setItems(d.items);
+        if (d.specReqs) setSpecReqs(d.specReqs);
+        if (d.quoteItems) setQuoteItems(d.quoteItems);
+        showMsg(`✓ Import 완료 — ${d.items?.length || 0}개 아이템`);
+      } catch(err) { showMsg(`⚠ Import 실패: ${err.message}`); }
+    };
+    r.readAsText(file);
+  };
+  const handleNew = () => {
+    if (!confirm("새 프로젝트를 시작하시겠습니까?")) return;
+    setProj({no:"", name:"", customer:"", po:"", scope:"", codes:{KS:true, ASME:true, TEMA:false, EN:false, API:false, Others:false}});
+    setItems([]); setNewItem({...DEF_ITEM});
+    setSpecReqs([]); setQuoteItems([]); setRevComments([]);
+    setItpRows([...ITP_BASE]); setItpDocNo(""); setItpRev("0"); setStep(0);
+        setWitnessCols([{key:"sj",name:"SJ",bg:"#eef3fb"},{key:"client",name:"Client",bg:"#eef3fb"}]);
+    showMsg(`✓ 새 프로젝트`);
+  };
+
+  return <div className="app">
+    {/* v1.3 EPC Control 톤 Topbar */}
+    <div className="epc-topbar no-print">
+      <div className="epc-topbar-icon">📋</div>
+      <div>
+        <div className="epc-topbar-title">ITP Builder v1.4</div>
+        <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
+      </div>
+      <div className="epc-topbar-badge">{revInfo.rev}</div>
+      <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
+    </div>
+
+    {/* v1.3 Cowork 통합 안내 (구 AI Provider 자리) */}
+    <div className="cowork-info no-print">
+      <div className="cowork-info-icon">🤖</div>
+      <div className="cowork-info-text">
+        <div className="cowork-info-title">Cowork AI 파싱 (통합 대기)</div>
+        <div className="cowork-info-sub">
+          Work Order · 시방서 · 견적서 · 도면 PDF 파싱은 Claude Cowork에서 진행 후 결과를 자동 주입하는 방식으로 통합 예정입니다. 현재는 수동 입력 또는 EPC Control System 연동을 통해 데이터를 가져옵니다.
+        </div>
+      </div>
+    </div>
+
+    <EPCSlots/>
+
+    {/* 단계 탭 */}
+    <div className="no-print" style={{display:"flex", gap:6, marginBottom:14}}>
+      {["0. 프로젝트 · 시방서 · 견적서", "1. 아이템 등록", "2. ITP 생성 · 미리보기"].map((s, i) =>
+        <button key={i} onClick={()=>setStep(i)} className={"tab " + (step===i?"on":"")} style={{flex:1}}>
+          {s}
+        </button>
+      )}
+    </div>
+
+    {msg && <div className={`msg ${msg.startsWith("✓")?"ok":msg.startsWith("⚠")?"warn":"info"}`}>{msg}</div>}
+
+    {/* Step 0 */}
+    {step === 0 && <div>
+      <div className="card">
+        <div className="card-h">📄 Work Order <span className="badge">PDF 자동 파싱</span></div>
+        <div className="card-b">
+          <input type="file" accept=".pdf" id="woFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleFile(e.target.files[0], "wo")}/>
+          <button onClick={()=>document.getElementById("woFile").click()} disabled={parsing!==null} className="btn-primary">📄 Work Order PDF 업로드</button>
+          <span style={{fontSize:10, color:"var(--sjp-text-sub)", marginLeft:8}}>Project No / 발주처 / PO / Scope 자동 입력</span>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">📋 고객 시방서 (Specification) <span className="badge badge-new">추가 요구사항 추출</span></div>
+        <div className="card-b">
+          <input type="file" accept=".pdf" id="specFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleFile(e.target.files[0], "spec")}/>
+          <button onClick={()=>document.getElementById("specFile").click()} disabled={parsing!==null} className="btn-primary" style={{background:"var(--sjp-success)"}}>📋 시방서 PDF 업로드</button>
+          <span style={{fontSize:10, color: specReqs.length > 0 ? "var(--sjp-success)" : "var(--sjp-text-sub)", marginLeft:8}}>
+            현재: <strong>{specReqs.length}개</strong> 추가 요구사항 추출됨
+          </span>
+          {specReqs.length > 0 && <div style={{marginTop:8, maxHeight:200, overflowY:"auto"}}>
+            {specReqs.map((r, i) =>
+              <div key={i} className="spec-row">
+                <strong style={{color:"var(--sjp-warning)"}}>[{r.category}]</strong> {r.activity}
+                {r.hold && <span style={{color:"var(--sjp-danger)", marginLeft:5, fontWeight:600}}>(H.P.)</span>}
+                <div style={{color:"var(--sjp-text-sub)", fontSize:10, marginTop:2}}>{r.code} → {r.criteria}</div>
+              </div>
+            )}
+            <button onClick={()=>{ if(confirm("시방서 요구사항을 모두 제거하시겠습니까?")) setSpecReqs([]); }} style={{fontSize:10, padding:"3px 8px", background:"var(--sjp-danger-bg)", color:"var(--sjp-danger)", border:"1px solid #fbb", borderRadius:3, cursor:"pointer", marginTop:4}}>✕ 모두 제거</button>
+          </div>}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">💰 견적서 (Quotation) <span className="badge badge-new">아이템 사전 등록</span></div>
+        <div className="card-b">
+          <input type="file" accept=".pdf" id="quoteFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleFile(e.target.files[0], "quote")}/>
+          <button onClick={()=>document.getElementById("quoteFile").click()} disabled={parsing!==null} className="btn-primary" style={{background:"#7f77dd"}}>💰 견적서 PDF 업로드</button>
+          <span style={{fontSize:10, color: quoteItems.length > 0 ? "#7f77dd" : "var(--sjp-text-sub)", marginLeft:8}}>
+            현재: <strong>{quoteItems.length}개</strong> 아이템 추출됨
+          </span>
+          <div style={{fontSize:10, color:"var(--sjp-text-sub)", marginTop:4}}>
+            도면 미도착 상태에서도 Rev. 0 ITP 생성 가능. 도면 첨부 시 Rev. 1 자동 승격.
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">프로젝트 정보</div>
+        <div className="card-b">
+          <div className="fld"><label>Project No.</label><input value={proj.no} onChange={e=>setProj(p=>({...p, no:e.target.value}))} placeholder="ex. SJ2026-014"/></div>
+          <div className="fld"><label>프로젝트명</label><input value={proj.name} onChange={e=>setProj(p=>({...p, name:e.target.value}))}/></div>
+          <div className="fld"><label>발주처</label><input value={proj.customer} onChange={e=>setProj(p=>({...p, customer:e.target.value}))}/></div>
+          <div className="fld"><label>PO No.</label><input value={proj.po} onChange={e=>setProj(p=>({...p, po:e.target.value}))}/></div>
+          <div className="fld"><label>Scope</label><input value={proj.scope} onChange={e=>setProj(p=>({...p, scope:e.target.value}))}/></div>
+          <div className="fld"><label>적용 코드</label>
+            <div style={{flex:1}}>
+              {CODES.map(c => <label key={c} className="chk">
+                <input type="checkbox" checked={!!proj.codes[c]} onChange={e=>setProj(p=>({...p, codes:{...p.codes, [c]:e.target.checked}}))}/>{c}
+              </label>)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:"flex", gap:6, justifyContent:"space-between", alignItems:"center"}}>
+        <div style={{display:"flex", gap:6}}>
+          <button onClick={handleExport} className="btn-secondary">💾 JSON Export</button>
+          <input type="file" accept=".json" id="impFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleImport(e.target.files[0])}/>
+          <button onClick={()=>document.getElementById("impFile").click()} className="btn-secondary">📥 JSON Import</button>
+        </div>
+        <button onClick={()=>setStep(1)} className="btn-primary">다음 → 아이템 등록</button>
+      </div>
+    </div>}
+
+    {/* Step 1 */}
+    {step === 1 && <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+      <div>
+        <div className="card">
+          <div className="card-h">아이템 추가 <span className="badge">도면 원샷 파싱</span></div>
+          <div className="card-b">
+            <input type="file" accept="image/*,.pdf" id="dwgFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleFile(e.target.files[0], "dwg")}/>
+            <button onClick={()=>document.getElementById("dwgFile").click()} disabled={parsing!==null} className="btn-primary" style={{background:"#993c1d", marginBottom:8, width:"100%"}}>
+              📐 도면 업로드 → 아이템 필드 자동 채움
+            </button>
+            {newItem.dwgName && <div style={{fontSize:10, color:"var(--sjp-success)", marginBottom:6}}>{newItem.dwgName}</div>}
+
+            <div className="fld"><label>Tag No. *</label><input value={newItem.tag} onChange={e=>setNewItem(p=>({...p, tag:e.target.value}))}/></div>
+            <div className="fld"><label>Item Name *</label><input value={newItem.name} onChange={e=>setNewItem(p=>({...p, name:e.target.value}))}/></div>
+            <div className="fld"><label>Type</label>
+              <select value={newItem.type} onChange={e=>setNewItem(p=>({...p, type:e.target.value}))}>{ITYPES.map(t => <option key={t}>{t}</option>)}</select>
+            </div>
+            <div className="fld"><label>Code</label><input value={newItem.appl_code} onChange={e=>setNewItem(p=>({...p, appl_code:e.target.value}))} placeholder="ex. ASME Sec.VIII Div.1"/></div>
+            <div className="fld"><label>Shell Material</label><input value={newItem.shell_mat} onChange={e=>setNewItem(p=>({...p, shell_mat:e.target.value}))}/></div>
+            <div className="fld"><label>Shell ID (mm)</label><input value={newItem.shell_id} onChange={e=>setNewItem(p=>({...p, shell_id:e.target.value}))}/></div>
+            <div className="fld"><label>Shell Length (mm)</label><input value={newItem.shell_len} onChange={e=>setNewItem(p=>({...p, shell_len:e.target.value}))}/></div>
+            <div className="fld"><label>Design P (MPa)</label><input value={newItem.design_p} onChange={e=>setNewItem(p=>({...p, design_p:e.target.value}))}/></div>
+            <div className="fld"><label>Design T (℃)</label><input value={newItem.design_t} onChange={e=>setNewItem(p=>({...p, design_t:e.target.value}))}/></div>
+
+            <div className="head-block">
+              <div className="head-block-title">📌 상하 경판 분리 입력 (v25 신규)</div>
+              <div className="fld"><label>Top Head Type</label>
+                <select value={newItem.head_top_type} onChange={e=>setNewItem(p=>({...p, head_top_type:e.target.value}))}>{HEAD_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+              </div>
+              <div className="fld"><label>Top Head Mat.</label><input value={newItem.head_top_mat} onChange={e=>setNewItem(p=>({...p, head_top_mat:e.target.value}))} placeholder="(비우면 Shell Mat)"/></div>
+              <div className="fld"><label>Bottom Head Type</label>
+                <select value={newItem.head_bot_type} onChange={e=>setNewItem(p=>({...p, head_bot_type:e.target.value}))}>{HEAD_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+              </div>
+              <div className="fld"><label>Bottom Head Mat.</label><input value={newItem.head_bot_mat} onChange={e=>setNewItem(p=>({...p, head_bot_mat:e.target.value}))}/></div>
+              {(newItem.head_top_type === "CAP (B16.9)" || newItem.head_bot_type === "CAP (B16.9)") &&
+                <div style={{fontSize:10, color:"#996b04", marginTop:4}}>⚠ CAP 적용 — QC Gen에서 해당 측 Forming Report 자동 제외, DIM Report B16.9 공차 적용</div>}
+            </div>
+
+            <label className="chk"><input type="checkbox" checked={newItem.jacket} onChange={e=>setNewItem(p=>({...p, jacket:e.target.checked}))}/>Jacket</label>
+            <label className="chk"><input type="checkbox" checked={newItem.incoil} onChange={e=>setNewItem(p=>({...p, incoil:e.target.checked}))}/>In-Coil</label>
+            <label className="chk"><input type="checkbox" checked={newItem.halfcoil} onChange={e=>setNewItem(p=>({...p, halfcoil:e.target.checked}))}/>Half-Coil</label>
+
+            <button onClick={addItem} className="btn-primary" style={{marginTop:8, width:"100%"}}>+ 아이템 추가</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="card">
+          <div className="card-h">등재된 아이템 ({items.length}개)</div>
+          <div className="card-b">
+            {items.length === 0 ?
+              <div style={{padding:20, textAlign:"center", color:"#aaa", fontSize:11}}>
+                아직 등록된 아이템이 없습니다.<br/>왼쪽 폼 또는 Step 0의 견적서 PDF로 추가하세요.
+              </div>
+              :
+              items.map(it =>
+                <div key={it.id} className={"item-card" + (it.dwgUrl?" has-dwg":"")}>
+                  <div className="item-card-h">
+                    <strong className="item-tag">{it.tag}</strong>
+                    <div style={{display:"flex", gap:4}}>
+                      <input type="file" accept="image/*,.pdf" id={`dwg-${it.id}`} style={{display:"none"}} onChange={e=>e.target.files[0] && handleFile(e.target.files[0], "dwg", it.id)}/>
+                      <button onClick={()=>document.getElementById(`dwg-${it.id}`).click()} style={{fontSize:9, padding:"2px 6px", background:"#993c1d", color:"#fff", border:"none", borderRadius:3, cursor:"pointer"}}>📐 도면</button>
+                      <button onClick={()=>removeItem(it.id)} style={{fontSize:9, padding:"2px 6px", background:"var(--sjp-danger-bg)", color:"var(--sjp-danger)", border:"none", borderRadius:3, cursor:"pointer"}}>✕</button>
+                    </div>
+                  </div>
+                  <div style={{fontSize:11, marginTop:3}}>{it.name}</div>
+                  <div style={{fontSize:9, color:"var(--sjp-text-sub)", marginTop:2}}>
+                    {it.type} | {it.shell_mat || "—"} | Ø{it.shell_id || "—"} × L{it.shell_len || "—"}
+                  </div>
+                  <div style={{fontSize:9, color:"var(--sjp-text-sub)"}}>
+                    Top: <strong>{it.head_top_type}</strong> | Bot: <strong>{it.head_bot_type}</strong>
+                    {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
+                      <span style={{color:"var(--sjp-warning)", marginLeft:5, fontWeight:600}}>(CAP)</span>}
+                  </div>
+                  {it.dwgUrl ? <div style={{fontSize:9, color:"var(--sjp-success)", marginTop:2}}>✓ 도면 첨부 — Rev. 1 기여</div>
+                    : <div style={{fontSize:9, color:"var(--sjp-warning)", marginTop:2}}>⚠ 도면 미첨부 — Rev. 0</div>}
+                </div>
+              )
+            }
+          </div>
+        </div>
+
+        <div style={{display:"flex", gap:6}}>
+          <button onClick={()=>setStep(0)} className="btn-secondary" style={{flex:1}}>← 이전</button>
+          <button onClick={()=>setStep(2)} className="btn-primary" disabled={items.length===0} style={{flex:2}}>
+            다음 → ITP 생성 ({items.length}개)
+          </button>
+        </div>
+      </div>
+    </div>}
+
+    {/* Step 2 */}
+    {step === 2 && <div>
+      <div className="no-print" style={{display:"flex", gap:6, marginBottom:8, alignItems:"center"}}>
+        <button onClick={()=>setStep(1)} className="btn-secondary">← 수정하기</button>
+        <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>자동 저장</span>
+        <div style={{flex:1}}/>
+        <button onClick={handleExport} className="btn-secondary">💾 QC Gen으로 Export</button>
+      </div>
+
+      <div className="no-print" style={{marginBottom:8}}>
+        <div className="print-bar">
+          <span style={{fontSize:11, fontWeight:600}}>📄 ITP — {proj.name || "프로젝트명"} ({proj.no || "Project No"})</span>
+          <button onClick={()=>window.print()} className="btn-primary">🖨 인쇄</button>
+        </div>
+        <div style={{fontSize:10, color:"#666", padding:"4px 10px", marginTop:3, background:"#fffdf5", border:"0.5px dashed #ecd6a3", borderRadius:4}}>
+          <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 권장 옵션:</span>
+          &nbsp;Chrome/Edge → <strong>여백(Margins): "기본값" 또는 "없음"</strong> &nbsp;|&nbsp;
+          <strong>"머리글 및 바닥글" 해제</strong> &nbsp;|&nbsp;
+          <strong>"배경 그래픽" 체크</strong>
+        </div>
+      </div>
+
+      <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff"}}>
+        <ITPPreview proj={proj} items={items} specReqs={specReqs} revInfo={revInfo}
+          rows={itpRows} setRows={setItpRows} docNo={itpDocNo} setDocNo={setItpDocNo} rev={itpRev} setRev={setItpRev}
+          witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
+      </div>
+    </div>}
+
+    <div className="no-print" style={{textAlign:"center", marginTop:20, fontSize:9, color:"#aaa"}}>
+      ITP Builder v1.4 · modules/quality/itp-builder · Sejong-Platform
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+// (sejong-platform 플로팅 패널 제거됨 — SJ FLOW iframe 통합 구조로 전환)
+</script>
+</body>
+</html>
