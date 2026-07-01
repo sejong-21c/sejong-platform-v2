@@ -1098,7 +1098,7 @@ function showLogin() {
           <div class="login-logo">
             <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="height:38px;width:auto;display:none;">
             <span class="login-logo-dot"></span>
-            <span class="login-logo-txt">Sejong Technology WorkFlow</span>
+            <span class="login-logo-txt">Sejong Technology WorkFlow System</span>
           </div>
         </div>
         <div class="login-hero">
@@ -1136,7 +1136,6 @@ function showLogin() {
       _ll.src = _logo.getAttribute('src');
       _ll.style.display = '';
       const dot = ov.querySelector('.login-logo-dot'); if (dot) dot.style.display = 'none';
-      const txt = ov.querySelector('.login-logo-txt'); if (txt) txt.style.display = 'none';
     }
   } catch (e) {}
   setTimeout(()=>{ const el=document.getElementById('loginId'); if(el) el.focus(); }, 100);
