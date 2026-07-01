@@ -363,7 +363,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .login-wrap { position:absolute; inset:0; display:grid; grid-template-columns:1fr 480px; background:#fff; }
 .login-left { padding:48px 56px; display:flex; flex-direction:column; }
 .login-brand { flex-shrink:0; }
-.login-logo { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:800; color:#1a2b3c; }
+.login-logo { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:800; color:var(--primary); }
 .login-logo-dot { width:26px; height:18px; border-radius:9px; background:linear-gradient(90deg,#2563eb,#7dd3fc); display:inline-block; }
 .login-hero { flex:1; display:flex; flex-direction:column; justify-content:flex-start; padding-top:48px; }
 .login-hero h1 { font-size:38px; font-weight:800; color:#1a2b3c; line-height:1.25; letter-spacing:-.5px; }
@@ -1134,8 +1134,8 @@ function showLogin() {
           <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0;"></div>
           <button class="login-btn" onclick="doLogin()">로그인</button>
           <div class="login-quick">
-            <div style="font-size:12px;text-align:center;">계정이 없으신가요? <a href="#" onclick="showSignup();return false;" style="color:var(--primary);font-weight:600;">계정 만들기</a></div>
-            <div style="font-size:11px;color:var(--text-light);margin-top:8px;text-align:center;">🔑 초기 비밀번호는 <b style="color:var(--primary);">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
+            <div style="font-size:12px;text-align:center;color:rgba(255,255,255,.85);">계정이 없으신가요? <a href="#" onclick="showSignup();return false;" style="color:#fff;font-weight:700;text-decoration:underline;">계정 만들기</a></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:8px;text-align:center;">🔑 초기 비밀번호는 <b style="color:#fff;">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
           </div>
         </div>
       </div>
@@ -1191,8 +1191,8 @@ function showSignup() {
           <div id="suErr" style="display:none;color:#fee;font-size:12px;margin:6px 0;"></div>
           <button class="login-btn" onclick="doSignup()">계정 만들기</button>
           <div class="login-quick">
-            <div style="font-size:12px;text-align:center;">이미 계정이 있으신가요? <a href="#" onclick="showLogin();return false;" style="color:var(--primary);font-weight:600;">로그인</a></div>
-            <div style="font-size:11px;color:var(--text-light);margin-top:8px;text-align:center;">🔑 초기 비밀번호는 <b style="color:var(--primary);">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
+            <div style="font-size:12px;text-align:center;color:rgba(255,255,255,.85);">이미 계정이 있으신가요? <a href="#" onclick="showLogin();return false;" style="color:#fff;font-weight:700;text-decoration:underline;">로그인</a></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:8px;text-align:center;">🔑 초기 비밀번호는 <b style="color:#fff;">0000</b> 입니다. 첫 로그인 시 변경하게 됩니다.</div>
           </div>
         </div>
       </div>
