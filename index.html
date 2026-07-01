@@ -764,6 +764,33 @@ function resetData() {
     state = defaultState(); save(); render();
   }
 }
+// ══════════ Cowork 브리핑 자동 로더 ══════════
+// data/briefings.json (Cowork 아침 메일정리 루틴이 매일 덮어씀) → state.briefings 병합
+// 로그인 후 자동 호출. 파일 없거나 오프라인이면 조용히 무시(기존 데이터 유지).
+async function loadBriefings() {
+  try {
+    const res = await fetch('data/briefings.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || typeof data !== 'object') return;
+    state.briefings = state.briefings || {};
+    // '_'로 시작하는 메타 키(_readme/_schema/_users 등)는 무시
+    Object.keys(data).forEach(k => {
+      if (k.charAt(0) === '_') return;
+      state.briefings[k] = data[k];
+    });
+    save();
+    console.info('[SJ FLOW] Cowork 브리핑 로드 완료:', Object.keys(state.briefings).length, '명');
+    // 대시보드 보고 있으면 즉시 갱신
+    if (view.cur === 'dashboard' && state.currentUser) render();
+  } catch (e) {
+    console.warn('[SJ FLOW] Cowork 브리핑 로드 실패(무시):', e.message);
+  }
+}
+// Cowork 등 외부에서 수동 갱신 트리거 가능
+window.SJP = window.SJP || {};
+window.SJP.loadBriefings = loadBriefings;
+
 function getU(id) { return state.users.find(u => u.id === id) || {}; }
 function getP(id) { return state.projects.find(p => p.id === id) || {}; }
 function getWBS(pid) { return state.wbs[pid] || []; }
@@ -1113,6 +1140,7 @@ function finishLogin() {
   refreshUserChip();
   renderNav();
   render();
+  loadBriefings();  // Cowork 아침 브리핑 자동 로드
 }
 
 function showChangePw(forced) {
@@ -3480,6 +3508,7 @@ function init() {
   refreshUserChip();
   renderNav();
   render();
+  loadBriefings();  // Cowork 아침 브리핑 자동 로드
 }
 window.addEventListener('DOMContentLoaded', init);
 window.addEventListener('resize', () => {

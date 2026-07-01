@@ -1,0 +1,36 @@
+{
+  "_readme": "Cowork 아침 메일정리 루틴이 매일 이 파일을 덮어씁니다. 사용자 id(예: u1=김철우) 키 아래에 브리핑 객체를 넣으면 로그인 시 대시보드 상단에 자동 표시됩니다. '_'로 시작하는 키는 로더가 무시합니다.",
+  "_schema": {
+    "generatedAt": "문자열 — 예: '오늘 07:30' 또는 '2026-07-01 07:30'",
+    "newMails": "숫자 — 신규 메일 수",
+    "processed": "숫자 — Cowork가 자동 처리/분류한 메일 수",
+    "urgentReplies": "숫자 — 긴급 답변 대기 수",
+    "ncr": "숫자 — 신규 NCR 수",
+    "car": "숫자 — 신규 CAR 수",
+    "newProjects": "숫자 — 메일에서 자동 감지한 신규 프로젝트 수",
+    "manday": "숫자 — 오늘 내 공수(H)",
+    "keyActions": "배열 [{text, proj, priority:'high'|'mid'|'low'}] — 오늘 핵심 액션",
+    "urgentList": "배열 [{subject, from, proj}] — 긴급 답변 대기 메일",
+    "teamManday": "객체 {사용자id: 시간} — 부서장/임원만 표시(선택)"
+  },
+  "_users": { "u1": "김철우 부장", "u2": "김시원 대리", "u3": "신채완 과장", "u8": "곽노한 이사" },
+
+  "u1": {
+    "generatedAt": "2026-07-01 12:10 (테스트 실행)",
+    "newMails": 16,
+    "processed": 9,
+    "urgentReplies": 1,
+    "ncr": 0,
+    "car": 0,
+    "newProjects": 0,
+    "manday": 0,
+    "keyActions": [
+      { "text": "도메인 sejong21c.com 소유자 정보 인증 (14일 이내, 미인증 시 서비스 정지)", "proj": "IT/총무", "priority": "high" },
+      { "text": "GitHub 2FA 변경 알림 4건 — 본인 활동 여부 확인", "proj": "보안", "priority": "mid" },
+      { "text": "지원사업 공고 검토 — TIPA 중소기업 R&D 우수성과 50선 모집", "proj": "지원사업", "priority": "low" }
+    ],
+    "urgentList": [
+      { "subject": "[호스팅케이알] 14일 이내 도메인 소유자 정보 인증 필요 (sejong21c.com)", "from": "no-reply@hosting.kr", "proj": "IT/총무" }
+    ]
+  }
+}
