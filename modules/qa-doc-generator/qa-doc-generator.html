@@ -185,6 +185,12 @@ input:focus, select:focus, textarea:focus { outline: none; }
 @media print {
   /* v2.0 A안 풀-블리드: A4 한 페이지를 보고서가 꽉 채우도록 강제 */
   @page { size: A4 portrait; margin: 0 }
+  /* v2.1 [C-1] — print-color-adjust: 배경·핀·테두리 색상 인쇄에 보존 */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
   html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
   .no-print, .epc-topbar, .itp-link-info, .ic, .fc, .bc, .vc { display: none !important; }
 
@@ -249,6 +255,12 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .pf-img > div[style*="position:absolute"],
   .pf-img div[style*="color:red"],
   .pf-img div[style*="color:#aaa"] {
+    display: none !important;
+  }
+  /* v2.9 — 사진 영역의 모든 button(X 클릭 초기화·삭제·핀배치·핀초기화 등) 인쇄에서 강제 숨김
+     ※ pin label(div with borderRadius:50%)은 영향 없음. button 태그만 대상 */
+  .pf-img button,
+  .pf-img button[style*="position:absolute"] {
     display: none !important;
   }
   /* 이미지가 로딩된 경우만 표시 — img가 있으면 placeholder span은 자동 숨김 (조건부 렌더) */
@@ -451,6 +463,38 @@ const escKey = k => String(k).replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,80);
 const bdr = (x={}) => ({border:"0.5px solid #bbb",padding:"2px 5px",fontSize:11,lineHeight:1.25,...x});  // v1.5 — 헤더 높이 축소
 const hdr = (x={}) => bdr({background:"#e8f0f8",fontWeight:500,...x});
 
+// v3.0 [패치 1] — 엑셀식 표 입력 헬퍼 (Tab/Enter/방향키 이동 + 엑셀 붙여넣기)
+function makeGrid(onCellPaste){
+  const findInput=(container,row,col)=>container.querySelector(`input[data-r="${row}"][data-c="${col}"]`);
+  const moveTo=(el,dr,dc)=>{
+    const container=el.closest("[data-grid]");if(!container)return;
+    const r=parseInt(el.dataset.r),c=parseInt(el.dataset.c);
+    let nr=r+dr,nc=c+dc;
+    let target=findInput(container,nr,nc);
+    if(!target&&dc!==0){target=findInput(container,r+(dc>0?1:-1),0);}
+    if(target){target.focus();target.select&&target.select();}
+  };
+  const onKeyDown=(e)=>{
+    const el=e.target;if(!el.dataset||el.dataset.r===undefined)return;
+    if(e.key==="Enter"){e.preventDefault();moveTo(el,1,0);}
+    else if(e.key==="Tab"){e.preventDefault();moveTo(el,0,e.shiftKey?-1:1);}
+    else if(e.key==="ArrowDown"){e.preventDefault();moveTo(el,1,0);}
+    else if(e.key==="ArrowUp"){e.preventDefault();moveTo(el,-1,0);}
+    else if(e.key==="ArrowRight"&&el.selectionStart===el.value.length){e.preventDefault();moveTo(el,0,1);}
+    else if(e.key==="ArrowLeft"&&el.selectionStart===0){e.preventDefault();moveTo(el,0,-1);}
+  };
+  const onPaste=(e)=>{
+    const el=e.target;if(!el.dataset||el.dataset.r===undefined)return;
+    const text=(e.clipboardData||window.clipboardData).getData("text");
+    if(!text||(!text.includes("\t")&&!text.includes("\n"))){return;}
+    e.preventDefault();
+    const rows=text.replace(/\r/g,"").replace(/\n$/,"").split("\n").map(line=>line.split("\t"));
+    const startR=parseInt(el.dataset.r),startC=parseInt(el.dataset.c);
+    onCellPaste&&onCellPaste(startR,startC,rows);
+  };
+  return {gridProps:{"data-grid":"1",onKeyDown,onPaste},cellProps:(r,c)=>({"data-r":r,"data-c":c})};
+}
+
 /* ── NPS 표 (Pipe OD 조회) ── */
 const NPS_OD = {"15":21.7,"20":27.2,"25":34.0,"32":42.7,"40":48.6,"50":60.5,"65":76.3,"80":89.1,"90":101.6,"100":114.3,"125":139.8,"150":165.2,"200":216.3,"250":267.4,"300":318.5,"350":355.6,"400":406.4,"450":457.2,"500":508.0,"550":558.8,"600":609.6,"650":660.4,"700":711.2,"750":762.0,"800":812.8,"850":863.6,"900":914.4,"1000":1016.0};
 const NPS_B = {"1/2":"15","3/4":"20","1":"25","1.25":"32","1.5":"40","2":"50","2.5":"65","3":"80","3.5":"90","4":"100","5":"125","6":"150","8":"200","10":"250","12":"300","14":"350","16":"400","18":"450","20":"500","24":"600"};
@@ -551,9 +595,58 @@ const capTolB169 = (NPS, dim) => {
 };
 
 // ════════════ 5. localStorage ════════════
-const STORAGE_KEY = "sjp_qa_doc_generator_v1";
+// v3.0 — 다중 프로젝트 저장/불러오기 시스템
+const STORAGE_KEY = "sjp_qa_doc_generator_v1";      // (호환) 단일 프로젝트 자동복원용 last-work
+const PROJ_INDEX_KEY = "sjp_qa_gen_proj_idx";       // 저장된 프로젝트 인덱스
+const PROJ_DATA_PREFIX = "sjp_qa_gen_proj:";        // 개별 프로젝트 데이터
+
+// last-work 자동 복원 (기존 호환)
 const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} };
 const loadLS = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch(e) { return null; } };
+
+// 다중 프로젝트 인덱스
+const projIndexLoad = () => { try { return JSON.parse(localStorage.getItem(PROJ_INDEX_KEY) || "[]"); } catch(e){ return []; } };
+const projIndexSave = (idx) => { try { localStorage.setItem(PROJ_INDEX_KEY, JSON.stringify(idx)); return true; } catch(e){ return false; } };
+// 개별 프로젝트 데이터
+const projSaveOne = (id, payload) => {
+  try { localStorage.setItem(PROJ_DATA_PREFIX + id, JSON.stringify(payload)); return true; } catch(e){ console.error(e); return false; }
+};
+const projLoadOne = (id) => {
+  try { return JSON.parse(localStorage.getItem(PROJ_DATA_PREFIX + id) || "null"); } catch(e){ return null; }
+};
+const projDeleteOne = (id) => {
+  try {
+    localStorage.removeItem(PROJ_DATA_PREFIX + id);
+    const idx = projIndexLoad().filter(x => x.id !== id);
+    projIndexSave(idx);
+    return true;
+  } catch(e){ console.error(e); return false; }
+};
+// 저장 (신규 or 덮어쓰기)
+const projSave = (id, projName, payload) => {
+  const now = new Date().toISOString();
+  const idx = projIndexLoad();
+  const existing = idx.find(x => x.id === id);
+  const entry = {
+    id,
+    name: projName || (payload.proj && payload.proj.no) || "이름없음",
+    projNo: (payload.proj && payload.proj.no) || "",
+    itemCount: (payload.items || []).length,
+    updatedAt: now,
+    createdAt: existing ? existing.createdAt : now
+  };
+  if (existing) {
+    Object.assign(existing, entry);
+  } else {
+    idx.push(entry);
+  }
+  projIndexSave(idx);
+  return projSaveOne(id, payload);
+};
+const projGenId = (name) => {
+  const safe = (name || "proj").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
+  return `p_${safe}_${Date.now().toString(36)}`;
+};
 
 const imgKey = (kind, tag, suffix="") => `${kind}_${tag}${suffix?"_"+suffix:""}`;
 
@@ -676,6 +769,8 @@ function InspectorPanel({inspectors, value, onChange}){
 // ════════════ 8. BOM Preview (v25 헤드 패치) ════════════
 function IDZ({label,defaultImg,persistKey}){
   const[img,sI]=useState(()=>persistKey?(IMG_STORE.get(persistKey)||null):null);
+  // v2.1 [B-1] — persistKey가 바뀌면 해당 키의 이미지로 재동기화 (Shell↔Tube part 전환 대응)
+  useEffect(()=>{sI(persistKey?(IMG_STORE.get(persistKey)||null):null);},[persistKey]);
   const src=img||defaultImg||null;
   const handle=useCallback(v=>{sI(v);if(persistKey)IMG_STORE.set(persistKey,v);},[persistKey]);
   return <div className="pf-img" tabIndex={0} style={{flex:1,border:"1px dashed #bbb",borderRadius:4,minHeight:130,background:"#fafafa",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",overflow:"hidden",outline:"none"}} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handle(ev.target.result);r.readAsDataURL(f);}}} onClick={()=>{if(img)handle(null);}}>
@@ -814,6 +909,18 @@ function BOMPreview({doc}){
   const upR=(i,k,v)=>sR(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
   const delR=i=>sR(p=>p.filter((_,j)=>j!==i));
   useEffect(()=>{IMG_STORE.set(bomKey,rows);},[rows,bomKey]);
+  // v3.0 [패치 1-2] — BOM 표 엑셀식 입력 (6컬럼)
+  const BOM_COLS=["name","mat","sz","qty","heat","remark"];
+  const bomGrid=makeGrid((startR,startC,matrix)=>{
+    sR(prev=>{
+      const next=prev.map(r=>({...r}));
+      matrix.forEach((rowVals,ri)=>{
+        const tr=startR+ri; while(next.length<=tr)next.push({name:"",mat:"",sz:"",qty:"",heat:"",remark:""});
+        rowVals.forEach((val,ci)=>{const ck=BOM_COLS[startC+ci];if(ck)next[tr][ck]=val.trim();});
+      });
+      return next;
+    });
+  });
   const hc=hdr(),tc=bdr();
   const cellInput={width:"100%",border:"none",background:"transparent",fontSize:11,padding:"2px 3px",boxSizing:"border-box"};
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
@@ -828,17 +935,17 @@ function BOMPreview({doc}){
         <tr><td style={{...hc,whiteSpace:"nowrap"}}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
       </tbody>
     </table>
-    <table style={{width:"100%",borderCollapse:"collapse"}}>
+    <table {...bomGrid.gridProps} style={{width:"100%",borderCollapse:"collapse"}}>
       <colgroup><col style={{width:"6%"}}/><col style={{width:"19%"}}/><col style={{width:"18%"}}/><col style={{width:"28%"}}/><col style={{width:"7%"}}/><col style={{width:"12%"}}/><col style={{width:"10%"}}/></colgroup>
       <thead><tr>{["PART NO.","Description","Material","Size / Specification","Q'TY","HEAT NO.","REMARK"].map((h,i)=> <th key={i} style={{...hc,textAlign:"center"}}>{h}</th>)}</tr></thead>
       <tbody>{rows.map((r,i)=> <tr key={i}>
         <td style={{...tc,textAlign:"center",position:"relative"}}>{i+1}<button className="bc" onClick={()=>delR(i)} style={{position:"absolute",left:2,top:2,fontSize:9,border:"none",background:"#fff0f0",color:"#c00",cursor:"pointer",padding:"0 3px",borderRadius:2}}>✕</button></td>
-        <td style={tc}><input value={r.name} onChange={e=>upR(i,"name",e.target.value)} style={cellInput}/></td>
-        <td style={tc}><input value={r.mat} onChange={e=>upR(i,"mat",e.target.value)} style={cellInput}/></td>
-        <td style={tc}><input value={r.sz} onChange={e=>upR(i,"sz",e.target.value)} style={cellInput}/></td>
-        <td style={tc}><input value={r.qty} onChange={e=>upR(i,"qty",e.target.value)} style={{...cellInput,textAlign:"center"}}/></td>
-        <td style={tc}><input value={r.heat} onChange={e=>upR(i,"heat",e.target.value)} placeholder="Heat No." style={cellInput}/></td>
-        <td style={tc}><input value={r.remark} onChange={e=>upR(i,"remark",e.target.value)} style={cellInput}/></td>
+        <td style={tc}><input {...bomGrid.cellProps(i,0)} value={r.name} onChange={e=>upR(i,"name",e.target.value)} style={cellInput}/></td>
+        <td style={tc}><input {...bomGrid.cellProps(i,1)} value={r.mat} onChange={e=>upR(i,"mat",e.target.value)} style={cellInput}/></td>
+        <td style={tc}><input {...bomGrid.cellProps(i,2)} value={r.sz} onChange={e=>upR(i,"sz",e.target.value)} style={cellInput}/></td>
+        <td style={tc}><input {...bomGrid.cellProps(i,3)} value={r.qty} onChange={e=>upR(i,"qty",e.target.value)} style={{...cellInput,textAlign:"center"}}/></td>
+        <td style={tc}><input {...bomGrid.cellProps(i,4)} value={r.heat} onChange={e=>upR(i,"heat",e.target.value)} placeholder="Heat No." style={cellInput}/></td>
+        <td style={tc}><input {...bomGrid.cellProps(i,5)} value={r.remark} onChange={e=>upR(i,"remark",e.target.value)} style={cellInput}/></td>
       </tr>)}</tbody>
     </table>
     <div className="bc" style={{marginTop:6,padding:"8px 10px",background:"#f0f8f4",border:"1px dashed #1d9e75",borderRadius:5}}>
@@ -974,6 +1081,36 @@ function BendingPreview({doc}){
   useEffect(()=>{IMG_STORE.set(avKey,actVals);},[actVals,avKey]);
   const updAV=(si,key,idx,v)=>sAV(p=>({...p,[si]:{...p[si],[key]:p[si][key].map((x,j)=>j===idx?v:x)}}));
   const ci={width:"100%",border:"none",background:"transparent",fontSize:9,padding:"1px 2px",boxSizing:"border-box",textAlign:"center"};
+  // v3.0 [패치 1-5] — Bending grid: r=rowType(0=id,1=circ,2=length,3~6=t1~t4,7=f,8=θ1,9=θ2,10=rootGap), c=(section×ptsLen+ptIdx)
+  const BEND_RKEYS_MAIN=["id","circ","length"]; // pts.length cols each
+  const BEND_RKEYS_THK=["t1","t2","t3","t4","f","θ1","θ2","rootGap"]; // thkPoints.length cols each
+  const bendGrid=makeGrid((startR,startC,matrix)=>{
+    sAV(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      matrix.forEach((rowVals,ri)=>{
+        const rowIdx=startR+ri;
+        rowVals.forEach((val,ci2)=>{
+          const colIdx=startC+ci2;
+          let key,ptsLen,rowLimit=BEND_RKEYS_MAIN.length+BEND_RKEYS_THK.length;
+          if(rowIdx<0||rowIdx>=rowLimit)return;
+          if(rowIdx<BEND_RKEYS_MAIN.length){
+            key=BEND_RKEYS_MAIN[rowIdx];
+            ptsLen=sections[0].pts.length;
+          }else{
+            key=BEND_RKEYS_THK[rowIdx-BEND_RKEYS_MAIN.length];
+            ptsLen=thkPoints.length;
+          }
+          const si=Math.floor(colIdx/ptsLen);
+          const pi=colIdx%ptsLen;
+          if(si<0||si>=sections.length)return;
+          if(next[si]&&next[si][key]&&pi<next[si][key].length){
+            next[si][key][pi]=val.trim();
+          }
+        });
+      });
+      return next;
+    });
+  });
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
     <style>{`@media print{@page{size:A4 portrait;margin:8mm}.fc{display:none!important}.bc{display:none!important} html,body{font-size:10px} table{page-break-inside:avoid}}`}</style>
     <div style={{textAlign:"center",fontSize:14,fontWeight:700,marginBottom:4}}>BENDING INSPECTION REPORT</div>
@@ -1046,7 +1183,7 @@ function BendingPreview({doc}){
       // Root Gap MAX 값 (Joint SL에서)
       const rootGapMax=slJoint?.root_gap_max||0;
       const rootGapTolStr=rootGapMax>0?`MAX. ${rootGapMax}`:"—";
-      return <table style={{width:"100%",borderCollapse:"collapse",fontSize:FS}}>
+      return <table {...bendGrid.gridProps} style={{width:"100%",borderCollapse:"collapse",fontSize:FS}}>
         <thead>
           <tr style={{background:"#e8f0f8"}}>
             <th style={{...hc,width:"7%",fontSize:FS}} rowSpan={2}>Description</th>
@@ -1066,7 +1203,7 @@ function BendingPreview({doc}){
             <td style={cell} rowSpan={2}>{idVal||"—"}</td>
             <td style={tolCell}>MAX-MIN</td>
             <td style={cell} rowSpan={2}>I.D</td>
-            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}-${i}`} style={{...cell,minWidth:42}} rowSpan={2}><input value={actVals[si]?.id?.[i]||""} onChange={e=>updAV(si,"id",i,e.target.value)} placeholder={pt} style={ciU}/></td>))}
+            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}-${i}`} style={{...cell,minWidth:42}} rowSpan={2}><input {...bendGrid.cellProps(0,si*s.pts.length+i)} value={actVals[si]?.id?.[i]||""} onChange={e=>updAV(si,"id",i,e.target.value)} placeholder={pt} style={ciU}/></td>))}
           </tr>
           <tr><td style={tolCell}>E ≤ 1%</td></tr>
           {/* Circumference */}
@@ -1075,7 +1212,7 @@ function BendingPreview({doc}){
             <td style={cell}>{idVal?Math.round(idVal*Math.PI):"—"}</td>
             <td style={tolCell}>{tolCirc(idVal)}</td>
             <td style={cell}>a (π×O.D)</td>
-            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}c${i}`} style={cell}><input value={actVals[si]?.circ?.[i]||""} onChange={e=>updAV(si,"circ",i,e.target.value)} style={ciU}/></td>))}
+            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}c${i}`} style={cell}><input {...bendGrid.cellProps(1,si*s.pts.length+i)} value={actVals[si]?.circ?.[i]||""} onChange={e=>updAV(si,"circ",i,e.target.value)} style={ciU}/></td>))}
           </tr>
           {/* Length */}
           <tr>
@@ -1083,7 +1220,7 @@ function BendingPreview({doc}){
             <td style={cell}>{it.shell_len||"—"}</td>
             <td style={tolCell}>{tolLen(it.shell_len)}</td>
             <td style={cell}>L</td>
-            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}l${i}`} style={cell}><input value={actVals[si]?.length?.[i]||""} onChange={e=>updAV(si,"length",i,e.target.value)} style={ciU}/></td>))}
+            {sections.map((s,si)=> s.pts.map((pt,i)=> <td key={`${si}l${i}`} style={cell}><input {...bendGrid.cellProps(2,si*s.pts.length+i)} value={actVals[si]?.length?.[i]||""} onChange={e=>updAV(si,"length",i,e.target.value)} style={ciU}/></td>))}
           </tr>
           {/* Thickness — Header + 4 t rows */}
           <tr style={{background:"#fafafa"}}>
@@ -1093,9 +1230,9 @@ function BendingPreview({doc}){
             <td style={cell}>Point</td>
             {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}p${i}`} style={{...cell,background:"#f0f0f0",fontWeight:500}} colSpan={s.pts.length/thkPoints.length}>{pt}</td>))}
           </tr>
-          {["t1","t2","t3","t4"].map(tk=> <tr key={tk}>
+          {["t1","t2","t3","t4"].map((tk,tki)=> <tr key={tk}>
             <td style={cell}>{tk}</td>
-            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}${tk}${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.[tk]?.[i]||""} onChange={e=>updAV(si,tk,i,e.target.value)} style={ciU}/></td>))}
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}${tk}${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input {...bendGrid.cellProps(3+tki,si*thkPoints.length+i)} value={actVals[si]?.[tk]?.[i]||""} onChange={e=>updAV(si,tk,i,e.target.value)} style={ciU}/></td>))}
           </tr>)}
           {/* Bevel Angle — F + θ1 + θ2 + Root Gap */}
           <tr>
@@ -1103,25 +1240,25 @@ function BendingPreview({doc}){
             <td style={cell}>F = <input value={fDesign} onChange={e=>sFD(e.target.value)} style={{...inlineInput,width:24}}/></td>
             <td style={tolCell}><input value={fTol} onChange={e=>sFT(e.target.value)} style={{...inlineInput,width:50}}/></td>
             <td style={cell}>F</td>
-            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}f${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.f?.[i]||""} onChange={e=>updAV(si,"f",i,e.target.value)} style={ciU}/></td>))}
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}f${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input {...bendGrid.cellProps(7,si*thkPoints.length+i)} value={actVals[si]?.f?.[i]||""} onChange={e=>updAV(si,"f",i,e.target.value)} style={ciU}/></td>))}
           </tr>
           <tr>
             <td style={cell}>θ₁ = {θ1Design}°</td>
             <td style={tolCell}>{θ1Tol}</td>
             <td style={cell}>θ₁</td>
-            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}θ1${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.θ1?.[i]||""} onChange={e=>updAV(si,"θ1",i,e.target.value)} style={ciU}/></td>))}
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}θ1${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input {...bendGrid.cellProps(8,si*thkPoints.length+i)} value={actVals[si]?.θ1?.[i]||""} onChange={e=>updAV(si,"θ1",i,e.target.value)} style={ciU}/></td>))}
           </tr>
           <tr>
             <td style={cell}>θ₂ = <input value={θ2Design} onChange={e=>sθ2D(e.target.value)} style={{...inlineInput,width:36}}/></td>
             <td style={tolCell}><input value={θ2Tol} onChange={e=>sθ2T(e.target.value)} style={{...inlineInput,width:50}}/></td>
             <td style={cell}>θ₂</td>
-            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}θ2${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.θ2?.[i]||""} onChange={e=>updAV(si,"θ2",i,e.target.value)} style={ciU}/></td>))}
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}θ2${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input {...bendGrid.cellProps(9,si*thkPoints.length+i)} value={actVals[si]?.θ2?.[i]||""} onChange={e=>updAV(si,"θ2",i,e.target.value)} style={ciU}/></td>))}
           </tr>
           <tr>
             <td style={cell}>Root Gap</td>
             <td style={tolCell}>{rootGapTolStr}{rootGapMax>0&&<span style={{fontSize:FS-1,color:"#1d9e75",display:"block"}}>✓ Joint 자동</span>}</td>
             <td style={cell}>Root Gap</td>
-            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}rg${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input value={actVals[si]?.rootGap?.[i]||""} onChange={e=>updAV(si,"rootGap",i,e.target.value)} style={ciU}/></td>))}
+            {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}rg${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input {...bendGrid.cellProps(10,si*thkPoints.length+i)} value={actVals[si]?.rootGap?.[i]||""} onChange={e=>updAV(si,"rootGap",i,e.target.value)} style={ciU}/></td>))}
           </tr>
           {/* Used Equipment */}
           <tr>
@@ -1190,6 +1327,17 @@ function FitupPreview({doc}){
   const hc=hdr(),tc=bdr();const TH9={...hdr(),fontSize:9,textAlign:"center"};
   const moveJ=(i,dir)=>{const ni=i+dir;if(ni<0||ni>=joints.length)return;const j2=[...joints];[j2[i],j2[ni]]=[j2[ni],j2[i]];sJ(j2);};
   const upJ=(i,k,v)=>sJ(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
+  // v3.0 [패치 1-3] — Fit-up Root Gap 컬럼 엑셀식 입력 (단일 컬럼)
+  const fitGrid=makeGrid((startR,startC,matrix)=>{
+    sJ(prev=>{
+      const next=prev.map(r=>({...r}));
+      matrix.forEach((rowVals,ri)=>{
+        const tr=startR+ri;
+        if(tr<next.length && rowVals[0]!==undefined) next[tr]={...next[tr],rootGap:rowVals[0].trim()};
+      });
+      return next;
+    });
+  });
   const HC1={...hc,whiteSpace:"nowrap"};
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
     <style>{`@media print{.fc{display:none!important}col.fc{width:0!important}@page{size:A4 portrait;margin:10mm}}`}</style>
@@ -1204,7 +1352,7 @@ function FitupPreview({doc}){
         <tr><td style={HC1}>Appl. Code</td><td style={tc} colSpan={3}>{it.appl_code||"—"}</td></tr>
       </tbody>
     </table>
-    <table className={joints.length>=20?"fitup-joint-many":"fitup-joint-table"} style={{width:"100%",borderCollapse:"collapse",fontSize:10,tableLayout:"fixed"}}>
+    <table {...fitGrid.gridProps} className={joints.length>=20?"fitup-joint-many":"fitup-joint-table"} style={{width:"100%",borderCollapse:"collapse",fontSize:10,tableLayout:"fixed"}}>
       <colgroup><col className="fc" style={{width:"4%"}}/><col style={{width:"9%"}}/><col style={{width:"20%"}}/><col style={{width:"9%"}}/><col style={{width:"8%"}}/><col style={{width:"12%"}}/><col style={{width:"13%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col className="fc" style={{width:"4%"}}/></colgroup>
       <thead><tr><th className="fc" style={TH9}>순서</th><th style={TH9}>Joint No.</th><th style={TH9}>Description</th><th style={TH9}>Weld Type</th><th style={TH9}>Root Gap</th><th style={TH9}>WPS</th><th style={TH9}>Welder</th><th style={TH9}>Date</th><th style={TH9}>Result</th><th className="fc" style={TH9}></th></tr></thead>
       <tbody>{joints.map((j,i)=> <tr key={j.id}>
@@ -1223,7 +1371,7 @@ function FitupPreview({doc}){
           </select>
         </td>
         <td style={{...tc,padding:0,textAlign:"center"}}>
-          <input value={j.rootGap||""} onChange={e=>upJ(i,"rootGap",e.target.value)} placeholder="mm" style={{width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center",padding:"3px"}}/>
+          <input {...fitGrid.cellProps(i,0)} value={j.rootGap||""} onChange={e=>upJ(i,"rootGap",e.target.value)} placeholder="mm" style={{width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center",padding:"3px"}}/>
         </td>
         <td style={{...tc,padding:0}}>
           <select value={j.wps||""} onChange={e=>upJ(i,"wps",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,padding:"3px"}}>
@@ -1263,30 +1411,32 @@ function FitupPreview({doc}){
   </div>;
 }
 /* ── DIM Description 라이브러리 ── */
+// v3.0 [패치 2] — MountFlangeTable: Check Item 편집화 + 행 추가/삭제 + 안내행 fc 클래스
 function MountFlangeTable({rows:initialRows,supportType,onChange,hc,tc}){
   const[rows,setRows]=useState(initialRows);
-  const upd=(i,k,v)=>{
-    const nr=rows.map((r,j)=>j===i?{...r,[k]:v}:r);
-    setRows(nr);onChange&&onChange(nr);
-  };
+  const upd=(i,k,v)=>{const nr=rows.map((r,j)=>j===i?{...r,[k]:v}:r);setRows(nr);onChange&&onChange(nr);};
+  const addRow=()=>{const nr=[...rows,{item:"",design:"",tol:"",actual:"",result:""}];setRows(nr);onChange&&onChange(nr);};
+  const delRow=(i)=>{const nr=rows.filter((_,j)=>j!==i);setRows(nr);onChange&&onChange(nr);};
   const cellC={...tc,textAlign:"center",fontSize:10,verticalAlign:"middle"};
   const ci={width:"100%",border:"none",background:"transparent",fontSize:10,padding:"1px 3px",boxSizing:"border-box",textAlign:"center"};
   return <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,marginBottom:6}}>
-    <thead><tr>{["Check Item","Design","Tolerance","Actual","Result"].map((h,k)=> <th key={h} style={{...hc,background:"#f0eeff",width:k===0?"38%":k===4?"14%":"16%"}}>{h}</th>)}</tr></thead>
+    <thead><tr>{["Check Item","Design","Tolerance","Actual","Result"].map((h,k)=> <th key={h} style={{...hc,background:"#f0eeff",width:k===0?"38%":k===4?"14%":"16%"}}>{h}</th>)}<th className="fc" style={{...hc,background:"#f0eeff",width:"4%"}}>+</th></tr></thead>
     <tbody>{rows.map((r,i)=> <tr key={i}>
-      <td style={cellC}>{r.item}</td>
+      <td style={cellC}><input value={r.item} onChange={e=>upd(i,"item",e.target.value)} placeholder="Check Item 입력" style={{...ci,textAlign:"left"}}/></td>
       <td style={cellC}><input value={r.design} onChange={e=>upd(i,"design",e.target.value)} placeholder="—" style={ci}/></td>
       <td style={cellC}><input value={r.tol} onChange={e=>upd(i,"tol",e.target.value)} style={{...ci,fontWeight:500,color:"#1a6fa8"}}/></td>
       <td style={cellC}><input value={r.actual} onChange={e=>upd(i,"actual",e.target.value)} style={ci}/></td>
       <td style={{...cellC,padding:0}}>
         <select value={r.result} onChange={e=>upd(i,"result",e.target.value)} style={{width:"100%",border:"none",fontSize:10,padding:"3px",cursor:"pointer",fontWeight:500,background:r.result==="Accept"?"#e6f7f0":r.result==="Reject"?"#fee":"transparent",color:r.result==="Accept"?"#1d9e75":r.result==="Reject"?"#c33":"inherit",textAlign:"center",textAlignLast:"center"}}>
-          <option value="">—</option>
-          <option value="Accept">✓ Accept</option>
-          <option value="Reject">✗ Reject</option>
+          <option value="">—</option><option value="Accept">✓ Accept</option><option value="Reject">✗ Reject</option>
         </select>
       </td>
+      <td className="fc" style={{...cellC,padding:0}}><button onClick={()=>delRow(i)} style={{fontSize:10,padding:"0 5px",background:"#fff0f0",color:"#c00",border:"none",borderRadius:2,cursor:"pointer"}}>−</button></td>
     </tr>)}</tbody>
-    {supportType&&<tfoot><tr><td colSpan={5} style={{fontSize:9,padding:"3px 6px",background:"#f8fafc",color:"#1d9e75",borderTop:"0.5px solid #ddd"}}>✓ BOM에서 "{supportType.toUpperCase()}" 자동 감지 → 해당 측정 항목 추가됨. 공차값은 직접 수정 가능 (고객사별 사양 반영).</td></tr></tfoot>}
+    <tfoot>
+      <tr className="fc"><td colSpan={6} style={{padding:"4px 6px",background:"#f8fafc",borderTop:"0.5px solid #ddd",textAlign:"left"}}><button onClick={addRow} style={{fontSize:10,padding:"2px 10px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>+ Check Item 추가</button></td></tr>
+      {supportType&&<tr className="fc"><td colSpan={6} style={{fontSize:9,padding:"3px 6px",background:"#f8fafc",color:"#1d9e75",borderTop:"0.5px solid #ddd"}}>✓ BOM에서 "{supportType.toUpperCase()}" 자동 감지 → 해당 측정 항목 추가됨. 항목명·공차값 직접 수정 가능 (고객사별 사양 반영).</td></tr>}
+    </tfoot>
   </table>;
 }
 function DIMPreview({doc}){
@@ -1323,30 +1473,39 @@ function DIMPreview({doc}){
   const tolBtm=headTolerance(dimHtBtm,dimD);
   const initRows=()=>{
     const saved=IMG_STORE.get(dimRowsKey);
-    if(saved&&Array.isArray(saved)&&saved.length>0)return saved;
+    if(saved&&Array.isArray(saved)&&saved.length>0){
+      // v2.1 [A-1] — 구버전 마이그레이션: desc==="custom"이면 descCustom 값을 desc로 이동
+      return saved.map(r=>{
+        if(r.desc==="custom") return {...r,desc:r.descCustom||"",descCustom:undefined};
+        return r;
+      });
+    }
     const def=isC?[
-      {desc:"Shell ID",dwg:it.shell_id||"",tol:"±5"},
-      {desc:"Channel ID",dwg:it.shell_id||"",tol:"±5"},
-      {desc:"Tube Sheet OD",dwg:"",tol:"±2"},
-      {desc:"Girth Flange",dwg:"",tol:"±2"},
-      {desc:"Shell Length",dwg:it.shell_len||"",tol:"±10"},
-      // CAP인 경우 Head Height/Crown 검사 불필요
-      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:tolTop.height!=="메이커 사양"?String(tolTop.height).replace(/[±\s]/g,"").split("±")[0]:"",tol:`${tolTop.height} mm`,remark:tolTop.note}]),
-      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:tolBtm.height!=="메이커 사양"?String(tolBtm.height).replace(/[±\s]/g,"").split("±")[0]:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note}])
+      // v2.1 [A-2] — 일반 치수 행: tol 제거 → tolFn(D.W.G) 동적 계산
+      {desc:"Shell ID",dwg:it.shell_id||""},
+      {desc:"Channel ID",dwg:it.shell_id||""},
+      {desc:"Tube Sheet OD",dwg:""},
+      {desc:"Girth Flange",dwg:""},
+      {desc:"Shell Length",dwg:it.shell_len||""},
+      // CAP인 경우 Head Height/Crown 검사 불필요. Head Height만 fixedTol(customTol) 유지
+      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:tolTop.height!=="메이커 사양"?String(tolTop.height).replace(/[±\s]/g,"").split("±")[0]:"",tol:`${tolTop.height} mm`,remark:tolTop.note,fixedTol:true}]),
+      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:tolBtm.height!=="메이커 사양"?String(tolBtm.height).replace(/[±\s]/g,"").split("±")[0]:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note,fixedTol:true}])
     ]:isST?[
-      {desc:"Shell ID (Top)",dwg:it.shell_id||"",tol:"±5"},
-      {desc:"Shell ID (Mid)",dwg:it.shell_id||"",tol:"±5"},
-      {desc:"Shell ID (Btm)",dwg:it.shell_id||"",tol:"±5"},
-      {desc:"Shell Length",dwg:it.shell_len||"",tol:"±10"},
-      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:"",tol:`${tolTop.height} mm`,remark:tolTop.note}]),
-      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note}])
+      // v2.1 [A-2] — Storage Tank 일반 치수 동적
+      {desc:"Shell ID (Top)",dwg:it.shell_id||""},
+      {desc:"Shell ID (Mid)",dwg:it.shell_id||""},
+      {desc:"Shell ID (Btm)",dwg:it.shell_id||""},
+      {desc:"Shell Length",dwg:it.shell_len||""},
+      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:"",tol:`${tolTop.height} mm`,remark:tolTop.note,fixedTol:true}]),
+      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note,fixedTol:true}])
     ]:[
-      {desc:"Shell ID",dwg:it.shell_id||"",tol:"±5"},
-      {desc:"Shell Length",dwg:it.shell_len||"",tol:"±10"},
-      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:"",tol:`${tolTop.height} mm`,remark:tolTop.note}]),
-      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note}])
+      // v2.1 [A-2] — Pressure Vessel 일반 치수 동적
+      {desc:"Shell ID",dwg:it.shell_id||""},
+      {desc:"Shell Length",dwg:it.shell_len||""},
+      ...(dimHtTop==="CAP"?[]:[{desc:`TOP Head Height (${dimHtTop})`,dwg:"",tol:`${tolTop.height} mm`,remark:tolTop.note,fixedTol:true}]),
+      ...(dimHtBtm==="CAP"?[]:[{desc:`BTM Head Height (${dimHtBtm})`,dwg:"",tol:`${tolBtm.height} mm`,remark:tolBtm.note,fixedTol:true}])
     ];
-    return def.map((d,i)=>({p:LBL[i],desc:d.desc,dwg:d.dwg||"",actual:"",remark:d.remark||"",customTol:d.tol||""}));
+    return def.map((d,i)=>({p:LBL[i],desc:d.desc,dwg:d.dwg||"",actual:"",remark:d.remark||"",customTol:d.fixedTol?(d.tol||""):"",fixedTol:!!d.fixedTol}));
   };
   const[rows,sRows]=useState(initRows);
   // 핀 개수 변경 시 Check Point 자동 동기화
@@ -1360,6 +1519,22 @@ function DIMPreview({doc}){
   const upR=(i,k,v)=>sRows(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
   const addRow=()=>sRows(p=>[...p,{p:LBL[p.length]||`P${p.length+1}`,desc:"",dwg:"",actual:"",remark:""}]);
   const delRow=i=>sRows(p=>p.filter((_,j)=>j!==i).map((r,j)=>({...r,p:LBL[j]||`P${j+1}`})));
+  // v3.0 [패치 1-4] — DIM 4-row transposed grid (r=rowType, c=checkpoint idx)
+  const DIM_RKEYS=["desc","dwg","actual","remark"];
+  const makeDimGrid=(startIdx)=>makeGrid((startR,startC,matrix)=>{
+    sRows(prev=>{
+      const next=prev.map(r=>({...r}));
+      matrix.forEach((rowVals,ri)=>{
+        const rk=DIM_RKEYS[startR+ri]; if(!rk)return;
+        rowVals.forEach((val,ci)=>{
+          const tr=startIdx+startC+ci;
+          while(next.length<=tr) next.push({p:LBL[next.length]||`P${next.length+1}`,desc:"",dwg:"",actual:"",remark:""});
+          next[tr]={...next[tr],[rk]:val.trim()};
+        });
+      });
+      return next;
+    });
+  });
   // v2.0 — 11열 단위 chunk + overflow 시 마지막 chunk를 placeholder로 padding
   // 1~10개 체크포인트: 1 chunk만 (빈 두 번째 줄 없음 — 사용자 확정)
   // 11+ 체크포인트: 2 chunk 이상, 마지막 chunk가 partial이면 첫 줄과 동일 너비로 padding
@@ -1378,18 +1553,70 @@ function DIMPreview({doc}){
   // 영속화 자동 동기화
   useEffect(()=>{IMG_STORE.set(dimSetKey,{tolStd,mEq});},[tolStd,mEq,dimSetKey]);
   useEffect(()=>{IMG_STORE.set(dimRowsKey,rows);},[rows,dimRowsKey]);
+  // v2.1 [A-1·A-3·A-4] renderTable 전면 재구성
+  // - Description: select 폐기 → 자유 텍스트 input (마이그레이션 포함)
+  // - "+" 헤더 th / colgroup의 + col / 우측 빈 td 모두 className="fc" (인쇄 숨김)
+  // - tableLayout:"fixed" + <colgroup>으로 데이터 열 너비 강제 균등 (86%/COLS_PER_ROW)
+  // - 모든 셀·input 중앙 정렬 (cellCenter / inpCenter)
   const renderTable=(chunk,startIdx)=>{
     const colCount=chunk.length;
-    return <table key={startIdx} style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+    const dataColW=`${(86/COLS_PER_ROW).toFixed(3)}%`;
+    const cellCenter={...tc,padding:"2px",textAlign:"center",verticalAlign:"middle"};
+    const inpCenter={width:"100%",border:"none",background:"transparent",textAlign:"center",boxSizing:"border-box"};
+    const dimGrid=makeDimGrid(startIdx);
+    return <table key={startIdx} {...dimGrid.gridProps} style={{width:"100%",borderCollapse:"collapse",marginBottom:6,tableLayout:"fixed"}}>
+      <colgroup>
+        <col style={{width:"14%"}}/>
+        {chunk.map((r,i)=> <col key={i} style={{width:dataColW}}/>)}
+        <col className="fc" style={{width:"4%"}}/>
+      </colgroup>
       <thead>
-        <tr><th style={{...hc,width:"14%"}}>Check Point</th>{chunk.map((r,i)=> <th key={i} style={{...hc,textAlign:"center"}}>{r.p}</th>)}<th className="fc" style={hc}>+</th></tr>
-        <tr><td style={{...hc,fontSize:9}}>Description</td>{chunk.map((r,i)=> <td key={i} style={{...tc,fontSize:9,padding:"2px"}}><select value={r.desc} onChange={e=>upR(startIdx+i,"desc",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:9,textAlign:"center"}}><option value="">— 선택 —</option>{DIM_LIB.map(d=> <option key={d}>{d}</option>)}<option value="custom">[ 직접입력 ]</option></select>{r.desc==="custom"&&<input value={r.descCustom||""} onChange={e=>upR(startIdx+i,"descCustom",e.target.value)} placeholder="custom" style={{width:"100%",border:"none",fontSize:9,marginTop:1}}/>}</td>)}<td className="fc" style={{...tc,padding:"2px",textAlign:"center"}}><button onClick={addRow} style={{fontSize:10,padding:"0 5px",background:SJB,color:"#fff",border:"none",borderRadius:2,cursor:"pointer"}}>+</button></td></tr>
+        <tr>
+          <th style={{...hc,textAlign:"center"}}>Check Point</th>
+          {chunk.map((r,i)=> <th key={i} style={{...hc,textAlign:"center"}}>{r.p}</th>)}
+          <th className="fc" style={{...hc,textAlign:"center"}}>+</th>
+        </tr>
+        <tr>
+          <td style={{...hc,fontSize:9,textAlign:"center"}}>Description</td>
+          {chunk.map((r,i)=> <td key={i} style={{...cellCenter,fontSize:9}}>
+            <input {...dimGrid.cellProps(0,i)} value={r.desc||""} onChange={e=>upR(startIdx+i,"desc",e.target.value)} placeholder="명칭 입력" style={{...inpCenter,fontSize:9}}/>
+          </td>)}
+          <td className="fc" style={{...cellCenter}}>
+            <button onClick={addRow} style={{fontSize:10,padding:"0 5px",background:SJB,color:"#fff",border:"none",borderRadius:2,cursor:"pointer"}}>+</button>
+          </td>
+        </tr>
       </thead>
       <tbody>
-        <tr><td style={hc}>D.W.G</td>{chunk.map((r,i)=> <td key={i} style={{...tc,padding:"2px"}}><input value={r.dwg} onChange={e=>upR(startIdx+i,"dwg",e.target.value)} placeholder="mm" style={{width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"}}/></td>)}<td className="fc" style={tc}></td></tr>
-        <tr><td style={hc}>Actual</td>{chunk.map((r,i)=> <td key={i} style={{...tc,padding:"2px"}}><input value={r.actual} onChange={e=>upR(startIdx+i,"actual",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"}}/></td>)}<td className="fc" style={tc}></td></tr>
-        <tr><td style={hc}>Tolerance</td>{chunk.map((r,i)=> <td key={i} style={{...tc,fontSize:9,color:r.customTol?"#1a6fa8":"#888",textAlign:"center",fontWeight:r.customTol?500:"normal"}}>{r.customTol||tolFn(r.dwg)||"—"}</td>)}<td className="fc" style={tc}></td></tr>
-        <tr><td style={hc}>Remark</td>{chunk.map((r,i)=> <td key={i} style={{...tc,padding:"2px"}}><input value={r.remark} onChange={e=>upR(startIdx+i,"remark",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:9}}/></td>)}<td className="fc" style={{...tc,textAlign:"center"}}><button onClick={()=>chunk.length>0&&delRow(startIdx+chunk.length-1)} style={{fontSize:10,padding:"0 5px",background:"#fff0f0",color:"#c00",border:"none",borderRadius:2,cursor:"pointer"}}>−</button></td></tr>
+        <tr>
+          <td style={{...hc,textAlign:"center"}}>D.W.G</td>
+          {chunk.map((r,i)=> <td key={i} style={cellCenter}>
+            <input {...dimGrid.cellProps(1,i)} value={r.dwg} onChange={e=>upR(startIdx+i,"dwg",e.target.value)} placeholder="mm" style={{...inpCenter,fontSize:10}}/>
+          </td>)}
+          <td className="fc" style={tc}></td>
+        </tr>
+        <tr>
+          <td style={{...hc,textAlign:"center"}}>Actual</td>
+          {chunk.map((r,i)=> <td key={i} style={cellCenter}>
+            <input {...dimGrid.cellProps(2,i)} value={r.actual} onChange={e=>upR(startIdx+i,"actual",e.target.value)} style={{...inpCenter,fontSize:10}}/>
+          </td>)}
+          <td className="fc" style={tc}></td>
+        </tr>
+        <tr>
+          <td style={{...hc,textAlign:"center"}}>Tolerance</td>
+          {chunk.map((r,i)=> <td key={i} style={{...cellCenter,fontSize:9,color:r.customTol?"#1a6fa8":"#888",fontWeight:r.customTol?500:"normal"}}>
+            {r.customTol||tolFn(r.dwg)||"—"}
+          </td>)}
+          <td className="fc" style={tc}></td>
+        </tr>
+        <tr>
+          <td style={{...hc,textAlign:"center"}}>Remark</td>
+          {chunk.map((r,i)=> <td key={i} style={{...cellCenter,fontSize:9}}>
+            <input {...dimGrid.cellProps(3,i)} value={r.remark} onChange={e=>upR(startIdx+i,"remark",e.target.value)} style={{...inpCenter,fontSize:9}}/>
+          </td>)}
+          <td className="fc" style={{...cellCenter}}>
+            <button onClick={()=>chunk.length>0&&delRow(startIdx+chunk.length-1)} style={{fontSize:10,padding:"0 5px",background:"#fff0f0",color:"#c00",border:"none",borderRadius:2,cursor:"pointer"}}>−</button>
+          </td>
+        </tr>
       </tbody>
     </table>;
   };
@@ -1496,6 +1723,18 @@ function NozzlePreview({doc}){
   const[std,sStd]=useState(savedNoz.std||(isC?"TEMA":"ASME"));
   const[mEqN,sMEN]=useState(savedNoz.mEqN||"");
   const up=(i,k,v)=>sNz(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
+  // v3.0 [패치 1-1] — Nozzle 표 엑셀식 입력 (9컬럼, tol 자동칸 제외)
+  const NOZ_COLS=["no","sz","pos","h","l","ap","ah","al","remark"];
+  const nozGrid=makeGrid((startR,startC,matrix)=>{
+    sNz(prev=>{
+      const next=prev.map(r=>({...r}));
+      matrix.forEach((rowVals,ri)=>{
+        const tr=startR+ri; while(next.length<=tr)next.push(mkN("","",""));
+        rowVals.forEach((val,ci)=>{const ck=NOZ_COLS[startC+ci];if(ck)next[tr][ck]=val.trim();});
+      });
+      return next;
+    });
+  });
   const td2={border:"0.5px solid #bbb",padding:"3px 4px",fontSize:10,textAlign:"center",verticalAlign:"middle"};
   const tInput={width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"};
   const hc=hdr(),tc=bdr();const tNo=tagId(it.tag);const HC1={...hc,whiteSpace:"nowrap"};
@@ -1524,20 +1763,20 @@ function NozzlePreview({doc}){
       {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="tolStd" checked={std===v} onChange={()=>sStd(v)} style={{accentColor:SJB}}/>{l}</label>)}
       <span style={{fontSize:9,color:"#888",marginLeft:"auto"}}>D.W.G H/L 입력 시 Tolerance 자동 적용</span>
     </div>
-    <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,marginBottom:5}}>
+    <table {...nozGrid.gridProps} style={{width:"100%",borderCollapse:"collapse",fontSize:10,marginBottom:5}}>
       <thead><tr><th style={{...td2,background:"#e8f0f8",fontWeight:500}} rowSpan={2}>NO.</th><th style={{...td2,background:"#e8f0f8",fontWeight:500}} rowSpan={2}>SIZE</th><th style={{...td2,background:"#dce8f5",fontWeight:500}} colSpan={3}>D.W.G</th><th style={{...td2,background:"#dce8f5",fontWeight:500}} colSpan={3}>Tolerance</th><th style={{...td2,background:"#e6f7f0",fontWeight:500}} colSpan={3}>ACTUAL</th><th style={{...td2,background:"#e8f0f8",fontWeight:500}} rowSpan={2}>Remark</th></tr>
       <tr>{["POS'(°)","H(mm)","L(mm)","POS'(°)","H(mm)","L(mm)","POS'(°)","H(mm)","L(mm)"].map((h,i)=> <th key={i} style={{...td2,background:i<6?"#dce8f5":"#e6f7f0",fontWeight:500,fontSize:9}}>{h}</th>)}</tr></thead>
       <tbody>{noz.map((r,i)=> <tr key={i}>
-        <td style={td2}><input value={r.no} onChange={e=>up(i,"no",e.target.value)} style={tInput}/></td>
-        <td style={td2}><input value={r.sz} onChange={e=>up(i,"sz",e.target.value)} style={tInput}/></td>
-        <td style={td2}><input value={r.pos} onChange={e=>up(i,"pos",e.target.value)} style={tInput} placeholder="TOP/0"/></td>
-        <td style={td2}><input value={r.h} onChange={e=>up(i,"h",e.target.value)} style={tInput} placeholder="mm"/></td>
-        <td style={td2}><input value={r.l} onChange={e=>up(i,"l",e.target.value)} style={tInput} placeholder="mm"/></td>
-        <td style={{...td2,color:"#888"}}>{tolPos(std)}</td>
-        <td style={{...td2,color:"#888"}}>{r.h?tolH(std,r.h):"—"}</td>
-        <td style={{...td2,color:"#888"}}>{r.l?tolL(std,r.l):"—"}</td>
-        {["ap","ah","al"].map(k=> <td key={k} style={td2}><input value={r[k]} onChange={e=>up(i,k,e.target.value)} style={tInput}/></td>)}
-        <td style={td2}><input value={r.remark} onChange={e=>up(i,"remark",e.target.value)} style={{...tInput,textAlign:"left"}}/></td>
+        <td style={td2}><input {...nozGrid.cellProps(i,0)} value={r.no} onChange={e=>up(i,"no",e.target.value)} style={tInput}/></td>
+        <td style={td2}><input {...nozGrid.cellProps(i,1)} value={r.sz} onChange={e=>up(i,"sz",e.target.value)} style={tInput}/></td>
+        <td style={td2}><input {...nozGrid.cellProps(i,2)} value={r.pos} onChange={e=>up(i,"pos",e.target.value)} style={tInput} placeholder="TOP/0"/></td>
+        <td style={td2}><input {...nozGrid.cellProps(i,3)} value={r.h} onChange={e=>up(i,"h",e.target.value)} style={tInput} placeholder="mm"/></td>
+        <td style={td2}><input {...nozGrid.cellProps(i,4)} value={r.l} onChange={e=>up(i,"l",e.target.value)} style={tInput} placeholder="mm"/></td>
+        <td style={{...td2,color:"#888"}}>{(()=>{const v=(r.pos||"").trim();if(!v)return "—";const num=v.match(/-?\d+(\.\d+)?/);return num?tolPos(std):v;})()}</td>
+        <td style={{...td2,color:"#888"}}>{(()=>{const v=(r.h||"").trim();if(!v)return "—";return /^-?\d+(\.\d+)?$/.test(v)?tolH(std,r.h):v;})()}</td>
+        <td style={{...td2,color:"#888"}}>{(()=>{const v=(r.l||"").trim();if(!v)return "—";return /^-?\d+(\.\d+)?$/.test(v)?tolL(std,r.l):v;})()}</td>
+        {["ap","ah","al"].map((k,idx)=> <td key={k} style={td2}><input {...nozGrid.cellProps(i,5+idx)} value={r[k]} onChange={e=>up(i,k,e.target.value)} style={tInput}/></td>)}
+        <td style={td2}><input {...nozGrid.cellProps(i,8)} value={r.remark} onChange={e=>up(i,"remark",e.target.value)} style={{...tInput,textAlign:"left"}}/></td>
       </tr>)}</tbody>
     </table>
     <div className="fc" style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -1592,10 +1831,10 @@ function HydroPreview({doc}){
   // tp는 그래프 정규화용. Full Water 모드면 가상 단위 1 사용, 아니면 Actual > Test 순
   const tp = isFullWater ? 1 : (isNumeric(ap)?parseFloat(ap):(isNumeric(tpcVal)?parseFloat(tpcVal):1));
   const hmin = parseInt(holdMin) || 60;
-  // v1.8 — ASME Sec.VIII Div.1 UG-99 표준 단순 램프형 곡선
-  // X축은 "시각 비율 고정" — Ramp 10% / Hold 80% / Ramp 10% (실제 시간 무관하게 라벨 가독성 유지)
-  // 8h, 12h, 24h 어떤 hold이든 동일한 시각적 비율로 표시
-  const tRampUp = 30, tRampDown = 30;  // 실제 시간 (label 용)
+  // v2.3 (패치노트 [5] C안) — ramp 10분 고정 + 누적 시각 표시
+  // 예: hmin=60 → 0 · 10m · 1h 10m · 1h 20m  (가압 10분 + 유지 60분 + 감압 10분)
+  // ASME UG-99 표준에 부합하는 실제 적용 시간 누적 표기
+  const tRampUp = 10, tRampDown = 10;
   const totalT = tRampUp + hmin + tRampDown;
   const tHoldStart = tRampUp;
   const tHoldEnd = tHoldStart + hmin;
@@ -1647,12 +1886,12 @@ function HydroPreview({doc}){
         <tr><td style={HC1}>Design Pressure</td><td style={tc}>{dpStr}</td><td style={HC1}>MAWP</td><td style={tc}>
           <input value={mawp} onChange={e=>sMawp(e.target.value)} placeholder={it.mawp?"":"도면값 없음 — 직접 입력"} style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"70%"}}/>
           {isNumeric(mawp)?" MPa":""}
-          {it.mawp&&<span style={{fontSize:9,color:"#1d9e75",marginLeft:4}}>✓ 도면값</span>}
+          {it.mawp&&<span className="fc" style={{fontSize:9,color:"#1d9e75",marginLeft:4}}>✓ 도면값</span>}
         </td></tr>
         <tr><td style={HC1}>Test Pressure</td><td style={tc}>
           <input value={tpcVal} onChange={e=>sTpc(e.target.value)} placeholder={tpFromDwg?"":"숫자(MPa) 또는 Full Water"} style={{fontSize:11,fontWeight:700,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"60%"}}/>
           {tpUnit&&` ${tpUnit}`}
-          {tpFromDwg&&<span style={{fontSize:9,color:"#1d9e75",marginLeft:6}}>✓ 도면값</span>}
+          {tpFromDwg&&<span className="fc" style={{fontSize:9,color:"#1d9e75",marginLeft:6}}>✓ 도면값</span>}
         </td><td style={HC1}>Test Temp.</td><td style={tc}><input value={tTemp} onChange={e=>sTT(e.target.value)} placeholder="ex. AMB" style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"90%"}}/></td></tr>
         <tr><td style={HC1}>Actual Pressure</td><td style={tc}>
           <input value={ap} onChange={e=>sAP(e.target.value)} placeholder="숫자(MPa) 또는 Full Water" style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"70%"}}/>
@@ -1670,18 +1909,14 @@ function HydroPreview({doc}){
           : [0,0.5,1].map(f=>{const yy=sy(tp*f);return <g key={f}><line x1={24} y1={yy} x2={W-6} y2={yy} stroke="#eee" strokeWidth={0.5}/><text x={22} y={yy+3} fontSize={7} textAnchor="end" fill="#888">{(tp*f).toFixed(2)}</text></g>;})}
         {/* Y축 단위 */}
         <text x={28} y={12} fontSize={7} fill="#888">{isFullWater?"":"MPa"}</text>
-        {/* v1.8 — X축 라벨: 시각 비율 좌표 + 실제 시간 표시 (긴 hold도 겹침 없음) */}
+        {/* v2.3 (패치노트 [5]) — X축 누적 시각 라벨 (h/m 분리 표기) */}
         {(() => {
-          const useHour = totalT >= 60;
           const fmt = (v) => {
             if (v === 0) return "0";
-            if (useHour) {
-              const h = v / 60;
-              return h % 1 === 0 ? `${h}h` : `${h.toFixed(1)}h`;
-            }
-            return `${v}m`;
+            if (v < 60) return `${v}m`;
+            const h = Math.floor(v/60), m = v%60;
+            return m===0 ? `${h}h` : `${h}h ${m}m`;
           };
-          // 시각 좌표 + 실제 시간 페어
           const markers = [
             {vx:0,           t:0},
             {vx:vRampUpEnd,  t:tHoldStart},
@@ -1695,7 +1930,10 @@ function HydroPreview({doc}){
           }).map((m,i) => <text key={i} x={sx(m.vx)} y={H-4} fontSize={7} textAnchor={m.vx===0?"start":(m.vx>=1?"end":"middle")} fill="#888">{fmt(m.t)}</text>);
         })()}
         {/* X축 단위 표시 — 그래프 우측 끝 */}
-        <text x={W-4} y={H-4} fontSize={6} textAnchor="end" fill="#aaa">{totalT>=60?"(h)":"(min)"}</text>
+        <text x={W-4} y={2} fontSize={6} textAnchor="end" fill="#aaa">Time (cumulative)</text>
+        {/* v3.0.1 — Ramp 구간 구분: 램프 상승/하강 경계에서 X축으로 세로 점선 (Hold 구간 시각화) */}
+        <line x1={sx(vRampUpEnd)} y1={sy(tp)} x2={sx(vRampUpEnd)} y2={H-16} stroke="#999" strokeWidth={0.6} strokeDasharray="3,2"/>
+        <line x1={sx(vHoldEnd)}   y1={sy(tp)} x2={sx(vHoldEnd)}   y2={H-16} stroke="#999" strokeWidth={0.6} strokeDasharray="3,2"/>
         <polyline points={pts} fill="none" stroke={isFullWater?"#1d9e75":SJB} strokeWidth={1.5}/><text x={sx((vRampUpEnd+vHoldEnd)/2)} y={sy(tp)-5} fontSize={8} fill={isFullWater?"#1d9e75":SJB} textAnchor="middle">{`HOLD : ${hmin>=60?((hmin/60).toFixed(hmin%60===0?0:1)+" Hour"):(hmin+" min")}`}</text>
       </svg>
     </div></div>
@@ -1808,35 +2046,40 @@ function FinalPreview({doc}){
     <div style={{marginTop:4,fontSize:10,color:"#666"}}>상기 내용이 적용 규격 및 계약 요구사항에 따라 검사되었음을 증명함.</div>
     <div style={{display:"flex",gap:24,marginTop:8,fontSize:10}}>{["Prepared by","Reviewed by","Approved by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
 
-    {/* ─── 페이지 2: PHOTO REPORT (v1.5 신규) ─── */}
-    <div style={{pageBreakBefore:"always", breakBefore:"page", marginTop:18}}>
+    {/* v3.0 — 1페이지 하단 페이지 표시 */}
+    <div style={{textAlign:"center",fontSize:10,color:"#888",marginTop:8,paddingTop:4,borderTop:"0.5px solid #ddd"}}>1 / 2 페이지</div>
+
+    {/* ─── 페이지 2: PHOTO REPORT (v3.0 — 패치노트 [7][8] 반영) ─── */}
+    <div style={{pageBreakBefore:"always", breakBefore:"page"}}>
+      {/* v3.0 [8] 축약 헤더 — 3행 (Customer / Item Name / Appl.Code) */}
+      <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>육안탐상검사보고서</div>
+      <div style={{textAlign:"center",fontSize:12,marginBottom:6}}>VISUAL INSPECTION REPORT — Photo Report</div>
       <table style={{width:"100%",borderCollapse:"collapse",marginBottom:8}}>
-        <colgroup><col style={{width:"15%"}}/><col style={{width:"22%"}}/><col style={{width:"30%"}}/><col style={{width:"15%"}}/><col style={{width:"18%"}}/></colgroup>
+        <colgroup><col style={{width:"30%"}}/><col style={{width:"10%"}}/><col style={{width:"22%"}}/><col style={{width:"12%"}}/><col style={{width:"26%"}}/></colgroup>
         <tbody>
-          <tr><td rowSpan={2} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td>
-            <td colSpan={4} style={{...hc,textAlign:"center",fontSize:13,fontWeight:700,background:"#fff"}}>PHOTO REPORT — Visual Inspection</td></tr>
-          <tr><td style={hc}>Item No.</td><td style={tc}>{it.tag||"—"}</td><td style={hc}>Report No.</td><td style={tc}>{p.no}-FI-{tNo}-01</td></tr>
+          <tr><td rowSpan={3} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={{...hc,whiteSpace:"nowrap"}}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Report No.</td><td style={tc}>{p.no}-FI-{tNo}-01</td></tr>
+          <tr><td style={{...hc,whiteSpace:"nowrap"}}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={{...hc,whiteSpace:"nowrap"}}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+          <tr><td style={{...hc,whiteSpace:"nowrap"}}>Appl. Code</td><td style={tc} colSpan={3}>{it.appl_code||"—"}</td></tr>
         </tbody>
       </table>
 
-      {/* v2.7 — DIM/Nozzle 자동 공유 제거, 독립 IDZ 2개로 (DIM/Nozzle IR과 동일 형태) */}
+      {/* v3.0 [7] — 독립 IDZ 2개, 사진 키 fi_img_*, height 440 */}
       <div style={{display:"flex",flexDirection:"column",gap:12,flex:1,minHeight:0}}>
-        {/* ① Photo 1 — 독립 붙여넣기 */}
         <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>① Photo 1 — Side Elevation / 전체 외관</div>
-          <div style={{flex:1,minHeight:0,display:"flex"}}>
-            <IDZ label="Photo 1 — Ctrl+V 붙여넣기" persistKey={`final_p2a_${it.id||it.tag}`}/>
+          <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>① Photo 1</div>
+          <div style={{height:440,display:"flex",minHeight:0}}>
+            <IDZ label="Final 사진 ① — Ctrl+V (직접 첨부)" persistKey={`fi_img_${it.id||it.tag}_1`}/>
           </div>
         </div>
-        {/* ② Photo 2 — 독립 붙여넣기 */}
         <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>② Photo 2 — Nozzle Orientation / 추가 사진</div>
-          <div style={{flex:1,minHeight:0,display:"flex"}}>
-            <IDZ label="Photo 2 — Ctrl+V 붙여넣기" persistKey={`final_p2b_${it.id||it.tag}`}/>
+          <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>② Photo 2</div>
+          <div style={{height:440,display:"flex",minHeight:0}}>
+            <IDZ label="Final 사진 ② — Ctrl+V (직접 첨부)" persistKey={`fi_img_${it.id||it.tag}_2`}/>
           </div>
         </div>
       </div>
-      {/* v1.6 — 페이지 2는 사진대지이므로 서명란 제거 */}
+      {/* v3.0 — 페이지 하단 표시 */}
+      <div style={{textAlign:"center",fontSize:10,color:"#888",marginTop:8,paddingTop:4,borderTop:"0.5px solid #ddd"}}>2 / 2 페이지</div>
     </div>
   </div>;
 }
@@ -1903,6 +2146,13 @@ function App(){
     vendor: "㈜세종기술"
   });
   const [msg, setMsg] = useState("");
+  // v3.0 — 저장/불러오기 상태
+  const [currentProjId, setCurrentProjId] = useState(null);
+  const [savedList, setSavedList] = useState(() => projIndexLoad());
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveAsName, setSaveAsName] = useState("");
+  const refreshSavedList = () => setSavedList(projIndexLoad());
 
   useEffect(() => {
     // v1.2 sjp-bridge optional chaining (외부 의존성 안전 처리)
@@ -1918,6 +2168,7 @@ function App(){
       if (s.inspector) setInspector(s.inspector);
       if (s.activeItemId) setActiveItemId(s.activeItemId);
       if (s.activeDoc) setActiveDoc(s.activeDoc);
+      if (s.currentProjId) setCurrentProjId(s.currentProjId);  // v3.0 — 프로젝트 ID 복원
     }
     // ITP Builder가 sjp-bridge에 저장한 데이터 자동 인식 (안전 처리)
     if (window.SJP?.bridge) {
@@ -1934,10 +2185,11 @@ function App(){
       }
     }
   }, []);
+  // v3.0 — 자동저장은 "마지막 작업" 자동 복원용으로만 유지 (프로젝트 저장은 수동 Save/Save As로 분리)
   useEffect(() => {
-    const t = setTimeout(() => saveLS({proj, items, docData, inspectors, inspector, activeItemId, activeDoc}), 1000);
+    const t = setTimeout(() => saveLS({proj, items, docData, inspectors, inspector, activeItemId, activeDoc, currentProjId}), 1000);
     return () => clearTimeout(t);
-  }, [proj, items, docData, inspectors, inspector, activeItemId, activeDoc]);
+  }, [proj, items, docData, inspectors, inspector, activeItemId, activeDoc, currentProjId]);
 
   // Inspector master 편집 핸들러
   const updateInspector = (next) => {
@@ -1973,6 +2225,83 @@ function App(){
     r.readAsText(file);
   };
 
+  // v3.0 — 프로젝트 저장 / 불러오기 / 삭제
+  const collectPayload = () => ({ proj, items, docData, inspectors, inspector, activeItemId, activeDoc });
+
+  // Save — 현재 프로젝트에 덮어쓰기 (없으면 Save As 대화상자)
+  const handleSaveOverwrite = () => {
+    if (!currentProjId) { setShowSaveDialog(true); return; }
+    if (!confirm("현재 프로젝트에 덮어쓰시겠습니까?")) return;
+    const idx = projIndexLoad().find(x => x.id === currentProjId);
+    const name = idx ? idx.name : (proj.no || "프로젝트");
+    const ok = projSave(currentProjId, name, collectPayload());
+    if (ok) { refreshSavedList(); showMsg(`✓ 저장 완료 — ${name}`); }
+    else { showMsg("⚠ 저장 실패 (용량 초과 가능)"); }
+  };
+
+  // Save As — 새 이름으로 저장 (대화상자 표시)
+  const handleSaveAs = () => {
+    const defaultName = (proj.name || proj.no) ? `${proj.no || ""} ${proj.name || ""}`.trim() : "";
+    setSaveAsName(defaultName);
+    setShowSaveDialog(true);
+  };
+  const handleSaveAsConfirm = () => {
+    const name = saveAsName.trim();
+    if (!name) { alert("프로젝트 이름을 입력해 주세요"); return; }
+    // 같은 이름이 이미 있으면 확인
+    const existing = projIndexLoad().find(x => x.name === name);
+    let id;
+    if (existing) {
+      if (!confirm(`"${name}" 이름의 프로젝트가 이미 있습니다. 덮어쓰시겠습니까?\n(취소하면 저장 안 됨)`)) return;
+      id = existing.id;
+    } else {
+      id = projGenId(name);
+    }
+    const ok = projSave(id, name, collectPayload());
+    if (ok) {
+      setCurrentProjId(id);
+      refreshSavedList();
+      setShowSaveDialog(false);
+      setSaveAsName("");
+      showMsg(`✓ 저장 완료 — ${name}`);
+    } else {
+      showMsg("⚠ 저장 실패 (용량 초과 가능)");
+    }
+  };
+
+  // Load — 저장된 프로젝트 불러오기
+  const handleLoadProj = (id) => {
+    const data = projLoadOne(id);
+    if (!data) { showMsg("⚠ 데이터 없음"); return; }
+    if (proj.no && items.length > 0 && !confirm("현재 작업 내용이 사라집니다. 계속하시겠습니까?\n(저장하지 않은 변경사항은 유실됨)")) return;
+    if (data.proj) setProj(data.proj);
+    if (data.items) { setItems(data.items); if (data.items.length > 0) setActiveItemId(data.items[0].id); }
+    if (data.docData) setDocData(data.docData);
+    if (data.inspectors) setInspectors(data.inspectors);
+    if (data.inspector) setInspector(data.inspector);
+    if (data.activeItemId) setActiveItemId(data.activeItemId);
+    if (data.activeDoc) setActiveDoc(data.activeDoc);
+    setCurrentProjId(id);
+    setShowLoadModal(false);
+    const idx = projIndexLoad().find(x => x.id === id);
+    showMsg(`✓ 불러오기 완료 — ${idx?.name || id}`);
+  };
+
+  // Delete — 저장된 프로젝트 삭제 (모달 안에서 호출)
+  const handleDeleteProj = (id) => {
+    const idx = projIndexLoad().find(x => x.id === id);
+    const name = idx ? idx.name : id;
+    if (!confirm(`정말 "${name}" 프로젝트를 삭제하시겠습니까?\n(복구 불가)`)) return;
+    const ok = projDeleteOne(id);
+    if (ok) {
+      if (currentProjId === id) setCurrentProjId(null);
+      refreshSavedList();
+      showMsg(`🗑 삭제 완료 — ${name}`);
+    } else {
+      showMsg(`⚠ 삭제 실패`);
+    }
+  };
+
   const handleExportData = () => {
     const data = {proj, items, docData, inspectors, inspector, exported_at: new Date().toISOString(), version:"qc_generator_v1"};
     const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
@@ -1985,11 +2314,12 @@ function App(){
   };
 
   const handleNew = () => {
-    if (!confirm("새 프로젝트로 초기화하시겠습니까?")) return;
+    if (!confirm("새 프로젝트로 초기화하시겠습니까?\n(현재 작업은 저장하지 않으면 사라집니다)")) return;
     setProj({no:"", name:"", customer:"", po:""});
     setItems([]); setActiveItemId(null);
     setDocData({});
     setInspector({internal:"", client:"", thirdParty:"", thirdPartyCustom:"", vendor:""});
+    setCurrentProjId(null);   // v3.0 — 프로젝트 컨텍스트도 초기화
     showMsg("✓ 새 프로젝트");
   };
 
@@ -2020,7 +2350,10 @@ function App(){
         <input type="file" accept=".json" id="impFile" style={{display:"none"}}
           onChange={e => e.target.files[0] && handleImport(e.target.files[0])}/>
         <button onClick={()=>document.getElementById("impFile").click()} className="btn-success">📥 ITP에서 Import</button>
-        <button onClick={handleExportData} className="btn-secondary">💾 Export</button>
+        <button onClick={handleSaveOverwrite} className="btn-secondary" title="현재 프로젝트에 덮어쓰기">💾 저장{currentProjId&&<span style={{fontSize:9,marginLeft:4,color:"#1d9e75"}}>*</span>}</button>
+        <button onClick={handleSaveAs} className="btn-secondary" title="새 이름으로 저장">💾+ 다른 이름</button>
+        <button onClick={()=>{refreshSavedList();setShowLoadModal(true);}} className="btn-secondary" title="저장된 프로젝트 불러오기">📂 불러오기 ({savedList.length})</button>
+        <button onClick={handleExportData} className="btn-secondary" title="JSON 파일로 내보내기">💾 JSON Export</button>
         <button onClick={handleNew} className="btn-secondary">🗋 New</button>
       </div>
     </div>
@@ -2103,18 +2436,20 @@ function App(){
         {(() => {
           // V25 doc 객체 합성 어댑터 — V25 Preview는 {doc:{type,item,proj,...}} 시그니처
           const doc = { type: activeDoc, item: activeItem, proj };
-          if (activeDoc === "BOM")     return <BOMPreview doc={doc}/>;
+          // v2.1 [B-1] — Preview 컴포넌트에 key 부여 (Item/Part 전환 시 React 재마운트 → useState 재초기화)
+          const dKey = `${activeDoc}_${activeItem.id||activeItem.tag||""}`;
+          if (activeDoc === "BOM")     return <BOMPreview key={dKey} doc={doc}/>;
           if (activeDoc === "BENDING") {
             if (activeItem.head_top_type === "CAP (B16.9)" && activeItem.head_bot_type === "CAP (B16.9)") {
               return <div style={{padding:24, textAlign:"center", color:"#888", fontSize:12}}>
                 ⊘ Bending Report 생략 (Top/Bot 모두 CAP — Pipe Cap은 메이커 사양품)
               </div>;
             }
-            return <BendingPreview doc={doc}/>;
+            return <BendingPreview key={dKey} doc={doc}/>;
           }
-          if (activeDoc === "FITUP")   return <FitupPreview doc={doc}/>;
-          if (activeDoc === "DIM")     return <DIMPreview doc={doc}/>;
-          if (activeDoc === "NOZZLE")  return <NozzlePreview doc={doc}/>;
+          if (activeDoc === "FITUP")   return <FitupPreview key={dKey} doc={doc}/>;
+          if (activeDoc === "DIM")     return <DIMPreview key={dKey} doc={doc}/>;
+          if (activeDoc === "NOZZLE")  return <NozzlePreview key={dKey} doc={doc}/>;
           if (activeDoc === "HYDRO") {
             // HYDRO는 part별 별도 보고서. part 서브탭 표시.
             const hp = ["Shell"];
@@ -2130,10 +2465,10 @@ function App(){
                   {p}
                 </button>)}
               </div>
-              <HydroPreview doc={{...doc, part: curPart}}/>
+              <HydroPreview key={`HYDRO_${activeItem.id||activeItem.tag||""}_${curPart}`} doc={{...doc, part: curPart}}/>
             </>;
           }
-          if (activeDoc === "FINAL")   return <FinalPreview doc={doc}/>;
+          if (activeDoc === "FINAL")   return <FinalPreview key={dKey} doc={doc}/>;
           return null;
         })()}
       </div>
@@ -2142,12 +2477,204 @@ function App(){
     <div className="no-print" style={{textAlign:"center", marginTop:20, fontSize:9, color:"var(--sjp-text-muted)"}}>
       QA Doc Generator v1.4 · ㈜세종기술 품질관리부 · ⓒ Designed by Cwkim · 신채완 과장
     </div>
+    {/* v3.0 — 저장 대화상자 (Save As) */}
+    {showSaveDialog && <div className="no-print" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}}>
+      <div style={{background:"#fff",borderRadius:8,padding:20,minWidth:400,maxWidth:520,boxShadow:"0 4px 20px rgba(0,0,0,.15)"}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:12,color:"var(--sjp-text-main)"}}>💾 다른 이름으로 저장</h3>
+        <label style={{display:"block",fontSize:11,color:"var(--sjp-text-sub)",marginBottom:5}}>프로젝트 이름</label>
+        <input value={saveAsName} onChange={e=>setSaveAsName(e.target.value)} placeholder="예: SJ2026-030 동성케미컬 콘덴서" autoFocus
+          onKeyDown={e=>{if(e.key==="Enter")handleSaveAsConfirm();else if(e.key==="Escape")setShowSaveDialog(false);}}
+          style={{width:"100%",padding:"9px 12px",fontSize:13,border:"1px solid var(--sjp-border)",borderRadius:5,marginBottom:14}}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <button onClick={()=>{setShowSaveDialog(false);setSaveAsName("");}} className="btn-secondary">취소</button>
+          <button onClick={handleSaveAsConfirm} className="btn-primary" style={{background:"var(--sjp-primary)",color:"#fff",padding:"7px 16px",border:"none",borderRadius:5,fontSize:12,fontWeight:600,cursor:"pointer"}}>💾 저장</button>
+        </div>
+      </div>
+    </div>}
+
+    {/* v3.0 — 저장된 프로젝트 불러오기 모달 */}
+    {showLoadModal && <div className="no-print" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}}>
+      <div style={{background:"#fff",borderRadius:8,padding:20,minWidth:520,maxWidth:720,maxHeight:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 4px 20px rgba(0,0,0,.15)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <h3 style={{fontSize:15,fontWeight:700,color:"var(--sjp-text-main)"}}>📂 저장된 프로젝트 ({savedList.length})</h3>
+          <button onClick={()=>setShowLoadModal(false)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888"}}>✕</button>
+        </div>
+        {savedList.length === 0 ? (
+          <div style={{padding:30,textAlign:"center",color:"var(--sjp-text-muted)",fontSize:12}}>저장된 프로젝트가 없습니다.<br/>먼저 <strong>💾+ 다른 이름</strong>으로 저장하세요.</div>
+        ) : (
+          <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
+            {[...savedList].sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||"")).map(p =>
+              <div key={p.id} style={{border:`1.5px solid ${currentProjId===p.id?"var(--sjp-primary)":"var(--sjp-border)"}`,background:currentProjId===p.id?"var(--sjp-primary-light)":"#fff",borderRadius:6,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--sjp-text-main)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                    {p.name} {currentProjId===p.id && <span style={{fontSize:9,color:"var(--sjp-primary)",marginLeft:4}}>● 현재</span>}
+                  </div>
+                  <div style={{fontSize:10,color:"var(--sjp-text-sub)",marginTop:2}}>
+                    {p.projNo && <>{p.projNo} · </>}{p.itemCount||0}개 아이템 · {p.updatedAt ? new Date(p.updatedAt).toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—"}
+                  </div>
+                </div>
+                <button onClick={()=>handleLoadProj(p.id)} className="btn-primary" style={{background:"var(--sjp-primary)",color:"#fff",padding:"6px 12px",border:"none",borderRadius:4,fontSize:11,fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>📂 불러오기</button>
+                <button onClick={()=>handleDeleteProj(p.id)} title="삭제" style={{background:"var(--sjp-danger-bg)",color:"var(--sjp-danger)",padding:"6px 10px",border:"1px solid #fbb",borderRadius:4,fontSize:12,fontWeight:600,cursor:"pointer"}}>🗑</button>
+              </div>
+            )}
+          </div>
+        )}
+        <div style={{marginTop:12,paddingTop:10,borderTop:"0.5px solid var(--sjp-border)",display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={()=>setShowLoadModal(false)} className="btn-secondary">닫기</button>
+        </div>
+      </div>
+    </div>}
   </div>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
-// (sejong-platform 헤더 버튼 제거됨 — SJ FLOW iframe 통합 구조로 전환)
+// ── 헤더 인라인 sejong-platform 버튼 (ITP에서 Import 옆) ──
+// React가 재렌더링할 때마다 .epc-topbar-actions가 새로 그려지므로 폴링 자동 재부착
+(function(){
+  let _qaDropdown = null;
+
+  function attachQaDocBtn() {
+    const actions = document.querySelector(".epc-topbar-actions");
+    if (!actions) return false;
+    if (actions.querySelector("#sjpq-hdr-btn")) return true;
+
+    const btn = document.createElement("button");
+    btn.id = "sjpq-hdr-btn";
+    btn.type = "button";
+    btn.textContent = "🏢 Sejong-Platform +";
+    btn.title = "Sejong-Platform 도구 메뉴";
+    btn.style.cssText = [
+      "padding:5px 11px",
+      "background:#4a7fc1",
+      "color:#fff",
+      "border:none",
+      "border-radius:5px",
+      "font-size:11px",
+      "font-weight:600",
+      "cursor:pointer",
+      "white-space:nowrap"
+    ].join(";");
+    btn.onclick = (e) => { e.stopPropagation(); toggleQaDropdown(); };
+
+    // 가장 앞 (ITP에서 Import 버튼 앞)에 삽입
+    const firstBtn = actions.querySelector("button.btn-success") || actions.querySelector("button");
+    if (firstBtn) {
+      actions.insertBefore(btn, firstBtn);
+    } else {
+      actions.appendChild(btn);
+    }
+    return true;
+  }
+
+  function toggleQaDropdown() {
+    if (_qaDropdown) { closeQaDropdown(); return; }
+    const btn = document.getElementById("sjpq-hdr-btn");
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    _qaDropdown = document.createElement("div");
+    _qaDropdown.id = "sjpq-dropdown";
+    _qaDropdown.style.cssText = [
+      "position:fixed",
+      "top:" + (rect.bottom + 5) + "px",
+      "left:" + rect.left + "px",
+      "z-index:9999",
+      "background:#fff",
+      "border:1.5px solid #4a7fc1",
+      "border-radius:8px",
+      "box-shadow:0 4px 14px rgba(74,127,193,0.18)",
+      "padding:6px",
+      "font-family:'Segoe UI',Arial,sans-serif",
+      "font-size:11px",
+      "min-width:200px"
+    ].join(";");
+    _qaDropdown.innerHTML =
+      '<button id="sjpq-refresh" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#dcfce7;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">🔄 EPC 합격품 가져오기</button>' +
+      '<button id="sjpq-epc" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#eef3fb;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">📊 EPC Control로 이동</button>' +
+      '<div style="height:1px;background:#e4e7ec;margin:5px 2px"></div>' +
+      '<button id="sjpq-reset" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#fee2e2;color:#7c1d1d;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">🔄 데모 데이터 초기화</button>' +
+      '<button id="sjpq-home" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#f3f4f6;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">🏠 메인 메뉴</button>';
+    document.body.appendChild(_qaDropdown);
+    btn.textContent = "🏢 Sejong-Platform −";
+
+    document.getElementById("sjpq-refresh").onclick = () => {
+      closeQaDropdown();
+      if (!window.SJP || !window.SJP.bridge || !window.SJP.bridge.getAcceptedItems) {
+        alert("⚠️ EPC Control 연결이 안 되어 있습니다.\n\nEPC Control에서 '📄 QA Doc Generator 열기' 버튼을 사용해서 이 창을 열어주세요.");
+        return;
+      }
+      const accepted = window.SJP.bridge.getAcceptedItems();
+      if (accepted.length === 0) {
+        alert("ℹ️ EPC에 합격 처리된 검사 항목이 아직 없습니다.\n\nEPC Manufacture Manager에서 검사 결과를 'Accept'로 변경하면\n여기서 자동 인식됩니다 (워크플로우 단계 9).");
+        return;
+      }
+      const totalChecks = accepted.reduce((s, a) => s + a.accepted.length, 0);
+      const summary = accepted.map(a =>
+        "• " + a.item.tagNo + " (" + a.item.type + ") — " + a.accepted.length + "개 합격"
+      ).join("\n");
+      alert(
+        "✅ EPC 합격품 동기화 완료\n\n" +
+        "• 아이템 수: " + accepted.length + "개\n" +
+        "• 합격 검사 항목 총합: " + totalChecks + "개\n\n" +
+        summary + "\n\n" +
+        "→ 좌측 사이드바에서 해당 아이템 선택 후\n  8가지 QA/QC 문서 작성 가능합니다."
+      );
+      window.EPC_ACCEPTED_ITEMS = accepted;
+    };
+
+    document.getElementById("sjpq-epc").onclick = () => {
+      closeQaDropdown();
+      try { if (window.opener && !window.opener.closed) { window.opener.focus(); return; } } catch(e){}
+      window.location.href = "../epc-control/index.html";
+    };
+
+    document.getElementById("sjpq-reset").onclick = () => {
+      closeQaDropdown();
+      const ok = confirm(
+        "⚠️ 데모 데이터 초기화\n\n" +
+        "다음 데이터를 모두 삭제하고 페이지를 새로고침합니다:\n\n" +
+        "• QA Doc Generator 작성 중인 문서\n" +
+        "• EPC Control 데이터 (가능 시)\n" +
+        "• ITP Builder 데이터 (가능 시)\n\n" +
+        "삭제 후 SJ2026-030 동성케미컬 데모 데이터가\n자동 복원됩니다.\n\n계속하시겠습니까?"
+      );
+      if (!ok) return;
+      try {
+        localStorage.removeItem("sjp_qa_doc_generator_v1");
+        localStorage.removeItem("epc_control_v28_state");
+        localStorage.removeItem("sjp_itp_builder_v1");
+        localStorage.removeItem("sjp_mail_drafts");
+      } catch(e){}
+      alert("✅ 초기화 완료 — 페이지를 새로고침합니다.");
+      window.location.reload();
+    };
+
+    document.getElementById("sjpq-home").onclick = () => {
+      closeQaDropdown();
+      if (confirm("메인 메뉴로 이동하시겠습니까?\n저장하지 않은 작업이 있다면 먼저 JSON 백업하세요.")) {
+        window.location.href = "../../../index.html";
+      }
+    };
+
+    setTimeout(() => document.addEventListener("click", closeOnQaOutside, true), 30);
+  }
+
+  function closeQaDropdown() {
+    if (_qaDropdown && _qaDropdown.parentNode) _qaDropdown.parentNode.removeChild(_qaDropdown);
+    _qaDropdown = null;
+    document.removeEventListener("click", closeOnQaOutside, true);
+    const btn = document.getElementById("sjpq-hdr-btn");
+    if (btn) btn.textContent = "🏢 Sejong-Platform +";
+  }
+
+  function closeOnQaOutside(e) {
+    if (!_qaDropdown) return;
+    if (e.target.closest && (e.target.closest("#sjpq-dropdown") || e.target.closest("#sjpq-hdr-btn"))) return;
+    closeQaDropdown();
+  }
+
+  setInterval(attachQaDocBtn, 300);
+})();
 </script>
 </body>
 </html>
