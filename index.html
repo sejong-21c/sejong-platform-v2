@@ -536,17 +536,18 @@ const TOOLS = {
   'car':       { name: 'CAR 관리',          icon: '🔧', desc: '시정조치 요청·회신·완료',     status: 'live', ver: 'v1.0' },
   'manday':    { name: 'Manday Tracker',    icon: '⏱',  desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
   'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
+  'deptsch':   { name: '부서 스케줄',       icon: '📅', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
 };
 const DEPTS = [
-  { id: 'sales',        icon: '💼', name: '영업부',     tools: [] },
-  { id: 'design',       icon: '📐', name: '설계부',     tools: [] },
-  { id: 'purchase',     icon: '🛒', name: '구매부',     tools: [] },
-  { id: 'production',   icon: '🏭', name: '생산부',     tools: [] },
-  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['itp', 'qa', 'ncr', 'car', 'mobile'] },
-  { id: 'construction', icon: '🏗️', name: '현장시공',   tools: [] },
-  { id: 'safety',       icon: '🦺', name: '안전관리부', tools: [] },
-  { id: 'general',      icon: '👔', name: '총무부',     tools: [] },
-  { id: 'finance',      icon: '💲', name: '재무부',     tools: [] },
+  { id: 'sales',        icon: '💼', name: '영업부',     tools: ['deptsch'] },
+  { id: 'design',       icon: '📐', name: '설계부',     tools: ['deptsch'] },
+  { id: 'purchase',     icon: '🛒', name: '구매부',     tools: ['deptsch'] },
+  { id: 'production',   icon: '🏭', name: '생산부',     tools: ['deptsch'] },
+  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'qa', 'ncr', 'car', 'mobile'] },
+  { id: 'construction', icon: '🏗️', name: '현장시공',   tools: ['deptsch'] },
+  { id: 'safety',       icon: '🦺', name: '안전관리부', tools: ['deptsch'] },
+  { id: 'general',      icon: '👔', name: '총무부',     tools: ['deptsch'] },
+  { id: 'finance',      icon: '💲', name: '재무부',     tools: ['deptsch'] },
 ];
 
 // ══════════ 권한 헬퍼 ══════════
@@ -555,6 +556,7 @@ const EXTRA_PERMS = {
   schedule: { label: '스케줄 관리', desc: '모든 프로젝트 WBS·간트 편집 (PM급)' },
   quotes:   { label: '견적 화면',   desc: '견적 메뉴 접근' },
   project:  { label: '프로젝트 관리', desc: '프로젝트 생성·워크오더·PM 지정' },
+  deptSchedule: { label: '부서 스케줄 관리', desc: '소속 부서 스케줄 편집 (부서장급)' },
 };
 // 사용자가 특정 추가권한을 가졌는지
 function hasPerm(perm, u) {
@@ -583,6 +585,15 @@ function canEditSchedule(projId) {
   if (hasPerm('schedule', u)) return true;       // 개별 스케줄 관리 권한
   const p = getP(projId);
   if (p && p.pm === state.currentUser) return true; // 이 프로젝트 PM 본인
+  return false;
+}
+// v29: 부서 스케줄 편집 권한 → 슈퍼/임원 + 그 부서의 관리자급(부서장) 본인 + (개별)deptSchedule
+function canEditDeptSchedule(dept) {
+  const u = getU(state.currentUser);
+  if (!u) return false;
+  if (u.grade === 'super' || u.grade === 'exec') return true;
+  if (hasPerm('deptSchedule', u)) return true;
+  if (u.grade === 'manager' && u.dept === dept) return true; // 해당 부서 부서장/관리자급
   return false;
 }
 // 메뉴 노출 여부
@@ -989,7 +1000,7 @@ function renderNav() {
         const isActive = view.selectedTool === tid;
         const isPending = t.status === 'soon';
         html.push(`<div class="tool-item${isActive?' active':''}${isPending?' pending':''}"
-            ${isPending ? '' : `onclick="openTool('${tid}')"`}
+            ${isPending ? '' : `onclick="openTool('${tid}','${d.name}')"`}
             title="${t.desc}">
           <span class="nav-icon">${t.icon}</span>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">${t.name}</span>
@@ -1022,15 +1033,18 @@ function switchMod(id) {
   renderNav();
   render();
 }
-function openTool(tid) {
+function openTool(tid, deptName) {
   view.selectedTool = tid;
   view.selectedProj = null;
   view.itpSelectedProj = null;   // ITP Builder는 항상 프로젝트 선택 화면부터
   view.itpSelectedItem = null;
   view.qaSelectedProj = null;    // QA Doc도 프로젝트 선택부터
   view.mobileSelectedProj = null; // Mobile도 프로젝트 선택부터
+  // v29: 부서 스케줄 — 어느 부서에서 열었는지 기억 (없으면 로그인 사용자 부서)
+  if (tid === 'deptsch') { view.deptSchedDept = deptName || getU(state.currentUser).dept || ''; view.deptSchedProj = null; }
   const t = TOOLS[tid];
-  document.getElementById('hTitle').innerHTML = `<span style="color:var(--text-light);font-size:14px;">부서 도구함 / 품질관리부</span> <span style="color:var(--text-lighter);">›</span> ${t.icon} ${t.name} <span style="font-size:11px;color:var(--text-light);font-weight:400;">${t.ver}</span>`;
+  const deptLabel = (tid === 'deptsch' && deptName) ? deptName : '품질관리부';
+  document.getElementById('hTitle').innerHTML = `<span style="color:var(--text-light);font-size:14px;">부서 도구함 / ${deptLabel}</span> <span style="color:var(--text-lighter);">›</span> ${t.icon} ${t.name} <span style="font-size:11px;color:var(--text-light);font-weight:400;">${t.ver}</span>`;
   document.getElementById('sb').classList.remove('mobile-open');
   renderNav();
   render();
@@ -1339,6 +1353,11 @@ function render() {
   }
   if (view.selectedTool === 'ncr') { content.innerHTML = `<div class="content-pad">${renderNCR()}</div>`; return; }
   if (view.selectedTool === 'car') { content.innerHTML = `<div class="content-pad">${renderCAR()}</div>`; return; }
+  if (view.selectedTool === 'deptsch') {
+    // 부서 스케줄 2단계: 프로젝트/자체업무 미선택 → 카드 / 선택됨 → WBS iframe
+    if (!view.deptSchedProj) { content.innerHTML = `<div class="content-pad">${renderDeptSchedProjects()}</div>`; return; }
+    content.innerHTML = renderDeptSchedFrame(); return;
+  }
   // Traveller 3단계 라우팅: ① 프로젝트 카드 → ② Tag 리스트(iframe=MM) → ③ Tag 상세
   if (view.cur === 'traveller' || view.selectedTraveller || view.travProj) {
     if (view.selectedTraveller) { content.innerHTML = renderTravellerDetail(); return; }
@@ -1978,6 +1997,73 @@ function renderMobileProjects() {
 }
 function openMobileProj(pid) { view.mobileSelectedProj = pid; render(); }
 function closeMobileProj() { view.mobileSelectedProj = null; render(); }
+
+/* ═════════════ 📅 부서 스케줄 (부서 도구) ═════════════ */
+// 1단계: '부서 자체 업무' 카드 + 프로젝트 카드 목록
+function renderDeptSchedProjects() {
+  const dept = view.deptSchedDept || getU(state.currentUser).dept || '';
+  const canEdit = canEditDeptSchedule(dept);
+  const projs = state.projects.filter(p => !p.hidden);
+  const projCards = projs.map(p => `
+    <div class="proj" onclick="openDeptSchedProj('${p.id}')">
+      <div class="proj-open-hint">→ ${dept} 스케줄</div>
+      <div class="proj-code">${p.code}</div>
+      <div class="proj-name">${p.name}</div>
+      <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${p.status==='active'?'blue':'gray'}">${p.status==='active'?'진행중':'마감예정'}</span></div>
+      <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
+      <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</div>
+    </div>`).join('');
+  return `
+    <div class="mod-head">
+      <div>
+        <div class="mod-title">📅 ${dept} 스케줄</div>
+        <div class="mod-sub">프로젝트를 선택하면 ${dept} 담당 WBS만 필터해서 편집합니다 · ${canEdit ? '편집 가능' : '조회 전용(부서장·관리자급만 편집)'}</div>
+      </div>
+      <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏢 부서 자체 업무 (프로젝트 외)</div>
+      <div class="proj-grid">
+        <div class="proj" style="border-style:dashed;" onclick="openDeptSchedProj('__self__')">
+          <div class="proj-open-hint">→ 열기</div>
+          <div class="proj-code">부서 전용</div>
+          <div class="proj-name">${dept} 자체 업무 일정</div>
+          <div class="proj-meta"><span style="color:var(--text-lighter);">프로젝트에 속하지 않는 부서 내부 업무</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">📊 프로젝트별 ${dept} 스케줄</div>
+    <div class="proj-grid">${projCards || '<div style="color:var(--text-lighter);font-size:12px;padding:20px;">등록된 프로젝트가 없습니다.</div>'}</div>
+  `;
+}
+function openDeptSchedProj(pid) { view.deptSchedProj = pid; render(); }
+function closeDeptSchedProj() { view.deptSchedProj = null; render(); }
+// 2단계: WBS 엔진(wbs.html)을 부서 필터/부서 컨테이너 모드로 로드
+function renderDeptSchedFrame() {
+  const dept = view.deptSchedDept || getU(state.currentUser).dept || '';
+  const canEdit = canEditDeptSchedule(dept) ? '1' : '0';
+  const deptId = (DEPTS.find(d => d.name === dept) || {}).id || 'etc';
+  let src, title;
+  if (view.deptSchedProj === '__self__') {
+    src = `modules/projects/wbs.html?pid=dept_${encodeURIComponent(deptId)}&deptMode=1&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}`;
+    title = `${dept} 자체 업무 일정`;
+  } else {
+    const p = getP(view.deptSchedProj);
+    src = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}`;
+    title = `${p.code} ${p.name} — ${dept}`;
+  }
+  return `<div style="display:flex;flex-direction:column;height:100%;">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">
+      <button class="back-btn" onclick="closeDeptSchedProj()">← ${dept} 목록</button>
+      <span style="font-size:13px;font-weight:600;">${title}</span>
+      ${canEdit==='0'?'<span class="b-pill gray" style="margin-left:auto;">조회 전용</span>':''}
+    </div>
+    <div style="flex:1;position:relative;overflow:hidden;background:#fff;">
+      <iframe src="${src}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="${title}"></iframe>
+    </div>
+  </div>`;
+}
 
 function renderQADocFrame() {
   const pid = view.qaSelectedProj || (state.projects[0] && state.projects[0].id) || 'p1';
