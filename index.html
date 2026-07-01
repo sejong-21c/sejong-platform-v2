@@ -1329,8 +1329,25 @@ function closeUserMenuOutside(e) {
 }
 function goOrg() { view.cur = 'org'; view.selectedTool = null; renderNav(); render(); }
 
+// v29: iframe 기반 화면(프로젝트 WBS·부서 스케줄·QA·Mobile·Manday·Traveller Tag)의 "대상 키".
+// Firestore 실시간 구독(startFirestoreSync)의 배경 render() 호출이 iframe을 통째로 재생성해
+// 무한 리로드(깜빡임) 루프를 일으키던 문제 → 대상이 같으면 render()에서 재생성을 건너뛴다.
+function iframeViewKey() {
+  const v = view;
+  if (v.selectedTool === 'epc' || (v.selectedProj && v.cur === 'projects')) return 'epc:' + (v.selectedProj && v.selectedProj.id);
+  if (v.selectedTool === 'qa' && v.qaSelectedProj) return 'qa:' + v.qaSelectedProj;
+  if (v.selectedTool === 'mobile' && v.mobileSelectedProj) return 'mobile:' + v.mobileSelectedProj;
+  if (v.selectedTool === 'deptsch' && v.deptSchedProj) return 'deptsch:' + v.deptSchedDept + ':' + v.deptSchedProj;
+  if (v.cur === 'manday') return 'manday';
+  if (v.travProj && !v.selectedTraveller) return 'travtag:' + v.travProj;
+  return null;
+}
 function render() {
   const content = document.getElementById('content');
+  // v29: 동일 iframe이 이미 떠 있으면 재생성 스킵 (배경 실시간 갱신에 의한 iframe 깜빡임 방지)
+  const _ifKey = iframeViewKey();
+  if (_ifKey && content.dataset.ifkey === _ifKey) return;
+  content.dataset.ifkey = _ifKey || '';
   if (view.selectedTool === 'epc' || (view.selectedProj && view.cur === 'projects')) {
     // EPC Control 뷰 (도구함에서 또는 프로젝트 카드 클릭)
     content.innerHTML = renderEPCControl();
