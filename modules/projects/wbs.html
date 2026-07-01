@@ -486,6 +486,15 @@ function wRange(id){
 // 자재입고~NDE(1~8) = 66 / Visual~MDR(9~15) = 34  → 1~8 완료 시 약 66%
 const WT_TANK=[7,7,9,9,9,6,11,8, 6,9,5,4,4,3,3];
 function wCS(w){
+  // ★ v29: PM/담당자 수동 진척률 override — 모든 자동집계(자식 롤업·ITP Accept·경과율)보다 우선.
+  //   ITP Accept가 되면 0%→100%로 한 번에 튀는 문제를 피하고, 실제 진행에 맞춰 직접 입력 가능.
+  //   pctManual이 비어있으면(null/undefined/'') 기존 자동집계 로직 그대로.
+  if(w.pctManual!=null && w.pctManual!==""){
+    const pct=Math.max(0,Math.min(100,Math.round(Number(w.pctManual))||0));
+    const st=w.status||(pct>=100?"완료":pct>0?"진행중":"미시작");
+    const ncr=w.itpLink?cS(w.itpLink).ncr:0;   // NCR(부적합) 집계는 ITP 검사기록 그대로 유지
+    return{pct,status:st,ncr};
+  }
   // 자식이 있는 대단락 → 자식들의 진도율 평균(롤업)
   if(hasC(w.id)){
     const kids=childW(w.id);
@@ -620,6 +629,9 @@ function rDetailPanel(){
   if(!S.wsel)return"";
   const w=S.wsel;const{pct,status,ncr}=wCS(w);const sc=SS[status]||{bg:"#f3f4f6",c:"#6b7280"};
   const em=S.wedit;const pd=pct!==null?`${pct}%`:"—";
+  const _manual=(w.pctManual!=null&&w.pctManual!=="");
+  const pctSrc=_manual?"✋ 수동":(w.itpLink?"ITP 자동":(w.s&&w.e?"일정 기준":"자동"));
+  const pctSrcColor=_manual?"#7c3aed":"#9ca3af";
   function field(lbl,val,ec){return`<div class="dpnl-field"><div class="dpnl-field-lbl">${lbl}</div><div class="dpnl-field-val">${em?ec:val}</div></div>`;}
   const itpBtn=w.itpLink&&!em?`<button data-a="goITP" data-iid="${w.itpLink}" data-wid="${w.id}" style="margin-top:4px;padding:2px 7px;background:#4a7fc1;color:#fff;border:none;border-radius:3px;font-size:9px;cursor:pointer">🔗 ITP 이동</button>`:"";
   return`<div class="dpnl">
@@ -638,7 +650,7 @@ function rDetailPanel(){
       ${field("담당자",w.mgr,`<input data-draft="wedit" data-k="mgr" value="${w.mgr.replace(/"/g,"&quot;")}" class="dpnl-input" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`)}
       ${field("시작일",w.s,`<input type="date" data-draft="wedit" data-k="s" value="${w.s}" class="dpnl-input"/>`)}
       ${field("완료일",w.e,`<input type="date" data-draft="wedit" data-k="e" value="${w.e}" class="dpnl-input"/>`)}
-      ${field("진도율",pd,`<div style="font-size:12px;font-weight:700;color:#4a7fc1">${pd} <span style="font-size:9px;color:#9ca3af">(ITP 자동)</span></div>`)}
+      ${field("진도율",`<span style="font-weight:700;color:#4a7fc1">${pd}</span> <span style="font-size:9px;color:${pctSrcColor};font-weight:600">(${pctSrc})</span>`,`<div><input type="number" min="0" max="100" data-draft="wedit" data-k="pctManual" value="${_manual?w.pctManual:''}" placeholder="비우면 자동" class="dpnl-input" style="width:120px"/> <span style="font-size:9px;color:#9ca3af">% · 입력 시 ITP/일정 자동집계 무시</span></div>`)}
       ${field("상태",`<span class="bdg" style="background:${sc.bg};color:${sc.c}">${status}</span>`,`<select data-draft="wedit" data-k="status" class="dpnl-select">${["미시작","진행중","완료","지연"].map(o=>`<option${o===w.status?" selected":""}>${o}</option>`).join("")}</select>`)}
       ${field("담당 업체",w.vendor?`<span style="font-size:11px;color:#1e40af;font-weight:700">🏢 ${w.vendor}</span>`:`<span style="font-size:10px;color:#9ca3af">—</span>`,`<input data-draft="wedit" data-k="vendor" value="${(w.vendor||"").replace(/"/g,"&quot;")}" placeholder="㈜세종기술 / 동원전기 등" class="dpnl-input"/>`)}
       ${field("📝 메모 / 이벤트",w.memo?`<div style="font-size:11px;color:#1e40af;background:#eff6ff;border:1px solid #93c5fd;border-radius:3px;padding:4px 8px;white-space:pre-wrap;line-height:1.4">${w.memo}</div>`:`<span style="font-size:10px;color:#9ca3af">— PDF 막대 옆 콜아웃에 표시됨 —</span>`,`<textarea data-draft="wedit" data-k="memo" placeholder="예: 8/10 PSM 서류 결과 수령" class="dpnl-input" rows="2" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box;line-height:1.4">${w.memo||""}</textarea>`)}
@@ -1153,7 +1165,11 @@ function act(a,d){
     case"selW":{const w=WBS.find(x=>x.id===d.id);us({wsel:S.wsel?.id===w?.id?null:w,wedit:false});break;}
     case"clrW":us({wsel:null,wedit:false});break;
     case"stWEdit":us({wedit:true});break;case"clWEdit":us({wedit:false});break;
-    case"svWEdit":{const id=S.wsel?.id;if(!id)return;const name=document.querySelector('[data-draft="wedit"][data-k="name"]')?.value??S.wsel.name;const mgr=document.querySelector('[data-draft="wedit"][data-k="mgr"]')?.value??S.wsel.mgr;const s=document.querySelector('[data-draft="wedit"][data-k="s"]')?.value??S.wsel.s;const e=document.querySelector('[data-draft="wedit"][data-k="e"]')?.value??S.wsel.e;const status=document.querySelector('[data-draft="wedit"][data-k="status"]')?.value??S.wsel.status;const vendor=document.querySelector('[data-draft="wedit"][data-k="vendor"]')?.value??S.wsel.vendor??"";const memo=document.querySelector('[data-draft="wedit"][data-k="memo"]')?.value??S.wsel.memo??"";WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
+    case"svWEdit":{const id=S.wsel?.id;if(!id)return;const name=document.querySelector('[data-draft="wedit"][data-k="name"]')?.value??S.wsel.name;const mgr=document.querySelector('[data-draft="wedit"][data-k="mgr"]')?.value??S.wsel.mgr;const s=document.querySelector('[data-draft="wedit"][data-k="s"]')?.value??S.wsel.s;const e=document.querySelector('[data-draft="wedit"][data-k="e"]')?.value??S.wsel.e;const status=document.querySelector('[data-draft="wedit"][data-k="status"]')?.value??S.wsel.status;const vendor=document.querySelector('[data-draft="wedit"][data-k="vendor"]')?.value??S.wsel.vendor??"";const memo=document.querySelector('[data-draft="wedit"][data-k="memo"]')?.value??S.wsel.memo??"";
+      // v29: 수동 진척률 — 비우면 null(자동집계 복귀), 값 있으면 0~100 clamp
+      const _pmRaw=document.querySelector('[data-draft="wedit"][data-k="pctManual"]')?.value;
+      const pctManual=(_pmRaw==null||_pmRaw.trim()==="")?null:Math.max(0,Math.min(100,Math.round(Number(_pmRaw))||0));
+      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
     case"mvW":moveWBS(d.id,d.dir==="up"?-1:1);break;
     case"opWM":{DRAFT.wform={code:"",name:"",mgr:"",s:"",e:"",status:"미시작",itpLink:"",parentId:""};us({wmod:true});}break;
     case"clWM":us({wmod:false});break;
