@@ -2567,13 +2567,21 @@ function subscribeWbsData(pid){
   }, err => console.warn("[SJ FLOW] wbsData 구독 실패:", err.message));
 }
 (async function initFromFirestore(){
-  try {
-    const qs = new URLSearchParams(window.location.search);
-    const view = qs.get("view");
-    const pid = qs.get("pid");
-    // canEdit=0 이면 읽기전용 모드 (편집 버튼 숨김)
-    if (qs.get("canEdit") === "0") document.body.classList.add("sjp-readonly");
+  const qs = new URLSearchParams(window.location.search);
+  const view = qs.get("view");
+  const pid = qs.get("pid");
+  // canEdit=0 이면 읽기전용 모드 (편집 버튼 숨김)
+  if (qs.get("canEdit") === "0") document.body.classList.add("sjp-readonly");
 
+  // ★ 화면 모드(mv)는 URL의 ?view= 값만으로 즉시(동기적으로) 확정한다.
+  // 아래 Firestore 조회가 실패하더라도 최소한 올바른 화면(WBS vs 제작공정관리)은 뜨게 하기 위함 —
+  // 예전 버그: getDoc()이 실패하면 catch에서 조용히 넘어가면서 mv가 기본값(wbs)에 머물러
+  // 제작공정관리(view=mm)를 열어도 WBS가 표시되던 문제.
+  if (view === "mm") S = {...S, mv:"mm", mp: pid ? "items" : "projects", mproj:null};
+  else S = {...S, mv:"wbs", wp:"wbs"};
+  R();
+
+  try {
     // 인증 준비 대기 — index.html에서 이미 로그인돼 있으면 거의 즉시 확인됨
     await new Promise(resolve => { const unsub = fb.onAuthStateChanged(fb.auth, u => { unsub(); resolve(u); }); });
 
@@ -2588,19 +2596,14 @@ function subscribeWbsData(pid){
       }
     }
 
-    if (view === "mm") {
-      S = targetProj ? {...S, mv:"mm", mp:"items", mproj:targetProj, mitem:null, mitpId:null}
-                     : {...S, mv:"mm", mp:"projects", mproj:null};
-    } else if (targetProj) {
-      S = {...S, mv:"wbs", wp:"wbs", selproj:targetProj, wsel:null};
-    }
-
     if (targetProj) {
+      if (view === "mm") S = {...S, mproj:targetProj, mp:"items", mitem:null, mitpId:null};
+      else S = {...S, selproj:targetProj, wsel:null};
       _wbsPid = targetProj.id;
       subscribeWbsData(_wbsPid);
     }
+    R();
   } catch(e) { console.warn("[SJ FLOW] Firestore 초기화 실패:", e.message); }
-  R();
 })();
 
 // ═══════════════════════════════════════════════════════════
