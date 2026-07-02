@@ -388,6 +388,10 @@ let MITEM={};
 let WBS=[];
 let REC={},PIM={};
 const SHOW_LIMIT=15;
+// v29: 담당 부서 목록 (index.html DEPTS와 동일 순서). WBS 행 dept 태그·부서 필터에 사용.
+const DEPT_LIST=["영업부","설계부","구매부","생산부","품질관리부","현장시공","안전관리부","총무부","재무부"];
+// URL ?dept=<부서> 부서 필터 모드 / ?deptMode=1 부서 자체 업무 컨테이너 모드
+let _deptFilter=null, _deptMode=false;
 let S={
   mv:"wbs",wp:"wbs",
   wv:"split",wf:"전체",wexp:{w1:true,w2:true,w3:true,w4:true},
@@ -536,10 +540,14 @@ function wCS(w){
 function wVis(){
   const res=[];
   // v28.4: 현재 선택된 프로젝트의 WBS만 표시 (projId 필터)
-  const curPid=S.selproj?.id;
+  // v29: deptMode(부서 자체 업무)면 selproj 대신 _wbsPid 사용
+  const curPid=S.selproj?.id||_wbsPid;
   const filtered=WBS.filter(w=>{
     if(!curPid)return false;
-    return w.projId===curPid;
+    if(w.projId!==curPid)return false;
+    // v29: 부서 필터 모드 — 해당 부서 행만 (부서 도구에서 진입 시)
+    if(_deptFilter && w.dept!==_deptFilter)return false;
+    return true;
   });
   for(let i=0;i<filtered.length;i++){
     const w=filtered[i];
@@ -643,10 +651,12 @@ function rDetailPanel(){
       </div>
       <div class="dpnl-actions">
         ${em?`<button class="save-btn" data-a="svWEdit">💾 저장</button><button data-a="clWEdit" style="padding:4px 10px;background:#f3f4f6;border:none;border-radius:5px;font-size:11px;cursor:pointer;color:#6b7280">취소</button>`:`<button class="edit-btn" data-a="stWEdit">✏ 수정</button>`}
+        <button data-a="delW" data-id="${w.id}" style="padding:4px 10px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600" title="이 항목 삭제">🗑 삭제</button>
         <button class="close-btn" data-a="clrW">✕</button>
       </div>
     </div>
     <div class="dpnl-fields">
+      ${field("담당 부서",w.dept?`<span style="font-size:11px;color:#7c3aed;font-weight:700">${w.dept}</span>`:`<span style="font-size:10px;color:#9ca3af">— 미지정 —</span>`,`<select data-draft="wedit" data-k="dept" class="dpnl-select"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${w.dept===d?" selected":""}>${d}</option>`).join("")}</select>`)}
       ${field("담당자",w.mgr,`<input data-draft="wedit" data-k="mgr" value="${w.mgr.replace(/"/g,"&quot;")}" class="dpnl-input" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`)}
       ${field("시작일",w.s,`<input type="date" data-draft="wedit" data-k="s" value="${w.s}" class="dpnl-input"/>`)}
       ${field("완료일",w.e,`<input type="date" data-draft="wedit" data-k="e" value="${w.e}" class="dpnl-input"/>`)}
@@ -906,14 +916,14 @@ function rWBS(){
       </tbody>
     </table>`;
   
-  ct=S.wv==="evms"
+  ct=(S.wv==="evms" && !_deptMode)
     ? `<div style="background:#f8fafc;border-radius:8px;border:1px solid #e4e7ec;padding:8px">${evmsPanel(_pid)}</div>`
     : `<div class="wbs-unified-wrap" style="position:relative;overflow:auto;background:#fff;border-radius:8px;border:1px solid #e4e7ec;flex:1;min-height:160px;max-height:none">
     ${unifiedTable}
   </div>`;
-  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span></div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt","evms"].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
+  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span></div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
   <div class="fbar"><span style="font-size:10px;color:#9ca3af;margin-right:3px">필터:</span>${["전체","완료","진행중","미시작","지연"].map(f=>`<button class="fb${S.wf===f?" on":""}" data-a="setWF" data-f="${f}">${f}(${fCnt(f)})</button>`).join("")}</div>
-  <div class="cont">${S.wv!=="evms"?`<div style="margin-bottom:10px;border:1px solid #e4e7ec;border-radius:8px;background:#f8fafc;overflow:hidden;flex-shrink:0">
+  <div class="cont">${(S.wv!=="evms" && !_deptMode)?`<div style="margin-bottom:10px;border:1px solid #e4e7ec;border-radius:8px;background:#f8fafc;overflow:hidden;flex-shrink:0">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer" data-a="tgEvms"><span style="font-size:11px;font-weight:700;color:#1e40af">📈 EVMS 요약 (계획·실행·일정차이·SPI)</span><span style="font-size:11px;color:#6b7280">${S.evmsHide?'▶ 펼치기':'▼ 접기'}</span></div>
     ${S.evmsHide?'':`<div style="padding:0 10px 10px">${evmsPanel(_pid,true)}</div>`}
   </div>`:''}${ct}${rDetailPanel()}${v28WeeklySummary()}</div>`;
@@ -1005,6 +1015,7 @@ function rModals(){
   let h="";
   if(S.wmod){const f=DRAFT.wform;h+=`<div class="ov"><div class="mdl"><div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1a2332">WBS 항목 추가</div>
       <div style="margin-bottom:7px"><div class="fl">상위 그룹 (추가 위치)</div><select data-draft="wform" data-k="parentId" class="fi"><option value="">— 대단락으로 추가 —</option>${WBS.filter(w=>w.lv===0&&w.projId===S.selproj?.id).map(w=>`<option value="${w.id}">${w.code} ${w.name}</option>`).join("")}</select></div>
+      <div style="margin-bottom:7px"><div class="fl">담당 부서 <span style="font-size:9px;color:#9ca3af">— 부서 스케줄 필터·권한 기준</span></div><select data-draft="wform" data-k="dept" class="fi"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${(f.dept||_deptFilter||"")===d?" selected":""}>${d}</option>`).join("")}</select></div>
       <div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:.4"><div class="fl">작업코드</div>${inp("wform","code","placeholder='자동'",f.code)}</div><div style="flex:1"><div class="fl">작업명</div>${inp("wform","name","",f.name)}</div></div><div style="margin-bottom:7px"><div class="fl">담당자</div>${inp("wform","mgr","",f.mgr)}</div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">시작일</div>${inp("wform","s","type='date'",f.s)}</div><div style="flex:1"><div class="fl">완료일</div>${inp("wform","e","type='date'",f.e)}</div></div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">상태</div>${sel("wform","status",["미시작","진행중","완료","지연"],f.status||"미시작")}</div><div style="flex:1"><div class="fl">제작공정 연동</div><select data-draft="wform" data-k="itpLink" class="fi"><option value="">없음</option><option value="__new__">★ 새 제작공정(Trv.) 아이템 자동 생성</option>${allI().map(i=>`<option value="${i.id}">${i.tagNo}</option>`).join("")}</select></div></div><!-- v28.4.8: 담당 업체 + 메모 (MS Project Notes 스타일) --><div style="margin-bottom:7px"><div class="fl">담당 업체 <span style="font-size:9px;color:#9ca3af">— REMARK 컬럼 표시</span></div>${inp("wform","vendor","placeholder='㈜세종기술 / 동원전기 등'",f.vendor||"")}</div><div style="margin-bottom:10px"><div class="fl">메모 / 이벤트 <span style="font-size:9px;color:#9ca3af">— PDF 막대 옆 콜아웃</span></div><textarea data-draft="wform" data-k="memo" class="fi" rows="2" placeholder="작업 핵심 이벤트 메모 (예: 8/10 PSM 서류 결과 수령)" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box">${f.memo||""}</textarea></div><div style="display:flex;gap:6px;justify-content:flex-end"><button data-a="clWM" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button><button data-a="svW" style="padding:5px 11px;background:#4a7fc1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">저장</button></div></div></div>`;}
   // v28.4.17: NOTE 편집 모달
   if(S.noteEditMod){const curNote=S.selproj?.customNote||"";h+=`<div class="ov"><div class="mdl" style="max-width:560px"><div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#1a2332">📝 PDF 하단 NOTE 편집</div><div style="font-size:11px;color:#6b7280;margin-bottom:8px;line-height:1.5">PDF 출력 시 하단에 표시될 NOTE 내용입니다. 한 줄에 하나씩 작성하세요. 비워두면 기본 메시지가 표시됩니다.</div><textarea id="noteEditTA" class="fi" rows="10" placeholder="예시:&#10;본 일정은 작성 시점 기준이며, 작업 변수에 따라 변경 될 수 있다.&#10;본 SCHEDULE는 발주처와의 협의 하에 진행한다.&#10;진척률은 EPC Control System의 실시간 데이터를 기준으로 산출된다.&#10;소방, 통신검사 작업 투입 보름전 신청 (9/15)&#10;작업개시: 세종작업 종료시 즉시 (16일 소요)" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:11px;line-height:1.5">${curNote.replace(/</g,'&lt;')}</textarea><div style="display:flex;gap:6px;justify-content:space-between;margin-top:10px"><button data-a="clNoteEdit" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button><div style="display:flex;gap:6px"><button data-a="resetNote" style="padding:5px 11px;background:#fef3c7;color:#92400e;border:none;border-radius:5px;cursor:pointer;font-size:11px">🔄 기본값으로</button><button data-a="svNoteEdit" style="padding:5px 14px;background:#7c3aed;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">💾 저장</button></div></div></div></div>`;}
@@ -1164,14 +1175,31 @@ function act(a,d){
     case"tgExp":us(s=>({...s,wexp:{...s.wexp,[d.id]:!s.wexp[d.id]}}));break;
     case"selW":{const w=WBS.find(x=>x.id===d.id);us({wsel:S.wsel?.id===w?.id?null:w,wedit:false});break;}
     case"clrW":us({wsel:null,wedit:false});break;
+    case"delW":{
+      const wid=d.id;const w=WBS.find(x=>x.id===wid);if(!w)break;
+      const children=WBS.filter(x=>x.parentId===wid);
+      const msg=children.length
+        ?`"${w.code} ${w.name}" 및 하위 ${children.length}개 항목을 모두 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?`
+        :`"${w.code} ${w.name}" 항목을 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?`;
+      if(!confirm(msg))break;
+      const delIds=new Set([wid]);
+      // 재귀적으로 모든 하위 항목 수집
+      let changed=true;
+      while(changed){changed=false;WBS.forEach(x=>{if(!delIds.has(x.id)&&x.parentId&&delIds.has(x.parentId)){delIds.add(x.id);changed=true;}});}
+      WBS=WBS.filter(x=>!delIds.has(x.id));
+      addLog(`🗑 삭제: ${w.code} ${w.name}${delIds.size>1?' (하위 '+(delIds.size-1)+'개 포함)':''}`,"warn");
+      us({wsel:null,wedit:false});
+      break;}
     case"stWEdit":us({wedit:true});break;case"clWEdit":us({wedit:false});break;
     case"svWEdit":{const id=S.wsel?.id;if(!id)return;const name=document.querySelector('[data-draft="wedit"][data-k="name"]')?.value??S.wsel.name;const mgr=document.querySelector('[data-draft="wedit"][data-k="mgr"]')?.value??S.wsel.mgr;const s=document.querySelector('[data-draft="wedit"][data-k="s"]')?.value??S.wsel.s;const e=document.querySelector('[data-draft="wedit"][data-k="e"]')?.value??S.wsel.e;const status=document.querySelector('[data-draft="wedit"][data-k="status"]')?.value??S.wsel.status;const vendor=document.querySelector('[data-draft="wedit"][data-k="vendor"]')?.value??S.wsel.vendor??"";const memo=document.querySelector('[data-draft="wedit"][data-k="memo"]')?.value??S.wsel.memo??"";
       // v29: 수동 진척률 — 비우면 null(자동집계 복귀), 값 있으면 0~100 clamp
       const _pmRaw=document.querySelector('[data-draft="wedit"][data-k="pctManual"]')?.value;
       const pctManual=(_pmRaw==null||_pmRaw.trim()==="")?null:Math.max(0,Math.min(100,Math.round(Number(_pmRaw))||0));
-      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
+      // v29: 담당 부서
+      const dept=document.querySelector('[data-draft="wedit"][data-k="dept"]')?.value??S.wsel.dept??"";
+      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
     case"mvW":moveWBS(d.id,d.dir==="up"?-1:1);break;
-    case"opWM":{DRAFT.wform={code:"",name:"",mgr:"",s:"",e:"",status:"미시작",itpLink:"",parentId:""};us({wmod:true});}break;
+    case"opWM":{DRAFT.wform={code:"",name:"",mgr:"",s:"",e:"",status:"미시작",itpLink:"",parentId:"",dept:_deptFilter||""};us({wmod:true});}break;
     case"clWM":us({wmod:false});break;
     case"svW":{
       const n=document.querySelector('[data-draft="wform"][data-k="name"]')?.value||"";
@@ -1186,9 +1214,11 @@ function act(a,d){
       // v28.4.8: 담당 업체 + 메모
       const vd=document.querySelector('[data-draft="wform"][data-k="vendor"]')?.value||"";
       const mm=document.querySelector('[data-draft="wform"][data-k="memo"]')?.value||"";
+      // v29: 담당 부서 (부서 필터 모드면 그 부서로 자동 태그)
+      const dp=document.querySelector('[data-draft="wform"][data-k="dept"]')?.value||_deptFilter||"";
       const wid="w"+Date.now();
-      const curPid=S.selproj?.id;
-      WBS.push({id:wid,code:c2||"?",name:n,mgr:m2,s:sd,e:ed,status:st,itpLink:null,lv:pg?1:0,projId:curPid,vendor:vd,memo:mm});
+      const curPid=S.selproj?.id||_wbsPid;
+      WBS.push({id:wid,code:c2||"?",name:n,mgr:m2,s:sd,e:ed,status:st,itpLink:null,lv:pg?1:0,projId:curPid,vendor:vd,memo:mm,dept:dp});
       if(pg){
         const pi2=WBS.findIndex(w=>w.id===pg);
         if(pi2>=0){
@@ -2459,18 +2489,33 @@ function subscribeWbsData(pid){
   const pid = qs.get("pid");
   // canEdit=0 이면 읽기전용 모드 (편집 버튼 숨김)
   if (qs.get("canEdit") === "0") document.body.classList.add("sjp-readonly");
+  // v29: 부서 스케줄 진입 — ?dept=<부서> 필터, ?deptMode=1 부서 자체 업무 컨테이너
+  _deptFilter = qs.get("dept") || null;
+  _deptMode = qs.get("deptMode") === "1";
 
   // ★ 화면 모드(mv)는 URL의 ?view= 값만으로 즉시(동기적으로) 확정한다.
-  // 아래 Firestore 조회가 실패하더라도 최소한 올바른 화면(WBS vs 제작공정관리)은 뜨게 하기 위함 —
-  // 예전 버그: getDoc()이 실패하면 catch에서 조용히 넘어가면서 mv가 기본값(wbs)에 머물러
-  // 제작공정관리(view=mm)를 열어도 WBS가 표시되던 문제.
   if (view === "mm") S = {...S, mv:"mm", mp: pid ? "items" : "projects", mproj:null};
   else S = {...S, mv:"wbs", wp:"wbs"};
   R();
 
   try {
+    // v29: Firebase 모듈 스크립트(window.fb)가 아직 로드 전이면 대기 — 클래식 스크립트가 먼저 실행되는 레이스 방지
+    let _fbTries=0; while(!window.fb && _fbTries++<100){ await new Promise(r=>setTimeout(r,50)); }
+    if(!window.fb){ console.warn("[SJ FLOW] Firebase 미로드 — 초기화 중단"); return; }
     // 인증 준비 대기 — index.html에서 이미 로그인돼 있으면 거의 즉시 확인됨
     await new Promise(resolve => { const unsub = fb.onAuthStateChanged(fb.auth, u => { unsub(); resolve(u); }); });
+
+    // v29: 부서 자체 업무 컨테이너 — 실제 프로젝트 문서가 없으므로 조회 건너뛰고 pid를 그대로 컨테이너로 사용
+    if (_deptMode && pid) {
+      const synth = { id: pid, no: (_deptFilter||"부서")+" 자체 업무", name: (_deptFilter||"부서")+" 자체 업무", client:"", po:"", pm:"" };
+      const idx = PROJS.findIndex(p => p.id === pid);
+      if (idx >= 0) PROJS[idx] = synth; else PROJS.unshift(synth);
+      S = {...S, selproj:synth, wsel:null};
+      _wbsPid = pid;
+      subscribeWbsData(_wbsPid);
+      R();
+      return;
+    }
 
     let targetProj = null;
     if (pid) {
