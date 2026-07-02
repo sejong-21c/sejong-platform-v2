@@ -758,14 +758,17 @@ async function loadBriefings() {
     const data = await res.json();
     if (!data || typeof data !== 'object') return;
     state.briefings = state.briefings || {};
-    // '_'로 시작하는 메타 키(_readme/_schema/_users 등)는 무시
     Object.keys(data).forEach(k => {
       if (k.charAt(0) === '_') return;
+      // 이메일 키 → Firebase UID 변환 (@ 포함 시 이메일로 간주)
+      if (k.indexOf('@') !== -1) {
+        const matched = state.users.find(u => u.email && u.email.toLowerCase() === k.toLowerCase());
+        if (matched) { state.briefings[matched.id] = data[k]; return; }
+      }
       state.briefings[k] = data[k];
     });
     save();
     console.info('[SJ FLOW] Cowork 브리핑 로드 완료:', Object.keys(state.briefings).length, '명');
-    // 대시보드 보고 있으면 즉시 갱신
     if (view.cur === 'dashboard' && state.currentUser) render();
   } catch (e) {
     console.warn('[SJ FLOW] Cowork 브리핑 로드 실패(무시):', e.message);
@@ -811,9 +814,25 @@ function getBriefingScheduleEvents() {
     id: 'brf_' + state.currentUser + '_' + i,
     title: s.proj ? `[${s.proj}] ${s.title}` : s.title,
     date: s.date, time: s.time || '', color: s.color || 'blue', source: 'briefing',
+    dept: s.dept || '',
   }));
 }
 function allEvents() { return [...state.events, ...getBriefingScheduleEvents()]; }
+/* 특정 부서(DEPTS id) 관련 briefing schedule 이벤트 반환 — 부서 스케줄에 자동 포함 */
+function getDeptBriefingEvents(deptId) {
+  const events = [];
+  Object.keys(state.briefings || {}).forEach(uid => {
+    const b = state.briefings[uid];
+    if (!b || !Array.isArray(b.schedule)) return;
+    b.schedule.forEach((s, i) => {
+      if (s.dept === deptId) events.push({
+        id: 'brf_' + uid + '_' + i, title: s.proj ? '[' + s.proj + '] ' + s.title : s.title,
+        date: s.date, time: s.time || '', color: s.color || 'blue', source: 'briefing', dept: deptId,
+      });
+    });
+  });
+  return events;
+}
 function fmt(n) { return n.toLocaleString(); }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1159,7 +1178,7 @@ async function doGoogleLogin() {
 // 최초 로그인 시 소속(부서/직급) 입력받아 Firestore 프로필 생성
 function showProfileSetup(fu) {
   const ov = document.getElementById('authOverlay');
-  const deptOpts = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'].map(d=>`<option value="${d}">${d}</option>`).join('');
+  const deptOpts = DEPTS.map(d=>`<option value="${d.name}">${d.name}</option>`).join('');
   const titleOpts = TITLES.map(t=>`<option value="${t}">${t}</option>`).join('');
   ov.innerHTML = `
     <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;">
@@ -2052,6 +2071,15 @@ function renderDeptSchedProjects() {
         </div>
       </div>
     </div>
+    ${(() => {
+      const did = (DEPTS.find(d => d.name === dept) || {}).id || '';
+      const bEvents = getDeptBriefingEvents(did).filter(e => e.date >= new Date().toISOString().slice(0,10)).sort((a,b) => a.date.localeCompare(b.date));
+      if (!bEvents.length) return '';
+      return '<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">📬 Cowork 메일 자동 연동 일정 (' + bEvents.length + ')</div>' +
+        '<div class="card" style="border-left:3px solid #f59e0b;">' + bEvents.map(function(e) {
+          return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">' + e.title + '</div><div style="font-size:12px;color:' + (e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)') + ';font-weight:600;white-space:nowrap;margin-left:8px;">' + e.date + (e.time ? ' ' + e.time : '') + '</div></div>';
+        }).join('') + '</div></div>';
+    })()}
     <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">📊 프로젝트별 ${dept} 스케줄</div>
     <div class="proj-grid">${projCards || '<div style="color:var(--text-lighter);font-size:12px;padding:20px;">등록된 프로젝트가 없습니다.</div>'}</div>
   `;
@@ -2202,14 +2230,44 @@ function dashboard() {
 
   // 긴급 답변 대기 (개인 브리핑 있을 때)
   const urgentCard = hasBriefing && b.urgentList && b.urgentList.length ? `
-    <div class="card">
+    <div class="card" style="border-left:3px solid var(--warning);">
       <h3 style="margin-bottom:12px;font-size:14px;">⚠️ 긴급 답변 대기 (${b.urgentList.length})</h3>
       ${b.urgentList.map(m=>`
         <div style="padding:8px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;gap:8px;">
           <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${m.subject}</div><div style="font-size:11px;color:var(--text-light);">${m.from}</div></div>
-          <span style="font-size:10px;color:var(--primary);font-weight:600;align-self:center;">${m.proj}</span>
+          <span style="font-size:10px;color:var(--primary);font-weight:600;align-self:center;white-space:nowrap;">${m.proj}</span>
         </div>
       `).join('')}
+    </div>` : '';
+
+  // 원자력사업부 브리핑 (nuclear 데이터 있을 때)
+  const nuc = b && b.nuclear;
+  const nuclearCard = nuc ? `
+    <div class="card" style="border-left:3px solid #f59e0b;margin-top:14px;">
+      <h3 style="margin-bottom:10px;font-size:14px;">☢️ 원자력사업부 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— ${nuc.summary||'메일 자동 분류'}</span></h3>
+      ${nuc.items ? nuc.items.map((it,i)=>`
+        <div style="display:flex;gap:10px;padding:8px 0;${i<nuc.items.length-1?'border-bottom:1px solid var(--border-light);':''}">
+          <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:${it.priority==='high'?'#dc2626':'#3b82f6'};color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;">${i+1}</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;">${it.text}</div>
+            <div style="display:flex;gap:6px;margin-top:3px;">
+              <span style="font-size:10px;color:#f59e0b;font-weight:600;background:#fef3c7;padding:1px 6px;border-radius:3px;">${it.category||'원자력'}</span>
+              <span style="font-size:10px;color:var(--primary);font-weight:600;background:var(--primary-lighter);padding:1px 6px;border-radius:3px;">${it.proj}</span>
+            </div>
+          </div>
+        </div>
+      `).join('') : ''}
+      ${nuc.schedule && nuc.schedule.length ? `
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-light);">
+          <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:6px;">📅 원자력 관련 일정</div>
+          ${nuc.schedule.map(s=>`
+            <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;">
+              <span>${s.title}</span>
+              <span style="color:${s.color==='red'?'var(--danger)':s.color==='orange'?'var(--warning)':'var(--text-light)'};font-weight:600;white-space:nowrap;margin-left:8px;">${s.date}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>` : '';
 
   // 팀 공수 (부서장·임원 + teamManday 데이터 있을 때)
@@ -2266,11 +2324,15 @@ function dashboard() {
     ${keyActionsCard}
     <div class="dash-grid">
       ${hasBriefing ? urgentCard : myTasksCard}
-      ${mandayCard || (() => {
-        const upcoming = allEvents().filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date)).slice(0,6);
-        return `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;">📅 다가오는 일정</h3>${upcoming.length ? upcoming.map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">${e.title}</div><div style="font-size:11px;color:var(--text-light);margin-top:2px;">${e.date}${e.time?' '+e.time:''}</div></div>`).join('') : `<p style="font-size:12px;color:var(--text-light);">다가오는 일정이 없습니다</p>`}</div>`;
+      ${(() => {
+        const upcoming = allEvents().filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date)).slice(0,8);
+        return `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;">📅 다가오는 일정 (${upcoming.length})</h3>${upcoming.length ? upcoming.map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;">
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${e.title}</div></div>
+          <div style="text-align:right;flex-shrink:0;margin-left:8px;"><div style="font-size:12px;color:${e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)'};font-weight:600;">${e.date}</div>${e.time?'<div style="font-size:10px;color:var(--text-light);">'+e.time+'</div>':''}</div>
+        </div>`).join('') : `<p style="font-size:12px;color:var(--text-light);">다가오는 일정이 없습니다</p>`}</div>`;
       })()}
     </div>
+    ${nuclearCard}
     ${hasBriefing ? `<div style="margin-top:14px;">${myTasksCard}</div>` : ''}
     ${reportsCard}
     <div class="card" style="margin-top:14px;">
