@@ -1340,10 +1340,55 @@ function stopFirestoreSync() {
   _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
   _fsUnsubs = [];
 }
+// WBS 행 하나의 진척률 계산 — wbs.html의 wCS()를 간이 포팅 (ITP 연동 부분 제외).
+// pctManual 우선 → 자식(소단락) 롤업 → 상태 문자열 → 시작/완료일 경과율 순.
+function _wbsRowPct(w, rows, idx) {
+  if (w.pctManual != null && w.pctManual !== '') return Math.max(0, Math.min(100, Math.round(Number(w.pctManual)) || 0));
+  const kids = [];
+  for (let j = idx + 1; j < rows.length; j++) {
+    if (rows[j].lv <= w.lv) break;
+    if (rows[j].lv === w.lv + 1) kids.push(j);
+  }
+  if (kids.length) {
+    const sum = kids.reduce((a, j) => a + _wbsRowPct(rows[j], rows, j), 0);
+    return Math.round(sum / kids.length);
+  }
+  if (w.status === '완료') return 100;
+  if (w.status === '미시작') return 0;
+  if (w.pct != null) return w.pct;
+  if (w.s && w.e) {
+    const today = new Date(), start = new Date(w.s), end = new Date(w.e);
+    if (today < start) return 0;
+    if (today >= end) return 99;
+    return Math.max(1, Math.min(99, Math.round((today - start) / (end - start) * 100)));
+  }
+  return 0;
+}
+function computeProjectProgress(pid) {
+  const rows = state.wbs[pid] || [];
+  const topIdx = [];
+  rows.forEach((w, i) => { if (w.lv === 0) topIdx.push(i); });
+  if (!topIdx.length) return 0;
+  const sum = topIdx.reduce((a, i) => a + _wbsRowPct(rows[i], rows, i), 0);
+  return Math.round(sum / topIdx.length);
+}
+// WBS 데이터 기준 진척률을 projects.progress와 대조해 어긋나면 자동 동기화
+// (wbs.html을 직접 열지 않은 프로젝트도 대시보드 로드만으로 백필됨)
+function reconcileProjectProgress() {
+  if (!window.fb || !fb.db) return;
+  state.projects.forEach(p => {
+    if (!state.wbs[p.id] || !state.wbs[p.id].length) return;
+    const computed = computeProjectProgress(p.id);
+    if ((p.progress || 0) !== computed) {
+      fb.setDoc(fb.doc(fb.db, 'projects', p.id), { progress: computed }, { merge: true }).catch(() => {});
+    }
+  });
+}
 function startFirestoreSync() {
   stopFirestoreSync();
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    reconcileProjectProgress();
     render();
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
@@ -1358,6 +1403,7 @@ function startFirestoreSync() {
       state.wbs[pid] = data.rows || [];
       state.items[pid] = data.items || [];
     });
+    reconcileProjectProgress();
     render();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
 }
