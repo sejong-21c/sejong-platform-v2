@@ -211,6 +211,14 @@ input[type=file]{display:none}
   <div class="step">
     <div class="step-num">4</div>
     <div class="step-title">합부 판정</div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:#888;margin-bottom:6px;display:block">검사자 (여러 명 선택 가능 — ITP Builder에 업로드된 목록에서 토글)</label>
+      <div id="inspector-toggle-grid" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="inspector-add-input" placeholder="목록에 없으면 이름 입력 후 추가" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addAdHocInspector();}">
+        <button type="button" onclick="addAdHocInspector()" style="padding:0 16px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">+ 추가</button>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px" id="result-grid">
       <button class="stage-btn sel" data-val="합격" id="btn-pass" onclick="selectResult('합격')"><i class="ti ti-circle-check" aria-hidden="true"></i>합격</button>
       <button class="stage-btn" data-val="조건부합격" id="btn-cond" onclick="selectResult('조건부합격')"><i class="ti ti-alert-circle" aria-hidden="true"></i>조건부합격</button>
@@ -254,6 +262,7 @@ input[type=file]{display:none}
       <tr><td>아이템</td><td id="det-item">—</td></tr>
       <tr><td>검사 일시</td><td id="det-date">—</td></tr>
       <tr><td>검사 단계</td><td id="det-stage">—</td></tr>
+      <tr><td>검사자</td><td id="det-inspectors">—</td></tr>
       <tr><td>합부 판정</td><td id="det-note">—</td></tr>
     </table>
   </div>
@@ -318,6 +327,15 @@ input[type=file]{display:none}
 const STORE_KEY='sejong_insp_records';
 const PROJ_KEY='sejong_projects';
 
+// v1.0 — ITP Builder에서 업로드한 검사자(Inspector) List를 그대로 읽어온다.
+// index.html이 iframe에 ?pid=...를 넘겨주므로 ITP Builder와 동일한 키 규칙을 사용.
+const MI_PID = new URLSearchParams(window.location.search).get('pid') || 'standalone';
+const MASTER_INSPECTOR_KEY = `sjp_master_inspector_list__${MI_PID}`;
+function loadInspectorMasterList(){
+  try { const v = JSON.parse(localStorage.getItem(MASTER_INSPECTOR_KEY)||'null'); return Array.isArray(v) ? v : []; } catch(e) { return []; }
+}
+let selectedInspectors = []; // 이번 등록 건에 토글로 선택된 검사자(이름) 목록
+
 const DEFAULT_PROJECTS={
   'P-2025-041 / Canned Motor Pump (정유화학)':[
     'CMP-001 / Feed Pump A','CMP-002 / Feed Pump B',
@@ -376,6 +394,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 프로젝트 드롭다운 초기화
   initProjSelect();
+  renderInspectorToggles();
   renderHist();
 });
 
@@ -848,6 +867,42 @@ function removeItem(idx){
 }
 
 // ── 합부 판정 ────────────────────────────
+// ── 검사자 토글 선택 (ITP Builder 업로드 목록 + 직접 추가) ──
+function renderInspectorToggles(){
+  const grid = document.getElementById('inspector-toggle-grid');
+  if (!grid) return;
+  const master = loadInspectorMasterList();
+  const names = Array.from(new Set([...master, ...selectedInspectors]));
+  if (names.length === 0) {
+    grid.innerHTML = '<span style="font-size:12px;color:#aaa">업로드된 검사자 목록이 없습니다 — 아래에 이름을 입력해 추가하세요</span>';
+    return;
+  }
+  grid.innerHTML = '';
+  names.forEach(name => {
+    const on = selectedInspectors.includes(name);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = name;
+    btn.style.cssText = `padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer;border:1.5px solid ${on?'#185fa5':'#e0ddd6'};background:${on?'#e6f1fb':'#fff'};color:${on?'#185fa5':'#3a3a38'};font-weight:${on?'600':'500'}`;
+    btn.onclick = () => toggleInspector(name);
+    grid.appendChild(btn);
+  });
+}
+function toggleInspector(name){
+  selectedInspectors = selectedInspectors.includes(name)
+    ? selectedInspectors.filter(n=>n!==name)
+    : [...selectedInspectors, name];
+  renderInspectorToggles();
+}
+function addAdHocInspector(){
+  const input = document.getElementById('inspector-add-input');
+  const name = input.value.trim();
+  if (!name) return;
+  if (!selectedInspectors.includes(name)) selectedInspectors = [...selectedInspectors, name];
+  input.value = '';
+  renderInspectorToggles();
+}
+
 function selectResult(val){
   const cfg={
     '합격':      {id:'btn-pass',color:'#185fa5',bg:'#e6f1fb',border:'#185fa5'},
@@ -942,7 +997,7 @@ function submitUpload(){
     if(w>=100){w=100;clearInterval(iv);
       setTimeout(()=>{
         const records=loadRecords();
-        const rec={id:Date.now(),proj,item,date,stage,itpId,itpName,result,note,inspData,photos:pendingFiles.map(f=>({name:f.name,dataUrl:f.dataUrl}))};
+        const rec={id:Date.now(),proj,item,date,stage,itpId,itpName,result,note,inspData,inspectors:[...selectedInspectors],photos:pendingFiles.map(f=>({name:f.name,dataUrl:f.dataUrl}))};
         records.unshift(rec);
         saveRecords(records);
         pendingFiles=[];renderPreviews();
@@ -957,6 +1012,7 @@ function submitUpload(){
         document.getElementById('item-mgr').style.display='none';
         document.getElementById('fail-note').value='';
         selectResult('합격');
+        selectedInspectors=[];renderInspectorToggles();
         btn.disabled=false;
         btn.innerHTML='<i class="ti ti-cloud-upload"></i> 등록하기';
         pw.style.display='none';pf.style.width='0%';
@@ -976,7 +1032,7 @@ function switchTab(tab){
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
   });
   document.getElementById('detail-screen').style.display='none';
-  if(tab==='upload') initProjSelect();
+  if(tab==='upload') { initProjSelect(); renderInspectorToggles(); }
   if(tab==='hist') renderHist();
 }
 
@@ -1014,6 +1070,7 @@ function openDetail(id){
   document.getElementById('det-item').textContent=rec.item||'—';
   document.getElementById('det-date').textContent=rec.date.replace('T',' ');
   document.getElementById('det-stage').textContent=rec.stage;
+  document.getElementById('det-inspectors').textContent=(rec.inspectors&&rec.inspectors.length)?rec.inspectors.join(', '):'—';
   document.getElementById('det-note').textContent=rec.note||'없음';
   const rg=document.getElementById('reg-grid');
   rg.innerHTML='';
@@ -1138,6 +1195,10 @@ function buildSheet(){
       <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;overflow:hidden">
         <div style="font-size:10px;color:#999">검사 일시</div>
         <div style="font-size:12px;font-weight:600;margin-top:1px">${rec.date.replace('T',' ')}</div>
+      </div>
+      <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;overflow:hidden">
+        <div style="font-size:10px;color:#999">검사자</div>
+        <div style="font-size:12px;font-weight:600;margin-top:1px">${(rec.inspectors&&rec.inspectors.length)?rec.inspectors.join(', '):'—'}</div>
       </div>
       <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;grid-column:1/-1;overflow:hidden">
         <div style="font-size:10px;color:#999">합부 판정</div>

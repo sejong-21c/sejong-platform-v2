@@ -467,9 +467,10 @@ const PID = URL_PARAMS.get("pid") || "standalone";
       window.EPC_ITEMS = host.EPC_ITEMS;
       window.EPC_DOC_NO_GENERATOR = host.EPC_DOC_NO_GENERATOR;
       window.EPC_INSPECTOR_MASTER = host.EPC_INSPECTOR_MASTER;
-      // v1.5 — host 값이 비어있을 때 로컬에서 직접 업로드한 WPS/Welder 목록을 지우지 않도록 가드
+      // v1.5 — host 값이 비어있을 때 로컬에서 직접 업로드한 WPS/Welder/Inspector 목록을 지우지 않도록 가드
       if (host.WPS_LIST) window.WPS_LIST = host.WPS_LIST;
       if (host.WELDER_LIST) window.WELDER_LIST = host.WELDER_LIST;
+      if (host.INSPECTOR_LIST) window.INSPECTOR_LIST = host.INSPECTOR_LIST;
       return true;
     } catch(e){
       console.warn("[ITP Builder] host 접근 실패", e.message);
@@ -556,8 +557,11 @@ const loadLS = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)
 // v1.6 — "해당 PJT 공통"이므로 전역 공유가 아니라 프로젝트(pid) 단위로 분리.
 const MASTER_WPS_KEY = `sjp_master_wps_list__${PID}`;
 const MASTER_WELDER_KEY = `sjp_master_welder_list__${PID}`;
-const saveMasterList = (kind, arr) => { try { localStorage.setItem(kind==="wps"?MASTER_WPS_KEY:MASTER_WELDER_KEY, JSON.stringify(arr)); } catch(e){} };
-const loadMasterList = (kind) => { try { return JSON.parse(localStorage.getItem(kind==="wps"?MASTER_WPS_KEY:MASTER_WELDER_KEY)||"null"); } catch(e) { return null; } };
+// v1.9 — WPS/Welder와 동일한 방식의 검사자(Inspector) List
+const MASTER_INSPECTOR_KEY = `sjp_master_inspector_list__${PID}`;
+const MASTER_LIST_KEYS = {wps: MASTER_WPS_KEY, welder: MASTER_WELDER_KEY, inspector: MASTER_INSPECTOR_KEY};
+const saveMasterList = (kind, arr) => { try { localStorage.setItem(MASTER_LIST_KEYS[kind], JSON.stringify(arr)); } catch(e){} };
+const loadMasterList = (kind) => { try { return JSON.parse(localStorage.getItem(MASTER_LIST_KEYS[kind])||"null"); } catch(e) { return null; } };
 
 // ════════ 4. UI 헬퍼 ════════
 function Logo({h=46}){
@@ -572,18 +576,20 @@ function LogoCell(){
     </div>
   </div>;
 }
-function EPCSlots(){
-  const isConnected = window.SJP?.bridge?.isConnected?.() || false;
+function EPCSlots({jobNo}){
+  // v1.9 — "Doc No." 슬롯은 실제로 쓰이는 값이 아니어서 의미 있는 "Job No."(=Project No.)로 교체.
+  // Inspector 슬롯은 EPC_INSPECTOR_MASTER 대신, WPS/Welder와 같은 방식으로 업로드한
+  // 검사자 List(window.INSPECTOR_LIST)가 있는지로 판단.
   const slots = [
     {key:"project", title:"Project", connected:!!window.EPC_PROJECT},
     {key:"items", title:"Items", connected:!!window.EPC_ITEMS},
-    {key:"docno", title:"Doc No.", connected:!!window.EPC_DOC_NO_GENERATOR},
-    {key:"inspector", title:"Inspector", connected:!!window.EPC_INSPECTOR_MASTER}
+    {key:"jobno", title:"Job No.", connected:!!jobNo, value:jobNo},
+    {key:"inspector", title:"Inspector", connected:!!window.INSPECTOR_LIST?.length}
   ];
   return <div className="slots-grid">{slots.map(s =>
     <div key={s.key} className={"slot" + (s.connected?" connected":"")}>
       <div className="slot-title">{s.title}</div>
-      <div className="slot-status">{s.connected ? "✓ EPC 연결" : "⊘ Standalone"}</div>
+      <div className="slot-status">{s.connected ? (s.value || "✓ EPC 연결") : "⊘ Standalone"}</div>
     </div>
   )}</div>;
 }
@@ -905,6 +911,7 @@ function App(){
   const [revComments, setRevComments] = useState([]);
   const [wpsList, setWpsList] = useState(() => loadMasterList("wps") || []);
   const [welderList, setWelderList] = useState(() => loadMasterList("welder") || []);
+  const [inspectorList, setInspectorList] = useState(() => loadMasterList("inspector") || []);
   const [itpRows, setItpRows] = useState([...ITP_BASE]);
   const [witnessCols, setWitnessCols] = useState([
     {key:"sj",     name:"SJ",     bg:"#eef3fb"},
@@ -982,6 +989,7 @@ function App(){
   // v1.5 — 업로드된 WPS/Welder 목록을 window 전역에도 반영 (동일 페이지 내 다른 참조 대응)
   useEffect(() => { if (wpsList.length) window.WPS_LIST = wpsList; }, [wpsList]);
   useEffect(() => { if (welderList.length) window.WELDER_LIST = welderList; }, [welderList]);
+  useEffect(() => { if (inspectorList.length) window.INSPECTOR_LIST = inspectorList; }, [inspectorList]);
 
   const revInfo = calcRev({items, specReqs, revComments});
 
@@ -1202,7 +1210,7 @@ function App(){
         if (arr.length === 0) {
           texts.forEach(line => { const m = line.match(/SJTC-WPS-[A-Z0-9-]+/g); if (m) m.forEach(x => { if (!seen.has(x)) { seen.add(x); arr.push(x); } }); });
         }
-      } else {
+      } else if (kind === "welder") {
         // Welder ID 패턴: SJ-XXX-XX-NN. PDF는 텍스트 항목이 셀 경계 없이 이어붙는 경우가 많아
         // (버그 수정) 셀 전체와 정확히 일치해야 하는 anchor(^...$) 매칭 대신, 줄 전체에서 부분 문자열로 스캔.
         let curName = "";
@@ -1214,14 +1222,29 @@ function App(){
           const ms = norm.match(/SJ-[A-Z]{2,4}-[A-Z]{2,4}(-\d{2})?(,\d{2})?/g);
           if (ms) ms.forEach(id => { if (!seen.has(id)) { seen.add(id); arr.push(curName?`${id} (${curName})`:id); } });
         });
+      } else {
+        // v1.9 — 검사자(Inspector) List: WPS/Welder처럼 고정 ID 형식이 없으므로, 각 행에서
+        // 한글 이름(2~4자) 셀을 찾고 같은 행의 나머지 셀(직급/부서 등)을 괄호로 붙인다.
+        texts.forEach(line => {
+          const cells = line.split(/\t+/).map(c=>c.trim()).filter(Boolean);
+          const nameIdx = cells.findIndex(c => /^[가-힣]{2,4}$/.test(c));
+          if (nameIdx < 0) return;
+          const name = cells[nameIdx];
+          if (seen.has(name)) return;
+          const rest = cells.filter((c,i) => i!==nameIdx && !/^(No\.?|번호|이름|성명|직급|부서|역할)$/i.test(c));
+          seen.add(name);
+          arr.push(rest.length ? `${name} (${rest.join(" · ")})` : name);
+        });
       }
       if (arr.length === 0) {
         showMsg(`⚠ ${file.name}: 인식된 항목이 없습니다. 수동 입력 또는 형식 확인이 필요합니다.`, 6000);
         return;
       }
+      const kindLabel = kind==="wps"?"WPS":kind==="welder"?"Welder":"검사자";
       if (kind === "wps") { setWpsList(arr); window.WPS_LIST = arr; saveMasterList("wps", arr); }
-      else { setWelderList(arr); window.WELDER_LIST = arr; saveMasterList("welder", arr); }
-      showMsg(`✓ ${file.name}에서 ${arr.length}개 ${kind==="wps"?"WPS":"Welder"} 항목 추출 완료 — QA Doc Generator에서도 자동 반영됩니다.`, 6000);
+      else if (kind === "welder") { setWelderList(arr); window.WELDER_LIST = arr; saveMasterList("welder", arr); }
+      else { setInspectorList(arr); window.INSPECTOR_LIST = arr; saveMasterList("inspector", arr); }
+      showMsg(`✓ ${file.name}에서 ${arr.length}개 ${kindLabel} 항목 추출 완료 — QA Doc Generator에서도 자동 반영됩니다.`, 6000);
     } catch (err) {
       console.error(err);
       showMsg(`⚠ 파싱 실패 — ${err.message||"알 수 없는 오류"}`, 6000);
@@ -1241,7 +1264,7 @@ function App(){
   };
 
   const handleExport = () => {
-    const data = {proj, items, specReqs, quoteItems, wpsList, welderList, exported_at:new Date().toISOString(), version:"itp_builder_v1.2"};
+    const data = {proj, items, specReqs, quoteItems, wpsList, welderList, inspectorList, exported_at:new Date().toISOString(), version:"itp_builder_v1.2"};
     const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `${proj.no||"project"}_data.json`;
@@ -1292,6 +1315,7 @@ function App(){
         if (d.quoteItems) setQuoteItems(d.quoteItems);
         if (d.wpsList) { setWpsList(d.wpsList); window.WPS_LIST=d.wpsList; saveMasterList("wps", d.wpsList); }
         if (d.welderList) { setWelderList(d.welderList); window.WELDER_LIST=d.welderList; saveMasterList("welder", d.welderList); }
+        if (d.inspectorList) { setInspectorList(d.inspectorList); window.INSPECTOR_LIST=d.inspectorList; saveMasterList("inspector", d.inspectorList); }
         showMsg(`✓ Import 완료 — ${d.items?.length || 0}개 아이템`);
       } catch(err) { showMsg(`⚠ Import 실패: ${err.message}`); }
     };
@@ -1337,7 +1361,7 @@ function App(){
       </div>
     </div>}
 
-    <EPCSlots/>
+    <EPCSlots jobNo={proj.no}/>
 
     {/* 단계 탭 */}
     <div className="no-print" style={{display:"flex", gap:6, marginBottom:14}}>
@@ -1385,21 +1409,26 @@ function App(){
       </div>
 
       <div className="card">
-        <div className="card-h">🔧 WPS / Welder List 업로드 <span className="badge">xlsx · pdf · csv 지원</span></div>
+        <div className="card-h">🔧 WPS / Welder / 검사자 List 업로드 <span className="badge">xlsx · pdf · csv 지원</span></div>
         <div className="card-b">
-          <div style={{fontSize:10, color:"var(--sjp-text-sub)", marginBottom:8}}>회사 표준 양식(xlsx) 또는 CSV/TXT/PDF 업로드. 업로드하면 QA Doc Generator의 Fit-up & Welding IR에서 바로 선택 가능합니다.</div>
+          <div style={{fontSize:10, color:"var(--sjp-text-sub)", marginBottom:8}}>회사 표준 양식(xlsx) 또는 CSV/TXT/PDF 업로드. 업로드하면 QA Doc Generator의 Fit-up & Welding IR·검사자 선택에서 바로 선택 가능합니다.</div>
           <div style={{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap"}}>
             <input type="file" accept=".csv,.txt,.tsv,.xlsx,.xls,.pdf" id="wpsFile" style={{display:"none"}} onChange={e=>parseListFile(e.target.files[0], "wps")}/>
             <button onClick={()=>document.getElementById("wpsFile").click()} className="btn-secondary">📄 WPS 파일 업로드</button>
             <input type="file" accept=".csv,.txt,.tsv,.xlsx,.xls,.pdf" id="welderFile" style={{display:"none"}} onChange={e=>parseListFile(e.target.files[0], "welder")}/>
             <button onClick={()=>document.getElementById("welderFile").click()} className="btn-secondary">📄 Welder 파일 업로드</button>
-            <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>현재: WPS {wpsList.length}개 / Welder {welderList.length}명</span>
+            <input type="file" accept=".csv,.txt,.tsv,.xlsx,.xls,.pdf" id="inspectorFile" style={{display:"none"}} onChange={e=>parseListFile(e.target.files[0], "inspector")}/>
+            <button onClick={()=>document.getElementById("inspectorFile").click()} className="btn-secondary">📄 검사자 파일 업로드</button>
+            <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>현재: WPS {wpsList.length}개 / Welder {welderList.length}명 / 검사자 {inspectorList.length}명</span>
           </div>
           <div className="fld" style={{marginTop:8}}><label>WPS No. List</label>
             <textarea value={wpsList.join("\n")} onChange={e=>{const arr=e.target.value.split(/[\n,;\t]+/).map(s=>s.trim()).filter(Boolean); setWpsList(arr); window.WPS_LIST=arr; saveMasterList("wps", arr);}} placeholder={"SJTC-WPS-001\nSJTC-WPS-002\n..."} style={{width:"100%", minHeight:50, fontFamily:"monospace", fontSize:10}}/>
           </div>
           <div className="fld"><label>Welder ID List</label>
             <textarea value={welderList.join("\n")} onChange={e=>{const arr=e.target.value.split(/[\n,;\t]+/).map(s=>s.trim()).filter(Boolean); setWelderList(arr); window.WELDER_LIST=arr; saveMasterList("welder", arr);}} placeholder={"SJ-KYG-GT-01 (강용구)\nSJ-KHS-GT-01 (강희석)\n..."} style={{width:"100%", minHeight:50, fontFamily:"monospace", fontSize:10}}/>
+          </div>
+          <div className="fld"><label>검사자(Inspector) List</label>
+            <textarea value={inspectorList.join("\n")} onChange={e=>{const arr=e.target.value.split(/[\n,;\t]+/).map(s=>s.trim()).filter(Boolean); setInspectorList(arr); window.INSPECTOR_LIST=arr; saveMasterList("inspector", arr);}} placeholder={"김철우 (부장)\n신채완 (과장)\n..."} style={{width:"100%", minHeight:50, fontFamily:"monospace", fontSize:10}}/>
           </div>
         </div>
       </div>

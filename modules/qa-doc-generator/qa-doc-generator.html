@@ -410,17 +410,6 @@ const WELDER_SEED = [
   {id:"SJ-HDY-FC-01", name:"하동윤",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F",    dueDate:"2026-07-05"}
 ];
 
-const INSPECTOR_SEED = [
-  {id:"INS-001", name:"김철우", title:"부장", role:"QA Manager"},
-  {id:"INS-002", name:"신채완", title:"과장", role:"QA Engineer"},
-  {id:"INS-003", name:"김시원", title:"대리", role:"QA Inspector"}
-];
-
-const THIRD_PARTY_AGENCIES = [
-  "KGS (한국가스안전공사)", "KOSHA (한국산업안전보건공단)",
-  "ABS", "Lloyd's Register", "Bureau Veritas", "DNV", "기타 (직접 입력)"
-];
-
 // ════════════ 3. EPC 글로벌 슬롯 ════════════
 window.EPC_PROJECT = window.EPC_PROJECT || null;
 window.EPC_ITEMS = window.EPC_ITEMS || null;
@@ -432,13 +421,16 @@ window.EPC_INSPECTOR_MASTER = window.EPC_INSPECTOR_MASTER || null;
 const QAG_PID = new URLSearchParams(location.search).get("pid") || "standalone";
 const MASTER_WPS_KEY = `sjp_master_wps_list__${QAG_PID}`;
 const MASTER_WELDER_KEY = `sjp_master_welder_list__${QAG_PID}`;
+const MASTER_INSPECTOR_KEY = `sjp_master_inspector_list__${QAG_PID}`;
 const loadMasterList = (key) => { try { const v = JSON.parse(localStorage.getItem(key)||"null"); return (v && v.length>0) ? v : null; } catch(e) { return null; } };
 window.WPS_LIST = window.WPS_LIST || loadMasterList(MASTER_WPS_KEY) || null;
 window.WELDER_LIST = window.WELDER_LIST || loadMasterList(MASTER_WELDER_KEY) || null;
+window.INSPECTOR_LIST = window.INSPECTOR_LIST || loadMasterList(MASTER_INSPECTOR_KEY) || null;
 // 다른 탭/모듈에서 ITP Builder로 업로드한 경우 즉시 반영되도록 짧은 주기로 재확인
 setInterval(() => {
   if (!window.WPS_LIST) { const v = loadMasterList(MASTER_WPS_KEY); if (v) window.WPS_LIST = v; }
   if (!window.WELDER_LIST) { const v = loadMasterList(MASTER_WELDER_KEY); if (v) window.WELDER_LIST = v; }
+  if (!window.INSPECTOR_LIST) { const v = loadMasterList(MASTER_INSPECTOR_KEY); if (v) window.INSPECTOR_LIST = v; }
 }, 1000);
 
 const getWPS = () => window.WPS_LIST || WPS_SEED;
@@ -707,14 +699,17 @@ function LogoCell(){
     <Logo h={42}/>
   </div>;
 }
-function EPCSlots(){
+function EPCSlots({jobNo}){
+  // v1.6 — "Doc No." 슬롯은 실제 값이 없어 의미가 없었으므로 "Project No."로 교체하고 실제 값을 표시.
+  // Inspector는 EPC_INSPECTOR_MASTER 대신 ITP Builder에서 업로드한 검사자 List 연결 여부로 판단.
+  // WPS/Welder "Master" → "List"로 명칭 통일 (ITP Builder 쪽 명칭과 일치).
   const slots = [
     {key:"project", title:"Project", connected:!!window.EPC_PROJECT},
     {key:"items", title:"Items", connected:!!window.EPC_ITEMS},
-    {key:"docno", title:"Doc No.", connected:!!window.EPC_DOC_NO_GENERATOR},
-    {key:"inspector", title:"Inspector", connected:!!window.EPC_INSPECTOR_MASTER},
-    {key:"wps", title:"WPS Master", connected:!!window.WPS_LIST},
-    {key:"welder", title:"Welder Master", connected:!!window.WELDER_LIST}
+    {key:"jobno", title:"Project No.", connected:!!jobNo, value:jobNo},
+    {key:"inspector", title:"Inspector", connected:!!window.INSPECTOR_LIST?.length},
+    {key:"wps", title:"WPS List", connected:!!window.WPS_LIST?.length},
+    {key:"welder", title:"Welder List", connected:!!window.WELDER_LIST?.length}
   ];
   return <div className="no-print" style={{display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:6, marginBottom:12}}>
     {slots.map(s =>
@@ -726,58 +721,10 @@ function EPCSlots(){
       }}>
         <div style={{fontWeight:700, fontSize:11, color:"var(--sjp-text-main)", marginBottom:2}}>{s.title}</div>
         <div style={{color: s.connected?"var(--sjp-success)":"var(--sjp-text-muted)", fontWeight: s.connected?700:500, fontSize:9}}>
-          {s.connected ? "✓ EPC 연결" : "⊘ Standalone"}
+          {s.connected ? (s.value || "✓ EPC 연결") : "⊘ Standalone"}
         </div>
       </div>
     )}
-  </div>;
-}
-
-// ════════════ 7. Inspector 입력 패널 ════════════
-function InspectorPanel({inspectors, value, onChange}){
-  const [editMode, sEM] = useState(false);
-  const [newName, sNN] = useState(""); const [newTitle, sNT] = useState("");
-  const addInspector = (cb) => { if(!newName.trim()) return; cb({id:"INS-"+Date.now(), name:newName.trim(), title:newTitle.trim()||"검사관", role:"QA"}); sNN(""); sNT(""); };
-  return <div style={{border:"0.5px solid #ddd", borderRadius:6, padding:"8px 10px", background:"#fafafa"}}>
-    <div style={{fontSize:11, fontWeight:600, marginBottom:6, color:"#444"}}>👤 검사자 정보</div>
-    <FR label="내부 검사자">
-      <FS value={value.internal} onChange={v=>onChange({...value, internal:v})} options={["—", ...inspectors.map(i=>`${i.name} ${i.title}`)]}/>
-    </FR>
-    <FR label="발주처 입회자">
-      <FI value={value.client} onChange={v=>onChange({...value, client:v})} placeholder="ex. 국도화학 김OO 차장"/>
-    </FR>
-    <FR label="제3자 검사자">
-      <div style={{display:"flex", gap:4}}>
-        <select value={value.thirdParty} onChange={e=>onChange({...value, thirdParty:e.target.value})}
-          style={{fontSize:11, padding:"4px 6px", border:"0.5px solid #ccc", borderRadius:3, flex:1}}>
-          <option value="">— 없음 —</option>
-          {THIRD_PARTY_AGENCIES.map(a => <option key={a}>{a}</option>)}
-        </select>
-        {value.thirdParty === "기타 (직접 입력)" && <FI value={value.thirdPartyCustom||""} onChange={v=>onChange({...value, thirdPartyCustom:v})} placeholder="기관명 직접 입력"/>}
-      </div>
-    </FR>
-    <FR label="협력업체 검사자">
-      <FI value={value.vendor} onChange={v=>onChange({...value, vendor:v})} placeholder="(선택) ex. ABC산업 박QA"/>
-    </FR>
-    <div className="no-print" style={{borderTop:"0.5px dashed #ccc", paddingTop:6, marginTop:6}}>
-      <button onClick={()=>sEM(p=>!p)} style={{fontSize:10, padding:"3px 10px", border:"0.5px solid #ccc", background:editMode?"#fffbe5":"#fff", borderRadius:3, cursor:"pointer"}}>
-        {editMode ? "✕ 닫기" : "✏ 내부 검사자 편집"}
-      </button>
-      {editMode && <div style={{marginTop:6, padding:"6px 8px", background:"#fffbe5", borderRadius:4}}>
-        <div style={{fontSize:10, marginBottom:4, color:"#664d03"}}>현재 등재: {inspectors.length}명</div>
-        {inspectors.map((ins, i) =>
-          <div key={ins.id} style={{display:"flex", gap:4, alignItems:"center", marginBottom:3, fontSize:10}}>
-            <span style={{flex:1}}>{ins.name} {ins.title} <span style={{color:"#888"}}>({ins.role})</span></span>
-            <button onClick={()=>onChange({...value, _removeId: ins.id})} style={{fontSize:9, padding:"1px 6px", background:"#fff0f0", color:"#c00", border:"0.5px solid #fbb", borderRadius:2, cursor:"pointer"}}>✕</button>
-          </div>
-        )}
-        <div style={{display:"flex", gap:3, marginTop:6}}>
-          <input value={newName} onChange={e=>sNN(e.target.value)} placeholder="이름" style={{fontSize:10, padding:"3px 6px", border:"0.5px solid #ccc", borderRadius:2, flex:1}}/>
-          <input value={newTitle} onChange={e=>sNT(e.target.value)} placeholder="직급" style={{fontSize:10, padding:"3px 6px", border:"0.5px solid #ccc", borderRadius:2, width:80}}/>
-          <button onClick={()=>onChange({...value, _addInspector:{name:newName, title:newTitle}})} style={{fontSize:10, padding:"3px 10px", background:SJB, color:"#fff", border:"none", borderRadius:2, cursor:"pointer"}}>+ 추가</button>
-        </div>
-      </div>}
-    </div>
   </div>;
 }
 
@@ -2099,23 +2046,6 @@ function FinalPreview({doc}){
     </div>
   </div>;
 }
-function SignatureBlock({inspector}){
-  return <div style={{display:"flex", gap:18, marginTop:12, fontSize:10}}>
-    {[
-      {label:"Prepared by", value:inspector.internal || ""},
-      {label:"Reviewed by", value:""},
-      {label:"Approved by", value:""},
-      {label:"Witnessed by", value:inspector.client || inspector.thirdParty || ""}
-    ].map(s =>
-      <div key={s.label} style={{flex:1, borderTop:"0.5px solid #999", paddingTop:4}}>
-        <div style={{fontSize:9, color:"#666"}}>{s.label}</div>
-        <div style={{minHeight:24, fontSize:10, fontWeight:500}}>{s.value}</div>
-        <div style={{fontSize:9, color:"#888"}}>Date:</div>
-      </div>
-    )}
-  </div>;
-}
-
 // ════════════ 14. PrintBar ════════════
 function PrintBar({title}){
   // v2.0 Hybrid — 인쇄 다이얼로그 옵션 안내문 (Safari·Default margin 대비)
@@ -2150,17 +2080,10 @@ function App(){
     status: "진행중"
   }]);
   const [activeItemId, setActiveItemId] = useState("i_dong_e101");
+  const [itemSearch, setItemSearch] = useState(""); // v1.6 — 아이템 30~40개 이상일 때 검색으로 좁히기
   const [activeDoc, setActiveDoc] = useState("BOM");
   const [hydroPart, sHydroPart] = useState("Shell");
   const [docData, setDocData] = useState({}); // {itemId: {BOM:{rows:[]}, BENDING:{}, ...}}
-  const [inspectors, setInspectors] = useState(INSPECTOR_SEED);
-  const [inspector, setInspector] = useState({
-    internal: "신채완 과장",
-    client: "동성케미컬 김OO 차장",
-    thirdParty: "",
-    thirdPartyCustom: "",
-    vendor: "㈜세종기술"
-  });
   const [msg, setMsg] = useState("");
   // v3.0 — 저장/불러오기 상태
   const [currentProjId, setCurrentProjId] = useState(null);
@@ -2180,8 +2103,6 @@ function App(){
       if (s.proj) setProj(s.proj);
       if (s.items) setItems(s.items);
       if (s.docData) setDocData(s.docData);
-      if (s.inspectors) setInspectors(s.inspectors);
-      if (s.inspector) setInspector(s.inspector);
       if (s.activeItemId) setActiveItemId(s.activeItemId);
       if (s.activeDoc) setActiveDoc(s.activeDoc);
       if (s.currentProjId) setCurrentProjId(s.currentProjId);  // v3.0 — 프로젝트 ID 복원
@@ -2227,26 +2148,9 @@ function App(){
   }, []);
   // v3.0 — 자동저장은 "마지막 작업" 자동 복원용으로만 유지 (프로젝트 저장은 수동 Save/Save As로 분리)
   useEffect(() => {
-    const t = setTimeout(() => saveLS({proj, items, docData, inspectors, inspector, activeItemId, activeDoc, currentProjId}), 1000);
+    const t = setTimeout(() => saveLS({proj, items, docData, activeItemId, activeDoc, currentProjId}), 1000);
     return () => clearTimeout(t);
-  }, [proj, items, docData, inspectors, inspector, activeItemId, activeDoc, currentProjId]);
-
-  // Inspector master 편집 핸들러
-  const updateInspector = (next) => {
-    if (next._addInspector) {
-      setInspectors(p => [...p, {id:"INS-"+Date.now(), ...next._addInspector, role:"QA"}]);
-      const {_addInspector, ...rest} = next;
-      setInspector(rest);
-      return;
-    }
-    if (next._removeId) {
-      setInspectors(p => p.filter(i => i.id !== next._removeId));
-      const {_removeId, ...rest} = next;
-      setInspector(rest);
-      return;
-    }
-    setInspector(next);
-  };
+  }, [proj, items, docData, activeItemId, activeDoc, currentProjId]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
 
@@ -2266,7 +2170,7 @@ function App(){
   };
 
   // v3.0 — 프로젝트 저장 / 불러오기 / 삭제
-  const collectPayload = () => ({ proj, items, docData, inspectors, inspector, activeItemId, activeDoc });
+  const collectPayload = () => ({ proj, items, docData, activeItemId, activeDoc });
 
   // Save — 현재 프로젝트에 덮어쓰기 (없으면 Save As 대화상자)
   const handleSaveOverwrite = () => {
@@ -2317,8 +2221,6 @@ function App(){
     if (data.proj) setProj(data.proj);
     if (data.items) { setItems(data.items); if (data.items.length > 0) setActiveItemId(data.items[0].id); }
     if (data.docData) setDocData(data.docData);
-    if (data.inspectors) setInspectors(data.inspectors);
-    if (data.inspector) setInspector(data.inspector);
     if (data.activeItemId) setActiveItemId(data.activeItemId);
     if (data.activeDoc) setActiveDoc(data.activeDoc);
     setCurrentProjId(id);
@@ -2343,7 +2245,7 @@ function App(){
   };
 
   const handleExportData = () => {
-    const data = {proj, items, docData, inspectors, inspector, exported_at: new Date().toISOString(), version:"qc_generator_v1"};
+    const data = {proj, items, docData, exported_at: new Date().toISOString(), version:"qc_generator_v1"};
     const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2409,7 +2311,7 @@ function App(){
       </div>
     </div>
 
-    <EPCSlots/>
+    <EPCSlots jobNo={proj.no}/>
 
     {msg && <div className="no-print" style={{
       padding:"9px 14px", marginBottom:10, fontSize:11, fontWeight:500,
@@ -2419,15 +2321,14 @@ function App(){
       borderRadius:5
     }}>{msg}</div>}
 
-    {/* 프로젝트 정보 + 검사자 */}
-    <div className="no-print" style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10}}>
-      <PC title="프로젝트 정보">
+    {/* v1.6 — 검사자 정보 패널 삭제(Mobile Inspection으로 이전). 프로젝트 정보는 단독 카드로. */}
+    <div className="no-print" style={{marginBottom:10}}>
+      <PC title="프로젝트 정보 (ITP Builder·PJT 연동)">
         <FR label="Project No."><FI value={proj.no} onChange={v=>setProj(p=>({...p, no:v}))}/></FR>
         <FR label="프로젝트명"><FI value={proj.name} onChange={v=>setProj(p=>({...p, name:v}))}/></FR>
         <FR label="발주처"><FI value={proj.customer} onChange={v=>setProj(p=>({...p, customer:v}))}/></FR>
         <FR label="PO No."><FI value={proj.po} onChange={v=>setProj(p=>({...p, po:v}))}/></FR>
       </PC>
-      <InspectorPanel inspectors={inspectors} value={inspector} onChange={updateInspector}/>
     </div>
 
     {items.length === 0 ?
@@ -2438,15 +2339,25 @@ function App(){
       </div>
       :
       <div className="no-print" style={{marginBottom:12, padding:"12px 14px", background:"#fff", border:"1px solid var(--sjp-border)", borderRadius:"var(--sjp-radius-lg)", boxShadow:"var(--sjp-shadow)"}}>
-        <div style={{fontSize:11, fontWeight:700, marginBottom:8, color:"var(--sjp-text-main)"}}>📦 아이템 선택 ({items.length}개):</div>
-        <div style={{display:"flex", gap:6, flexWrap:"wrap"}}>{items.map(it =>
-          <button key={it.id} onClick={()=>setActiveItemId(it.id)}
-            style={{padding:"8px 14px", fontSize:11, background: activeItemId===it.id?SJB:"#fff", color:activeItemId===it.id?"#fff":"var(--sjp-text-body)", border:`1px solid ${activeItemId===it.id?SJB:"var(--sjp-border)"}`, borderRadius:5, cursor:"pointer", fontWeight: activeItemId===it.id?700:500, transition:"all .12s"}}>
-            <strong>{it.tag}</strong> · {it.name}
-            {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
-              <span style={{marginLeft:5, fontSize:9, color: activeItemId===it.id?"#fff":"var(--sjp-warning)", fontWeight:700, padding:"1px 5px", background:activeItemId===it.id?"rgba(255,255,255,.2)":"var(--sjp-warning-bg)", borderRadius:3}}>CAP</span>}
-          </button>
-        )}</div>
+        <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexWrap:"wrap", gap:6}}>
+          <div style={{fontSize:11, fontWeight:700, color:"var(--sjp-text-main)"}}>📦 아이템 선택 ({items.length}개)</div>
+          {items.length > 8 && <input value={itemSearch} onChange={e=>setItemSearch(e.target.value)} placeholder="🔍 Tag/이름 검색..." style={{fontSize:11, padding:"4px 8px", border:"1px solid var(--sjp-border)", borderRadius:5, width:180}}/>}
+        </div>
+        {(() => {
+          const q = itemSearch.trim().toLowerCase();
+          const filtered = q ? items.filter(it => (it.tag||"").toLowerCase().includes(q) || (it.name||"").toLowerCase().includes(q)) : items;
+          if (filtered.length === 0) return <div style={{fontSize:11, color:"var(--sjp-text-sub)", padding:"8px 0"}}>"{itemSearch}"와 일치하는 아이템이 없습니다.</div>;
+          return <div style={{display:"flex", gap:6, flexWrap:"wrap", maxHeight: items.length>12 ? 160 : "none", overflowY: items.length>12 ? "auto" : "visible", padding: items.length>12 ? "2px 2px 4px" : 0}}>
+            {filtered.map(it =>
+              <button key={it.id} onClick={()=>setActiveItemId(it.id)}
+                style={{padding:"8px 14px", fontSize:11, background: activeItemId===it.id?SJB:"#fff", color:activeItemId===it.id?"#fff":"var(--sjp-text-body)", border:`1px solid ${activeItemId===it.id?SJB:"var(--sjp-border)"}`, borderRadius:5, cursor:"pointer", fontWeight: activeItemId===it.id?700:500, transition:"all .12s", flexShrink:0}}>
+                <strong>{it.tag}</strong> · {it.name}
+                {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
+                  <span style={{marginLeft:5, fontSize:9, color: activeItemId===it.id?"#fff":"var(--sjp-warning)", fontWeight:700, padding:"1px 5px", background:activeItemId===it.id?"rgba(255,255,255,.2)":"var(--sjp-warning-bg)", borderRadius:3}}>CAP</span>}
+              </button>
+            )}
+          </div>;
+        })()}
       </div>
     }
 
