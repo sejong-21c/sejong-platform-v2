@@ -609,7 +609,9 @@ const capTolB169 = (NPS, dim) => {
 
 // ════════════ 5. localStorage ════════════
 // v3.0 — 다중 프로젝트 저장/불러오기 시스템
-const STORAGE_KEY = "sjp_qa_doc_generator_v1";      // (호환) 단일 프로젝트 자동복원용 last-work
+// v1.6 — "last-work" 자동복원을 pid(?pid=...)별로 분리. index.html에서 서로 다른 프로젝트 카드로
+// 열면 pid가 다르므로 자동복원이 섞이지 않고, 같은 pid(임시 초안 포함)로 다시 열면 그대로 이어짐.
+const STORAGE_KEY = `sjp_qa_doc_generator_v1__${QAG_PID}`;      // (호환) 단일 프로젝트 자동복원용 last-work
 const PROJ_INDEX_KEY = "sjp_qa_gen_proj_idx";       // 저장된 프로젝트 인덱스
 const PROJ_DATA_PREFIX = "sjp_qa_gen_proj:";        // 개별 프로젝트 데이터
 
@@ -2197,6 +2199,30 @@ function App(){
         if (bridgeItems[0]) setActiveItemId(bridgeItems[0].id);
         setTimeout(()=>showMsg(`✓ ITP Builder에서 ${bridgeItems.length}개 아이템 자동 동기화`, 4000), 200);
       }
+    }
+    // v1.6 — 같은 ?pid=...(프로젝트 등록 전 임시 초안 포함)로 ITP Builder를 먼저 작성해뒀다면,
+    // 이 pid에 대한 QA Doc 자체 저장이 아직 없을 때 ITP Builder의 localStorage를 그대로 읽어와
+    // 기본 프로젝트 정보·아이템을 채운다. 브라우저 로컬 전용(같은 pid를 같은 브라우저에서 열 때만 동작).
+    if (!s || !s.proj || !s.proj.no) {
+      try {
+        const itpRaw = localStorage.getItem(`sjp_itp_builder_v1__${QAG_PID}`);
+        if (itpRaw) {
+          const itpData = JSON.parse(itpRaw);
+          if (itpData.proj && itpData.proj.no) {
+            setProj(p => ({...p, no: itpData.proj.no, name: itpData.proj.name||p.name, customer: itpData.proj.customer||p.customer, po: itpData.proj.po||p.po}));
+          }
+          if (Array.isArray(itpData.items) && itpData.items.length > 0 && (!s || !s.items || s.items.length === 0)) {
+            // ITP Builder 아이템은 이미 tag/shell_mat/design_p 등 QA Gen Preview들이 그대로 쓰는
+            // 필드명을 쓰므로 그대로 옮긴다 (id만 문자열로 통일).
+            const mapped = itpData.items.map(it => ({ ...it, id: String(it.id) }));
+            setItems(mapped);
+            if (mapped[0]) setActiveItemId(mapped[0].id);
+          }
+          if (itpData.proj?.no || itpData.items?.length) {
+            setTimeout(()=>showMsg("✓ ITP Builder 임시 작성 내용을 불러왔습니다", 4000), 300);
+          }
+        }
+      } catch(e) { console.warn("[QA Doc Generator] ITP Builder 임시 데이터 로드 실패", e.message); }
     }
   }, []);
   // v3.0 — 자동저장은 "마지막 작업" 자동 복원용으로만 유지 (프로젝트 저장은 수동 Save/Save As로 분리)

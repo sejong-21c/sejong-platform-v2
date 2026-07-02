@@ -1072,6 +1072,22 @@ function toggleMb() { document.getElementById('sb').classList.toggle('mobile-ope
 
 // ══════════ 로그인 / 인증 시스템 (Firebase Auth · Google 로그인) ══════════
 const COMPANY_DOMAIN = '@sejong-21c.com';
+// v1.1 — 로컬/오프라인 개발용 우회 로그인. 실제 배포 도메인에서는 절대 노출되지 않고,
+// localhost·127.0.0.1·file:// 로 열었을 때만 로그인 화면에 버튼이 추가로 뜬다.
+// (구글 로그인/Firestore가 인터넷 연결이 필요해서, 사내망 문제로 못 붙을 때 로컬에서 ITP/QA Doc
+//  같은 로컬 저장 기반 도구는 그대로 테스트할 수 있게 하는 목적. 프로젝트/WBS 등 Firestore 연동
+//  기능은 오프라인 상태에선 동기화되지 않는다.)
+const IS_LOCAL_ENV = ['localhost', '127.0.0.1', ''].includes(location.hostname) || location.protocol === 'file:';
+const LOCAL_DEV_USER_ID = 'local_dev';
+function enterLocalDevMode() {
+  if (!state.users.some(u => u.id === LOCAL_DEV_USER_ID)) {
+    state.users.push({ id: LOCAL_DEV_USER_ID, name: '로컬테스트', title: '', dept: '품질관리부', role: 'user' });
+  }
+  state.currentUser = LOCAL_DEV_USER_ID;
+  state.lastActive = Date.now();
+  save();
+  finishLogin();
+}
 const GOOGLE_G_SVG = `<svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.81 2.73v2.27h2.92c1.71-1.57 2.69-3.88 2.69-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.96H.96A8.99 8.99 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.33C4.68 5.17 6.66 3.58 9 3.58z"/></svg>`;
 function showLogin() {
   const ov = document.getElementById('authOverlay');
@@ -1102,6 +1118,11 @@ function showLogin() {
           <div class="login-quick">
             <div style="font-size:11px;color:rgba(255,255,255,.75);text-align:center;line-height:1.6;">${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.<br>처음 로그인하면 자동으로 계정이 생성됩니다.</div>
           </div>
+          ${IS_LOCAL_ENV ? `
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.2);">
+            <button class="login-btn" onclick="enterLocalDevMode()" style="background:rgba(255,255,255,.12);color:#fff;border:1px dashed rgba(255,255,255,.4);">🛠 로컬 테스트 모드로 들어가기 (Google 로그인 없이)</button>
+            <div style="font-size:10px;color:rgba(255,255,255,.6);text-align:center;margin-top:6px;line-height:1.5;">인터넷/사내망 문제로 Google 로그인이 안 될 때 이 브라우저에서만 우회 진입합니다.<br>프로젝트·WBS 등 클라우드 동기화 기능은 온라인 상태가 아니면 반영되지 않습니다.</div>
+          </div>` : ''}
         </div>
       </div>
     </div>`;
@@ -1447,6 +1468,105 @@ function renderEPCControl() {
 
 
 
+/* ═════════════ 수동 작성 초안 (프로젝트 등록 전 · 계약 전 선작업용) ═════════════
+   프로젝트 카드가 아직 없거나(WBS 초기화 등) 계약/등록 전에 ITP·QA 문서를 먼저 써야 할
+   때를 위한 임시 초안. draft_<timestamp>를 임시 pid로 써서 ITP Builder / QA Doc Generator가
+   이미 갖고 있는 "프로젝트별(pid) localStorage" 구조를 그대로 재사용한다 — 즉 하나의 초안이
+   ITP Builder와 QA Doc Generator 양쪽에서 같은 pid로 이어서 작업된다. 나중에 실제 프로젝트가
+   생기면 그 pid로 데이터를 옮겨서 "연동" — ITP뿐 아니라 QA Doc Generator 데이터(및 WPS/Welder
+   목록)도 같은 방식으로 함께 옮겨진다. Firestore에는 올리지 않는, 이 브라우저 로컬 전용 목록. */
+const MANUAL_ITP_DRAFTS_KEY = 'sjp_itp_manual_drafts';
+// pid 하나에 딸려있는 로컬 저장 키 전부 — 초안 삭제/연동 시 함께 처리.
+// sjp_qa_doc_generator_v1__{pid}는 QA Doc Generator의 "last-work" 자동복원 키(pid별로 분리됨) —
+// qa-doc-generator.html 쪽에서도 동일한 pid로 자동저장/자동복원되므로 그대로 옮기면 이어서 작업 가능.
+const DRAFT_LOCAL_KEY_PREFIXES = ['sjp_itp_builder_v1', 'sjp_master_wps_list', 'sjp_master_welder_list', 'sjp_qa_doc_generator_v1'];
+function loadManualDrafts() {
+  try { return JSON.parse(localStorage.getItem(MANUAL_ITP_DRAFTS_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveManualDrafts(list) {
+  try { localStorage.setItem(MANUAL_ITP_DRAFTS_KEY, JSON.stringify(list)); } catch(e) {}
+}
+function createManualDraft(openTool) {
+  const label = prompt('임시 초안 이름을 입력하세요 (예: 계약전 검토용 · 고객사명 등)', `임시 초안 ${new Date().toISOString().slice(0,10)}`);
+  if (label === null) return;
+  const draftId = 'draft_' + Date.now();
+  const drafts = loadManualDrafts();
+  drafts.unshift({ id: draftId, label: label.trim() || draftId, createdAt: Date.now() });
+  saveManualDrafts(drafts);
+  openDraftTool(draftId, openTool);
+  render();
+}
+function openDraftTool(draftId, tool) {
+  const path = tool === 'qa' ? 'modules/qa-doc-generator/qa-doc-generator.html' : 'modules/itp-builder/itp-builder.html';
+  window.open(`${path}?pid=${draftId}`, '_blank');
+}
+function deleteManualDraft(draftId) {
+  if (!confirm('이 임시 초안을 삭제하시겠습니까? (ITP·QA Doc 양쪽에 저장된 작성 내용도 함께 삭제됩니다)')) return;
+  DRAFT_LOCAL_KEY_PREFIXES.forEach(prefix => {
+    try { localStorage.removeItem(`${prefix}__${draftId}`); } catch(e) {}
+  });
+  saveManualDrafts(loadManualDrafts().filter(d => d.id !== draftId));
+  render();
+}
+// 실제 프로젝트가 생기면, 임시 초안에 저장된 ITP·QA Doc 데이터를 그 프로젝트의 pid로 복사.
+function linkManualDraftToProject(draftId, realPid) {
+  DRAFT_LOCAL_KEY_PREFIXES.forEach(prefix => {
+    const v = localStorage.getItem(`${prefix}__${draftId}`);
+    if (v) localStorage.setItem(`${prefix}__${realPid}`, v);
+  });
+  saveManualDrafts(loadManualDrafts().filter(d => d.id !== draftId));
+  closeModal();
+  const p = getP(realPid);
+  alert(`✓ 연동 완료 — "${p ? p.code : realPid}" 프로젝트로 ITP·QA Doc 작성 내용을 옮겼습니다.\n이제 해당 프로젝트 카드에서 ITP Builder / QA Doc Generator를 열면 이어서 작성할 수 있습니다.`);
+  render();
+}
+function openLinkDraftPicker(draftId) {
+  const projs = state.projects.filter(p => !p.hidden);
+  if (projs.length === 0) {
+    alert('연동할 수 있는 프로젝트가 아직 없습니다. 프로젝트를 먼저 생성해주세요.');
+    return;
+  }
+  const rows = projs.map((p, i) => `
+    <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;">
+      <input type="radio" name="linkTargetPid" value="${p.id}" ${i===0?'checked':''}>
+      <span><b>${p.code}</b> — ${p.name}</span>
+    </label>`).join('');
+  openModal('🔗 프로젝트와 연동', `
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;">
+      이 임시 초안(ITP·QA Doc)을 어떤 프로젝트로 옮길까요? 대상 프로젝트에 이미 작성 내용이 있다면 지금 초안 내용으로 덮어씌워집니다.
+    </div>
+    ${rows}
+  `, () => {
+    const sel = document.querySelector('input[name="linkTargetPid"]:checked');
+    if (!sel) return;
+    linkManualDraftToProject(draftId, sel.value);
+  });
+}
+// ITP/QA 프로젝트 선택 화면 공용 — 임시 초안 목록 카드 (현재 도구의 "열기" 링크를 강조)
+function renderDraftSection(currentTool) {
+  const drafts = loadManualDrafts();
+  if (drafts.length === 0) return '';
+  return `
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-weight:700;margin-bottom:10px;">📝 임시 작성 초안 — 프로젝트 연동 대기 (${drafts.length}개)</div>
+      ${drafts.map(d => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:600;">${d.label}</div>
+            <div style="font-size:10px;color:var(--text-lighter);">${new Date(d.createdAt).toLocaleString('ko-KR')}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <a class="btn btn-sm ${currentTool==='itp'?'btn-primary':''}" href="modules/itp-builder/itp-builder.html?pid=${d.id}" target="_blank" rel="noopener" style="text-decoration:none;">📋 ITP 열기</a>
+            <a class="btn btn-sm ${currentTool==='qa'?'btn-primary':''}" href="modules/qa-doc-generator/qa-doc-generator.html?pid=${d.id}" target="_blank" rel="noopener" style="text-decoration:none;">📄 QC Gen 열기</a>
+            <button class="btn btn-sm" onclick="openLinkDraftPicker('${d.id}')">🔗 프로젝트 연동</button>
+            <button class="btn btn-sm" onclick="deleteManualDraft('${d.id}')" style="color:#c0392b;">삭제</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 /* ═════════════ ITP Builder Inline ═════════════ */
 /* ─── ITP Builder 1단계: 프로젝트 카드 선택 ─── */
 function renderITPProjects() {
@@ -1457,6 +1577,13 @@ function renderITPProjects() {
   const hideToggleBtn = hiddenCount > 0
     ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>`
     : '';
+  const draftSection = renderDraftSection('itp');
+  const emptyNote = projs.length === 0 ? `
+    <div style="padding:30px 20px;text-align:center;color:var(--text-light);font-size:12px;border:1px dashed var(--border);border-radius:10px;">
+      아직 등록된 프로젝트가 없습니다.<br/>
+      계약 전이거나 프로젝트 등록 전에 ITP·QA 문서를 먼저 써야 한다면, 위쪽 "🆕 ITP 수동 작성"으로 임시 작성해두었다가 나중에 프로젝트가 생기면 연동할 수 있습니다.
+    </div>
+  ` : '';
   return `
     <div class="mod-head">
       <div>
@@ -1464,10 +1591,13 @@ function renderITPProjects() {
         <div class="mod-sub">프로젝트를 선택하세요 · ASME · TEMA 기반 ITP 자동 생성</div>
       </div>
       <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="createManualDraft('itp')" title="프로젝트 등록 전/계약 전에 ITP를 먼저 작성해두고, 나중에 프로젝트가 생기면 연동합니다">🆕 ITP 수동 작성</button>
         ${hideToggleBtn}
         <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
       </div>
     </div>
+    ${draftSection}
+    ${emptyNote}
     <div class="proj-grid">
       ${projs.map(p => {
         const itemCount = (state.items[p.id] || []).length;
@@ -1905,6 +2035,13 @@ function renderQAProjects() {
   const hideToggleBtn = hiddenCount > 0
     ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>`
     : '';
+  const draftSection = renderDraftSection('qa');
+  const emptyNote = projs.length === 0 ? `
+    <div style="padding:30px 20px;text-align:center;color:var(--text-light);font-size:12px;border:1px dashed var(--border);border-radius:10px;">
+      아직 등록된 프로젝트가 없습니다.<br/>
+      계약 전이거나 프로젝트 등록 전에 QA 문서를 먼저 써야 한다면, 위쪽 "🆕 QC Gen 수동 작성"으로 임시 작성해두었다가 나중에 프로젝트가 생기면 연동할 수 있습니다.
+    </div>
+  ` : '';
   return `
     <div class="mod-head">
       <div>
@@ -1912,10 +2049,13 @@ function renderQAProjects() {
         <div class="mod-sub">프로젝트를 선택하세요 · 8가지 QA/QC 문서 자동 생성</div>
       </div>
       <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="createManualDraft('qa')" title="프로젝트 등록 전/계약 전에 QA 문서를 먼저 작성해두고, 나중에 프로젝트가 생기면 연동합니다">🆕 QC Gen 수동 작성</button>
         ${hideToggleBtn}
         <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
       </div>
     </div>
+    ${draftSection}
+    ${emptyNote}
     <div class="proj-grid">
       ${projs.map(p => {
         const itemCount = (state.items[p.id] || []).length;
