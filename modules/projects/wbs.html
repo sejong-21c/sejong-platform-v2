@@ -286,6 +286,8 @@ body.sjp-readonly .sjp-ro-badge { display:inline-flex; align-items:center; gap:4
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- v28.4.17: Excel 출력 — xlsx-js-style (셀 색상/테두리 지원) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<!-- v28.4.31: 생성된 xlsx(zip)에 "오늘 날짜" 도형(선) 삽입을 위한 zip 후처리용 -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body><div id="app"></div>
 <script>
@@ -1620,7 +1622,73 @@ function wbsDayCols(dayDivisions,lastDay){
   }
   return cols;
 }
-function v284GenerateExcel(){
+// 엑셀 컬럼 너비(문자 단위, wch)를 EMU로 변환 — 도형 좌표 계산용 (Excel 기본 폰트 Calibri 11, MDW=7px 기준)
+function wchToEMU(wch){
+  const mdw=7;
+  const px=Math.floor(((256*wch+Math.floor(128/mdw))/256)*mdw);
+  return px*9525; // 1px = 9525 EMU (96dpi)
+}
+// v28.4.31: "오늘" 표시를 셀 테두리가 아니라 실제 도형(직선 커넥터)으로 삽입
+// — 8칸 그리드 한 칸이 최대 7일을 담당해 테두리로는 칸 경계에만 표시 가능하므로,
+//   xlsx-js-style이 지원하지 않는 도형 삽입을 zip(xlsx 원본은 zip) 후처리로 직접 끼워넣는다.
+async function wbsSaveExcelWithTodayLine(wb,fileName,lineSpec){
+  const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+  if(typeof JSZip==="undefined"||!lineSpec){
+    XLSX.writeFile(wb,fileName);
+    return;
+  }
+  try{
+    const zip=await JSZip.loadAsync(buf);
+    const sheetEntries=zip.file(/^xl\/worksheets\/sheet\d+\.xml$/);
+    const sheetPath=sheetEntries&&sheetEntries[0]?sheetEntries[0].name:"xl/worksheets/sheet1.xml";
+    const relsPath=sheetPath.replace(/([^/]+)$/,"_rels/$1.rels");
+
+    const {col,colOffEMU,fromRow,toRow}=lineSpec;
+    const drawingXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n`+
+      `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">`+
+      `<xdr:twoCellAnchor>`+
+      `<xdr:from><xdr:col>${col}</xdr:col><xdr:colOff>${colOffEMU}</xdr:colOff><xdr:row>${fromRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>`+
+      `<xdr:to><xdr:col>${col}</xdr:col><xdr:colOff>${colOffEMU}</xdr:colOff><xdr:row>${toRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>`+
+      `<xdr:cxnSp macro=""><xdr:nvCxnSpPr><xdr:cNvPr id="9001" name="오늘 날짜"/><xdr:cNvCxnSpPr/></xdr:nvCxnSpPr>`+
+      `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="914400"/></a:xfrm>`+
+      `<a:prstGeom prst="line"><a:avLst/></a:prstGeom>`+
+      `<a:ln w="19050"><a:solidFill><a:srgbClr val="DC2626"/></a:solidFill></a:ln></xdr:spPr></xdr:cxnSp>`+
+      `<xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`;
+    zip.file("xl/drawings/drawing1.xml",drawingXml);
+
+    const existingRelsFile=zip.file(relsPath);
+    const existingRelsXml=existingRelsFile?await existingRelsFile.async("string"):null;
+    const relTag='<Relationship Id="rIdTodayLine" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>';
+    const relXml=existingRelsXml
+      ?existingRelsXml.replace("</Relationships>",relTag+"</Relationships>")
+      :`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relTag}</Relationships>`;
+    zip.file(relsPath,relXml);
+
+    let sheetXml=await zip.file(sheetPath).async("string");
+    if(!sheetXml.includes("<drawing ")){
+      sheetXml=sheetXml.replace("</worksheet>",'<drawing r:id="rIdTodayLine"/></worksheet>');
+      zip.file(sheetPath,sheetXml);
+    }
+
+    const ctPath="[Content_Types].xml";
+    let ctXml=await zip.file(ctPath).async("string");
+    if(!ctXml.includes("drawings/drawing1.xml")){
+      ctXml=ctXml.replace("</Types>",'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>');
+      zip.file(ctPath,ctXml);
+    }
+
+    const blob=await zip.generateAsync({type:"blob"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=fileName;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){
+    console.warn("오늘 날짜 도형 삽입 실패 — 도형 없이 저장",e);
+    XLSX.writeFile(wb,fileName);
+  }
+}
+async function v284GenerateExcel(){
   if(!S.selproj){alert("프로젝트가 선택되지 않았습니다.");return;}
   const proj=S.selproj;
   const projWBS=WBS.filter(w=>w.projId===proj.id);
@@ -1667,7 +1735,24 @@ function v284GenerateExcel(){
     const C_REMARK=C_MONTH_START+months.length*8;
     const C_MEMO=C_REMARK+1;
     const totalCols=C_MEMO+1;
-    
+
+    // v28.4.31: "오늘" 도형 라인 위치 — 어느 컬럼의 어느 지점(비율)에 그릴지 미리 계산
+    // (셀 하나가 최대 7일을 담당하므로 칸 경계가 아니라 칸 내부의 정확한 날짜 위치를 구함)
+    let todayLineCol=null,todayLineFrac=0.5;
+    months.forEach((mo,mi)=>{
+      const cols=wbsDayCols(dayDivisions,monthLastDay[mi]);
+      cols.forEach((col,di)=>{
+        if(col.dead)return;
+        const cellStart=new Date(mo.y,mo.m-1,col.dStart);cellStart.setHours(0,0,0,0);
+        const cellEnd=new Date(mo.y,mo.m-1,col.dEnd);cellEnd.setHours(23,59,59,999);
+        if(cellStart<=today&&today<=cellEnd){
+          todayLineCol=C_MONTH_START+mi*8+di;
+          const span=col.dEnd-col.dStart+1;
+          todayLineFrac=((today.getDate()-col.dStart)+0.5)/span;
+        }
+      });
+    });
+
     const aoa=[];
     const styles={};
     const merges=[];
@@ -1832,9 +1917,7 @@ function v284GenerateExcel(){
             const inBar=cellEnd>=wStart&&cellStart<=wEnd;   // 막대구간↔셀구간 겹치면 칠함 (단일일도 최소 1칸)
             const inProgress=inBar&&cellStart<=progressEnd;
             const isMilestone=isMain&&Math.abs((cellDate-wEnd)/(1000*60*60*24))<3;
-            // v28.4.30: cellEnd 근접 여부로만 체크하면 셀 폭(2~7일)에 따라 대부분의 날짜에서 "오늘" 표시가 안 되는 버그였음
-            // → today가 실제로 [cellStart,cellEnd] 구간 안에 있는지로 정확히 판정
-            const isTodayCol=cellStart<=today&&today<=cellEnd;
+            // v28.4.31: "오늘"은 더 이상 셀 테두리로 표시하지 않음 — 함수 마지막에서 실제 도형(선)으로 삽입
 
             let cs={border:rowBorder(thinB,thinB),alignment:center};
             if(isMilestone){
@@ -1844,9 +1927,6 @@ function v284GenerateExcel(){
               cs.fill=blueFill;
             }else if(inBar){
               cs.fill=lightBlueFill;
-            }
-            if(isTodayCol){
-              cs.border={top:bTop,bottom:bBottom,left:{style:"medium",color:{rgb:"DC2626"}},right:thinB};
             }
             styles[XLSX.utils.encode_cell({r:r,c:c})]=cs;
           });
@@ -2020,8 +2100,14 @@ function v284GenerateExcel(){
     
     const todayStrFile=new Date().toISOString().slice(0,10).replace(/-/g,'');
     const fileName=`${proj.no}_MASTER_SCHEDULE_${todayStrFile}.xlsx`;
-    XLSX.writeFile(wb,fileName);
-    
+    const todayLineSpec=todayLineCol==null?null:{
+      col:todayLineCol,
+      colOffEMU:Math.round(todayLineFrac*wchToEMU(3.2)),
+      fromRow:6,
+      toRow:dataEnd
+    };
+    await wbsSaveExcelWithTodayLine(wb,fileName,todayLineSpec);
+
     addLog(`✅ Excel 다운로드 완료: ${fileName}`,"ok");
   }catch(e){
     console.error("Excel 생성 오류:",e);
