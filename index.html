@@ -1149,6 +1149,11 @@ function openTool(tid, deptName) {
   view.itpSelectedItem = null;
   view.qaSelectedProj = null;    // QA Doc도 프로젝트 선택부터
   view.mobileSelectedProj = null; // Mobile도 프로젝트 선택부터
+  // v29.1: 제작 공정 관리(Traveller)에서 다른 도구로 넘어올 때 travProj/selectedTraveller가
+  // 안 지워지면 iframeViewKey()가 여전히 'travtag:...'를 반환해 render()가 콘텐츠 재생성을
+  // 건너뛰고(헤더 타이틀만 바뀌고 본문은 그대로 남는 버그) → 반드시 같이 초기화
+  view.travProj = null;
+  view.selectedTraveller = null;
   // v29: 부서 스케줄 — 어느 부서에서 열었는지 기억 (없으면 로그인 사용자 부서)
   if (tid === 'deptsch') { view.deptSchedDept = deptName || getU(state.currentUser).dept || ''; view.deptSchedProj = null; }
   const t = TOOLS[tid];
