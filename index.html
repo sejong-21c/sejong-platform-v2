@@ -863,12 +863,17 @@ window.SJP.bridge = {
     const pid = view.itpSelectedProj;
     const p = getP(pid);
     if (!p || !p.code) return null;
+    // v1.1 — 워크오더 자동등록/Cowork 자동등록은 Scope를 별도 텍스트로 저장하지 않고
+    // WBS 대단락(최상위 lv:0 행)으로만 저장한다. p.scope가 없으면 그 대단락 이름들을
+    // "/"로 이어붙여 Scope 대용으로 사용 — ITP Builder에서 다시 타이핑할 필요 없게 한다.
+    const wbsRows = (state.wbs && state.wbs[pid]) || [];
+    const scopeFromWbs = wbsRows.filter(r => r.lv === 0 && r.name).map(r => r.name).join(' / ');
     return {
       no: p.code,
       name: p.name,
       customer: p.client || '',
       po: p.po || '',
-      scope: p.scope || '',
+      scope: p.scope || scopeFromWbs || '',
       codes: { KS:true, ASME:true, TEMA:true, EN:false, API:false, Others:false }
     };
   },
