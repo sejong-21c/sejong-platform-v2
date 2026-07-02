@@ -813,12 +813,14 @@ async function autoRegisterPendingProjects() {
     if (!data.s) data.s = sd.toISOString().slice(0,10);
     if (!data.e) data.e = ed.toISOString().slice(0,10);
     const seg = (ed - sd) / scopes.length;
-    const rows = scopes.map((s, i) => ({
-      id: `w_${newId}_${i+1}`, code: String(i+1), name: s, mgr: '',
-      start: new Date(sd.getTime() + seg * i).toISOString().slice(0,10),
-      end: new Date(sd.getTime() + seg * (i+1)).toISOString().slice(0,10),
-      status: 'todo', pct: 0, lv: 0, vendor: '㈜세종기술', memo: '',
-    }));
+    const rows = scopes.map((sc, i) => {
+      const isObj = sc && typeof sc === 'object';
+      const nm = isObj ? sc.name : sc;
+      const rs = (isObj && sc.s) ? sc.s : new Date(sd.getTime() + seg * i).toISOString().slice(0,10);
+      const re = (isObj && sc.e) ? sc.e : new Date(sd.getTime() + seg * (i+1)).toISOString().slice(0,10);
+      return { id: `w_${newId}_${i+1}`, code: String(i+1), name: nm, mgr: '',
+        start: rs, end: re, status: 'todo', pct: 0, lv: 0, vendor: '㈜세종기술', memo: '' };
+    });
     const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
       id: `i_${newId}_${i}`, tag: it.no || ('ITEM-'+(i+1)), name: it.name || '',
       type: '', spec: '', material: '', vendor: '㈜세종기술', qty: it.qty || '', unit: it.unit || '',
