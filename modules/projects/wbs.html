@@ -1605,6 +1605,21 @@ act=function(a,d){
 // v28.4.17: MASTER SCHEDULE Excel 생성 (단순화 - 병합 최소화)
 // xlsx-js-style 사용 — 셀 색상 + 테두리 + 안정성 우선
 // ═══════════════════════════════════════════════════════════
+// dayDivisions=[4,8,12,16,20,24,28,31] 고정 8칸 중 마지막 두 값(28,31)이
+// lastDay=28(윤년 아닌 2월)에서 둘 다 28로 clamp되어 헤더/오늘셀/마일스톤이
+// 중복 표시되던 버그 — lastDay에 먼저 도달한 이후 칸은 dead 처리해 겹치지 않게 함
+function wbsDayCols(dayDivisions,lastDay){
+  const cols=[];let prevEnd=0,reached=false;
+  for(let di=0;di<dayDivisions.length;di++){
+    if(reached){cols.push({dStart:null,dEnd:null,label:"",dead:true});continue;}
+    const dEnd=Math.min(dayDivisions[di],lastDay);
+    const dStart=di===0?1:prevEnd+1;
+    cols.push({dStart,dEnd,label:dEnd,dead:false});
+    prevEnd=dEnd;
+    if(dEnd===lastDay)reached=true;
+  }
+  return cols;
+}
 function v284GenerateExcel(){
   if(!S.selproj){alert("프로젝트가 선택되지 않았습니다.");return;}
   const proj=S.selproj;
@@ -1708,8 +1723,8 @@ function v284GenerateExcel(){
     // R8: 일자 헤더 — 마지막 칸은 해당 월의 실제 마지막일(28/29/30/31)로 표시
     const r8=Array(totalCols).fill("");
     months.forEach((mo,mi)=>{
-      const lastDay=monthLastDay[mi];
-      dayDivisions.forEach((d,di)=>{r8[C_MONTH_START+mi*8+di]=Math.min(d,lastDay);});
+      const cols=wbsDayCols(dayDivisions,monthLastDay[mi]);
+      cols.forEach((col,di)=>{if(!col.dead)r8[C_MONTH_START+mi*8+di]=col.label;});
     });
     aoa.push(r8);
     
@@ -1764,10 +1779,11 @@ function v284GenerateExcel(){
       if(w.s&&w.e){
         const wEnd=new Date(w.e);
         months.forEach((mo,mi)=>{
-          const lastDay=monthLastDay[mi];
-          dayDivisions.forEach((d,di)=>{
+          const cols=wbsDayCols(dayDivisions,monthLastDay[mi]);
+          cols.forEach((col,di)=>{
+            if(col.dead)return;
             const c=C_MONTH_START+mi*8+di;
-            const cellDate=new Date(mo.y,mo.m-1,Math.min(d,lastDay));
+            const cellDate=new Date(mo.y,mo.m-1,col.dEnd);
             cellDate.setHours(0,0,0,0);
             const isMilestone=isMain&&Math.abs((cellDate-wEnd)/(1000*60*60*24))<3;
             if(isMilestone)row[c]="◆";
@@ -1803,13 +1819,15 @@ function v284GenerateExcel(){
         const totalMs=wEnd-wStart;
         const progressEnd=new Date(wStart.getTime()+totalMs*fillPct/100);
         months.forEach((mo,mi)=>{
-          const lastDay=monthLastDay[mi];
-          dayDivisions.forEach((d,di)=>{
+          const cols=wbsDayCols(dayDivisions,monthLastDay[mi]);
+          cols.forEach((col,di)=>{
             const c=C_MONTH_START+mi*8+di;
-            const dEnd=Math.min(d,lastDay);
-            const dStart=Math.min((di===0?1:dayDivisions[di-1]+1),lastDay);
-            const cellStart=new Date(mo.y,mo.m-1,dStart);cellStart.setHours(0,0,0,0);
-            const cellEnd=new Date(mo.y,mo.m-1,dEnd);cellEnd.setHours(23,59,59,999);
+            if(col.dead){
+              styles[XLSX.utils.encode_cell({r:r,c:c})]={border:rowBorder(thinB,thinB),alignment:center};
+              return;
+            }
+            const cellStart=new Date(mo.y,mo.m-1,col.dStart);cellStart.setHours(0,0,0,0);
+            const cellEnd=new Date(mo.y,mo.m-1,col.dEnd);cellEnd.setHours(23,59,59,999);
             const cellDate=cellEnd; // 마일스톤/투데이 비교 기준 (셀 끝일)
             const inBar=cellEnd>=wStart&&cellStart<=wEnd;   // 막대구간↔셀구간 겹치면 칠함 (단일일도 최소 1칸)
             const inProgress=inBar&&cellStart<=progressEnd;
@@ -1817,7 +1835,7 @@ function v284GenerateExcel(){
             // v28.4.30: cellEnd 근접 여부로만 체크하면 셀 폭(2~7일)에 따라 대부분의 날짜에서 "오늘" 표시가 안 되는 버그였음
             // → today가 실제로 [cellStart,cellEnd] 구간 안에 있는지로 정확히 판정
             const isTodayCol=cellStart<=today&&today<=cellEnd;
-            
+
             let cs={border:rowBorder(thinB,thinB),alignment:center};
             if(isMilestone){
               cs.font=fontKR({sz:12,bold:true,color:{rgb:"DC2626"}});
