@@ -729,6 +729,9 @@ function defaultState() {
   };
 }
 
+// wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
+// 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
+const WBS_BUILD = 'b5';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -779,10 +782,81 @@ async function loadBriefings() {
     console.info('[SJ FLOW] Cowork 브리핑 로드 완료:', Object.keys(state.briefings).length, '명');
     updateNotifBadge();
     if (view.cur === 'dashboard' && state.currentUser) render();
+    autoRegisterPendingProjects();
   } catch (e) {
     console.warn('[SJ FLOW] Cowork 브리핑 로드 실패(무시):', e.message);
   }
 }
+// ══════════ pendingProjects 자동 등록 ══════════
+// briefings.json에 pendingProjects 배열이 있으면 Firestore에 프로젝트+WBS 자동 생성
+async function autoRegisterPendingProjects() {
+  if (!state.currentUser || !window.fb || !fb.db) return;
+  const b = state.briefings[state.currentUser];
+  if (!b || !Array.isArray(b.pendingProjects) || !b.pendingProjects.length) return;
+
+  const regKey = 'sjflow_registered_v3';
+  const registered = JSON.parse(localStorage.getItem(regKey) || '[]');
+  const toRegister = b.pendingProjects.filter(p => p.no && !registered.includes(p.no));
+  if (!toRegister.length) return;
+
+  let count = 0;
+  for (const data of toRegister) {
+    const errors = ciValidate(data);
+    if (errors.length) { console.warn('[SJ FLOW] pendingProject 검증 실패:', data.no, errors); continue; }
+    const scopes = Array.isArray(data.scopes) && data.scopes.length ? data.scopes : ['공정'];
+    const _now = new Date(), _6mo = new Date(_now.getTime() + 180*86400000);
+    let sd = data.s ? new Date(data.s) : _now;
+    let ed = data.e ? new Date(data.e) : (data.s ? new Date(new Date(data.s).getTime() + 180*86400000) : _6mo);
+    if (isNaN(sd.getTime())) sd = _now;
+    if (isNaN(ed.getTime())) ed = _6mo;
+    if (!data.s) data.s = sd.toISOString().slice(0,10);
+    if (!data.e) data.e = ed.toISOString().slice(0,10);
+
+    const existing = state.projects.find(p => p.code === data.no);
+    const pid = existing ? existing.id : ('p' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+    const seg = (ed - sd) / scopes.length;
+    const rows = scopes.map((sc, i) => {
+      const isObj = sc && typeof sc === 'object';
+      const nm = isObj ? sc.name : sc;
+      const rs = (isObj && sc.s) ? sc.s : new Date(sd.getTime() + seg * i).toISOString().slice(0,10);
+      const re = (isObj && sc.e) ? sc.e : new Date(sd.getTime() + seg * (i+1)).toISOString().slice(0,10);
+      return { id: `w_${pid}_${i+1}`, code: String(i+1), name: nm, mgr: '',
+        s: rs, e: re, status: 'todo', itpLink: null, lv: 0, projId: pid, vendor: '㈜세종기술', memo: '' };
+    });
+    const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
+      id: `i_${pid}_${i}`, tagNo: it.no || ('ITEM-'+(i+1)), name: it.name || '',
+      type: '', spec: '', maker: it.vendor || '㈜세종기술', status: '대기', wbsLink: null, qty: it.qty || '', unit: it.unit || '',
+    })) : [];
+    try {
+      if (existing) {
+        if (data.s) await fb.setDoc(fb.doc(fb.db, 'projects', pid), { start: data.s, end: data.e }, { merge: true });
+        await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { rows, items, updatedAt: Date.now() });
+        console.info('[SJ FLOW] WO WBS 갱신:', data.no, rows.length + '개 대단락');
+      } else {
+        await fb.setDoc(fb.doc(fb.db, 'projects', pid), {
+          code: data.no, name: data.name, client: data.client,
+          pm: state.currentUser, start: data.s, end: data.e,
+          progress: 0, status: 'active', hidden: false,
+          remark: data.remark || '', createdBy: 'Cowork WO 자동등록',
+        });
+        await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { rows, items, updatedAt: Date.now() });
+        console.info('[SJ FLOW] WO 자동등록:', data.no, data.name);
+      }
+      registered.push(data.no);
+      count++;
+    } catch (e) { console.error('[SJ FLOW] WO 자동등록 실패:', data.no, e); }
+  }
+  localStorage.setItem(regKey, JSON.stringify(registered));
+  if (count > 0) {
+    b.autoRegistered = (b.autoRegistered || 0) + count;
+    b.newProjects = (b.newProjects || 0) + count;
+    save();
+    updateNotifBadge();
+    if (view.cur === 'dashboard') render();
+    console.info(`[SJ FLOW] ${count}개 워크오더 프로젝트 자동등록 완료`);
+  }
+}
+
 // Cowork 등 외부에서 수동 갱신 트리거 가능
 window.SJP = window.SJP || {};
 window.SJP.loadBriefings = loadBriefings;
@@ -1271,10 +1345,55 @@ function stopFirestoreSync() {
   _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
   _fsUnsubs = [];
 }
+// WBS 행 하나의 진척률 계산 — wbs.html의 wCS()를 간이 포팅 (ITP 연동 부분 제외).
+// pctManual 우선 → 자식(소단락) 롤업 → 상태 문자열 → 시작/완료일 경과율 순.
+function _wbsRowPct(w, rows, idx) {
+  if (w.pctManual != null && w.pctManual !== '') return Math.max(0, Math.min(100, Math.round(Number(w.pctManual)) || 0));
+  const kids = [];
+  for (let j = idx + 1; j < rows.length; j++) {
+    if (rows[j].lv <= w.lv) break;
+    if (rows[j].lv === w.lv + 1) kids.push(j);
+  }
+  if (kids.length) {
+    const sum = kids.reduce((a, j) => a + _wbsRowPct(rows[j], rows, j), 0);
+    return Math.round(sum / kids.length);
+  }
+  if (w.status === '완료') return 100;
+  if (w.status === '미시작') return 0;
+  if (w.pct != null) return w.pct;
+  if (w.s && w.e) {
+    const today = new Date(), start = new Date(w.s), end = new Date(w.e);
+    if (today < start) return 0;
+    if (today >= end) return 99;
+    return Math.max(1, Math.min(99, Math.round((today - start) / (end - start) * 100)));
+  }
+  return 0;
+}
+function computeProjectProgress(pid) {
+  const rows = state.wbs[pid] || [];
+  const topIdx = [];
+  rows.forEach((w, i) => { if (w.lv === 0) topIdx.push(i); });
+  if (!topIdx.length) return 0;
+  const sum = topIdx.reduce((a, i) => a + _wbsRowPct(rows[i], rows, i), 0);
+  return Math.round(sum / topIdx.length);
+}
+// WBS 데이터 기준 진척률을 projects.progress와 대조해 어긋나면 자동 동기화
+// (wbs.html을 직접 열지 않은 프로젝트도 대시보드 로드만으로 백필됨)
+function reconcileProjectProgress() {
+  if (!window.fb || !fb.db) return;
+  state.projects.forEach(p => {
+    if (!state.wbs[p.id] || !state.wbs[p.id].length) return;
+    const computed = computeProjectProgress(p.id);
+    if ((p.progress || 0) !== computed) {
+      fb.setDoc(fb.doc(fb.db, 'projects', p.id), { progress: computed }, { merge: true }).catch(() => {});
+    }
+  });
+}
 function startFirestoreSync() {
   stopFirestoreSync();
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    reconcileProjectProgress();
     render();
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
@@ -1289,6 +1408,7 @@ function startFirestoreSync() {
       state.wbs[pid] = data.rows || [];
       state.items[pid] = data.items || [];
     });
+    reconcileProjectProgress();
     render();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
 }
@@ -1362,6 +1482,12 @@ function getNotifications(includeAll) {
   pendA.forEach(function(a) { notifs.push({ type: 'approval', icon: '📝', title: a.title || '결재 요청', sub: (getU(a.from) || {}).name || '', proj: '', mail: false }); });
   var unread = (state.messages || []).filter(function(m) { return m.to === state.currentUser && !m.read; });
   unread.forEach(function(m) { notifs.push({ type: 'message', icon: '💬', title: m.text || '새 메시지', sub: (getU(m.from) || {}).name || '', proj: '', mail: false }); });
+  if (b && b.autoRegistered) notifs.push({ type: 'autoReg', icon: '📦', title: b.autoRegistered + '개 워크오더 프로젝트 자동 등록됨', sub: 'Cowork WO 파이프라인', proj: '', mail: false });
+  if (b && Array.isArray(b.pendingProjects) && b.pendingProjects.length) {
+    var regList = JSON.parse(localStorage.getItem('sjflow_registered_v3') || '[]');
+    var pending = b.pendingProjects.filter(function(p) { return regList.indexOf(p.no) === -1; });
+    if (pending.length) notifs.push({ type: 'pendingWO', icon: '📋', title: pending.length + '개 워크오더 등록 대기 중', sub: pending.map(function(p) { return p.no; }).join(', '), proj: '', mail: false });
+  }
   if (includeAll) return notifs;
   return notifs.filter(function(n) { return dismissed.indexOf(_nid(n)) === -1; });
 }
@@ -1582,7 +1708,7 @@ function renderEPCControl() {
   
   // EPC Control v28.5 모듈 경로 (embed=1로 사이드바 숨김, canEdit=권한)
   const _canEdit = canEditSchedule(p.id) ? '1' : '0';
-  const epcPath = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_canEdit}`;
+  const epcPath = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_canEdit}&v=${WBS_BUILD}`;
 
   return `
     <div style="display:flex;flex-direction:column;height:100%;">
@@ -2330,11 +2456,11 @@ function renderDeptSchedFrame() {
   const deptId = (DEPTS.find(d => d.name === dept) || {}).id || 'etc';
   let src, title;
   if (view.deptSchedProj === '__self__') {
-    src = `modules/projects/wbs.html?pid=dept_${encodeURIComponent(deptId)}&deptMode=1&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}`;
+    src = `modules/projects/wbs.html?pid=dept_${encodeURIComponent(deptId)}&deptMode=1&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}&v=${WBS_BUILD}`;
     title = `${dept} 자체 업무 일정`;
   } else {
     const p = getP(view.deptSchedProj);
-    src = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}`;
+    src = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}&v=${WBS_BUILD}`;
     title = `${p.code} ${p.name} — ${dept}`;
   }
   return `<div style="display:flex;flex-direction:column;height:100%;">
@@ -2438,7 +2564,7 @@ function dashboard() {
       <div class="kpi"><div class="kpi-label">📬 내 신규 메일</div><div class="kpi-value">${b.newMails??'-'}</div><div class="kpi-trend">처리 ${b.processed??0}건</div></div>
       <div class="kpi"><div class="kpi-label">🔴 긴급 답변</div><div class="kpi-value">${b.urgentReplies??0}</div><div class="kpi-trend ${b.urgentReplies>0?'down':''}">${b.urgentReplies>0?'대기 중':'없음'}</div></div>
       <div class="kpi"><div class="kpi-label">⚠️ NCR / CAR</div><div class="kpi-value">${b.ncr??0} / ${b.car??0}</div><div class="kpi-trend ${(b.ncr>0)?'down':''}">${b.ncr>0?'조치 필요':'이상 없음'}</div></div>
-      <div class="kpi"><div class="kpi-label">🆕 신규 Project</div><div class="kpi-value">${b.newProjects??'-'}</div><div class="kpi-trend">자동 분류</div></div>
+      <div class="kpi"><div class="kpi-label">🆕 신규 Project</div><div class="kpi-value">${b.newProjects??'-'}</div><div class="kpi-trend">${b.autoRegistered?'✅ '+b.autoRegistered+'건 등록':'자동 분류'}</div></div>
       <div class="kpi"><div class="kpi-label">⏱ 내 공수</div><div class="kpi-value">${(b.manday||0).toFixed(1)}H</div><div class="kpi-trend">오늘</div></div>`;
   } else {
     // Cowork 자동화 안 한 사람 → 기본 업무 대시보드
@@ -3104,7 +3230,7 @@ let _ciParsed = null;
 function ciValidate(data) {
   const errors = [];
   if (!data || typeof data !== 'object' || Array.isArray(data)) return ['JSON은 객체여야 합니다 (예: {...})'];
-  ['no','name','client','s','e'].forEach(k => {
+  ['no','name','client'].forEach(k => {
     if (!data[k] || typeof data[k] !== 'string') errors.push(`필수 필드 누락 또는 잘못된 형식: ${k}`);
   });
   const dateRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -3152,20 +3278,29 @@ function openCoworkImportModal() {
     const newId = 'p' + Date.now();
     const pmUser = state.users.find(u => u.id === data.pm || u.name === data.pm);
     const scopes = Array.isArray(data.scopes) && data.scopes.length ? data.scopes : ['공정'];
-    const sd = new Date(data.s), ed = new Date(data.e);
+    const _now2 = new Date(), _6mo2 = new Date(_now2.getTime() + 180*86400000);
+    let sd = data.s ? new Date(data.s) : _now2;
+    let ed = data.e ? new Date(data.e) : _6mo2;
+    if (isNaN(sd.getTime())) sd = _now2;
+    if (isNaN(ed.getTime())) ed = _6mo2;
+    if (!data.s) data.s = sd.toISOString().slice(0,10);
+    if (!data.e) data.e = ed.toISOString().slice(0,10);
     const seg = (ed - sd) / scopes.length;
-    const rows = scopes.map((s, i) => {
+    const rows = scopes.map((sc, i) => {
+      const isObj = sc && typeof sc === 'object';
+      const nm = isObj ? sc.name : sc;
       const wsd = new Date(sd.getTime() + seg * i);
       const wed = new Date(sd.getTime() + seg * (i + 1));
+      const rs = (isObj && sc.s) ? sc.s : wsd.toISOString().slice(0,10);
+      const re = (isObj && sc.e) ? sc.e : wed.toISOString().slice(0,10);
       return {
-        id: `w_${newId}_${i+1}`, code: String(i+1), name: s, mgr: '',
-        start: wsd.toISOString().slice(0,10), end: wed.toISOString().slice(0,10),
-        status: 'todo', pct: 0, lv: 0, vendor: '㈜세종기술', memo: '',
+        id: `w_${newId}_${i+1}`, code: String(i+1), name: nm, mgr: '',
+        s: rs, e: re, status: 'todo', itpLink: null, lv: 0, projId: newId, vendor: '㈜세종기술', memo: '',
       };
     });
     const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
-      id: `i_${newId}_${i}`, tag: it.no || ('ITEM-'+(i+1)), name: it.name || '',
-      type: '', spec: '', material: '', vendor: '㈜세종기술', qty: it.qty || '', unit: it.unit || '',
+      id: `i_${newId}_${i}`, tagNo: it.no || ('ITEM-'+(i+1)), name: it.name || '',
+      type: '', spec: '', maker: it.vendor || '㈜세종기술', status: '대기', wbsLink: null, qty: it.qty || '', unit: it.unit || '',
     })) : [];
     try {
       await fb.setDoc(fb.doc(fb.db, 'projects', newId), {
@@ -3561,7 +3696,7 @@ function renderTravellerTagList() {
   
   // EPC v28.5 Manufacture Manager로 직행 (view=mm)
   const _mmCanEdit = canEditSchedule(p.id) ? '1' : '0';
-  const mmPath = `modules/projects/wbs.html?view=mm&proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_mmCanEdit}`;
+  const mmPath = `modules/projects/wbs.html?view=mm&proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_mmCanEdit}&v=${WBS_BUILD}`;
   
   return `
     <div style="display:flex;flex-direction:column;height:100%;">

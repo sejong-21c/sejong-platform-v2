@@ -1490,6 +1490,10 @@ function v28Save(){
   const rows = WBS.filter(w=>w.projId===_wbsPid);
   const items = MITEM[_wbsPid] || [];
   fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, updatedAt: Date.now()}).catch(e=>console.warn("v28Save fail",e));
+  // 대단락(lv=0) 평균 진척률을 projects 문서에도 반영 — 대시보드/카드 목록의 진도율(p.progress)과 동기화
+  const tops=rows.filter(w=>w.lv===0);
+  const progress=tops.length?Math.round(tops.reduce((a,w)=>a+(wCS(w).pct||0),0)/tops.length):0;
+  fb.setDoc(fb.doc(fb.db,"projects",_wbsPid), {progress}, {merge:true}).catch(e=>console.warn("v28Save progress sync fail",e));
 }
 // R() 호출 시마다 자동 저장 (디바운스) — 초기 로드는 initFromFirestore()의 subscribeWbsData()가 담당
 let v28SaveTimer=null;
@@ -1619,6 +1623,8 @@ function v284GenerateExcel(){
     const endCursor=new Date(maxDate.getFullYear(),maxDate.getMonth(),1);
     while(cursor<=endCursor){months.push({y:cursor.getFullYear(),m:cursor.getMonth()+1});cursor.setMonth(cursor.getMonth()+1);}
     const dayDivisions=[4,8,12,16,20,24,28,31];
+    // v28.4.30: 월말일을 행마다(월수×8회씩) 재계산하지 않도록 한 번만 계산해 재사용 — 대형 프로젝트 생성속도 개선
+    const monthLastDay=months.map(mo=>new Date(mo.y,mo.m,0).getDate());
     const today=new Date();today.setHours(0,0,0,0);
     
     const fontKR=(opts={})=>({name:"맑은 고딕",sz:9,...opts});
@@ -1699,10 +1705,11 @@ function v284GenerateExcel(){
     r7[C_REMARK]="REMARK";r7[C_MEMO]="메모";
     aoa.push(r7);
     
-    // R8: 일자 헤더
+    // R8: 일자 헤더 — 마지막 칸은 해당 월의 실제 마지막일(28/29/30/31)로 표시
     const r8=Array(totalCols).fill("");
     months.forEach((mo,mi)=>{
-      dayDivisions.forEach((d,di)=>{r8[C_MONTH_START+mi*8+di]=d;});
+      const lastDay=monthLastDay[mi];
+      dayDivisions.forEach((d,di)=>{r8[C_MONTH_START+mi*8+di]=Math.min(d,lastDay);});
     });
     aoa.push(r8);
     
@@ -1757,9 +1764,9 @@ function v284GenerateExcel(){
       if(w.s&&w.e){
         const wEnd=new Date(w.e);
         months.forEach((mo,mi)=>{
+          const lastDay=monthLastDay[mi];
           dayDivisions.forEach((d,di)=>{
             const c=C_MONTH_START+mi*8+di;
-            const lastDay=new Date(mo.y,mo.m,0).getDate();
             const cellDate=new Date(mo.y,mo.m-1,Math.min(d,lastDay));
             cellDate.setHours(0,0,0,0);
             const isMilestone=isMain&&Math.abs((cellDate-wEnd)/(1000*60*60*24))<3;
@@ -1796,9 +1803,9 @@ function v284GenerateExcel(){
         const totalMs=wEnd-wStart;
         const progressEnd=new Date(wStart.getTime()+totalMs*fillPct/100);
         months.forEach((mo,mi)=>{
+          const lastDay=monthLastDay[mi];
           dayDivisions.forEach((d,di)=>{
             const c=C_MONTH_START+mi*8+di;
-            const lastDay=new Date(mo.y,mo.m,0).getDate();
             const dEnd=Math.min(d,lastDay);
             const dStart=Math.min((di===0?1:dayDivisions[di-1]+1),lastDay);
             const cellStart=new Date(mo.y,mo.m-1,dStart);cellStart.setHours(0,0,0,0);
@@ -1807,7 +1814,9 @@ function v284GenerateExcel(){
             const inBar=cellEnd>=wStart&&cellStart<=wEnd;   // 막대구간↔셀구간 겹치면 칠함 (단일일도 최소 1칸)
             const inProgress=inBar&&cellStart<=progressEnd;
             const isMilestone=isMain&&Math.abs((cellDate-wEnd)/(1000*60*60*24))<3;
-            const isTodayCol=Math.abs((cellDate-today)/(1000*60*60*24))<2;
+            // v28.4.30: cellEnd 근접 여부로만 체크하면 셀 폭(2~7일)에 따라 대부분의 날짜에서 "오늘" 표시가 안 되는 버그였음
+            // → today가 실제로 [cellStart,cellEnd] 구간 안에 있는지로 정확히 판정
+            const isTodayCol=cellStart<=today&&today<=cellEnd;
             
             let cs={border:rowBorder(thinB,thinB),alignment:center};
             if(isMilestone){
@@ -2164,20 +2173,33 @@ async function v284GeneratePDF(){
   // v28.4.25 ★ 라벨만 동적 - 좌표계는 v28.4.22 방식 유지 (헤더 8칸 균등 + dayPos는 5/4~12/31 기준)
   function getMonthLastDay(y,m){return new Date(y,m,0).getDate();}
   
-  // v28.4.17: 표 헤더 첫 일자(4일) 기준으로 minDate 조정 — 빨간선/막대 위치 정확도 향상
-  // 원래 minDate가 5월 1일이어도 표는 5월 4일부터 시작. 정렬을 위해 minDate를 해당 월의 4일로 맞춤
-  const adjustedMin=new Date(minDate.getFullYear(),minDate.getMonth(),4);
-  const adjustedMax=new Date(maxDate.getFullYear(),maxDate.getMonth(),31);
-  // 일정 막대 위치 계산 (조정된 기간 대비 %)
-  const totalDays=Math.max(1,(adjustedMax-adjustedMin)/(1000*60*60*24)+1);
+  // v28.4.30 ★ 헤더/그리드는 "월마다 8칸 균등폭"인데 예전 dayPos()는 실제 경과일수 기준이라
+  // 두 좌표계가 어긋나서(30일짜리 달이 껴있을수록 밀림) 오늘선·막대가 그리드와 안 맞는 버그가 있었음.
+  // → dayPos()도 동일하게 "월 8칸 그리드" 좌표계로 계산해 완전히 일치시킴.
+  const monthIndexOf=(y,m)=>months.findIndex(mo=>mo.y===y&&mo.m===m);
   const dayPos=d=>{
-    const x=((new Date(d)-adjustedMin)/(1000*60*60*24))/totalDays*100;
-    return Math.max(0,Math.min(100,x));  // 0~100 범위로 제한
+    const dt=new Date(d);
+    const y=dt.getFullYear(),m=dt.getMonth()+1,day=dt.getDate();
+    const mi=monthIndexOf(y,m);
+    if(mi<0){
+      const beforeRange=new Date(y,m-1,day)<new Date(months[0].y,months[0].m-1,1);
+      return beforeRange?0:100;
+    }
+    const lastDay=getMonthLastDay(y,m);
+    const edges=[0,4,8,12,16,20,24,28,lastDay];
+    let i=0;while(i<edges.length-1&&day>edges[i+1])i++;
+    const lo=edges[i],hi=edges[i+1];
+    const frac=hi>lo?(day-lo)/(hi-lo):0;
+    const posWithinMonth=(i+frac)/8;
+    return Math.max(0,Math.min(100,(mi+posWithinMonth)/months.length*100));
   };
-  
+
   // 오늘 위치
   const today=new Date();today.setHours(0,0,0,0);
-  const todayPos=(today>=adjustedMin&&today<=adjustedMax)?dayPos(today):-1;
+  const _rangeStartM=months[0],_rangeEndM=months[months.length-1];
+  const rangeStart=new Date(_rangeStartM.y,_rangeStartM.m-1,1);
+  const rangeEnd=new Date(_rangeEndM.y,_rangeEndM.m-1,getMonthLastDay(_rangeEndM.y,_rangeEndM.m),23,59,59,999);
+  const todayPos=(today>=rangeStart&&today<=rangeEnd)?dayPos(today):-1;
 
   // ═══ EVMS S-Curve (PDF: canvas로 직접 묘화 — 선 굵기 정확, 왜곡 없음) ═══
   let _pvArr=[], _evArr=[];
@@ -2200,7 +2222,11 @@ async function v284GeneratePDF(){
   // 각 행의 진척 X 위치 계산 (막대 시작점 + 막대길이 × 진척률)
   const rowHeight=30;
   const evmsPoints=[];  // [{x: 진척%위치, y: 행 인덱스}] EVMS S곡선 그리기용
-  
+  // v28.4.30: 격자선은 모든 행에서 동일한 X 위치라 행마다 반복 생성할 필요가 없음.
+  // 예전엔 행마다 (월수×8)개씩 그려서 대형 프로젝트는 격자선만 수천 개 DOM이 생겨 html2canvas가 느려졌음.
+  // → 표 전체 높이를 덮는 오버레이 하나로 한 번만 그림 (idx===0 행에 배치, overflow:visible로 아래까지 노출).
+  const gridlinesHTML=months.map((mo,mIdx)=>[4,8,12,16,20,24,28,31].map((d,dIdx)=>`<div style="position:absolute;left:${((mIdx*8+dIdx+1)/(months.length*8))*100}%;top:0;bottom:0;width:1px;background:#e8e8e8"></div>`).join('')).join('');
+
   const wbsRowsHTML=projWBS.map((w,idx)=>{
     const isMain=w.lv===0;
     const{pct,status,ncr}=wCS(w);
@@ -2237,15 +2263,17 @@ async function v284GeneratePDF(){
       <td style="border:1px solid #888;padding:2px 4px;text-align:center;font-size:7.5pt;color:#333;background:#fff;width:68px;white-space:nowrap">${w.e||''}</td>
       <td style="border:1px solid #888;padding:2px;text-align:center;font-size:8pt;color:#1a1a1a;background:#fff;width:44px;font-weight:600">${fillPct}%</td>
       <td colspan="${months.length*8}" class="v284-gantt-cell" style="border:1px solid #888;padding:0;position:relative;height:${rowHeight}px;background:#fff${idx===0?';overflow:visible':''}">
-        ${months.map((mo,mIdx)=>[4,8,12,16,20,24,28,31].map((d,dIdx)=>`<div style="position:absolute;left:${((mIdx*8+dIdx+1)/(months.length*8))*100}%;top:0;bottom:0;width:1px;background:#e8e8e8"></div>`).join('')).join('')}
-        ${todayPos>=0?`<div style="position:absolute;left:${todayPos}%;top:0;bottom:0;width:2px;background:#dc2626;z-index:5;pointer-events:none;margin-left:-1px"></div>`:''}
-        ${todayPos>=0&&idx===0?`<!-- v28.4.17: TODAY 라벨 — 빨간선과 동일 좌표계, ▼가 정확히 빨간선 위로 -->
-        <div style="position:absolute;left:${todayPos}%;top:-20px;font-size:8pt;font-weight:700;color:#dc2626;z-index:21;white-space:nowrap;pointer-events:none">
-          <div style="position:relative">
-            <span style="position:absolute;left:0;top:0;transform:translateX(-50%);font-size:10pt;line-height:1">▼</span>
-            <span style="position:absolute;left:0;top:-10px;transform:translateX(-50%);background:#fff;padding:0 4px;border:1px solid #dc2626;border-radius:3px;font-size:7.5pt">TODAY ${todayStr}</span>
+        ${idx===0?`<!-- v28.4.30: 격자선/오늘선/TODAY라벨을 표 전체 높이 오버레이로 통합 (행마다 반복 생성 제거 → PDF 생성 속도 개선). 격자선은 막대 뒤(z:1), 오늘선/라벨은 막대 위(z:5)로 분리해 기존 겹침 순서 유지 -->
+        <div style="position:absolute;top:0;left:0;width:100%;height:${projWBS.length*rowHeight}px;z-index:1;pointer-events:none">${gridlinesHTML}</div>
+        ${todayPos>=0?`<div style="position:absolute;top:0;left:0;width:100%;height:${projWBS.length*rowHeight}px;z-index:5;pointer-events:none">
+          <div style="position:absolute;left:${todayPos}%;top:-40px;bottom:0;width:2px;background:#dc2626;margin-left:-1px"></div>
+          <div style="position:absolute;left:${todayPos}%;top:-56px;font-size:8pt;font-weight:700;color:#dc2626;z-index:21;white-space:nowrap">
+            <div style="position:relative">
+              <span style="position:absolute;left:0;top:0;transform:translateX(-50%);font-size:10pt;line-height:1">▼</span>
+              <span style="position:absolute;left:0;top:-10px;transform:translateX(-50%);background:#fff;padding:0 4px;border:1px solid #dc2626;border-radius:3px;font-size:7.5pt">TODAY ${todayStr}</span>
+            </div>
           </div>
-        </div>`:''}
+        </div>`:''}`:''}
         ${idx===0&&_pvArr.length?`<canvas id="evms-scurve-cv" style="position:absolute;top:0;left:0;width:100%;height:${projWBS.length*rowHeight}px;z-index:4;pointer-events:none"></canvas>`:''}
         <div class="v284-bar-outer" data-idx="${idx}" data-fillpct="${fillPct}" style="position:absolute;left:${left}%;top:6px;width:${Math.max(width,0.9)}%;height:12px;background:${barBg};border:1px solid ${barColor};box-sizing:border-box;z-index:2">
           <div class="v284-bar-fill" style="position:absolute;left:0;top:0;width:${fillPct}%;height:100%;background:${barColor}"></div>
@@ -2522,7 +2550,15 @@ function subscribeWbsData(pid){
       const snap = await fb.getDoc(fb.doc(fb.db, "projects", pid));
       if (snap.exists()) {
         const d = snap.data();
-        targetProj = { id: pid, no: d.code, name: d.name, client: d.client||"", po: d.po||"", pm: d.pm||"" };
+        // d.pm은 Firebase UID라 화면/PDF/Excel에 그대로 찍으면 알아볼 수 없는 문자열이 나옴 — users 컬렉션에서 실제 이름으로 변환
+        let pmName = d.pm || "";
+        if (pmName) {
+          try {
+            const uSnap = await fb.getDoc(fb.doc(fb.db, "users", pmName));
+            if (uSnap.exists() && uSnap.data().name) pmName = uSnap.data().name;
+          } catch(e) { console.warn("[SJ FLOW] PM 이름 조회 실패:", e.message); }
+        }
+        targetProj = { id: pid, no: d.code, name: d.name, client: d.client||"", po: d.po||"", pm: pmName };
         const idx = PROJS.findIndex(p => p.id === pid);
         if (idx >= 0) PROJS[idx] = targetProj; else PROJS.unshift(targetProj);
       }
