@@ -818,11 +818,11 @@ async function autoRegisterPendingProjects() {
       const rs = (isObj && sc.s) ? sc.s : new Date(sd.getTime() + seg * i).toISOString().slice(0,10);
       const re = (isObj && sc.e) ? sc.e : new Date(sd.getTime() + seg * (i+1)).toISOString().slice(0,10);
       return { id: `w_${pid}_${i+1}`, code: String(i+1), name: nm, mgr: '',
-        start: rs, end: re, status: 'todo', pct: 0, lv: 0, vendor: '㈜세종기술', memo: '' };
+        s: rs, e: re, status: 'todo', itpLink: null, lv: 0, projId: pid, vendor: '㈜세종기술', memo: '' };
     });
     const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
-      id: `i_${pid}_${i}`, tag: it.no || ('ITEM-'+(i+1)), name: it.name || '',
-      type: '', spec: '', material: '', vendor: '㈜세종기술', qty: it.qty || '', unit: it.unit || '',
+      id: `i_${pid}_${i}`, tagNo: it.no || ('ITEM-'+(i+1)), name: it.name || '',
+      type: '', spec: '', maker: it.vendor || '㈜세종기술', status: '대기', wbsLink: null, qty: it.qty || '', unit: it.unit || '',
     })) : [];
     try {
       if (existing) {
@@ -3232,18 +3232,21 @@ function openCoworkImportModal() {
     if (!data.s) data.s = sd.toISOString().slice(0,10);
     if (!data.e) data.e = ed.toISOString().slice(0,10);
     const seg = (ed - sd) / scopes.length;
-    const rows = scopes.map((s, i) => {
+    const rows = scopes.map((sc, i) => {
+      const isObj = sc && typeof sc === 'object';
+      const nm = isObj ? sc.name : sc;
       const wsd = new Date(sd.getTime() + seg * i);
       const wed = new Date(sd.getTime() + seg * (i + 1));
+      const rs = (isObj && sc.s) ? sc.s : wsd.toISOString().slice(0,10);
+      const re = (isObj && sc.e) ? sc.e : wed.toISOString().slice(0,10);
       return {
-        id: `w_${newId}_${i+1}`, code: String(i+1), name: s, mgr: '',
-        start: wsd.toISOString().slice(0,10), end: wed.toISOString().slice(0,10),
-        status: 'todo', pct: 0, lv: 0, vendor: '㈜세종기술', memo: '',
+        id: `w_${newId}_${i+1}`, code: String(i+1), name: nm, mgr: '',
+        s: rs, e: re, status: 'todo', itpLink: null, lv: 0, projId: newId, vendor: '㈜세종기술', memo: '',
       };
     });
     const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
-      id: `i_${newId}_${i}`, tag: it.no || ('ITEM-'+(i+1)), name: it.name || '',
-      type: '', spec: '', material: '', vendor: '㈜세종기술', qty: it.qty || '', unit: it.unit || '',
+      id: `i_${newId}_${i}`, tagNo: it.no || ('ITEM-'+(i+1)), name: it.name || '',
+      type: '', spec: '', maker: it.vendor || '㈜세종기술', status: '대기', wbsLink: null, qty: it.qty || '', unit: it.unit || '',
     })) : [];
     try {
       await fb.setDoc(fb.doc(fb.db, 'projects', newId), {
