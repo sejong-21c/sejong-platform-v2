@@ -729,6 +729,9 @@ function defaultState() {
   };
 }
 
+// wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
+// 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
+const WBS_BUILD = 'b3';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -1654,7 +1657,7 @@ function renderEPCControl() {
   
   // EPC Control v28.5 모듈 경로 (embed=1로 사이드바 숨김, canEdit=권한)
   const _canEdit = canEditSchedule(p.id) ? '1' : '0';
-  const epcPath = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_canEdit}`;
+  const epcPath = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_canEdit}&v=${WBS_BUILD}`;
 
   return `
     <div style="display:flex;flex-direction:column;height:100%;">
@@ -2402,11 +2405,11 @@ function renderDeptSchedFrame() {
   const deptId = (DEPTS.find(d => d.name === dept) || {}).id || 'etc';
   let src, title;
   if (view.deptSchedProj === '__self__') {
-    src = `modules/projects/wbs.html?pid=dept_${encodeURIComponent(deptId)}&deptMode=1&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}`;
+    src = `modules/projects/wbs.html?pid=dept_${encodeURIComponent(deptId)}&deptMode=1&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}&v=${WBS_BUILD}`;
     title = `${dept} 자체 업무 일정`;
   } else {
     const p = getP(view.deptSchedProj);
-    src = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}`;
+    src = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}&v=${WBS_BUILD}`;
     title = `${p.code} ${p.name} — ${dept}`;
   }
   return `<div style="display:flex;flex-direction:column;height:100%;">
@@ -3642,7 +3645,7 @@ function renderTravellerTagList() {
   
   // EPC v28.5 Manufacture Manager로 직행 (view=mm)
   const _mmCanEdit = canEditSchedule(p.id) ? '1' : '0';
-  const mmPath = `modules/projects/wbs.html?view=mm&proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_mmCanEdit}`;
+  const mmPath = `modules/projects/wbs.html?view=mm&proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_mmCanEdit}&v=${WBS_BUILD}`;
   
   return `
     <div style="display:flex;flex-direction:column;height:100%;">
