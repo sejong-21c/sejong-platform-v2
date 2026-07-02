@@ -1699,10 +1699,11 @@ function v284GenerateExcel(){
     r7[C_REMARK]="REMARK";r7[C_MEMO]="메모";
     aoa.push(r7);
     
-    // R8: 일자 헤더
+    // R8: 일자 헤더 — 마지막 칸은 해당 월의 실제 마지막일(28/29/30/31)로 표시
     const r8=Array(totalCols).fill("");
     months.forEach((mo,mi)=>{
-      dayDivisions.forEach((d,di)=>{r8[C_MONTH_START+mi*8+di]=d;});
+      const lastDay=new Date(mo.y,mo.m,0).getDate();
+      dayDivisions.forEach((d,di)=>{r8[C_MONTH_START+mi*8+di]=Math.min(d,lastDay);});
     });
     aoa.push(r8);
     
@@ -2167,7 +2168,7 @@ async function v284GeneratePDF(){
   // v28.4.17: 표 헤더 첫 일자(4일) 기준으로 minDate 조정 — 빨간선/막대 위치 정확도 향상
   // 원래 minDate가 5월 1일이어도 표는 5월 4일부터 시작. 정렬을 위해 minDate를 해당 월의 4일로 맞춤
   const adjustedMin=new Date(minDate.getFullYear(),minDate.getMonth(),4);
-  const adjustedMax=new Date(maxDate.getFullYear(),maxDate.getMonth(),31);
+  const adjustedMax=new Date(maxDate.getFullYear(),maxDate.getMonth(),getMonthLastDay(maxDate.getFullYear(),maxDate.getMonth()+1));
   // 일정 막대 위치 계산 (조정된 기간 대비 %)
   const totalDays=Math.max(1,(adjustedMax-adjustedMin)/(1000*60*60*24)+1);
   const dayPos=d=>{
