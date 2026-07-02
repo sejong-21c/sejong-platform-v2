@@ -1490,6 +1490,10 @@ function v28Save(){
   const rows = WBS.filter(w=>w.projId===_wbsPid);
   const items = MITEM[_wbsPid] || [];
   fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, updatedAt: Date.now()}).catch(e=>console.warn("v28Save fail",e));
+  // 대단락(lv=0) 평균 진척률을 projects 문서에도 반영 — 대시보드/카드 목록의 진도율(p.progress)과 동기화
+  const tops=rows.filter(w=>w.lv===0);
+  const progress=tops.length?Math.round(tops.reduce((a,w)=>a+(wCS(w).pct||0),0)/tops.length):0;
+  fb.setDoc(fb.doc(fb.db,"projects",_wbsPid), {progress}, {merge:true}).catch(e=>console.warn("v28Save progress sync fail",e));
 }
 // R() 호출 시마다 자동 저장 (디바운스) — 초기 로드는 initFromFirestore()의 subscribeWbsData()가 담당
 let v28SaveTimer=null;
