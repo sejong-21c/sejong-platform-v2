@@ -791,7 +791,7 @@ async function autoRegisterPendingProjects() {
   const b = state.briefings[state.currentUser];
   if (!b || !Array.isArray(b.pendingProjects) || !b.pendingProjects.length) return;
 
-  const regKey = 'sjflow_registered_v2';
+  const regKey = 'sjflow_registered_v3';
   const registered = JSON.parse(localStorage.getItem(regKey) || '[]');
   const toRegister = b.pendingProjects.filter(p => p.no && !registered.includes(p.no));
   if (!toRegister.length) return;
@@ -1430,7 +1430,7 @@ function getNotifications(includeAll) {
   unread.forEach(function(m) { notifs.push({ type: 'message', icon: '💬', title: m.text || '새 메시지', sub: (getU(m.from) || {}).name || '', proj: '', mail: false }); });
   if (b && b.autoRegistered) notifs.push({ type: 'autoReg', icon: '📦', title: b.autoRegistered + '개 워크오더 프로젝트 자동 등록됨', sub: 'Cowork WO 파이프라인', proj: '', mail: false });
   if (b && Array.isArray(b.pendingProjects) && b.pendingProjects.length) {
-    var regList = JSON.parse(localStorage.getItem('sjflow_registered_projects') || '[]');
+    var regList = JSON.parse(localStorage.getItem('sjflow_registered_v3') || '[]');
     var pending = b.pendingProjects.filter(function(p) { return regList.indexOf(p.no) === -1; });
     if (pending.length) notifs.push({ type: 'pendingWO', icon: '📋', title: pending.length + '개 워크오더 등록 대기 중', sub: pending.map(function(p) { return p.no; }).join(', '), proj: '', mail: false });
   }
