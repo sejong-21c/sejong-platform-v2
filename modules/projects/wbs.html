@@ -1814,7 +1814,9 @@ function v284GenerateExcel(){
             const inBar=cellEnd>=wStart&&cellStart<=wEnd;   // 막대구간↔셀구간 겹치면 칠함 (단일일도 최소 1칸)
             const inProgress=inBar&&cellStart<=progressEnd;
             const isMilestone=isMain&&Math.abs((cellDate-wEnd)/(1000*60*60*24))<3;
-            const isTodayCol=Math.abs((cellDate-today)/(1000*60*60*24))<2;
+            // v28.4.30: cellEnd 근접 여부로만 체크하면 셀 폭(2~7일)에 따라 대부분의 날짜에서 "오늘" 표시가 안 되는 버그였음
+            // → today가 실제로 [cellStart,cellEnd] 구간 안에 있는지로 정확히 판정
+            const isTodayCol=cellStart<=today&&today<=cellEnd;
             
             let cs={border:rowBorder(thinB,thinB),alignment:center};
             if(isMilestone){
@@ -2264,8 +2266,8 @@ async function v284GeneratePDF(){
         ${idx===0?`<!-- v28.4.30: 격자선/오늘선/TODAY라벨을 표 전체 높이 오버레이로 통합 (행마다 반복 생성 제거 → PDF 생성 속도 개선). 격자선은 막대 뒤(z:1), 오늘선/라벨은 막대 위(z:5)로 분리해 기존 겹침 순서 유지 -->
         <div style="position:absolute;top:0;left:0;width:100%;height:${projWBS.length*rowHeight}px;z-index:1;pointer-events:none">${gridlinesHTML}</div>
         ${todayPos>=0?`<div style="position:absolute;top:0;left:0;width:100%;height:${projWBS.length*rowHeight}px;z-index:5;pointer-events:none">
-          <div style="position:absolute;left:${todayPos}%;top:0;bottom:0;width:2px;background:#dc2626;margin-left:-1px"></div>
-          <div style="position:absolute;left:${todayPos}%;top:-20px;font-size:8pt;font-weight:700;color:#dc2626;z-index:21;white-space:nowrap">
+          <div style="position:absolute;left:${todayPos}%;top:-40px;bottom:0;width:2px;background:#dc2626;margin-left:-1px"></div>
+          <div style="position:absolute;left:${todayPos}%;top:-56px;font-size:8pt;font-weight:700;color:#dc2626;z-index:21;white-space:nowrap">
             <div style="position:relative">
               <span style="position:absolute;left:0;top:0;transform:translateX(-50%);font-size:10pt;line-height:1">▼</span>
               <span style="position:absolute;left:0;top:-10px;transform:translateX(-50%);background:#fff;padding:0 4px;border:1px solid #dc2626;border-radius:3px;font-size:7.5pt">TODAY ${todayStr}</span>
@@ -2548,7 +2550,15 @@ function subscribeWbsData(pid){
       const snap = await fb.getDoc(fb.doc(fb.db, "projects", pid));
       if (snap.exists()) {
         const d = snap.data();
-        targetProj = { id: pid, no: d.code, name: d.name, client: d.client||"", po: d.po||"", pm: d.pm||"" };
+        // d.pm은 Firebase UID라 화면/PDF/Excel에 그대로 찍으면 알아볼 수 없는 문자열이 나옴 — users 컬렉션에서 실제 이름으로 변환
+        let pmName = d.pm || "";
+        if (pmName) {
+          try {
+            const uSnap = await fb.getDoc(fb.doc(fb.db, "users", pmName));
+            if (uSnap.exists() && uSnap.data().name) pmName = uSnap.data().name;
+          } catch(e) { console.warn("[SJ FLOW] PM 이름 조회 실패:", e.message); }
+        }
+        targetProj = { id: pid, no: d.code, name: d.name, client: d.client||"", po: d.po||"", pm: pmName };
         const idx = PROJS.findIndex(p => p.id === pid);
         if (idx >= 0) PROJS[idx] = targetProj; else PROJS.unshift(targetProj);
       }
