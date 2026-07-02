@@ -651,6 +651,7 @@ function rDetailPanel(){
       </div>
       <div class="dpnl-actions">
         ${em?`<button class="save-btn" data-a="svWEdit">💾 저장</button><button data-a="clWEdit" style="padding:4px 10px;background:#f3f4f6;border:none;border-radius:5px;font-size:11px;cursor:pointer;color:#6b7280">취소</button>`:`<button class="edit-btn" data-a="stWEdit">✏ 수정</button>`}
+        <button data-a="delW" data-id="${w.id}" style="padding:4px 10px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600" title="이 항목 삭제">🗑 삭제</button>
         <button class="close-btn" data-a="clrW">✕</button>
       </div>
     </div>
@@ -1174,6 +1175,21 @@ function act(a,d){
     case"tgExp":us(s=>({...s,wexp:{...s.wexp,[d.id]:!s.wexp[d.id]}}));break;
     case"selW":{const w=WBS.find(x=>x.id===d.id);us({wsel:S.wsel?.id===w?.id?null:w,wedit:false});break;}
     case"clrW":us({wsel:null,wedit:false});break;
+    case"delW":{
+      const wid=d.id;const w=WBS.find(x=>x.id===wid);if(!w)break;
+      const children=WBS.filter(x=>x.parentId===wid);
+      const msg=children.length
+        ?`"${w.code} ${w.name}" 및 하위 ${children.length}개 항목을 모두 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?`
+        :`"${w.code} ${w.name}" 항목을 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?`;
+      if(!confirm(msg))break;
+      const delIds=new Set([wid]);
+      // 재귀적으로 모든 하위 항목 수집
+      let changed=true;
+      while(changed){changed=false;WBS.forEach(x=>{if(!delIds.has(x.id)&&x.parentId&&delIds.has(x.parentId)){delIds.add(x.id);changed=true;}});}
+      WBS=WBS.filter(x=>!delIds.has(x.id));
+      addLog(`🗑 삭제: ${w.code} ${w.name}${delIds.size>1?' (하위 '+(delIds.size-1)+'개 포함)':''}`,"warn");
+      us({wsel:null,wedit:false});
+      break;}
     case"stWEdit":us({wedit:true});break;case"clWEdit":us({wedit:false});break;
     case"svWEdit":{const id=S.wsel?.id;if(!id)return;const name=document.querySelector('[data-draft="wedit"][data-k="name"]')?.value??S.wsel.name;const mgr=document.querySelector('[data-draft="wedit"][data-k="mgr"]')?.value??S.wsel.mgr;const s=document.querySelector('[data-draft="wedit"][data-k="s"]')?.value??S.wsel.s;const e=document.querySelector('[data-draft="wedit"][data-k="e"]')?.value??S.wsel.e;const status=document.querySelector('[data-draft="wedit"][data-k="status"]')?.value??S.wsel.status;const vendor=document.querySelector('[data-draft="wedit"][data-k="vendor"]')?.value??S.wsel.vendor??"";const memo=document.querySelector('[data-draft="wedit"][data-k="memo"]')?.value??S.wsel.memo??"";
       // v29: 수동 진척률 — 비우면 null(자동집계 복귀), 값 있으면 0~100 clamp
