@@ -1625,7 +1625,43 @@ function iframeViewKey() {
   if (v.travProj && !v.selectedTraveller) return 'travtag:' + v.travProj;
   return null;
 }
+// v29.3: 브라우저 뒤로가기/앞으로가기 지원.
+// 이 앱은 History API를 전혀 안 써서, 뒤로가기를 누르면 SPA 내부 이동이 아니라
+// 사이트 진입 이전(빈 상태)으로 튕겨나가던 문제. render()가 호출될 때마다 내비게이션에
+// 유의미한 변화(현재 화면, 선택된 프로젝트/도구 등)가 있는지 확인해서, 바뀐 경우에만
+// history에 한 단계 기록한다. popstate(뒤로/앞으로가기)가 발생하면 그 기록으로 view를
+// 복원해서 "전 단계로 이동"이 실제로 동작하게 함.
+let _lastNavSig = null;
+function navSnapshot() {
+  // selectedProj는 전체 프로젝트 객체라 그대로 저장하면 나중에(Firestore 갱신 후) 되돌아왔을 때
+  // 오래된 스냅샷이 잠깐 보일 수 있음 → id만 저장해두고 복원 시 state.projects에서 다시 조회.
+  return {
+    cur: view.cur, selectedProjId: view.selectedProj ? view.selectedProj.id : null, selectedTool: view.selectedTool,
+    epcTab: view.epcTab, itpSelectedProj: view.itpSelectedProj, itpSelectedItem: view.itpSelectedItem,
+    qaSelectedProj: view.qaSelectedProj, qaSelectedDoc: view.qaSelectedDoc, mobileSelectedProj: view.mobileSelectedProj,
+    travProj: view.travProj || null, selectedTraveller: view.selectedTraveller || null,
+    deptSchedDept: view.deptSchedDept || null, deptSchedProj: view.deptSchedProj || null,
+  };
+}
+function syncNavHistory() {
+  let snap, sig;
+  try { snap = navSnapshot(); sig = JSON.stringify(snap); } catch (e) { return; }
+  if (sig === _lastNavSig) return;
+  _lastNavSig = sig;
+  try { history.pushState({ sjNav: snap }, ''); } catch (e) {}
+}
+window.addEventListener('popstate', (e) => {
+  if (!e.state || !e.state.sjNav) return;
+  _lastNavSig = JSON.stringify(e.state.sjNav); // 복원 중 render()가 또 push하지 않도록 먼저 동기화
+  const s = e.state.sjNav;
+  Object.assign(view, s, { selectedProj: s.selectedProjId ? getP(s.selectedProjId) : null });
+  delete view.selectedProjId;
+  renderNav();
+  render();
+});
+
 function render() {
+  syncNavHistory();
   const content = document.getElementById('content');
   // v29: 동일 iframe이 이미 떠 있으면 재생성 스킵 (배경 실시간 갱신에 의한 iframe 깜빡임 방지)
   const _ifKey = iframeViewKey();
