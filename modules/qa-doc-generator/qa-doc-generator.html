@@ -383,32 +383,6 @@ const WPS_SEED = [
   {id:"GTFC-003", wpsNo:"SJTC-WPS-GTAW-004/FCAW-003", pqrNo:"SJTC-PQ-GTAW-004-01 & FCAW-003", process:"GTAW/FCAW", type:"Manual/Semi-Auto", joint:"GROOVE & FILLET", pNo:"1 to 8", thkRange:"1.5~16mm", filler:"6/ER309+E309LT0-1(4)", pos:"All/F,H"}
 ];
 
-// 자격 만료 임박자 (2026-07 cluster) 표시용 더미 유효기간 — 추후 EPC가 실데이터 주입
-const WELDER_SEED = [
-  {id:"SJ-KYG-GT-01", name:"강용구",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-07"},
-  {id:"SJ-KYG-FC-01", name:"강용구",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-25"},
-  {id:"SJ-KHS-GT-01", name:"강희석",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-04-04"},
-  {id:"SJ-KHS-FC-01", name:"강희석",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-18"},
-  {id:"SJ-KOG-GT-01", name:"권오근",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-04"},
-  {id:"SJ-KOG-FC-01", name:"권오근",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-05"},
-  {id:"SJ-KOG-SAW-01", name:"권오근", process:"SAW(M)",   pNo:"1~15F, 34, 41~49 *3", thk:"Max.44mm",    pos:"F",    dueDate:"2026-06-02"},
-  {id:"SJ-KKD-GT-01", name:"김기동",  process:"GTAW(MC)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-15"},
-  {id:"SJ-KKD-FC-01", name:"김기동",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-08"},
-  {id:"SJ-KDY-GT-01", name:"김두용",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-18"},
-  {id:"SJ-KDY-FC-01", name:"김두용",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-27"},
-  {id:"SJ-SSH-GT-01", name:"서석현",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"All",  dueDate:"2026-07-07"},
-  {id:"SJ-SSH-FC-01", name:"서석현",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F",    dueDate:"2026-07-04"},
-  {id:"SJ-SBC-GT-01", name:"석병찬",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-16"},
-  {id:"SJ-SBC-FC-01", name:"석병찬",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F,V",  dueDate:"2026-06-19"},
-  {id:"SJ-SDB-GT-01", name:"신동범",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-05"},
-  {id:"SJ-SDB-FC-01", name:"신동범",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-04"},
-  {id:"SJ-LSG-GT-01", name:"이상근",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-18"},
-  {id:"SJ-LSG-FC-01", name:"이상근",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-02"},
-  {id:"SJ-CBY-GT-01", name:"최병유",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.36mm",    pos:"F,V",  dueDate:"2026-07-18"},
-  {id:"SJ-CBY-FC-01", name:"최병유",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-13"},
-  {id:"SJ-HDY-GT-01", name:"하동윤",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-07"},
-  {id:"SJ-HDY-FC-01", name:"하동윤",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F",    dueDate:"2026-07-05"}
-];
 
 // ════════════ 3. EPC 글로벌 슬롯 ════════════
 window.EPC_PROJECT = window.EPC_PROJECT || null;
@@ -434,7 +408,7 @@ setInterval(() => {
 }, 1000);
 
 const getWPS = () => window.WPS_LIST || WPS_SEED;
-const getWelders = () => window.WELDER_LIST || WELDER_SEED;
+const getWelders = () => window.WELDER_LIST || [];
 const generateDocNo = (projNo, type, seq) => {
   if (window.EPC_DOC_NO_GENERATOR) return window.EPC_DOC_NO_GENERATOR(projNo, type, seq);
   return `${projNo||"PROJ"}-${type}-${String(seq).padStart(3,"0")}`;
@@ -1701,9 +1675,7 @@ function NozzlePreview({doc}){
   const td2={border:"0.5px solid #bbb",padding:"3px 4px",fontSize:10,textAlign:"center",verticalAlign:"middle"};
   const tInput={width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"};
   const hc=hdr(),tc=bdr();const tNo=tagId(it.tag);const HC1={...hc,whiteSpace:"nowrap"};
-  const rcDef=isR?[{item:"Mount Flange Levelness",tol:"≤ 1mm/m",act:"",res:""},{item:"Mount Flange ↔ Outlet PAD Alignment",tol:"≤ 2mm",act:"",res:""},{item:"Mount Flange ↔ Bracket Parallelism",tol:"≤ 2mm",act:"",res:""},{item:"Impeller Clearance",tol:"50±20mm",act:"",res:""}]:[];
-  const[rcV,sRC]=useState(savedNoz.rcV||rcDef);
-  useEffect(()=>{IMG_STORE.set(nozKey,{noz,std,mEqN,rcV});},[noz,std,mEqN,rcV,nozKey]);
+  useEffect(()=>{IMG_STORE.set(nozKey,{noz,std,mEqN});},[noz,std,mEqN,nozKey]);
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
     <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
@@ -1747,7 +1719,6 @@ function NozzlePreview({doc}){
       <button onClick={()=>{if(!nw.no)return;sNz(p=>[...p,mkN(nw.no,nw.sz,nw.pos,nw.h,nw.l)]);sNW({no:"",sz:"",pos:"",h:"",l:""});}} style={{padding:"2px 8px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer",fontSize:10}}>+ 노즐</button>
       <button onClick={()=>sNz(p=>p.slice(0,-1))} style={{padding:"2px 6px",border:"0.5px solid #ccc",borderRadius:3,background:"#fff",cursor:"pointer",fontSize:10,color:"#888"}}>− 삭제</button>
     </div>
-    {isR&&rcV.length>0&&<div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:500,marginBottom:4,color:"#534ab7"}}>Reactor — Mount Flange &amp; Impeller Check</div><table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}><thead><tr>{["Check Item","Tolerance","Actual","Result"].map(h=> <th key={h} style={{...td2,background:"#f0eeff",fontWeight:500}}>{h}</th>)}</tr></thead><tbody>{rcV.map((r,i)=> <tr key={i}><td style={td2}>{r.item}</td><td style={td2}>{r.tol}</td><td style={td2}><input value={r.act} onChange={e=>sRC(p=>p.map((x,j)=>j===i?{...x,act:e.target.value}:x))} style={tInput}/></td><td style={td2}><select value={r.res} onChange={e=>sRC(p=>p.map((x,j)=>j===i?{...x,res:e.target.value}:x))} style={{fontSize:10,border:"none",background:"transparent"}}><option value="">—</option><option>ACCEPT</option><option>REJECT</option></select></td></tr>)}</tbody></table></div>}
     <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}><tbody><tr><td style={{...hc,width:"22%",whiteSpace:"nowrap"}}>Measuring Equipment</td><td style={tc}><input value={mEqN} onChange={e=>sMEN(e.target.value)} placeholder="ex. Protractor / Steel Tape / Plumb Bob / Level Gauge" style={{width:"100%",border:"none",background:"transparent",fontSize:11}}/></td></tr></tbody></table>
     <div style={{display:"flex",gap:24,marginTop:10,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
     </div>{/* v2.3 — 15+ 노즐 페이지 2 wrapper 닫기 */}
@@ -2194,7 +2165,7 @@ function App(){
 
   // Save — 현재 프로젝트에 덮어쓰기 (없으면 Save As 대화상자)
   const handleSaveOverwrite = () => {
-    if (!currentProjId) { setShowSaveDialog(true); return; }
+    if (!currentProjId) { setSaveAsName(proj.no || proj.name || ""); setShowSaveDialog(true); return; }
     if (!confirm("현재 프로젝트에 덮어쓰시겠습니까?")) return;
     const idx = projIndexLoad().find(x => x.id === currentProjId);
     const name = idx ? idx.name : (proj.no || "프로젝트");
@@ -2205,8 +2176,7 @@ function App(){
 
   // Save As — 새 이름으로 저장 (대화상자 표시)
   const handleSaveAs = () => {
-    const defaultName = (proj.name || proj.no) ? `${proj.no || ""} ${proj.name || ""}`.trim() : "";
-    setSaveAsName(defaultName);
+    setSaveAsName(proj.no || proj.name || "");
     setShowSaveDialog(true);
   };
   const handleSaveAsConfirm = () => {

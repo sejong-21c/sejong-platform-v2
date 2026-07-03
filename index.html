@@ -874,7 +874,8 @@ const PROJ_STATUS_META = {
 };
 function projStatusMeta(p) { return PROJ_STATUS_META[p && p.status] || PROJ_STATUS_META.active; }
 function getWBS(pid) { return state.wbs[pid] || []; }
-function getItems(pid) { return state.items[pid] || []; }
+// 제작공정관리(Manufacture Manager/WBS 일괄등록)가 만든 item은 tag가 아닌 tagNo 필드를 씀 — 통일해서 반환
+function getItems(pid) { return (state.items[pid] || []).map(it => it.tag ? it : { ...it, tag: it.tagNo || '' }); }
 /* Cowork 메일 자동분류 결과(개인별 briefing.schedule) → 캘린더 일정으로 자동 반영 */
 function getBriefingScheduleEvents() {
   const b = state.briefings && state.briefings[state.currentUser];

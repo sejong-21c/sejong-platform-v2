@@ -578,6 +578,11 @@ const STORAGE_KEY = `sjp_itp_builder_v1__${PID}`;
 const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} };
 const loadLS = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"); } catch(e) { return null; } };
 
+// v1.9 — 제작공정관리(EPC) 연동 후보 아이템 중 "필요 없음"으로 숨긴 Tag 목록(프로젝트별)
+const CAND_HIDDEN_KEY = `sjp_itp_cand_hidden__${PID}`;
+const loadCandHidden = () => { try { return new Set(JSON.parse(localStorage.getItem(CAND_HIDDEN_KEY)||"[]")); } catch(e) { return new Set(); } };
+const saveCandHidden = (set) => { try { localStorage.setItem(CAND_HIDDEN_KEY, JSON.stringify(Array.from(set))); } catch(e){} };
+
 // v1.5 — WPS/Welder Master List: 프로젝트별(pid) localStorage 공유 키.
 // ITP Builder에서 업로드한 목록을 QA Doc Generator가 그대로 읽어감(N/A 대신 실데이터).
 // v1.6 — "해당 PJT 공통"이므로 전역 공유가 아니라 프로젝트(pid) 단위로 분리.
@@ -931,6 +936,12 @@ function App(){
   // v1.6 — 좌측 "검사 대상 아이템"(제작공정관리)에서 기본으로 불러와 나열하는 것이 기본 동작.
   // 샘플 더미 아이템 대신 빈 배열로 시작하고, mount effect에서 EPC 목록과 병합한다.
   const [items, setItems] = useState([]);
+  // v1.9 — 제작공정관리(EPC) 연동 후보 아이템: 자동으로 items에 등록하지 않고, 사용자가 선택해서
+  // "1. 아이템 등록"에 넣을지 직접 결정한다 (30~40개 대형 PJT 대비 검색/숨기기 지원).
+  const [epcCandidates, setEpcCandidates] = useState([]);
+  const [candHidden, setCandHidden] = useState(() => loadCandHidden());
+  const [candChecked, setCandChecked] = useState(() => new Set());
+  const [candSearch, setCandSearch] = useState("");
   const [newItem, setNewItem] = useState({...DEF_ITEM});
   const [specReqs, setSpecReqs] = useState([]);
   const [quoteItems, setQuoteItems] = useState([]);
@@ -992,15 +1003,9 @@ function App(){
       const epcProj = window.SJP.bridge.getProject?.();
       const epcItems = window.SJP.bridge.getItems?.();
       if (epcProj) setProj(p => ({...p, ...epcProj}));
-      // v1.6 — 좌측 목록(제작공정관리)을 기본 나열 소스로 사용. 덮어쓰지 않고 tag 기준으로 병합해서
-      // ITP Builder 안에서 직접 추가/수정한 아이템은 그대로 보존한다.
-      if (epcItems) {
-        setItems(prev => {
-          const byTag = new Map(prev.map(it => [it.tag, it]));
-          epcItems.forEach(ei => { if (!byTag.has(ei.tag)) byTag.set(ei.tag, ei); });
-          return Array.from(byTag.values());
-        });
-      }
+      // v1.9 — 제작공정관리(EPC) 아이템은 자동으로 "등재된 아이템"에 넣지 않는다.
+      // 후보 목록으로만 보여주고, 사용자가 선택한 것만 명시적으로 등록하도록 변경.
+      if (epcItems) setEpcCandidates(epcItems);
       setTimeout(()=>showMsg("✓ EPC Control에서 데이터 동기화 완료", 5000), 100);
     }
   }, []);
@@ -1134,8 +1139,8 @@ function App(){
   };
 
   const buildParsePrompt = (kind) => {
-    if (kind === "project") return `This document may be a Work Order, a specification, a quotation, or some combination — figure out which parts are actually present and extract ONLY those. Return JSON only, no explanation, using this shape: {"project":{"no":"","name":"","customer":"","po":"","scope":""},"requirements":[{"category":"","activity":"","code":"","criteria":"","hold":false,"doc":""}],"items":[{"tag":"","name":"","type":"","appl_code":""}]}. Leave "project" fields as "" and "requirements"/"items" as [] for anything not actually present in the document — do not invent data. "requirements" = customer special inspection/test requirements beyond standard ITP items ("hold" true only if explicitly a hold/witness point). "items" = equipment/items to be manufactured, "type" one of: ${JSON.stringify(ITYPES)}.`;
-    if (kind === "wo") return `Extract project info from this Work Order document. Return JSON only, no explanation: {"no":"","name":"","customer":"","po":"","scope":""}. Use "" for anything not found.`;
+    if (kind === "project") return `This document may be a Work Order, a specification, a quotation, or some combination — figure out which parts are actually present and extract ONLY those. Return JSON only, no explanation, using this shape: {"project":{"no":"","name":"","customer":"","po":"","scope":""},"requirements":[{"category":"","activity":"","code":"","criteria":"","hold":false,"doc":""}],"items":[{"tag":"","name":"","type":"","appl_code":""}]}. Leave "project" fields as "" and "requirements"/"items" as [] for anything not actually present in the document — do not invent data. "po" = the Work Order's "Report No." field value (NOT a purchase-order number — this document's own report/document number). "requirements" = customer special inspection/test requirements beyond standard ITP items ("hold" true only if explicitly a hold/witness point). "items" = equipment/items to be manufactured, "type" one of: ${JSON.stringify(ITYPES)}.`;
+    if (kind === "wo") return `Extract project info from this Work Order document. Return JSON only, no explanation: {"no":"","name":"","customer":"","po":"","scope":""}. "po" = this Work Order's own "Report No." field value (NOT a purchase-order number). Use "" for anything not found.`;
     if (kind === "spec") return `Extract customer special inspection/test requirements (beyond standard ITP items) from this specification document. Return JSON only: {"requirements":[{"category":"","activity":"","code":"","criteria":"","hold":false,"doc":""}]}. "hold" is true only if it is explicitly a hold/witness point requiring approval before proceeding. Return {"requirements":[]} if none found.`;
     if (kind === "quote") return `Extract the list of equipment/items to be manufactured from this quotation document. Return JSON only: {"items":[{"tag":"","name":"","type":"","appl_code":""}]}. "type" must be one of: ${JSON.stringify(ITYPES)}. Return {"items":[]} if none found.`;
     // v1.9 — QA Doc Generator의 BOM/Fit-up/Nozzle/Hydro/DIM 리포트가 실제로 쓰는 항목까지 전부
@@ -1342,6 +1347,34 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   const removeItem = (id) => {
     if (!confirm("이 아이템을 삭제하시겠습니까?")) return;
     setItems(p => p.filter(i => i.id !== id));
+  };
+
+  // v1.9 — 제작공정관리 후보 아이템 선택/숨기기 (수동 등록)
+  const toggleCandChecked = (tag) => setCandChecked(prev => {
+    const next = new Set(prev);
+    next.has(tag) ? next.delete(tag) : next.add(tag);
+    return next;
+  });
+  const hideCandidates = (tags) => setCandHidden(prev => {
+    const next = new Set(prev);
+    tags.forEach(t => next.add(t));
+    saveCandHidden(next);
+    return next;
+  });
+  const unhideAllCandidates = () => { setCandHidden(new Set()); saveCandHidden(new Set()); };
+  const addSelectedCandidates = () => {
+    if (candChecked.size === 0) return;
+    setItems(prev => {
+      const byTag = new Map(prev.map(it => [it.tag, it]));
+      epcCandidates.forEach(ei => {
+        if (candChecked.has(ei.tag) && !byTag.has(ei.tag)) {
+          byTag.set(ei.tag, {...DEF_ITEM, ...ei, id: Date.now()+Math.random()});
+        }
+      });
+      return Array.from(byTag.values());
+    });
+    showMsg(`✓ 검사 대상 아이템 ${candChecked.size}개 등록`);
+    setCandChecked(new Set());
   };
 
   // v2.1 — SJP bridge 전송(EPC Control/Firestore 연동)과 JSON 파일 다운로드를 분리.
@@ -1602,6 +1635,46 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       </div>
 
       <div>
+        {epcCandidates.length > 0 && (() => {
+          const registeredTags = new Set(items.map(it => it.tag));
+          const visible = epcCandidates.filter(ei => ei.tag && !registeredTags.has(ei.tag) && !candHidden.has(ei.tag));
+          const q = candSearch.trim().toLowerCase();
+          const filtered = q ? visible.filter(ei => (ei.tag||"").toLowerCase().includes(q) || (ei.name||"").toLowerCase().includes(q)) : visible;
+          const hiddenCount = candHidden.size;
+          return <div className="card" style={{marginBottom:12}}>
+            <div className="card-h">📦 제작공정관리 연동 후보 ({filtered.length}개)
+              <span style={{fontSize:9, fontWeight:400, color:"var(--sjp-text-sub)", marginLeft:6}}>선택한 항목만 아이템 등록에 추가됩니다</span>
+            </div>
+            <div className="card-b">
+              {visible.length > 8 &&
+                <input value={candSearch} onChange={e=>setCandSearch(e.target.value)} placeholder="Tag/이름 검색..." style={{width:"100%", marginBottom:6, padding:"4px 6px", fontSize:11, border:"1px solid var(--sjp-border)", borderRadius:4}}/>}
+              {filtered.length === 0 ?
+                <div style={{padding:12, textAlign:"center", color:"#aaa", fontSize:11}}>
+                  표시할 후보가 없습니다.
+                  {hiddenCount>0 && <><br/><button onClick={unhideAllCandidates} style={{marginTop:6, fontSize:9, padding:"2px 8px", border:"1px solid var(--sjp-border)", borderRadius:3, background:"#fff", cursor:"pointer"}}>숨김 {hiddenCount}개 다시 보기</button></>}
+                </div>
+                :
+                <div style={{maxHeight:220, overflowY:"auto"}}>
+                  {filtered.map(ei =>
+                    <div key={ei.tag} style={{display:"flex", alignItems:"center", gap:6, padding:"4px 2px", borderBottom:"1px solid var(--sjp-border)"}}>
+                      <input type="checkbox" checked={candChecked.has(ei.tag)} onChange={()=>toggleCandChecked(ei.tag)}/>
+                      <div style={{flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                        <strong style={{fontSize:11}}>{ei.tag}</strong>
+                        <span style={{fontSize:10, color:"var(--sjp-text-sub)", marginLeft:6}}>{ei.name||"—"}</span>
+                      </div>
+                      <button onClick={()=>hideCandidates([ei.tag])} title="목록에서 숨기기 (이미 처리됐거나 필요 없는 경우)" style={{fontSize:9, padding:"1px 6px", border:"1px solid var(--sjp-border)", borderRadius:3, background:"#fff", cursor:"pointer", color:"#999", flexShrink:0}}>숨기기</button>
+                    </div>
+                  )}
+                </div>
+              }
+              <div style={{display:"flex", gap:6, marginTop:8, alignItems:"center"}}>
+                <button onClick={addSelectedCandidates} disabled={candChecked.size===0} className="btn-primary" style={{fontSize:11, padding:"4px 10px"}}>+ 선택 항목 등록 ({candChecked.size})</button>
+                {hiddenCount>0 && <button onClick={unhideAllCandidates} style={{fontSize:9, color:"var(--sjp-text-sub)", background:"none", border:"none", cursor:"pointer", textDecoration:"underline"}}>숨김 {hiddenCount}개 초기화</button>}
+              </div>
+            </div>
+          </div>;
+        })()}
+
         <div className="card">
           <div className="card-h">등재된 아이템 ({items.length}개)</div>
           <div className="card-b">
