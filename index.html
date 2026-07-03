@@ -1244,7 +1244,7 @@ function showLogin() {
           <h2>로그인</h2>
           <p class="login-sub">${COMPANY_DOMAIN} 사내 Google 계정으로 로그인하세요.</p>
           <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0 14px;text-align:center;"></div>
-          <button class="login-btn" onclick="doGoogleLogin()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
+          <button class="login-btn" onclick="doGoogleLoginRedirect()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
             ${GOOGLE_G_SVG}<span>Google 계정으로 로그인</span>
           </button>
           <div class="login-quick">
@@ -1272,11 +1272,56 @@ function showLogin() {
   } catch (e) {}
 }
 
+// v29.7.2: 팝업 기반(Firebase popup/redirect, GIS 토큰 클라이언트 popup) 방식 둘 다
+// 아이폰 사파리/크롬에서 팝업창-원래창 간 통신이 막히며 "깜빡이고 여러 번 눌러야
+// 로그인되는" 문제가 반복됨. sessionStorage/팝업 통신에 전혀 의존하지 않는 순수
+// URL 이동(리디렉션) 방식으로 교체 — 정보는 URL 자체(해시)에 담아 돌아오므로
+// 브라우저 저장소 정책의 영향을 받지 않음. 이게 현재 로그인의 기본 방식.
+function doGoogleLoginRedirect() {
+  const redirectUri = location.origin + '/';
+  const params = new URLSearchParams({
+    client_id: GCAL_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'token',
+    scope: 'email profile',
+    hd: 'sejong-21c.com',
+    prompt: 'select_account',
+    include_granted_scopes: 'true',
+  });
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+// 구글에서 #access_token=...으로 돌아왔을 때 처리 — init()에서 가장 먼저 호출됨
+async function processRedirectLogin() {
+  const hash = location.hash || '';
+  if (hash.indexOf('access_token=') === -1) return false;
+  const p = new URLSearchParams(hash.slice(1));
+  const accessToken = p.get('access_token');
+  const oauthError = p.get('error');
+  history.replaceState(null, '', location.pathname + location.search); // URL에 토큰 남기지 않기
+  if (oauthError || !accessToken) return false;
+  try {
+    const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } });
+    const info = await infoRes.json();
+    if (!info.email || !info.email.toLowerCase().endsWith('@sejong-21c.com')) {
+      setTimeout(() => alert(`${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.`), 50);
+      return false;
+    }
+    const credential = fb.GoogleAuthProvider.credential(null, accessToken);
+    await fb.signInWithCredential(fb.auth, credential);
+    // 이후 화면 전환은 onAuthStateChanged(handleAuthChange)가 담당
+    return true;
+  } catch (e) {
+    console.error('[로그인] 리디렉션 처리 실패', e);
+    return false;
+  }
+}
 // v29.7: 로그인을 Firebase의 signInWithPopup/signInWithRedirect 대신 Google Identity
 // Services(GIS) 토큰 클라이언트로 전환 — 아이폰 사파리/크롬에서 리디렉션 왕복 중
 // sessionStorage가 지워지며 "missing initial state" 오류가 반복되던 문제를 근본적으로
 // 회피함(캘린더 연동에 쓰던 것과 동일한 방식으로, 같은 기기에서 이미 안정성 검증됨).
 // 같은 OAuth 클라이언트(GCAL_CLIENT_ID)를 재사용하되 스코프만 로그인용으로 별도 요청.
+// ↑ v29.7.2에서 위 doGoogleLoginRedirect()로 교체됨 — 아래는 더는 기본 경로로 쓰이지 않는
+//   과거 방식(디버깅/비교용으로만 코드 보존).
 let loginTokenClient = null;
 function loginEnsureTokenClient() {
   if (loginTokenClient) return loginTokenClient;
@@ -4423,6 +4468,7 @@ function openApproval() {
 /* ═════════════ 🎬 초기화 ═════════════ */
 function init() {
   if (!window.fb) { setTimeout(init, 100); return; } // Firebase SDK 로딩 대기
+  processRedirectLogin(); // 구글 로그인에서 돌아온 경우 처리 (완료되면 onAuthStateChanged가 이어받음)
   fb.onAuthStateChanged(fb.auth, handleAuthChange);
 }
 window.addEventListener('DOMContentLoaded', init);
