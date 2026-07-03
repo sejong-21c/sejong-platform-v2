@@ -1947,6 +1947,9 @@ async function v284GenerateExcel(){
     // ═══ EVMS (획득가치관리) 요약 — PDF/화면과 동일 지표 ═══
     try{
     const _Ex=evmsCalc(proj.id);
+    // v28.4.35: rowBorder()는 앞의 projWBS.forEach 루프 안에서만 정의되는 지역함수라
+    // 여기서 부르면 ReferenceError로 매번 조용히 실패했음(EVMS 요약 테두리가 항상 안 먹힘).
+    const evBorder={top:thinB,bottom:thinB,left:thinB,right:thinB};
     let evR=aoa.length;
     aoa.push([]); evR++;
     const _eh=[]; _eh[0]="■ EVMS (획득가치관리) 요약"; aoa.push(_eh);
@@ -1957,11 +1960,11 @@ async function v284GenerateExcel(){
     evR++;
     aoa.push([]); evR++;
     aoa.push(["코드","대단락","가중치","계획 PV","실행 EV","SV","SPI"]);
-    for(let c=0;c<7;c++)styles[XLSX.utils.encode_cell({r:evR,c})]={font:fontKR({bold:true,sz:9}),fill:{fgColor:{rgb:"F0F3F8"}},border:rowBorder(thinB,thinB),alignment:center};
+    for(let c=0;c<7;c++)styles[XLSX.utils.encode_cell({r:evR,c})]={font:fontKR({bold:true,sz:9}),fill:{fgColor:{rgb:"F0F3F8"}},border:evBorder,alignment:center};
     evR++;
     _Ex.rows.forEach(rr=>{
       aoa.push([rr.code,rr.name,rr.wt+"%",(rr.pv==null?"-":rr.pv+"%"),rr.ev+"%",(rr.sv>=0?"+":"")+rr.sv+"%p",(rr.spi==null?"-":rr.spi)]);
-      for(let c=0;c<7;c++)styles[XLSX.utils.encode_cell({r:evR,c})]={font:fontKR({sz:9}),border:rowBorder(thinB,thinB),alignment:c===1?left:center};
+      for(let c=0;c<7;c++)styles[XLSX.utils.encode_cell({r:evR,c})]={font:fontKR({sz:9}),border:evBorder,alignment:c===1?left:center};
       evR++;
     });
     aoa.push([]); evR++;
@@ -1996,7 +1999,10 @@ async function v284GenerateExcel(){
     });
     
     // v28.4.27 ⑥ 인쇄 영역 — A1 ~ 마지막 셀 (예: A1:CY47)
-    const printEndRef=XLSX.utils.encode_cell({r:totalRows-1,c:totalCols-1});
+    // v28.4.35: EVMS 요약이 totalRows 계산 이후에 aoa에 추가되므로, 실제 마지막 행은
+    // aoa.length 기준으로 잡아야 함(안 그러면 EVMS 요약이 인쇄영역 밖으로 잘림)
+    const finalRowCount=Math.max(totalRows,aoa.length);
+    const printEndRef=XLSX.utils.encode_cell({r:finalRowCount-1,c:totalCols-1});
     ws['!ref']=`A1:${printEndRef}`;
     // 인쇄 설정: 한 페이지에 가로 맞춤
     ws['!pageSetup']={
@@ -2036,7 +2042,7 @@ async function v284GenerateExcel(){
     wb.Workbook.Names=wb.Workbook.Names||[];
     wb.Workbook.Names.push({
       Name:'_xlnm.Print_Area',
-      Ref:`'MASTER SCHEDULE'!$A$1:$${XLSX.utils.encode_col(totalCols-1)}$${totalRows}`,
+      Ref:`'MASTER SCHEDULE'!$A$1:$${XLSX.utils.encode_col(totalCols-1)}$${finalRowCount}`,
       Sheet:0
     });
     
