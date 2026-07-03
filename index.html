@@ -706,7 +706,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b13';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b2';
+const MESSENGER_BUILD = 'b3';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -1512,6 +1512,11 @@ function getNotifications(includeAll) {
   // 채널별 안읽음 메시지 집계 — 메시지 건별이 아니라 채널당 1개 알림으로 묶어 알림 패널 도배 방지
   var visibleChannels = (state.channels || []).filter(function(c) {
     if (c.type === 'group' || c.type === 'dm') return (c.members || []).indexOf(state.currentUser) !== -1;
+    // 부서 채널: 메신저 화면과 동일하게 슈퍼관리자만 전체, 일반 사용자는 본인 부서만 알림 대상
+    if (c.type === 'dept') {
+      var me = getU(state.currentUser);
+      return me.grade === 'super' || c.name === me.dept;
+    }
     return true;
   });
   visibleChannels.forEach(function(c) {
