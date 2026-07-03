@@ -805,7 +805,7 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b14';
+const WBS_BUILD = 'b15';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b6';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
@@ -3071,6 +3071,34 @@ function projects() {
 }
 
 /* ═════════════ 📅 전체 프로젝트 일정 요약 (통합 간트) ═════════════ */
+// 일정 성과(계획 대비 실적) 기반 그라데이션 색상 — 늦음(빨강)→정상(초록)→앞섬(파랑) 연속 스펙트럼
+// wbs.html의 동일 로직과 짝을 이룸 (모듈 간 공유 불가한 단일 HTML 구조라 중복 정의)
+function expectedPctByDate(s, e) {
+  if (!s || !e) return null;
+  const sd = new Date(s), ed = new Date(e), td = new Date(new Date().toISOString().slice(0, 10));
+  if (isNaN(sd) || isNaN(ed) || ed <= sd) return null;
+  if (td <= sd) return 0; if (td >= ed) return 100;
+  return (td - sd) / (ed - sd) * 100;
+}
+const SCHED_HEALTH_STOPS = [
+  [-30, [153, 27, 27]], [-15, [220, 38, 38]], [-7, [249, 115, 22]], [-2, [245, 158, 11]],
+  [0, [163, 230, 53]], [4, [34, 197, 94]], [12, [21, 128, 61]], [22, [37, 99, 235]], [35, [29, 78, 216]],
+];
+function scheduleHealthRGB(diff) {
+  if (diff == null || isNaN(diff)) return [148, 163, 184];
+  const st = SCHED_HEALTH_STOPS;
+  const d = Math.max(st[0][0], Math.min(st[st.length - 1][0], diff));
+  let lo = st[0], hi = st[st.length - 1];
+  for (let i = 0; i < st.length - 1; i++) { if (d >= st[i][0] && d <= st[i + 1][0]) { lo = st[i]; hi = st[i + 1]; break; } }
+  const span = hi[0] - lo[0], t = span === 0 ? 0 : (d - lo[0]) / span;
+  return lo[1].map((c, i) => Math.round(c + (hi[1][i] - c) * t));
+}
+function scheduleHealthColor(diff) { const [r, g, b] = scheduleHealthRGB(diff); return `rgb(${r},${g},${b})`; }
+function scheduleHealthGradient(diff) {
+  const rgb = scheduleHealthRGB(diff);
+  const light = rgb.map(c => Math.round(c + (255 - c) * 0.55));
+  return `linear-gradient(90deg, rgb(${light.join(',')}), rgb(${rgb.join(',')}))`;
+}
 function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
   if (projs.length === 0) return '';
   
@@ -3080,10 +3108,11 @@ function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
     const sd = new Date(p.start), ed = new Date(p.end);
     const left = Math.max(0, (sd - yearStart) / yearTotal * 100);
     const width = Math.max(1, Math.min(100-left, (ed - sd) / yearTotal * 100));
-    
-    // 진도율에 따라 진행 부분 / 미진행 부분 분리 색상
+
+    // 일정 성과(계획 대비 실적) 기반 그라데이션 — 늦음(빨강)~정상(초록)~앞섬(파랑)
     const pct = p.progress || 0;
-    const doneColor = pct >= 100 ? '#16a34a' : pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#fbbf24';
+    const expPct = expectedPctByDate(p.start, p.end);
+    const doneColor = expPct == null ? '#22c55e' : scheduleHealthGradient(pct - expPct);
     const todoColor = '#e4e7ec';
     const pmName = getU(p.pm).name;
     
@@ -3110,9 +3139,9 @@ function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
       <div class="utl-head">
         <div class="utl-title">📅 전체 프로젝트 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">2026년 · 막대 클릭 시 상세 화면</span></div>
         <div class="utl-legend">
+          <span><span class="utl-dot" style="background:#dc2626;"></span>지연</span>
           <span><span class="utl-dot" style="background:#22c55e;"></span>정상</span>
-          <span><span class="utl-dot" style="background:#f59e0b;"></span>주의</span>
-          <span><span class="utl-dot" style="background:#fbbf24;"></span>초기</span>
+          <span><span class="utl-dot" style="background:#2563eb;"></span>초과달성</span>
           <span><span class="utl-dot" style="background:var(--danger);"></span>오늘</span>
         </div>
       </div>

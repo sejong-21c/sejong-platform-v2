@@ -359,6 +359,33 @@ function v28MhdrHTML(opts){
   return `<div class="v28-mhdr">${cells}</div>`;
 }
 function dp(ds){if(!ds)return 0;return Math.max(0,Math.min(100,(new Date(ds)-GS)/(GE-GS)*100));}
+// v29.6: 일정 성과(계획 대비 실적) 기반 그라데이션 색상 — 늦음(빨강)→정상(초록)→앞섬(파랑) 연속 스펙트럼
+function expectedPctByDate(s,e){
+  if(!s||!e)return null;
+  const sd=new Date(s),ed=new Date(e),td=new Date(new Date().toISOString().slice(0,10));
+  if(isNaN(sd)||isNaN(ed)||ed<=sd)return null;
+  if(td<=sd)return 0; if(td>=ed)return 100;
+  return(td-sd)/(ed-sd)*100;
+}
+const SCHED_HEALTH_STOPS=[
+  [-30,[153,27,27]],[-15,[220,38,38]],[-7,[249,115,22]],[-2,[245,158,11]],
+  [0,[163,230,53]],[4,[34,197,94]],[12,[21,128,61]],[22,[37,99,235]],[35,[29,78,216]]
+];
+function scheduleHealthRGB(diff){
+  if(diff==null||isNaN(diff))return[148,163,184];
+  const st=SCHED_HEALTH_STOPS;
+  const d=Math.max(st[0][0],Math.min(st[st.length-1][0],diff));
+  let lo=st[0],hi=st[st.length-1];
+  for(let i=0;i<st.length-1;i++){if(d>=st[i][0]&&d<=st[i+1][0]){lo=st[i];hi=st[i+1];break;}}
+  const span=hi[0]-lo[0],t=span===0?0:(d-lo[0])/span;
+  return lo[1].map((c,i)=>Math.round(c+(hi[1][i]-c)*t));
+}
+function scheduleHealthColor(diff){const[r,g,b]=scheduleHealthRGB(diff);return`rgb(${r},${g},${b})`;}
+function scheduleHealthGradient(diff){
+  const rgb=scheduleHealthRGB(diff);
+  const light=rgb.map(c=>Math.round(c+(255-c)*0.55));
+  return`linear-gradient(90deg, rgb(${light.join(',')}), rgb(${rgb.join(',')}))`;
+}
 const TPL=[
   {id:"01",ph:0,item:"PO / Datasheet 검토 및 확인",pt:"R",crit:"프로젝트 승인 문서와 일치"},
   {id:"02",ph:0,item:"도면 (제작도) 승인 여부 확인",pt:"R",crit:"AFC 스탬프 확인"},
@@ -818,7 +845,9 @@ function rWBS(){
       if(r){barS=r.s; barE=r.e;}
     }
     const l=dp(barS),wd=Math.max(dp(barE)-l,.5);const fp=pct==null?0:pct;
-    const ganttBar=`<div style="position:relative;height:20px;background:#f1f5f9;border-radius:2px;width:100%;margin-top:5px"><div class="v28-bar-outer" style="left:${l}%;width:${wd}%"><div class="v28-bar-fill" style="width:${fp}%"></div></div><span class="v28-bar-label" style="left:${l}%;width:${wd}%">${fp}%</span></div>`;
+    const _expPct=expectedPctByDate(barS,barE);
+    const _fillBg=_expPct==null?"#16a34a":scheduleHealthGradient(fp-_expPct);
+    const ganttBar=`<div style="position:relative;height:20px;background:#f1f5f9;border-radius:2px;width:100%;margin-top:5px"><div class="v28-bar-outer" style="left:${l}%;width:${wd}%"><div class="v28-bar-fill" style="width:${fp}%;background:${_fillBg}"></div></div><span class="v28-bar-label" style="left:${l}%;width:${wd}%">${fp}%</span></div>`;
     // 모든 컬럼을 한 행에 넣고 class로 표시 제어
     return `<tr class="wbs-row ${selCls}" data-a="selW" data-id="${w.id}" data-id-row="${w.id}">
       <td class="col-code"><div class="cell-inner"><span style="display:inline-flex;align-items:center;gap:3px;padding-left:${ind}px;white-space:nowrap"><span style="flex-shrink:0">${eb}</span><span style="font-weight:${w.lv===0?700:400};font-size:11px;color:#4a7fc1;white-space:nowrap">${w.code}</span></span></div></td>
