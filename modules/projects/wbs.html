@@ -1178,18 +1178,24 @@ function act(a,d){
     case"selW":{const w=WBS.find(x=>x.id===d.id);us({wsel:S.wsel?.id===w?.id?null:w,wedit:false});break;}
     case"clrW":us({wsel:null,wedit:false});break;
     case"delW":{
-      const wid=d.id;const w=WBS.find(x=>x.id===wid);if(!w)break;
-      const children=WBS.filter(x=>x.parentId===wid);
-      const msg=children.length
-        ?`"${w.code} ${w.name}" 및 하위 ${children.length}개 항목을 모두 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?`
+      const wid=d.id;const wi=WBS.findIndex(x=>x.id===wid);if(wi<0)break;
+      const w=WBS[wi];
+      // v28.4.33: 하위 항목은 parentId 필드가 아니라 배열 순서+lv로 판단되는 구조(childW()/wRange()와 동일 방식).
+      // 예전 코드는 존재하지 않는 x.parentId를 참조해 항상 children.length===0으로 나와, 대단락 삭제 시
+      // "하위 N개 포함 삭제" 확인창은 뜨지만 실제로는 소단락이 하나도 안 지워지고 고아로 남는 버그였음.
+      const delIds=new Set([wid]);
+      for(let j=wi+1;j<WBS.length;j++){
+        if(WBS[j].projId!==w.projId)break;
+        if(WBS[j].lv<=w.lv)break;
+        delIds.add(WBS[j].id);
+      }
+      const childCount=delIds.size-1;
+      const msg=childCount
+        ?`"${w.code} ${w.name}" 및 하위 ${childCount}개 항목을 모두 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?`
         :`"${w.code} ${w.name}" 항목을 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?`;
       if(!confirm(msg))break;
-      const delIds=new Set([wid]);
-      // 재귀적으로 모든 하위 항목 수집
-      let changed=true;
-      while(changed){changed=false;WBS.forEach(x=>{if(!delIds.has(x.id)&&x.parentId&&delIds.has(x.parentId)){delIds.add(x.id);changed=true;}});}
       WBS=WBS.filter(x=>!delIds.has(x.id));
-      addLog(`🗑 삭제: ${w.code} ${w.name}${delIds.size>1?' (하위 '+(delIds.size-1)+'개 포함)':''}`,"warn");
+      addLog(`🗑 삭제: ${w.code} ${w.name}${childCount?' (하위 '+childCount+'개 포함)':''}`,"warn");
       us({wsel:null,wedit:false});
       break;}
     case"stWEdit":us({wedit:true});break;case"clWEdit":us({wedit:false});break;
