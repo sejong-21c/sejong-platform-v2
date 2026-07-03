@@ -483,10 +483,17 @@ function openNewNCR() {
       <select class="fs" id="ncrProj" onchange="document.getElementById('ncrProjDirect').style.display=this.value==='__direct__'?'block':'none'">${projOpts}</select>
       <input class="fi" id="ncrProjDirect" placeholder="프로젝트명 직접 입력" style="margin-top:6px;display:block;">
     </div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">고객명</label><input class="fi" id="ncrClient" placeholder="고객사명"></div>
+      <div style="flex:1;"><label class="fl">발행일자</label><input class="fi" type="date" id="ncrIssuedAt"></div>
+    </div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">도면번호</label><input class="fi" id="ncrDwg" placeholder="도면번호"></div>
+      <div style="flex:1;"><label class="fl">W.R No.</label><input class="fi" id="ncrWr" placeholder="W.R No."></div>
+    </div>
     <div class="fg"><label class="fl">대상 (장비/부위)</label><input class="fi" id="ncrItem" placeholder="예: T-8405 N-9 노즐"></div>
     <div class="fg" style="display:flex;gap:8px;">
       <div style="flex:1;"><label class="fl">등급</label><select class="fs" id="ncrGrade"><option value="major">중대</option><option value="minor" selected>일반</option><option value="obs">경미</option></select></div>
-      <div style="flex:1;"><label class="fl">조치 기한</label><input class="fi" type="date" id="ncrDue"></div>
     </div>
     <div class="fg">
       <label class="fl">발생장소</label>
@@ -506,13 +513,16 @@ function openNewNCR() {
     </div>
     <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="ncrDesc" rows="3" placeholder="부적합 사항을 기재하세요"></textarea></div>
   `, () => {
-    const projSel = document.getElementById('ncrProj').value;
-    const proj = projSel;
+    const projSel  = document.getElementById('ncrProj').value;
+    const proj     = projSel;
     const projDirect = document.getElementById('ncrProjDirect').value.trim();
-    const item  = document.getElementById('ncrItem').value.trim();
-    const grade = document.getElementById('ncrGrade').value;
-    const due   = document.getElementById('ncrDue').value;
-    const desc  = document.getElementById('ncrDesc').value.trim();
+    const client   = document.getElementById('ncrClient').value.trim();
+    const issuedAt = document.getElementById('ncrIssuedAt').value;
+    const dwgNo    = document.getElementById('ncrDwg').value.trim();
+    const wrNo     = document.getElementById('ncrWr').value.trim();
+    const item     = document.getElementById('ncrItem').value.trim();
+    const grade    = document.getElementById('ncrGrade').value;
+    const desc     = document.getElementById('ncrDesc').value.trim();
     const location    = document.getElementById('ncrLoc').value;
     const cause       = document.getElementById('ncrCause').value;
     const causeDetail = document.getElementById('ncrDetail').value;
@@ -526,9 +536,9 @@ function openNewNCR() {
       id, proj, item, source:'manual', grade, desc, status:'open',
       location, cause, causeDetail, disposition,
       issuedBy: state.currentUser,
-      issuedAt: new Date().toISOString().slice(0,10),
-      dueDate: due||'', carId: null,
-      meta: { projDirect: proj==='__direct__' ? projDirect : '' }
+      issuedAt: issuedAt || new Date().toISOString().slice(0,10),
+      dueDate: '', carId: null,
+      meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__' ? projDirect : '' }
     });
     save(); closeModal(); render();
   });
@@ -1206,7 +1216,7 @@ function showNCRParseModal(p) {
     </div>
     <div class="npm-row">
       <div class="npm-field"><label>NCR No. ${badge(p.ncrNo)}</label><input id="np-ncrno" value="${p.ncrNo||''}" placeholder="예: SJ-NCR-2026-01"></div>
-      <div class="npm-field"><label>발견일자 ${badge(p.issuedAt)}</label><input id="np-date" type="date" value="${p.issuedAt||''}"></div>
+      <div class="npm-field"><label>발행일자 ${badge(p.issuedAt)}</label><input id="np-date" type="date" value="${p.issuedAt||''}"></div>
     </div>
     <div class="npm-field">
       <label>프로젝트 (계약명: ${p.projTitle||'미감지'}) ${badge(p.projTitle)}</label>
