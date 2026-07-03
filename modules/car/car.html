@@ -229,7 +229,7 @@ function loadState() {
 
 // v29.8: state.cars를 Firestore와 실시간 동기화 (ncr.html과 동일한 방식).
 // ncrs는 CAR가 참조만 하므로(생성/수정 안 함) 읽기 전용으로만 구독.
-const _lastSynced = { cars: [] };
+const _lastSynced = { cars: [], carDeleteReqs: [] };
 async function syncArrayToFirestore(coll, arr) {
   if (!window.fb || !fb.db) return;
   const current = arr || [];
@@ -261,6 +261,12 @@ function startCarFirestoreSync() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
     render();
   }, e => console.error('[ncrs(참조) 동기화 구독]', e));
+  fb.onSnapshot(fb.collection(fb.db, 'carDeleteReqs'), snap => {
+    state.carDeleteReqs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    _lastSynced.carDeleteReqs = JSON.parse(JSON.stringify(state.carDeleteReqs));
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    render();
+  }, e => console.error('[carDeleteReqs 동기화 구독]', e));
 }
 
 function save() {
@@ -268,6 +274,7 @@ function save() {
     localStorage.setItem(KEY, JSON.stringify(state));
     try { window.parent.render(); } catch(e) {}
     syncArrayToFirestore('cars', state.cars);
+    syncArrayToFirestore('carDeleteReqs', state.carDeleteReqs);
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) alert('⚠️ 저장 공간 부족. 관리자에게 문의하세요.');
   }
