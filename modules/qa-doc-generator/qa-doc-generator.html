@@ -1676,6 +1676,14 @@ function DIMPreview({doc}){
     </div>{/* v3.2 — 2 chunk 이상 페이지 2 wrapper 닫기 */}
   </div>;
 }
+// v3.2 — DIM이 실제로 몇 장(01만 / 01+02)을 쓰는지 확인해서 Nozzle 번호를 자동으로 맞춰준다.
+// DIM 탭을 아직 한 번도 안 열었으면(=IMG_STORE에 저장된 rows 없음) 기본 항목 수는 항상 10개 이하이므로
+// 1장(01)만 쓴다고 가정 — 나중에 사용자가 DIM에서 Check Point를 늘려 2장이 되면 자동으로 반영됨.
+const dimPageCount = (it) => {
+  const saved = IMG_STORE.get(`dim_rows_${it.id||it.tag}`);
+  const rowCount = (saved && Array.isArray(saved)) ? saved.length : 0;
+  return Math.max(1, Math.ceil(rowCount / 10));
+};
 function NozzlePreview({doc}){
   const{item:it,proj:p}=doc;const isR=it.type.includes("Reactor"),isC=it.type.includes("Condenser")||it.type.includes("Heat");
   const nk1=`noz_${it.id||it.tag}_1`,nk2=`noz_${it.id||it.tag}_2`;
@@ -1708,8 +1716,12 @@ function NozzlePreview({doc}){
   const hc=hdr(),tc=bdr();const tNo=tagId(it.tag);const HC1={...hc,whiteSpace:"nowrap"};
   useEffect(()=>{IMG_STORE.set(nozKey,{noz,std,mEqN});},[noz,std,mEqN,nozKey]);
   // v3.2 — 15+ 노즐로 그림/표가 물리적으로 2페이지로 나뉠 때, 데이터 표 페이지는 "2페이지에 이어지는
-  // 같은 보고서"가 아니라 "보고서가 1장 더 생성되는" 개념으로 취급 — Report No.를 -02(그림) / -03(표)로 분리.
+  // 같은 보고서"가 아니라 "보고서가 1장 더 생성되는" 개념으로 취급. DI 계열 번호는 DIM이 실제로 몇 장을
+  // 쓰는지에 따라 자동으로 이어짐 (DIM이 01만 쓰면 Nozzle=02/03, DIM이 01·02 다 쓰면 Nozzle=03/04).
   const isSplit = noz.length >= 15;
+  const dimPages = dimPageCount(it);
+  const nozSeq1 = String(dimPages + 1).padStart(2, "0");
+  const nozSeq2 = String(dimPages + 2).padStart(2, "0");
   const headerTable = (seq) => <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
     <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
     <tbody>
@@ -1722,7 +1734,7 @@ function NozzlePreview({doc}){
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
     <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
-    {headerTable("03")}
+    {headerTable(nozSeq1)}
     {/* v2.3 — 15+ 노즐일 때 이미지 영역이 페이지 1을 독차지하고 데이터 표는 페이지 2로 */}
     <div className={noz.length>=15?"noz-big":""} style={{display:"flex",gap:6,marginBottom:6,minHeight:240,flex:noz.length>=15?1:undefined}}>
       <IDZ label="Nozzle Orientation — Ctrl+V (VIEW A-A) — 노즐 각도/위치 표시" persistKey={nk2}/>
@@ -1730,7 +1742,7 @@ function NozzlePreview({doc}){
     <div style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
     {isSplit && <>
       <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
-      {headerTable("04")}
+      {headerTable(nozSeq2)}
     </>}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
