@@ -1316,7 +1316,10 @@ async function doGoogleLogin() {
       if (err) { err.textContent = '로그인 처리 중 오류가 발생했습니다: ' + (e.message || e); err.style.display = 'block'; }
     }
   };
-  tc.requestAccessToken({ prompt: '' });
+  // v29.7.1: prompt:''는 먼저 "조용한 시도"(숨은 iframe)를 하는데, 아이폰 사파리/크롬의
+  // 교차 사이트 추적 방지 정책이 이걸 막으면서 화면만 깜빡이고 아무 반응이 없는 문제가 있었음.
+  // select_account로 조용한 시도 단계 자체를 건너뛰고 매번 명확한 계정 선택 화면을 띄움.
+  tc.requestAccessToken({ prompt: 'select_account' });
 }
 // 예전 방식(Firebase 팝업/리디렉션) — GIS를 못 쓸 때만 쓰는 안전망
 async function doGoogleLoginLegacy() {
