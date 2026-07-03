@@ -339,7 +339,8 @@ function render() {
 
   // 삭제 승인 요청 (super만)
   const deleteReqs = (state.ncrDeleteReqs||[]).filter(r => r.status === 'pending');
-  const deleteReqHtml = (cu?.grade === 'super' && deleteReqs.length) ? `
+  const isQualityHead = cu?.grade === 'super' || (cu?.dept === '품질관리부' && cu?.title === '부장');
+  const deleteReqHtml = (isQualityHead && deleteReqs.length) ? `
     <div class="card" style="margin-bottom:14px;border-left:3px solid var(--danger);">
       <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);">🗑️ NCR 삭제 승인 요청 (${deleteReqs.length}건)</h3>
       ${deleteReqs.map(r => {
@@ -431,7 +432,7 @@ function render() {
             const hasPending = (state.ncrDeleteReqs||[]).some(r => r.ncrId === n.id && r.status === 'pending');
             const delBtn = hasPending
               ? `<span style="font-size:10px;color:var(--danger);white-space:nowrap;">삭제대기</span>`
-              : cu?.grade === 'super'
+              : isQualityHead
                 ? `<button class="org-ico-btn" onclick="approveNCRDeleteDirect('${n.id}')" title="즉시 삭제" style="color:var(--danger);">🗑️</button>`
                 : cu?.dept === '품질관리부'
                   ? `<button class="org-ico-btn" onclick="requestNCRDelete('${n.id}')" title="삭제 요청" style="color:var(--danger);">🗑️</button>`
