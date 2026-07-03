@@ -803,6 +803,11 @@ function defaultState() {
   };
 }
 
+// wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
+// 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
+const WBS_BUILD = 'b14';
+// messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
+const MESSENGER_BUILD = 'b6';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 로그인 필드(username) 없는 옛 사용자 데이터면 초기화
 if (!state.users || !state.users.length || !state.users[0].username) {
@@ -2789,11 +2794,166 @@ function calNav(d) {
   render();
 }
 function calToday() { const t = new Date(); calY = t.getFullYear(); calM = t.getMonth(); render(); }
+
+// ══════════ 개인 구글 캘린더 연동 (v29.5) ══════════
+// Firebase Auth(로그인)와 완전히 분리된 별도 OAuth 클라이언트 — 로그인 플로우는 절대 안 건드림.
+// 사용자가 명시적으로 "연동" 버튼을 눌러야만 동작 시작. 각자 본인의 기본(primary) 구글 캘린더에
+// 읽기+쓰기(calendar.events) 권한을 받아서, 구글 캘린더 일정을 SJ FLOW 캘린더에 표시하고,
+// SJ FLOW에서 새 일정을 추가하면 구글 캘린더에도 똑같이 등록한다.
+const GCAL_CLIENT_ID = '884301297710-dmf8ntd4sc6c1cudlljc6fpf46vi2e4r.apps.googleusercontent.com';
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+let gcalTokenClient = null;
+let gcalAccessToken = null;
+let gcalTokenExpiry = 0;
+let gcalPendingResolve = null;
+let gcalEventsCache = [];   // 구글에서 읽어온 이벤트 (표시용)
+let gcalLoadedMonthKey = null;
+let gcalConnected = false;  // Firestore 사용자 프로필의 gcalConnected 미러 (연동 버튼 표시용)
+
+function gcalEnsureTokenClient() {
+  if (gcalTokenClient) return gcalTokenClient;
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return null;
+  gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID,
+    scope: GCAL_SCOPE,
+    callback: (resp) => {
+      if (resp && resp.access_token) {
+        gcalAccessToken = resp.access_token;
+        gcalTokenExpiry = Date.now() + ((resp.expires_in || 3600) * 1000) - 60000;
+      }
+      const r = gcalPendingResolve; gcalPendingResolve = null;
+      if (r) r(resp && resp.access_token ? resp.access_token : null);
+    },
+  });
+  return gcalTokenClient;
+}
+// interactive=true면 동의 화면(팝업) 강제 표시, false면 조용한 갱신 시도(이미 동의했으면 팝업 없이 될 수 있음)
+function gcalRequestToken(interactive) {
+  return new Promise((resolve) => {
+    const tc = gcalEnsureTokenClient();
+    if (!tc) { resolve(null); return; }
+    gcalPendingResolve = resolve;
+    tc.requestAccessToken({ prompt: interactive ? 'consent' : '' });
+  });
+}
+async function gcalGetToken() {
+  if (gcalAccessToken && Date.now() < gcalTokenExpiry) return gcalAccessToken;
+  return await gcalRequestToken(false);
+}
+async function connectGoogleCalendar() {
+  const token = await gcalRequestToken(true);
+  if (!token) { alert('구글 캘린더 연동에 실패했습니다. 다시 시도해주세요.'); return; }
+  gcalConnected = true;
+  if (window.fb && state.currentUser) {
+    try { await fb.setDoc(fb.doc(fb.db, 'users', state.currentUser), { gcalConnected: true }, { merge: true }); } catch (e) {}
+  }
+  gcalLoadedMonthKey = null; // 강제 재조회
+  render();
+  loadGCalEvents();
+}
+function disconnectGoogleCalendar() {
+  if (!confirm('구글 캘린더 연동을 해제하시겠습니까? (구글 캘린더에 이미 등록된 일정은 그대로 남습니다)')) return;
+  gcalAccessToken = null; gcalTokenExpiry = 0; gcalConnected = false; gcalEventsCache = []; gcalLoadedMonthKey = null;
+  if (window.fb && state.currentUser) {
+    fb.setDoc(fb.doc(fb.db, 'users', state.currentUser), { gcalConnected: false }, { merge: true }).catch(() => {});
+  }
+  render();
+}
+async function loadGCalEvents() {
+  const monthKey = calY + '-' + calM;
+  if (gcalLoadedMonthKey === monthKey) return;
+  const token = await gcalGetToken();
+  if (!token) return;
+  gcalLoadedMonthKey = monthKey;
+  const timeMin = new Date(calY, calM, 1).toISOString();
+  const timeMax = new Date(calY, calM + 1, 1).toISOString();
+  try {
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=250`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) { if (res.status === 401) gcalAccessToken = null; gcalLoadedMonthKey = null; return; }
+    const data = await res.json();
+    // 구글 "근무 위치"(workingLocation) 기능이 평일마다 자동 생성하는 "사무실" 종일 일정 등은
+    // 실제 약속이 아니므로 목록/삭제 대상에서 제외해야 함 (삭제 시도 시 근무위치 설정 자체가 깨짐).
+    gcalEventsCache = (data.items || []).filter(ev => ev.status !== 'cancelled' && ev.eventType !== 'workingLocation' && ev.eventType !== 'outOfOffice' && ev.eventType !== 'focusTime').map(ev => {
+      const startStr = (ev.start && (ev.start.date || ev.start.dateTime)) || '';
+      return {
+        id: 'gcal_' + ev.id,
+        rawId: ev.id, // 삭제 API 호출용 원본 구글 이벤트 ID
+        title: ev.summary || '(제목 없음)',
+        date: startStr.slice(0, 10),
+        time: (ev.start && ev.start.dateTime) ? ev.start.dateTime.slice(11, 16) : '',
+        color: 'blue', source: 'google',
+      };
+    });
+    render();
+  } catch (e) { console.warn('[GCal] 이벤트 조회 실패:', e); gcalLoadedMonthKey = null; }
+}
+async function pushEventToGCal(ev) {
+  const token = await gcalGetToken();
+  if (!token) return null;
+  // v29.5: 23시대 일정은 +1시간이 다음날로 넘어가야 하는데 문자열로 시(hour)만 clamp하면
+  // 시작=종료 시각이 같아져 0분짜리 일정이 되는 버그가 있었음 — 실제 Date 연산으로 정확히 계산.
+  let body;
+  if (ev.time) {
+    const start = new Date(`${ev.date}T${ev.time}:00`);
+    const end = new Date(start.getTime() + 60 * 60000);
+    const toLocalISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:00`;
+    body = { summary: ev.title, start: { dateTime: toLocalISO(start), timeZone: 'Asia/Seoul' }, end: { dateTime: toLocalISO(end), timeZone: 'Asia/Seoul' } };
+  } else {
+    body = { summary: ev.title, start: { date: ev.date }, end: { date: ev.date } };
+  }
+  try {
+    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    gcalLoadedMonthKey = null; // 다음 렌더에서 새로고침
+    if (!res.ok) return null;
+    const created = await res.json();
+    return created.id || null; // 나중에 삭제할 때 필요한 구글 이벤트 ID
+  } catch (e) { console.warn('[GCal] 이벤트 등록 실패:', e); return null; }
+}
+// v29.6: 구글 캘린더에서 특정 이벤트 삭제 (양방향 동기화 — 등록뿐 아니라 삭제도 반영)
+async function deleteGCalEvent(rawId) {
+  const token = await gcalGetToken();
+  if (!token || !rawId) return;
+  try {
+    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(rawId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    gcalLoadedMonthKey = null;
+  } catch (e) { console.warn('[GCal] 이벤트 삭제 실패:', e); }
+}
+// SJ FLOW 일정 삭제 — 구글 캘린더에서 온 이벤트든 직접 만든 이벤트든 한 곳에서 처리.
+// 직접 만든 이벤트에 gcalEventId가 있으면(연동 중 등록됐던 것) 구글 쪽도 같이 삭제.
+function deleteEvent(id) {
+  if (!confirm('이 일정을 삭제하시겠습니까?')) return;
+  if (String(id).startsWith('gcal_')) {
+    const ev = gcalEventsCache.find(e => e.id === id);
+    if (!ev) return;
+    gcalEventsCache = gcalEventsCache.filter(e => e.id !== id);
+    render();
+    if (gcalConnected) deleteGCalEvent(ev.rawId).then(() => render());
+    return;
+  }
+  const ev = state.events.find(e => e.id === id);
+  state.events = state.events.filter(e => e.id !== id);
+  save(); render(); closeModal();
+  if (ev && ev.gcalEventId && gcalConnected) deleteGCalEvent(ev.gcalEventId);
+}
 function showDate(ds) {
   const ev = state.events.filter(e => e.date === ds);
   if (!ev.length) return openEvent(ds);
+  // v29.6: 직접 만든 일정과 구글 캘린더 일정은 삭제 가능 (Cowork 브리핑에서 자동 생성된
+  // 일정은 외부 자동화가 관리하는 데이터라 여기서 지우면 다음 동기화 때 다시 나타나므로 제외)
   openModal(`${ds} 일정`, `
-    ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;"><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}</div></div>`).join('')}
+    ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}${e.source==='google'?' · 🔗 구글':''}</div></div>
+      ${e.source!=='briefing' ? `<button class="btn btn-sm" style="color:#dc2626;flex-shrink:0;" onclick="deleteEvent('${e.id}')">삭제</button>` : ''}
+    </div>`).join('')}
     <button class="btn btn-primary btn-sm" onclick="closeModal();openEvent('${ds}')">+ 이 날에 일정 추가</button>`);
 }
 function openEvent(ds) {
@@ -2808,6 +2968,13 @@ function openEvent(ds) {
     if (!title) return alert('제목을 입력하세요');
     state.events.push({ id: 'e' + Date.now(), title, date: document.getElementById('evD').value, time: document.getElementById('evTm').value, color: document.getElementById('evC').value });
     save(); closeModal(); render();
+    if (gcalConnected) {
+      pushEventToGCal(newEv).then(gid => {
+        if (!gid) return;
+        const rec = state.events.find(e => e.id === newEv.id);
+        if (rec) { rec.gcalEventId = gid; save(); }
+      });
+    }
   });
 }
 
