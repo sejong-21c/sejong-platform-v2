@@ -731,7 +731,7 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b5';
+const WBS_BUILD = 'b8';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -1149,6 +1149,11 @@ function openTool(tid, deptName) {
   view.itpSelectedItem = null;
   view.qaSelectedProj = null;    // QA Doc도 프로젝트 선택부터
   view.mobileSelectedProj = null; // Mobile도 프로젝트 선택부터
+  // v29.1: 제작 공정 관리(Traveller)에서 다른 도구로 넘어올 때 travProj/selectedTraveller가
+  // 안 지워지면 iframeViewKey()가 여전히 'travtag:...'를 반환해 render()가 콘텐츠 재생성을
+  // 건너뛰고(헤더 타이틀만 바뀌고 본문은 그대로 남는 버그) → 반드시 같이 초기화
+  view.travProj = null;
+  view.selectedTraveller = null;
   // v29: 부서 스케줄 — 어느 부서에서 열었는지 기억 (없으면 로그인 사용자 부서)
   if (tid === 'deptsch') { view.deptSchedDept = deptName || getU(state.currentUser).dept || ''; view.deptSchedProj = null; }
   const t = TOOLS[tid];
