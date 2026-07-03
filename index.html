@@ -1283,15 +1283,23 @@ function showLogin() {
 // URL 이동(리디렉션) 방식으로 교체 — 정보는 URL 자체(해시)에 담아 돌아오므로
 // 브라우저 저장소 정책의 영향을 받지 않음. 이게 현재 로그인의 기본 방식.
 function doGoogleLoginRedirect() {
+  // v29.7.3: 리디렉션 중임을 즉시 표시 (Google 도메인으로 넘어가기 전 UI 잔상 방지)
+  showAuthLoading();
   const redirectUri = location.origin + '/';
+  // v29.7.3: response_type을 'id_token token'으로 확장 — id_token은 Firebase가 서명 검증까지
+  // 하므로 signInWithCredential이 더 빠르고 확실하게 동작함(access token만 넘길 때보다 안정적).
+  // nonce는 CSRF/replay 방지용으로 랜덤 값을 생성해 sessionStorage에 저장 후 회수 시 검증.
+  const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  try { sessionStorage.setItem('sjLoginNonce', nonce); } catch(e) {}
   const params = new URLSearchParams({
     client_id: GCAL_CLIENT_ID,
     redirect_uri: redirectUri,
-    response_type: 'token',
-    scope: 'email profile',
+    response_type: 'id_token token',
+    scope: 'openid email profile',
     hd: 'sejong-21c.com',
     prompt: 'select_account',
     include_granted_scopes: 'true',
+    nonce,
   });
   location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
 }
@@ -1301,6 +1309,7 @@ async function processRedirectLogin() {
   if (hash.indexOf('access_token=') === -1) return false;
   const p = new URLSearchParams(hash.slice(1));
   const accessToken = p.get('access_token');
+  const idToken = p.get('id_token'); // v29.7.3: response_type=id_token token 도입으로 함께 옴
   const oauthError = p.get('error');
   history.replaceState(null, '', location.pathname + location.search); // URL에 토큰 남기지 않기
   if (oauthError || !accessToken) return false;
@@ -1311,7 +1320,10 @@ async function processRedirectLogin() {
       setTimeout(() => alert(`${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.`), 50);
       return false;
     }
-    const credential = fb.GoogleAuthProvider.credential(null, accessToken);
+    // v29.7.3: id_token이 있으면 그걸 우선 사용 — Firebase가 서명 검증까지 하므로 더 안전
+    const credential = idToken
+      ? fb.GoogleAuthProvider.credential(idToken, accessToken)
+      : fb.GoogleAuthProvider.credential(null, accessToken);
     await fb.signInWithCredential(fb.auth, credential);
     // 이후 화면 전환은 onAuthStateChanged(handleAuthChange)가 담당
     return true;
@@ -1319,6 +1331,28 @@ async function processRedirectLogin() {
     console.error('[로그인] 리디렉션 처리 실패', e);
     return false;
   }
+}
+
+// v29.7.3: 리디렉션 처리 중 (userinfo 조회 + signInWithCredential, 약 0.7~1초 소요) 로그인
+// 화면이 잠깐 보이는 "깜빡임"을 방지하기 위해 로딩 스피너를 대신 표시. onAuthStateChanged를
+// 이 사이 등록해두면 아직 sign-in 되기 전의 null 상태로 handleAuthChange가 호출되어 showLogin이
+// 실행됨 → 사용자는 "로그인 실패"로 오인해 버튼을 다시 누르고, 그 클릭이 진행 중인 signInWithCredential을
+// abort시켜 왕복이 반복되는 문제가 있었음.
+function showAuthLoading() {
+  const ov = document.getElementById('authOverlay');
+  if (!ov) return;
+  ov.innerHTML = `
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;">
+      <div style="text-align:center;padding:20px;">
+        <div style="width:46px;height:46px;margin:0 auto 22px;border:3px solid rgba(255,255,255,.22);border-top-color:#fff;border-radius:50%;animation:sjAuthSpin 0.85s linear infinite;"></div>
+        <div style="font-size:16px;font-weight:600;letter-spacing:.2px;">로그인 처리 중…</div>
+        <div style="font-size:12px;opacity:.72;margin-top:8px;">Google 계정 정보를 확인하고 있습니다.</div>
+      </div>
+      <style>@keyframes sjAuthSpin{to{transform:rotate(360deg)}}</style>
+    </div>`;
+  ov.style.display = 'block';
+  const app = document.querySelector('.app');
+  if (app) app.style.display = 'none';
 }
 // v29.7: 로그인을 Firebase의 signInWithPopup/signInWithRedirect 대신 Google Identity
 // Services(GIS) 토큰 클라이언트로 전환 — 아이폰 사파리/크롬에서 리디렉션 왕복 중
@@ -4204,9 +4238,17 @@ function openApproval() {
 }
 
 /* ═════════════ 🎬 초기화 ═════════════ */
-function init() {
+async function init() {
   if (!window.fb) { setTimeout(init, 100); return; } // Firebase SDK 로딩 대기
-  processRedirectLogin(); // 구글 로그인에서 돌아온 경우 처리 (완료되면 onAuthStateChanged가 이어받음)
+  // v29.7.3: 리디렉션에서 돌아왔으면 signInWithCredential이 완료될 때까지 대기 후에
+  // onAuthStateChanged를 등록. 그 전에 등록하면 sign-in 완료 전의 null 상태로 handleAuthChange가
+  // 호출되어 로그인 화면이 잠깐 뜨는 "깜빡임"이 발생하고, 사용자가 버튼을 다시 눌러 왕복이 반복되는
+  // 문제가 있었음. hash에 access_token이 있을 때만 대기 UI 표시.
+  const hasRedirectHash = /[#&]access_token=|^#access_token=/.test(location.hash);
+  if (hasRedirectHash) {
+    showAuthLoading();
+    try { await processRedirectLogin(); } catch (e) { console.error('[init] processRedirectLogin 실패', e); }
+  }
   fb.onAuthStateChanged(fb.auth, handleAuthChange);
 }
 window.addEventListener('DOMContentLoaded', init);
