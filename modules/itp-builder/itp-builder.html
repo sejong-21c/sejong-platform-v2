@@ -498,13 +498,21 @@ const HEAD_TYPES = ["2:1 Ellip.", "10% Torispherical (F&D)", "Torispherical", "H
 const DEF_ITEM = {
   tag:"", name:"", type:"Pressure Vessel", appl_code:"",
   shell_mat:"", shell_id:"", shell_len:"", shell_thk:"",
+  shell_od:"", shell_od_display:"", shell_is_pipe:false,
   design_p:"", design_t:"",
-  head_top_type:"2:1 Ellip.", head_top_mat:"",
-  head_bot_type:"2:1 Ellip.", head_bot_mat:"",
+  head_top_type:"2:1 Ellip.", head_top_mat:"", head_thk_top:"",
+  head_bot_type:"2:1 Ellip.", head_bot_mat:"", head_thk_bottom:"",
   jacket:false, jacket_partition:false,
   incoil:false, incoil_double:false,
   halfcoil:false, halfcoil_partition:false,
   reactor_mount:false, reactor_impeller:false,
+  // v1.9 — QA Doc Generator의 상세 문서(Fit-up/Nozzle/Hydro/BOM 등)가 실제로 읽는 필드들.
+  // 도면 파싱(buildParsePrompt("dwg"))이 채워주고, ITP Builder 자체에는 편집 UI가 없다 —
+  // 세부 편집은 QA Doc Generator의 각 문서 화면에서 진행.
+  gf_mat:"", gf_thk:"", ts_mat:"", ts_thk:"",
+  tube_mat:"", tube_od:"", tube_side_p:"",
+  test_p_shell:"", test_p_tube:"", mawp:"",
+  weld_seams:[], nozzles:[], joint_details:[], bom_rows:[],
   dwgUrl:null, dwgName:""
 };
 
@@ -1112,7 +1120,38 @@ function App(){
     if (kind === "wo") return `Extract project info from this Work Order document. Return JSON only, no explanation: {"no":"","name":"","customer":"","po":"","scope":""}. Use "" for anything not found.`;
     if (kind === "spec") return `Extract customer special inspection/test requirements (beyond standard ITP items) from this specification document. Return JSON only: {"requirements":[{"category":"","activity":"","code":"","criteria":"","hold":false,"doc":""}]}. "hold" is true only if it is explicitly a hold/witness point requiring approval before proceeding. Return {"requirements":[]} if none found.`;
     if (kind === "quote") return `Extract the list of equipment/items to be manufactured from this quotation document. Return JSON only: {"items":[{"tag":"","name":"","type":"","appl_code":""}]}. "type" must be one of: ${JSON.stringify(ITYPES)}. Return {"items":[]} if none found.`;
-    return `You are an expert pressure vessel engineer. Extract equipment data from this drawing. Return JSON only: {"tag":"","name":"","type":"","appl_code":"","shell_mat":"","shell_id":"","shell_len":"","design_p":"","design_t":"","head_top_type":"","head_top_mat":"","head_bot_type":"","head_bot_mat":"","jacket":false,"incoil":false,"halfcoil":false}. "type" must be one of: ${JSON.stringify(ITYPES)}. "head_top_type"/"head_bot_type" must be one of: ${JSON.stringify(HEAD_TYPES)}. Use "" (or false) for anything unreadable — do not guess.`;
+    // v1.9 — QA Doc Generator의 BOM/Fit-up/Nozzle/Hydro/DIM 리포트가 실제로 쓰는 항목까지 전부
+    // 도면에서 한 번에 뽑아오도록 확장 (기존엔 기본 스칼라 필드 몇 개만 요청했음).
+    return `You are an expert pressure vessel engineer analyzing a fabrication drawing (may be multi-page PDF — check all pages).
+
+[TITLE BLOCK SEARCH] The main material list ("DETAIL OF BODY" / "BOM OF MATERIAL") page is not always page 2 — check each page's title block (bottom-right) to find it.
+
+[BOM_ROWS] From that material list table, extract ALL rows as an array: {name, mat, thk, sz, qty, remark}.
+- name: part name (e.g. "SHELL","TOP HEAD","BOTTOM HEAD","JACKET SHELL","TUBE SHEET","GIRTH FLANGE","CHANNEL","NOZZLE PIPE","REINFORCE PAD", etc.)
+- mat: material column. thk: thickness (numbers only). sz: size/dimension (e.g. "Ø1200xL3000","150A x SCH.40"). qty: numbers only. remark: remark column.
+Skip blank rows. Don't invent rows for parts that don't exist on this equipment (e.g. no jacket → no jacket rows).
+
+[DERIVE FROM BOM_ROWS] shell_mat/shell_thk/shell_len = SHELL row. head_top_mat/head_bot_mat = TOP/BOTTOM HEAD rows. ts_mat/ts_thk = TUBE SHEET row. gf_mat/gf_thk = GIRTH FLANGE row. tube_mat/tube_od = TUBE row.
+shell_is_pipe = true if the SHELL row shows pipe notation (e.g. "10B x SCH.40", "450A") instead of a plate ID — in that case set shell_od (numeric OD in mm) and shell_od_display (e.g. "267.4mm (10BxSCH.40)"); otherwise leave shell_od/shell_od_display empty and shell_id = the plate inner diameter.
+
+[APPL_CODE] Page 1 "DESIGN DATA" box, first row (label "CODE"/"Appl. Code") — copy the full value (e.g. "ASME Sec. VIII Div.1 / TEMA C").
+
+[PRESSURES] In the same DESIGN DATA box: design_p = shell-side design pressure (MPa, numbers only). For Heat Exchangers also read tube_side_p. Under the "Test Pressure"/"HYDRO" row: test_p_shell = shell-side value, test_p_tube = tube-side value (Heat Exchanger only, else ""). mawp = maximum allowable working pressure if separately shown, else same as design_p.
+
+[TYPE] "Condenser / Heat Exchanger" if TUBE+TUBESHEET present, "Reactor (Mixing Tank)" if AGITATOR/IMPELLER shown, "Storage Tank" if TANK with no agitator/tubes, else "Pressure Vessel".
+
+[HEAD TYPE — top and bottom may differ] Read TOP HEAD and BOTTOM HEAD rows' shape notation and normalize to one of: ${JSON.stringify(HEAD_TYPES)}. If only one head type applies to the whole vessel, use the same value for both. Also extract head_thk_top/head_thk_bottom (numbers only).
+
+[WELD SEAM PLAN] Heat Exchangers: "WELD SEAM PLAN" (page 1 bottom). Tanks: "WELD DETAIL" (page 2 top-right). Extract every seam joint number as a string array, e.g. ["SC-01","SL-01","JC-01","JL-01"] (SC=Shell Circ, SL=Shell Long, JC=Jacket Circ, JL=Jacket Long). Return [] if not found.
+
+[JOINT DETAILS] For each weld joint's sectional detail drawing (especially SL-prefixed, shell longitudinal), extract root angle/tolerance and max root gap: {joint_no, root_angle, root_tol, root_gap_max} (numbers only, use 0 if not shown). Return array under joint_details, [] if none found.
+
+[NOZZLE LIST] From the "NOZZLE LIST" table (page 1), extract every row: {no, size, pos, is_pad}. no = label as shown (e.g. "N-1","AG-1","M-1" — keep agitator/manhole labels exact). size = e.g. "200A". pos = orientation (e.g. "TOP/0","SIDE/90"). is_pad = true if that row shows "PAD" instead of a pipe size. Return [], if none found.
+
+[JACKET/INCOIL/HALFCOIL] true only if explicitly shown on the drawing.
+
+Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_code":"","shell_mat":"","shell_id":"","shell_len":"","shell_thk":"","shell_od":"","shell_od_display":"","shell_is_pipe":false,"design_p":"","design_t":"","tube_mat":"","tube_od":"","tube_side_p":"","test_p_shell":"","test_p_tube":"","mawp":"","ts_mat":"","ts_thk":"","gf_mat":"","gf_thk":"","head_top_type":"","head_bot_type":"","head_top_mat":"","head_bot_mat":"","head_thk_top":"","head_thk_bottom":"","jacket":false,"incoil":false,"halfcoil":false,"weld_seams":[],"joint_details":[],"nozzles":[],"bom_rows":[]}.
+"type" must be one of: ${JSON.stringify(ITYPES)}. Use "" / false / [] for anything unreadable — do not guess or invent values.`;
   };
 
   // v1.7 — 접속자 본인 API 키로 실제 AI 파싱 수행 (WO/시방서/견적서/도면)
@@ -1128,7 +1167,7 @@ function App(){
       const prompt = buildParsePrompt(kind);
       const res = await callAPI({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 2048,
+        max_tokens: kind === "dwg" ? 4096 : 2048, // v1.9 — 도면은 nozzles/joint_details/bom_rows 배열까지 뽑아서 응답이 길어짐
         messages: [{role:"user", content:[{type:blockType, source:{type:"base64", media_type:mediaType, data:b64}}, {type:"text", text:prompt}]}]
       });
       const text = (res.content||[]).map(c=>c.text||"").join("");

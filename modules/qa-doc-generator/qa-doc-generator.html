@@ -848,11 +848,12 @@ function BOMPreview({doc}){
     heat:"",
     remark:r.remark||""
   }));
-  // Head Type 상/하 분리 (호환: head_type_top/bottom 없으면 head_type로 fallback)
-  const htTop=it.head_type_top||it.head_type||"2:1 Ellip.";
-  const htBtm=it.head_type_bottom||it.head_type||"2:1 Ellip.";
-  const hMatTop=it.head_mat_top||it.head_mat||it.shell_mat||"";
-  const hMatBtm=it.head_mat_bottom||it.head_mat||it.shell_mat||"";
+  // Head Type 상/하 분리. v1.8 — ITP Builder(head_top_type/head_bot_type)가 정식 필드명이므로 우선 사용,
+  // 예전에 QA Gen 자체에서 쓰던 head_type_top/bottom·head_type도 호환을 위해 남겨둔다.
+  const htTop=it.head_top_type||it.head_type_top||it.head_type||"2:1 Ellip.";
+  const htBtm=it.head_bot_type||it.head_type_bottom||it.head_type||"2:1 Ellip.";
+  const hMatTop=it.head_top_mat||it.head_mat_top||it.head_mat||it.shell_mat||"";
+  const hMatBtm=it.head_bot_mat||it.head_mat_bottom||it.head_mat||it.shell_mat||"";
   const hThkTop=it.head_thk_top?`t${it.head_thk_top}`:"t";
   const hThkBtm=it.head_thk_bottom?`t${it.head_thk_bottom}`:"t";
   const baseInit=parsedBom.length>0?parsedBom:(isC
@@ -1087,8 +1088,8 @@ function BendingPreview({doc}){
     </table>
     {/* Head Type 정보 박스 — Shell Bending Report이지만 Head Forming 관련 안내 */}
     {(()=>{
-      const bendHtTop=it.head_type_top||it.head_type||"2:1 Ellip.";
-      const bendHtBtm=it.head_type_bottom||it.head_type||"2:1 Ellip.";
+      const bendHtTop=it.head_top_type||it.head_type_top||it.head_type||"2:1 Ellip.";
+      const bendHtBtm=it.head_bot_type||it.head_type_bottom||it.head_type||"2:1 Ellip.";
       const headDiffers=bendHtTop!==bendHtBtm;
       const hasCAPanywhere=bendHtTop==="CAP"||bendHtBtm==="CAP";
       const bothCAP=bendHtTop==="CAP"&&bendHtBtm==="CAP";
@@ -1428,8 +1429,8 @@ function DIMPreview({doc}){
   })();
   const isST=it.type.includes("Storage Tank");
   // ── Head Type 상/하 분리 (호환) ──
-  const dimHtTop=it.head_type_top||it.head_type||"2:1 Ellip.";
-  const dimHtBtm=it.head_type_bottom||it.head_type||"2:1 Ellip.";
+  const dimHtTop=it.head_top_type||it.head_type_top||it.head_type||"2:1 Ellip.";
+  const dimHtBtm=it.head_bot_type||it.head_type_bottom||it.head_type||"2:1 Ellip.";
   const dimD=parseFloat(it.shell_id)||parseFloat(it.shell_od)||0;
   const tolTop=headTolerance(dimHtTop,dimD);
   const tolBtm=headTolerance(dimHtBtm,dimD);
