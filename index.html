@@ -721,7 +721,7 @@ const MESSENGER_BUILD = 'b9';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b1';
 const CAR_BUILD = 'b1';
-const QADASH_BUILD = 'b2';
+const QADASH_BUILD = 'b3';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
