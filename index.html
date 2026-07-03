@@ -514,6 +514,7 @@ const TOOLS = {
   'qa':        { name: 'QA Doc Generator',  icon: '📄', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
   'ncr':       { name: 'NCR 관리',          icon: '⚠️', desc: '부적합 보고서 발행·추적·종결', status: 'live', ver: 'v1.0' },
   'car':       { name: 'CAR 관리',          icon: '🔧', desc: '시정조치 요청·회신·완료',     status: 'live', ver: 'v1.0' },
+  'qadash':    { name: '품질종합분석표',    icon: '📊', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석', status: 'live', ver: 'v1.0' },
   'manday':    { name: 'Manday Tracker',    icon: '⏱',  desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
   'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
   'deptsch':   { name: '부서 스케줄',       icon: '📅', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
@@ -523,7 +524,7 @@ const DEPTS = [
   { id: 'design',       icon: '📐', name: '설계부',     tools: ['deptsch'] },
   { id: 'purchase',     icon: '🛒', name: '구매부',     tools: ['deptsch'] },
   { id: 'production',   icon: '🏭', name: '생산부',     tools: ['deptsch'] },
-  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'qa', 'ncr', 'car', 'mobile'] },
+  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'qa', 'ncr', 'car', 'qadash', 'mobile'] },
   { id: 'construction', icon: '🏗️', name: '현장시공',   tools: ['deptsch'] },
   { id: 'safety',       icon: '🦺', name: '안전관리부', tools: ['deptsch'] },
   { id: 'general',      icon: '👔', name: '총무부',     tools: ['deptsch'] },
@@ -717,6 +718,10 @@ function defaultState() {
 const WBS_BUILD = 'b16';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b9';
+// ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
+const NCR_BUILD = 'b1';
+const CAR_BUILD = 'b1';
+const QADASH_BUILD = 'b1';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -1816,8 +1821,9 @@ function render() {
     if (!view.mobileSelectedProj) { content.innerHTML = `<div class="content-pad">${renderMobileProjects()}</div>`; return; }
     content.innerHTML = renderMobileFrame(); return;
   }
-  if (view.selectedTool === 'ncr') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
-  if (view.selectedTool === 'car') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
+  if (view.selectedTool === 'ncr') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html?v=${NCR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
+  if (view.selectedTool === 'car') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html?v=${CAR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
+  if (view.selectedTool === 'qadash') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/quality/qa-dashboard.html?v=${QADASH_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="품질종합분석표"></iframe></div>`; return; }
   if (view.selectedTool === 'deptsch') {
     // 부서 스케줄 2단계: 프로젝트/자체업무 미선택 → 카드 / 선택됨 → WBS iframe
     if (!view.deptSchedProj) { content.innerHTML = `<div class="content-pad">${renderDeptSchedProjects()}</div>`; return; }
@@ -2229,274 +2235,6 @@ function renderMandayFrame() {
   </div>`;
 }
 
-// ══════════ NCR 관리 (부적합 보고서) ══════════
-const NCR_GRADE = { major:['red','중대'], minor:['orange','일반'], obs:['gray','경미'] };
-const NCR_STATUS = { open:['red','진행중'], closed:['green','종결'], pending:['orange','조치대기'] };
-const NCR_SOURCE = { manual:'✍️ 직접발행', mail:'📧 메일접수', traveller:'🔧 검사부적합' };
-
-// Traveller 부적합(rejected)을 NCR로 자동 수집 (아직 NCR 미등록분)
-function getTravellerNCRs() {
-  const result = [];
-  Object.keys(state.travellers || {}).forEach(itemId => {
-    const trav = state.travellers[itemId];
-    Object.entries(trav).forEach(([stage, data]) => {
-      if (data && data.status === 'rejected') {
-        // 이미 등록된 NCR인지 확인 (item+stage 기준)
-        const exists = (state.ncrs || []).some(n => n.travItemId === itemId && n.travStage === stage);
-        if (!exists) {
-          result.push({ itemId, stage, memo: data.memo || '검사 부적합', date: data.date, qc: data.qc });
-        }
-      }
-    });
-  });
-  return result;
-}
-
-function renderNCR() {
-  const ncrs = state.ncrs || [];
-  const open = ncrs.filter(n => n.status === 'open').length;
-  const closed = ncrs.filter(n => n.status === 'closed').length;
-  const pending = getTravellerNCRs();  // Traveller 미등록 부적합
-
-  return `
-    <div class="mod-head">
-      <div><div class="mod-title">⚠️ NCR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">부적합 보고서</span></div>
-        <div class="mod-sub">3경로 자동 집계 — 직접발행 · 메일접수 · 검사부적합(Traveller)</div></div>
-      <div style="display:flex;gap:8px;">
-        <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
-        <button class="btn btn-primary" onclick="openNewNCR()">+ NCR 발행</button>
-      </div>
-    </div>
-    <div class="kpi-grid" style="margin-bottom:14px;">
-      <div class="kpi"><div class="kpi-label">진행 중</div><div class="kpi-value" style="color:var(--danger);">${open}</div><div class="kpi-trend">조치 필요</div></div>
-      <div class="kpi"><div class="kpi-label">종결</div><div class="kpi-value" style="color:var(--success);">${closed}</div><div class="kpi-trend">완료</div></div>
-      <div class="kpi"><div class="kpi-label">전체</div><div class="kpi-value">${ncrs.length}</div><div class="kpi-trend">누적</div></div>
-      <div class="kpi"><div class="kpi-label">검사 부적합 대기</div><div class="kpi-value" style="color:var(--warning);">${pending.length}</div><div class="kpi-trend">NCR 미등록</div></div>
-    </div>
-    ${pending.length ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--warning);">
-      <h3 style="font-size:14px;margin-bottom:10px;">🔧 Traveller 검사 부적합 — NCR 발행 대기 (${pending.length})</h3>
-      ${pending.map(p => {
-        const it = findItemById(p.itemId);
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-light);gap:8px;">
-          <div style="flex:1;"><div style="font-size:13px;font-weight:500;">${it?.tag||p.itemId} — ${p.stage} 공정</div><div style="font-size:11px;color:var(--text-light);">${p.memo} · ${p.date||''}</div></div>
-          <button class="btn btn-sm" onclick="issueNCRFromTrav('${p.itemId}','${p.stage}')">→ NCR 발행</button>
-        </div>`;
-      }).join('')}
-    </div>` : ''}
-    <div class="card" style="padding:0;overflow:hidden;">
-      <table class="org-table">
-        <thead><tr><th>NCR No.</th><th>프로젝트</th><th>대상</th><th>등급</th><th>내용</th><th>출처</th><th>발행/기한</th><th>상태</th><th>관리</th></tr></thead>
-        <tbody>
-          ${ncrs.length ? ncrs.map(n => {
-            const p = getP(n.proj);
-            const g = NCR_GRADE[n.grade] || NCR_GRADE.obs;
-            const st = NCR_STATUS[n.status] || NCR_STATUS.open;
-            return `<tr>
-              <td style="font-weight:700;font-size:11px;white-space:nowrap;">${n.id}</td>
-              <td style="font-size:11px;">${p?.code||'-'}</td>
-              <td style="font-size:12px;">${n.item||'-'}</td>
-              <td><span class="b-pill ${g[0]}">${g[1]}</span></td>
-              <td style="font-size:12px;max-width:240px;">${n.desc}</td>
-              <td style="font-size:11px;white-space:nowrap;">${NCR_SOURCE[n.source]||n.source}</td>
-              <td style="font-size:11px;white-space:nowrap;">${n.issuedAt}<br><span style="color:var(--danger);">~${n.dueDate}</span></td>
-              <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
-              <td style="white-space:nowrap;">
-                ${n.carId ? `<span style="font-size:10px;color:var(--primary);">${n.carId}</span>` : `<button class="org-ico-btn" onclick="createCARfromNCR('${n.id}')" title="CAR 발행">🔧</button>`}
-                ${n.status==='open' ? `<button class="org-ico-btn" onclick="closeNCR('${n.id}')" title="종결">✅</button>` : ''}
-              </td>
-            </tr>`;
-          }).join('') : '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light);">등록된 NCR이 없습니다</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function findItemById(itemId) {
-  for (const pid in (state.items||{})) {
-    const it = (state.items[pid]||[]).find(i => i.id === itemId);
-    if (it) return it;
-  }
-  return null;
-}
-
-function openNewNCR() {
-  const projOpts = state.projects.filter(p=>!p.hidden).map(p=>`<option value="${p.id}">${p.code} ${p.name}</option>`).join('');
-  openModal('+ NCR 발행', `
-    <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="ncrProj">${projOpts}</select></div>
-    <div class="fg"><label class="fl">대상 (장비/부위)</label><input class="fi" id="ncrItem" placeholder="예: T-8405 N-9 노즐"></div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">등급</label><select class="fs" id="ncrGrade"><option value="major">중대</option><option value="minor" selected>일반</option><option value="obs">경미</option></select></div>
-      <div style="flex:1;"><label class="fl">조치 기한</label><input class="fi" type="date" id="ncrDue"></div>
-    </div>
-    <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="ncrDesc" rows="3" placeholder="부적합 사항을 기재하세요"></textarea></div>
-  `, () => {
-    const proj = document.getElementById('ncrProj').value;
-    const item = document.getElementById('ncrItem').value.trim();
-    const grade = document.getElementById('ncrGrade').value;
-    const due = document.getElementById('ncrDue').value;
-    const desc = document.getElementById('ncrDesc').value.trim();
-    if (!desc) { alert('부적합 내용을 입력하세요.'); return; }
-    const num = String(state.ncrs.length + 1).padStart(3,'0');
-    state.ncrs.push({
-      id:`NCR-2026-${num}`, proj, item, source:'manual', grade,
-      desc, status:'open', issuedBy:state.currentUser,
-      issuedAt:new Date().toISOString().slice(0,10), dueDate:due||'', carId:null
-    });
-    save(); closeModal(); render();
-  });
-}
-
-// Traveller 부적합 → NCR 발행
-function issueNCRFromTrav(itemId, stage) {
-  const it = findItemById(itemId);
-  const trav = state.travellers[itemId];
-  const data = trav && trav[stage];
-  if (!data) return;
-  // 프로젝트 찾기
-  let proj = null;
-  for (const pid in (state.items||{})) {
-    if ((state.items[pid]||[]).some(i=>i.id===itemId)) { proj = pid; break; }
-  }
-  const num = String(state.ncrs.length + 1).padStart(3,'0');
-  state.ncrs.push({
-    id:`NCR-2026-${num}`, proj, item:it?.tag||itemId, source:'traveller', grade:'major',
-    desc:data.memo||'검사 부적합', status:'open', issuedBy:state.currentUser,
-    issuedAt:data.date||new Date().toISOString().slice(0,10), dueDate:'', carId:null,
-    travItemId:itemId, travStage:stage
-  });
-  save(); render();
-}
-
-function closeNCR(ncrId) {
-  const n = state.ncrs.find(x=>x.id===ncrId);
-  if (!n) return;
-  if (!confirm(`${ncrId}을(를) 종결 처리하시겠습니까?`)) return;
-  n.status = 'closed';
-  n.closedAt = new Date().toISOString().slice(0,10);
-  save(); render();
-}
-
-// NCR → CAR 발행
-function createCARfromNCR(ncrId) {
-  const n = state.ncrs.find(x=>x.id===ncrId);
-  if (!n) return;
-  const userOpts = state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('');
-  openModal(`🔧 CAR 발행 — ${ncrId}`, `
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">${n.desc}</div>
-    <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="carAction" rows="3" placeholder="필요한 시정조치를 기재하세요"></textarea></div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="carAssignee">${userOpts}</select></div>
-      <div style="flex:1;"><label class="fl">완료 기한</label><input class="fi" type="date" id="carDue"></div>
-    </div>
-  `, () => {
-    const action = document.getElementById('carAction').value.trim();
-    const assignee = document.getElementById('carAssignee').value;
-    const due = document.getElementById('carDue').value;
-    if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
-    const num = String(state.cars.length + 1).padStart(3,'0');
-    const carId = `CAR-2026-${num}`;
-    state.cars.push({
-      id:carId, ncrId, proj:n.proj, action, assignee, status:'in-progress',
-      requestedAt:new Date().toISOString().slice(0,10), dueDate:due||'', closedAt:null
-    });
-    n.carId = carId;
-    save(); closeModal(); render();
-  });
-}
-
-// ══════════ CAR 관리 (시정조치 요청서) ══════════
-const CAR_STATUS = { 'in-progress':['orange','조치중'], 'replied':['blue','회신완료'], 'closed':['green','완료'] };
-
-function renderCAR() {
-  const cars = state.cars || [];
-  const inProg = cars.filter(c=>c.status==='in-progress').length;
-  const done = cars.filter(c=>c.status==='closed').length;
-
-  return `
-    <div class="mod-head">
-      <div><div class="mod-title">🔧 CAR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">시정조치 요청서</span></div>
-        <div class="mod-sub">NCR 연계 또는 단독 발행 · 시정조치 요청 · 회신 · 완료 추적</div></div>
-      <div style="display:flex;gap:8px;">
-        <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
-        <button class="btn btn-primary" onclick="openNewCAR()">+ CAR 발행</button>
-      </div>
-    </div>
-    <div class="kpi-grid" style="margin-bottom:14px;">
-      <div class="kpi"><div class="kpi-label">조치 중</div><div class="kpi-value" style="color:var(--warning);">${inProg}</div><div class="kpi-trend">진행</div></div>
-      <div class="kpi"><div class="kpi-label">완료</div><div class="kpi-value" style="color:var(--success);">${done}</div><div class="kpi-trend">종결</div></div>
-      <div class="kpi"><div class="kpi-label">전체</div><div class="kpi-value">${cars.length}</div><div class="kpi-trend">누적</div></div>
-    </div>
-    <div class="card" style="padding:0;overflow:hidden;">
-      <table class="org-table">
-        <thead><tr><th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>시정조치</th><th>담당</th><th>요청/기한</th><th>상태</th><th>관리</th></tr></thead>
-        <tbody>
-          ${cars.length ? cars.map(c => {
-            const p = getP(c.proj);
-            const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
-            return `<tr>
-              <td style="font-weight:700;font-size:11px;white-space:nowrap;">${c.id}</td>
-              <td style="font-size:11px;color:var(--primary);">${c.ncrId || '<span style="color:var(--text-lighter);">단독 발행</span>'}</td>
-              <td style="font-size:11px;">${p?.code||'-'}</td>
-              <td style="font-size:12px;max-width:260px;">${c.action}</td>
-              <td style="font-size:12px;white-space:nowrap;">${getU(c.assignee)?.name||'-'}</td>
-              <td style="font-size:11px;white-space:nowrap;">${c.requestedAt}<br><span style="color:var(--danger);">~${c.dueDate}</span></td>
-              <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
-              <td style="white-space:nowrap;">
-                ${c.status!=='closed' ? `<button class="org-ico-btn" onclick="closeCAR('${c.id}')" title="완료 처리">✅</button>` : ''}
-              </td>
-            </tr>`;
-          }).join('') : '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light);">등록된 CAR이 없습니다 — [+ CAR 발행] 또는 NCR 관리에서 발행하세요</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function closeCAR(carId) {
-  const c = state.cars.find(x=>x.id===carId);
-  if (!c) return;
-  if (!confirm(`${carId}을(를) 완료 처리하시겠습니까?`)) return;
-  c.status = 'closed';
-  c.closedAt = new Date().toISOString().slice(0,10);
-  // 연계 NCR이 있으면 종결 제안 (단독 발행은 생략)
-  if (c.ncrId) {
-    const n = (state.ncrs||[]).find(x=>x.id===c.ncrId);
-    if (n && n.status==='open' && confirm(`연계된 ${n.id}도 종결 처리할까요?`)) {
-      n.status = 'closed';
-      n.closedAt = new Date().toISOString().slice(0,10);
-    }
-  }
-  save(); render();
-}
-
-// CAR 단독 발행 (NCR 연계 없이)
-function openNewCAR() {
-  const projOpts = state.projects.filter(p=>!p.hidden).map(p=>`<option value="${p.id}">${p.code} ${p.name}</option>`).join('');
-  const userOpts = state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('');
-  openModal('+ CAR 발행 (단독)', `
-    <div style="font-size:11px;color:var(--text-light);margin-bottom:12px;background:var(--bg);padding:8px 12px;border-radius:6px;">NCR 없이 단독으로 발행되는 시정조치 요청입니다 (고객 직접 요청·내부 개선 지시 등).</div>
-    <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="carProj">${projOpts}</select></div>
-    <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="carNewAction" rows="3" placeholder="필요한 시정조치를 기재하세요"></textarea></div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="carNewAssignee">${userOpts}</select></div>
-      <div style="flex:1;"><label class="fl">완료 기한</label><input class="fi" type="date" id="carNewDue"></div>
-    </div>
-  `, () => {
-    const proj = document.getElementById('carProj').value;
-    const action = document.getElementById('carNewAction').value.trim();
-    const assignee = document.getElementById('carNewAssignee').value;
-    const due = document.getElementById('carNewDue').value;
-    if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
-    const num = String(state.cars.length + 1).padStart(3,'0');
-    state.cars.push({
-      id:`CAR-2026-${num}`, ncrId:null, proj, action, assignee, status:'in-progress',
-      requestedAt:new Date().toISOString().slice(0,10), dueDate:due||'', closedAt:null
-    });
-    save(); closeModal(); render();
-  });
-}
 
 // QA Doc 프로젝트 선택 화면 (ITP Builder 패턴)
 function renderQAProjects() {

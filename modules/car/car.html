@@ -4,6 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CAR 관리</title>
+<script type="module">
+  // Firebase Firestore — CAR 데이터(및 참조용 NCR)를 index.html과 공유. v29.8: 기존엔
+  // localStorage에만 저장되어 기기/브라우저마다 CAR 목록이 따로 놀았음(전사 공유 안 됨).
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, setDoc, deleteDoc, collection, onSnapshot };
+</script>
 <style>
 :root {
   --primary: #1976D2; --primary-hover: #1565C0; --primary-light: #E3F2FD;
@@ -209,10 +227,47 @@ function loadState() {
   if (!state.users)         state.users = [];
 }
 
+// v29.8: state.cars를 Firestore와 실시간 동기화 (ncr.html과 동일한 방식).
+// ncrs는 CAR가 참조만 하므로(생성/수정 안 함) 읽기 전용으로만 구독.
+const _lastSynced = { cars: [] };
+async function syncArrayToFirestore(coll, arr) {
+  if (!window.fb || !fb.db) return;
+  const current = arr || [];
+  const prevMap = new Map((_lastSynced[coll]||[]).map(x => [x.id, x]));
+  const currMap = new Map(current.map(x => [x.id, x]));
+  const jobs = [];
+  currMap.forEach((x, id) => {
+    const prev = prevMap.get(id);
+    if (!prev || JSON.stringify(prev) !== JSON.stringify(x)) {
+      jobs.push(fb.setDoc(fb.doc(fb.db, coll, id), x).catch(e => console.error(`[${coll} 동기화]`, e)));
+    }
+  });
+  prevMap.forEach((x, id) => {
+    if (!currMap.has(id)) jobs.push(fb.deleteDoc(fb.doc(fb.db, coll, id)).catch(e => console.error(`[${coll} 동기화]`, e)));
+  });
+  if (jobs.length) await Promise.all(jobs);
+  _lastSynced[coll] = JSON.parse(JSON.stringify(current));
+}
+function startCarFirestoreSync() {
+  if (!window.fb || !fb.db) { setTimeout(startCarFirestoreSync, 300); return; }
+  fb.onSnapshot(fb.collection(fb.db, 'cars'), snap => {
+    state.cars = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    _lastSynced.cars = JSON.parse(JSON.stringify(state.cars));
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    render();
+  }, e => console.error('[cars 동기화 구독]', e));
+  fb.onSnapshot(fb.collection(fb.db, 'ncrs'), snap => {
+    state.ncrs = snap.docs.map(d => ({ ...d.data(), id: d.id })); // 읽기 전용(참조용)
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    render();
+  }, e => console.error('[ncrs(참조) 동기화 구독]', e));
+}
+
 function save() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
     try { window.parent.render(); } catch(e) {}
+    syncArrayToFirestore('cars', state.cars);
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) alert('⚠️ 저장 공간 부족. 관리자에게 문의하세요.');
   }
@@ -1157,6 +1212,7 @@ function closeCARParseModal() { document.getElementById('car-parse-modal').class
 /* ═══ 초기화 ═══ */
 loadState();
 render();
+startCarFirestoreSync();
 </script>
 </body>
 </html>
