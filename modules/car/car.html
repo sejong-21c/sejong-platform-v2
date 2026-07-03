@@ -12,6 +12,7 @@
   --border: #E0E0E0; --border-light: #F0F0F0;
   --text: #333; --text-light: #666; --text-lighter: #999;
   --radius: 8px;
+  --car: #0369a1; --car-light: #f0f9ff; --car-border: #bae6fd;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
@@ -47,19 +48,62 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .mod-sub { font-size: 12px; color: var(--text-light); margin-top: 2px; }
 .back-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--white); cursor: pointer; font-size: 12px; font-family: inherit; }
 .back-btn:hover { background: var(--bg); }
-
 #app { flex: 1; overflow-y: auto; padding: 24px; }
-
 .car-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
 .car-filter select, .car-filter input { padding: 5px 9px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12px; background: #fff; font-family: inherit; }
-
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
 .overlay.active { display: flex; }
-.modal-box { background: var(--white); border-radius: 12px; width: 100%; max-width: 480px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+.modal-box { background: var(--white); border-radius: 12px; width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
 .modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 .modal-head h3 { font-size: 15px; font-weight: 700; }
 .modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
 .modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+
+/* CAR 경향분석 모달 */
+#car-trend-modal { display: none; position: fixed; inset: 0; background: #fff; z-index: 300; flex-direction: column; overflow: hidden; }
+#car-trend-modal.open { display: flex; }
+.ctr-head { background: var(--car); color: #fff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.ctr-head h3 { font-size: 16px; font-weight: 700; margin: 0; }
+.ctr-toolbar { background: var(--car-light); border-bottom: 1px solid var(--car-border); padding: 10px 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+.ctr-toolbar select, .ctr-toolbar input { padding: 6px 10px; border: 1.5px solid var(--car-border); border-radius: 6px; font-size: 13px; background: #fff; font-family: inherit; }
+.ctr-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.ctr-section { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.ctr-section h4 { font-size: 13px; font-weight: 700; color: var(--car); margin: 0 0 14px; }
+.ctr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.ctr-chart-wrap { background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow: hidden; }
+.ctr-chart-title { font-size: 12px; font-weight: 700; color: var(--text-light); margin-bottom: 10px; }
+.ctr-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.ctr-kpi { background: var(--car-light); border-radius: 8px; padding: 14px; text-align: center; }
+.ctr-kpi .val { font-size: 28px; font-weight: 800; color: var(--car); }
+.ctr-kpi .lbl { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+.ctr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ctr-table th { background: var(--car-light); color: var(--car); font-weight: 700; padding: 8px 12px; text-align: left; border-bottom: 2px solid var(--car-border); }
+.ctr-table td { padding: 7px 12px; border-bottom: 1px solid var(--border-light); }
+.ctr-table tr:hover td { background: var(--car-light); }
+.ctr-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; background: #fff; }
+
+/* CAR 파일 파싱 모달 */
+#car-parse-modal { display: none; position: fixed; inset: 0; background: #fff; z-index: 300; align-items: stretch; justify-content: stretch; }
+#car-parse-modal.open { display: flex; }
+.cpm-box { background: #fff; width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.cpm-head { background: var(--primary); color: #fff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.cpm-head h3 { font-size: 15px; font-weight: 700; margin: 0; }
+.cpm-content { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.cpm-left { flex: 0 0 50%; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; background: #f5f5f5; }
+.cpm-left-head { padding: 8px 12px; background: var(--bg); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text-light); flex-shrink: 0; }
+.cpm-left-img-wrap { flex: 1; overflow-y: auto; padding: 8px; }
+.cpm-right { flex: 1; overflow-y: auto; }
+.cpm-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.cpm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cpm-field { display: flex; flex-direction: column; gap: 4px; }
+.cpm-field label { font-size: 12px; font-weight: 600; color: var(--text-light); }
+.cpm-field input, .cpm-field select, .cpm-field textarea { width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+.cpm-field input:focus, .cpm-field select:focus, .cpm-field textarea:focus { outline: none; border-color: var(--primary); }
+.cpm-field textarea { resize: vertical; min-height: 70px; }
+.cpm-parse-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+.cpm-parse-badge.found  { background: #E8F5E9; color: #2E7D32; }
+.cpm-parse-badge.manual { background: #FFF3E0; color: #E65100; }
+.cpm-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; background: #fff; }
 </style>
 </head>
 <body>
@@ -81,19 +125,88 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   </div>
 </div>
 
+<!-- CAR 경향분석 팝업 -->
+<div id="car-trend-modal">
+  <div class="ctr-head">
+    <h3>📊 CAR 품질 경향분석</h3>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="printCARTrend()" style="background:#fff;color:var(--car);border:none;padding:6px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">🖨️ 보고서 출력</button>
+      <button onclick="closeCARTrend()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1;">×</button>
+    </div>
+  </div>
+  <div class="ctr-toolbar">
+    <span style="font-size:12px;font-weight:700;color:var(--car);">📅 기간</span>
+    <select id="ctr-year" onchange="renderCARTrend()"><option value="">전체 연도</option></select>
+    <select id="ctr-month" onchange="renderCARTrend()">
+      <option value="">전체 월</option>
+      <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
+      <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
+      <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
+      <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+    </select>
+    <span style="font-size:12px;font-weight:700;color:var(--car);margin-left:8px;">📁 프로젝트</span>
+    <select id="ctr-proj" onchange="renderCARTrend()"><option value="">전체 프로젝트</option></select>
+    <span id="ctr-count" style="font-size:12px;color:var(--car);font-weight:600;margin-left:8px;"></span>
+  </div>
+  <div class="ctr-body" id="ctr-body"></div>
+  <div class="ctr-footer">
+    <button class="btn" onclick="closeCARTrend()" style="background:var(--bg);color:var(--text);">닫기</button>
+    <button class="btn" onclick="printCARTrend()" style="background:var(--car);color:#fff;border-color:var(--car);">🖨️ 보고서 출력</button>
+  </div>
+</div>
+
+<!-- CAR 파일 파싱 모달 -->
+<div id="car-parse-modal">
+  <div class="cpm-box">
+    <div class="cpm-head">
+      <h3>📎 CAR 파일 파싱 결과</h3>
+      <button onclick="closeCARParseModal()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div class="cpm-content">
+      <div class="cpm-left">
+        <div class="cpm-left-head">📄 원본 문서</div>
+        <div id="car-parse-file" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+          <div style="padding:16px;color:var(--text-light);font-size:13px;">파일을 불러오는 중...</div>
+        </div>
+      </div>
+      <div class="cpm-right">
+        <div class="cpm-body" id="car-parse-body"></div>
+      </div>
+    </div>
+    <div class="cpm-footer">
+      <button class="btn" onclick="closeCARParseModal()" style="background:var(--bg);color:var(--text);">취소</button>
+      <button class="btn btn-primary" onclick="confirmCARParse()">✅ CAR 등록</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="car-file-input" accept=".pdf,.docx" style="display:none" onchange="handleCARFile(this)">
+
 <script>
 const KEY = 'SJ_FLOW_V04';
 const CAR_STATUS = { 'in-progress':['orange','조치중'], 'replied':['blue','회신완료'], 'closed':['green','완료'] };
+const CAR_QUAL_REQ = [
+  '1장. 품질보증 조직','2장. 품질보증 프로그램','3장. 설계관리',
+  '4장. 조달관리','5장. 지시, 절차서 및 도면','6장. 문서관리',
+  '7장. 구매품목 및 서비스 관리','8장. 식별 및 추적관리',
+  '9장. 특수공정 관리','10장. 검사','11장. 시험관리',
+  '12장. 계측기기 관리','13장. 취급, 저장 및 운반',
+  '14장. 검사·시험 및 운전상태 표시','15장. 부적합품 관리',
+  '16장. 시정조치','17장. 품질보증기록','18장. 감사'
+];
+const CAR_FIELD = ['관리','설계','구매','제작','공사','검사 및 시험','기록','기타'];
+const CAR_CAUSE = ['업무지연','절차미준수','교육부족','인력부족','장비불량','환경미비','위변조','기타'];
 
 let state = {};
 let filterState = { proj: '', status: '', search: '' };
 
 function loadState() {
   try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { state = {}; }
-  if (!state.cars)     state.cars = [];
-  if (!state.ncrs)     state.ncrs = [];
-  if (!state.projects) state.projects = [];
-  if (!state.users)    state.users = [];
+  if (!state.cars)          state.cars = [];
+  if (!state.carDeleteReqs) state.carDeleteReqs = [];
+  if (!state.ncrs)          state.ncrs = [];
+  if (!state.projects)      state.projects = [];
+  if (!state.users)         state.users = [];
 }
 
 function save() {
@@ -108,15 +221,41 @@ function save() {
 function getP(id) { return (state.projects||[]).find(p => p.id === id) || {}; }
 function getU(id) { return (state.users||[]).find(u => u.id === id) || {}; }
 
+function _toBlobUrl(dataUrl) {
+  const [header, b64] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)?.[1] || 'application/octet-stream';
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([arr], { type: mime }));
+}
+
 /* ═══ 모달 ═══ */
+let _modalConfirmFn = null;
 function openModal(title, html, onConfirm) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = html;
+  _modalConfirmFn = onConfirm || null;
   const btn = document.getElementById('modal-confirm');
-  btn.onclick = onConfirm || closeModal;
+  btn.style.display = onConfirm ? '' : 'none';
   document.getElementById('modal').classList.add('active');
 }
-function closeModal() { document.getElementById('modal').classList.remove('active'); }
+function closeModal() { document.getElementById('modal').classList.remove('active'); _modalConfirmFn = null; }
+document.getElementById('modal-confirm').onclick = () => { if (_modalConfirmFn) _modalConfirmFn(); };
+
+/* ═══ 셀렉트 옵션 헬퍼 ═══ */
+function _opts(arr, sel='') {
+  return ['<option value="">— 미선택 —</option>',
+    ...arr.map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`)].join('');
+}
+
+function _deptOpts(sel='') {
+  const DEPT_LIST = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'];
+  const fromUsers = [...new Set((state.users||[]).map(u=>u.dept).filter(Boolean))];
+  const merged = [...new Set([...DEPT_LIST, ...fromUsers])];
+  return ['<option value="">— 미선택 —</option>',
+    ...merged.map(d=>`<option value="${d}" ${d===sel?'selected':''}>${d}</option>`)].join('');
+}
 
 /* ═══ 메인 렌더 ═══ */
 function render() {
@@ -133,20 +272,27 @@ function render() {
     if (search) {
       const q = search.toLowerCase();
       const p = getP(c.proj);
-      if (!([c.id, c.ncrId||'', c.action, p?.code||'', p?.name||'', getU(c.assignee)?.name||''].join(' ').toLowerCase().includes(q))) return false;
+      if (!([c.id, c.ncrId||'', c.action, p?.code||'', p?.name||'',
+             c.reqDept||'', c.meta?.client||'', c.qualReq||'', c.field||''].join(' ').toLowerCase().includes(q))) return false;
     }
     return true;
   });
 
-  const inProg   = cars.filter(c => c.status === 'in-progress').length;
-  const replied  = cars.filter(c => c.status === 'replied').length;
-  const done     = cars.filter(c => c.status === 'closed').length;
+  const cu = (state.users||[]).find(u => u.id === state.currentUser) || {};
+  const isQualityHead = cu?.grade === 'super' || (cu?.dept === '품질관리부' && cu?.title === '부장');
+  const deleteReqs = (state.carDeleteReqs||[]).filter(r => r.status === 'pending');
 
-  const projDropdown = [
-    `<option value="">전체 프로젝트</option>`,
-    ...(state.projects||[]).filter(p=>!p.hidden).map(p =>
-      `<option value="${p.id}" ${filterState.proj===p.id?'selected':''}>${p.code} ${p.name}</option>`)
-  ];
+  const inProg  = cars.filter(c => c.status === 'in-progress').length;
+  const replied = cars.filter(c => c.status === 'replied').length;
+  const done    = cars.filter(c => c.status === 'closed').length;
+
+  const usedProjs = new Set(cars.map(c => c.proj));
+  const projDropdown = ['<option value="">전체 프로젝트</option>'];
+  usedProjs.forEach(pid => {
+    const p = getP(pid);
+    if (p?.id) projDropdown.push(`<option value="${pid}" ${filterState.proj===pid?'selected':''}>${p.code} ${p.name}</option>`);
+    else if (!pid || pid === '__direct__') projDropdown.push(`<option value="${pid}" ${filterState.proj===pid?'selected':''}>직접입력</option>`);
+  });
 
   document.getElementById('app').innerHTML = `
     <div class="mod-head">
@@ -154,8 +300,10 @@ function render() {
         <div class="mod-title">🔧 CAR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">시정조치 요청서</span></div>
         <div class="mod-sub">NCR 연계 또는 단독 발행 · 시정조치 요청 · 회신 · 완료 추적</div>
       </div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="back-btn" onclick="try{window.parent.closeTool();}catch(e){}">← 도구함 닫기</button>
+        <button class="btn" onclick="openCARTrend()">📊 경향분석</button>
+        <button class="btn" onclick="document.getElementById('car-file-input').click()">📎 파일로 등록</button>
         <button class="btn btn-primary" onclick="openNewCAR()">+ CAR 발행</button>
       </div>
     </div>
@@ -167,6 +315,26 @@ function render() {
       <div class="kpi"><div class="kpi-label">전체</div><div class="kpi-value">${cars.length}</div><div class="kpi-trend">누적</div></div>
     </div>
 
+    ${(isQualityHead && deleteReqs.length) ? `
+    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--danger);">
+      <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);">🗑️ CAR 삭제 승인 요청 (${deleteReqs.length}건)</h3>
+      ${deleteReqs.map(r => {
+        const c = cars.find(x => x.id === r.carId);
+        const ru = (state.users||[]).find(u => u.id === r.requestedBy) || {};
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-light);gap:8px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${r.carId}</div>
+            <div style="font-size:11px;color:var(--text-light);">요청: ${ru?.name||'-'} · ${r.requestedAt} · 사유: ${r.reason||'-'}</div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:2px;">${c?.action||''}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" onclick="approveCARDelete('${r.id}')">승인·삭제</button>
+            <button class="btn btn-sm" onclick="rejectCARDelete('${r.id}')">반려</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
     <div class="car-filter">
       <select onchange="filterState.proj=this.value;render()">${projDropdown.join('')}</select>
       <select onchange="filterState.status=this.value;render()">
@@ -175,8 +343,9 @@ function render() {
         <option value="replied"     ${filterState.status==='replied'    ?'selected':''}>회신완료</option>
         <option value="closed"      ${filterState.status==='closed'     ?'selected':''}>완료</option>
       </select>
-      <input id="car-search-input" placeholder="🔍 검색 (No./내용/담당자)" value="${filterState.search}"
-        oninput="filterState.search=this.value;render()" style="min-width:200px;">
+      <input id="car-search-input" placeholder="🔍 검색 (No./내용/담당자/고객)" value="${filterState.search}"
+        oninput="filterState.search=this.value;if(!event.isComposing)render();"
+        oncompositionend="filterState.search=this.value;render();" style="min-width:200px;">
       ${(filterState.proj||filterState.status||filterState.search)
         ? `<button class="btn btn-sm" onclick="filterState={proj:'',status:'',search:''};render()">✕ 초기화</button>` : ''}
       <span style="font-size:12px;color:var(--text-light);margin-left:auto;">${filtered.length}/${cars.length}건</span>
@@ -185,33 +354,47 @@ function render() {
     <div class="card" style="padding:0;overflow:hidden;">
       <table class="org-table">
         <thead><tr>
-          <th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>시정조치 내용</th>
-          <th>담당자</th><th>요청일</th><th>기한</th><th>완료일</th><th>상태</th><th>관리</th>
+          <th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>고객명</th>
+          <th>시정조치 내용</th><th>발생분야</th><th>원인</th><th>요구부서</th>
+          <th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th><th>관리</th>
         </tr></thead>
         <tbody>
           ${filtered.length ? filtered.map(c => {
             const p  = getP(c.proj);
             const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
+            const overdue = c.replyDue && c.status==='in-progress' && c.replyDue < new Date().toISOString().slice(0,10);
             return `<tr>
               <td style="font-weight:700;font-size:11px;white-space:nowrap;">${c.id}</td>
-              <td style="font-size:11px;color:var(--primary);">
-                ${c.ncrId
-                  ? `<span style="cursor:pointer;text-decoration:underline;" title="${c.ncrId}">${c.ncrId}</span>`
-                  : `<span style="color:var(--text-lighter);">단독 발행</span>`}
-              </td>
+              <td style="font-size:11px;color:var(--primary);">${c.ncrId||'<span style="color:var(--text-lighter);">단독</span>'}</td>
               <td style="font-size:11px;">${p?.code||'-'}</td>
-              <td style="font-size:12px;max-width:240px;">${c.action}</td>
-              <td style="font-size:12px;white-space:nowrap;">${getU(c.assignee)?.name||'-'}</td>
-              <td style="font-size:11px;white-space:nowrap;">${c.requestedAt||'-'}</td>
-              <td style="font-size:11px;white-space:nowrap;${c.dueDate&&c.status!=='closed'&&c.dueDate<new Date().toISOString().slice(0,10)?'color:var(--danger);font-weight:700;':''}">${c.dueDate||'-'}</td>
+              <td style="font-size:11px;">${c.meta?.client||'-'}</td>
+              <td style="font-size:12px;max-width:180px;">${c.action}</td>
+              <td style="font-size:11px;">${c.field||'-'}</td>
+              <td style="font-size:11px;">${c.cause||'-'}</td>
+              <td style="font-size:12px;white-space:nowrap;">${c.reqDept||'-'}</td>
+              <td style="font-size:11px;white-space:nowrap;">${c.issuedAt||'-'}</td>
+              <td style="font-size:11px;white-space:nowrap;${overdue?'color:var(--danger);font-weight:700;':''}">${c.replyDue||'-'}</td>
+              <td style="font-size:11px;white-space:nowrap;color:var(--primary);">${c.repliedAt||'-'}</td>
+              <td style="font-size:11px;white-space:nowrap;color:var(--warning);">${c.actionAt||'-'}</td>
               <td style="font-size:11px;white-space:nowrap;color:var(--success);">${c.closedAt||'-'}</td>
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
               <td style="white-space:nowrap;">
                 <button class="org-ico-btn" onclick="openCARMgr('${c.id}')" title="상세/수정">📋</button>
-                ${c.status!=='closed' ? `<button class="org-ico-btn" onclick="closeCAR('${c.id}')" title="완료 처리">✅</button>` : ''}
+                ${c.meta?.fileDataUrl ? `<button class="org-ico-btn" onclick="viewCARFile('${c.id}')" title="파일 보기">📄</button>` : ''}
+                ${(()=>{
+                  const pendingReq = (state.carDeleteReqs||[]).find(r => r.carId === c.id && r.status === 'pending');
+                  if (pendingReq) {
+                    const canCancel = pendingReq.requestedBy === state.currentUser || isQualityHead;
+                    return `<span style="font-size:10px;color:var(--danger);white-space:nowrap;">삭제대기</span>`
+                      + (canCancel ? `<button class="org-ico-btn" onclick="cancelCARDelete('${pendingReq.id}')" title="삭제 요청 취소" style="color:var(--text-light);">↩</button>` : '');
+                  }
+                  if (isQualityHead) return `<button class="org-ico-btn" onclick="approveCARDeleteDirect('${c.id}')" title="즉시 삭제" style="color:var(--danger);">🗑️</button>`;
+                  if (cu?.dept === '품질관리부') return `<button class="org-ico-btn" onclick="requestCARDelete('${c.id}')" title="삭제 요청" style="color:var(--danger);">🗑️</button>`;
+                  return '';
+                })()}
               </td>
             </tr>`;
-          }).join('') : `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light);">등록된 CAR이 없습니다 — [+ CAR 발행] 또는 NCR 관리에서 발행하세요</td></tr>`}
+          }).join('') : `<tr><td colspan="13" style="text-align:center;padding:30px;color:var(--text-light);">등록된 CAR이 없습니다</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -223,36 +406,61 @@ function render() {
   }
 }
 
-/* ═══ CAR 발행 (단독) ═══ */
+/* ═══ CAR 발행 ═══ */
 function openNewCAR() {
-  const projOpts = (state.projects||[]).filter(p=>!p.hidden)
-    .map(p=>`<option value="${p.id}">${p.code} ${p.name}</option>`).join('');
-  const userOpts = (state.users||[])
-    .map(u=>`<option value="${u.id}">${u.name} ${u.title||''}</option>`).join('');
-
-  openModal('+ CAR 발행 (단독)', `
-    <div style="font-size:11px;color:var(--text-light);margin-bottom:14px;background:var(--bg);padding:8px 12px;border-radius:6px;">
-      NCR 없이 단독으로 발행되는 시정조치 요청입니다 (고객 직접 요청·내부 개선 지시 등).
+  const projOpts = [
+    '<option value="__direct__">✏️ 직접 입력</option>',
+    ...(state.projects||[]).filter(p=>!p.hidden).map(p=>`<option value="${p.id}">${p.code} ${p.name}</option>`)
+  ].join('');
+  openModal('+ CAR 발행', `
+    <div class="fg">
+      <label class="fl">프로젝트</label>
+      <select class="fs" id="carProj" onchange="document.getElementById('carProjDirect').style.display=this.value==='__direct__'?'block':'none'">${projOpts}</select>
+      <input class="fi" id="carProjDirect" placeholder="프로젝트명 직접 입력" style="margin-top:6px;display:none;">
     </div>
-    <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="carProj">${projOpts}</select></div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">고객명</label><input class="fi" id="carClient" placeholder="고객사명"></div>
+      <div style="flex:1;"><label class="fl">발행일자</label><input class="fi" type="date" id="carIssuedAt"></div>
+    </div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">도면번호</label><input class="fi" id="carDwg" placeholder="도면번호"></div>
+      <div style="flex:1;"><label class="fl">W.R No.</label><input class="fi" id="carWr" placeholder="W.R No."></div>
+    </div>
+    <div class="fg"><label class="fl">품질요건</label><select class="fs" id="carQualReq">${_opts(CAR_QUAL_REQ)}</select></div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">발생분야</label><select class="fs" id="carField">${_opts(CAR_FIELD)}</select></div>
+      <div style="flex:1;"><label class="fl">원인</label><select class="fs" id="carCause">${_opts(CAR_CAUSE)}</select></div>
+    </div>
     <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="carAction" rows="3" placeholder="필요한 시정조치를 기재하세요"></textarea></div>
     <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="carAssignee">${userOpts}</select></div>
-      <div style="flex:1;"><label class="fl">완료 기한</label><input class="fi" type="date" id="carDue"></div>
+      <div style="flex:1;"><label class="fl">시정조치요구부서</label><select class="fs" id="carReqDept">${_deptOpts()}</select></div>
+      <div style="flex:1;"><label class="fl">회신기한</label><input class="fi" type="date" id="carReplyDue"></div>
     </div>
   `, () => {
-    const proj     = document.getElementById('carProj').value;
-    const action   = document.getElementById('carAction').value.trim();
-    const assignee = document.getElementById('carAssignee').value;
-    const due      = document.getElementById('carDue').value;
+    const proj      = document.getElementById('carProj').value;
+    const projDirect= document.getElementById('carProjDirect').value.trim();
+    const client    = document.getElementById('carClient').value.trim();
+    const issuedAt  = document.getElementById('carIssuedAt').value;
+    const dwgNo     = document.getElementById('carDwg').value.trim();
+    const wrNo      = document.getElementById('carWr').value.trim();
+    const qualReq   = document.getElementById('carQualReq').value;
+    const field     = document.getElementById('carField').value;
+    const cause     = document.getElementById('carCause').value;
+    const action    = document.getElementById('carAction').value.trim();
+    const reqDept   = document.getElementById('carReqDept').value.trim();
+    const replyDue  = document.getElementById('carReplyDue').value;
     if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
     if (!state.cars) state.cars = [];
     const num = String(state.cars.length + 1).padStart(3,'0');
+    const today = new Date().toISOString().slice(0,10);
     state.cars.push({
       id: `CAR-${new Date().getFullYear()}-${num}`,
-      ncrId: null, proj, action, assignee, status: 'in-progress',
-      requestedAt: new Date().toISOString().slice(0,10),
-      dueDate: due||'', closedAt: null
+      ncrId: null, proj, action, reqDept, status: 'in-progress',
+      qualReq, field, cause,
+      issuedAt: issuedAt || today,
+      replyDue: replyDue || '',
+      repliedAt: '', actionAt: '', closedAt: null,
+      meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__' ? projDirect : '' }
     });
     save(); closeModal(); render();
   });
@@ -264,20 +472,34 @@ function openCARMgr(carId) {
   if (!c) return;
   const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
   const p  = getP(c.proj);
-  const projName = p?.code ? `${p.code} ${p.name}` : '-';
-  const userOpts = (state.users||[])
-    .map(u=>`<option value="${u.id}" ${u.id===c.assignee?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
-
+  const projName = c.proj==='__direct__' ? (c.meta?.projDirect||'직접입력') : (p?.code ? `${p.code} ${p.name}` : '-');
   openModal(`📋 CAR 관리 — ${c.id}`, `
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
       <span class="b-pill ${st[0]}">${st[1]}</span>
-      <span style="font-size:12px;color:var(--text-light);">${projName} · 요청일: ${c.requestedAt||'-'}</span>
+      <span style="font-size:12px;color:var(--text-light);">${projName} · 발행일: ${c.issuedAt||'-'}</span>
       ${c.ncrId ? `<span style="font-size:12px;color:var(--primary);">연계: ${c.ncrId}</span>` : ''}
+    </div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">고객명</label><input class="fi" id="mgr-client" value="${c.meta?.client||''}"></div>
+      <div style="flex:1;"><label class="fl">발행일자</label><input class="fi" type="date" id="mgr-issuedAt" value="${c.issuedAt||''}"></div>
+    </div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">도면번호</label><input class="fi" id="mgr-dwg" value="${c.meta?.dwgNo||''}"></div>
+      <div style="flex:1;"><label class="fl">W.R No.</label><input class="fi" id="mgr-wr" value="${c.meta?.wrNo||''}"></div>
+    </div>
+    <div class="fg"><label class="fl">품질요건</label><select class="fs" id="mgr-qualReq">${_opts(CAR_QUAL_REQ, c.qualReq||'')}</select></div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">발생분야</label><select class="fs" id="mgr-field">${_opts(CAR_FIELD, c.field||'')}</select></div>
+      <div style="flex:1;"><label class="fl">원인</label><select class="fs" id="mgr-cause">${_opts(CAR_CAUSE, c.cause||'')}</select></div>
     </div>
     <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="mgr-action" rows="3">${c.action}</textarea></div>
     <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="mgr-assignee">${userOpts}</select></div>
-      <div style="flex:1;"><label class="fl">완료 기한</label><input class="fi" type="date" id="mgr-due" value="${c.dueDate||''}"></div>
+      <div style="flex:1;"><label class="fl">시정조치요구부서</label><select class="fs" id="mgr-reqDept">${_deptOpts(c.reqDept||'')}</select></div>
+      <div style="flex:1;"><label class="fl">회신기한</label><input class="fi" type="date" id="mgr-replyDue" value="${c.replyDue||''}"></div>
+    </div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">회신일자</label><input class="fi" type="date" id="mgr-repliedAt" value="${c.repliedAt||''}"></div>
+      <div style="flex:1;"><label class="fl">조치일자</label><input class="fi" type="date" id="mgr-actionAt" value="${c.actionAt||''}"></div>
     </div>
     <div class="fg">
       <label class="fl">상태</label>
@@ -288,19 +510,48 @@ function openCARMgr(carId) {
       </select>
     </div>
     <div class="fg">
-      <label class="fl">완료일 <span style="font-size:11px;color:var(--text-light);">(상태가 완료일 때 자동 입력)</span></label>
+      <label class="fl">종결일자 <span style="font-size:11px;color:var(--text-light);">(상태가 완료일 때 자동 입력)</span></label>
       <input class="fi" type="date" id="mgr-closed" value="${c.closedAt||''}">
     </div>
+    <div class="fg">
+      <label class="fl">첨부파일 업데이트</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('mgr-car-file-input').click()">📎 파일 선택</button>
+        <span id="mgr-car-file-name" style="font-size:12px;color:var(--text-light);">${c.meta?.fileName||'없음'}</span>
+        ${c.meta?.fileDataUrl ? `<button type="button" class="btn btn-sm" onclick="viewCARFile('${c.id}')">📄 현재 파일 보기</button>` : ''}
+      </div>
+      <input type="file" id="mgr-car-file-input" accept=".pdf,.docx" style="display:none" onchange="(function(inp){
+        const f=inp.files[0]; if(!f) return;
+        const r=new FileReader();
+        r.onload=function(e){ window._mgrCARFileDataUrl=e.target.result; window._mgrCARFileName=f.name; document.getElementById('mgr-car-file-name').textContent=f.name; };
+        r.readAsDataURL(f);
+      })(this)">
+    </div>
   `, () => {
-    c.action   = document.getElementById('mgr-action').value.trim() || c.action;
-    c.assignee = document.getElementById('mgr-assignee').value;
-    c.dueDate  = document.getElementById('mgr-due').value;
+    c.action    = document.getElementById('mgr-action').value.trim() || c.action;
+    c.reqDept   = document.getElementById('mgr-reqDept').value.trim();
+    c.qualReq   = document.getElementById('mgr-qualReq').value;
+    c.field     = document.getElementById('mgr-field').value;
+    c.cause     = document.getElementById('mgr-cause').value;
+    c.issuedAt  = document.getElementById('mgr-issuedAt').value || c.issuedAt;
+    c.replyDue  = document.getElementById('mgr-replyDue').value;
+    c.repliedAt = document.getElementById('mgr-repliedAt').value;
+    c.actionAt  = document.getElementById('mgr-actionAt').value;
+    if (!c.meta) c.meta = {};
+    c.meta.client = document.getElementById('mgr-client').value.trim();
+    c.meta.dwgNo  = document.getElementById('mgr-dwg').value.trim();
+    c.meta.wrNo   = document.getElementById('mgr-wr').value.trim();
     const newStatus = document.getElementById('mgr-status').value;
     const closedAt  = document.getElementById('mgr-closed').value;
     if (newStatus === 'closed' && !c.closedAt) c.closedAt = closedAt || new Date().toISOString().slice(0,10);
     else if (newStatus !== 'closed') c.closedAt = closedAt || null;
     else c.closedAt = closedAt;
     c.status = newStatus;
+    if (window._mgrCARFileDataUrl) {
+      c.meta.fileDataUrl = window._mgrCARFileDataUrl;
+      c.meta.fileName = window._mgrCARFileName || '첨부파일';
+      window._mgrCARFileDataUrl = null; window._mgrCARFileName = null;
+    }
     save(); closeModal(); render();
   });
 }
@@ -322,8 +573,590 @@ function closeCAR(carId) {
   save(); render();
 }
 
+/* ═══ 삭제 플로우 ═══ */
+function requestCARDelete(carId) {
+  openModal(`🗑️ CAR 삭제 요청 — ${carId}`, `
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">삭제 요청 후 품질관리부장 승인 시 삭제됩니다.</div>
+    <div class="fg"><label class="fl">삭제 사유</label><textarea class="fi" id="del-reason" rows="3" placeholder="삭제 사유를 입력하세요"></textarea></div>
+  `, () => {
+    const reason = document.getElementById('del-reason').value.trim();
+    if (!reason) { alert('삭제 사유를 입력하세요.'); return; }
+    if (!state.carDeleteReqs) state.carDeleteReqs = [];
+    state.carDeleteReqs.push({ id: 'cdr'+Date.now(), carId, requestedBy: state.currentUser, requestedAt: new Date().toISOString().slice(0,10), reason, status: 'pending' });
+    save(); closeModal(); render();
+  });
+}
+
+function cancelCARDelete(reqId) {
+  const req = (state.carDeleteReqs||[]).find(r => r.id === reqId);
+  if (!req) return;
+  req.status = 'cancelled';
+  save(); render();
+}
+
+function approveCARDelete(reqId) {
+  const req = (state.carDeleteReqs||[]).find(r => r.id === reqId);
+  if (!req || !confirm(`CAR [${req.carId}] 을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+  state.cars = (state.cars||[]).filter(c => c.id !== req.carId);
+  req.status = 'approved';
+  save(); render();
+}
+
+function rejectCARDelete(reqId) {
+  const req = (state.carDeleteReqs||[]).find(r => r.id === reqId);
+  if (!req) return;
+  req.status = 'rejected';
+  save(); render();
+}
+
+function approveCARDeleteDirect(carId) {
+  if (!confirm(`CAR [${carId}] 을 즉시 삭제하시겠습니까?`)) return;
+  state.carDeleteReqs = (state.carDeleteReqs||[]).filter(r => r.carId !== carId);
+  state.cars = (state.cars||[]).filter(c => c.id !== carId);
+  save(); render();
+}
+
+function viewCARFile(carId) {
+  const c = (state.cars||[]).find(x => x.id === carId);
+  if (!c?.meta?.fileDataUrl) { alert('저장된 파일이 없습니다.'); return; }
+  window.open(_toBlobUrl(c.meta.fileDataUrl), '_blank');
+}
+
+/* ═══ 차트 헬퍼 (NCR과 동일) ═══ */
+function _count(arr, key) {
+  return arr.reduce((acc, n) => { acc[n[key]] = (acc[n[key]]||0)+1; return acc; }, {});
+}
+
+function _barSvg(entries, colors) {
+  if (!entries.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
+  const max = Math.max(...entries.map(e=>e[1]), 1);
+  const n = entries.length;
+  const W = 300, PL = 10, PR = 10, PT = 28, PB = n > 5 ? 60 : 38;
+  const H = 170;
+  const iW = W - PL - PR, iH = H - PT - PB;
+  const gap = iW / n;
+  const bW = Math.max(8, Math.min(40, Math.floor(gap * 0.55)));
+  const rotate = n > 5;
+  const bars = entries.map(([label, val], i) => {
+    const bH = val === 0 ? 0 : Math.max(4, Math.round(val / max * iH));
+    const cx = PL + Math.round(i * gap + gap / 2);
+    const by = PT + iH - bH;
+    const valY = by - 6;
+    const lblY = H - PB + (rotate ? 4 : 14);
+    const lbl = label.length > 7 ? label.slice(0, 6) + '…' : label;
+    const anchor = rotate ? 'end' : 'middle';
+    return `<rect x="${cx - bW/2}" y="${by}" width="${bW}" height="${bH}" rx="3" fill="${colors[i % colors.length]}"/>
+      <text x="${cx}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${val}</text>
+      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="#666"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${lbl}</text>`;
+  }).join('');
+  return `<svg viewBox="-2 -4 ${W+4} ${H+8}" style="width:100%;display:block;overflow:visible;">
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+    ${bars}
+  </svg>`;
+}
+
+function _donutSvg(entries, colors) {
+  if (!entries.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  if (!total) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
+  const cx=75, cy=75, R=58, ri=34, mid_r=(R+ri)/2;
+  const LX=148, rowH=20;
+  const H=Math.max(160, entries.length*rowH+24);
+  let angle=-Math.PI/2;
+  const slices = entries.map(([label,val],i) => {
+    const a=(val/total)*2*Math.PI;
+    const x1=cx+R*Math.cos(angle), y1=cy+R*Math.sin(angle);
+    angle+=a;
+    const x2=cx+R*Math.cos(angle), y2=cy+R*Math.sin(angle);
+    const lg=a>Math.PI?1:0;
+    const midA=angle-a/2;
+    const tx=cx+mid_r*Math.cos(midA), ty=cy+mid_r*Math.sin(midA);
+    const pct=Math.round(val/total*100);
+    return `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${cx},${cy} Z" fill="${colors[i%colors.length]}"/>
+    ${a>0.4?`<text x="${tx.toFixed(1)}" y="${(ty+3.5).toFixed(1)}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">${pct}%</text>`:''}`;
+  });
+  const legend = entries.map(([label,val],i) => {
+    const lbl=label.length>8?label.slice(0,7)+'…':label;
+    return `<g transform="translate(${LX},${(H-entries.length*rowH)/2+i*rowH})">
+      <rect width="10" height="10" rx="2" fill="${colors[i%colors.length]}"/>
+      <text x="15" y="9" font-size="11" fill="#444">${lbl} (${val})</text>
+    </g>`;
+  });
+  return `<svg viewBox="0 0 280 ${H}" style="width:100%;display:block;overflow:visible;">
+    <circle cx="${cx}" cy="${cy}" r="${R+1}" fill="#f5f5f5"/>
+    ${slices.join('')}
+    <circle cx="${cx}" cy="${cy}" r="${ri}" fill="#fff"/>
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="13" fill="#444" font-weight="700">${total}</text>
+    <text x="${cx}" y="${cy+11}" text-anchor="middle" font-size="10" fill="#999">건</text>
+    ${legend.join('')}
+  </svg>`;
+}
+
+function _fillMonths(raw, yr) {
+  const out={};
+  if (yr) {
+    for (let m=1;m<=12;m++) { const k=yr+'-'+String(m).padStart(2,'0'); out[k]=raw[k]||0; }
+  } else {
+    const ks=Object.keys(raw).sort();
+    if (!ks.length) return out;
+    let [y,m]=[parseInt(ks[0].slice(0,4)),parseInt(ks[0].slice(5))];
+    const [ey,em]=[parseInt(ks[ks.length-1].slice(0,4)),parseInt(ks[ks.length-1].slice(5))];
+    while (y<ey||(y===ey&&m<=em)) {
+      const k=y+'-'+String(m).padStart(2,'0'); out[k]=raw[k]||0;
+      m++; if(m>12){m=1;y++;}
+    }
+  }
+  return out;
+}
+
+function _lineSvg(monthData) {
+  const keys=Object.keys(monthData).sort();
+  if (!keys.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
+  const vals=keys.map(k=>monthData[k]);
+  const maxV=Math.max(...vals,1);
+  const n=keys.length;
+  const sameYr=new Set(keys.map(k=>k.slice(0,4))).size===1;
+  const W=300,PL=40,PR=20,PT=30,PB=46,H=160;
+  const iW=W-PL-PR,iH=H-PT-PB;
+  const xs=n===1?[PL+Math.round(iW/2)]:keys.map((_,i)=>PL+Math.round(i/(n-1)*iW));
+  const ys=vals.map(v=>PT+iH-Math.round(v/maxV*iH));
+  const path=xs.map((x,i)=>`${i===0?'M':'L'}${x},${ys[i]}`).join(' ');
+  const area=path+` L${xs[xs.length-1]},${PT+iH} L${xs[0]},${PT+iH} Z`;
+  const BASE=H-PB;
+  const pts=xs.map((x,i)=>{
+    const lbl=sameYr?(parseInt(keys[i].slice(5))+'월'):keys[i].slice(2);
+    const v=vals[i];
+    return `<circle cx="${x}" cy="${ys[i]}" r="3.5" fill="#0369a1"/>
+    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="#888">${lbl}</text>
+    <text x="${x}" y="${BASE+27}" text-anchor="middle" font-size="9" font-weight="${v>0?'700':'400'}" fill="${v>0?'#0369a1':'#bbb'}">(${v})</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;">
+    <path d="${area}" fill="#0369a1" opacity="0.08"/>
+    <path d="${path}" fill="none" stroke="#0369a1" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${pts}
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${BASE}" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="${PL}" y1="${BASE}" x2="${W-PR}" y2="${BASE}" stroke="#e0e0e0" stroke-width="1"/>
+  </svg>`;
+}
+
+/* ═══ 경향분석 ═══ */
+function openCARTrend() {
+  loadState();
+  const cars = state.cars || [];
+  const years = [...new Set(cars.map(c=>(c.issuedAt||'').slice(0,4)).filter(Boolean))].sort();
+  const yrSel = document.getElementById('ctr-year');
+  yrSel.innerHTML = '<option value="">전체 연도</option>' + years.map(y=>`<option value="${y}">${y}년</option>`).join('');
+  const projs = [...new Set(cars.map(c=>c.proj))];
+  const pSel = document.getElementById('ctr-proj');
+  pSel.innerHTML = '<option value="">전체 프로젝트</option>' + projs.map(pid=>{
+    const p=getP(pid); return p?.id?`<option value="${pid}">${p.code} ${p.name}</option>`:'';
+  }).join('');
+  document.getElementById('car-trend-modal').classList.add('open');
+  renderCARTrend();
+}
+
+function closeCARTrend() { document.getElementById('car-trend-modal').classList.remove('open'); }
+
+function _ctrFiltered() {
+  const yr=document.getElementById('ctr-year')?.value||'';
+  const mo=document.getElementById('ctr-month')?.value||'';
+  const pj=document.getElementById('ctr-proj')?.value||'';
+  return (state.cars||[]).filter(c=>{
+    const d=c.issuedAt||'';
+    if (yr && !d.startsWith(yr)) return false;
+    if (mo && d.slice(5,7)!==mo.padStart(2,'0')) return false;
+    if (pj && c.proj!==pj) return false;
+    return true;
+  });
+}
+
+function renderCARTrend() {
+  const yr=document.getElementById('ctr-year')?.value||'';
+  const cars=_ctrFiltered();
+  const cntEl=document.getElementById('ctr-count');
+  if (cntEl) cntEl.textContent=`총 ${cars.length}건`;
+  const COLORS=['#0369a1','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
+
+  const byMonthRaw={};
+  cars.forEach(c=>{ const ym=(c.issuedAt||'').slice(0,7); if(ym) byMonthRaw[ym]=(byMonthRaw[ym]||0)+1; });
+  const fillYr=yr||String(new Date().getFullYear());
+  const byMonth=_fillMonths(byMonthRaw, fillYr);
+
+  const tableRows=cars.map(c=>{
+    const p=getP(c.proj);
+    const st=CAR_STATUS[c.status]||CAR_STATUS['in-progress'];
+    return `<tr>
+      <td style="font-weight:700;">${c.id}</td>
+      <td>${p?.code||'-'}</td>
+      <td>${c.meta?.client||'-'}</td>
+      <td>${c.reqDept||'-'}</td>
+      <td>${c.qualReq||'-'}</td>
+      <td>${c.field||'-'}</td>
+      <td>${c.cause||'-'}</td>
+      <td>${c.issuedAt||'-'}</td>
+      <td>${c.replyDue||'-'}</td>
+      <td>${c.repliedAt||'-'}</td>
+      <td>${c.actionAt||'-'}</td>
+      <td>${c.closedAt||'-'}</td>
+      <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
+    </tr>`;
+  }).join('');
+
+  const projEntries=(()=>{ const m={}; cars.forEach(c=>{ const lbl=getP(c.proj)?.code||'미지정'; m[lbl]=(m[lbl]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
+
+  document.getElementById('ctr-body').innerHTML = `
+    <div class="ctr-kpi-row">
+      <div class="ctr-kpi"><div class="val">${cars.length}</div><div class="lbl">전체 건수</div></div>
+      <div class="ctr-kpi"><div class="val" style="color:var(--warning);">${cars.filter(c=>c.status==='in-progress').length}</div><div class="lbl">조치 중</div></div>
+      <div class="ctr-kpi"><div class="val" style="color:var(--primary);">${cars.filter(c=>c.status==='replied').length}</div><div class="lbl">회신완료</div></div>
+      <div class="ctr-kpi"><div class="val" style="color:var(--success);">${cars.filter(c=>c.status==='closed').length}</div><div class="lbl">완료</div></div>
+    </div>
+
+    <div class="ctr-section">
+      <h4>📈 월별 발생 추이</h4>
+      ${_lineSvg(byMonth)}
+    </div>
+
+    <div class="ctr-grid">
+      <div class="ctr-chart-wrap"><div class="ctr-chart-title">프로젝트별</div>${_barSvg(projEntries, COLORS)}</div>
+      <div class="ctr-chart-wrap"><div class="ctr-chart-title">품질요건별</div>${_barSvg(Object.entries(_count(cars,'qualReq')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
+      <div class="ctr-chart-wrap"><div class="ctr-chart-title">발생분야별</div>${_barSvg(Object.entries(_count(cars,'field')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
+      <div class="ctr-chart-wrap"><div class="ctr-chart-title">원인별</div>${_donutSvg(Object.entries(_count(cars,'cause')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
+      <div class="ctr-chart-wrap"><div class="ctr-chart-title">상태별</div>${_donutSvg(Object.entries(_count(cars,'status')).map(([k,v])=>[CAR_STATUS[k]?.[1]||k,v]).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
+    </div>
+
+    <div class="ctr-section">
+      <h4>📋 상세 목록</h4>
+      <div style="overflow-x:auto;">
+        <table class="ctr-table">
+          <thead><tr><th>CAR No.</th><th>프로젝트</th><th>고객명</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
+          <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;color:var(--text-light);padding:20px;">데이터 없음</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function printCARTrend() {
+  const yr   = document.getElementById('ctr-year')?.value  || '전체';
+  const mo   = document.getElementById('ctr-month')?.value || '전체';
+  const proj = document.getElementById('ctr-proj')?.options[document.getElementById('ctr-proj').selectedIndex]?.text || '전체';
+  const today = new Date().toLocaleDateString('ko-KR');
+  const cars = _ctrFiltered();
+  const COLORS = ['#0369a1','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
+
+  const byMonthRaw={};
+  cars.forEach(c=>{ const ym=(c.issuedAt||'').slice(0,7); if(ym) byMonthRaw[ym]=(byMonthRaw[ym]||0)+1; });
+  const fillYr2=yr==='전체'?String(new Date().getFullYear()):yr;
+  const byMonth=_fillMonths(byMonthRaw, fillYr2);
+
+  const projEntries=(()=>{ const m={}; cars.forEach(c=>{ const lbl=getP(c.proj)?.code||'미지정'; m[lbl]=(m[lbl]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
+  const qualEntries=Object.entries(_count(cars,'qualReq')).sort((a,b)=>b[1]-a[1]);
+  const fieldEntries=Object.entries(_count(cars,'field')).sort((a,b)=>b[1]-a[1]);
+  const causeEntries=Object.entries(_count(cars,'cause')).sort((a,b)=>b[1]-a[1]);
+  const statusEntries=Object.entries(_count(cars,'status')).map(([k,v])=>[CAR_STATUS[k]?.[1]||k,v]).sort((a,b)=>b[1]-a[1]);
+
+  const tableRows=cars.map(c=>{
+    const p=getP(c.proj); const st=CAR_STATUS[c.status]||CAR_STATUS['in-progress'];
+    return `<tr><td style="font-weight:700;">${c.id}</td><td>${p?.code||'-'}</td><td>${c.meta?.client||'-'}</td>
+      <td>${c.reqDept||'-'}</td><td>${c.qualReq||'-'}</td><td>${c.field||'-'}</td><td>${c.cause||'-'}</td>
+      <td>${c.issuedAt||'-'}</td><td>${c.replyDue||'-'}</td><td>${c.repliedAt||'-'}</td><td>${c.actionAt||'-'}</td><td>${c.closedAt||'-'}</td>
+      <td><span class="b-pill ${st[0]}">${st[1]}</span></td></tr>`;
+  }).join('');
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CAR 품질 경향분석 보고서</title><style>
+    @page{size:A4 landscape;margin:8mm 10mm;}
+    *{box-sizing:border-box;}
+    body{font-family:'Malgun Gothic',sans-serif;margin:0;padding:0;color:#222;font-size:10px;background:#fff;}
+    .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;border-bottom:2px solid #0369a1;padding-bottom:4px;}
+    h1{font-size:14px;margin:0;color:#0369a1;}
+    .meta{font-size:8.5px;color:#888;}
+    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;}
+    .kpi{background:#f0f9ff;border-radius:5px;padding:5px 8px;text-align:center;}
+    .kpi .v{font-size:16px;font-weight:800;color:#0369a1;line-height:1.2;}
+    .kpi .l{font-size:8px;color:#888;}
+    .top{display:grid;grid-template-columns:1fr 2.8fr;gap:6px;margin-bottom:6px;}
+    .card{border:1px solid #e0e0e0;border-radius:5px;padding:6px;}
+    .card-title{font-size:9px;font-weight:700;color:#0369a1;margin:0 0 4px;}
+    .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
+    .ch-title{font-size:8.5px;font-weight:700;color:#888;margin-bottom:3px;}
+    .ch{border:1px solid #eee;border-radius:4px;padding:5px;overflow:hidden;}
+    table{width:100%;border-collapse:collapse;font-size:8.5px;}
+    th{background:#f0f9ff;color:#0369a1;font-weight:700;padding:3px 5px;text-align:left;border-bottom:1.5px solid #bae6fd;}
+    td{padding:2.5px 5px;border-bottom:1px solid #f0f0f0;}
+    .b-pill{display:inline-block;padding:1px 5px;border-radius:7px;font-size:7.5px;font-weight:600;}
+    .b-pill.green{background:#d1fae5;color:#065f46;}.b-pill.blue{background:#dbeafe;color:#1e40af;}
+    .b-pill.orange{background:#ffedd5;color:#9a3412;}
+    svg{overflow:visible;display:block;width:100%;}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+  </style></head><body>
+    <div class="hdr"><h1>📊 CAR 품질 경향분석 보고서</h1>
+      <span class="meta">작성일: ${today} &nbsp;|&nbsp; 기간: ${yr}년 ${mo}월 &nbsp;|&nbsp; 프로젝트: ${proj} &nbsp;|&nbsp; 세종기술 품질관리부</span></div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="v">${cars.length}</div><div class="l">전체 건수</div></div>
+      <div class="kpi"><div class="v" style="color:#d97706;">${cars.filter(c=>c.status==='in-progress').length}</div><div class="l">조치 중</div></div>
+      <div class="kpi"><div class="v" style="color:#1976D2;">${cars.filter(c=>c.status==='replied').length}</div><div class="l">회신완료</div></div>
+      <div class="kpi"><div class="v" style="color:#059669;">${cars.filter(c=>c.status==='closed').length}</div><div class="l">완료</div></div>
+    </div>
+    <div class="top">
+      <div class="card"><div class="card-title">📈 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
+      <div class="card"><div class="card-title">📊 항목별 분포</div>
+        <div class="grid5">
+          <div class="ch"><div class="ch-title">프로젝트별</div>${_barSvg(projEntries,COLORS)}</div>
+          <div class="ch"><div class="ch-title">품질요건별</div>${_barSvg(qualEntries,COLORS)}</div>
+          <div class="ch"><div class="ch-title">발생분야별</div>${_barSvg(fieldEntries,COLORS)}</div>
+          <div class="ch"><div class="ch-title">원인별</div>${_donutSvg(causeEntries,COLORS)}</div>
+          <div class="ch"><div class="ch-title">상태별</div>${_donutSvg(statusEntries,COLORS)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="card-title">📋 상세 목록</div>
+      <table><thead><tr><th>CAR No.</th><th>프로젝트</th><th>고객명</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
+        <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
+      </table>
+    </div>
+    <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+/* ═══ 파일 등록 ═══ */
+function loadPdfJs(cb) {
+  if (window.pdfjsLib) { cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+  s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; cb(); };
+  document.head.appendChild(s);
+}
+function loadMammoth(cb) {
+  if (window.mammoth) { cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js';
+  s.onload = cb;
+  document.head.appendChild(s);
+}
+
+function handleCARFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  const ext = file.name.split('.').pop().toLowerCase();
+  const frDataUrl = new FileReader();
+  frDataUrl.onload = evDU => {
+    const fileDataUrl = evDU.target.result;
+    const done = (text, ocrFailed, imgDataUrl) => {
+      const parsed = parseCARText(text, file.name);
+      parsed.ocrFailed = ocrFailed || false;
+      parsed.imgDataUrl = imgDataUrl || null;
+      parsed.fileDataUrl = fileDataUrl;
+      parsed.fileName = file.name;
+      showCARParseModal(parsed);
+    };
+    if (ext === 'pdf') {
+      loadPdfJs(() => extractPdfText(file, done));
+    } else if (ext === 'docx') {
+      loadMammoth(() => {
+        const reader = new FileReader();
+        reader.onload = e => window.mammoth.extractRawText({ arrayBuffer: e.target.result }).then(r => done(r.value, false));
+        reader.readAsArrayBuffer(file);
+      });
+    } else {
+      alert('PDF 또는 Word(.docx) 파일만 지원합니다.');
+    }
+  };
+  frDataUrl.readAsDataURL(file);
+}
+
+async function extractPdfText(file, cb) {
+  const buf = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n';
+  }
+  if (text.replace(/\s+/g,'').length < 80) {
+    await extractPdfOCR(file, cb);
+  } else {
+    cb(text);
+  }
+}
+
+async function extractPdfOCR(file, cb) {
+  const buf = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2.5 });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width; canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  const imgDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  let ocrText = '';
+  try {
+    if (!window.Tesseract) {
+      await new Promise((res,rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    const worker = await Tesseract.createWorker('kor+eng', 1, {
+      workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/worker.min.js',
+      langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.4/tesseract-core-simd-lstm.wasm.js',
+    });
+    const result = await worker.recognize(canvas);
+    await worker.terminate();
+    ocrText = result.data.text || '';
+  } catch(e) { ocrText = ''; }
+  cb(ocrText, ocrText.replace(/\s+/g,'').length < 30, imgDataUrl);
+}
+
+function parseCARText(text, filename) {
+  const cl = s => (s||'').replace(/\s+/g,' ').trim();
+  const fname = (filename||'').replace(/\.[^.]+$/,'');
+  const carNo = text.match(/CAR\s*No\.?\s*[：:]\s*([\w\-]+)/i)?.[1] ||
+                fname.match(/(CAR[-\s]?\d{4}[-\s]\d+)/i)?.[1]?.replace(/\s/g,'-') || '';
+  const ncrRef = text.match(/NCR\s*No\.?\s*[：:]\s*([\w\-]+)/i)?.[1] ||
+                 text.match(/(SJ-NCR-\d{4}-\d+|NCR[-\s]?\d+)/i)?.[1]?.replace(/\s/g,'-') || '';
+  const dateRaw = text.match(/(?:발행일|Issue\s*Date)[^0-9]*(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i)?.[1] || '';
+  const issuedAt = dateRaw ? dateRaw.split(/[.\-\/]/).map((v,i)=>i>0&&v.length===1?'0'+v:v).join('-') : '';
+  const dueRaw  = text.match(/(?:회신기한|Reply\s*Due|Due\s*Date)[^0-9]*(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i)?.[1] || '';
+  const replyDue = dueRaw ? dueRaw.split(/[.\-\/]/).map((v,i)=>i>0&&v.length===1?'0'+v:v).join('-') : '';
+  const projTitle = cl(text.match(/Project\s*(?:Title|명)\s*[：:]\s*(.+?)(?=\s*고객|\s*Client)/i)?.[1]||'');
+  const client = cl(text.match(/(?:Client|고객명)\s*[：:]\s*(.+?)(?=\s*도면|\s*Dwg|\s*W\.R)/i)?.[1]||'');
+  const dwgNo = cl(text.match(/Dwg\s*No\.?\s*[：:]\s*(.+?)(?=\s*Rev\.?|\s*W\.R)/i)?.[1]||'');
+  const wrNo  = cl(text.match(/W\.R\s*No\.?\s*[：:]\s*([\w\-]+)/i)?.[1]||'');
+  const action = cl(text.match(/(?:시정조치|Corrective\s*Action)[^：:]*[：:]\s*([\s\S]+?)(?=담당자|Assignee|회신기한|Due|$)/i)?.[1]||'');
+  return { carNo, ncrRef, issuedAt, replyDue, projTitle, client, dwgNo, wrNo, action };
+}
+
+function showCARParseModal(p) {
+  const titleKey = (p.projTitle||'').toLowerCase().split(' ')[0];
+  let matched = false;
+  const projOpts = (state.projects||[]).filter(pr=>!pr.hidden).map(pr => {
+    const isMatch = titleKey && (pr.name+' '+pr.code).toLowerCase().includes(titleKey);
+    if (isMatch) matched = true;
+    return `<option value="${pr.id}" ${isMatch?'selected':''}>${pr.code} ${pr.name}</option>`;
+  }).join('');
+  const badge = v => v ? '<span class="cpm-parse-badge found">자동감지</span>' : '<span class="cpm-parse-badge manual">직접입력</span>';
+  const inpStyle = 'width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;';
+
+  const filePanel = document.getElementById('car-parse-file');
+  if (filePanel) {
+    if (p.ocrFailed && p.imgDataUrl) {
+      filePanel.innerHTML = `<div style="padding:6px 10px;background:#fff3e0;font-size:11px;color:#e65100;font-weight:600;flex-shrink:0;">⚠️ 스캔본 — OCR 인식 불가, 직접 입력하세요</div>
+        <div class="cpm-left-img-wrap"><img src="${p.imgDataUrl}" style="width:100%;border-radius:4px;"></div>`;
+    } else if (p.fileDataUrl?.startsWith('data:application/pdf')) {
+      filePanel.innerHTML = `<iframe src="${_toBlobUrl(p.fileDataUrl)}" style="flex:1;border:none;width:100%;height:100%;"></iframe>`;
+    } else if (p.fileDataUrl) {
+      filePanel.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-light);">📄 ${p.fileName||'파일'}</div>`;
+    }
+  }
+  window._carParseFileDataUrl = p.fileDataUrl || null;
+  window._carParseFileName    = p.fileName    || null;
+
+  document.getElementById('car-parse-modal').classList.add('open');
+  document.getElementById('car-parse-body').innerHTML = `
+    <div style="background:${p.ocrFailed?'#fff3e0':'#e8f5e9'};border-radius:8px;padding:8px 12px;font-size:12px;color:${p.ocrFailed?'#e65100':'#2e7d32'};font-weight:600;">
+      ${p.ocrFailed?'⚠️ 스캔본 자동 인식 불가 — 직접 입력하세요':'✅ 문서 파싱 완료 — 확인 후 등록하세요'}
+    </div>
+    <div class="cpm-row">
+      <div class="cpm-field"><label>CAR No. ${badge(p.carNo)}</label><input id="cp-carno" value="${p.carNo||''}" placeholder="예: CAR-2026-001"></div>
+      <div class="cpm-field"><label>연계 NCR No. ${badge(p.ncrRef)}</label><input id="cp-ncrref" value="${p.ncrRef||''}" placeholder="예: NCR-2026-001"></div>
+    </div>
+    <div class="cpm-row">
+      <div class="cpm-field"><label>발행일자 ${badge(p.issuedAt)}</label><input id="cp-date" type="date" value="${p.issuedAt||''}"></div>
+      <div class="cpm-field"><label>회신기한 ${badge(p.replyDue)}</label><input id="cp-replyDue" type="date" value="${p.replyDue||''}"></div>
+    </div>
+    <div class="cpm-field">
+      <label>프로젝트 (계약명: ${p.projTitle||'미감지'}) ${badge(p.projTitle)}</label>
+      <select id="cp-proj" onchange="document.getElementById('cp-proj-direct').style.display=this.value==='__direct__'?'block':'none'">
+        <option value="__direct__" ${!matched?'selected':''}>✏️ 직접 입력</option>${projOpts}
+      </select>
+      <input id="cp-proj-direct" placeholder="프로젝트명 직접 입력" value="${p.projTitle||''}" style="margin-top:6px;display:${!matched?'block':'none'};${inpStyle}">
+    </div>
+    <div class="cpm-row">
+      <div class="cpm-field"><label>고객명 ${badge(p.client)}</label><input id="cp-client" value="${p.client||''}" placeholder="고객사명"></div>
+      <div class="cpm-field"><label>시정조치요구부서</label><select id="cp-reqDept" style="${inpStyle}">${_deptOpts()}</select></div>
+    </div>
+    <div class="cpm-row">
+      <div class="cpm-field"><label>도면번호 ${badge(p.dwgNo)}</label><input id="cp-dwg" value="${p.dwgNo||''}" placeholder="도면번호"></div>
+      <div class="cpm-field"><label>W.R No. ${badge(p.wrNo)}</label><input id="cp-wr" value="${p.wrNo||''}" placeholder="W.R No."></div>
+    </div>
+    <div class="cpm-field"><label>품질요건</label><select id="cp-qualReq" style="${inpStyle}">${_opts(CAR_QUAL_REQ)}</select></div>
+    <div class="cpm-row">
+      <div class="cpm-field"><label>발생분야</label><select id="cp-field" style="${inpStyle}">${_opts(CAR_FIELD)}</select></div>
+      <div class="cpm-field"><label>원인</label><select id="cp-cause" style="${inpStyle}">${_opts(CAR_CAUSE)}</select></div>
+    </div>
+    <div class="cpm-field"><label>시정조치 내용 ${badge(p.action)}</label><textarea id="cp-action" rows="4" style="${inpStyle}min-height:70px;resize:vertical;">${p.action||''}</textarea></div>
+    <div class="cpm-field"><label>상태</label>
+      <select id="cp-status" style="${inpStyle}">
+        <option value="in-progress">조치중</option>
+        <option value="replied">회신완료</option>
+        <option value="closed">완료</option>
+      </select>
+    </div>
+  `;
+}
+
+function confirmCARParse() {
+  const carNo    = document.getElementById('cp-carno').value.trim();
+  const ncrRef   = document.getElementById('cp-ncrref').value.trim();
+  const date     = document.getElementById('cp-date').value;
+  const replyDue = document.getElementById('cp-replyDue').value;
+  const projSel  = document.getElementById('cp-proj').value;
+  const projDirect=document.getElementById('cp-proj-direct').value.trim();
+  const client   = document.getElementById('cp-client').value.trim();
+  const reqDept  = document.getElementById('cp-reqDept').value.trim();
+  const dwgNo    = document.getElementById('cp-dwg').value.trim();
+  const wrNo     = document.getElementById('cp-wr').value.trim();
+  const qualReq  = document.getElementById('cp-qualReq').value;
+  const field    = document.getElementById('cp-field').value;
+  const cause    = document.getElementById('cp-cause').value;
+  const action   = document.getElementById('cp-action').value.trim();
+  const status   = document.getElementById('cp-status').value;
+  if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
+  const today = new Date().toISOString().slice(0,10);
+  const num = String((state.cars||[]).length + 1).padStart(3,'0');
+  const id = carNo || `CAR-${new Date().getFullYear()}-${num}`;
+  if ((state.cars||[]).some(c => c.id === id)) {
+    alert(`CAR No. [${id}] 가 이미 등록되어 있습니다.\nCAR No. 를 다르게 입력하세요.`); return;
+  }
+  if (!state.cars) state.cars = [];
+  const ncrId = ncrRef || null;
+  state.cars.push({
+    id, ncrId, proj: projSel, action, reqDept, status,
+    qualReq, field, cause,
+    issuedAt: date || today,
+    replyDue: replyDue || '',
+    repliedAt: '', actionAt: '',
+    closedAt: status === 'closed' ? today : null,
+    meta: {
+      client, dwgNo, wrNo,
+      projDirect: projSel==='__direct__' ? projDirect : '',
+      fileDataUrl: window._carParseFileDataUrl || null,
+      fileName: window._carParseFileName || null
+    }
+  });
+  if (ncrId) {
+    const n = (state.ncrs||[]).find(x => x.id === ncrId);
+    if (n && !n.carId) n.carId = id;
+  }
+  window._carParseFileDataUrl = null;
+  window._carParseFileName    = null;
+  save(); closeCARParseModal(); render();
+}
+
+function closeCARParseModal() { document.getElementById('car-parse-modal').classList.remove('open'); }
+
 /* ═══ 초기화 ═══ */
-document.addEventListener('DOMContentLoaded', render);
+loadState();
+render();
 </script>
 </body>
 </html>

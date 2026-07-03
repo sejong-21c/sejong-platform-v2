@@ -884,45 +884,65 @@ function _donutSvg(entries, colors) {
   </svg>`;
 }
 
+function _fillMonths(raw, yr) {
+  const out={};
+  if (yr) {
+    for (let m=1;m<=12;m++) { const k=yr+'-'+String(m).padStart(2,'0'); out[k]=raw[k]||0; }
+  } else {
+    const ks=Object.keys(raw).sort();
+    if (!ks.length) return out;
+    let [y,m]=[parseInt(ks[0].slice(0,4)),parseInt(ks[0].slice(5))];
+    const [ey,em]=[parseInt(ks[ks.length-1].slice(0,4)),parseInt(ks[ks.length-1].slice(5))];
+    while (y<ey||(y===ey&&m<=em)) {
+      const k=y+'-'+String(m).padStart(2,'0'); out[k]=raw[k]||0;
+      m++; if(m>12){m=1;y++;}
+    }
+  }
+  return out;
+}
+
 function _lineSvg(monthData) {
   const keys = Object.keys(monthData).sort();
   if (!keys.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
   const vals = keys.map(k => monthData[k]);
   const maxV = Math.max(...vals, 1);
-  const W=300, PL=40, PR=20, PT=30, PB=34, H=160;
+  const n = keys.length;
+  const sameYr = new Set(keys.map(k=>k.slice(0,4))).size===1;
+  const W=300, PL=40, PR=20, PT=30, PB=46, H=160;
   const iW=W-PL-PR, iH=H-PT-PB;
-  const xs = keys.length===1 ? [PL+Math.round(iW/2)] : keys.map((_,i)=>PL+Math.round(i/(keys.length-1)*iW));
+  const xs = n===1 ? [PL+Math.round(iW/2)] : keys.map((_,i)=>PL+Math.round(i/(n-1)*iW));
   const ys = vals.map(v=>PT+iH-Math.round(v/maxV*iH));
   const path = xs.map((x,i)=>`${i===0?'M':'L'}${x},${ys[i]}`).join(' ');
   const area = path+` L${xs[xs.length-1]},${PT+iH} L${xs[0]},${PT+iH} Z`;
+  const BASE = H-PB;
   const pts = xs.map((x,i) => {
-    const atTop = ys[i] <= PT + 18;
-    const valY = atTop ? ys[i] + 15 : ys[i] - 8;
-    // x-axis label: first=start, last=end to prevent overflow
-    const anchor = i===0 ? 'start' : i===xs.length-1 ? 'end' : 'middle';
-    const lx = i===0 ? Math.max(x, PL) : i===xs.length-1 ? Math.min(x, W-PR) : x;
+    const lbl = sameYr ? (parseInt(keys[i].slice(5))+'월') : keys[i].slice(2);
+    const v = vals[i];
     return `<circle cx="${x}" cy="${ys[i]}" r="3.5" fill="#7c3aed"/>
-    <text x="${x}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${vals[i]}</text>
-    <text x="${lx}" y="${H-10}" text-anchor="${anchor}" font-size="9" fill="#888">${keys[i].slice(2)}</text>`;
+    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="#888">${lbl}</text>
+    <text x="${x}" y="${BASE+27}" text-anchor="middle" font-size="9" font-weight="${v>0?'700':'400'}" fill="${v>0?'#7c3aed':'#bbb'}">(${v})</text>`;
   }).join('');
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;">
     <path d="${area}" fill="#7c3aed" opacity="0.08"/>
     <path d="${path}" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${pts}
-    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
-    <line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${BASE}" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="${PL}" y1="${BASE}" x2="${W-PR}" y2="${BASE}" stroke="#e0e0e0" stroke-width="1"/>
   </svg>`;
 }
 
 function renderNCRTrend() {
+  const yr = document.getElementById('ntr-year')?.value || '';
   const ncrs = _ntrFiltered();
   const cntEl = document.getElementById('ntr-count');
   if (cntEl) cntEl.textContent = `총 ${ncrs.length}건`;
 
   const COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
 
-  const byMonth = {};
-  ncrs.forEach(n => { const ym=(n.issuedAt||'').slice(0,7); if(ym) byMonth[ym]=(byMonth[ym]||0)+1; });
+  const byMonthRaw = {};
+  ncrs.forEach(n => { const ym=(n.issuedAt||'').slice(0,7); if(ym) byMonthRaw[ym]=(byMonthRaw[ym]||0)+1; });
+  const fillYr = yr || String(new Date().getFullYear());
+  const byMonth = _fillMonths(byMonthRaw, fillYr);
 
   const tableRows = ncrs.map(n => {
     const p = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (getP(n.proj)?.code||'-');
@@ -983,8 +1003,10 @@ function printNCRTrend() {
   const ncrs = _ntrFiltered();
   const COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
 
-  const byMonth = {};
-  ncrs.forEach(n => { const ym=(n.issuedAt||'').slice(0,7); if(ym) byMonth[ym]=(byMonth[ym]||0)+1; });
+  const byMonthRaw = {};
+  ncrs.forEach(n => { const ym=(n.issuedAt||'').slice(0,7); if(ym) byMonthRaw[ym]=(byMonthRaw[ym]||0)+1; });
+  const fillYr2 = yr==='전체' ? String(new Date().getFullYear()) : yr;
+  const byMonth = _fillMonths(byMonthRaw, fillYr2);
 
   const projEntries = (()=>{ const m={}; ncrs.forEach(n=>{ const lbl=n.proj==='__direct__'?(n.meta?.projDirect||'직접입력'):(getP(n.proj)?.code||'미지정'); m[lbl]=(m[lbl]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
   const locEntries  = Object.entries(_count(ncrs,'location')).sort((a,b)=>b[1]-a[1]);
