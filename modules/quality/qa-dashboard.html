@@ -325,6 +325,23 @@ function render() {
   const stageNcrs = ncrs.filter(n => n.source === 'traveller' && n.travStage);
   const stageEntries = Object.entries(count(stageNcrs, 'travStage')).sort((a,b)=>b[1]-a[1]);
 
+  // ── 데이터 정합성 검사 (전체 데이터 기준 — 필터 무시) ──
+  const allNcrs = state.ncrs || [], allCars = state.cars || [];
+  const ncrIdSet = new Set(allNcrs.map(n => n.id));
+  const carIdSet = new Set(allCars.map(c => c.id));
+  const projIdSet = new Set((state.projects||[]).map(p => p.id));
+  const issues = [];
+  allCars.forEach(c => {
+    if (c.ncrId && !ncrIdSet.has(c.ncrId)) issues.push({ sev:'red', text:`${c.id} — 연계된 NCR "${c.ncrId}"이(가) 존재하지 않습니다 (삭제됐거나 오타).` });
+  });
+  allNcrs.forEach(n => {
+    if (n.carId && !carIdSet.has(n.carId)) issues.push({ sev:'red', text:`${n.id} — 연계된 CAR "${n.carId}"이(가) 존재하지 않습니다 (삭제됐거나 오타).` });
+    if (n.proj && n.proj !== '__direct__' && !projIdSet.has(n.proj)) issues.push({ sev:'orange', text:`${n.id} — 참조하는 프로젝트 "${n.proj}"가 존재하지 않습니다 (프로젝트 삭제됨).` });
+    if (n.status === 'closed' && !n.disposition) issues.push({ sev:'orange', text:`${n.id} — 종결 처리됐지만 처리방안이 입력되지 않았습니다.` });
+    const daysOpen = n.status !== 'closed' ? daysBetween(n.issuedAt, new Date().toISOString().slice(0,10)) : null;
+    if (daysOpen != null && daysOpen > 30) issues.push({ sev:'orange', text:`${n.id} — 발행 후 ${daysOpen}일째 미종결 상태입니다 (30일 초과).` });
+  });
+
   const app = document.getElementById('app');
   app.innerHTML = `
     <div class="mod-head">
@@ -364,6 +381,13 @@ function render() {
       <h4>🚢 종합 불량 영향률 (추정) — ${defectRate!=null?defectRate+'%':'데이터 없음'}</h4>
       <div style="font-size:12px;color:var(--text-light);">처리방안이 입력된 NCR ${withDisposition.length}건 중 재작업·수리·폐기·반송으로 이어진 비율입니다.</div>
       <div class="caveat">⚠️ 실제 "출고 불량률"(생산·출고 수량 대비 불량 수량)을 계산하려면 프로젝트별 생산/출고 수량 데이터가 필요한데, 현재 시스템에는 이 데이터가 없습니다. 위 수치는 NCR의 처리방안을 기준으로 한 근사치이며, 정확한 출고 불량률을 원하시면 WBS 또는 프로젝트에 "출고 수량" 항목을 추가하는 걸 권장드립니다.</div>
+    </div>
+
+    <div class="qd-section" style="border-left:3px solid ${issues.length?'var(--danger)':'var(--success)'};">
+      <h4>${issues.length ? '🚨' : '✅'} 데이터 정합성 검사 (${issues.length}건) <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 필터와 무관하게 전체 NCR/CAR 대상, 자동 점검</span></h4>
+      ${issues.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+        ${issues.map(i => `<div style="font-size:12px;padding:6px 10px;border-radius:6px;background:${i.sev==='red'?'#FFEBEE':'#FFF3E0'};color:${i.sev==='red'?'#C62828':'#E65100'};">${i.sev==='red'?'⛔':'⚠️'} ${i.text}</div>`).join('')}
+      </div>` : `<div style="font-size:12px;color:var(--text-light);">깨진 참조·누락 항목이 발견되지 않았습니다.</div>`}
     </div>
 
     <div class="qd-section">
