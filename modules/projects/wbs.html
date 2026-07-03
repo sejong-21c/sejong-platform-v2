@@ -898,7 +898,7 @@ function rWBS(){
   // ═══ S-Curve 오버레이 좌표 (간트 막대 위, 전 행 관통) ═══
   const _E=evmsCalc(_pid);
   const _evX=dp(new Date().toISOString().slice(0,10));
-  const _N=1+items.length;            // summary + 데이터행 수
+  const _N=(_deptMode?0:1)+items.length;  // 요약행(부서모드에선 없음) + 데이터행 수
   const _ph=_N*100;                   // 전체 곡선 세로 좌표 (행당 100)
   const _pvPts=(_sMin?`${dp(_sMin).toFixed(1)},${_ph} `:'')+_E.curve.map(p=>`${dp(p.date).toFixed(1)},${((100-p.pv)/100*_ph).toFixed(1)}`).join(' ');
   const _evPts=`${(_sMin?dp(_sMin):0).toFixed(1)},${_ph} ${_evX.toFixed(1)},${((100-_E.ev)/100*_ph).toFixed(1)}`;
@@ -952,7 +952,7 @@ function rWBS(){
         </tr>
       </thead>
       <tbody>
-        ${summaryRow}${items.map((w,i)=>wRowUnified(w,i+1)).join("")}
+        ${_deptMode?'':summaryRow}${items.map((w,i)=>wRowUnified(w,_deptMode?i:i+1)).join("")}
       </tbody>
     </table>`;
   
