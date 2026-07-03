@@ -1344,46 +1344,49 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     setItems(p => p.filter(i => i.id !== id));
   };
 
+  // v2.1 — SJP bridge 전송(EPC Control/Firestore 연동)과 JSON 파일 다운로드를 분리.
+  // bridge.setItems()가 쓰는 state.items[pid]는 WBS(제작공정관리) Firestore 구독이 실시간으로
+  // 덮어쓸 수 있어 타이밍에 따라 안 먹힐 때가 있다 — QA Doc Generator는 이거 하나만 믿지 말고
+  // 아래 sendToQADoc()의 즉시 localStorage 저장(같은 pid, sjp_itp_builder_v1__*)도 함께 본다.
+  const pushToHost = () => {
+    if (!window.SJP?.bridge) return false;
+    window.SJP.bridge.setProject(proj);
+    const epcItems = items.map(it => ({
+      tagNo: it.tag, type: it.type, spec: it.appl_code, maker: it.maker || ""
+    }));
+    window.SJP.bridge.setItems(epcItems);
+    setTimeout(() => {
+      const epcItemsAfter = window.SJP.bridge.getItems();
+      items.forEach(localItem => {
+        const epc = epcItemsAfter.find(e => e.tagNo === localItem.tag);
+        if (!epc) return;
+        const tplItems = (itpRows || []).filter(r => r.active !== false).map((r, idx) => {
+          const rid = String(r.id || (idx+1)).padStart(2, "0");
+          const ph = rid <= "05" ? 0 : rid <= "14" ? 1 : 2;
+          const clientVal = (r.witness && r.witness.client) || r.client;
+          const pt = ["H","W","R","S","N/A"].includes(clientVal) ? clientVal : "W";
+          return { id: rid, item: r.activity || "", ph: ph, pt: pt, crit: r.criteria || "" };
+        });
+        if (tplItems.length > 0) window.SJP.bridge.setItpTemplate(epc.id, tplItems);
+      });
+    }, 80);
+    return true;
+  };
+  // Step 2 "QA Doc Generator로 바로 전송" — 1초 자동저장을 기다리지 않고 지금 즉시 localStorage에
+  // 쓴다. QA Doc Generator를 그 뒤에 열거나 "🔄 ITP 최신정보 새로고침"을 누르면 바로 반영된다.
+  const sendToQADoc = () => {
+    saveLS({proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev});
+    const bridged = pushToHost();
+    showMsg(`✓ QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 6000);
+  };
   const handleExport = () => {
     const data = {proj, items, specReqs, quoteItems, wpsList, welderList, inspectorList, exported_at:new Date().toISOString(), version:"itp_builder_v1.2"};
     const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `${proj.no||"project"}_data.json`;
     a.click(); URL.revokeObjectURL(url);
-    // SJP bridge에도 저장 (단계 6: ITP→Manufacture Manager 자동 생성)
-    if (window.SJP?.bridge) {
-      // 1. 프로젝트 전달
-      window.SJP.bridge.setProject(proj);
-      // 2. 아이템 전달 (tag → tagNo 변환, appl_code → spec)
-      const epcItems = items.map(it => ({
-        tagNo: it.tag,
-        type: it.type,
-        spec: it.appl_code,
-        maker: it.maker || ""
-      }));
-      window.SJP.bridge.setItems(epcItems);
-      // 3. ITP 18개 항목을 각 아이템의 ITP 템플릿으로 등록 (MM 검사 단계용)
-      setTimeout(() => {
-        const epcItemsAfter = window.SJP.bridge.getItems();
-        items.forEach(localItem => {
-          const epc = epcItemsAfter.find(e => e.tagNo === localItem.tag);
-          if (!epc) return;
-          const tplItems = (itpRows || []).filter(r => r.active !== false).map((r, idx) => {
-            const rid = String(r.id || (idx+1)).padStart(2, "0");
-            const ph = rid <= "05" ? 0 : rid <= "14" ? 1 : 2;
-            const clientVal = (r.witness && r.witness.client) || r.client;
-            const pt = ["H","W","R","S","N/A"].includes(clientVal) ? clientVal : "W";
-            return { id: rid, item: r.activity || "", ph: ph, pt: pt, crit: r.criteria || "" };
-          });
-          if (tplItems.length > 0) {
-            window.SJP.bridge.setItpTemplate(epc.id, tplItems);
-          }
-        });
-      }, 80);
-      showMsg(`✓ Export 완료 — EPC Control · QA Doc Generator로 자동 전송`);
-    } else {
-      showMsg(`✓ Export 완료 — Standalone 모드 (EPC 미연결)`);
-    }
+    const bridged = pushToHost();
+    showMsg(bridged ? `✓ Export 완료 — EPC Control · QA Doc Generator로 자동 전송` : `✓ Export 완료 — Standalone 모드 (EPC 미연결)`);
   };
   const handleImport = (file) => {
     const r = new FileReader();
@@ -1650,6 +1653,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <button onClick={()=>setStep(1)} className="btn-secondary">← 수정하기</button>
         <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>자동 저장</span>
         <div style={{flex:1}}/>
+        <button onClick={sendToQADoc} className="btn-primary" title="파일 다운로드 없이, 지금 상태를 바로 QA Doc Generator에 전달합니다">🚀 QA Doc Generator로 바로 전송</button>
         <button onClick={handleExport} className="btn-secondary">💾 QC Gen으로 Export</button>
       </div>
 

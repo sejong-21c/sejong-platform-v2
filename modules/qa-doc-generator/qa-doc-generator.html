@@ -2120,7 +2120,7 @@ function App(){
         if (mapped[0]) setActiveItemId(mapped[0].id);
         touched = true;
       }
-      if (!silent) showMsg(touched ? "✓ ITP Builder 최신 정보를 반영했습니다" : "ℹ 반영할 새 내용이 없습니다 (이미 최신)", 4000);
+      if (!silent) showMsg(touched ? `✓ ITP Builder 최신 정보를 반영했습니다 (${itpData.proj?.no||"—"} · 아이템 ${itpData.items?.length||0}개)` : "ℹ 반영할 새 내용이 없습니다 (이미 최신)", 5000);
     } catch(e) {
       console.warn("[QA Doc Generator] ITP Builder 데이터 로드 실패", e.message);
       if (!silent) showMsg("⚠ 불러오기 실패 — " + e.message, 5000);
