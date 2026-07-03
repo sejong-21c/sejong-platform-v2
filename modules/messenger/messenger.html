@@ -181,9 +181,15 @@ let _fsUnsubs = [];
 function getU(id) { return state.users.find(u => u.id === id) || {}; }
 
 function render() {
+  // innerHTML을 통째로 새로 그리면 브라우저가 스크롤 위치를 0으로 리셋해버리므로,
+  // 채널 목록 사이드바의 스크롤 위치는 재렌더링 전후로 직접 보존한다.
+  const side = document.querySelector('.msg-side');
+  const sideScroll = side ? side.scrollTop : null;
   document.getElementById('app').innerHTML = `<div style="height:100vh;padding:20px;box-sizing:border-box;">${messenger()}</div>`;
   const b = document.getElementById('msgBody');
   if (b) b.scrollTop = b.scrollHeight;
+  const side2 = document.querySelector('.msg-side');
+  if (side2 && sideScroll != null) side2.scrollTop = sideScroll;
 }
 
 let activeCh = 'c1';
