@@ -1277,17 +1277,33 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         // (버그 수정) 셀 전체와 정확히 일치해야 하는 anchor(^...$) 매칭 대신, 줄 전체에서 부분 문자열로 스캔.
         // v2.0 — 같은 줄에서 자격 만료일(YYYY-MM-DD/YYYY.MM.DD/YYYY/MM/DD)도 함께 찾아서, 있으면
         // {id,name,dueDate} 객체로 저장 (만료 임박 계산에 사용). 날짜가 없으면 예전처럼 문자열 그대로.
+        // v3.2 — 관리대장에 발급일/갱신일/만료일 등 날짜가 한 줄에 여러 개 섞여 있으면 첫 번째(대개
+        // 발급일=과거 날짜)를 잘못 집어서 "이미 만료"로 오판정하던 버그 수정. "만료" 라벨 바로
+        // 뒤 날짜를 최우선으로 쓰고, 라벨이 없으면 해당 줄~다음 2줄 중 가장 늦은(미래) 날짜를 채택
+        // (만료일은 통상 발급일보다 늦은 날짜이므로).
         let curName = "";
-        const dateRe = /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/;
-        texts.forEach(line => {
+        const dateReG = /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/g;
+        const toISO = (m) => `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+        const findDueDate = (li) => {
+          const win = [texts[li]||"", texts[li+1]||"", texts[li+2]||""].join(" | ");
+          const labelPos = win.indexOf("만료");
+          if (labelPos >= 0) {
+            const after = win.slice(labelPos, labelPos + 40);
+            const m = after.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+            if (m) return toISO(m);
+          }
+          const all = [...win.matchAll(dateReG)];
+          if (!all.length) return "";
+          return all.map(toISO).reduce((a,b) => (a > b ? a : b));
+        };
+        texts.forEach((line, li) => {
           const cells = line.split(/\t+/).map(c=>c.trim());
           const nameCell = cells.find(c => /^[가-힣]{2,4}$/.test(c));
           if (nameCell) curName = nameCell;
           const norm = line.replace(/\s+/g, "");
           const ms = norm.match(/SJ-[A-Z]{2,4}-[A-Z]{2,4}(-\d{2})?(,\d{2})?/g);
           if (!ms) return;
-          const dm = line.match(dateRe);
-          const dueDate = dm ? `${dm[1]}-${String(dm[2]).padStart(2,"0")}-${String(dm[3]).padStart(2,"0")}` : "";
+          const dueDate = findDueDate(li);
           ms.forEach(id => {
             if (seen.has(id)) return;
             seen.add(id);

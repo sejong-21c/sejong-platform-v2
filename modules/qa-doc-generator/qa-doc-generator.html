@@ -274,6 +274,12 @@ input:focus, select:focus, textarea:focus { outline: none; }
     min-height: 220mm !important;
     max-height: 220mm !important;
   }
+  /* v3.2 — DIM Check Point 11+ (2 chunk 이상): 이미지 영역 페이지 1 풀로 */
+  .pf-img.dim-big {
+    height: 220mm !important;
+    min-height: 220mm !important;
+    max-height: 220mm !important;
+  }
   /* v2.7 — PinImg/IDZ 내부 wrapper 무력화 + img는 absolute 중앙정렬
      중첩 wrapper(.pf-img > div > div ...)들이 flex 중앙정렬 안 통과시키는 문제 해결 */
   .pf-img > div {
@@ -1276,23 +1282,23 @@ function FitupPreview({doc}){
     });
   });
   const HC1={...hc,whiteSpace:"nowrap"};
-  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
-    <style>{`@media print{.fc{display:none!important}col.fc{width:0!important}@page{size:A4 portrait;margin:10mm}}`}</style>
-    <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
-    <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
-    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
-      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
-      <tbody>
-        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-WI-{tNo}-01</td></tr>
-        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
-        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
-        <tr><td style={HC1}>Appl. Code</td><td style={tc} colSpan={3}>{it.appl_code||"—"}</td></tr>
-      </tbody>
-    </table>
-    <table {...fitGrid.gridProps} className={joints.length>=20?"fitup-joint-many":"fitup-joint-table"} style={{width:"100%",borderCollapse:"collapse",fontSize:10,tableLayout:"fixed"}}>
+  // v3.2 — Joint 20개 초과 시 21번째부터 "표가 넘어가는 페이지 = 새 보고서(-02)" 개념으로 분리
+  const isSplit = joints.length > 20;
+  const page1Joints = isSplit ? joints.slice(0,20) : joints;
+  const page2Joints = isSplit ? joints.slice(20) : [];
+  const headerTable = (seq) => <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+    <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+    <tbody>
+      <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-WI-{tNo}-{seq}</td></tr>
+      <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+      <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
+      <tr><td style={HC1}>Appl. Code</td><td style={tc} colSpan={3}>{it.appl_code||"—"}</td></tr>
+    </tbody>
+  </table>;
+  const renderJoints = (list, offset) => <table {...fitGrid.gridProps} className={list.length>=20?"fitup-joint-many":"fitup-joint-table"} style={{width:"100%",borderCollapse:"collapse",fontSize:10,tableLayout:"fixed"}}>
       <colgroup><col className="fc" style={{width:"4%"}}/><col style={{width:"9%"}}/><col style={{width:"20%"}}/><col style={{width:"9%"}}/><col style={{width:"8%"}}/><col style={{width:"12%"}}/><col style={{width:"13%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col className="fc" style={{width:"4%"}}/></colgroup>
       <thead><tr><th className="fc" style={TH9}>순서</th><th style={TH9}>Joint No.</th><th style={TH9}>Description</th><th style={TH9}>Weld Type</th><th style={TH9}>Root Gap</th><th style={TH9}>WPS</th><th style={TH9}>Welder</th><th style={TH9}>Date</th><th style={TH9}>Result</th><th className="fc" style={TH9}></th></tr></thead>
-      <tbody>{joints.map((j,i)=> <tr key={j.id}>
+      <tbody>{list.map((j,li)=>{ const i=offset+li; return <tr key={j.id}>
         <td className="fc" style={{...tc,textAlign:"center",padding:"2px",verticalAlign:"middle"}}>
           <div style={{display:"flex",flexDirection:"column",gap:1,alignItems:"center"}}>
             <button onClick={()=>moveJ(i,-1)} disabled={i===0} style={{fontSize:9,padding:"1px 3px",border:"1px solid #ccc",borderRadius:2,background:"#f5f5f5",color:i===0?"#ccc":"#444",cursor:i===0?"default":"pointer"}}>▲</button>
@@ -1331,8 +1337,21 @@ function FitupPreview({doc}){
           </select>
         </td>
         <td className="fc" style={{...tc,textAlign:"center",cursor:"pointer",color:"#c33",fontSize:12}} onClick={()=>sJ(joints.filter(x=>x.id!==j.id))}>✕</td>
-      </tr>)}</tbody>
-    </table>
+      </tr>;})}</tbody>
+    </table>;
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{.fc{display:none!important}col.fc{width:0!important}@page{size:A4 portrait;margin:10mm}}`}</style>
+    <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
+    <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
+    {headerTable("01")}
+    {renderJoints(page1Joints, 0)}
+    <div style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
+    {isSplit && <>
+      <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
+      <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
+      {headerTable("02")}
+      {renderJoints(page2Joints, 20)}
+    </>}
     <div className="fc" style={{display:"flex",gap:4,marginTop:5,alignItems:"center",flexWrap:"wrap",padding:"6px 8px",background:"#f5f5f5",borderRadius:4,border:"1px dashed #ccc"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#666"}}>➕ Joint 추가:</span>
       <input placeholder="No." value={nw.no} onChange={e=>sNW({...nw,no:e.target.value})} style={{fontSize:10,padding:"2px 5px",border:"1px solid #ccc",borderRadius:3,width:90}}/>
@@ -1345,6 +1364,7 @@ function FitupPreview({doc}){
       <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}><tbody><tr><td style={{...hc,width:"22%",whiteSpace:"nowrap"}}>Measuring Equipment</td><td style={tc}><input value={mEq} onChange={e=>sME(e.target.value)} placeholder="ex. Caliper / Tape Measure / Welding Gauge / Penetration Test Kit" style={{width:"100%",border:"none",background:"transparent",fontSize:11}}/></td></tr></tbody></table>
       <div style={{display:"flex",gap:24,marginTop:10,fontSize:10}}>{["Prepared by","Reviewed by","Approved by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
     </div>
+    </div>{/* v3.2 — Joint 20+ 페이지 2 wrapper 닫기 */}
   </div>;
 }
 /* ── DIM Description 라이브러리 ── */
@@ -1557,18 +1577,23 @@ function DIMPreview({doc}){
       </tbody>
     </table>;
   };
+  // v3.2 — Check Point가 11개 이상(2 chunk 이상)이면 사진 페이지와 표 페이지를 "보고서가 1장 더
+  // 생성되는" 개념으로 분리 (Nozzle과 동일 개념). DI 계열 번호 재정렬: DIM=01, DIM 2페이지=02,
+  // Nozzle=03, Nozzle 2페이지=04 (Nozzle 쪽 번호는 NozzlePreview에서 맞춰 변경됨).
+  const isSplit = chunks.length >= 2;
+  const headerTable = (seq) => <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+    <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+    <tbody>
+      <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-{seq}</td></tr>
+      <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+      <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+      <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
+    </tbody>
+  </table>;
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
     <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>SHELL DIMENSIONAL INSPECTION REPORT</div>
-    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
-      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
-      <tbody>
-        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-01</td></tr>
-        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
-        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
-        <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
-      </tbody>
-    </table>
+    {headerTable("01")}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
       {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="dimTol" checked={tolStd===v} onChange={()=>sTS(v)} style={{accentColor:SJB}}/>{l}</label>)}
@@ -1588,11 +1613,16 @@ function DIMPreview({doc}){
         <span>📐 Side Elevation — Ctrl+V 붙여넣기 → 📍핀 배치 ON → 클릭으로 A·B·C 마킹 (핀 개수 = Check Point 개수)</span>
         {pins.length>0&&<span style={{color:SJB,fontSize:9}}>현재 핀 {pins.length}개 / Row {rows.length}개<button onClick={ensureRowsForPins} style={{marginLeft:6,fontSize:9,padding:"1px 6px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>핀 → Row 동기화</button></span>}
       </div>
-      <div className="pf-img" style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,minHeight:Math.max(180,460-chunks.length*70),maxHeight:Math.max(220,500-chunks.length*70),background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleDI(ev.target.result);r.readAsDataURL(f);}}}>
+      <div className={isSplit?"pf-img dim-big":"pf-img"} style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,minHeight:isSplit?undefined:Math.max(180,460-chunks.length*70),maxHeight:isSplit?undefined:Math.max(220,500-chunks.length*70),background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleDI(ev.target.result);r.readAsDataURL(f);}}}>
         {dImg?<PinImg src={dImg} cps={rows} pk={dk} onPinChange={()=>sTick(t=>t+1)}/>:<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:Math.max(180,460-chunks.length*70),fontSize:12,color:"#aaa"}}>[ Side Elevation — Ctrl+V 붙여넣기 → 핀 배치 ]</div>}
         {dImg&&<button className="fc" onClick={()=>handleDI(null)} style={{position:"absolute",top:4,right:4,fontSize:9,padding:"1px 6px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:3,cursor:"pointer",zIndex:30}}>✕ 삭제</button>}
       </div>
     </div>
+    <div style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
+    {isSplit && <>
+      <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>SHELL DIMENSIONAL INSPECTION REPORT</div>
+      {headerTable("02")}
+    </>}
     {chunks.map((ch,ci)=>renderTable(ch,ci*COLS_PER_ROW))}
     {(isR||it.reactor_mount)&&(()=>{
       // BRACKET / LEG 자동 감지 (BOM에서)
@@ -1643,6 +1673,7 @@ function DIMPreview({doc}){
       </tr></tbody></table>;
     })()}
     <div style={{display:"flex",gap:24,marginTop:8,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+    </div>{/* v3.2 — 2 chunk 이상 페이지 2 wrapper 닫기 */}
   </div>;
 }
 function NozzlePreview({doc}){
@@ -1676,23 +1707,31 @@ function NozzlePreview({doc}){
   const tInput={width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"};
   const hc=hdr(),tc=bdr();const tNo=tagId(it.tag);const HC1={...hc,whiteSpace:"nowrap"};
   useEffect(()=>{IMG_STORE.set(nozKey,{noz,std,mEqN});},[noz,std,mEqN,nozKey]);
+  // v3.2 — 15+ 노즐로 그림/표가 물리적으로 2페이지로 나뉠 때, 데이터 표 페이지는 "2페이지에 이어지는
+  // 같은 보고서"가 아니라 "보고서가 1장 더 생성되는" 개념으로 취급 — Report No.를 -02(그림) / -03(표)로 분리.
+  const isSplit = noz.length >= 15;
+  const headerTable = (seq) => <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+    <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+    <tbody>
+      <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-{seq}</td></tr>
+      <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+      <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+      <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material{isC?" (S/T)":""}</td><td style={tc}>{isC?`${it.shell_mat||"—"} / ${it.tube_mat||"—"}`:(it.shell_mat||"—")}</td></tr>
+    </tbody>
+  </table>;
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
     <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
-    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
-      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
-      <tbody>
-        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-02</td></tr>
-        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
-        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
-        <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material{isC?" (S/T)":""}</td><td style={tc}>{isC?`${it.shell_mat||"—"} / ${it.tube_mat||"—"}`:(it.shell_mat||"—")}</td></tr>
-      </tbody>
-    </table>
+    {headerTable("03")}
     {/* v2.3 — 15+ 노즐일 때 이미지 영역이 페이지 1을 독차지하고 데이터 표는 페이지 2로 */}
     <div className={noz.length>=15?"noz-big":""} style={{display:"flex",gap:6,marginBottom:6,minHeight:240,flex:noz.length>=15?1:undefined}}>
       <IDZ label="Nozzle Orientation — Ctrl+V (VIEW A-A) — 노즐 각도/위치 표시" persistKey={nk2}/>
     </div>
     <div style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
+    {isSplit && <>
+      <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
+      {headerTable("04")}
+    </>}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
       {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="tolStd" checked={std===v} onChange={()=>sStd(v)} style={{accentColor:SJB}}/>{l}</label>)}
