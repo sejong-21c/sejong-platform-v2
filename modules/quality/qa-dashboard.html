@@ -163,7 +163,7 @@ function filteredCars() {
   return (state.cars || []).filter(c => {
     // NCR 연계 CAR는 필터된 NCR 목록 기준, 단독 발행 CAR는 자체 날짜/프로젝트로 필터
     if (c.ncrId) return ncrIds.has(c.ncrId);
-    const d = c.requestedAt || '';
+    const d = c.issuedAt || '';
     if (qf.year && !d.startsWith(qf.year)) return false;
     if (qf.quarter && quarterOf(d) !== parseInt(qf.quarter, 10)) return false;
     if (qf.proj && c.proj !== qf.proj) return false;
@@ -283,9 +283,9 @@ function render() {
   const openNcr = ncrs.filter(n => n.status !== 'closed').length;
   const majorNcr = ncrs.filter(n => n.grade === 'major').length;
   const openCar = cars.filter(c => c.status !== 'closed').length;
-  const closedCars = cars.filter(c => c.status === 'closed' && c.requestedAt && c.closedAt);
+  const closedCars = cars.filter(c => c.status === 'closed' && c.issuedAt && c.closedAt);
   const avgCarDays = closedCars.length
-    ? Math.round(closedCars.reduce((s,c) => s + (daysBetween(c.requestedAt, c.closedAt) || 0), 0) / closedCars.length)
+    ? Math.round(closedCars.reduce((s,c) => s + (daysBetween(c.issuedAt, c.closedAt) || 0), 0) / closedCars.length)
     : null;
   const withDisposition = ncrs.filter(n => n.disposition);
   const defectRate = withDisposition.length
@@ -451,29 +451,29 @@ function render() {
     </div>
 
     <div class="qd-section">
-      <h4>⏰ 기한 초과 CAR ${(() => {
+      <h4>⏰ 회신기한 초과 CAR ${(() => {
         const today = new Date().toISOString().slice(0,10);
-        const overdue = cars.filter(c => c.status !== 'closed' && c.dueDate && c.dueDate < today);
+        const overdue = cars.filter(c => c.status !== 'closed' && c.replyDue && c.replyDue < today);
         return `(${overdue.length}건)`;
       })()}</h4>
       ${(() => {
         const today = new Date().toISOString().slice(0,10);
-        const overdue = cars.filter(c => c.status !== 'closed' && c.dueDate && c.dueDate < today)
-          .sort((a,b) => a.dueDate.localeCompare(b.dueDate));
-        if (!overdue.length) return '<div class="empty-note">기한 초과된 CAR이 없습니다 👍</div>';
+        const overdue = cars.filter(c => c.status !== 'closed' && c.replyDue && c.replyDue < today)
+          .sort((a,b) => a.replyDue.localeCompare(b.replyDue));
+        if (!overdue.length) return '<div class="empty-note">회신기한 초과된 CAR이 없습니다 👍</div>';
         return `<div style="overflow-x:auto;"><table class="org-table">
-          <thead><tr><th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>시정조치</th><th>담당</th><th>기한</th><th>지연일</th><th>상태</th></tr></thead>
+          <thead><tr><th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>시정조치요구부서</th><th>발생분야</th><th>회신기한</th><th>지연일</th><th>상태</th></tr></thead>
           <tbody>${overdue.map(c => {
             const n = c.ncrId ? (state.ncrs||[]).find(x=>x.id===c.ncrId) : null;
             const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
-            const lateDays = daysBetween(c.dueDate, today);
+            const lateDays = daysBetween(c.replyDue, today);
             return `<tr>
               <td style="font-weight:700;">${c.id}</td>
               <td style="color:var(--primary);">${c.ncrId || '단독'}</td>
               <td>${n ? projLabel(n) : (getP(c.proj)?.code || '-')}</td>
-              <td style="max-width:220px;white-space:normal;">${c.action||'-'}</td>
-              <td>${getU(c.assignee)?.name || '-'}</td>
-              <td style="color:var(--danger);">${c.dueDate}</td>
+              <td>${c.reqDept || '-'}</td>
+              <td>${c.field || '-'}</td>
+              <td style="color:var(--danger);">${c.replyDue}</td>
               <td style="color:var(--danger);font-weight:700;">${lateDays}일</td>
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
             </tr>`;
