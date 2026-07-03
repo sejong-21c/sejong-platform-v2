@@ -887,6 +887,13 @@ setInterval(checkSessionTimeout, 30 * 1000);           // 30초마다 유휴 여
 
 function getU(id) { return state.users.find(u => u.id === id) || {}; }
 function getP(id) { return state.projects.find(p => p.id === id) || {}; }
+// v29.2: 프로젝트 상태 배지 — active(진행중)/done(완료)/pre-close(마감예정) 3종 공통 처리
+const PROJ_STATUS_META = {
+  active: { label: '진행중', pill: 'blue', color: 'var(--primary)' },
+  done: { label: '완료', pill: 'green', color: 'var(--success)' },
+  'pre-close': { label: '마감예정', pill: 'gray', color: 'var(--text-lighter)' },
+};
+function projStatusMeta(p) { return PROJ_STATUS_META[p && p.status] || PROJ_STATUS_META.active; }
 function getWBS(pid) { return state.wbs[pid] || []; }
 function getItems(pid) { return state.items[pid] || []; }
 /* Cowork 메일 자동분류 결과(개인별 briefing.schedule) → 캘린더 일정으로 자동 반영 */
@@ -1384,13 +1391,19 @@ function computeProjectProgress(pid) {
 }
 // WBS 데이터 기준 진척률을 projects.progress와 대조해 어긋나면 자동 동기화
 // (wbs.html을 직접 열지 않은 프로젝트도 대시보드 로드만으로 백필됨)
+// v29.2: 진척률이 100%가 되면 상태를 자동으로 '완료'로, 다시 100% 밑으로 내려가면 '진행중'으로 되돌림.
+// (마감예정 상태는 진척률과 무관한 수동 관리 상태라 자동 되돌림 대상에서 제외)
 function reconcileProjectProgress() {
   if (!window.fb || !fb.db) return;
   state.projects.forEach(p => {
     if (!state.wbs[p.id] || !state.wbs[p.id].length) return;
     const computed = computeProjectProgress(p.id);
-    if ((p.progress || 0) !== computed) {
-      fb.setDoc(fb.doc(fb.db, 'projects', p.id), { progress: computed }, { merge: true }).catch(() => {});
+    const updates = {};
+    if ((p.progress || 0) !== computed) updates.progress = computed;
+    if (computed >= 100 && p.status !== 'done') updates.status = 'done';
+    else if (computed < 100 && p.status === 'done') updates.status = 'active';
+    if (Object.keys(updates).length) {
+      fb.setDoc(fb.doc(fb.db, 'projects', p.id), updates, { merge: true }).catch(() => {});
     }
   });
 }
@@ -1697,7 +1710,7 @@ function renderEPCControl() {
             <div class="proj-open-hint">→ 열기</div>
             <div class="proj-code">${p.code}</div>
             <div class="proj-name">${p.name}</div>
-            <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${p.status==='active'?'blue':'gray'}">${p.status==='active'?'진행중':'마감예정'}</span></div>
+            <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
             <div class="proj-meta"><span>PM: ${getU(p.pm).name}</span><span><b>${p.progress}%</b></span></div>
             <div class="bar"><div class="bar-fill" style="width:${p.progress}%"></div></div>
             <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">WBS ${getWBS(p.id).length}개 항목 · 아이템 ${getItems(p.id).length}개</div>
@@ -1893,7 +1906,7 @@ function renderITPProjects() {
           <div class="proj-open-hint">→ ITP 작성</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${p.status==='active'?'blue':'gray'}">${p.status==='active'?'진행중':'마감예정'}</span></div>
+          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
           <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
@@ -2351,7 +2364,7 @@ function renderQAProjects() {
           <div class="proj-open-hint">→ 문서 작성</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${p.status==='active'?'blue':'gray'}">${p.status==='active'?'진행중':'마감예정'}</span></div>
+          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
           <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
@@ -2392,7 +2405,7 @@ function renderMobileProjects() {
           <div class="proj-open-hint">→ 검사 등록</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${p.status==='active'?'blue':'gray'}">${p.status==='active'?'진행중':'마감예정'}</span></div>
+          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
           <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
@@ -2415,7 +2428,7 @@ function renderDeptSchedProjects() {
       <div class="proj-open-hint">→ ${dept} 스케줄</div>
       <div class="proj-code">${p.code}</div>
       <div class="proj-name">${p.name}</div>
-      <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${p.status==='active'?'blue':'gray'}">${p.status==='active'?'진행중':'마감예정'}</span></div>
+      <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
       <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
       <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
       <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</div>
@@ -2823,7 +2836,8 @@ function projects() {
   let visibleProjs = showHidden ? allProjs : allProjs.filter(p => !p.hidden);
   if (view.projFilter && view.projFilter !== 'all') {
     if (view.projFilter === 'active') visibleProjs = visibleProjs.filter(p => p.status === 'active');
-    else if (view.projFilter === 'closing') visibleProjs = visibleProjs.filter(p => p.status !== 'active');
+    else if (view.projFilter === 'done') visibleProjs = visibleProjs.filter(p => p.status === 'done');
+    else if (view.projFilter === 'closing') visibleProjs = visibleProjs.filter(p => p.status === 'pre-close');
   }
   
   // 12개월 간략 간트 계산용 (2026년 기준, 프로젝트의 start~end를 12개월에 비례 배치)
@@ -2842,7 +2856,7 @@ function projects() {
     const sd = new Date(p.start), ed = new Date(p.end);
     const left = Math.max(0, (sd - yearStart) / yearTotal * 100);
     const width = Math.max(2, Math.min(100-left, (ed - sd) / yearTotal * 100));
-    const barColor = p.status === 'active' ? 'var(--primary)' : 'var(--text-lighter)';
+    const barColor = projStatusMeta(p).color;
     
     // WBS 항목별 미니 막대 (lv=0만, 세로로 쌓기)
     const lv0 = wbsList.filter(w => w.lv === 0);
@@ -2899,7 +2913,7 @@ function projects() {
           <div class="proj-open-hint">→ 열기</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${p.status==='active'?'blue':'gray'}">${p.status==='active'?'진행중':'마감예정'}</span></div>
+          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||"미지정"}${canAssignPM()?` <button onclick="event.stopPropagation();openAssignPM('${p.id}')" style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 2px;" title="PM 지정/변경">✏️</button>`:""}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%"></div></div>
           <div style="margin-top:6px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</div>
@@ -2913,9 +2927,7 @@ function projects() {
 /* ═════════════ 📅 전체 프로젝트 일정 요약 (통합 간트) ═════════════ */
 function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
   if (projs.length === 0) return '';
-  
-  const sm = { active: ['var(--primary)','진행중'], 'pre-close': ['var(--text-light)','마감예정'] };
-  
+
   const rows = projs.map(p => {
     const sd = new Date(p.start), ed = new Date(p.end);
     const left = Math.max(0, (sd - yearStart) / yearTotal * 100);
@@ -2993,7 +3005,7 @@ function openEditProject(pid) {
       <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="epEnd" value="${p.end||''}"></div>
     </div>
     <div class="fg"><label class="fl">PM</label><select class="fs" id="epPm">${state.users.map(u=>`<option value="${u.id}" ${u.id===p.pm?'selected':''}>${u.name} ${u.title}</option>`).join('')}</select></div>
-    <div class="fg"><label class="fl">상태</label><select class="fs" id="epStatus"><option value="active" ${p.status==='active'?'selected':''}>진행중</option><option value="pre-close" ${p.status!=='active'?'selected':''}>마감예정</option></select></div>
+    <div class="fg"><label class="fl">상태</label><select class="fs" id="epStatus"><option value="active" ${p.status==='active'||!p.status?'selected':''}>진행중</option><option value="done" ${p.status==='done'?'selected':''}>완료</option><option value="pre-close" ${p.status==='pre-close'?'selected':''}>마감예정</option></select></div>
   `, async () => {
     const code = document.getElementById('epCode').value.trim();
     const name = document.getElementById('epName').value.trim();
@@ -3061,6 +3073,7 @@ function openProjectFilter() {
     <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;">표시할 프로젝트 상태를 선택하세요.</div>
     ${opt('all','전체 보기')}
     ${opt('active','진행중만')}
+    ${opt('done','완료만')}
     ${opt('closing','마감예정만')}
   `, () => {
     const sel = document.querySelector('input[name="pfilter"]:checked');
@@ -3666,7 +3679,7 @@ function renderTravellerProjects() {
           <div class="proj-open-hint">→ 열기</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${p.status==='active'?'blue':'gray'}">${p.status==='active'?'진행중':'마감예정'}</span></div>
+          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b style="color:${rejected>0?'var(--danger)':'var(--primary)'};">${pct}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${rejected>0?'var(--danger)':pct>=100?'var(--success)':'var(--primary)'};"></div></div>
           <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:11px;color:var(--text-lighter);">
