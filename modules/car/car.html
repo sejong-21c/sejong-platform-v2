@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAR 관리</title>
+<style>
+:root {
+  --primary: #1976D2; --primary-hover: #1565C0; --primary-light: #E3F2FD;
+  --success: #4CAF50; --warning: #FF9800; --danger: #F44336;
+  --bg: #F5F7FA; --white: #FFFFFF;
+  --border: #E0E0E0; --border-light: #F0F0F0;
+  --text: #333; --text-light: #666; --text-lighter: #999;
+  --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+.btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--white); cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+.btn:hover { background: var(--bg); }
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+.b-pill { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.b-pill.green  { background: #E8F5E9; color: #2E7D32; }
+.b-pill.blue   { background: #E3F2FD; color: #1565C0; }
+.b-pill.orange { background: #FFF3E0; color: #E65100; }
+.b-pill.red    { background: #FFEBEE; color: #C62828; }
+.b-pill.gray   { background: var(--border-light); color: var(--text-light); }
+.org-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.org-table thead th { background: var(--bg); padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-light); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1; }
+.org-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.org-ico-btn { border: 1px solid var(--border); background: var(--white); border-radius: 6px; padding: 3px 7px; font-size: 12px; cursor: pointer; margin-left: 3px; }
+.org-ico-btn:hover { background: var(--bg); }
+.fg { margin-bottom: 14px; }
+.fl { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 5px; font-weight: 600; }
+.fi, .fs { width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff; }
+.fi:focus, .fs:focus { outline: none; border-color: var(--primary); }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+.kpi { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.kpi-label { font-size: 11px; color: var(--text-light); margin-bottom: 4px; }
+.kpi-value { font-size: 24px; font-weight: 800; }
+.kpi-trend { font-size: 11px; color: var(--text-lighter); margin-top: 2px; }
+.mod-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+.mod-title { font-size: 17px; font-weight: 700; }
+.mod-sub { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+.back-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--white); cursor: pointer; font-size: 12px; font-family: inherit; }
+.back-btn:hover { background: var(--bg); }
+
+#app { flex: 1; overflow-y: auto; padding: 24px; }
+
+.car-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
+.car-filter select, .car-filter input { padding: 5px 9px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12px; background: #fff; font-family: inherit; }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+.overlay.active { display: flex; }
+.modal-box { background: var(--white); border-radius: 12px; width: 100%; max-width: 480px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+.modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.modal-head h3 { font-size: 15px; font-weight: 700; }
+.modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
+.modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div id="app">로딩 중...</div>
+
+<!-- 일반 모달 -->
+<div class="overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modal-title"></h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-light);">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" id="modal-confirm">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'SJ_FLOW_V04';
+const CAR_STATUS = { 'in-progress':['orange','조치중'], 'replied':['blue','회신완료'], 'closed':['green','완료'] };
+
+let state = {};
+let filterState = { proj: '', status: '', search: '' };
+
+function loadState() {
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { state = {}; }
+  if (!state.cars)     state.cars = [];
+  if (!state.ncrs)     state.ncrs = [];
+  if (!state.projects) state.projects = [];
+  if (!state.users)    state.users = [];
+}
+
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    try { window.parent.render(); } catch(e) {}
+  } catch(e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) alert('⚠️ 저장 공간 부족. 관리자에게 문의하세요.');
+  }
+}
+
+function getP(id) { return (state.projects||[]).find(p => p.id === id) || {}; }
+function getU(id) { return (state.users||[]).find(u => u.id === id) || {}; }
+
+/* ═══ 모달 ═══ */
+function openModal(title, html, onConfirm) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = html;
+  const btn = document.getElementById('modal-confirm');
+  btn.onclick = onConfirm || closeModal;
+  document.getElementById('modal').classList.add('active');
+}
+function closeModal() { document.getElementById('modal').classList.remove('active'); }
+
+/* ═══ 메인 렌더 ═══ */
+function render() {
+  const _prevFocusId = document.activeElement?.id;
+  const _prevCursor  = document.activeElement?.selectionStart;
+  loadState();
+
+  const cars = state.cars || [];
+  const { proj, status, search } = filterState;
+
+  const filtered = cars.filter(c => {
+    if (proj && c.proj !== proj) return false;
+    if (status && c.status !== status) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const p = getP(c.proj);
+      if (!([c.id, c.ncrId||'', c.action, p?.code||'', p?.name||'', getU(c.assignee)?.name||''].join(' ').toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
+
+  const inProg   = cars.filter(c => c.status === 'in-progress').length;
+  const replied  = cars.filter(c => c.status === 'replied').length;
+  const done     = cars.filter(c => c.status === 'closed').length;
+
+  const projDropdown = [
+    `<option value="">전체 프로젝트</option>`,
+    ...(state.projects||[]).filter(p=>!p.hidden).map(p =>
+      `<option value="${p.id}" ${filterState.proj===p.id?'selected':''}>${p.code} ${p.name}</option>`)
+  ];
+
+  document.getElementById('app').innerHTML = `
+    <div class="mod-head">
+      <div>
+        <div class="mod-title">🔧 CAR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">시정조치 요청서</span></div>
+        <div class="mod-sub">NCR 연계 또는 단독 발행 · 시정조치 요청 · 회신 · 완료 추적</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="back-btn" onclick="try{window.parent.closeTool();}catch(e){}">← 도구함 닫기</button>
+        <button class="btn btn-primary" onclick="openNewCAR()">+ CAR 발행</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">조치 중</div><div class="kpi-value" style="color:var(--warning);">${inProg}</div><div class="kpi-trend">진행</div></div>
+      <div class="kpi"><div class="kpi-label">회신 완료</div><div class="kpi-value" style="color:var(--primary);">${replied}</div><div class="kpi-trend">검토 중</div></div>
+      <div class="kpi"><div class="kpi-label">완료</div><div class="kpi-value" style="color:var(--success);">${done}</div><div class="kpi-trend">종결</div></div>
+      <div class="kpi"><div class="kpi-label">전체</div><div class="kpi-value">${cars.length}</div><div class="kpi-trend">누적</div></div>
+    </div>
+
+    <div class="car-filter">
+      <select onchange="filterState.proj=this.value;render()">${projDropdown.join('')}</select>
+      <select onchange="filterState.status=this.value;render()">
+        <option value="">전체 상태</option>
+        <option value="in-progress" ${filterState.status==='in-progress'?'selected':''}>조치중</option>
+        <option value="replied"     ${filterState.status==='replied'    ?'selected':''}>회신완료</option>
+        <option value="closed"      ${filterState.status==='closed'     ?'selected':''}>완료</option>
+      </select>
+      <input id="car-search-input" placeholder="🔍 검색 (No./내용/담당자)" value="${filterState.search}"
+        oninput="filterState.search=this.value;render()" style="min-width:200px;">
+      ${(filterState.proj||filterState.status||filterState.search)
+        ? `<button class="btn btn-sm" onclick="filterState={proj:'',status:'',search:''};render()">✕ 초기화</button>` : ''}
+      <span style="font-size:12px;color:var(--text-light);margin-left:auto;">${filtered.length}/${cars.length}건</span>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table class="org-table">
+        <thead><tr>
+          <th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>시정조치 내용</th>
+          <th>담당자</th><th>요청일</th><th>기한</th><th>완료일</th><th>상태</th><th>관리</th>
+        </tr></thead>
+        <tbody>
+          ${filtered.length ? filtered.map(c => {
+            const p  = getP(c.proj);
+            const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
+            return `<tr>
+              <td style="font-weight:700;font-size:11px;white-space:nowrap;">${c.id}</td>
+              <td style="font-size:11px;color:var(--primary);">
+                ${c.ncrId
+                  ? `<span style="cursor:pointer;text-decoration:underline;" title="${c.ncrId}">${c.ncrId}</span>`
+                  : `<span style="color:var(--text-lighter);">단독 발행</span>`}
+              </td>
+              <td style="font-size:11px;">${p?.code||'-'}</td>
+              <td style="font-size:12px;max-width:240px;">${c.action}</td>
+              <td style="font-size:12px;white-space:nowrap;">${getU(c.assignee)?.name||'-'}</td>
+              <td style="font-size:11px;white-space:nowrap;">${c.requestedAt||'-'}</td>
+              <td style="font-size:11px;white-space:nowrap;${c.dueDate&&c.status!=='closed'&&c.dueDate<new Date().toISOString().slice(0,10)?'color:var(--danger);font-weight:700;':''}">${c.dueDate||'-'}</td>
+              <td style="font-size:11px;white-space:nowrap;color:var(--success);">${c.closedAt||'-'}</td>
+              <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
+              <td style="white-space:nowrap;">
+                <button class="org-ico-btn" onclick="openCARMgr('${c.id}')" title="상세/수정">📋</button>
+                ${c.status!=='closed' ? `<button class="org-ico-btn" onclick="closeCAR('${c.id}')" title="완료 처리">✅</button>` : ''}
+              </td>
+            </tr>`;
+          }).join('') : `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light);">등록된 CAR이 없습니다 — [+ CAR 발행] 또는 NCR 관리에서 발행하세요</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  if (_prevFocusId) {
+    const el = document.getElementById(_prevFocusId);
+    if (el) { el.focus(); if (_prevCursor != null) try { el.setSelectionRange(_prevCursor, _prevCursor); } catch(e){} }
+  }
+}
+
+/* ═══ CAR 발행 (단독) ═══ */
+function openNewCAR() {
+  const projOpts = (state.projects||[]).filter(p=>!p.hidden)
+    .map(p=>`<option value="${p.id}">${p.code} ${p.name}</option>`).join('');
+  const userOpts = (state.users||[])
+    .map(u=>`<option value="${u.id}">${u.name} ${u.title||''}</option>`).join('');
+
+  openModal('+ CAR 발행 (단독)', `
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:14px;background:var(--bg);padding:8px 12px;border-radius:6px;">
+      NCR 없이 단독으로 발행되는 시정조치 요청입니다 (고객 직접 요청·내부 개선 지시 등).
+    </div>
+    <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="carProj">${projOpts}</select></div>
+    <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="carAction" rows="3" placeholder="필요한 시정조치를 기재하세요"></textarea></div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="carAssignee">${userOpts}</select></div>
+      <div style="flex:1;"><label class="fl">완료 기한</label><input class="fi" type="date" id="carDue"></div>
+    </div>
+  `, () => {
+    const proj     = document.getElementById('carProj').value;
+    const action   = document.getElementById('carAction').value.trim();
+    const assignee = document.getElementById('carAssignee').value;
+    const due      = document.getElementById('carDue').value;
+    if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
+    if (!state.cars) state.cars = [];
+    const num = String(state.cars.length + 1).padStart(3,'0');
+    state.cars.push({
+      id: `CAR-${new Date().getFullYear()}-${num}`,
+      ncrId: null, proj, action, assignee, status: 'in-progress',
+      requestedAt: new Date().toISOString().slice(0,10),
+      dueDate: due||'', closedAt: null
+    });
+    save(); closeModal(); render();
+  });
+}
+
+/* ═══ CAR 상세/수정 ═══ */
+function openCARMgr(carId) {
+  const c = (state.cars||[]).find(x => x.id === carId);
+  if (!c) return;
+  const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
+  const p  = getP(c.proj);
+  const projName = p?.code ? `${p.code} ${p.name}` : '-';
+  const userOpts = (state.users||[])
+    .map(u=>`<option value="${u.id}" ${u.id===c.assignee?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
+
+  openModal(`📋 CAR 관리 — ${c.id}`, `
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <span class="b-pill ${st[0]}">${st[1]}</span>
+      <span style="font-size:12px;color:var(--text-light);">${projName} · 요청일: ${c.requestedAt||'-'}</span>
+      ${c.ncrId ? `<span style="font-size:12px;color:var(--primary);">연계: ${c.ncrId}</span>` : ''}
+    </div>
+    <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="mgr-action" rows="3">${c.action}</textarea></div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="mgr-assignee">${userOpts}</select></div>
+      <div style="flex:1;"><label class="fl">완료 기한</label><input class="fi" type="date" id="mgr-due" value="${c.dueDate||''}"></div>
+    </div>
+    <div class="fg">
+      <label class="fl">상태</label>
+      <select class="fs" id="mgr-status">
+        <option value="in-progress" ${c.status==='in-progress'?'selected':''}>조치중</option>
+        <option value="replied"     ${c.status==='replied'    ?'selected':''}>회신완료</option>
+        <option value="closed"      ${c.status==='closed'     ?'selected':''}>완료</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">완료일 <span style="font-size:11px;color:var(--text-light);">(상태가 완료일 때 자동 입력)</span></label>
+      <input class="fi" type="date" id="mgr-closed" value="${c.closedAt||''}">
+    </div>
+  `, () => {
+    c.action   = document.getElementById('mgr-action').value.trim() || c.action;
+    c.assignee = document.getElementById('mgr-assignee').value;
+    c.dueDate  = document.getElementById('mgr-due').value;
+    const newStatus = document.getElementById('mgr-status').value;
+    const closedAt  = document.getElementById('mgr-closed').value;
+    if (newStatus === 'closed' && !c.closedAt) c.closedAt = closedAt || new Date().toISOString().slice(0,10);
+    else if (newStatus !== 'closed') c.closedAt = closedAt || null;
+    else c.closedAt = closedAt;
+    c.status = newStatus;
+    save(); closeModal(); render();
+  });
+}
+
+/* ═══ CAR 완료 처리 ═══ */
+function closeCAR(carId) {
+  const c = (state.cars||[]).find(x => x.id === carId);
+  if (!c) return;
+  if (!confirm(`${carId}을(를) 완료 처리하시겠습니까?`)) return;
+  c.status   = 'closed';
+  c.closedAt = new Date().toISOString().slice(0,10);
+  if (c.ncrId) {
+    const n = (state.ncrs||[]).find(x => x.id === c.ncrId);
+    if (n && n.status !== 'closed' && confirm(`연계된 ${n.id}도 종결 처리할까요?`)) {
+      n.status   = 'closed';
+      n.closedAt = new Date().toISOString().slice(0,10);
+    }
+  }
+  save(); render();
+}
+
+/* ═══ 초기화 ═══ */
+document.addEventListener('DOMContentLoaded', render);
+</script>
+</body>
+</html>
