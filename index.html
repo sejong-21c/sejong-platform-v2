@@ -11,7 +11,8 @@
     getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
+    query, where, orderBy, limit
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -28,6 +29,7 @@
     auth: getAuth(fbApp), db: getFirestore(fbApp),
     GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged,
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
+    query, where, orderBy, limit,
   };
 </script>
 <style>
@@ -353,38 +355,6 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .qa-form-row label { min-width: 110px; font-size: 11px; color: var(--text-light); font-weight: 600; }
 .qa-doc-head { background: var(--bg); padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
-/* Messenger */
-.msg-layout { display: grid; grid-template-columns: 260px 1fr; height: 100%; min-height: 0; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.msg-side { border-right: 1px solid var(--border); overflow-y: auto; background: #fafbfc; }
-.msg-sec { padding: 12px 12px 5px; font-size: 11px; font-weight: 700; color: var(--text-light); }
-.msg-ch { display: flex; align-items: center; gap: 9px; padding: 8px 12px; cursor: pointer; font-size: 13px; }
-.msg-ch:hover { background: var(--primary-light); }
-.msg-ch.active { background: var(--primary-light); border-left: 3px solid var(--primary); }
-.msg-ch-ico { flex-shrink: 0; width: 26px; text-align: center; }
-.msg-ch-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.msg-ch-last { font-size: 11px; color: var(--text-lighter); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.msg-main { display: flex; flex-direction: column; min-height: 0; }
-.msg-head { padding: 13px 18px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 14px; display: flex; justify-content: space-between; align-items: center; background: var(--white); }
-.msg-body { flex: 1; overflow-y: auto; padding: 18px; background: #eef1f5; }
-.msg-row { display: flex; gap: 9px; margin-bottom: 14px; align-items: flex-start; }
-.msg-row.mine { flex-direction: row-reverse; }
-.msg-bubble-wrap { display: flex; flex-direction: column; max-width: 72%; }
-.msg-row.mine .msg-bubble-wrap { align-items: flex-end; }
-.msg-author { font-size: 11px; color: var(--text-light); margin-bottom: 3px; font-weight: 600; }
-.msg-bubble { background: var(--white); padding: 9px 13px; border-radius: 12px; font-size: 13px; line-height: 1.45; word-break: break-word; box-shadow: 0 1px 1px rgba(0,0,0,.04); border-top-left-radius: 3px; }
-.msg-bubble.mine { background: #fae100; color: #1a1a1a; border-top-left-radius: 12px; border-top-right-radius: 3px; }
-.msg-time { font-size: 10px; color: var(--text-lighter); white-space: nowrap; margin-bottom: 2px; }
-.msg-file { display: flex; align-items: center; gap: 6px; }
-.msg-input-bar { border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px; align-items: center; background: var(--white); }
-.msg-input { flex: 1; padding: 9px 14px; border: 1px solid var(--border); border-radius: 20px; font-size: 13px; font-family: inherit; }
-.msg-input:focus { outline: none; border-color: var(--primary); }
-.msg-file-btn { border: none; background: var(--bg); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; flex-shrink: 0; }
-.msg-file-btn:hover { background: var(--primary-light); }
-.msg-pick { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
-.msg-pick:hover { background: var(--bg); }
-.msg-body { position: relative; }
-.msg-drop-hint { display: none; position: absolute; inset: 10px; border: 2.5px dashed var(--primary); border-radius: 12px; background: rgba(74,127,193,.08); align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--primary); pointer-events: none; z-index: 5; }
-.msg-drop-hint.show { display: flex; }
 /* ═══ 로그인 화면 (2단: 좌 소개 + 우 파란 패널) ═══ */
 .login-wrap { position:absolute; inset:0; display:grid; grid-template-columns:1fr 480px; background:#fff; }
 .login-left { padding:48px 56px; display:flex; flex-direction:column; }
@@ -466,7 +436,6 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   .dash-grid { grid-template-columns: 1fr; }
   .kanban { grid-template-columns: 1fr; }
   .org-grid { grid-template-columns: 1fr; }
-  .msg-layout { grid-template-columns: 1fr; }
   .itp-wrap { grid-template-columns: 1fr; }
   .content-pad { padding: 16px; }
   .cal-days { grid-auto-rows: minmax(70px, 1fr); }
@@ -552,6 +521,8 @@ const DEPTS = [
   { id: 'nuclear',      icon: '☢️', name: '원자력사업부', tools: ['deptsch'] },
   { id: 'overseas',     icon: '🌏', name: '해외사업부',   tools: ['deptsch'] },
 ];
+// 부서 한글명 → id 매핑 (doProfileSetup 등에서 dept를 이름으로 저장하므로 채널 id 생성 시 필요)
+const DEPT_NAME_TO_ID = Object.fromEntries(DEPTS.map(d => [d.name, d.id]));
 
 // ══════════ 권한 헬퍼 ══════════
 // 개별 추가 권한 정의 (등급과 별개로 개인에게 부여)
@@ -712,6 +683,8 @@ function defaultState() {
       { id:'c2', name:'품질관리부', type:'dept' },
     ],
     messages: [],
+    // 채널별 마지막 읽음 시각 (본인 것만, 로그인/채널열람 시 로드·갱신 — 실시간 리스너 아님)
+    channelReads: {},
     quotes: [],
     okrs: [],
     approvals: [],
@@ -732,6 +705,8 @@ function defaultState() {
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b10';
+// messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
+const MESSENGER_BUILD = 'b2';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -743,7 +718,7 @@ if (!state.users || !state.users.length || !state.users[0].email) {
 (function migrateFields() {
   const def = defaultState();
   let changed = false;
-  ['ncrs','cars','briefings','reports','channels','messages','approvals','events','tasks','travellers','quotes','okrs','dismissedNotifs'].forEach(k => {
+  ['ncrs','cars','briefings','reports','channels','messages','channelReads','approvals','events','tasks','travellers','quotes','okrs','dismissedNotifs'].forEach(k => {
     if (state[k] === undefined && def[k] !== undefined) { state[k] = def[k]; changed = true; }
   });
   if (changed) { localStorage.setItem(KEY, JSON.stringify(state)); console.info('[SJ FLOW] 신규 필드 보강 완료'); }
@@ -840,6 +815,7 @@ async function autoRegisterPendingProjects() {
           remark: data.remark || '', createdBy: 'Cowork WO 자동등록',
         });
         await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { rows, items, updatedAt: Date.now() });
+        ensureProjectChannel(pid, data.name).catch(() => {});
         console.info('[SJ FLOW] WO 자동등록:', data.no, data.name);
       }
       registered.push(data.no);
@@ -1330,6 +1306,7 @@ async function doProfileSetup(uid) {
     await fb.setDoc(fb.doc(fb.db, 'users', uid), {
       name, email, dept, title, grade: gradeByTitle(title), disabled: false, createdAt: Date.now(),
     });
+    ensureDeptChannel(dept).catch(() => {});
     await hydrateUsersAndEnter(uid);
   } catch (e) {
     console.error(e);
@@ -1429,6 +1406,27 @@ function startFirestoreSync() {
     reconcileProjectProgress();
     render();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
+  // 메신저 UI는 modules/messenger/messenger.html(iframe)로 이동했지만, 상단 알림배지는
+  // 메신저를 열지 않아도 실시간으로 보여야 하므로 channels/messages/channelReads를 여기서도 독립 구독한다.
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'channels'), snap => {
+    state.channels = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    updateNotifBadge();
+  }, err => console.error('[Firestore] channels 동기화 오류:', err)));
+  // 최근 500개만 구독 — 무제한 증가 방지용 최소 가드 (오래된 메시지는 배지 계산에서 빠짐, MVP 트레이드오프)
+  const msgQuery = fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(500));
+  _fsUnsubs.push(fb.onSnapshot(msgQuery, snap => {
+    state.messages = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    updateNotifBadge();
+  }, err => console.error('[Firestore] messages 동기화 오류:', err)));
+  // channelReads는 본인 것만 필요하므로 where로 좁혀서 실시간 구독 (일회성 조회 대신 —
+  // 메신저 iframe 안에서 읽음 처리해도 부모 배지가 곧바로 갱신되도록)
+  const readsQuery = fb.query(fb.collection(fb.db, 'channelReads'), fb.where('uid', '==', state.currentUser));
+  _fsUnsubs.push(fb.onSnapshot(readsQuery, snap => {
+    const reads = {};
+    snap.forEach(d => { const data = d.data(); reads[data.channel] = data.lastRead; });
+    state.channelReads = reads;
+    updateNotifBadge();
+  }, err => console.error('[Firestore] channelReads 동기화 오류:', err)));
 }
 
 function finishLogin() {
@@ -1498,8 +1496,17 @@ function getNotifications(includeAll) {
   if (b && b.nuclear && b.nuclear.items) b.nuclear.items.filter(function(it) { return it.priority === 'high'; }).forEach(function(it) { notifs.push({ type: 'nuclear', icon: '☢️', title: it.text, sub: it.category || '원자력', proj: it.proj, mail: true }); });
   var pendA = (state.approvals || []).filter(function(a) { return (a.status === 'pending' || a.status === 'review') && (a.approver === state.currentUser || a.to === state.currentUser); });
   pendA.forEach(function(a) { notifs.push({ type: 'approval', icon: '📝', title: a.title || '결재 요청', sub: (getU(a.from) || {}).name || '', proj: '', mail: false }); });
-  var unread = (state.messages || []).filter(function(m) { return m.to === state.currentUser && !m.read; });
-  unread.forEach(function(m) { notifs.push({ type: 'message', icon: '💬', title: m.text || '새 메시지', sub: (getU(m.from) || {}).name || '', proj: '', mail: false }); });
+  // 채널별 안읽음 메시지 집계 — 메시지 건별이 아니라 채널당 1개 알림으로 묶어 알림 패널 도배 방지
+  var visibleChannels = (state.channels || []).filter(function(c) {
+    if (c.type === 'group' || c.type === 'dm') return (c.members || []).indexOf(state.currentUser) !== -1;
+    return true;
+  });
+  visibleChannels.forEach(function(c) {
+    var unreadN = getUnreadCount(c.id);
+    if (unreadN <= 0) return;
+    var chLabel = c.type === 'dm' ? (dmTitle(c) || c.name) : c.name;
+    notifs.push({ type: 'message', icon: '💬', title: chLabel + ' 채널에 읽지 않은 메시지 ' + unreadN + '개', sub: '메신저', proj: '', mail: false });
+  });
   if (b && b.autoRegistered) notifs.push({ type: 'autoReg', icon: '📦', title: b.autoRegistered + '개 워크오더 프로젝트 자동 등록됨', sub: 'Cowork WO 파이프라인', proj: '', mail: false });
   if (b && Array.isArray(b.pendingProjects) && b.pendingProjects.length) {
     var regList = JSON.parse(localStorage.getItem('sjflow_registered_v3') || '[]');
@@ -1679,9 +1686,7 @@ function render() {
     return;
   }
   if (view.cur === 'messenger') {
-    content.innerHTML = `<div style="height:calc(100vh - var(--header-h) - 40px);padding:20px;box-sizing:border-box;">${messenger()}</div>`;
-    const b = document.getElementById('msgBody');
-    if (b) b.scrollTop = b.scrollHeight;
+    content.innerHTML = renderMessengerFrame();
     return;
   }
   const renderers = { dashboard, calendar, projects, tasks, quotes, okr, org, approval };
@@ -2034,6 +2039,16 @@ function setITPItem(iid) { view.itpSelectedItem = iid; render(); }
 /* ═════════════ QA Doc Generator Inline ═════════════ */
 // ══════════ QA Doc Generator iframe (modules/qa-doc-generator/qa-doc-generator.html) ══════════
 // ══════════ Manday Tracker iframe (modules/manday-tracker/manday-tracker.html) ══════════
+// 메신저 — modules/messenger/messenger.html을 iframe으로 로드 (WBS/Manday와 동일한 모듈 임베딩 패턴)
+function renderMessengerFrame() {
+  const messengerPath = `modules/messenger/messenger.html?embed=1&v=${MESSENGER_BUILD}`;
+  return `<div style="height:calc(100vh - var(--header-h) - 40px);padding:20px;box-sizing:border-box;">
+    <iframe id="messengerFrame" src="${messengerPath}"
+            style="width:100%;height:100%;border:0;display:block;"
+            title="메신저"></iframe>
+  </div>`;
+}
+
 function renderMandayFrame() {
   const u = getU(state.currentUser);
   const mp = new URLSearchParams({ embed: '1', uname: u?.name||'관리자', utitle: u?.title||'' });
@@ -3158,6 +3173,7 @@ function openNewProject() {
         progress: 0, status: 'active', hidden: false,
       });
       await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows: [], items: [], updatedAt: Date.now() });
+      ensureProjectChannel(newId, name).catch(() => {});
       closeModal();
     } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
@@ -3229,6 +3245,7 @@ function openWorkOrderModal() {
         createdBy: '워크오더 자동등록',
       });
       await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows, items: [], updatedAt: Date.now() });
+      ensureProjectChannel(newId, name).catch(() => {});
       closeModal();
       alert(`✅ 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
     } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
@@ -3328,6 +3345,7 @@ function openCoworkImportModal() {
         remark: data.remark || '', createdBy: 'Cowork 자동등록',
       });
       await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows, items, updatedAt: Date.now() });
+      ensureProjectChannel(newId, data.name).catch(() => {});
       closeModal();
       alert(`✅ Cowork 자동등록 완료\n• 프로젝트: ${data.no} ${data.name}\n• WBS 대단락: ${scopes.length}개 생성`);
     } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
@@ -3380,208 +3398,35 @@ function openTask() {
   });
 }
 
-let activeCh = 'c1';
-
-let msgFilter = 'all'; // 사이드바 필터
-function messenger() {
-  const me = state.currentUser;
-  const ch = getChannel(activeCh);
-  // 채널 분류
-  const announceChs = state.channels.filter(c => c.type === 'announce');
-  const deptChs = state.channels.filter(c => c.type === 'dept');
-  const projChs = state.channels.filter(c => c.type === 'project');
-  const groupChs = state.channels.filter(c => c.type === 'group' && (c.members||[]).includes(me));
-  // DM 목록 (나와 1:1)
-  const dmChs = state.channels.filter(c => c.type === 'dm' && (c.members||[]).includes(me));
-
-  const chItem = (c) => {
-    const ico = c.type==='announce'?'📢':c.type==='dept'?'🏢':c.type==='project'?'🏗️':c.type==='group'?'👥':'💬';
-    const last = [...state.messages].reverse().find(m => m.channel === c.id);
-    const unread = ''; // (추후 읽음표시)
-    let label = c.name;
-    if (c.type === 'dm') {
-      const other = (c.members||[]).find(id => id !== me);
-      const ou = getU(other);
-      label = ou ? `${ou.name} ${ou.title}` : c.name;
-    }
-    return `<div class="msg-ch ${c.id===activeCh?'active':''}" onclick="setCh('${c.id}')">
-      <span class="msg-ch-ico">${c.type==='dm'? `<span class="avatar" style="width:26px;height:26px;font-size:11px;">${label.charAt(0)}</span>` : ico}</span>
-      <div style="flex:1;min-width:0;">
-        <div class="msg-ch-name">${c.type==='dm'?'':'# '}${label}</div>
-        ${last?`<div class="msg-ch-last">${last.file?'📎 파일':escapeHtmlMsg(last.text).slice(0,22)}</div>`:''}
-      </div>
-    </div>`;
-  };
-
-  return `<div style="height:100%;display:flex;flex-direction:column;">
-    <div class="mod-head">
-      <div><div class="mod-title">💬 메신저</div><div class="mod-sub">사내 메신저 · 채널 · 1:1 · 그룹 · 파일 공유</div></div>
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-sm" onclick="openNewDM()">+ 1:1 채팅</button>
-        <button class="btn btn-primary btn-sm" onclick="openNewGroup()">+ 그룹 만들기</button>
-      </div>
-    </div>
-    <div class="msg-layout" style="flex:1;min-height:0;">
-      <div class="msg-side">
-        <div class="msg-sec">📢 공지</div>
-        ${announceChs.map(chItem).join('')}
-        <div class="msg-sec">🏢 부서</div>
-        ${deptChs.map(chItem).join('')}
-        <div class="msg-sec">🏗️ 프로젝트</div>
-        ${projChs.map(chItem).join('')}
-        ${groupChs.length?`<div class="msg-sec">👥 그룹</div>${groupChs.map(chItem).join('')}`:''}
-        <div class="msg-sec">💬 다이렉트 메시지</div>
-        ${dmChs.length?dmChs.map(chItem).join(''):'<div style="font-size:11px;color:var(--text-lighter);padding:4px 10px;">+ 1:1 채팅으로 시작</div>'}
-      </div>
-      <div class="msg-main">
-        ${ch ? `
-        <div class="msg-head">
-          <span>${ch.type==='dm'?'💬 '+dmTitle(ch):'# '+ch.name}</span>
-          ${ch.type==='group'||ch.type==='project'?`<span style="font-size:11px;color:var(--text-light);font-weight:400;">${(ch.members||[]).length||state.users.length}명</span>`:''}
-        </div>
-        <div class="msg-body" id="msgBody"
-             ondragover="msgDragOver(event)" ondragleave="msgDragLeave(event)" ondrop="msgDrop(event)">
-          ${renderMessages(ch)}
-          <div id="msgDropHint" class="msg-drop-hint">📎 여기에 파일을 놓으면 전송됩니다</div>
-        </div>
-        <div class="msg-input-bar">
-          <button class="msg-file-btn" onclick="msgAttachFile()" title="파일 첨부">📎</button>
-          <input type="text" id="msgInput" class="msg-input" placeholder="메시지 입력... (Enter로 전송)" onkeydown="if(event.key==='Enter')sendMsg()">
-          <button class="btn btn-primary btn-sm" onclick="sendMsg()">전송</button>
-        </div>
-        ` : `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-lighter);">채널을 선택하세요</div>`}
-      </div>
-    </div>
-  </div>`;
+// 부서 채널이 없으면 생성 (결정론적 id + merge:true라 동시 호출에도 안전, 트랜잭션 불필요)
+async function ensureDeptChannel(deptName) {
+  if (!deptName) return;
+  const id = 'dept_' + (DEPT_NAME_TO_ID[deptName] || deptName);
+  if (state.channels.some(c => c.id === id)) return; // 네트워크 호출 스킵용 최적화일 뿐, 정확성은 merge:true가 보장
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'channels', id), { name: deptName, type: 'dept', deptId: DEPT_NAME_TO_ID[deptName] || null }, { merge: true });
+  } catch (e) { console.error('[Firestore] 부서 채널 생성 오류:', e); }
 }
 
-function escapeHtmlMsg(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function getChannel(cid){ return state.channels.find(c=>c.id===cid); }
+// 프로젝트 등록 시 프로젝트 채널 자동 생성
+async function ensureProjectChannel(projectId, name) {
+  if (!projectId) return;
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'channels', 'proj_' + projectId), { name, type: 'project', projectId }, { merge: true });
+  } catch (e) { console.error('[Firestore] 프로젝트 채널 생성 오류:', e); }
+}
+
+// 로그인 시 1회 로드 — 본인 읽음 상태만 필요하므로 실시간 리스너 대신 쿼리 1회 (여러 탭 동시 사용 시 수 초 지연은 허용 가능한 트레이드오프)
+function getUnreadCount(channelId) {
+  const me = state.currentUser;
+  const lastRead = state.channelReads[channelId] || 0;
+  return state.messages.filter(m => m.channel === channelId && m.author !== me && (m.createdAt || 0) > lastRead).length;
+}
+
+// 메신저 UI 자체는 modules/messenger/messenger.html로 이동됨 (renderMessengerFrame() 참고).
+// dmTitle()만 getNotifications()의 안읽음 알림 문구에서 계속 사용되어 여기 남겨둔다.
 function dmTitle(ch){ const other=(ch.members||[]).find(id=>id!==state.currentUser); const ou=getU(other); return ou?`${ou.name} ${ou.title}`:''; }
 
-function renderMessages(ch) {
-  const msgs = state.messages.filter(m => m.channel === ch.id);
-  if (!msgs.length) return '<div style="text-align:center;color:var(--text-lighter);font-size:12px;padding:30px;">첫 메시지를 보내보세요 👋</div>';
-  return msgs.map(m => {
-    const u = getU(m.author);
-    const mine = m.author === state.currentUser;
-    const body = m.file
-      ? `<div class="msg-file">📎 <span>${escapeHtmlMsg(m.file)}</span><span style="font-size:10px;color:var(--text-lighter);">(${m.fileSize||'파일'})</span></div>`
-      : escapeHtmlMsg(m.text);
-    if (mine) {
-      return `<div class="msg-row mine"><div class="msg-bubble-wrap">
-        <div class="msg-time">${m.at?.slice(11)||''}</div>
-        <div class="msg-bubble mine">${body}</div>
-      </div></div>`;
-    }
-    return `<div class="msg-row"><div class="avatar" style="width:30px;height:30px;font-size:12px;flex-shrink:0;">${u.name?.charAt(0)||'?'}</div>
-      <div class="msg-bubble-wrap">
-        <div class="msg-author">${u.name||'?'} ${u.title||''}</div>
-        <div style="display:flex;align-items:flex-end;gap:6px;">
-          <div class="msg-bubble">${body}</div>
-          <div class="msg-time">${m.at?.slice(11)||''}</div>
-        </div>
-      </div></div>`;
-  }).join('');
-}
-
-function setCh(cid) { activeCh = cid; render(); }
-
-function sendMsg() {
-  const inp = document.getElementById('msgInput');
-  const text = inp?.value.trim();
-  if (!text) return;
-  state.messages.push({ id:'m'+Date.now(), channel:activeCh, author:state.currentUser, text, at:nowStamp() });
-  save(); render();
-}
-
-function nowStamp(){ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')} ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`; }
-
-// 파일 첨부 (UI — 실제 업로드는 Firebase 연동 시)
-function msgAttachFile() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.multiple = true;
-  input.onchange = () => { sendFiles(input.files); };
-  input.click();
-}
-
-// 파일 메시지 전송 (공통)
-function sendFiles(fileList) {
-  const files = Array.from(fileList || []);
-  if (!files.length) return;
-  files.forEach(f => {
-    const kb = f.size / 1024;
-    const size = kb >= 1024 ? (kb/1024).toFixed(1)+'MB' : kb.toFixed(0)+'KB';
-    state.messages.push({ id:'m'+Date.now()+Math.random().toString(36).slice(2,5), channel:activeCh, author:state.currentUser, file:f.name, fileSize:size, at:nowStamp() });
-  });
-  save(); render();
-}
-
-// 드래그 앤 드롭
-function msgDragOver(e) { e.preventDefault(); const h=document.getElementById('msgDropHint'); if(h) h.classList.add('show'); }
-function msgDragLeave(e) { const h=document.getElementById('msgDropHint'); if(h) h.classList.remove('show'); }
-function msgDrop(e) {
-  e.preventDefault();
-  const h=document.getElementById('msgDropHint'); if(h) h.classList.remove('show');
-  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-    sendFiles(e.dataTransfer.files);
-  }
-}
-
-// 1:1 DM 시작
-function openNewDM() {
-  const others = state.users.filter(u => u.id !== state.currentUser);
-  openModal('+ 1:1 채팅 상대 선택', `
-    <div style="max-height:340px;overflow-y:auto;">
-      ${others.map(u=>`<div class="msg-pick" onclick="startDM('${u.id}')">
-        <div class="avatar" style="width:30px;height:30px;font-size:12px;">${u.name.charAt(0)}</div>
-        <div><div style="font-weight:600;font-size:13px;">${u.name} ${u.title}</div><div style="font-size:11px;color:var(--text-light);">${u.dept}</div></div>
-      </div>`).join('')}
-    </div>
-  `);
-}
-function startDM(otherId) {
-  const me = state.currentUser;
-  // 기존 DM 있으면 재사용
-  let dm = state.channels.find(c => c.type==='dm' && (c.members||[]).includes(me) && (c.members||[]).includes(otherId));
-  if (!dm) {
-    dm = { id:'dm'+Date.now(), name:'DM', type:'dm', members:[me, otherId] };
-    state.channels.push(dm);
-    save();
-  }
-  activeCh = dm.id;
-  closeModal();
-  render();
-}
-
-// 그룹 채팅 만들기
-function openNewGroup() {
-  const others = state.users.filter(u => u.id !== state.currentUser);
-  openModal('+ 그룹 채팅 만들기', `
-    <div class="fg"><label class="fl">그룹 이름</label><input class="fi" id="grpName" placeholder="예: 국도화학 TF"></div>
-    <div class="fg"><label class="fl">멤버 선택</label>
-      <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px;">
-        ${others.map(u=>`<label class="msg-pick" style="cursor:pointer;">
-          <input type="checkbox" name="grpMember" value="${u.id}" style="margin-right:4px;">
-          <div class="avatar" style="width:26px;height:26px;font-size:11px;">${u.name.charAt(0)}</div>
-          <div><span style="font-weight:600;font-size:12px;">${u.name} ${u.title}</span> <span style="font-size:11px;color:var(--text-light);">${u.dept}</span></div>
-        </label>`).join('')}
-      </div>
-    </div>
-  `, () => {
-    const name = document.getElementById('grpName').value.trim();
-    const members = Array.from(document.querySelectorAll('input[name="grpMember"]:checked')).map(c=>c.value);
-    if (!name) { alert('그룹 이름을 입력하세요.'); return; }
-    if (!members.length) { alert('멤버를 1명 이상 선택하세요.'); return; }
-    const grp = { id:'g'+Date.now(), name, type:'group', members:[state.currentUser, ...members] };
-    state.channels.push(grp);
-    save();
-    activeCh = grp.id;
-    closeModal();
-    render();
-  });
-}
 
 /* ═════════════ 📋 제작 공정 관리 (Traveller) — v0.7 ═════════════
    회사 핵심 운영 시스템:
