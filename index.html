@@ -1394,11 +1394,14 @@ function reconcileProjectProgress() {
     }
   });
 }
+let _channelsSeeded = false;
 function startFirestoreSync() {
   stopFirestoreSync();
+  _channelsSeeded = false;
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     reconcileProjectProgress();
+    if (!_channelsSeeded) { _channelsSeeded = true; seedMissingChannels().catch(() => {}); }
     render();
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
@@ -3469,6 +3472,24 @@ async function ensureProjectChannel(projectId, name) {
   try {
     await fb.setDoc(fb.doc(fb.db, 'channels', 'proj_' + projectId), { name, type: 'project', projectId }, { merge: true });
   } catch (e) { console.error('[Firestore] 프로젝트 채널 생성 오류:', e); }
+}
+
+// 전사 공지 채널이 없으면 생성 (부서/프로젝트 채널과 달리 특정 이벤트에 묶여있지 않은 단일 채널)
+async function ensureAnnounceChannel() {
+  const id = 'c1';
+  if (state.channels.some(c => c.id === id)) return;
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'channels', id), { name: '전사 공지', type: 'announce' }, { merge: true });
+  } catch (e) { console.error('[Firestore] 공지 채널 생성 오류:', e); }
+}
+
+// ensureDeptChannel/ensureProjectChannel은 "신규 등록" 시점에만 호출되므로, 이 기능을
+// 배포하기 전부터 있던 부서·프로젝트는 채널이 한 번도 생성된 적이 없다. 로그인 후 한 번
+// 전체를 훑어서 빠진 채널을 소급 생성한다 (merge:true라 반복 호출해도 안전).
+async function seedMissingChannels() {
+  await ensureAnnounceChannel();
+  await Promise.all(DEPTS.map(d => ensureDeptChannel(d.name)));
+  await Promise.all(state.projects.map(p => ensureProjectChannel(p.id, p.name)));
 }
 
 // 로그인 시 1회 로드 — 본인 읽음 상태만 필요하므로 실시간 리스너 대신 쿼리 1회 (여러 탭 동시 사용 시 수 초 지연은 허용 가능한 트레이드오프)
