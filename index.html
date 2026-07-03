@@ -2964,7 +2964,9 @@ async function loadGCalEvents() {
     });
     if (!res.ok) { if (res.status === 401) gcalAccessToken = null; gcalLoadedMonthKey = null; return; }
     const data = await res.json();
-    gcalEventsCache = (data.items || []).filter(ev => ev.status !== 'cancelled').map(ev => {
+    // 구글 "근무 위치"(workingLocation) 기능이 평일마다 자동 생성하는 "사무실" 종일 일정 등은
+    // 실제 약속이 아니므로 목록/삭제 대상에서 제외해야 함 (삭제 시도 시 근무위치 설정 자체가 깨짐).
+    gcalEventsCache = (data.items || []).filter(ev => ev.status !== 'cancelled' && ev.eventType !== 'workingLocation' && ev.eventType !== 'outOfOffice' && ev.eventType !== 'focusTime').map(ev => {
       const startStr = (ev.start && (ev.start.date || ev.start.dateTime)) || '';
       return {
         id: 'gcal_' + ev.id,
