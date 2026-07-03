@@ -907,7 +907,17 @@ function getBriefingScheduleEvents() {
     dept: s.dept || '',
   }));
 }
-function allEvents() { return [...state.events, ...getBriefingScheduleEvents()]; }
+// v29.4: 캘린더를 전사 공유 → 개인+부서 업무로 제한.
+// 부서/작성자 정보가 없는 예전 이벤트는 계속 모두에게 보이도록(하위호환) 그대로 두고,
+// 새로 만드는 이벤트부터 createdBy/dept를 저장해 본인 것이거나 내 부서 것만 보이게 필터링.
+function visibleManualEvents() {
+  const myDept = getU(state.currentUser).dept;
+  return state.events.filter(e => {
+    if (!e.dept && !e.createdBy) return true;
+    return e.createdBy === state.currentUser || e.dept === myDept;
+  });
+}
+function allEvents() { return [...visibleManualEvents(), ...getBriefingScheduleEvents()]; }
 /* 특정 부서(DEPTS id) 관련 briefing schedule 이벤트 반환 — 부서 스케줄에 자동 포함 */
 function getDeptBriefingEvents(deptId) {
   const events = [];
@@ -2851,15 +2861,17 @@ function showDate(ds) {
 }
 function openEvent(ds) {
   const t = ds || new Date().toISOString().slice(0,10);
+  const myDept = getU(state.currentUser).dept || '';
   openModal('일정 추가', `
     <div class="fg"><label class="fl">제목</label><input class="fi" id="evT" placeholder="예: PV-101 RT 검사 입회"></div>
     <div class="fg"><label class="fl">날짜</label><input class="fi" type="date" id="evD" value="${t}"></div>
     <div class="fg"><label class="fl">시간 (선택)</label><input class="fi" type="time" id="evTm"></div>
     <div class="fg"><label class="fl">분류</label><select class="fs" id="evC"><option value="blue">회의</option><option value="orange">검사</option><option value="red">마감</option><option value="green">교육</option></select></div>
+    <div class="fg"><label class="fl">담당 부서 <span style="font-size:9px;color:var(--text-lighter)">— 이 부서 소속과 나만 캘린더에서 볼 수 있음</span></label><select class="fs" id="evDept">${DEPTS.map(d=>`<option value="${d.name}" ${d.name===myDept?'selected':''}>${d.name}</option>`).join('')}</select></div>
   `, () => {
     const title = document.getElementById('evT').value.trim();
     if (!title) return alert('제목을 입력하세요');
-    state.events.push({ id: 'e' + Date.now(), title, date: document.getElementById('evD').value, time: document.getElementById('evTm').value, color: document.getElementById('evC').value });
+    state.events.push({ id: 'e' + Date.now(), title, date: document.getElementById('evD').value, time: document.getElementById('evTm').value, color: document.getElementById('evC').value, dept: document.getElementById('evDept').value, createdBy: state.currentUser });
     save(); closeModal(); render();
   });
 }
@@ -3372,16 +3384,23 @@ function openCoworkImportModal() {
   document.getElementById('ciJson').oninput = (e) => ciParseInput(e.target.value);
 }
 
+// v29.4: 업무관리를 전사 공유 칸반 → 개인+부서 업무로 제한. 담당자가 나이거나
+// 담당자의 소속 부서가 내 부서와 같은 업무만 보이게 함(등급과 무관하게 전 직원 동일 적용).
+function visibleTasks() {
+  const myDept = getU(state.currentUser).dept;
+  return state.tasks.filter(t => t.assignee === state.currentUser || getU(t.assignee).dept === myDept);
+}
 function tasks() {
   const cols = [{ id:'todo', label:'할 일' }, { id:'doing', label:'진행 중' }, { id:'review', label:'검토' }, { id:'done', label:'완료' }];
+  const myTasks = visibleTasks();
   return `
     <div class="mod-head">
-      <div><div class="mod-title">✅ 업무 관리</div><div class="mod-sub">칸반 보드 · 개인/팀 업무</div></div>
+      <div><div class="mod-title">✅ 업무 관리</div><div class="mod-sub">칸반 보드 · 개인+부서 업무</div></div>
       <button class="btn btn-primary" onclick="openTask()">+ 업무 추가</button>
     </div>
     <div class="kanban">
       ${cols.map(c => {
-        const list = state.tasks.filter(t => t.status === c.id);
+        const list = myTasks.filter(t => t.status === c.id);
         return `
           <div class="kb-col">
             <div class="kb-head"><span>${c.label}</span><span class="kb-count">${list.length}</span></div>
