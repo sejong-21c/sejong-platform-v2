@@ -4179,12 +4179,16 @@ function openExtraPerms(uid) {
   openModal(`⚙️ 개별 권한 — ${u.name} ${u.title}`, `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">등급(<b>${(GRADES[u.grade]||{}).label}</b>)과 별개로 추가 권한을 선택합니다.</div>
     ${rows}
-  `, () => {
+  `, async () => {
     const checked = Array.from(document.querySelectorAll('input[name="xperm"]:checked')).map(c=>c.value);
-    u.extraPerms = checked;
-    save();
-    closeModal();
-    render();
+    try {
+      await fb.updateDoc(fb.doc(fb.db, 'users', uid), { extraPerms: checked });
+      u.extraPerms = checked;
+      closeModal();
+      render();
+    } catch (e) {
+      alert('저장 중 오류가 발생했습니다: ' + (e.message || e));
+    }
   });
 }
 
@@ -4194,16 +4198,19 @@ function openEditUserProfile(uid) {
   if (!me || me.grade !== 'super') return;
   const u = getU(uid);
   if (!u || u.grade === 'super') return;
-  const deptOpts = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'].map(d=>`<option value="${d}" ${d===u.dept?'selected':''}>${d}</option>`).join('');
+  const deptOpts = DEPTS.map(d=>`<option value="${d.name}" ${d.name===u.dept?'selected':''}>${d.name}</option>`).join('');
   const titleOpts = TITLES.map(t=>`<option value="${t}" ${t===u.title?'selected':''}>${t}</option>`).join('');
+  const gradeOpts = Object.keys(GRADES).map(g=>`<option value="${g}" ${g===u.grade?'selected':''}>${GRADES[g].label}</option>`).join('');
   openModal(`✏️ ${u.name} 정보 수정`, `
     <div class="fg"><label class="fl">부서</label><select class="fs" id="euDept">${deptOpts}</select></div>
-    <div class="fg"><label class="fl">직급</label><select class="fs" id="euTitle">${titleOpts}</select></div>
-    <div class="fg" style="font-size:11px;color:var(--text-light);">권한 등급은 직급에 따라 자동 결정됩니다 (이사 이상=임원, 부장=부서장, 그 외=일반).</div>
+    <div class="fg"><label class="fl">직급</label><select class="fs" id="euTitle" onchange="document.getElementById('euGrade').value = gradeByTitle(this.value);">${titleOpts}</select></div>
+    <div class="fg"><label class="fl">권한 등급</label><select class="fs" id="euGrade">${gradeOpts}</select></div>
+    <div class="fg" style="font-size:11px;color:var(--text-light);">직급을 바꾸면 등급이 자동으로 맞춰지지만, 필요하면 등급만 따로 지정할 수도 있습니다 (예: 슈퍼관리자 추가 지정).</div>
   `, async () => {
     const dept = document.getElementById('euDept').value;
     const title = document.getElementById('euTitle').value;
-    const grade = gradeByTitle(title);
+    const grade = document.getElementById('euGrade').value;
+    if (grade === 'super' && !confirm(`${u.name} 님에게 슈퍼관리자 권한을 부여합니다. 시스템 전체 관리 권한이 주어지는데 계속할까요?`)) return;
     try {
       await fb.updateDoc(fb.doc(fb.db, 'users', uid), { dept, title, grade });
       u.dept = dept; u.title = title; u.grade = grade;
