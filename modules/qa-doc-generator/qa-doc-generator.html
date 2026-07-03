@@ -444,7 +444,7 @@ const generateDocNo = (projNo, type, seq) => {
 const welderStatus = (dueDate) => {
   if (!dueDate) return {label:"valid", color:"#1d9e75"};
   const due = new Date(dueDate);
-  const now = new Date("2026-05-26");
+  const now = new Date(); // v2.0 — 이전엔 "2026-05-26"로 고정되어 있어 실제 오늘 날짜 기준 만료 판정이 틀렸음
   const days = (due - now) / (1000*60*60*24);
   if (days < 0) return {label:"expired", color:"#c00", emoji:"❌"};
   if (days < 30) return {label:"expiring_soon", color:"#d4a017", emoji:"⚠"};

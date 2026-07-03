@@ -555,6 +555,24 @@ const callAPI = async (body) => {
   return r.json();
 };
 
+// v2.0 — Welder 자격 만료 판정 (QA Doc Generator의 welderStatus와 동일 기준: 30일 이내 = 임박)
+const welderDueDate = (w) => (w && typeof w === "object") ? w.dueDate : "";
+const welderStatus = (dueDate) => {
+  if (!dueDate) return {label:"valid"};
+  const due = new Date(dueDate);
+  const days = (due - new Date()) / (1000*60*60*24);
+  if (days < 0) return {label:"expired"};
+  if (days < 30) return {label:"expiring_soon"};
+  return {label:"valid"};
+};
+// Welder List 항목을 사람이 읽을 수 있는 한 줄로 (문자열/객체 둘 다 지원 — 날짜가 있으면 함께 표시)
+const welderLineDisplay = (w) => {
+  if (typeof w === "string") return w;
+  if (!w) return "";
+  const base = w.name ? `${w.name} (${w.id||""})` : (w.id||"");
+  return w.dueDate ? `${base} - ${w.dueDate}` : base;
+};
+
 // ════════ 3. localStorage (v1.6 — 프로젝트별 분리) ════════
 const STORAGE_KEY = `sjp_itp_builder_v1__${PID}`;
 const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} };
@@ -1252,28 +1270,52 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       } else if (kind === "welder") {
         // Welder ID 패턴: SJ-XXX-XX-NN. PDF는 텍스트 항목이 셀 경계 없이 이어붙는 경우가 많아
         // (버그 수정) 셀 전체와 정확히 일치해야 하는 anchor(^...$) 매칭 대신, 줄 전체에서 부분 문자열로 스캔.
+        // v2.0 — 같은 줄에서 자격 만료일(YYYY-MM-DD/YYYY.MM.DD/YYYY/MM/DD)도 함께 찾아서, 있으면
+        // {id,name,dueDate} 객체로 저장 (만료 임박 계산에 사용). 날짜가 없으면 예전처럼 문자열 그대로.
         let curName = "";
+        const dateRe = /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/;
         texts.forEach(line => {
           const cells = line.split(/\t+/).map(c=>c.trim());
           const nameCell = cells.find(c => /^[가-힣]{2,4}$/.test(c));
           if (nameCell) curName = nameCell;
           const norm = line.replace(/\s+/g, "");
           const ms = norm.match(/SJ-[A-Z]{2,4}-[A-Z]{2,4}(-\d{2})?(,\d{2})?/g);
-          if (ms) ms.forEach(id => { if (!seen.has(id)) { seen.add(id); arr.push(curName?`${id} (${curName})`:id); } });
+          if (!ms) return;
+          const dm = line.match(dateRe);
+          const dueDate = dm ? `${dm[1]}-${String(dm[2]).padStart(2,"0")}-${String(dm[3]).padStart(2,"0")}` : "";
+          ms.forEach(id => {
+            if (seen.has(id)) return;
+            seen.add(id);
+            arr.push(dueDate ? {id, name:curName||"", dueDate} : (curName?`${id} (${curName})`:id));
+          });
         });
       } else {
-        // v1.9 — 검사자(Inspector) List: WPS/Welder처럼 고정 ID 형식이 없으므로, 각 행에서
-        // 한글 이름(2~4자) 셀을 찾고 같은 행의 나머지 셀(직급/부서 등)을 괄호로 붙인다.
+        // v2.0 — 검사자(Inspector) 자격인정 관리대장: 선임감사자/감사자/검사자/시험원 4개 분야가
+        // 섞여 있는데, 자격인정번호에 "QCI"가 포함된 사람만 뽑는다 (예: "CER-QCI-001 신채완").
         texts.forEach(line => {
           const cells = line.split(/\t+/).map(c=>c.trim()).filter(Boolean);
-          const nameIdx = cells.findIndex(c => /^[가-힣]{2,4}$/.test(c));
+          const certIdx = cells.findIndex(c => /QCI/i.test(c));
+          if (certIdx < 0) return; // QCI 자격번호가 있는 행만 채택
+          const certNo = cells[certIdx];
+          const nameIdx = cells.findIndex((c,i) => i!==certIdx && /^[가-힣]{2,4}$/.test(c));
           if (nameIdx < 0) return;
           const name = cells[nameIdx];
           if (seen.has(name)) return;
-          const rest = cells.filter((c,i) => i!==nameIdx && !/^(No\.?|번호|이름|성명|직급|부서|역할)$/i.test(c));
           seen.add(name);
-          arr.push(rest.length ? `${name} (${rest.join(" · ")})` : name);
+          arr.push(`${name} (${certNo})`);
         });
+        // fallback: 셀 분리가 깨진 PDF 대응 — 줄 전체에서 "...QCI... 이름" 패턴 직접 스캔
+        if (arr.length === 0) {
+          texts.forEach(line => {
+            if (!/QCI/i.test(line)) return;
+            const m = line.match(/([A-Z0-9-]*QCI[A-Z0-9-]*)\s+([가-힣]{2,4})/i) || line.match(/([가-힣]{2,4})\s+([A-Z0-9-]*QCI[A-Z0-9-]*)/i);
+            if (!m) return;
+            const [certNo, name] = /QCI/i.test(m[1]) ? [m[1], m[2]] : [m[2], m[1]];
+            if (seen.has(name)) return;
+            seen.add(name);
+            arr.push(`${name} (${certNo})`);
+          });
+        }
       }
       if (arr.length === 0) {
         showMsg(`⚠ ${file.name}: 인식된 항목이 없습니다. 수동 입력 또는 형식 확인이 필요합니다.`, 6000);
@@ -1463,9 +1505,17 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           <div className="fld" style={{marginTop:8}}><label>WPS No. List</label>
             <textarea value={wpsList.join("\n")} onChange={e=>{const arr=e.target.value.split(/[\n,;\t]+/).map(s=>s.trim()).filter(Boolean); setWpsList(arr); window.WPS_LIST=arr; saveMasterList("wps", arr);}} placeholder={"SJTC-WPS-001\nSJTC-WPS-002\n..."} style={{width:"100%", minHeight:50, fontFamily:"monospace", fontSize:10}}/>
           </div>
-          <div className="fld"><label>Welder ID List</label>
-            <textarea value={welderList.join("\n")} onChange={e=>{const arr=e.target.value.split(/[\n,;\t]+/).map(s=>s.trim()).filter(Boolean); setWelderList(arr); window.WELDER_LIST=arr; saveMasterList("welder", arr);}} placeholder={"SJ-KYG-GT-01 (강용구)\nSJ-KHS-GT-01 (강희석)\n..."} style={{width:"100%", minHeight:50, fontFamily:"monospace", fontSize:10}}/>
+          <div className="fld"><label>Welder ID List{welderList.some(w=>welderDueDate(w))?" (자격 만료일 포함 — 직접 수정 시 만료일은 사라집니다)":""}</label>
+            <textarea value={welderList.map(welderLineDisplay).join("\n")} onChange={e=>{const arr=e.target.value.split(/[\n,;\t]+/).map(s=>s.trim()).filter(Boolean); setWelderList(arr); window.WELDER_LIST=arr; saveMasterList("welder", arr);}} placeholder={"SJ-KYG-GT-01 (강용구)\nSJ-KHS-GT-01 (강희석)\n..."} style={{width:"100%", minHeight:50, fontFamily:"monospace", fontSize:10}}/>
           </div>
+          {(() => {
+            const expiring = welderList.filter(w => welderStatus(welderDueDate(w)).label === "expiring_soon").length;
+            const expired = welderList.filter(w => welderStatus(welderDueDate(w)).label === "expired").length;
+            if (!expiring && !expired) return null;
+            return <div style={{marginTop:6, padding:"6px 10px", background:"var(--sjp-warning-bg)", border:"1px solid #f0d78c", borderRadius:5, fontSize:10.5, color:"#856404", fontWeight:600}}>
+              ⚠ 용접사 자격 만료임박 {expiring}명 / 만료 {expired}명 — 자격인정 관리대장 기준 (30일 이내)
+            </div>;
+          })()}
           <div className="fld"><label>검사자(Inspector) List</label>
             <textarea value={inspectorList.join("\n")} onChange={e=>{const arr=e.target.value.split(/[\n,;\t]+/).map(s=>s.trim()).filter(Boolean); setInspectorList(arr); window.INSPECTOR_LIST=arr; saveMasterList("inspector", arr);}} placeholder={"김철우 (부장)\n신채완 (과장)\n..."} style={{width:"100%", minHeight:50, fontFamily:"monospace", fontSize:10}}/>
           </div>
