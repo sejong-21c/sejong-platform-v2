@@ -243,6 +243,24 @@ function loadState() {
   if (!state.items)       state.items = {};
 }
 
+// v29.8: 도구별·액션별 권한 체크 (부모 index.html의 canDo와 동일한 규칙을 iframe 내에서 재현).
+// 개별 오버라이드(u.modulePerms[mid][act]) 최우선, 슈퍼는 무조건 O.
+function canDoLocal(moduleId, action, user) {
+  user = user || (state.users||[]).find(x => x.id === state.currentUser);
+  if (!user) return false;
+  if (user.grade === 'super') return true;
+  const explicit = user.modulePerms && user.modulePerms[moduleId] && user.modulePerms[moduleId][action];
+  if (explicit === true) return true;
+  if (explicit === false) return false;
+  // NCR/CAR 기본 부여: register=품질관리부원, delete=품질관리부장 이상
+  const dept = '품질관리부';
+  if (moduleId === 'ncr' || moduleId === 'car') {
+    if (action === 'register') return user.dept === dept;
+    if (action === 'delete')   return user.dept === dept && (user.grade === 'manager' || user.grade === 'exec');
+  }
+  return false;
+}
+
 // v29.8: state.ncrs / state.ncrDeleteReqs를 Firestore와 실시간 동기화.
 // 개별 CRUD 지점마다 손대는 대신 save()를 감싸서, 직전에 동기화한 스냅샷과 비교해
 // 바뀐/삭제된 문서만 Firestore에 반영 (원격에서 받은 변경은 스냅샷도 같이 갱신해서
@@ -397,9 +415,11 @@ function render() {
     }
   });
 
-  // 삭제 승인 요청 (super만)
+  // 삭제 승인 요청 목록 표시 대상: NCR 즉시 삭제 권한이 있는 사람
   const deleteReqs = (state.ncrDeleteReqs||[]).filter(r => r.status === 'pending');
-  const isQualityHead = cu?.grade === 'super' || (cu?.dept === '품질관리부' && cu?.title === '부장');
+  const canDeleteNCR = canDoLocal('ncr', 'delete', cu);
+  const canRegisterNCR = canDoLocal('ncr', 'register', cu);
+  const isQualityHead = canDeleteNCR; // 하위 코드 호환용 alias — 아래에서 canDeleteNCR로 대체
   const deleteReqHtml = (isQualityHead && deleteReqs.length) ? `
     <div class="card" style="margin-bottom:14px;border-left:3px solid var(--danger);">
       <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);">🗑️ NCR 삭제 승인 요청 (${deleteReqs.length}건)</h3>
@@ -490,11 +510,12 @@ function render() {
             const g  = NCR_GRADE[n.grade]  || NCR_GRADE.obs;
             const st = NCR_STATUS[n.status] || NCR_STATUS.open;
             const hasPending = (state.ncrDeleteReqs||[]).some(r => r.ncrId === n.id && r.status === 'pending');
+            // v29.8: 즉시 삭제=canDo('ncr','delete'), 삭제 요청=canDo('ncr','register')로 각각 판정
             const delBtn = hasPending
               ? `<span style="font-size:10px;color:var(--danger);white-space:nowrap;">삭제대기</span>`
-              : isQualityHead
+              : canDeleteNCR
                 ? `<button class="org-ico-btn" onclick="approveNCRDeleteDirect('${n.id}')" title="즉시 삭제" style="color:var(--danger);">🗑️</button>`
-                : cu?.dept === '품질관리부'
+                : canRegisterNCR
                   ? `<button class="org-ico-btn" onclick="requestNCRDelete('${n.id}')" title="삭제 요청" style="color:var(--danger);">🗑️</button>`
                   : '';
             return `<tr>

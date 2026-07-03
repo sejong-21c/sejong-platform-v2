@@ -536,14 +536,112 @@ const DEPTS = [
 const DEPT_NAME_TO_ID = Object.fromEntries(DEPTS.map(d => [d.name, d.id]));
 
 // ══════════ 권한 헬퍼 ══════════
-// 개별 추가 권한 정의 (등급과 별개로 개인에게 부여)
+// (구) 개별 추가 권한 정의 — 하위호환용. 신규 권한 부여 UI는 아래 PERM_MODULES 사용.
 const EXTRA_PERMS = {
   schedule: { label: '스케줄 관리', desc: '모든 프로젝트 WBS·간트 편집 (PM급)' },
   quotes:   { label: '견적 화면',   desc: '견적 메뉴 접근' },
   project:  { label: '프로젝트 관리', desc: '프로젝트 생성·워크오더·PM 지정' },
   deptSchedule: { label: '부서 스케줄 관리', desc: '소속 부서 스케줄 편집 (부서장급)' },
 };
-// 사용자가 특정 추가권한을 가졌는지
+
+// v29.8: 도구별·액션별 세분화 권한 체계 (기본 부여 대상 + 개별 오버라이드).
+// 각 도구의 각 액션마다 "기본 부여" 대상을 정하고, 개인에게 명시적으로 허용/차단
+// (user.modulePerms[모듈][액션] = true/false) 을 걸어 오버라이드할 수 있음.
+// 슈퍼관리자는 항상 O. 이 표 자체가 UI 렌더링(권한 부여 창) 소스도 됨.
+const PERM_MODULES = {
+  project: {
+    label: '프로젝트 관리', icon: '🏗️',
+    actions: {
+      create:       { label: '프로젝트 생성/수정',  defaultGrant: 'sales-or-exec' },
+      assignPM:     { label: 'PM 지정',              defaultGrant: 'sales-or-exec' },
+      editSchedule: { label: '전체 WBS·간트 편집',   defaultGrant: 'sales-or-exec-or-pm' },
+    },
+  },
+  deptsch: {
+    label: '부서 스케줄', icon: '📅',
+    actions: {
+      // 자기 부서 스케줄 편집 = 부서장 이상 (부서 매칭은 canEditDeptSchedule에서 ctx로 추가 검증)
+      editOwn: { label: '자기 부서 스케줄 편집', defaultGrant: 'manager' },
+    },
+  },
+  quotes: {
+    label: '견적', icon: '💰', baseDept: '영업부',
+    actions: {
+      view: { label: '견적 조회/편집', defaultGrant: 'dept' },
+    },
+  },
+  ncr: {
+    label: 'NCR 관리', icon: '⚠️', baseDept: '품질관리부',
+    actions: {
+      register: { label: '발행/수정/종결', defaultGrant: 'dept' },
+      delete:   { label: '즉시 삭제',      defaultGrant: 'dept-manager' },
+    },
+  },
+  car: {
+    label: 'CAR 관리', icon: '🔧', baseDept: '품질관리부',
+    actions: {
+      register: { label: '발행/수정/회신', defaultGrant: 'dept' },
+      delete:   { label: '즉시 삭제',      defaultGrant: 'dept-manager' },
+    },
+  },
+  itp: {
+    label: 'ITP Builder', icon: '📋', baseDept: '품질관리부',
+    actions: {
+      create:  { label: 'ITP 생성/수정', defaultGrant: 'dept' },
+      approve: { label: '승인',          defaultGrant: 'dept-manager' },
+    },
+  },
+  qa: {
+    label: 'QA Doc Generator', icon: '📄', baseDept: '품질관리부',
+    actions: {
+      create: { label: 'QA 문서 생성/수정', defaultGrant: 'dept' },
+    },
+  },
+  qadash: {
+    label: '품질종합분석표', icon: '📊', baseDept: '품질관리부',
+    actions: {
+      view: { label: '조회', defaultGrant: 'dept' },
+    },
+  },
+  mobile: {
+    label: 'Mobile Inspection', icon: '📱', baseDept: '품질관리부',
+    actions: {
+      use: { label: '현장 검사 등록', defaultGrant: 'dept' },
+    },
+  },
+};
+
+// 기본 부여 방식(defaultGrant) 별 판정 로직 + 사람 읽는 설명 (권한 창 렌더링용)
+function grantSemantics(grantKey, mod) {
+  const dept = mod?.baseDept || '';
+  const table = {
+    'none':                 { desc: '기본 부여 없음 (개별 지정만)', fn: () => false },
+    'all':                  { desc: '전사',                          fn: () => true },
+    'dept':                 { desc: `${dept}원`,                     fn: (u) => u.dept === dept },
+    'dept-manager':         { desc: `${dept}장 이상`,                fn: (u) => u.dept === dept && (u.grade === 'manager' || u.grade === 'exec') },
+    'manager':              { desc: '부서장 이상',                    fn: (u) => u.grade === 'manager' || u.grade === 'exec' },
+    'exec':                 { desc: '임원 이상',                      fn: (u) => u.grade === 'exec' },
+    'sales-or-exec':        { desc: '영업부 + 임원',                  fn: (u) => u.dept === '영업부' || u.grade === 'exec' },
+    'sales-or-exec-or-pm':  { desc: '영업부 + 임원 + 해당 프로젝트 PM 본인', fn: (u, ctx) => u.dept === '영업부' || u.grade === 'exec' || (ctx?.pmId === u.id) },
+  };
+  return table[grantKey] || table['none'];
+}
+
+// 새 세분화 권한 체크 (도구별·액션별) — 슈퍼 무조건 O, 개별 오버라이드 우선, 아니면 기본 부여 판정
+function canDo(moduleId, action, user, ctx) {
+  user = user || getU(state.currentUser);
+  if (!user) return false;
+  if (user.grade === 'super') return true;
+  const mod = PERM_MODULES[moduleId];
+  if (!mod) return false;
+  const act = mod.actions[action];
+  if (!act) return false;
+  const explicit = user.modulePerms && user.modulePerms[moduleId] && user.modulePerms[moduleId][action];
+  if (explicit === true) return true;
+  if (explicit === false) return false; // 명시적 차단
+  return grantSemantics(act.defaultGrant, mod).fn(user, ctx);
+}
+// 사용자가 특정 추가권한을 가졌는지 (구) — 하위호환용
 function hasPerm(perm, u) {
   u = u || getU(state.currentUser);
   if (!u) return false;
@@ -719,8 +817,8 @@ const WBS_BUILD = 'b16';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b9';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const NCR_BUILD = 'b1';
-const CAR_BUILD = 'b2';
+const NCR_BUILD = 'b2';
+const CAR_BUILD = 'b3';
 const QADASH_BUILD = 'b4';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
@@ -4065,7 +4163,21 @@ function org() {
   // 사용자 한 줄 (컴팩트 테이블 row)
   const userRow = (u) => {
     const g = GRADES[u.grade] || GRADES.member;
-    const extras = (u.extraPerms||[]).map(p => EXTRA_PERMS[p] ? `<span class="perm-chip">+${EXTRA_PERMS[p].label}</span>` : '').join('');
+    // v29.8: 새 세분화 권한 뱃지 (개별 허용은 +초록, 개별 차단은 -빨강) + 구 extraPerms 하위호환 표시
+    const mpChips = [];
+    Object.entries(u.modulePerms||{}).forEach(([mid, acts]) => {
+      const mod = PERM_MODULES[mid];
+      Object.entries(acts||{}).forEach(([aid, val]) => {
+        const act = mod?.actions?.[aid];
+        if (!act) return;
+        const sign = val ? '+' : '-';
+        const bg   = val ? '#dcfce7' : '#fee2e2';
+        const fg   = val ? '#166534' : '#991b1b';
+        mpChips.push(`<span class="perm-chip" style="background:${bg};color:${fg};" title="${mod.label} / ${act.label}">${sign}${act.label}</span>`);
+      });
+    });
+    const legacyChips = (u.extraPerms||[]).map(p => EXTRA_PERMS[p] ? `<span class="perm-chip" title="구 시스템">+${EXTRA_PERMS[p].label}</span>` : '').join('');
+    const extras = [mpChips.join(''), legacyChips].filter(Boolean).join('');
     let btns = '';
     if (isSuper) {
       btns += `<button class="org-ico-btn" onclick="openExtraPerms('${u.id}')" title="개별 권한 부여">⚙️</button>`;
@@ -4095,7 +4207,17 @@ function org() {
       </div>
       <div style="margin-top:10px;font-size:11px;color:var(--text-light);line-height:1.6;">
         📌 이사 이상→임원 · 부장→부서장 · 차장 이하→일반 · 시스템 오너→슈퍼관리자<br>
-        💡 등급은 기본 권한입니다. 일반 등급이어도 <b>⚙️ 버튼</b>으로 개인에게 스케줄·견적 등 추가 권한을 줄 수 있습니다.
+        💡 등급은 기본 권한입니다. <b>⚙️ 버튼</b>으로 도구별·액션별 개인 권한(NCR 삭제, CAR 삭제, ITP 승인 등)을 세분화해서 부여/차단할 수 있습니다.
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-light);line-height:1.6;padding-top:8px;border-top:1px solid var(--border-light);">
+        <b style="color:var(--text);">🔧 도구별 기본 부여 규칙</b><br>
+        ${Object.entries(PERM_MODULES).map(([mid, mod]) => {
+          const actions = Object.entries(mod.actions).map(([aid, act]) => {
+            const sem = grantSemantics(act.defaultGrant, mod);
+            return `${act.label}: <span style="color:var(--primary);">${sem.desc}</span>`;
+          }).join(' · ');
+          return `<div style="padding:3px 0;">${mod.icon} <b>${mod.label}</b> — ${actions}</div>`;
+        }).join('')}
       </div>
     </div>
   </details>
@@ -4113,26 +4235,67 @@ function org() {
   </div>`;
 }
 
-// 개별 추가 권한 부여 (슈퍼 전용)
+// 개별 추가 권한 부여 (슈퍼 전용) — v29.8부터 도구별·액션별 세분화 방식 사용
 function openExtraPerms(uid) {
   const me = getU(state.currentUser);
   if (!me || me.grade !== 'super') { alert('권한 부여는 슈퍼관리자만 가능합니다.'); return; }
   const u = getU(uid);
   if (!u) return;
-  const cur = u.extraPerms || [];
-  const rows = Object.entries(EXTRA_PERMS).map(([k,v])=>`
-    <label style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;">
-      <input type="checkbox" name="xperm" value="${k}" ${cur.includes(k)?'checked':''} style="margin-top:2px;">
-      <div><div style="font-weight:600;font-size:13px;">${v.label}</div><div style="font-size:11px;color:var(--text-light);">${v.desc}</div></div>
-    </label>`).join('');
+  const curMP = u.modulePerms || {};
+  // 각 모듈·액션별로 3-상태 라디오: 기본(default) / 명시적 허용(true) / 명시적 차단(false)
+  const modules = Object.entries(PERM_MODULES).map(([modId, mod]) => {
+    const actions = Object.entries(mod.actions).map(([actId, act]) => {
+      const sem = grantSemantics(act.defaultGrant, mod);
+      const gotByDefault = sem.fn(u);
+      const explicit = curMP[modId] && (actId in (curMP[modId]||{})) ? curMP[modId][actId] : null;
+      const state = explicit === true ? 'allow' : explicit === false ? 'deny' : 'default';
+      const effective = explicit === true ? true : explicit === false ? false : gotByDefault;
+      const pillColor = effective ? '#059669' : '#9ca3af';
+      const pillText = effective ? '✅ 가능' : '⛔ 불가';
+      const defaultDesc = `기본: ${sem.desc}${gotByDefault ? ' → 이 사용자에 해당' : ''}`;
+      return `
+        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--border-light);">
+          <div>
+            <div style="font-size:12.5px;font-weight:600;">${act.label}</div>
+            <div style="font-size:10.5px;color:var(--text-lighter);margin-top:2px;">${defaultDesc}</div>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <span style="font-size:10px;color:${pillColor};font-weight:700;margin-right:6px;">${pillText}</span>
+            <select data-mp="${modId}.${actId}" style="padding:4px 6px;font-size:11px;border:1px solid var(--border);border-radius:5px;background:#fff;">
+              <option value="default" ${state==='default'?'selected':''}>기본(${gotByDefault?'허용':'차단'})</option>
+              <option value="allow"   ${state==='allow'  ?'selected':''}>👍 개별 허용</option>
+              <option value="deny"    ${state==='deny'   ?'selected':''}>🚫 개별 차단</option>
+            </select>
+          </div>
+        </div>`;
+    }).join('');
+    return `
+      <div style="border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;">
+        <div style="padding:9px 12px;background:var(--primary-lighter);font-size:13px;font-weight:700;color:var(--primary);">${mod.icon} ${mod.label}${mod.baseDept?` <span style="font-weight:400;color:var(--text-light);font-size:11px;">· 기본 접근: ${mod.baseDept}</span>`:''}</div>
+        ${actions}
+      </div>`;
+  }).join('');
+  // (구) EXTRA_PERMS 잔여 값 표시 — 참고만
+  const legacy = (u.extraPerms||[]).length ? `
+    <div style="margin-top:14px;padding:9px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;">
+      ⚠️ 이전 방식의 추가 권한 남아있음: ${(u.extraPerms||[]).map(k => EXTRA_PERMS[k]?.label || k).join(', ')} — 계속 유지되지만, 새 시스템으로 전환을 권장합니다.
+    </div>` : '';
   openModal(`⚙️ 개별 권한 — ${u.name} ${u.title}`, `
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">등급(<b>${(GRADES[u.grade]||{}).label}</b>)과 별개로 추가 권한을 선택합니다.</div>
-    ${rows}
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">등급 <b>${(GRADES[u.grade]||{}).label}</b> · 부서 <b>${u.dept||'-'}</b><br>각 도구·액션마다 기본 부여를 유지하거나, 개인에게 명시적 허용/차단을 설정합니다.</div>
+    ${modules}
+    ${legacy}
   `, async () => {
-    const checked = Array.from(document.querySelectorAll('input[name="xperm"]:checked')).map(c=>c.value);
+    // 셀렉트 값들을 modulePerms 객체로 재구성 — 'default'는 저장 안 함 (Firestore 문서 슬림하게)
+    const nextMP = {};
+    document.querySelectorAll('select[data-mp]').forEach(sel => {
+      const [modId, actId] = sel.getAttribute('data-mp').split('.');
+      if (sel.value === 'default') return;
+      nextMP[modId] = nextMP[modId] || {};
+      nextMP[modId][actId] = (sel.value === 'allow');
+    });
     try {
-      await fb.updateDoc(fb.doc(fb.db, 'users', uid), { extraPerms: checked });
-      u.extraPerms = checked;
+      await fb.updateDoc(fb.doc(fb.db, 'users', uid), { modulePerms: nextMP });
+      u.modulePerms = nextMP;
       closeModal();
       render();
     } catch (e) {

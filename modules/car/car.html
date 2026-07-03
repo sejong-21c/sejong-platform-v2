@@ -230,6 +230,22 @@ function loadState() {
 // v29.8: state.cars를 Firestore와 실시간 동기화 (ncr.html과 동일한 방식).
 // ncrs는 CAR가 참조만 하므로(생성/수정 안 함) 읽기 전용으로만 구독.
 const _lastSynced = { cars: [], carDeleteReqs: [] };
+
+// v29.8: 도구별·액션별 권한 체크 (부모의 canDo와 동일 규칙 재현). ncr.html과 동일.
+function canDoLocal(moduleId, action, user) {
+  user = user || (state.users||[]).find(x => x.id === state.currentUser);
+  if (!user) return false;
+  if (user.grade === 'super') return true;
+  const explicit = user.modulePerms && user.modulePerms[moduleId] && user.modulePerms[moduleId][action];
+  if (explicit === true) return true;
+  if (explicit === false) return false;
+  const dept = '품질관리부';
+  if (moduleId === 'ncr' || moduleId === 'car') {
+    if (action === 'register') return user.dept === dept;
+    if (action === 'delete')   return user.dept === dept && (user.grade === 'manager' || user.grade === 'exec');
+  }
+  return false;
+}
 async function syncArrayToFirestore(coll, arr) {
   if (!window.fb || !fb.db) return;
   const current = arr || [];
@@ -341,7 +357,9 @@ function render() {
   });
 
   const cu = (state.users||[]).find(u => u.id === state.currentUser) || {};
-  const isQualityHead = cu?.grade === 'super' || (cu?.dept === '품질관리부' && cu?.title === '부장');
+  const canDeleteCAR = canDoLocal('car', 'delete', cu);
+  const canRegisterCAR = canDoLocal('car', 'register', cu);
+  const isQualityHead = canDeleteCAR; // 하위 코드 호환 alias
   const deleteReqs = (state.carDeleteReqs||[]).filter(r => r.status === 'pending');
 
   const inProg  = cars.filter(c => c.status === 'in-progress').length;
@@ -444,14 +462,15 @@ function render() {
                 <button class="org-ico-btn" onclick="openCARMgr('${c.id}')" title="상세/수정">📋</button>
                 ${c.meta?.fileDataUrl ? `<button class="org-ico-btn" onclick="viewCARFile('${c.id}')" title="파일 보기">📄</button>` : ''}
                 ${(()=>{
+                  // v29.8: 즉시 삭제=canDo('car','delete'), 삭제 요청=canDo('car','register')로 판정
                   const pendingReq = (state.carDeleteReqs||[]).find(r => r.carId === c.id && r.status === 'pending');
                   if (pendingReq) {
-                    const canCancel = pendingReq.requestedBy === state.currentUser || isQualityHead;
+                    const canCancel = pendingReq.requestedBy === state.currentUser || canDeleteCAR;
                     return `<span style="font-size:10px;color:var(--danger);white-space:nowrap;">삭제대기</span>`
                       + (canCancel ? `<button class="org-ico-btn" onclick="cancelCARDelete('${pendingReq.id}')" title="삭제 요청 취소" style="color:var(--text-light);">↩</button>` : '');
                   }
-                  if (isQualityHead) return `<button class="org-ico-btn" onclick="approveCARDeleteDirect('${c.id}')" title="즉시 삭제" style="color:var(--danger);">🗑️</button>`;
-                  if (cu?.dept === '품질관리부') return `<button class="org-ico-btn" onclick="requestCARDelete('${c.id}')" title="삭제 요청" style="color:var(--danger);">🗑️</button>`;
+                  if (canDeleteCAR) return `<button class="org-ico-btn" onclick="approveCARDeleteDirect('${c.id}')" title="즉시 삭제" style="color:var(--danger);">🗑️</button>`;
+                  if (canRegisterCAR) return `<button class="org-ico-btn" onclick="requestCARDelete('${c.id}')" title="삭제 요청" style="color:var(--danger);">🗑️</button>`;
                   return '';
                 })()}
               </td>
