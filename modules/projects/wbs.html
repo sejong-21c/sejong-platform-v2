@@ -418,22 +418,31 @@ let S={
   editITPItem:null,
   logs:[{t:"init",m:"시스템 초기화 완료",k:"ok"},{t:"init",m:"WBS 14항목·ITP 연동 6개",k:"info"}],
 };
+// v28.4.34: 재렌더 시 스크롤이 맨 위로 튀는 문제 — 예전엔 .wbs-unified-wrap과 .pg 딱 2곳만
+// 스크롤 위치를 저장/복원해서, 그 외 스크롤 영역(제작공정표 검사항목 목록, ITP 상세 패널,
+// WBS 행 상세 편집 패널 등)에서 행 선택·Accept 클릭 등으로 재렌더되면 스크롤이 초기화됐음.
+// 화면에 존재하는 모든 스크롤 영역을 배열로 관리해 한 번에 저장/복원하도록 일반화.
+const SCROLL_KEEP_SELECTORS=[".wbs-unified-wrap",".mm-checklist-scroll",".itp-L",".itp-R",".dpnl",".v28-wsum-list"];
 const us=u=>{
-  // 재렌더 전 스크롤 위치 저장 (WBS 테이블 + 페이지) → 깜빡임/맨위로 튐 방지
-  let _wbsScroll=0, _pageScroll=0;
+  // 재렌더 전 스크롤 위치 저장 (스크롤 영역들 + 페이지) → 깜빡임/맨위로 튐 방지
+  const _scrolls={};
+  let _pageScroll=0;
   try{
-    const wrap=document.querySelector(".wbs-unified-wrap");
-    if(wrap)_wbsScroll=wrap.scrollTop;
+    SCROLL_KEEP_SELECTORS.forEach(sel=>{
+      const el=document.querySelector(sel);
+      if(el)_scrolls[sel]=el.scrollTop;
+    });
     const pg=document.querySelector(".pg");
-    if(pg)_pageScroll=pg.scrollTop;
-    _pageScroll=_pageScroll||window.scrollY||0;
+    _pageScroll=(pg?pg.scrollTop:0)||window.scrollY||0;
   }catch(e){}
   S=typeof u==="function"?u(S):{...S,...u};
   R();
   // 재렌더 후 스크롤 위치 복원
   try{
-    const wrap=document.querySelector(".wbs-unified-wrap");
-    if(wrap&&_wbsScroll)wrap.scrollTop=_wbsScroll;
+    SCROLL_KEEP_SELECTORS.forEach(sel=>{
+      const el=document.querySelector(sel);
+      if(el&&_scrolls[sel])el.scrollTop=_scrolls[sel];
+    });
     const pg=document.querySelector(".pg");
     if(pg&&_pageScroll)pg.scrollTop=_pageScroll;
     else if(_pageScroll)window.scrollTo(0,_pageScroll);
@@ -1002,7 +1011,7 @@ function rMMITP(){
       <div><div class="fl" style="font-weight:600;margin-bottom:4px">Inspection Point</div><div style="display:flex;gap:5px">${pBtns}</div></div>`;
   }
   return`<div style="padding:10px 14px;flex:1;display:flex;flex-direction:column;overflow:hidden">${bc}<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div><span style="font-size:15px;font-weight:700">${item.tagNo}</span><span style="font-size:11px;color:#6b7280;margin-left:6px">${item.type} · ${item.spec}</span></div><div style="display:flex;gap:6px;align-items:center">${prg(pct).replace("class=\"prg\"","style=\"min-width:120px\" class=\"prg\"")}${ncr>0?`<span class="bdg" style="background:#fee2e2;color:#dc2626;padding:2px 8px;font-size:11px">NCR ${ncr}건</span>`:""}${wbs?`<button data-a="goWBS" data-wid="${item.wbsLink}" style="padding:3px 8px;background:#eef3fb;color:#4a7fc1;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">📊 WBS로</button>`:""}</div></div><div style="display:flex;gap:5px;margin-bottom:8px">${tabs}</div><div class="itp-wrap"><div class="itp-L" style="display:flex;flex-direction:column">
-    <div style="flex:1;overflow-y:auto">${list}</div>
+    <div class="mm-checklist-scroll" style="flex:1;overflow-y:auto">${list}</div>
     <div style="padding:6px 10px;border-top:1px solid #e4e7ec;background:#f8fafc;flex-shrink:0">
       <button data-a="opAddITPItem" data-iid="${item.id}" style="width:100%;padding:5px;background:#eef3fb;color:#4a7fc1;border:1px dashed #c3d6f0;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600">+ 검사 항목 추가</button>
     </div>
