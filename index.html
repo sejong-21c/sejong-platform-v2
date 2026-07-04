@@ -3944,6 +3944,13 @@ async function ensureDeptChannel(deptName) {
 // 프로젝트 등록 시 프로젝트 채널 자동 생성
 async function ensureProjectChannel(projectId, name) {
   if (!projectId) return;
+  // v29.9: name 없이 호출되면 Firestore가 `undefined` 값 저장을 거부하고 오류 로그를 뿌려
+  // 화면 리렌더에 영향 줌. 이런 데이터는 스킵. (원인: 옛 버전에서 저장된 name 필드 없는
+  // 프로젝트가 state.projects에 남아있을 수 있음)
+  if (!name || typeof name !== 'string') {
+    console.warn('[Firestore] 프로젝트 채널 스킵 — name 없음:', projectId);
+    return;
+  }
   try {
     await fb.setDoc(fb.doc(fb.db, 'channels', 'proj_' + projectId), { name, type: 'project', projectId }, { merge: true });
   } catch (e) { console.error('[Firestore] 프로젝트 채널 생성 오류:', e); }
