@@ -206,8 +206,13 @@ input:focus, select:focus, textarea:focus { outline: none; }
   /* 마지막 페이지 끝에서 빈 페이지 생성 방지 */
   .qa-report-body:last-child { page-break-after: avoid !important; }
 
-  /* Final VI 페이지 2 (PHOTO REPORT) — 명시적 페이지 분리 + 동일 사이즈 */
-  .qa-report-body > div[style*="pageBreakBefore"] {
+  /* v3.4 — 페이지 2(Final VI/Nozzle/DIM/Fitup 분할) 공통 wrapper.
+     예전엔 .qa-report-body > div[style*="pageBreakBefore"] 로 잡으려 했지만 두 가지 이유로 전혀
+     매칭되지 않고 있었음: (1) React가 inline style을 "break-before: page" 형태로 직렬화해서
+     문자열 "pageBreakBefore"가 실제로는 존재하지 않음 (2) 이 div는 .qa-report-body의 직계 자식이
+     아니라 손자(각 Preview 컴포넌트 자체 wrapper 밑)라서 > 선택자로도 안 잡힘 → padding/min-height가
+     한 번도 적용된 적이 없어서 페이지 2 제목이 용지 맨 위에 바싹 붙어 나오던 버그. className으로 교체. */
+  .qa-page2 {
     box-sizing: border-box !important;
     padding: 10mm 8mm !important;
     min-height: 275mm !important;
@@ -245,7 +250,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
     overflow: hidden !important;
   }
   /* Final VI 페이지 2: 사진 2매 각 90mm — 헤더 25 + 90*2 + gap 12 = 217mm + padding 20 = 237mm (38mm 버퍼) */
-  .qa-report-body > div[style*="pageBreakBefore"] .pf-img {
+  .qa-page2 .pf-img {
     height: 90mm !important;
     min-height: 90mm !important;
     max-height: 90mm !important;
@@ -273,8 +278,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
     display: none !important;
   }
   /* 이미지가 로딩된 경우만 표시 — img가 있으면 placeholder span은 자동 숨김 (조건부 렌더) */
-  /* Final VI 페이지 2 wrapper의 marginTop 무력화 (페이지 3 넘김 방지) */
-  .qa-report-body > div[style*="pageBreakBefore"] {
+  /* 페이지 2 wrapper의 marginTop 무력화 (페이지 3 넘김 방지) */
+  .qa-page2 {
     margin-top: 0 !important;
   }
   /* Nozzle 15+ 노즐: 이미지 영역 페이지 1 풀로 */
@@ -1342,7 +1347,7 @@ function FitupPreview({doc}){
     <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
     {headerTable("01")}
     {renderJoints(page1Joints, 0)}
-    <div style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
+    <div className="qa-page2" style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
     {isSplit && <>
       <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
       <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
@@ -1615,7 +1620,7 @@ function DIMPreview({doc}){
         {dImg&&<button className="fc" onClick={()=>handleDI(null)} style={{position:"absolute",top:4,right:4,fontSize:9,padding:"1px 6px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:3,cursor:"pointer",zIndex:30}}>✕ 삭제</button>}
       </div>
     </div>
-    <div style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
+    <div className="qa-page2" style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
     {isSplit && <>
       <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>SHELL DIMENSIONAL INSPECTION REPORT</div>
       {headerTable("02")}
@@ -1736,7 +1741,7 @@ function NozzlePreview({doc}){
     <div className={noz.length>=15?"noz-big":""} style={{display:"flex",gap:6,marginBottom:6,minHeight:240,flex:noz.length>=15?1:undefined}}>
       <IDZ label="Nozzle Orientation — Ctrl+V (VIEW A-A) — 노즐 각도/위치 표시" persistKey={nk2}/>
     </div>
-    <div style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
+    <div className="qa-page2" style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
     {isSplit && <>
       <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
       {headerTable(nozSeq2)}
@@ -2033,7 +2038,7 @@ function FinalPreview({doc}){
     <div style={{textAlign:"center",fontSize:10,color:"#888",marginTop:8,paddingTop:4,borderTop:"0.5px solid #ddd"}}>1 / 2 페이지</div>
 
     {/* ─── 페이지 2: PHOTO REPORT (v3.0 — 패치노트 [7][8] 반영) ─── */}
-    <div style={{pageBreakBefore:"always", breakBefore:"page"}}>
+    <div className="qa-page2" style={{pageBreakBefore:"always", breakBefore:"page"}}>
       {/* v3.0 [8] 축약 헤더 — 3행 (Customer / Item Name / Appl.Code) */}
       <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>육안탐상검사보고서</div>
       <div style={{textAlign:"center",fontSize:12,marginBottom:6}}>VISUAL INSPECTION REPORT — Photo Report</div>
@@ -2075,8 +2080,8 @@ function PrintBar({title}){
       <button onClick={()=>window.print()} style={{padding:"4px 12px", background:SJB, color:"#fff", border:"none", borderRadius:4, cursor:"pointer", fontSize:11}}>🖨 인쇄</button>
     </div>
     <div style={{fontSize:10, color:"#666", padding:"4px 10px", marginTop:3, background:"#fffdf5", border:"0.5px dashed #ecd6a3", borderRadius:4}}>
-      <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 권장 옵션:</span>
-      &nbsp;Chrome/Edge 다이얼로그 → <strong>여백(Margins): "기본값" 또는 "없음"</strong> &nbsp;|&nbsp;
+      <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 필수 옵션:</span>
+      &nbsp;Chrome/Edge 다이얼로그 → <strong style={{color:"#c33"}}>여백(Margins): "없음(None)"</strong> (⚠ "기본값"을 선택하면 브라우저가 자체 여백을 추가로 넣어서 페이지가 한 장 더 넘어갈 수 있습니다) &nbsp;|&nbsp;
       <strong>"머리글 및 바닥글" 체크 해제</strong> &nbsp;|&nbsp;
       <strong>"배경 그래픽" 체크</strong>
     </div>
