@@ -2947,6 +2947,289 @@ async function gcalGetToken() {
   if (gcalAccessToken && Date.now() < gcalTokenExpiry) return gcalAccessToken;
   return await gcalRequestToken(false);
 }
+// ══════════ Google Workspace Directory 사용자 임포트 (v29.9) ══════════
+// 슈퍼관리자가 회사 Workspace의 사용자 목록을 자동으로 조회해 pendingUsers에 일괄 등록.
+// Firebase Auth와 별개의 GIS 토큰 클라이언트(캘린더 연동과 유사 패턴)를 씀 — 로그인 플로우 무손실.
+// 스코프: admin.directory.user.readonly (읽기 전용). Workspace 슈퍼관리자 계정으로만 성공.
+// ★ 이 기능이 동작하려면 GCP OAuth 동의 화면에 admin.directory.user.readonly 스코프를 등록해야 함.
+const GDIR_SCOPE = 'https://www.googleapis.com/auth/admin.directory.user.readonly';
+let gdirTokenClient = null;
+let gdirPendingResolve = null;
+function gdirEnsureTokenClient() {
+  if (gdirTokenClient) return gdirTokenClient;
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return null;
+  gdirTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID, // 같은 OAuth 클라이언트 재사용
+    scope: GDIR_SCOPE,
+    callback: (resp) => {
+      const r = gdirPendingResolve; gdirPendingResolve = null;
+      if (r) r(resp && resp.access_token ? resp.access_token : null);
+    },
+  });
+  return gdirTokenClient;
+}
+function gdirRequestToken() {
+  return new Promise((resolve) => {
+    const tc = gdirEnsureTokenClient();
+    if (!tc) { resolve(null); return; }
+    gdirPendingResolve = resolve;
+    tc.requestAccessToken({ prompt: 'consent' });
+  });
+}
+// Workspace Directory에서 sejong-21c.com 도메인의 사용자 전체(최대 500명) 조회
+async function fetchWorkspaceUsers(token) {
+  const url = 'https://admin.googleapis.com/admin/directory/v1/users?domain=sejong-21c.com&maxResults=500&orderBy=email';
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const err = data?.error?.message || res.statusText;
+    throw new Error(`Directory API 조회 실패 (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  return (data.users || []).map(u => ({
+    email: (u.primaryEmail || '').toLowerCase(),
+    name: u.name?.fullName || u.name?.givenName || '',
+    orgUnitPath: u.orgUnitPath || '', // "/영업부" 등 — 부서 자동 추정 힌트
+    suspended: !!u.suspended,
+    isAdmin: !!u.isAdmin,
+  })).filter(u => u.email.endsWith('@sejong-21c.com'));
+}
+// orgUnitPath("/영업부") → 저희 DEPTS 목록에서 매칭. 없으면 빈 문자열.
+function guessDeptFromOrgUnit(orgUnitPath) {
+  if (!orgUnitPath) return '';
+  const path = orgUnitPath.replace(/^\//, '');
+  const names = DEPTS.map(d => d.name);
+  // 정확 매칭 우선
+  if (names.includes(path)) return path;
+  // 부분 매칭 (예: "품질관리부/QC팀" → "품질관리부")
+  const first = path.split('/')[0];
+  if (names.includes(first)) return first;
+  // 짧은 별칭 힌트
+  for (const n of names) { if (path.includes(n)) return n; }
+  return '';
+}
+// 이메일에서 이름 추정 (예: "cwkim@sejong-21c.com" → "cwkim") — 이름 필드가 비어있을 때 대안
+function guessNameFromEmail(email) {
+  return (email || '').split('@')[0];
+}
+async function openWorkspaceImport() {
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') { alert('사용자 일괄 임포트는 슈퍼관리자만 가능합니다.'); return; }
+  openModal('👥 Workspace에서 사용자 가져오기', `
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:14px;line-height:1.6;">
+      회사 <b>Workspace 슈퍼관리자 계정</b>으로 승인하면 sejong-21c.com 도메인의 사용자 목록을 자동으로 불러와 미리 등록할 수 있습니다.<br>
+      <span style="color:var(--text-lighter);font-size:11px;">이미 로그인한 계정과 사전 등록된 계정은 제외하고 신규만 표시됩니다.</span>
+    </div>
+    <div id="wksImportStatus" style="padding:14px;text-align:center;font-size:13px;color:var(--text-light);">
+      <button class="btn btn-primary" onclick="doWorkspaceFetch()">🔐 Workspace 조회 시작</button>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-lighter);">또는 CSV 붙여넣기: <button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기</button></div>
+    </div>
+    <div id="wksImportResult" style="display:none;"></div>
+  `, null);
+  // 리뷰 테이블이 넓어서 모달 폭 확장 (닫을 때 closeModal이 자동 원복)
+  const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '900px';
+}
+async function doWorkspaceFetch() {
+  const status = document.getElementById('wksImportStatus');
+  const result = document.getElementById('wksImportResult');
+  status.innerHTML = '<div style="padding:14px;">🔐 Google 인증 창을 확인해주세요…</div>';
+  const token = await gdirRequestToken();
+  if (!token) {
+    status.innerHTML = `
+      <div style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:12px;">
+        ❌ 승인이 취소됐거나 스코프가 등록되지 않았습니다.<br>
+        <span style="font-size:11px;">GCP 콘솔 → API 및 서비스 → OAuth 동의 화면에 <b>admin.directory.user.readonly</b> 스코프가 추가되어 있는지 확인하세요.</span>
+      </div>
+      <div style="margin-top:10px;text-align:center;">
+        <button class="btn btn-sm" onclick="doWorkspaceFetch()">🔄 다시 시도</button>
+        <button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기로 대체</button>
+      </div>`;
+    return;
+  }
+  status.innerHTML = '<div style="padding:14px;">📥 사용자 목록 불러오는 중…</div>';
+  let users;
+  try { users = await fetchWorkspaceUsers(token); }
+  catch (e) {
+    status.innerHTML = `
+      <div style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:12px;">
+        ❌ ${e.message}<br>
+        <span style="font-size:11px;">Workspace 슈퍼관리자 계정으로 로그인했는지 확인하세요. 일반 사용자는 이 API에 접근할 수 없습니다.</span>
+      </div>
+      <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기로 대체</button></div>`;
+    return;
+  }
+  renderImportReviewTable(users, status, result);
+}
+// 이미 등록·사전등록된 이메일은 제외하고 나머지를 표로 보여주며 부서/직급 선택 UI 렌더
+function renderImportReviewTable(rawUsers, statusEl, resultEl) {
+  const existingEmails = new Set([
+    ...(state.users || []).map(u => (u.email || '').toLowerCase()),
+    ...(state.pendingUsers || []).map(p => (p.email || '').toLowerCase()),
+  ]);
+  const fresh = rawUsers.filter(u => u.email && !existingEmails.has(u.email) && !u.suspended);
+  if (!fresh.length) {
+    statusEl.innerHTML = `
+      <div style="padding:14px;background:#f0fdf4;color:#166534;border-radius:6px;font-size:13px;text-align:center;">
+        ✅ 새로 등록할 사용자가 없습니다 (총 ${rawUsers.length}명 조회 · 모두 이미 등록·사전 등록되어 있음)
+      </div>`;
+    return;
+  }
+  statusEl.style.display = 'none';
+  const deptOpts = DEPTS.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+  const titleOpts = TITLES.map(t => `<option value="${t}">${t}</option>`).join('');
+  resultEl.style.display = '';
+  resultEl.innerHTML = `
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">
+      Workspace에서 <b>${rawUsers.length}명</b> 조회 → 신규 <b style="color:var(--primary);">${fresh.length}명</b>을 등록할 수 있습니다.<br>
+      체크박스로 등록 대상을 고르고, 부서·직급은 필요시 조정하세요 (부서는 Workspace 조직 단위에서 자동 추정).
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button class="btn btn-sm" onclick="wksToggleAll(true)">✓ 전체 선택</button>
+      <button class="btn btn-sm" onclick="wksToggleAll(false)">✕ 전체 해제</button>
+      <span style="margin-left:auto;font-size:11px;color:var(--text-lighter);align-self:center;">선택 <span id="wksSelCnt">${fresh.length}</span>명</span>
+    </div>
+    <div style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="position:sticky;top:0;background:var(--bg);z-index:1;">
+          <tr>
+            <th style="padding:8px 10px;text-align:center;width:36px;"><input type="checkbox" id="wksAll" onchange="wksToggleAll(this.checked)" checked></th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-light);">이메일</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-light);">이름</th>
+            <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text-light);">부서</th>
+            <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text-light);">직급</th>
+            <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text-light);">Workspace 조직</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${fresh.map((u, i) => {
+            const guessedDept = guessDeptFromOrgUnit(u.orgUnitPath);
+            const dOpts = DEPTS.map(d => `<option value="${d.name}" ${d.name===guessedDept?'selected':''}>${d.name}</option>`).join('');
+            return `<tr>
+              <td style="padding:6px 10px;text-align:center;"><input type="checkbox" class="wks-pick" data-i="${i}" onchange="updateWksSelCnt()" checked></td>
+              <td style="padding:6px 10px;font-family:monospace;font-size:11px;">${u.email}</td>
+              <td style="padding:6px 10px;"><input type="text" class="wks-name" data-i="${i}" value="${(u.name||guessNameFromEmail(u.email)).replace(/"/g,'&quot;')}" style="width:110px;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;"></td>
+              <td style="padding:6px 6px;"><select class="wks-dept" data-i="${i}" style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;">${dOpts}</select></td>
+              <td style="padding:6px 6px;"><select class="wks-title" data-i="${i}" style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;">${(() => { const preTitle = TITLES.includes(u._csvTitle) ? u._csvTitle : '사원'; return TITLES.map(t=>`<option value="${t}" ${t===preTitle?'selected':''}>${t}</option>`).join(''); })()}</select></td>
+              <td style="padding:6px 6px;color:var(--text-lighter);font-size:10.5px;">${u.orgUnitPath || '-'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:14px;text-align:right;">
+      <button class="btn" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="doWksBulkRegister(${JSON.stringify(fresh).replace(/"/g,'&quot;')})">✅ 선택한 사용자 사전 등록</button>
+    </div>`;
+}
+function wksToggleAll(checked) {
+  document.querySelectorAll('.wks-pick').forEach(cb => cb.checked = checked);
+  const all = document.getElementById('wksAll'); if (all) all.checked = checked;
+  updateWksSelCnt();
+}
+function updateWksSelCnt() {
+  const n = document.querySelectorAll('.wks-pick:checked').length;
+  const el = document.getElementById('wksSelCnt'); if (el) el.textContent = n;
+}
+async function doWksBulkRegister(fresh) {
+  const picks = [...document.querySelectorAll('.wks-pick:checked')].map(cb => parseInt(cb.dataset.i, 10));
+  if (!picks.length) { alert('등록할 사용자를 선택하세요.'); return; }
+  const rows = picks.map(i => {
+    const email = fresh[i].email;
+    const name = document.querySelector(`.wks-name[data-i="${i}"]`).value.trim();
+    const dept = document.querySelector(`.wks-dept[data-i="${i}"]`).value;
+    const title = document.querySelector(`.wks-title[data-i="${i}"]`).value;
+    return { email, name, dept, title, grade: gradeByTitle(title) };
+  });
+  if (!confirm(`${rows.length}명을 사전 등록합니다. 계속하시겠습니까?\n\n(이후 해당 이메일로 각자 처음 Google 로그인하면 자동으로 계정이 활성화됩니다.)`)) return;
+  const result = document.getElementById('wksImportResult');
+  result.innerHTML = '<div style="padding:20px;text-align:center;">📤 등록 중… <span id="wksProgress">0</span>/' + rows.length + '</div>';
+  let done = 0, failed = 0;
+  for (const row of rows) {
+    try {
+      const id = 'pu_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      await fb.setDoc(fb.doc(fb.db, 'pendingUsers', id), {
+        ...row,
+        createdAt: Date.now(),
+        createdBy: state.currentUser,
+        createdVia: 'workspace-import',
+      });
+      done++;
+    } catch (e) {
+      console.error('사전 등록 실패:', row.email, e);
+      failed++;
+    }
+    const p = document.getElementById('wksProgress'); if (p) p.textContent = done + failed;
+  }
+  result.innerHTML = `
+    <div style="padding:16px;background:#f0fdf4;color:#166534;border-radius:6px;font-size:13px;text-align:center;">
+      ✅ ${done}명 사전 등록 완료${failed?` · ⚠️ ${failed}명 실패`:''}
+    </div>
+    <div style="margin-top:12px;text-align:right;"><button class="btn btn-primary" onclick="closeModal()">닫기</button></div>`;
+}
+// CSV 붙여넣기 — Workspace API 못 쓰는 경우 대체 경로.
+// Google Workspace Admin 사용자 CSV 내보내기 형식 지원 (첫 줄 헤더에 "Email Address", "First Name", "Last Name", "Org Unit Path" 등).
+// 또는 간단히 "email,name,dept,title" 한 줄씩 붙여넣기도 허용.
+function openCSVImport() {
+  const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '900px';
+  openModal('📋 CSV 붙여넣기 임포트', `
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">
+      Workspace Admin 콘솔의 사용자 CSV 내보내기 결과를 붙여넣거나,<br>
+      간단히 <code style="background:var(--bg);padding:1px 4px;border-radius:3px;">이메일,이름,부서,직급</code> 형식으로 한 줄씩 입력하세요.<br>
+      <span style="color:var(--text-lighter);font-size:11px;">첫 줄이 헤더면 자동 인식. 부서·직급은 뒤에서 최종 확인 후 등록됩니다.</span>
+    </div>
+    <textarea id="csvPasteArea" rows="10" style="width:100%;padding:10px;font-family:monospace;font-size:12px;border:1.5px solid var(--border);border-radius:6px;resize:vertical;" placeholder="cwkim@sejong-21c.com,김철우,품질관리부,부장&#10;swkim@sejong-21c.com,김시원,품질관리부,대리&#10;..."></textarea>
+    <div style="margin-top:10px;font-size:11px;color:var(--text-lighter);">
+      💡 Workspace 원본 CSV는 자동 파싱: Email Address, First/Last Name, Org Unit Path 열을 사용합니다.
+    </div>
+  `, () => {
+    const text = document.getElementById('csvPasteArea').value.trim();
+    if (!text) { alert('CSV 내용을 입력해주세요.'); return; }
+    const parsed = parseCSVForImport(text);
+    if (!parsed.length) { alert('파싱된 사용자가 없습니다. 형식을 확인해주세요.'); return; }
+    // Workspace 형식과 동일한 shape으로 만들어서 review 테이블 재활용
+    const statusEl = document.createElement('div'); statusEl.style.display = 'none';
+    const resultEl = document.createElement('div');
+    document.getElementById('mBody').innerHTML = '';
+    document.getElementById('mBody').appendChild(statusEl);
+    document.getElementById('mBody').appendChild(resultEl);
+    // 확인 버튼 숨김 (renderImportReviewTable 안에서 자체 등록 버튼 제공)
+    const ok = document.getElementById('mOk'); if (ok) ok.style.display = 'none';
+    renderImportReviewTable(parsed, statusEl, resultEl);
+  });
+}
+function parseCSVForImport(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  // 헤더 감지 (Workspace 형식: 첫 줄에 "Email" 포함 & 콤마 3개 이상)
+  const first = lines[0].toLowerCase();
+  const hasHeader = first.includes('email') && lines[0].split(',').length >= 2;
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+  const cols = hasHeader ? lines[0].split(',').map(c => c.trim().toLowerCase()) : null;
+  const emailIdx = cols ? cols.findIndex(c => c.includes('email')) : 0;
+  // "First Name"/"Last Name"과 "Full Name"/"이름"을 구분: full/이름은 name으로, first/last는 given/family로.
+  const nameIdx  = cols ? cols.findIndex(c => (c.includes('full') && c.includes('name')) || c === 'name' || c === '이름') : 1;
+  const givenIdx = cols ? cols.findIndex(c => c.includes('first') || c.includes('given')) : -1;
+  const familyIdx = cols ? cols.findIndex(c => c.includes('last') || c.includes('family')) : -1;
+  const orgIdx   = cols ? cols.findIndex(c => c.includes('org') || c.includes('unit') || c.includes('부서')) : 2;
+  const titleIdx = cols ? cols.findIndex(c => c.includes('title') || c.includes('직급')) : 3;
+  return dataLines.map(line => {
+    const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+    const email = (parts[emailIdx] || '').toLowerCase();
+    if (!email.endsWith('@sejong-21c.com')) return null;
+    let name = '';
+    if (nameIdx >= 0 && parts[nameIdx]) name = parts[nameIdx];
+    else if (givenIdx >= 0 || familyIdx >= 0) name = [parts[familyIdx]||'', parts[givenIdx]||''].join('').trim();
+    if (!name) name = guessNameFromEmail(email);
+    return {
+      email,
+      name,
+      orgUnitPath: orgIdx >= 0 ? (parts[orgIdx] || '') : '',
+      suspended: false,
+      _csvTitle: titleIdx >= 0 ? (parts[titleIdx] || '') : '',
+    };
+  }).filter(Boolean);
+}
+
 async function connectGoogleCalendar() {
   const token = await gcalRequestToken(true);
   if (!token) { alert('구글 캘린더 연동에 실패했습니다. 다시 시도해주세요.'); return; }
@@ -4268,7 +4551,10 @@ function org() {
 
   return `<div class="mod-head">
     <div><div class="mod-title">👥 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (부서/직급 수정·권한 부여·비활성화 가능)':'조회 전용'} · 계정은 Google 로그인으로 본인이 직접 생성</div></div>
-    ${isSuper ? `<button class="btn btn-primary btn-sm" onclick="openPendingUser()">+ 계정 미리 등록</button>` : ''}
+    ${isSuper ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="openWorkspaceImport()" title="Workspace 사용자 목록을 자동으로 불러와 일괄 사전 등록">👥 Workspace에서 가져오기</button>
+      <button class="btn btn-primary btn-sm" onclick="openPendingUser()">+ 계정 미리 등록</button>
+    </div>` : ''}
   </div>
 
   ${pendingHtml}
