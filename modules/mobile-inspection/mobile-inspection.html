@@ -371,7 +371,36 @@ function loadProjects(){
 }
 function saveProjects(d){try{localStorage.setItem(PROJ_KEY,JSON.stringify(d));}catch(e){}}
 function loadRecords(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||[];}catch(e){return[];}}
-function saveRecords(r){try{localStorage.setItem(STORE_KEY,JSON.stringify(r));}catch(e){showToast('저장 공간 부족');}}
+// v29.9: localStorage는 브라우저당 5MB 한계. 사진 포함 검사 기록은 60~100KB → 50건 안팎에서 포화.
+// 저장 실패 시 자동으로 가장 오래된 5건을 백업 다운로드로 제공하고 삭제해 공간 확보 후 재시도.
+function saveRecords(r){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(r)); return true; }
+  catch(e) {
+    if (r.length > 5) {
+      const sorted = [...r].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      const oldFive = sorted.slice(0, 5);
+      const remaining = r.filter(x => !oldFive.some(o => o.id === x.id));
+      try {
+        const blob = new Blob([JSON.stringify(oldFive, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `현장검사_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+      } catch(_) {}
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(remaining)); alert('⚠️ 저장 공간이 부족해 오래된 검사 기록 5건을 JSON으로 백업 다운로드했습니다. 새 기록은 정상 저장됐습니다.'); return true; }
+      catch(_) {}
+    }
+    showToast('저장 공간 부족 — 사진 크기를 줄이거나 이전 기록을 정리하세요.');
+    return false;
+  }
+}
+// 저장 사용량 표시 (approximate)
+function getStorageUsagePercent(){
+  try {
+    const bytes = new Blob([localStorage.getItem(STORE_KEY) || '']).size;
+    return Math.min(100, Math.round(bytes / (5 * 1024 * 1024) * 100));
+  } catch(e) { return 0; }
+}
 
 // ── 초기화 ──────────────────────────────
 window.addEventListener('DOMContentLoaded', ()=>{
