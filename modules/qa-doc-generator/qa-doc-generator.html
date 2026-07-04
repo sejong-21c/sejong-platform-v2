@@ -2638,10 +2638,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       );
       if (!ok) return;
       try {
-        localStorage.removeItem("sjp_qa_doc_generator_v1");
-        localStorage.removeItem("epc_control_v28_state");
-        localStorage.removeItem("sjp_itp_builder_v1");
-        localStorage.removeItem("sjp_mail_drafts");
+        // v29.9 fix: 실제 사용되는 키들은 PID-scoped 형식(`sjp_qa_doc_generator_v1__${PID}` 등).
+        // 이전엔 옛날 flat 키만 지워서 실질적으로 아무것도 초기화되지 않았음. 전체 순회하며
+        // 관련 prefix를 가진 키를 다 정리.
+        const kills = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (k.startsWith('sjp_qa_doc_generator_v1__')) kills.push(k);
+          else if (k.startsWith('sjp_qa_gen_proj:')) kills.push(k);
+          else if (k.startsWith('sjp_itp_builder_v1__')) kills.push(k);
+          else if (k === 'sjp_qa_doc_generator_v1') kills.push(k);
+          else if (k === 'sjp_itp_builder_v1') kills.push(k);
+          else if (k === 'epc_control_v28_state') kills.push(k);
+          else if (k === 'sjp_mail_drafts') kills.push(k);
+        }
+        kills.forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
       } catch(e){}
       alert("✅ 초기화 완료 — 페이지를 새로고침합니다.");
       window.location.reload();

@@ -630,7 +630,7 @@ function openNewNCR() {
       location, cause, causeDetail, disposition,
       issuedBy: state.currentUser,
       issuedAt: issuedAt || new Date().toISOString().slice(0,10),
-      dueDate: '', carId: null,
+      carId: null,
       meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__' ? projDirect : '' }
     });
     save(); closeModal(); render();
@@ -777,19 +777,21 @@ function issueNCRFromTrav(itemId, stage) {
   openModal(`🔧 NCR 발행 — ${it?.tag||itemId} ${stage}`, `
     <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="travProj">${projOpts}</select></div>
     <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="travDesc" rows="3">${data.memo||''}</textarea></div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">등급</label><select class="fs" id="travGrade"><option value="major">중대</option><option value="minor" selected>일반</option><option value="obs">경미</option></select></div>
-      <div style="flex:1;"><label class="fl">조치 기한</label><input class="fi" type="date" id="travDue"></div>
+    <div class="fg">
+      <label class="fl">등급</label>
+      <select class="fs" id="travGrade"><option value="major">중대</option><option value="minor" selected>일반</option><option value="obs">경미</option></select>
     </div>
+    <div style="font-size:11px;color:var(--text-lighter);padding:8px 10px;background:var(--bg);border-radius:6px;">💡 조치 기한이 필요하면 NCR을 발행한 뒤 CAR(시정조치 요청)를 발행하세요 — CAR에 회신기한 필드가 있습니다.</div>
   `, () => {
     const proj  = document.getElementById('travProj').value;
     const desc  = document.getElementById('travDesc').value.trim();
     const grade = document.getElementById('travGrade').value;
-    const due   = document.getElementById('travDue').value;
     if (!desc) { alert('부적합 내용을 입력하세요.'); return; }
     if (!state.ncrs) state.ncrs = [];
     const num = String(state.ncrs.length + 1).padStart(3,'0');
-    state.ncrs.push({ id:`NCR-${new Date().getFullYear()}-${num}`, proj, item:it?.tag||itemId, source:'traveller', grade, desc, status:'open', issuedBy:state.currentUser, issuedAt:data.date||new Date().toISOString().slice(0,10), dueDate:due||'', carId:null, travItemId:itemId, travStage:stage, meta:{} });
+    // v29.9: dueDate 입력을 제거 (표에 표시되지 않아 사용자가 입력한 값이 사라지는 것처럼 보였음)
+    // 기한 관리는 CAR 발행으로 위임 (CAR에 replyDue 필드 + 기한초과 알림 있음).
+    state.ncrs.push({ id:`NCR-${new Date().getFullYear()}-${num}`, proj, item:it?.tag||itemId, source:'traveller', grade, desc, status:'open', issuedBy:state.currentUser, issuedAt:data.date||new Date().toISOString().slice(0,10), carId:null, travItemId:itemId, travStage:stage, meta:{} });
     save(); closeModal(); render();
   });
 }
@@ -1406,7 +1408,7 @@ function confirmNCRParse() {
     location, cause, causeDetail, disposition,
     issuedBy: state.currentUser,
     issuedAt: date||new Date().toISOString().slice(0,10),
-    dueDate:'', carId:null,
+    carId:null,
     meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__'?projDirect:'', fileDataUrl: window._ncrParseFileDataUrl||null, fileName: window._ncrParseFileName||null }
   });
   window._ncrParseFileDataUrl = null;
