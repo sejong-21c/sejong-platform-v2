@@ -1589,6 +1589,13 @@ function startFirestoreSync() {
     state.pendingUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     render();
   }, err => console.error('[Firestore] pendingUsers 동기화 오류:', err)));
+  // v29.9: 캘린더 이벤트 (직접 만든 일정)를 Firestore에 실시간 동기화.
+  // 이전엔 localStorage에만 저장돼 다른 기기·사용자한테 안 보였고, 그 결과 캘린더의
+  // "개인+부서" 가시성 필터도 실질적으로 무의미했음(공유될 데이터 자체가 없음).
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'events'), snap => {
+    state.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error('[Firestore] events 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
     state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     render();
@@ -3271,6 +3278,10 @@ function deleteEvent(id) {
   const ev = state.events.find(e => e.id === id);
   state.events = state.events.filter(e => e.id !== id);
   save(); render(); closeModal();
+  // v29.9: Firestore에서도 삭제 (다른 기기·사용자에게 즉시 반영)
+  if (window.fb && fb.db) {
+    fb.deleteDoc(fb.doc(fb.db, 'events', id)).catch(e => console.error('[events 삭제 실패]', e));
+  }
   if (ev && ev.gcalEventId && gcalConnected) deleteGCalEvent(ev.gcalEventId);
 }
 function showDate(ds) {
@@ -3300,13 +3311,23 @@ function openEvent(ds) {
     const newEv = { id: 'e' + Date.now(), title, date: document.getElementById('evD').value, time: document.getElementById('evTm').value, color: document.getElementById('evC').value, dept: document.getElementById('evDept').value, createdBy: state.currentUser };
     state.events.push(newEv);
     save(); closeModal(); render();
+    // v29.9: Firestore에도 저장 (다른 기기·사용자한테 실시간 반영). 문서 ID는 로컬 id 그대로 사용.
+    if (window.fb && fb.db) {
+      const { id: _id, ...body } = newEv;
+      fb.setDoc(fb.doc(fb.db, 'events', newEv.id), body).catch(e => console.error('[events 저장 실패]', e));
+    }
     if (gcalConnected) {
       // 구글 캘린더 연동 중이면 내 캘린더에도 자동 등록하고, 나중에 삭제할 수 있도록
       // 반환된 구글 이벤트 ID를 로컬 레코드에도 저장해둔다.
       pushEventToGCal(newEv).then(gid => {
         if (!gid) return;
         const rec = state.events.find(e => e.id === newEv.id);
-        if (rec) { rec.gcalEventId = gid; save(); }
+        if (rec) {
+          rec.gcalEventId = gid; save();
+          if (window.fb && fb.db) {
+            fb.setDoc(fb.doc(fb.db, 'events', newEv.id), { gcalEventId: gid }, { merge: true }).catch(() => {});
+          }
+        }
       });
     }
   });
