@@ -555,14 +555,14 @@ const callAPI = async (body) => {
   return r.json();
 };
 
-// v2.0 — Welder 자격 만료 판정 (QA Doc Generator의 welderStatus와 동일 기준: 30일 이내 = 임박)
+// v3.1 — Welder 자격 만료 판정 (QA Doc Generator의 welderStatus와 동일 기준: 2주(14일) 이내 = 임박)
 const welderDueDate = (w) => (w && typeof w === "object") ? w.dueDate : "";
 const welderStatus = (dueDate) => {
   if (!dueDate) return {label:"valid"};
   const due = new Date(dueDate);
   const days = (due - new Date()) / (1000*60*60*24);
   if (days < 0) return {label:"expired"};
-  if (days < 30) return {label:"expiring_soon"};
+  if (days < 14) return {label:"expiring_soon"};
   return {label:"valid"};
 };
 // Welder List 항목을 사람이 읽을 수 있는 한 줄로 (문자열/객체 둘 다 지원 — 날짜가 있으면 함께 표시)
@@ -672,18 +672,6 @@ function makeGrid(onCellPaste){
   return {gridProps:{"data-grid":"1",onKeyDown,onPaste},cellProps:(r,c)=>({"data-r":r,"data-c":c})};
 }
 
-// ════════ 5. Revision 계산 ════════
-function calcRev({items, specReqs, revComments}){
-  const hasItems = items?.length > 0;
-  const hasSpec = specReqs?.length > 0;
-  const hasDWG = items?.some(i => i.dwgUrl);
-  const hasComments = revComments?.length > 0;
-  if (hasComments && hasDWG) return {rev:"Rev. 2", percent:100, color:"#4a7fc1", label:"Comment 반영 — 발주처 송부 가능"};
-  if (hasDWG) return {rev:"Rev. 1", percent:90, color:"#1d9e75", label:"도면 반영 완료"};
-  if (hasItems || hasSpec) return {rev:"Rev. 0", percent:60, color:"#d4a017", label:"Draft — 도면 추가 시 Rev. 1 자동 승격"};
-  return {rev:"—", percent:0, color:"#6b7280", label:"입력 대기"};
-}
-
 // ════════ 6. ITP 기본 행 (v1.6 — 회사 표준 ITP Sample_rev.1 기준 17개 항목으로 확장) ════════
 const mkR = (id, activity, code, criteria, doc, sj, qc, client, active, specOnly=false) =>
   ({id, activity, code, criteria, doc, witness:{sj, qc, client}, active, specOnly, remarks:""});
@@ -708,7 +696,7 @@ const ITP_BASE = [
 ];
 
 // ════════ 7. ITP Preview ════════
-function ITPPreview({proj, items, specReqs, revInfo, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols}){
+function ITPPreview({proj, items, specReqs, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols}){
   const active = rows.filter(r => r.active);
   const isHX = items.some(i => i.type.includes("Condenser") || i.type.includes("Heat"));
   const isSUS = !isHX && items.some(i => /(316|304|sus|sts)/i.test(i.shell_mat||""));
@@ -760,18 +748,8 @@ function ITPPreview({proj, items, specReqs, revInfo, rows, setRows, docNo, setDo
     setNewRow({activity:"", code:"", criteria:"", doc:"", remarks:""});
   };
 
-  const pendingNote = revInfo.rev === "Rev. 0" && items.length > 0 && !items.some(i => i.dwgUrl);
-
   return <div style={{fontFamily:"Arial,sans-serif", fontSize:10}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}.ic{display:none!important}}`}</style>
-    <div className="no-print rev-banner" style={{borderLeftColor: revInfo.color, background: revInfo.color+"15"}}>
-      <strong style={{color:revInfo.color}}>{revInfo.rev}</strong>
-      <span style={{marginLeft:8, color:"#666"}}>{revInfo.label}</span>
-      <span style={{marginLeft:8, color:"#999", fontSize:11}}>({revInfo.percent}%)</span>
-    </div>
-    {pendingNote && <div className="no-print rev-banner rev-pending">
-      ⚠ 도면 미도착 — 시방서·견적서 기반 Draft. 도면 추가 시 Tag·치수·재질이 자동 확정되며 Rev. 1로 승격됩니다.
-    </div>}
 
     <table style={{width:"100%", borderCollapse:"collapse"}}>
       <colgroup><col style={{width:"30%"}}/><col style={{width:"15%"}}/><col style={{width:"25%"}}/><col style={{width:"10%"}}/><col style={{width:"20%"}}/></colgroup>
@@ -987,21 +965,13 @@ function App(){
       if (s.itpDocNo) setItpDocNo(s.itpDocNo);
       if (s.itpRev) setItpRev(s.itpRev);
     }
-    // EPC Control System에서 데이터 동기화 (window.SJP.bridge 존재 시)
+    // EPC Control System에서 프로젝트 정보 동기화 (window.SJP.bridge 존재 시).
+    // v2.0 — 아이템(검사 대상 아이템)은 index.html 좌측 패널(제작공정관리 연동)에서 직접 선택해
+    // 들어오는 방식으로 통일 — 여기서 items에 자동/후보 병합하지 않음 (중복 등록 혼란 방지).
     if (window.SJP?.bridge?.isConnected?.()) {
       const epcProj = window.SJP.bridge.getProject?.();
-      const epcItems = window.SJP.bridge.getItems?.();
       if (epcProj) setProj(p => ({...p, ...epcProj}));
-      // v1.6 — 좌측 목록(제작공정관리)을 기본 나열 소스로 사용. 덮어쓰지 않고 tag 기준으로 병합해서
-      // ITP Builder 안에서 직접 추가/수정한 아이템은 그대로 보존한다.
-      if (epcItems) {
-        setItems(prev => {
-          const byTag = new Map(prev.map(it => [it.tag, it]));
-          epcItems.forEach(ei => { if (!byTag.has(ei.tag)) byTag.set(ei.tag, ei); });
-          return Array.from(byTag.values());
-        });
-      }
-      setTimeout(()=>showMsg("✓ EPC Control에서 데이터 동기화 완료", 5000), 100);
+      setTimeout(()=>showMsg("✓ EPC Control에서 프로젝트 정보 동기화 완료", 5000), 100);
     }
   }, []);
 
@@ -1016,8 +986,6 @@ function App(){
   useEffect(() => { if (wpsList.length) window.WPS_LIST = wpsList; }, [wpsList]);
   useEffect(() => { if (welderList.length) window.WELDER_LIST = welderList; }, [welderList]);
   useEffect(() => { if (inspectorList.length) window.INSPECTOR_LIST = inspectorList; }, [inspectorList]);
-
-  const revInfo = calcRev({items, specReqs, revComments});
 
   useEffect(() => {
     setItpRows(prev => {
@@ -1041,10 +1009,6 @@ function App(){
     }
   }, [proj.no]);
 
-  useEffect(() => {
-    const newRev = revInfo.rev === "Rev. 0" ? "0" : revInfo.rev === "Rev. 1" ? "1" : revInfo.rev === "Rev. 2" ? "2" : itpRev;
-    if (newRev !== itpRev) setItpRev(newRev);
-  }, [revInfo.rev]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
 
@@ -1091,7 +1055,7 @@ function App(){
     } else if (kind === "quote") {
       const qi = Array.isArray(parsed.items) ? parsed.items : [];
       setQuoteItems(qi);
-      // 견적서 기반 사전 등록 (Rev.0) — 이미 있는 Tag는 건드리지 않고 신규 Tag만 추가
+      // 견적서 기반 사전 등록 — 이미 있는 Tag는 건드리지 않고 신규 Tag만 추가
       setItems(prev => {
         const byTag = new Map(prev.map(it => [it.tag, it]));
         qi.forEach(qi2 => { if (qi2.tag && !byTag.has(qi2.tag)) byTag.set(qi2.tag, {...DEF_ITEM, ...qi2, id: Date.now()+Math.random()}); });
@@ -1103,7 +1067,7 @@ function App(){
       const patch = {...parsed, ...(dwgUrl?{dwgUrl, dwgName:fileMeta.name}:{})};
       if (targetItemId) {
         setItems(prev => prev.map(it => it.id === targetItemId ? {...it, ...patch} : it));
-        showMsg(`✓ 도면 반영 완료 — 기존 아이템에 적용 (Rev. 1 승격)`, 5000);
+        showMsg(`✓ 도면 반영 완료 — 기존 아이템에 적용`, 5000);
       } else {
         setNewItem(prev => ({...prev, ...patch, tag: prev.tag || parsed.tag || ""}));
         showMsg(`✓ 도면 반영 완료 — 아이템 필드 자동 채움`, 5000);
@@ -1134,8 +1098,8 @@ function App(){
   };
 
   const buildParsePrompt = (kind) => {
-    if (kind === "project") return `This document may be a Work Order, a specification, a quotation, or some combination — figure out which parts are actually present and extract ONLY those. Return JSON only, no explanation, using this shape: {"project":{"no":"","name":"","customer":"","po":"","scope":""},"requirements":[{"category":"","activity":"","code":"","criteria":"","hold":false,"doc":""}],"items":[{"tag":"","name":"","type":"","appl_code":""}]}. Leave "project" fields as "" and "requirements"/"items" as [] for anything not actually present in the document — do not invent data. "requirements" = customer special inspection/test requirements beyond standard ITP items ("hold" true only if explicitly a hold/witness point). "items" = equipment/items to be manufactured, "type" one of: ${JSON.stringify(ITYPES)}.`;
-    if (kind === "wo") return `Extract project info from this Work Order document. Return JSON only, no explanation: {"no":"","name":"","customer":"","po":"","scope":""}. Use "" for anything not found.`;
+    if (kind === "project") return `This document may be a Work Order, a specification, a quotation, or some combination — figure out which parts are actually present and extract ONLY those. Return JSON only, no explanation, using this shape: {"project":{"no":"","name":"","customer":"","po":"","scope":""},"requirements":[{"category":"","activity":"","code":"","criteria":"","hold":false,"doc":""}],"items":[{"tag":"","name":"","type":"","appl_code":""}]}. Leave "project" fields as "" and "requirements"/"items" as [] for anything not actually present in the document — do not invent data. "po" = the Work Order's "Report No." field value (NOT a purchase-order number — this document's own report/document number). "requirements" = customer special inspection/test requirements beyond standard ITP items ("hold" true only if explicitly a hold/witness point). "items" = equipment/items to be manufactured, "type" one of: ${JSON.stringify(ITYPES)}.`;
+    if (kind === "wo") return `Extract project info from this Work Order document. Return JSON only, no explanation: {"no":"","name":"","customer":"","po":"","scope":""}. "po" = this Work Order's own "Report No." field value (NOT a purchase-order number). Use "" for anything not found.`;
     if (kind === "spec") return `Extract customer special inspection/test requirements (beyond standard ITP items) from this specification document. Return JSON only: {"requirements":[{"category":"","activity":"","code":"","criteria":"","hold":false,"doc":""}]}. "hold" is true only if it is explicitly a hold/witness point requiring approval before proceeding. Return {"requirements":[]} if none found.`;
     if (kind === "quote") return `Extract the list of equipment/items to be manufactured from this quotation document. Return JSON only: {"items":[{"tag":"","name":"","type":"","appl_code":""}]}. "type" must be one of: ${JSON.stringify(ITYPES)}. Return {"items":[]} if none found.`;
     // v1.9 — QA Doc Generator의 BOM/Fit-up/Nozzle/Hydro/DIM 리포트가 실제로 쓰는 항목까지 전부
@@ -1272,17 +1236,53 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         // (버그 수정) 셀 전체와 정확히 일치해야 하는 anchor(^...$) 매칭 대신, 줄 전체에서 부분 문자열로 스캔.
         // v2.0 — 같은 줄에서 자격 만료일(YYYY-MM-DD/YYYY.MM.DD/YYYY/MM/DD)도 함께 찾아서, 있으면
         // {id,name,dueDate} 객체로 저장 (만료 임박 계산에 사용). 날짜가 없으면 예전처럼 문자열 그대로.
+        // v3.2 — 관리대장에 발급일/갱신일/만료일 등 날짜가 한 줄에 여러 개 섞여 있으면 첫 번째(대개
+        // 발급일=과거 날짜)를 잘못 집어서 "이미 만료"로 오판정하던 버그 수정. "만료" 라벨 바로
+        // 뒤 날짜를 최우선으로 쓰고, 라벨이 없으면 해당 줄~다음 2줄 중 가장 늦은(미래) 날짜를 채택
+        // (만료일은 통상 발급일보다 늦은 날짜이므로).
         let curName = "";
-        const dateRe = /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/;
-        texts.forEach(line => {
+        const dateReG = /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/g;
+        const toISO = (m) => `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+        // v3.4 — xlsx(회사 표준 양식)는 셀 좌표가 그대로 보존되므로, 줄 안의 아무 날짜나 스캔하는
+        // 대신 "만료" 라벨이 있는 헤더 열을 찾아 그 열 값만 만료일로 쓴다. 기존 방식은 O열(최초
+        // 승인일자)과 Q열(승인 만료일자)이 한 줄에 같이 있을 때 잘못된 날짜를 집을 위험이 있었음.
+        // 헤더에서 "만료" 열을 못 찾으면 회사 양식 기준 Q열(0-index 16)을 기본값으로 사용.
+        // v3.4 주의: 이 블록만 split("\t") (단일 탭)을 써야 함 — split(/\t+/)는 빈 셀이 연속될 때
+        // 구분자를 하나로 합쳐버려서 이후 모든 컬럼 인덱스가 밀려버림 (실제 xlsx 테스트로 확인된 버그).
+        const isXlsx = (ext === "xlsx" || ext === "xls");
+        let expiryColIdx = -1;
+        if (isXlsx) {
+          for (const line of texts) {
+            const idx = line.split("\t").findIndex(c => c.includes("만료"));
+            if (idx >= 0) { expiryColIdx = idx; break; }
+          }
+          if (expiryColIdx < 0) expiryColIdx = 16; // Q열 기본값
+        }
+        const findDueDateXlsx = (li) => {
+          const cell = (texts[li].split("\t")[expiryColIdx] || "").trim();
+          const m = cell.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+          return m ? toISO(m) : "";
+        };
+        const findDueDate = (li) => {
+          const win = [texts[li]||"", texts[li+1]||"", texts[li+2]||""].join(" | ");
+          const labelPos = win.indexOf("만료");
+          if (labelPos >= 0) {
+            const after = win.slice(labelPos, labelPos + 40);
+            const m = after.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+            if (m) return toISO(m);
+          }
+          const all = [...win.matchAll(dateReG)];
+          if (!all.length) return "";
+          return all.map(toISO).reduce((a,b) => (a > b ? a : b));
+        };
+        texts.forEach((line, li) => {
           const cells = line.split(/\t+/).map(c=>c.trim());
           const nameCell = cells.find(c => /^[가-힣]{2,4}$/.test(c));
           if (nameCell) curName = nameCell;
           const norm = line.replace(/\s+/g, "");
           const ms = norm.match(/SJ-[A-Z]{2,4}-[A-Z]{2,4}(-\d{2})?(,\d{2})?/g);
           if (!ms) return;
-          const dm = line.match(dateRe);
-          const dueDate = dm ? `${dm[1]}-${String(dm[2]).padStart(2,"0")}-${String(dm[3]).padStart(2,"0")}` : "";
+          const dueDate = isXlsx ? findDueDateXlsx(li) : findDueDate(li);
           ms.forEach(id => {
             if (seen.has(id)) return;
             seen.add(id);
@@ -1344,46 +1344,49 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     setItems(p => p.filter(i => i.id !== id));
   };
 
+  // v2.1 — SJP bridge 전송(EPC Control/Firestore 연동)과 JSON 파일 다운로드를 분리.
+  // bridge.setItems()가 쓰는 state.items[pid]는 WBS(제작공정관리) Firestore 구독이 실시간으로
+  // 덮어쓸 수 있어 타이밍에 따라 안 먹힐 때가 있다 — QA Doc Generator는 이거 하나만 믿지 말고
+  // 아래 sendToQADoc()의 즉시 localStorage 저장(같은 pid, sjp_itp_builder_v1__*)도 함께 본다.
+  const pushToHost = () => {
+    if (!window.SJP?.bridge) return false;
+    window.SJP.bridge.setProject(proj);
+    const epcItems = items.map(it => ({
+      tagNo: it.tag, type: it.type, spec: it.appl_code, maker: it.maker || ""
+    }));
+    window.SJP.bridge.setItems(epcItems);
+    setTimeout(() => {
+      const epcItemsAfter = window.SJP.bridge.getItems();
+      items.forEach(localItem => {
+        const epc = epcItemsAfter.find(e => e.tagNo === localItem.tag);
+        if (!epc) return;
+        const tplItems = (itpRows || []).filter(r => r.active !== false).map((r, idx) => {
+          const rid = String(r.id || (idx+1)).padStart(2, "0");
+          const ph = rid <= "05" ? 0 : rid <= "14" ? 1 : 2;
+          const clientVal = (r.witness && r.witness.client) || r.client;
+          const pt = ["H","W","R","S","N/A"].includes(clientVal) ? clientVal : "W";
+          return { id: rid, item: r.activity || "", ph: ph, pt: pt, crit: r.criteria || "" };
+        });
+        if (tplItems.length > 0) window.SJP.bridge.setItpTemplate(epc.id, tplItems);
+      });
+    }, 80);
+    return true;
+  };
+  // Step 2 "QA Doc Generator로 바로 전송" — 1초 자동저장을 기다리지 않고 지금 즉시 localStorage에
+  // 쓴다. QA Doc Generator를 그 뒤에 열거나 "🔄 ITP 최신정보 새로고침"을 누르면 바로 반영된다.
+  const sendToQADoc = () => {
+    saveLS({proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev});
+    const bridged = pushToHost();
+    showMsg(`✓ QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 6000);
+  };
   const handleExport = () => {
     const data = {proj, items, specReqs, quoteItems, wpsList, welderList, inspectorList, exported_at:new Date().toISOString(), version:"itp_builder_v1.2"};
     const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `${proj.no||"project"}_data.json`;
     a.click(); URL.revokeObjectURL(url);
-    // SJP bridge에도 저장 (단계 6: ITP→Manufacture Manager 자동 생성)
-    if (window.SJP?.bridge) {
-      // 1. 프로젝트 전달
-      window.SJP.bridge.setProject(proj);
-      // 2. 아이템 전달 (tag → tagNo 변환, appl_code → spec)
-      const epcItems = items.map(it => ({
-        tagNo: it.tag,
-        type: it.type,
-        spec: it.appl_code,
-        maker: it.maker || ""
-      }));
-      window.SJP.bridge.setItems(epcItems);
-      // 3. ITP 18개 항목을 각 아이템의 ITP 템플릿으로 등록 (MM 검사 단계용)
-      setTimeout(() => {
-        const epcItemsAfter = window.SJP.bridge.getItems();
-        items.forEach(localItem => {
-          const epc = epcItemsAfter.find(e => e.tagNo === localItem.tag);
-          if (!epc) return;
-          const tplItems = (itpRows || []).filter(r => r.active !== false).map((r, idx) => {
-            const rid = String(r.id || (idx+1)).padStart(2, "0");
-            const ph = rid <= "05" ? 0 : rid <= "14" ? 1 : 2;
-            const clientVal = (r.witness && r.witness.client) || r.client;
-            const pt = ["H","W","R","S","N/A"].includes(clientVal) ? clientVal : "W";
-            return { id: rid, item: r.activity || "", ph: ph, pt: pt, crit: r.criteria || "" };
-          });
-          if (tplItems.length > 0) {
-            window.SJP.bridge.setItpTemplate(epc.id, tplItems);
-          }
-        });
-      }, 80);
-      showMsg(`✓ Export 완료 — EPC Control · QA Doc Generator로 자동 전송`);
-    } else {
-      showMsg(`✓ Export 완료 — Standalone 모드 (EPC 미연결)`);
-    }
+    const bridged = pushToHost();
+    showMsg(bridged ? `✓ Export 완료 — EPC Control · QA Doc Generator로 자동 전송` : `✓ Export 완료 — Standalone 모드 (EPC 미연결)`);
   };
   const handleImport = (file) => {
     const r = new FileReader();
@@ -1420,7 +1423,6 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <div className="epc-topbar-title">ITP Builder v1.4</div>
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
-      <div className="epc-topbar-badge">{revInfo.rev}</div>
       <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}>🔑 API 키{getApiKey()?" ✓":""}</button>
       <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
     </div>
@@ -1473,7 +1475,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
               📋 추가 요구사항: <strong>{specReqs.length}개</strong>
             </div>
             <div style={{fontSize:10, color: quoteItems.length > 0 ? "#7f77dd" : "var(--sjp-text-sub)"}}>
-              💰 견적 아이템: <strong>{quoteItems.length}개</strong> (도면 미도착 상태에서도 Rev. 0 ITP 생성 가능, 도면 첨부 시 Rev. 1 자동 승격)
+              💰 견적 아이템: <strong>{quoteItems.length}개</strong> (도면 미도착 상태에서도 ITP 생성 가능)
             </div>
           </div>
           {specReqs.length > 0 && <div style={{marginTop:8, maxHeight:200, overflowY:"auto"}}>
@@ -1626,8 +1628,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
                     {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
                       <span style={{color:"var(--sjp-warning)", marginLeft:5, fontWeight:600}}>(CAP)</span>}
                   </div>
-                  {it.dwgUrl ? <div style={{fontSize:9, color:"var(--sjp-success)", marginTop:2}}>✓ 도면 첨부 — Rev. 1 기여</div>
-                    : <div style={{fontSize:9, color:"var(--sjp-warning)", marginTop:2}}>⚠ 도면 미첨부 — Rev. 0</div>}
+                  {it.dwgUrl ? <div style={{fontSize:9, color:"var(--sjp-success)", marginTop:2}}>✓ 도면 첨부됨</div>
+                    : <div style={{fontSize:9, color:"var(--sjp-warning)", marginTop:2}}>⚠ 도면 미첨부</div>}
                   <PasteBox kind="dwg" targetItemId={it.id} prompt={buildParsePrompt("dwg")} onApply={handlePasteApply} onCopyPrompt={copyPrompt}/>
                 </div>
               )
@@ -1650,6 +1652,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <button onClick={()=>setStep(1)} className="btn-secondary">← 수정하기</button>
         <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>자동 저장</span>
         <div style={{flex:1}}/>
+        <button onClick={sendToQADoc} className="btn-primary" title="파일 다운로드 없이, 지금 상태를 바로 QA Doc Generator에 전달합니다">🚀 QA Doc Generator로 바로 전송</button>
         <button onClick={handleExport} className="btn-secondary">💾 QC Gen으로 Export</button>
       </div>
 
@@ -1659,15 +1662,15 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           <button onClick={()=>window.print()} className="btn-primary">🖨 인쇄</button>
         </div>
         <div style={{fontSize:10, color:"#666", padding:"4px 10px", marginTop:3, background:"#fffdf5", border:"0.5px dashed #ecd6a3", borderRadius:4}}>
-          <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 권장 옵션:</span>
-          &nbsp;Chrome/Edge → <strong>여백(Margins): "기본값" 또는 "없음"</strong> &nbsp;|&nbsp;
+          <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 필수 옵션:</span>
+          &nbsp;Chrome/Edge → <strong style={{color:"#c33"}}>여백(Margins): "없음(None)"</strong> (⚠ "기본값"을 선택하면 브라우저가 자체 여백을 추가로 넣어서 페이지가 한 장 더 넘어갈 수 있습니다) &nbsp;|&nbsp;
           <strong>"머리글 및 바닥글" 해제</strong> &nbsp;|&nbsp;
           <strong>"배경 그래픽" 체크</strong>
         </div>
       </div>
 
       <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff"}}>
-        <ITPPreview proj={proj} items={items} specReqs={specReqs} revInfo={revInfo}
+        <ITPPreview proj={proj} items={items} specReqs={specReqs}
           rows={itpRows} setRows={setItpRows} docNo={itpDocNo} setDocNo={setItpDocNo} rev={itpRev} setRev={setItpRev}
           witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
       </div>

@@ -1,0 +1,63 @@
+name: Backup before main changes
+
+# main 브랜치에 누가 push하든(로컬 hook과 달리 모든 사람에게 적용됨),
+# push 되기 직전(직전 커밋) 상태를 자동으로 태그로 남겨서
+# 병합 실수 등으로 코드가 잘못 반영됐을 때 언제든 쉽게 복구할 수 있게 한다.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create backup tag for pre-push state
+        id: backup
+        run: |
+          set -e
+          BEFORE_SHA="${{ github.event.before }}"
+
+          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "새로 생성된 브랜치이거나 이전 상태가 없어 백업을 건너뜁니다."
+            exit 0
+          fi
+
+          if ! git cat-file -e "$BEFORE_SHA" 2>/dev/null; then
+            echo "이전 커밋($BEFORE_SHA)을 찾을 수 없어 백업을 건너뜁니다."
+            exit 0
+          fi
+
+          git config user.name "backup-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          TIMESTAMP=$(date -u +"%Y%m%d-%H%M%S")
+          SHORT_SHA=$(echo "$BEFORE_SHA" | cut -c1-7)
+          TAG="backup/${TIMESTAMP}-${SHORT_SHA}"
+
+          git tag "$TAG" "$BEFORE_SHA"
+          git push origin "$TAG"
+          echo "생성됨: $TAG (복구용 백업 지점)"
+
+      - name: Prune old backup tags (최근 30개만 유지)
+        run: |
+          set -e
+          git fetch --tags --force
+          TAGS=$(git tag -l 'backup/*' | sort)
+          COUNT=$(printf '%s\n' "$TAGS" | grep -c . || true)
+
+          if [ "$COUNT" -gt 30 ]; then
+            TO_DELETE=$(printf '%s\n' "$TAGS" | head -n $((COUNT - 30)))
+            for t in $TO_DELETE; do
+              echo "오래된 백업 태그 삭제: $t"
+              git push origin ":refs/tags/$t" || true
+              git tag -d "$t" || true
+            done
+          fi

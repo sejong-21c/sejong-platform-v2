@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>품질종합분석표</title>
+<script type="module">
+  // Firebase Firestore — NCR/CAR/프로젝트 데이터를 index.html과 공유 (같은 오리진).
+  // 이 대시보드는 읽기 전용(never writes ncrs/cars) — 실시간 구독만 한다.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot };
+</script>
+<style>
+:root {
+  --primary: #1976D2; --primary-hover: #1565C0; --primary-light: #E3F2FD; --primary-lighter: #F0F7FF;
+  --success: #4CAF50; --warning: #FF9800; --danger: #F44336;
+  --bg: #F5F7FA; --white: #FFFFFF;
+  --border: #E0E0E0; --border-light: #F0F0F0;
+  --text: #333; --text-light: #666; --text-lighter: #999;
+  --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+#app { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
+
+.btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--white); cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+.btn:hover { background: var(--bg); }
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.back-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--white); cursor: pointer; font-size: 12px; font-family: inherit; }
+.back-btn:hover { background: var(--bg); }
+.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.mod-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 12px; }
+.mod-title { font-size: 17px; font-weight: 700; }
+.mod-sub { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+
+.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
+.filter-bar select { padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12px; background: #fff; font-family: inherit; }
+.filter-bar .cnt { margin-left: auto; font-size: 12px; color: var(--text-light); }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+.kpi { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.kpi-label { font-size: 10.5px; color: var(--text-light); margin-bottom: 4px; }
+.kpi-value { font-size: 22px; font-weight: 800; }
+.kpi-note { font-size: 10px; color: var(--text-lighter); margin-top: 2px; }
+
+.qd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 16px; }
+.qd-chart-wrap { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.qd-chart-title { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+.qd-chart-title .hint { font-size: 10px; font-weight: 400; color: var(--text-lighter); }
+.qd-section { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px; }
+.qd-section h4 { font-size: 13.5px; margin-bottom: 10px; }
+
+.org-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.org-table thead th { background: var(--bg); padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-light); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.org-table td { padding: 7px 10px; border-bottom: 1px solid var(--border-light); vertical-align: middle; white-space: nowrap; }
+.org-table tbody tr:hover { background: var(--bg); }
+
+.b-pill { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 10.5px; font-weight: 600; }
+.b-pill.green  { background: #E8F5E9; color: #2E7D32; }
+.b-pill.blue   { background: #E3F2FD; color: #1565C0; }
+.b-pill.orange { background: #FFF3E0; color: #E65100; }
+.b-pill.red    { background: #FFEBEE; color: #C62828; }
+.b-pill.gray   { background: var(--border-light); color: var(--text-light); }
+
+.empty-note { text-align: center; padding: 30px; color: var(--text-lighter); font-size: 12px; }
+.caveat { font-size: 11px; color: var(--text-lighter); line-height: 1.6; background: var(--bg); border-radius: 6px; padding: 8px 12px; margin-top: 10px; }
+
+@media (max-width: 1100px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .qd-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div id="app">로딩 중...</div>
+
+<script>
+const KEY = 'SJ_FLOW_V04';
+const NCR_GRADE  = { major:['red','중대'], minor:['orange','일반'], obs:['gray','경미'] };
+const NCR_STATUS = { open:['red','진행중'], closed:['green','종결'], pending:['orange','조치대기'] };
+const CAR_STATUS = { 'in-progress':['orange','조치중'], 'replied':['blue','회신완료'], 'closed':['green','완료'] };
+const DISPOSITION_DEFECT = ['재작업','수리','폐기','반송']; // '현상태사용'은 실질 불량으로 안 침
+const COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
+
+let state = {};
+let qf = { year: '', quarter: '', proj: '' }; // 품질분석 필터
+
+function loadState() {
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { state = {}; }
+  if (!state.ncrs)     state.ncrs = [];
+  if (!state.cars)     state.cars = [];
+  if (!state.projects) state.projects = [];
+  if (!state.users)    state.users = [];
+}
+
+function startFirestoreSync() {
+  if (!window.fb || !fb.db) { setTimeout(startFirestoreSync, 300); return; }
+  // v29.9.1: 인증 세션 복원 전에 구독하면 permission-denied로 리스너가 영구 종료됨 → 로그인 확인 후 구독
+  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startFirestoreSync, 400); return; }
+  fb.onSnapshot(fb.collection(fb.db, 'ncrs'), snap => {
+    state.ncrs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    render();
+  }, e => console.error('[ncrs 구독]', e));
+  fb.onSnapshot(fb.collection(fb.db, 'cars'), snap => {
+    state.cars = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    render();
+  }, e => console.error('[cars 구독]', e));
+  fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
+    state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, e => console.error('[projects 구독]', e));
+}
+
+function getP(id) { return (state.projects||[]).find(p => p.id === id) || null; }
+function projLabel(n) {
+  if (n.proj === '__direct__') return n.meta?.projDirect || '직접입력';
+  const p = getP(n.proj);
+  return p ? `${p.code}` : (n.proj || '미지정');
+}
+function projFullLabel(n) {
+  if (n.proj === '__direct__') return n.meta?.projDirect || '직접입력';
+  const p = getP(n.proj);
+  return p ? `${p.code} ${p.name}` : (n.proj || '미지정');
+}
+function quarterOf(dateStr) {
+  if (!dateStr || dateStr.length < 7) return null;
+  const mo = parseInt(dateStr.slice(5,7), 10);
+  return Math.ceil(mo / 3);
+}
+function daysBetween(a, b) {
+  if (!a || !b) return null;
+  const d1 = new Date(a), d2 = new Date(b);
+  if (isNaN(d1) || isNaN(d2)) return null;
+  return Math.round((d2 - d1) / 86400000);
+}
+function count(arr, key) {
+  return arr.reduce((acc, x) => { const k = x[key] || '(미입력)'; acc[k] = (acc[k]||0) + 1; return acc; }, {});
+}
+
+/* ═══ 필터 적용 ═══ */
+function filteredNcrs() {
+  return (state.ncrs || []).filter(n => {
+    const d = n.issuedAt || '';
+    if (qf.year && !d.startsWith(qf.year)) return false;
+    if (qf.quarter && quarterOf(d) !== parseInt(qf.quarter, 10)) return false;
+    if (qf.proj && n.proj !== qf.proj) return false;
+    return true;
+  });
+}
+function filteredCars() {
+  const ncrIds = new Set(filteredNcrs().map(n => n.id));
+  return (state.cars || []).filter(c => {
+    // NCR 연계 CAR는 필터된 NCR 목록 기준, 단독 발행 CAR는 자체 날짜/프로젝트로 필터
+    if (c.ncrId) return ncrIds.has(c.ncrId);
+    const d = c.issuedAt || '';
+    if (qf.year && !d.startsWith(qf.year)) return false;
+    if (qf.quarter && quarterOf(d) !== parseInt(qf.quarter, 10)) return false;
+    if (qf.proj && c.proj !== qf.proj) return false;
+    return true;
+  });
+}
+
+/* ═══ SVG 차트 (NCR 모듈과 동일한 방식 — 외부 라이브러리 없이 순수 SVG) ═══ */
+function barSvg(entries, colors) {
+  if (!entries.length) return '<div class="empty-note">데이터 없음</div>';
+  const max = Math.max(...entries.map(e=>e[1]), 1);
+  const n = entries.length;
+  const W = 320, PL = 10, PR = 10, PT = 28, PB = n > 5 ? 62 : 38;
+  const H = 180;
+  const iW = W - PL - PR, iH = H - PT - PB;
+  const gap = iW / n;
+  const bW = Math.max(8, Math.min(40, Math.floor(gap * 0.55)));
+  const rotate = n > 5;
+  const bars = entries.map(([label, val], i) => {
+    const bH = val === 0 ? 0 : Math.max(4, Math.round(val / max * iH));
+    const cx = PL + Math.round(i * gap + gap / 2);
+    const by = PT + iH - bH;
+    const valY = by - 6;
+    const lblY = H - PB + (rotate ? 4 : 14);
+    const lbl = String(label).length > 8 ? String(label).slice(0, 7) + '…' : label;
+    const anchor = rotate ? 'end' : 'middle';
+    return `<rect x="${cx - bW/2}" y="${by}" width="${bW}" height="${bH}" rx="3" fill="${colors[i % colors.length]}"/>
+      <text x="${cx}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${val}</text>
+      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="#666"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${lbl}</text>`;
+  }).join('');
+  return `<svg viewBox="-2 -4 ${W+4} ${H+8}" style="width:100%;display:block;overflow:visible;">
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+    ${bars}
+  </svg>`;
+}
+function donutSvg(entries, colors) {
+  if (!entries.length) return '<div class="empty-note">데이터 없음</div>';
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  if (!total) return '<div class="empty-note">데이터 없음</div>';
+  const cx=75, cy=75, R=58, ri=34;
+  const mid_r = (R + ri) / 2;
+  const LX = 158, rowH = 20;
+  const H = Math.max(160, entries.length * rowH + 24);
+  let angle = -Math.PI/2;
+  const slices = entries.map(([label,val],i) => {
+    const a = (val/total)*2*Math.PI;
+    const x1=cx+R*Math.cos(angle), y1=cy+R*Math.sin(angle);
+    angle += a;
+    const x2=cx+R*Math.cos(angle), y2=cy+R*Math.sin(angle);
+    const lg = a>Math.PI?1:0;
+    const midA = angle - a/2;
+    const tx = cx + mid_r * Math.cos(midA);
+    const ty = cy + mid_r * Math.sin(midA);
+    const pct = Math.round(val/total*100);
+    return `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${cx},${cy} Z" fill="${colors[i%colors.length]}"/>
+    ${a > 0.4 ? `<text x="${tx.toFixed(1)}" y="${(ty+3.5).toFixed(1)}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">${pct}%</text>` : ''}`;
+  });
+  const legend = entries.map(([label,val],i) => {
+    const lbl = String(label).length > 9 ? String(label).slice(0,8)+'…' : label;
+    return `<g transform="translate(${LX},${(H-entries.length*rowH)/2+i*rowH})">
+      <rect width="10" height="10" rx="2" fill="${colors[i%colors.length]}"/>
+      <text x="15" y="9" font-size="11" fill="#444">${lbl} (${val})</text>
+    </g>`;
+  });
+  return `<svg viewBox="0 0 290 ${H}" style="width:100%;display:block;overflow:visible;">
+    <circle cx="${cx}" cy="${cy}" r="${R+1}" fill="#f5f5f5"/>
+    ${slices.join('')}
+    <circle cx="${cx}" cy="${cy}" r="${ri}" fill="#fff"/>
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="13" fill="#444" font-weight="700">${total}</text>
+    <text x="${cx}" y="${cy+11}" text-anchor="middle" font-size="10" fill="#999">건</text>
+    ${legend.join('')}
+  </svg>`;
+}
+function lineSvg(periodData) {
+  const keys = Object.keys(periodData).sort();
+  if (!keys.length) return '<div class="empty-note">데이터 없음</div>';
+  const vals = keys.map(k => periodData[k]);
+  const maxV = Math.max(...vals, 1);
+  const W=680, PL=40, PR=20, PT=30, PB=34, H=180;
+  const iW=W-PL-PR, iH=H-PT-PB;
+  const xs = keys.length===1 ? [PL+Math.round(iW/2)] : keys.map((_,i)=>PL+Math.round(i/(keys.length-1)*iW));
+  const ys = vals.map(v=>PT+iH-Math.round(v/maxV*iH));
+  const path = xs.map((x,i)=>`${i===0?'M':'L'}${x},${ys[i]}`).join(' ');
+  const area = path+` L${xs[xs.length-1]},${PT+iH} L${xs[0]},${PT+iH} Z`;
+  const pts = xs.map((x,i) => {
+    const atTop = ys[i] <= PT + 18;
+    const valY = atTop ? ys[i] + 15 : ys[i] - 8;
+    const anchor = i===0 ? 'start' : i===xs.length-1 ? 'end' : 'middle';
+    const lx = i===0 ? Math.max(x, PL) : i===xs.length-1 ? Math.min(x, W-PR) : x;
+    return `<circle cx="${x}" cy="${ys[i]}" r="3.5" fill="#1976D2"/>
+    <text x="${x}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${vals[i]}</text>
+    <text x="${lx}" y="${H-10}" text-anchor="${anchor}" font-size="9" fill="#888">${keys[i]}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;">
+    <path d="${area}" fill="#1976D2" opacity="0.08"/>
+    <path d="${path}" fill="none" stroke="#1976D2" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${pts}
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+  </svg>`;
+}
+
+/* ═══ 필터 옵션 갱신 ═══ */
+function setFilter(key, val) { qf[key] = val; render(); }
+
+/* ═══ 메인 렌더 ═══ */
+function render() {
+  loadState();
+  const ncrs = filteredNcrs();
+  const cars = filteredCars();
+
+  const years = [...new Set((state.ncrs||[]).map(n => (n.issuedAt||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  const projIds = [...new Set((state.ncrs||[]).map(n => n.proj))];
+
+  // ── KPI ──
+  const openNcr = ncrs.filter(n => n.status !== 'closed').length;
+  const majorNcr = ncrs.filter(n => n.grade === 'major').length;
+  const openCar = cars.filter(c => c.status !== 'closed').length;
+  const closedCars = cars.filter(c => c.status === 'closed' && c.issuedAt && c.closedAt);
+  const avgCarDays = closedCars.length
+    ? Math.round(closedCars.reduce((s,c) => s + (daysBetween(c.issuedAt, c.closedAt) || 0), 0) / closedCars.length)
+    : null;
+  const withDisposition = ncrs.filter(n => n.disposition);
+  const defectRate = withDisposition.length
+    ? Math.round(withDisposition.filter(n => DISPOSITION_DEFECT.includes(n.disposition)).length / withDisposition.length * 100)
+    : null;
+
+  // ── 프로젝트별 요약 ──
+  const byProj = {};
+  ncrs.forEach(n => {
+    const key = n.proj;
+    if (!byProj[key]) byProj[key] = { proj: key, total:0, major:0, minor:0, obs:0, open:0, closed:0, latest:'', carCount:0, carOpen:0 };
+    const b = byProj[key];
+    b.total++;
+    b[n.grade || 'obs'] = (b[n.grade || 'obs']||0) + 1;
+    if (n.status === 'closed') b.closed++; else b.open++;
+    if (!b.latest || (n.issuedAt||'') > b.latest) b.latest = n.issuedAt || '';
+  });
+  cars.forEach(c => {
+    const n = c.ncrId ? (state.ncrs||[]).find(x=>x.id===c.ncrId) : null;
+    const key = n ? n.proj : c.proj;
+    if (!byProj[key]) byProj[key] = { proj: key, total:0, major:0, minor:0, obs:0, open:0, closed:0, latest:'', carCount:0, carOpen:0 };
+    byProj[key].carCount++;
+    if (c.status !== 'closed') byProj[key].carOpen++;
+  });
+  const projRows = Object.values(byProj).sort((a,b) => b.total - a.total);
+
+  // ── 기간 추이 (연도-분기별, 필터에 연도가 없으면 연-분기 라벨, 있으면 연-월) ──
+  const periodData = {};
+  ncrs.forEach(n => {
+    const d = n.issuedAt || '';
+    if (!d) return;
+    const key = qf.year ? d.slice(0,7) : `${d.slice(0,4)}-Q${quarterOf(d)}`;
+    periodData[key] = (periodData[key]||0) + 1;
+  });
+
+  // ── 제작단계(검사공정)별 — Traveller 경유 NCR만 travStage 보유 ──
+  const stageNcrs = ncrs.filter(n => n.source === 'traveller' && n.travStage);
+  const stageEntries = Object.entries(count(stageNcrs, 'travStage')).sort((a,b)=>b[1]-a[1]);
+
+  // ── 데이터 정합성 검사 (전체 데이터 기준 — 필터 무시) ──
+  const allNcrs = state.ncrs || [], allCars = state.cars || [];
+  const ncrIdSet = new Set(allNcrs.map(n => n.id));
+  const carIdSet = new Set(allCars.map(c => c.id));
+  const projIdSet = new Set((state.projects||[]).map(p => p.id));
+  const issues = [];
+  allCars.forEach(c => {
+    if (c.ncrId && !ncrIdSet.has(c.ncrId)) issues.push({ sev:'red', text:`${c.id} — 연계된 NCR "${c.ncrId}"이(가) 존재하지 않습니다 (삭제됐거나 오타).` });
+  });
+  allNcrs.forEach(n => {
+    if (n.carId && !carIdSet.has(n.carId)) issues.push({ sev:'red', text:`${n.id} — 연계된 CAR "${n.carId}"이(가) 존재하지 않습니다 (삭제됐거나 오타).` });
+    if (n.proj && n.proj !== '__direct__' && !projIdSet.has(n.proj)) issues.push({ sev:'orange', text:`${n.id} — 참조하는 프로젝트 "${n.proj}"가 존재하지 않습니다 (프로젝트 삭제됨).` });
+    if (n.status === 'closed' && !n.disposition) issues.push({ sev:'orange', text:`${n.id} — 종결 처리됐지만 처리방안이 입력되지 않았습니다.` });
+    const daysOpen = n.status !== 'closed' ? daysBetween(n.issuedAt, new Date().toISOString().slice(0,10)) : null;
+    if (daysOpen != null && daysOpen > 30) issues.push({ sev:'orange', text:`${n.id} — 발행 후 ${daysOpen}일째 미종결 상태입니다 (30일 초과).` });
+  });
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="mod-head">
+      <div>
+        <div class="mod-title">📊 품질종합분석표 <span style="font-size:13px;color:var(--text-light);font-weight:400;">전사 NCR·CAR 종합 분석</span></div>
+        <div class="mod-sub">프로젝트·연도·분기별 부적합/시정조치 현황 및 불량 경향 분석</div>
+      </div>
+      <button class="back-btn" onclick="try{window.parent.closeTool()}catch(e){}">← 도구함 닫기</button>
+    </div>
+
+    <div class="filter-bar">
+      <select onchange="setFilter('year', this.value)">
+        <option value="">전체 연도</option>
+        ${years.map(y => `<option value="${y}" ${qf.year===y?'selected':''}>${y}년</option>`).join('')}
+      </select>
+      <select onchange="setFilter('quarter', this.value)">
+        <option value="">전체 분기</option>
+        ${[1,2,3,4].map(q => `<option value="${q}" ${qf.quarter==String(q)?'selected':''}>${q}분기</option>`).join('')}
+      </select>
+      <select onchange="setFilter('proj', this.value)">
+        <option value="">전체 프로젝트</option>
+        ${projIds.map(pid => `<option value="${pid}" ${qf.proj===pid?'selected':''}>${projFullLabel({proj:pid, meta:(state.ncrs||[]).find(n=>n.proj===pid)?.meta})}</option>`).join('')}
+      </select>
+      <span class="cnt">NCR ${ncrs.length}건 · CAR ${cars.length}건</span>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">NCR 전체</div><div class="kpi-value">${ncrs.length}</div><div class="kpi-note">건</div></div>
+      <div class="kpi"><div class="kpi-label">NCR 진행중</div><div class="kpi-value" style="color:var(--danger);">${openNcr}</div><div class="kpi-note">미종결</div></div>
+      <div class="kpi"><div class="kpi-label">중대 등급</div><div class="kpi-value" style="color:var(--danger);">${majorNcr}</div><div class="kpi-note">Major</div></div>
+      <div class="kpi"><div class="kpi-label">CAR 전체</div><div class="kpi-value">${cars.length}</div><div class="kpi-note">건</div></div>
+      <div class="kpi"><div class="kpi-label">CAR 진행중</div><div class="kpi-value" style="color:var(--warning);">${openCar}</div><div class="kpi-note">미완료</div></div>
+      <div class="kpi"><div class="kpi-label">평균 CAR 처리일</div><div class="kpi-value">${avgCarDays!=null?avgCarDays:'-'}</div><div class="kpi-note">완료건 기준(일)</div></div>
+    </div>
+
+    <div class="qd-section" style="border-left:3px solid var(--primary);">
+      <h4>🚢 종합 불량 영향률 (추정) — ${defectRate!=null?defectRate+'%':'데이터 없음'}</h4>
+      <div style="font-size:12px;color:var(--text-light);">처리방안이 입력된 NCR ${withDisposition.length}건 중 재작업·수리·폐기·반송으로 이어진 비율입니다.</div>
+      <div class="caveat">⚠️ 실제 "출고 불량률"(생산·출고 수량 대비 불량 수량)을 계산하려면 프로젝트별 생산/출고 수량 데이터가 필요한데, 현재 시스템에는 이 데이터가 없습니다. 위 수치는 NCR의 처리방안을 기준으로 한 근사치이며, 정확한 출고 불량률을 원하시면 WBS 또는 프로젝트에 "출고 수량" 항목을 추가하는 걸 권장드립니다.</div>
+    </div>
+
+    <div class="qd-section" style="border-left:3px solid ${issues.length?'var(--danger)':'var(--success)'};">
+      <h4>${issues.length ? '🚨' : '✅'} 데이터 정합성 검사 (${issues.length}건) <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 필터와 무관하게 전체 NCR/CAR 대상, 자동 점검</span></h4>
+      ${issues.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+        ${issues.map(i => `<div style="font-size:12px;padding:6px 10px;border-radius:6px;background:${i.sev==='red'?'#FFEBEE':'#FFF3E0'};color:${i.sev==='red'?'#C62828':'#E65100'};">${i.sev==='red'?'⛔':'⚠️'} ${i.text}</div>`).join('')}
+      </div>` : `<div style="font-size:12px;color:var(--text-light);">깨진 참조·누락 항목이 발견되지 않았습니다.</div>`}
+    </div>
+
+    <div class="qd-section">
+      <h4>📈 기간별 NCR 발생 추이 ${qf.year ? '(월별)' : '(연도-분기별)'}</h4>
+      ${lineSvg(periodData)}
+    </div>
+
+    <div class="qd-section">
+      <h4>🏗️ 프로젝트별 종합 현황</h4>
+      <div style="overflow-x:auto;">
+      <table class="org-table">
+        <thead><tr><th>프로젝트</th><th>NCR 전체</th><th>중대</th><th>일반</th><th>경미</th><th>진행중</th><th>종결</th><th>CAR</th><th>CAR 진행중</th><th>최근 발생일</th></tr></thead>
+        <tbody>
+          ${projRows.length ? projRows.map(r => `<tr>
+            <td style="font-weight:700;">${projFullLabel({proj:r.proj, meta:(state.ncrs||[]).find(n=>n.proj===r.proj)?.meta})}</td>
+            <td>${r.total}</td>
+            <td style="color:var(--danger);">${r.major||0}</td>
+            <td style="color:var(--warning);">${r.minor||0}</td>
+            <td style="color:var(--text-light);">${r.obs||0}</td>
+            <td>${r.open}</td>
+            <td>${r.closed}</td>
+            <td>${r.carCount}</td>
+            <td style="color:${r.carOpen?'var(--warning)':'var(--text-lighter)'};">${r.carOpen}</td>
+            <td>${r.latest||'-'}</td>
+          </tr>`).join('') : `<tr><td colspan="10" class="empty-note">해당 조건의 데이터가 없습니다</td></tr>`}
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="qd-grid">
+      <div class="qd-chart-wrap">
+        <div class="qd-chart-title">발생장소별</div>
+        ${barSvg(Object.entries(count(ncrs,'location')).sort((a,b)=>b[1]-a[1]), COLORS)}
+      </div>
+      <div class="qd-chart-wrap">
+        <div class="qd-chart-title">불량원인별</div>
+        ${barSvg(Object.entries(count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]), COLORS)}
+      </div>
+      <div class="qd-chart-wrap">
+        <div class="qd-chart-title">불량원인 상세별</div>
+        ${barSvg(Object.entries(count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]), COLORS)}
+      </div>
+      <div class="qd-chart-wrap">
+        <div class="qd-chart-title">처리방안별</div>
+        ${donutSvg(Object.entries(count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]), COLORS)}
+      </div>
+      <div class="qd-chart-wrap">
+        <div class="qd-chart-title">등급별<span class="hint">중대/일반/경미</span></div>
+        ${donutSvg(Object.entries(count(ncrs,'grade')).map(([k,v])=>[NCR_GRADE[k]?.[1]||k, v]).sort((a,b)=>b[1]-a[1]), COLORS)}
+      </div>
+      <div class="qd-chart-wrap">
+        <div class="qd-chart-title">CAR 상태별</div>
+        ${donutSvg(Object.entries(count(cars,'status')).map(([k,v])=>[CAR_STATUS[k]?.[1]||k, v]).sort((a,b)=>b[1]-a[1]), COLORS)}
+      </div>
+    </div>
+
+    <div class="qd-section">
+      <h4>🔧 제작단계(검사공정)별 부적합 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— Traveller 검사부적합으로 등록된 NCR ${stageNcrs.length}건 기준</span></h4>
+      ${stageEntries.length ? barSvg(stageEntries, COLORS) : '<div class="empty-note">검사부적합(Traveller) 경로로 등록된 NCR이 없습니다</div>'}
+    </div>
+
+    <div class="qd-section">
+      <h4>⏰ 회신기한 초과 CAR ${(() => {
+        const today = new Date().toISOString().slice(0,10);
+        const overdue = cars.filter(c => c.status !== 'closed' && c.replyDue && c.replyDue < today);
+        return `(${overdue.length}건)`;
+      })()}</h4>
+      ${(() => {
+        const today = new Date().toISOString().slice(0,10);
+        const overdue = cars.filter(c => c.status !== 'closed' && c.replyDue && c.replyDue < today)
+          .sort((a,b) => a.replyDue.localeCompare(b.replyDue));
+        if (!overdue.length) return '<div class="empty-note">회신기한 초과된 CAR이 없습니다 👍</div>';
+        return `<div style="overflow-x:auto;"><table class="org-table">
+          <thead><tr><th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>시정조치요구부서</th><th>발생분야</th><th>회신기한</th><th>지연일</th><th>상태</th></tr></thead>
+          <tbody>${overdue.map(c => {
+            const n = c.ncrId ? (state.ncrs||[]).find(x=>x.id===c.ncrId) : null;
+            const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
+            const lateDays = daysBetween(c.replyDue, today);
+            return `<tr>
+              <td style="font-weight:700;">${c.id}</td>
+              <td style="color:var(--primary);">${c.ncrId || '단독'}</td>
+              <td>${n ? projLabel(n) : (getP(c.proj)?.code || '-')}</td>
+              <td>${c.reqDept || '-'}</td>
+              <td>${c.field || '-'}</td>
+              <td style="color:var(--danger);">${c.replyDue}</td>
+              <td style="color:var(--danger);font-weight:700;">${lateDays}일</td>
+              <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+      })()}
+    </div>
+  `;
+}
+
+loadState();
+render();
+startFirestoreSync();
+</script>
+</body>
+</html>

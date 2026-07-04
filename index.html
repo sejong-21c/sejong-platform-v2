@@ -8,7 +8,7 @@
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged
+    getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
@@ -17,7 +17,7 @@
 
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
-    authDomain: "sejong-platform.firebaseapp.com",
+    authDomain: "auth.sejong21c.com",
     projectId: "sejong-platform",
     storageBucket: "sejong-platform.firebasestorage.app",
     messagingSenderId: "884301297710",
@@ -27,7 +27,7 @@
   const fbApp = initializeApp(firebaseConfig);
   window.fb = {
     auth: getAuth(fbApp), db: getFirestore(fbApp),
-    GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged,
+    GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged,
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit,
   };
@@ -118,7 +118,10 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 /* Main */
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .header { height: var(--header-h); background: var(--white); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 16px; flex-shrink: 0; }
-.h-title { font-size: 17px; font-weight: 600; flex: 1; display: flex; align-items: center; gap: 10px; overflow: hidden; }
+.h-title { font-size: 17px; font-weight: 600; flex: 1; display: flex; align-items: center; gap: 10px; overflow: hidden; min-width: 0; }
+.h-title, .h-title * { white-space: nowrap; }
+.h-title > span, .h-title > button { overflow: hidden; text-overflow: ellipsis; }
+.h-back-label { display: inline; }
 .h-search { flex: 0 1 280px; position: relative; }
 .h-search input { width: 100%; padding: 7px 12px 7px 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 13px; }
 .h-search::before { content: "🔍"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; }
@@ -460,6 +463,10 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   .itp-wrap { grid-template-columns: 1fr; }
   .content-pad { padding: 16px; }
   .cal-days { grid-auto-rows: minmax(70px, 1fr); }
+  .h-title { font-size: 14px; gap: 4px; }
+  .h-title .h-crumb-mid, .h-title .h-crumb-ver { display: none; }
+  .h-title .h-back-label { display: none; }
+  .h-title button { padding: 5px 8px !important; font-size: 13px !important; }
 }
 </style>
 </head>
@@ -543,6 +550,7 @@ const TOOLS = {
   'qa':        { name: 'QA Doc Generator',  icon: '📄', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
   'ncr':       { name: 'NCR 관리',          icon: '⚠️', desc: '부적합 보고서 발행·추적·종결', status: 'live', ver: 'v1.0' },
   'car':       { name: 'CAR 관리',          icon: '🔧', desc: '시정조치 요청·회신·완료',     status: 'live', ver: 'v1.0' },
+  'qadash':    { name: '품질종합분석표',    icon: '📊', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석', status: 'live', ver: 'v1.0' },
   'manday':    { name: 'Manday Tracker',    icon: '⏱',  desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
   'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
   'deptsch':   { name: '부서 스케줄',       icon: '📅', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
@@ -552,7 +560,7 @@ const DEPTS = [
   { id: 'design',       icon: '📐', name: '설계부',     tools: ['deptsch'] },
   { id: 'purchase',     icon: '🛒', name: '구매부',     tools: ['deptsch'] },
   { id: 'production',   icon: '🏭', name: '생산부',     tools: ['deptsch'] },
-  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'qa', 'ncr', 'car', 'mobile'] },
+  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'qa', 'ncr', 'car', 'qadash', 'mobile'] },
   { id: 'construction', icon: '🏗️', name: '현장시공',   tools: ['deptsch'] },
   { id: 'safety',       icon: '🦺', name: '안전관리부', tools: ['deptsch'] },
   { id: 'general',      icon: '👔', name: '총무부',     tools: ['deptsch'] },
@@ -564,14 +572,112 @@ const DEPTS = [
 const DEPT_NAME_TO_ID = Object.fromEntries(DEPTS.map(d => [d.name, d.id]));
 
 // ══════════ 권한 헬퍼 ══════════
-// 개별 추가 권한 정의 (등급과 별개로 개인에게 부여)
+// (구) 개별 추가 권한 정의 — 하위호환용. 신규 권한 부여 UI는 아래 PERM_MODULES 사용.
 const EXTRA_PERMS = {
   schedule: { label: '스케줄 관리', desc: '모든 프로젝트 WBS·간트 편집 (PM급)' },
   quotes:   { label: '견적 화면',   desc: '견적 메뉴 접근' },
   project:  { label: '프로젝트 관리', desc: '프로젝트 생성·워크오더·PM 지정' },
   deptSchedule: { label: '부서 스케줄 관리', desc: '소속 부서 스케줄 편집 (부서장급)' },
 };
-// 사용자가 특정 추가권한을 가졌는지
+
+// v29.8: 도구별·액션별 세분화 권한 체계 (기본 부여 대상 + 개별 오버라이드).
+// 각 도구의 각 액션마다 "기본 부여" 대상을 정하고, 개인에게 명시적으로 허용/차단
+// (user.modulePerms[모듈][액션] = true/false) 을 걸어 오버라이드할 수 있음.
+// 슈퍼관리자는 항상 O. 이 표 자체가 UI 렌더링(권한 부여 창) 소스도 됨.
+const PERM_MODULES = {
+  project: {
+    label: '프로젝트 관리', icon: '🏗️',
+    actions: {
+      create:       { label: '프로젝트 생성/수정',  defaultGrant: 'sales-or-exec' },
+      assignPM:     { label: 'PM 지정',              defaultGrant: 'sales-or-exec' },
+      editSchedule: { label: '전체 WBS·간트 편집',   defaultGrant: 'sales-or-exec-or-pm' },
+    },
+  },
+  deptsch: {
+    label: '부서 스케줄', icon: '📅',
+    actions: {
+      // 자기 부서 스케줄 편집 = 부서장 이상 (부서 매칭은 canEditDeptSchedule에서 ctx로 추가 검증)
+      editOwn: { label: '자기 부서 스케줄 편집', defaultGrant: 'manager' },
+    },
+  },
+  quotes: {
+    label: '견적', icon: '💰', baseDept: '영업부',
+    actions: {
+      view: { label: '견적 조회/편집', defaultGrant: 'dept' },
+    },
+  },
+  ncr: {
+    label: 'NCR 관리', icon: '⚠️', baseDept: '품질관리부',
+    actions: {
+      register: { label: '발행/수정/종결', defaultGrant: 'dept' },
+      delete:   { label: '즉시 삭제',      defaultGrant: 'dept-manager' },
+    },
+  },
+  car: {
+    label: 'CAR 관리', icon: '🔧', baseDept: '품질관리부',
+    actions: {
+      register: { label: '발행/수정/회신', defaultGrant: 'dept' },
+      delete:   { label: '즉시 삭제',      defaultGrant: 'dept-manager' },
+    },
+  },
+  itp: {
+    label: 'ITP Builder', icon: '📋', baseDept: '품질관리부',
+    actions: {
+      create:  { label: 'ITP 생성/수정', defaultGrant: 'dept' },
+      approve: { label: '승인',          defaultGrant: 'dept-manager' },
+    },
+  },
+  qa: {
+    label: 'QA Doc Generator', icon: '📄', baseDept: '품질관리부',
+    actions: {
+      create: { label: 'QA 문서 생성/수정', defaultGrant: 'dept' },
+    },
+  },
+  qadash: {
+    label: '품질종합분석표', icon: '📊', baseDept: '품질관리부',
+    actions: {
+      view: { label: '조회', defaultGrant: 'dept' },
+    },
+  },
+  mobile: {
+    label: 'Mobile Inspection', icon: '📱', baseDept: '품질관리부',
+    actions: {
+      use: { label: '현장 검사 등록', defaultGrant: 'dept' },
+    },
+  },
+};
+
+// 기본 부여 방식(defaultGrant) 별 판정 로직 + 사람 읽는 설명 (권한 창 렌더링용)
+function grantSemantics(grantKey, mod) {
+  const dept = mod?.baseDept || '';
+  const table = {
+    'none':                 { desc: '기본 부여 없음 (개별 지정만)', fn: () => false },
+    'all':                  { desc: '전사',                          fn: () => true },
+    'dept':                 { desc: `${dept}원`,                     fn: (u) => u.dept === dept },
+    'dept-manager':         { desc: `${dept}장 이상`,                fn: (u) => u.dept === dept && (u.grade === 'manager' || u.grade === 'exec') },
+    'manager':              { desc: '부서장 이상',                    fn: (u) => u.grade === 'manager' || u.grade === 'exec' },
+    'exec':                 { desc: '임원 이상',                      fn: (u) => u.grade === 'exec' },
+    'sales-or-exec':        { desc: '영업부 + 임원',                  fn: (u) => u.dept === '영업부' || u.grade === 'exec' },
+    'sales-or-exec-or-pm':  { desc: '영업부 + 임원 + 해당 프로젝트 PM 본인', fn: (u, ctx) => u.dept === '영업부' || u.grade === 'exec' || (ctx?.pmId === u.id) },
+  };
+  return table[grantKey] || table['none'];
+}
+
+// 새 세분화 권한 체크 (도구별·액션별) — 슈퍼 무조건 O, 개별 오버라이드 우선, 아니면 기본 부여 판정
+function canDo(moduleId, action, user, ctx) {
+  user = user || getU(state.currentUser);
+  if (!user) return false;
+  if (user.grade === 'super') return true;
+  const mod = PERM_MODULES[moduleId];
+  if (!mod) return false;
+  const act = mod.actions[action];
+  if (!act) return false;
+  const explicit = user.modulePerms && user.modulePerms[moduleId] && user.modulePerms[moduleId][action];
+  if (explicit === true) return true;
+  if (explicit === false) return false; // 명시적 차단
+  return grantSemantics(act.defaultGrant, mod).fn(user, ctx);
+}
+// 사용자가 특정 추가권한을 가졌는지 (구) — 하위호환용
 function hasPerm(perm, u) {
   u = u || getU(state.currentUser);
   if (!u) return false;
@@ -671,34 +777,16 @@ function gradeByTitle(title) {
   if (title === '부장') return 'manager';
   return 'member';
 }
-// 임시 비밀번호 자동생성 (영문 대/소 + 숫자 + 기호 8자리)
-function genTempPassword() {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghijkmnpqrstuvwxyz';
-  const digit = '23456789';
-  const symbol = '!@#$%^&*';
-  const all = upper + lower + digit + symbol;
-  // 각 종류 최소 1개 보장
-  let pw = [
-    upper[Math.floor(Math.random()*upper.length)],
-    lower[Math.floor(Math.random()*lower.length)],
-    digit[Math.floor(Math.random()*digit.length)],
-    symbol[Math.floor(Math.random()*symbol.length)],
-  ];
-  for (let i = 0; i < 4; i++) pw.push(all[Math.floor(Math.random()*all.length)]);
-  // 셔플
-  for (let i = pw.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [pw[i],pw[j]]=[pw[j],pw[i]]; }
-  return pw.join('');
-}
-
+// v29.9: 기본 시드 사용자 (실제 계정은 Google Auth 로그인·pendingUsers 승격으로 생성됨).
+// username/password/mustChangePw는 옛 로컬 로그인 시스템 잔재라 삭제 — 현재 인증은 이메일+uid만 씀.
 function defaultState() {
   return {
     currentUser: null,
     users: [
-      { id: 'u1', name: '김철우', title: '부장', dept: '품질관리부', grade: 'super',   username: 'cwkim',  password: 'admin', mustChangePw: false, email: 'cwkim@sejong-21c.com' },
-      { id: 'u2', name: '김시원', title: '대리', dept: '품질관리부', grade: 'member',  username: 'swkim',  password: 'sj1234', mustChangePw: true, email: 'swkim@sejong-21c.com' },
-      { id: 'u3', name: '신채완', title: '과장', dept: '품질관리부', grade: 'member',  username: 'cwshin', password: 'sj1234', mustChangePw: true, email: 'cwshin@sejong-21c.com' },
-      { id: 'u8', name: '곽노한', title: '이사', dept: '생산부', team: '시공팀', role: '현장소장', grade: 'exec',    username: 'nhkwak', password: 'sj1234', mustChangePw: true, email: 'nhkwak@sejong-21c.com' },
+      { id: 'u1', name: '김철우', title: '부장', dept: '품질관리부', grade: 'super',  email: 'cwkim@sejong-21c.com' },
+      { id: 'u2', name: '김시원', title: '대리', dept: '품질관리부', grade: 'member', email: 'swkim@sejong-21c.com' },
+      { id: 'u3', name: '신채완', title: '과장', dept: '품질관리부', grade: 'member', email: 'cwshin@sejong-21c.com' },
+      { id: 'u8', name: '곽노한', title: '이사', dept: '생산부', team: '시공팀', role: '현장소장', grade: 'exec', email: 'nhkwak@sejong-21c.com' },
     ],
     depts: [
       { id: 'd1', name: '품질관리부' }, { id: 'd2', name: '설계부' },
@@ -743,9 +831,13 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b13';
+const WBS_BUILD = 'b17';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b6';
+const MESSENGER_BUILD = 'b9';
+// ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
+const NCR_BUILD = 'b5';
+const CAR_BUILD = 'b5';
+const QADASH_BUILD = 'b6';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -762,7 +854,31 @@ if (!state.users || !state.users.length || !state.users[0].email) {
   });
   if (changed) { localStorage.setItem(KEY, JSON.stringify(state)); console.info('[SJ FLOW] 신규 필드 보강 완료'); }
 })();
-function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+// v29.9.1: localStorage 소유권 분리 — NCR/CAR iframe이 소유·기록하는 키 목록.
+// 부모(index.html)의 save()는 이 키들에 대해 "디스크(=iframe이 마지막으로 쓴 값)"를
+// 항상 진실로 받아들이고, 부모 메모리의 (페이지 로드 시점 그대로인) stale 사본으로
+// 절대 덮어쓰지 않는다. touchSession(마우스만 움직여도 20초마다 full save) 등
+// 부모의 모든 save() 경로가 iframe이 방금 등록한 NCR/CAR를 지워버리던 근본 원인 수정.
+const IFRAME_OWNED_KEYS = ['ncrs', 'ncrDeleteReqs', 'cars', 'carDeleteReqs'];
+function save() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const disk = JSON.parse(raw);
+      IFRAME_OWNED_KEYS.forEach(k => { if (disk[k] !== undefined) state[k] = disk[k]; });
+    }
+  } catch (e) { /* 디스크 파싱 실패 시엔 기존 동작(전체 저장) 유지 */ }
+  localStorage.setItem(KEY, JSON.stringify(state));
+}
+// 특정 키 하나만 갱신하는 부분 저장 — 부모의 onSnapshot 핸들러가 사용 (다른 키 불간섭).
+function savePartial(key, value) {
+  try {
+    const raw = localStorage.getItem(KEY);
+    const disk = raw ? JSON.parse(raw) : {};
+    disk[key] = value;
+    localStorage.setItem(KEY, JSON.stringify(disk));
+  } catch (e) { console.warn('[savePartial]', key, e); }
+}
 function resetData() {
   if (!confirm('프로젝트·업무·일정 등 작업 데이터를 초기화합니다.\n(로그인·사용자 정보는 유지됩니다)\n계속할까요?')) return;
   const keep = { currentUser: state.currentUser, users: state.users, lastActive: state.lastActive, briefings: state.briefings };
@@ -910,7 +1026,8 @@ const PROJ_STATUS_META = {
 };
 function projStatusMeta(p) { return PROJ_STATUS_META[p && p.status] || PROJ_STATUS_META.active; }
 function getWBS(pid) { return state.wbs[pid] || []; }
-function getItems(pid) { return state.items[pid] || []; }
+// 제작공정관리(Manufacture Manager/WBS 일괄등록)가 만든 item은 tag가 아닌 tagNo 필드를 씀 — 통일해서 반환
+function getItems(pid) { return (state.items[pid] || []).map(it => it.tag ? it : { ...it, tag: it.tagNo || '' }); }
 /* Cowork 메일 자동분류 결과(개인별 briefing.schedule) → 캘린더 일정으로 자동 반영 */
 function getBriefingScheduleEvents() {
   const b = state.briefings && state.briefings[state.currentUser];
@@ -997,8 +1114,11 @@ window.SJP.bridge = {
       ...items.filter(it => it.id === selected),
       ...items.filter(it => it.id !== selected)
     ] : items;
+    // v29.9 fix: id 필드를 문자열 원본 그대로 사용. 이전엔 Date.parse(문자열 id)가 NaN이라
+      // Math.random 폴백이 250ms 폴링마다 새 값 반환 → 다운스트림 안정성 해침.
+      // 신과장 빌더는 tag 기준으로 매칭하므로 숫자 강제 변환 불필요.
     return sorted.map(it => ({
-      id: Date.parse(it.id) || Math.floor(Math.random()*1e10),
+      id: it.id,
       tag: it.tag,
       name: it.name,
       type: it.type || 'Pressure Vessel',
@@ -1041,9 +1161,11 @@ window.SJP.bridge = {
     if (!state.items[pid]) state.items[pid] = [];
     epcItems.forEach(ei => {
       // tagNo로 매칭, 없으면 신규 추가
+      // v3.3 fix: 제작공정관리(WBS 일괄등록) 아이템은 tag가 아니라 tagNo 필드를 씀 — 그 필드도 같이
+      // 봐야 기존 아이템과 매칭됨. 안 그러면 매번 "못 찾음"으로 판정돼 중복 아이템이 계속 생성됐음.
       const tag = ei.tagNo || ei.tag;
       if (!tag) return;
-      let existing = state.items[pid].find(x => x.tag === tag);
+      let existing = state.items[pid].find(x => (x.tag || x.tagNo) === tag);
       if (existing) {
         existing.type = ei.type || existing.type;
         existing.spec = ei.spec || existing.spec;
@@ -1071,9 +1193,34 @@ window.SJP.bridge = {
       }
     });
     save();
+    // v29.9 fix: state.items[pid]를 Firestore(wbsData/{pid})의 items 필드로도 반영.
+    // 안 하면 부모의 onSnapshot(wbsData) 다음 발화 때 items가 서버 값(예전 값)으로 덮여 씀 → silent data loss.
+    // wbsData 문서에 { rows, items } 형태로 저장돼 있으므로 items만 merge 업데이트.
+    if (window.fb && fb.db) {
+      fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { items: state.items[pid] }, { merge: true })
+        .catch(e => console.error('[SJ FLOW → Firestore wbsData items 동기화 실패]', e));
+    }
     console.log('[SJ FLOW ← ITP Builder] items 동기화:', pid, epcItems.length, '개');
   },
-  
+  // v29.9: QA Doc Gen이 "EPC 합격품 가져오기"용으로 호출. 현재 프로젝트에서 traveller의
+  // 모든 검사 단계가 'accepted'인 tag만 반환. wbs.html의 동일 이름 함수와 동일 동작.
+  getAcceptedItems: function() {
+    const pid = view.itpSelectedProj || view.qaSelectedProj;
+    if (!pid) return [];
+    const items = getItems(pid);
+    const trvs = state.travellers || {};
+    return items.filter(it => {
+      const t = trvs[it.id];
+      if (!t) return false;
+      const stages = Object.values(t);
+      if (!stages.length) return false;
+      return stages.every(s => s && s.status === 'accepted');
+    }).map(it => ({
+      id: it.id, tag: it.tag, name: it.name, type: it.type || '',
+      spec: it.spec || '', material: it.material || ''
+    }));
+  },
+
   // ITP 9~18개 항목 템플릿 → Traveller의 검사 단계로 연결 (선택)
   setItpTemplate: function(itemId, tplItems) {
     // tplItems = [{id, item, ph, pt, crit}, ...]
@@ -1218,7 +1365,7 @@ function openProject(pid) {
   view.selectedProj = p;
   view.cur = 'projects';
   view.epcSelectedWBS = null;
-  document.getElementById('hTitle').innerHTML = `<button onclick="closeProject()" style="border:none;background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;cursor:pointer;margin-right:8px;">← 프로젝트 목록</button><span style="color:var(--text-light);font-size:13px;">프로젝트</span> <span style="color:var(--text-lighter);">›</span> <span style="font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:3px;">${p.code}</span> <span style="color:var(--text-lighter);font-size:12px;margin-left:4px;">· EPC Control v28.5</span>`;
+  document.getElementById('hTitle').innerHTML = `<button onclick="closeProject()" style="border:none;background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;cursor:pointer;margin-right:8px;flex-shrink:0;">← <span class="h-back-label">프로젝트 목록</span></button><span class="h-crumb-mid" style="color:var(--text-light);font-size:13px;">프로젝트</span> <span class="h-crumb-mid" style="color:var(--text-lighter);">›</span> <span style="font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:3px;flex-shrink:0;">${p.code}</span> <span class="h-crumb-ver" style="color:var(--text-lighter);font-size:12px;margin-left:4px;">· EPC Control v28.5</span>`;
   renderNav();
   render();
 }
@@ -1272,7 +1419,7 @@ function showLogin() {
           <h2>로그인</h2>
           <p class="login-sub">${COMPANY_DOMAIN} 사내 Google 계정으로 로그인하세요.</p>
           <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0 14px;text-align:center;"></div>
-          <button class="login-btn" onclick="doGoogleLogin()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
+          <button class="login-btn" onclick="doGoogleLoginRedirect()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
             ${GOOGLE_G_SVG}<span>Google 계정으로 로그인</span>
           </button>
           <div class="login-quick">
@@ -1300,27 +1447,83 @@ function showLogin() {
   } catch (e) {}
 }
 
-async function doGoogleLogin() {
-  const err = document.getElementById('loginErr');
-  if (err) err.style.display = 'none';
-  if (!window.fb) { alert('로그인 시스템을 초기화하는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
-  const provider = new fb.GoogleAuthProvider();
-  provider.setCustomParameters({ hd: 'sejong-21c.com' });
+// v29.7.2: 팝업 기반(Firebase popup/redirect, GIS 토큰 클라이언트 popup) 방식 둘 다
+// 아이폰 사파리/크롬에서 팝업창-원래창 간 통신이 막히며 "깜빡이고 여러 번 눌러야
+// 로그인되는" 문제가 반복됨. sessionStorage/팝업 통신에 전혀 의존하지 않는 순수
+// URL 이동(리디렉션) 방식으로 교체 — 정보는 URL 자체(해시)에 담아 돌아오므로
+// 브라우저 저장소 정책의 영향을 받지 않음. 이게 현재 로그인의 기본 방식.
+function doGoogleLoginRedirect() {
+  // v29.7.3: 리디렉션 중임을 즉시 표시 (Google 도메인으로 넘어가기 전 UI 잔상 방지)
+  showAuthLoading();
+  const redirectUri = location.origin + '/';
+  // v29.7.3: response_type을 'id_token token'으로 확장 — id_token은 Firebase가 서명 검증까지
+  // 하므로 signInWithCredential이 더 빠르고 확실하게 동작함(access token만 넘길 때보다 안정적).
+  // nonce는 CSRF/replay 방지용으로 랜덤 값을 생성해 sessionStorage에 저장 후 회수 시 검증.
+  const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  try { sessionStorage.setItem('sjLoginNonce', nonce); } catch(e) {}
+  const params = new URLSearchParams({
+    client_id: GCAL_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'id_token token',
+    scope: 'openid email profile',
+    hd: 'sejong-21c.com',
+    prompt: 'select_account',
+    include_granted_scopes: 'true',
+    nonce,
+  });
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+// 구글에서 #access_token=...으로 돌아왔을 때 처리 — init()에서 가장 먼저 호출됨
+async function processRedirectLogin() {
+  const hash = location.hash || '';
+  if (hash.indexOf('access_token=') === -1) return false;
+  const p = new URLSearchParams(hash.slice(1));
+  const accessToken = p.get('access_token');
+  const idToken = p.get('id_token'); // v29.7.3: response_type=id_token token 도입으로 함께 옴
+  const oauthError = p.get('error');
+  history.replaceState(null, '', location.pathname + location.search); // URL에 토큰 남기지 않기
+  if (oauthError || !accessToken) return false;
   try {
-    await fb.signInWithPopup(fb.auth, provider);
-    // 이후 화면 전환은 onAuthStateChanged(handleAuthChange)가 담당
-  } catch (e) {
-    if (e && e.code === 'auth/popup-closed-by-user') return;
-    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request')) {
-      // 팝업이 차단된 브라우저(엔터프라이즈 정책 등) — 리디렉션 방식으로 재시도
-      fb.signInWithRedirect(fb.auth, provider);
-      return;
+    const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } });
+    const info = await infoRes.json();
+    if (!info.email || !info.email.toLowerCase().endsWith('@sejong-21c.com')) {
+      setTimeout(() => alert(`${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.`), 50);
+      return false;
     }
-    console.error(e);
-    if (err) { err.textContent = '로그인에 실패했습니다: ' + (e.message || e); err.style.display = 'block'; }
+    // v29.7.3: id_token이 있으면 그걸 우선 사용 — Firebase가 서명 검증까지 하므로 더 안전
+    const credential = idToken
+      ? fb.GoogleAuthProvider.credential(idToken, accessToken)
+      : fb.GoogleAuthProvider.credential(null, accessToken);
+    await fb.signInWithCredential(fb.auth, credential);
+    // 이후 화면 전환은 onAuthStateChanged(handleAuthChange)가 담당
+    return true;
+  } catch (e) {
+    console.error('[로그인] 리디렉션 처리 실패', e);
+    return false;
   }
 }
 
+// v29.7.3: 리디렉션 처리 중 (userinfo 조회 + signInWithCredential, 약 0.7~1초 소요) 로그인
+// 화면이 잠깐 보이는 "깜빡임"을 방지하기 위해 로딩 스피너를 대신 표시. onAuthStateChanged를
+// 이 사이 등록해두면 아직 sign-in 되기 전의 null 상태로 handleAuthChange가 호출되어 showLogin이
+// 실행됨 → 사용자는 "로그인 실패"로 오인해 버튼을 다시 누르고, 그 클릭이 진행 중인 signInWithCredential을
+// abort시켜 왕복이 반복되는 문제가 있었음.
+function showAuthLoading() {
+  const ov = document.getElementById('authOverlay');
+  if (!ov) return;
+  ov.innerHTML = `
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;">
+      <div style="text-align:center;padding:20px;">
+        <div style="width:46px;height:46px;margin:0 auto 22px;border:3px solid rgba(255,255,255,.22);border-top-color:#fff;border-radius:50%;animation:sjAuthSpin 0.85s linear infinite;"></div>
+        <div style="font-size:16px;font-weight:600;letter-spacing:.2px;">로그인 처리 중…</div>
+        <div style="font-size:12px;opacity:.72;margin-top:8px;">Google 계정 정보를 확인하고 있습니다.</div>
+      </div>
+      <style>@keyframes sjAuthSpin{to{transform:rotate(360deg)}}</style>
+    </div>`;
+  ov.style.display = 'block';
+  const app = document.querySelector('.app');
+  if (app) app.style.display = 'none';
+}
 // 최초 로그인 시 소속(부서/직급) 입력받아 Firestore 프로필 생성
 function showProfileSetup(fu) {
   const ov = document.getElementById('authOverlay');
@@ -1375,6 +1578,10 @@ async function hydrateUsersAndEnter(uid) {
   gcalConnected = !!getU(uid).gcalConnected; // 이전에 구글 캘린더 연동한 적 있으면 상태 표시 + 조용한 토큰 갱신 시도
   save();
   startFirestoreSync();
+  // v29.9: 슈퍼관리자 세션 진입 후 잔재 프로젝트가 있으면 조용히 정리 (한 번만).
+  //   startFirestoreSync가 projects onSnapshot을 걸어 state.projects를 채운 뒤 실행되어야 하므로
+  //   짧게 지연을 두고 호출. 이후엔 재발할 여지가 없어 세션당 1회만 시도.
+  setTimeout(() => cleanupGhostProjects().catch(() => {}), 1500);
   finishLogin();
 }
 
@@ -1434,6 +1641,26 @@ function reconcileProjectProgress() {
     }
   });
 }
+// v29.9: name도 code도 없는 잔재 프로젝트 자동 정리 (슈퍼관리자 세션에서 1회 시도).
+// 원인: 옛 버전에서 실수로 부서 데이터가 projects 컬렉션에 저장된 게 남아있음.
+// 이런 엔트리는 UI에 의미도 없고, ensureProjectChannel에서 name undefined로 계속 오류 발생.
+let _ghostProjectsCleanedThisSession = false;
+async function cleanupGhostProjects() {
+  if (_ghostProjectsCleanedThisSession) return;
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') return;
+  if (!window.fb || !fb.db) return;
+  const ghosts = (state.projects || []).filter(p =>
+    p && p.id && (!p.name || !String(p.name).trim()) && (!p.code || !String(p.code).trim())
+  );
+  if (!ghosts.length) { _ghostProjectsCleanedThisSession = true; return; }
+  _ghostProjectsCleanedThisSession = true;
+  console.warn('[SJ FLOW] 잔재 프로젝트 자동 정리:', ghosts.map(g => g.id).join(', '));
+  for (const g of ghosts) {
+    try { await fb.deleteDoc(fb.doc(fb.db, 'projects', g.id)); }
+    catch (e) { console.error('[프로젝트 정리 실패]', g.id, e); }
+  }
+}
 let _channelsSeeded = false;
 function startFirestoreSync() {
   stopFirestoreSync();
@@ -1442,10 +1669,27 @@ function startFirestoreSync() {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     reconcileProjectProgress();
     if (!_channelsSeeded) { _channelsSeeded = true; seedMissingChannels().catch(() => {}); }
+    // v29.9-fix: 전체 save() 대신 이 키만 부분 저장 — iframe이 자기 소유 데이터(ncrs/cars 등)를
+    // localStorage에 쓴 걸 부모의 save()가 덮어써 iframe의 새 데이터가 사라지던 race 방지.
+    savePartial('projects', state.projects);
     render();
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
+  // v29.9: 사전 등록 대기 계정 목록 (슈퍼관리자만 조직/권한 화면에서 관리)
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'pendingUsers'), snap => {
+    state.pendingUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error('[Firestore] pendingUsers 동기화 오류:', err)));
+  // v29.9: 캘린더 이벤트 (직접 만든 일정)를 Firestore에 실시간 동기화.
+  // 이전엔 localStorage에만 저장돼 다른 기기·사용자한테 안 보였고, 그 결과 캘린더의
+  // "개인+부서" 가시성 필터도 실질적으로 무의미했음(공유될 데이터 자체가 없음).
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'events'), snap => {
+    state.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    savePartial('events', state.events);
+    render();
+  }, err => console.error('[Firestore] events 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
     state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    savePartial('tasks', state.tasks);
     render();
   }, err => console.error('[Firestore] tasks 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
@@ -1457,6 +1701,9 @@ function startFirestoreSync() {
       state.items[pid] = data.items || [];
     });
     reconcileProjectProgress();
+    // v29.9-fix: 전체 save() 대신 wbs+items만 부분 저장 (race 방지)
+    savePartial('wbs', state.wbs);
+    savePartial('items', state.items);
     render();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
   // 메신저 UI는 modules/messenger/messenger.html(iframe)로 이동했지만, 상단 알림배지는
@@ -1511,7 +1758,17 @@ async function handleAuthChange(fu) {
   }
   try {
     const snap = await fb.getDoc(fb.doc(fb.db, 'users', fu.uid));
-    if (!snap.exists()) { showProfileSetup(fu); return; }
+    if (!snap.exists()) {
+      // v29.9: 슈퍼관리자가 미리 등록한 pending 계정이 있는지 이메일로 조회.
+      // 있으면 첫로그인 소속 입력 화면을 건너뛰고 즉시 프로필 생성.
+      const promoted = await promotePendingUser(fu).catch(() => false);
+      if (promoted) {
+        await hydrateUsersAndEnter(fu.uid);
+        return;
+      }
+      showProfileSetup(fu);
+      return;
+    }
     if (snap.data().disabled) {
       await fb.signOut(fb.auth);
       setTimeout(() => alert('비활성화된 계정입니다. 관리자에게 문의하세요.'), 50);
@@ -1522,6 +1779,37 @@ async function handleAuthChange(fu) {
     console.error(e);
     showLogin();
   }
+}
+
+// v29.9: 슈퍼관리자가 pendingUsers 컬렉션에 미리 등록해둔 계정(이메일 기반) 을 실제
+// users 컬렉션으로 승격 — 사용자가 처음 Google 로그인할 때 이메일 매칭되면 자동 실행.
+// 성공하면 true 반환하고 pending 문서 삭제. 매칭 없으면 false.
+async function promotePendingUser(fu) {
+  if (!fu || !fu.email) return false;
+  const email = fu.email.toLowerCase();
+  const q = fb.query(fb.collection(fb.db, 'pendingUsers'), fb.where('email', '==', email));
+  const snap = await fb.getDocs(q);
+  if (snap.empty) return false;
+  // 여러 개면 첫 번째만 사용 (같은 이메일로 중복 등록됐다면 이후 정리 필요)
+  const doc = snap.docs[0];
+  const p = doc.data();
+  const userDoc = {
+    name:  p.name || fu.displayName || '',
+    email,
+    dept:  p.dept  || '',
+    title: p.title || '사원',
+    grade: p.grade || gradeByTitle(p.title || '사원'),
+    disabled: false,
+    createdAt: Date.now(),
+    createdVia: 'preRegistered',
+    preRegisteredBy: p.createdBy || null,
+  };
+  if (Array.isArray(p.extraPerms) && p.extraPerms.length) userDoc.extraPerms = p.extraPerms;
+  if (p.modulePerms && Object.keys(p.modulePerms).length) userDoc.modulePerms = p.modulePerms;
+  await fb.setDoc(fb.doc(fb.db, 'users', fu.uid), userDoc);
+  try { await fb.deleteDoc(fb.doc(fb.db, 'pendingUsers', doc.id)); } catch (e) { console.warn('pending 삭제 실패(무시)', e); }
+  try { ensureDeptChannel(userDoc.dept); } catch(e) {}
+  return true;
 }
 
 function doLogout() {
@@ -1686,7 +1974,13 @@ function iframeViewKey() {
   if (v.selectedTool === 'qa' && v.qaSelectedProj) return 'qa:' + v.qaSelectedProj;
   if (v.selectedTool === 'mobile' && v.mobileSelectedProj) return 'mobile:' + v.mobileSelectedProj;
   if (v.selectedTool === 'deptsch' && v.deptSchedProj) return 'deptsch:' + v.deptSchedDept + ':' + v.deptSchedProj;
+  // v29.9-fix: ncr/car/qadash iframe도 재생성 방지 가드에 포함 — 이 세 도구가 누락되어
+  // Firestore onSnapshot이 발화할 때마다 iframe이 재로드되어 진행 중이던 발행/수정 모달이 사라짐.
+  if (v.selectedTool === 'ncr') return 'ncr';
+  if (v.selectedTool === 'car') return 'car';
+  if (v.selectedTool === 'qadash') return 'qadash';
   if (v.cur === 'manday') return 'manday';
+  if (v.cur === 'messenger') return 'messenger';
   if (v.travProj && !v.selectedTraveller) return 'travtag:' + v.travProj;
   return null;
 }
@@ -1752,8 +2046,11 @@ function render() {
     if (!view.mobileSelectedProj) { content.innerHTML = `<div class="content-pad">${renderMobileProjects()}</div>`; return; }
     content.innerHTML = renderMobileFrame(); return;
   }
-  if (view.selectedTool === 'ncr') { content.innerHTML = `<div class="content-pad">${renderNCR()}</div>`; return; }
-  if (view.selectedTool === 'car') { content.innerHTML = `<div class="content-pad">${renderCAR()}</div>`; return; }
+  // v29.9-fix: 원래대로 innerHTML로 설정하되, iframeViewKey()가 이제 ncr/car/qadash를 반환하므로
+  // 위쪽의 dataset.ifkey 가드가 재render를 스킵해 iframe이 재로드되지 않음.
+  if (view.selectedTool === 'ncr') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html?v=${NCR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
+  if (view.selectedTool === 'car') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html?v=${CAR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
+  if (view.selectedTool === 'qadash') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/quality/qa-dashboard.html?v=${QADASH_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="품질종합분석표"></iframe></div>`; return; }
   if (view.selectedTool === 'deptsch') {
     // 부서 스케줄 2단계: 프로젝트/자체업무 미선택 → 카드 / 선택됨 → WBS iframe
     if (!view.deptSchedProj) { content.innerHTML = `<div class="content-pad">${renderDeptSchedProjects()}</div>`; return; }
@@ -2165,274 +2462,6 @@ function renderMandayFrame() {
   </div>`;
 }
 
-// ══════════ NCR 관리 (부적합 보고서) ══════════
-const NCR_GRADE = { major:['red','중대'], minor:['orange','일반'], obs:['gray','경미'] };
-const NCR_STATUS = { open:['red','진행중'], closed:['green','종결'], pending:['orange','조치대기'] };
-const NCR_SOURCE = { manual:'✍️ 직접발행', mail:'📧 메일접수', traveller:'🔧 검사부적합' };
-
-// Traveller 부적합(rejected)을 NCR로 자동 수집 (아직 NCR 미등록분)
-function getTravellerNCRs() {
-  const result = [];
-  Object.keys(state.travellers || {}).forEach(itemId => {
-    const trav = state.travellers[itemId];
-    Object.entries(trav).forEach(([stage, data]) => {
-      if (data && data.status === 'rejected') {
-        // 이미 등록된 NCR인지 확인 (item+stage 기준)
-        const exists = (state.ncrs || []).some(n => n.travItemId === itemId && n.travStage === stage);
-        if (!exists) {
-          result.push({ itemId, stage, memo: data.memo || '검사 부적합', date: data.date, qc: data.qc });
-        }
-      }
-    });
-  });
-  return result;
-}
-
-function renderNCR() {
-  const ncrs = state.ncrs || [];
-  const open = ncrs.filter(n => n.status === 'open').length;
-  const closed = ncrs.filter(n => n.status === 'closed').length;
-  const pending = getTravellerNCRs();  // Traveller 미등록 부적합
-
-  return `
-    <div class="mod-head">
-      <div><div class="mod-title">⚠️ NCR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">부적합 보고서</span></div>
-        <div class="mod-sub">3경로 자동 집계 — 직접발행 · 메일접수 · 검사부적합(Traveller)</div></div>
-      <div style="display:flex;gap:8px;">
-        <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
-        <button class="btn btn-primary" onclick="openNewNCR()">+ NCR 발행</button>
-      </div>
-    </div>
-    <div class="kpi-grid" style="margin-bottom:14px;">
-      <div class="kpi"><div class="kpi-label">진행 중</div><div class="kpi-value" style="color:var(--danger);">${open}</div><div class="kpi-trend">조치 필요</div></div>
-      <div class="kpi"><div class="kpi-label">종결</div><div class="kpi-value" style="color:var(--success);">${closed}</div><div class="kpi-trend">완료</div></div>
-      <div class="kpi"><div class="kpi-label">전체</div><div class="kpi-value">${ncrs.length}</div><div class="kpi-trend">누적</div></div>
-      <div class="kpi"><div class="kpi-label">검사 부적합 대기</div><div class="kpi-value" style="color:var(--warning);">${pending.length}</div><div class="kpi-trend">NCR 미등록</div></div>
-    </div>
-    ${pending.length ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--warning);">
-      <h3 style="font-size:14px;margin-bottom:10px;">🔧 Traveller 검사 부적합 — NCR 발행 대기 (${pending.length})</h3>
-      ${pending.map(p => {
-        const it = findItemById(p.itemId);
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-light);gap:8px;">
-          <div style="flex:1;"><div style="font-size:13px;font-weight:500;">${it?.tag||p.itemId} — ${p.stage} 공정</div><div style="font-size:11px;color:var(--text-light);">${p.memo} · ${p.date||''}</div></div>
-          <button class="btn btn-sm" onclick="issueNCRFromTrav('${p.itemId}','${p.stage}')">→ NCR 발행</button>
-        </div>`;
-      }).join('')}
-    </div>` : ''}
-    <div class="card" style="padding:0;overflow:hidden;">
-      <table class="org-table">
-        <thead><tr><th>NCR No.</th><th>프로젝트</th><th>대상</th><th>등급</th><th>내용</th><th>출처</th><th>발행/기한</th><th>상태</th><th>관리</th></tr></thead>
-        <tbody>
-          ${ncrs.length ? ncrs.map(n => {
-            const p = getP(n.proj);
-            const g = NCR_GRADE[n.grade] || NCR_GRADE.obs;
-            const st = NCR_STATUS[n.status] || NCR_STATUS.open;
-            return `<tr>
-              <td style="font-weight:700;font-size:11px;white-space:nowrap;">${n.id}</td>
-              <td style="font-size:11px;">${p?.code||'-'}</td>
-              <td style="font-size:12px;">${n.item||'-'}</td>
-              <td><span class="b-pill ${g[0]}">${g[1]}</span></td>
-              <td style="font-size:12px;max-width:240px;">${n.desc}</td>
-              <td style="font-size:11px;white-space:nowrap;">${NCR_SOURCE[n.source]||n.source}</td>
-              <td style="font-size:11px;white-space:nowrap;">${n.issuedAt}<br><span style="color:var(--danger);">~${n.dueDate}</span></td>
-              <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
-              <td style="white-space:nowrap;">
-                ${n.carId ? `<span style="font-size:10px;color:var(--primary);">${n.carId}</span>` : `<button class="org-ico-btn" onclick="createCARfromNCR('${n.id}')" title="CAR 발행">🔧</button>`}
-                ${n.status==='open' ? `<button class="org-ico-btn" onclick="closeNCR('${n.id}')" title="종결">✅</button>` : ''}
-              </td>
-            </tr>`;
-          }).join('') : '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light);">등록된 NCR이 없습니다</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function findItemById(itemId) {
-  for (const pid in (state.items||{})) {
-    const it = (state.items[pid]||[]).find(i => i.id === itemId);
-    if (it) return it;
-  }
-  return null;
-}
-
-function openNewNCR() {
-  const projOpts = state.projects.filter(p=>!p.hidden).map(p=>`<option value="${p.id}">${p.code} ${p.name}</option>`).join('');
-  openModal('+ NCR 발행', `
-    <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="ncrProj">${projOpts}</select></div>
-    <div class="fg"><label class="fl">대상 (장비/부위)</label><input class="fi" id="ncrItem" placeholder="예: T-8405 N-9 노즐"></div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">등급</label><select class="fs" id="ncrGrade"><option value="major">중대</option><option value="minor" selected>일반</option><option value="obs">경미</option></select></div>
-      <div style="flex:1;"><label class="fl">조치 기한</label><input class="fi" type="date" id="ncrDue"></div>
-    </div>
-    <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="ncrDesc" rows="3" placeholder="부적합 사항을 기재하세요"></textarea></div>
-  `, () => {
-    const proj = document.getElementById('ncrProj').value;
-    const item = document.getElementById('ncrItem').value.trim();
-    const grade = document.getElementById('ncrGrade').value;
-    const due = document.getElementById('ncrDue').value;
-    const desc = document.getElementById('ncrDesc').value.trim();
-    if (!desc) { alert('부적합 내용을 입력하세요.'); return; }
-    const num = String(state.ncrs.length + 1).padStart(3,'0');
-    state.ncrs.push({
-      id:`NCR-2026-${num}`, proj, item, source:'manual', grade,
-      desc, status:'open', issuedBy:state.currentUser,
-      issuedAt:new Date().toISOString().slice(0,10), dueDate:due||'', carId:null
-    });
-    save(); closeModal(); render();
-  });
-}
-
-// Traveller 부적합 → NCR 발행
-function issueNCRFromTrav(itemId, stage) {
-  const it = findItemById(itemId);
-  const trav = state.travellers[itemId];
-  const data = trav && trav[stage];
-  if (!data) return;
-  // 프로젝트 찾기
-  let proj = null;
-  for (const pid in (state.items||{})) {
-    if ((state.items[pid]||[]).some(i=>i.id===itemId)) { proj = pid; break; }
-  }
-  const num = String(state.ncrs.length + 1).padStart(3,'0');
-  state.ncrs.push({
-    id:`NCR-2026-${num}`, proj, item:it?.tag||itemId, source:'traveller', grade:'major',
-    desc:data.memo||'검사 부적합', status:'open', issuedBy:state.currentUser,
-    issuedAt:data.date||new Date().toISOString().slice(0,10), dueDate:'', carId:null,
-    travItemId:itemId, travStage:stage
-  });
-  save(); render();
-}
-
-function closeNCR(ncrId) {
-  const n = state.ncrs.find(x=>x.id===ncrId);
-  if (!n) return;
-  if (!confirm(`${ncrId}을(를) 종결 처리하시겠습니까?`)) return;
-  n.status = 'closed';
-  n.closedAt = new Date().toISOString().slice(0,10);
-  save(); render();
-}
-
-// NCR → CAR 발행
-function createCARfromNCR(ncrId) {
-  const n = state.ncrs.find(x=>x.id===ncrId);
-  if (!n) return;
-  const userOpts = state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('');
-  openModal(`🔧 CAR 발행 — ${ncrId}`, `
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">${n.desc}</div>
-    <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="carAction" rows="3" placeholder="필요한 시정조치를 기재하세요"></textarea></div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="carAssignee">${userOpts}</select></div>
-      <div style="flex:1;"><label class="fl">완료 기한</label><input class="fi" type="date" id="carDue"></div>
-    </div>
-  `, () => {
-    const action = document.getElementById('carAction').value.trim();
-    const assignee = document.getElementById('carAssignee').value;
-    const due = document.getElementById('carDue').value;
-    if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
-    const num = String(state.cars.length + 1).padStart(3,'0');
-    const carId = `CAR-2026-${num}`;
-    state.cars.push({
-      id:carId, ncrId, proj:n.proj, action, assignee, status:'in-progress',
-      requestedAt:new Date().toISOString().slice(0,10), dueDate:due||'', closedAt:null
-    });
-    n.carId = carId;
-    save(); closeModal(); render();
-  });
-}
-
-// ══════════ CAR 관리 (시정조치 요청서) ══════════
-const CAR_STATUS = { 'in-progress':['orange','조치중'], 'replied':['blue','회신완료'], 'closed':['green','완료'] };
-
-function renderCAR() {
-  const cars = state.cars || [];
-  const inProg = cars.filter(c=>c.status==='in-progress').length;
-  const done = cars.filter(c=>c.status==='closed').length;
-
-  return `
-    <div class="mod-head">
-      <div><div class="mod-title">🔧 CAR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">시정조치 요청서</span></div>
-        <div class="mod-sub">NCR 연계 또는 단독 발행 · 시정조치 요청 · 회신 · 완료 추적</div></div>
-      <div style="display:flex;gap:8px;">
-        <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
-        <button class="btn btn-primary" onclick="openNewCAR()">+ CAR 발행</button>
-      </div>
-    </div>
-    <div class="kpi-grid" style="margin-bottom:14px;">
-      <div class="kpi"><div class="kpi-label">조치 중</div><div class="kpi-value" style="color:var(--warning);">${inProg}</div><div class="kpi-trend">진행</div></div>
-      <div class="kpi"><div class="kpi-label">완료</div><div class="kpi-value" style="color:var(--success);">${done}</div><div class="kpi-trend">종결</div></div>
-      <div class="kpi"><div class="kpi-label">전체</div><div class="kpi-value">${cars.length}</div><div class="kpi-trend">누적</div></div>
-    </div>
-    <div class="card" style="padding:0;overflow:hidden;">
-      <table class="org-table">
-        <thead><tr><th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>시정조치</th><th>담당</th><th>요청/기한</th><th>상태</th><th>관리</th></tr></thead>
-        <tbody>
-          ${cars.length ? cars.map(c => {
-            const p = getP(c.proj);
-            const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
-            return `<tr>
-              <td style="font-weight:700;font-size:11px;white-space:nowrap;">${c.id}</td>
-              <td style="font-size:11px;color:var(--primary);">${c.ncrId || '<span style="color:var(--text-lighter);">단독 발행</span>'}</td>
-              <td style="font-size:11px;">${p?.code||'-'}</td>
-              <td style="font-size:12px;max-width:260px;">${c.action}</td>
-              <td style="font-size:12px;white-space:nowrap;">${getU(c.assignee)?.name||'-'}</td>
-              <td style="font-size:11px;white-space:nowrap;">${c.requestedAt}<br><span style="color:var(--danger);">~${c.dueDate}</span></td>
-              <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
-              <td style="white-space:nowrap;">
-                ${c.status!=='closed' ? `<button class="org-ico-btn" onclick="closeCAR('${c.id}')" title="완료 처리">✅</button>` : ''}
-              </td>
-            </tr>`;
-          }).join('') : '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light);">등록된 CAR이 없습니다 — [+ CAR 발행] 또는 NCR 관리에서 발행하세요</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function closeCAR(carId) {
-  const c = state.cars.find(x=>x.id===carId);
-  if (!c) return;
-  if (!confirm(`${carId}을(를) 완료 처리하시겠습니까?`)) return;
-  c.status = 'closed';
-  c.closedAt = new Date().toISOString().slice(0,10);
-  // 연계 NCR이 있으면 종결 제안 (단독 발행은 생략)
-  if (c.ncrId) {
-    const n = (state.ncrs||[]).find(x=>x.id===c.ncrId);
-    if (n && n.status==='open' && confirm(`연계된 ${n.id}도 종결 처리할까요?`)) {
-      n.status = 'closed';
-      n.closedAt = new Date().toISOString().slice(0,10);
-    }
-  }
-  save(); render();
-}
-
-// CAR 단독 발행 (NCR 연계 없이)
-function openNewCAR() {
-  const projOpts = state.projects.filter(p=>!p.hidden).map(p=>`<option value="${p.id}">${p.code} ${p.name}</option>`).join('');
-  const userOpts = state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('');
-  openModal('+ CAR 발행 (단독)', `
-    <div style="font-size:11px;color:var(--text-light);margin-bottom:12px;background:var(--bg);padding:8px 12px;border-radius:6px;">NCR 없이 단독으로 발행되는 시정조치 요청입니다 (고객 직접 요청·내부 개선 지시 등).</div>
-    <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="carProj">${projOpts}</select></div>
-    <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="carNewAction" rows="3" placeholder="필요한 시정조치를 기재하세요"></textarea></div>
-    <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="carNewAssignee">${userOpts}</select></div>
-      <div style="flex:1;"><label class="fl">완료 기한</label><input class="fi" type="date" id="carNewDue"></div>
-    </div>
-  `, () => {
-    const proj = document.getElementById('carProj').value;
-    const action = document.getElementById('carNewAction').value.trim();
-    const assignee = document.getElementById('carNewAssignee').value;
-    const due = document.getElementById('carNewDue').value;
-    if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
-    const num = String(state.cars.length + 1).padStart(3,'0');
-    state.cars.push({
-      id:`CAR-2026-${num}`, ncrId:null, proj, action, assignee, status:'in-progress',
-      requestedAt:new Date().toISOString().slice(0,10), dueDate:due||'', closedAt:null
-    });
-    save(); closeModal(); render();
-  });
-}
 
 // QA Doc 프로젝트 선택 화면 (ITP Builder 패턴)
 function renderQAProjects() {
@@ -2967,6 +2996,289 @@ async function gcalGetToken() {
   if (gcalAccessToken && Date.now() < gcalTokenExpiry) return gcalAccessToken;
   return await gcalRequestToken(false);
 }
+// ══════════ Google Workspace Directory 사용자 임포트 (v29.9) ══════════
+// 슈퍼관리자가 회사 Workspace의 사용자 목록을 자동으로 조회해 pendingUsers에 일괄 등록.
+// Firebase Auth와 별개의 GIS 토큰 클라이언트(캘린더 연동과 유사 패턴)를 씀 — 로그인 플로우 무손실.
+// 스코프: admin.directory.user.readonly (읽기 전용). Workspace 슈퍼관리자 계정으로만 성공.
+// ★ 이 기능이 동작하려면 GCP OAuth 동의 화면에 admin.directory.user.readonly 스코프를 등록해야 함.
+const GDIR_SCOPE = 'https://www.googleapis.com/auth/admin.directory.user.readonly';
+let gdirTokenClient = null;
+let gdirPendingResolve = null;
+function gdirEnsureTokenClient() {
+  if (gdirTokenClient) return gdirTokenClient;
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return null;
+  gdirTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID, // 같은 OAuth 클라이언트 재사용
+    scope: GDIR_SCOPE,
+    callback: (resp) => {
+      const r = gdirPendingResolve; gdirPendingResolve = null;
+      if (r) r(resp && resp.access_token ? resp.access_token : null);
+    },
+  });
+  return gdirTokenClient;
+}
+function gdirRequestToken() {
+  return new Promise((resolve) => {
+    const tc = gdirEnsureTokenClient();
+    if (!tc) { resolve(null); return; }
+    gdirPendingResolve = resolve;
+    tc.requestAccessToken({ prompt: 'consent' });
+  });
+}
+// Workspace Directory에서 sejong-21c.com 도메인의 사용자 전체(최대 500명) 조회
+async function fetchWorkspaceUsers(token) {
+  const url = 'https://admin.googleapis.com/admin/directory/v1/users?domain=sejong-21c.com&maxResults=500&orderBy=email';
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const err = data?.error?.message || res.statusText;
+    throw new Error(`Directory API 조회 실패 (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  return (data.users || []).map(u => ({
+    email: (u.primaryEmail || '').toLowerCase(),
+    name: u.name?.fullName || u.name?.givenName || '',
+    orgUnitPath: u.orgUnitPath || '', // "/영업부" 등 — 부서 자동 추정 힌트
+    suspended: !!u.suspended,
+    isAdmin: !!u.isAdmin,
+  })).filter(u => u.email.endsWith('@sejong-21c.com'));
+}
+// orgUnitPath("/영업부") → 저희 DEPTS 목록에서 매칭. 없으면 빈 문자열.
+function guessDeptFromOrgUnit(orgUnitPath) {
+  if (!orgUnitPath) return '';
+  const path = orgUnitPath.replace(/^\//, '');
+  const names = DEPTS.map(d => d.name);
+  // 정확 매칭 우선
+  if (names.includes(path)) return path;
+  // 부분 매칭 (예: "품질관리부/QC팀" → "품질관리부")
+  const first = path.split('/')[0];
+  if (names.includes(first)) return first;
+  // 짧은 별칭 힌트
+  for (const n of names) { if (path.includes(n)) return n; }
+  return '';
+}
+// 이메일에서 이름 추정 (예: "cwkim@sejong-21c.com" → "cwkim") — 이름 필드가 비어있을 때 대안
+function guessNameFromEmail(email) {
+  return (email || '').split('@')[0];
+}
+async function openWorkspaceImport() {
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') { alert('사용자 일괄 임포트는 슈퍼관리자만 가능합니다.'); return; }
+  openModal('👥 Workspace에서 사용자 가져오기', `
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:14px;line-height:1.6;">
+      회사 <b>Workspace 슈퍼관리자 계정</b>으로 승인하면 sejong-21c.com 도메인의 사용자 목록을 자동으로 불러와 미리 등록할 수 있습니다.<br>
+      <span style="color:var(--text-lighter);font-size:11px;">이미 로그인한 계정과 사전 등록된 계정은 제외하고 신규만 표시됩니다.</span>
+    </div>
+    <div id="wksImportStatus" style="padding:14px;text-align:center;font-size:13px;color:var(--text-light);">
+      <button class="btn btn-primary" onclick="doWorkspaceFetch()">🔐 Workspace 조회 시작</button>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-lighter);">또는 CSV 붙여넣기: <button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기</button></div>
+    </div>
+    <div id="wksImportResult" style="display:none;"></div>
+  `, null);
+  // 리뷰 테이블이 넓어서 모달 폭 확장 (닫을 때 closeModal이 자동 원복)
+  const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '900px';
+}
+async function doWorkspaceFetch() {
+  const status = document.getElementById('wksImportStatus');
+  const result = document.getElementById('wksImportResult');
+  status.innerHTML = '<div style="padding:14px;">🔐 Google 인증 창을 확인해주세요…</div>';
+  const token = await gdirRequestToken();
+  if (!token) {
+    status.innerHTML = `
+      <div style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:12px;">
+        ❌ 승인이 취소됐거나 스코프가 등록되지 않았습니다.<br>
+        <span style="font-size:11px;">GCP 콘솔 → API 및 서비스 → OAuth 동의 화면에 <b>admin.directory.user.readonly</b> 스코프가 추가되어 있는지 확인하세요.</span>
+      </div>
+      <div style="margin-top:10px;text-align:center;">
+        <button class="btn btn-sm" onclick="doWorkspaceFetch()">🔄 다시 시도</button>
+        <button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기로 대체</button>
+      </div>`;
+    return;
+  }
+  status.innerHTML = '<div style="padding:14px;">📥 사용자 목록 불러오는 중…</div>';
+  let users;
+  try { users = await fetchWorkspaceUsers(token); }
+  catch (e) {
+    status.innerHTML = `
+      <div style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:12px;">
+        ❌ ${e.message}<br>
+        <span style="font-size:11px;">Workspace 슈퍼관리자 계정으로 로그인했는지 확인하세요. 일반 사용자는 이 API에 접근할 수 없습니다.</span>
+      </div>
+      <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기로 대체</button></div>`;
+    return;
+  }
+  renderImportReviewTable(users, status, result);
+}
+// 이미 등록·사전등록된 이메일은 제외하고 나머지를 표로 보여주며 부서/직급 선택 UI 렌더
+function renderImportReviewTable(rawUsers, statusEl, resultEl) {
+  const existingEmails = new Set([
+    ...(state.users || []).map(u => (u.email || '').toLowerCase()),
+    ...(state.pendingUsers || []).map(p => (p.email || '').toLowerCase()),
+  ]);
+  const fresh = rawUsers.filter(u => u.email && !existingEmails.has(u.email) && !u.suspended);
+  if (!fresh.length) {
+    statusEl.innerHTML = `
+      <div style="padding:14px;background:#f0fdf4;color:#166534;border-radius:6px;font-size:13px;text-align:center;">
+        ✅ 새로 등록할 사용자가 없습니다 (총 ${rawUsers.length}명 조회 · 모두 이미 등록·사전 등록되어 있음)
+      </div>`;
+    return;
+  }
+  statusEl.style.display = 'none';
+  const deptOpts = DEPTS.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+  const titleOpts = TITLES.map(t => `<option value="${t}">${t}</option>`).join('');
+  resultEl.style.display = '';
+  resultEl.innerHTML = `
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">
+      Workspace에서 <b>${rawUsers.length}명</b> 조회 → 신규 <b style="color:var(--primary);">${fresh.length}명</b>을 등록할 수 있습니다.<br>
+      체크박스로 등록 대상을 고르고, 부서·직급은 필요시 조정하세요 (부서는 Workspace 조직 단위에서 자동 추정).
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button class="btn btn-sm" onclick="wksToggleAll(true)">✓ 전체 선택</button>
+      <button class="btn btn-sm" onclick="wksToggleAll(false)">✕ 전체 해제</button>
+      <span style="margin-left:auto;font-size:11px;color:var(--text-lighter);align-self:center;">선택 <span id="wksSelCnt">${fresh.length}</span>명</span>
+    </div>
+    <div style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="position:sticky;top:0;background:var(--bg);z-index:1;">
+          <tr>
+            <th style="padding:8px 10px;text-align:center;width:36px;"><input type="checkbox" id="wksAll" onchange="wksToggleAll(this.checked)" checked></th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-light);">이메일</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-light);">이름</th>
+            <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text-light);">부서</th>
+            <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text-light);">직급</th>
+            <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text-light);">Workspace 조직</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${fresh.map((u, i) => {
+            const guessedDept = guessDeptFromOrgUnit(u.orgUnitPath);
+            const dOpts = DEPTS.map(d => `<option value="${d.name}" ${d.name===guessedDept?'selected':''}>${d.name}</option>`).join('');
+            return `<tr>
+              <td style="padding:6px 10px;text-align:center;"><input type="checkbox" class="wks-pick" data-i="${i}" onchange="updateWksSelCnt()" checked></td>
+              <td style="padding:6px 10px;font-family:monospace;font-size:11px;">${u.email}</td>
+              <td style="padding:6px 10px;"><input type="text" class="wks-name" data-i="${i}" value="${(u.name||guessNameFromEmail(u.email)).replace(/"/g,'&quot;')}" style="width:110px;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;"></td>
+              <td style="padding:6px 6px;"><select class="wks-dept" data-i="${i}" style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;">${dOpts}</select></td>
+              <td style="padding:6px 6px;"><select class="wks-title" data-i="${i}" style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;">${(() => { const preTitle = TITLES.includes(u._csvTitle) ? u._csvTitle : '사원'; return TITLES.map(t=>`<option value="${t}" ${t===preTitle?'selected':''}>${t}</option>`).join(''); })()}</select></td>
+              <td style="padding:6px 6px;color:var(--text-lighter);font-size:10.5px;">${u.orgUnitPath || '-'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:14px;text-align:right;">
+      <button class="btn" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="doWksBulkRegister(${JSON.stringify(fresh).replace(/"/g,'&quot;')})">✅ 선택한 사용자 사전 등록</button>
+    </div>`;
+}
+function wksToggleAll(checked) {
+  document.querySelectorAll('.wks-pick').forEach(cb => cb.checked = checked);
+  const all = document.getElementById('wksAll'); if (all) all.checked = checked;
+  updateWksSelCnt();
+}
+function updateWksSelCnt() {
+  const n = document.querySelectorAll('.wks-pick:checked').length;
+  const el = document.getElementById('wksSelCnt'); if (el) el.textContent = n;
+}
+async function doWksBulkRegister(fresh) {
+  const picks = [...document.querySelectorAll('.wks-pick:checked')].map(cb => parseInt(cb.dataset.i, 10));
+  if (!picks.length) { alert('등록할 사용자를 선택하세요.'); return; }
+  const rows = picks.map(i => {
+    const email = fresh[i].email;
+    const name = document.querySelector(`.wks-name[data-i="${i}"]`).value.trim();
+    const dept = document.querySelector(`.wks-dept[data-i="${i}"]`).value;
+    const title = document.querySelector(`.wks-title[data-i="${i}"]`).value;
+    return { email, name, dept, title, grade: gradeByTitle(title) };
+  });
+  if (!confirm(`${rows.length}명을 사전 등록합니다. 계속하시겠습니까?\n\n(이후 해당 이메일로 각자 처음 Google 로그인하면 자동으로 계정이 활성화됩니다.)`)) return;
+  const result = document.getElementById('wksImportResult');
+  result.innerHTML = '<div style="padding:20px;text-align:center;">📤 등록 중… <span id="wksProgress">0</span>/' + rows.length + '</div>';
+  let done = 0, failed = 0;
+  for (const row of rows) {
+    try {
+      const id = 'pu_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      await fb.setDoc(fb.doc(fb.db, 'pendingUsers', id), {
+        ...row,
+        createdAt: Date.now(),
+        createdBy: state.currentUser,
+        createdVia: 'workspace-import',
+      });
+      done++;
+    } catch (e) {
+      console.error('사전 등록 실패:', row.email, e);
+      failed++;
+    }
+    const p = document.getElementById('wksProgress'); if (p) p.textContent = done + failed;
+  }
+  result.innerHTML = `
+    <div style="padding:16px;background:#f0fdf4;color:#166534;border-radius:6px;font-size:13px;text-align:center;">
+      ✅ ${done}명 사전 등록 완료${failed?` · ⚠️ ${failed}명 실패`:''}
+    </div>
+    <div style="margin-top:12px;text-align:right;"><button class="btn btn-primary" onclick="closeModal()">닫기</button></div>`;
+}
+// CSV 붙여넣기 — Workspace API 못 쓰는 경우 대체 경로.
+// Google Workspace Admin 사용자 CSV 내보내기 형식 지원 (첫 줄 헤더에 "Email Address", "First Name", "Last Name", "Org Unit Path" 등).
+// 또는 간단히 "email,name,dept,title" 한 줄씩 붙여넣기도 허용.
+function openCSVImport() {
+  const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '900px';
+  openModal('📋 CSV 붙여넣기 임포트', `
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">
+      Workspace Admin 콘솔의 사용자 CSV 내보내기 결과를 붙여넣거나,<br>
+      간단히 <code style="background:var(--bg);padding:1px 4px;border-radius:3px;">이메일,이름,부서,직급</code> 형식으로 한 줄씩 입력하세요.<br>
+      <span style="color:var(--text-lighter);font-size:11px;">첫 줄이 헤더면 자동 인식. 부서·직급은 뒤에서 최종 확인 후 등록됩니다.</span>
+    </div>
+    <textarea id="csvPasteArea" rows="10" style="width:100%;padding:10px;font-family:monospace;font-size:12px;border:1.5px solid var(--border);border-radius:6px;resize:vertical;" placeholder="cwkim@sejong-21c.com,김철우,품질관리부,부장&#10;swkim@sejong-21c.com,김시원,품질관리부,대리&#10;..."></textarea>
+    <div style="margin-top:10px;font-size:11px;color:var(--text-lighter);">
+      💡 Workspace 원본 CSV는 자동 파싱: Email Address, First/Last Name, Org Unit Path 열을 사용합니다.
+    </div>
+  `, () => {
+    const text = document.getElementById('csvPasteArea').value.trim();
+    if (!text) { alert('CSV 내용을 입력해주세요.'); return; }
+    const parsed = parseCSVForImport(text);
+    if (!parsed.length) { alert('파싱된 사용자가 없습니다. 형식을 확인해주세요.'); return; }
+    // Workspace 형식과 동일한 shape으로 만들어서 review 테이블 재활용
+    const statusEl = document.createElement('div'); statusEl.style.display = 'none';
+    const resultEl = document.createElement('div');
+    document.getElementById('mBody').innerHTML = '';
+    document.getElementById('mBody').appendChild(statusEl);
+    document.getElementById('mBody').appendChild(resultEl);
+    // 확인 버튼 숨김 (renderImportReviewTable 안에서 자체 등록 버튼 제공)
+    const ok = document.getElementById('mOk'); if (ok) ok.style.display = 'none';
+    renderImportReviewTable(parsed, statusEl, resultEl);
+  });
+}
+function parseCSVForImport(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  // 헤더 감지 (Workspace 형식: 첫 줄에 "Email" 포함 & 콤마 3개 이상)
+  const first = lines[0].toLowerCase();
+  const hasHeader = first.includes('email') && lines[0].split(',').length >= 2;
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+  const cols = hasHeader ? lines[0].split(',').map(c => c.trim().toLowerCase()) : null;
+  const emailIdx = cols ? cols.findIndex(c => c.includes('email')) : 0;
+  // "First Name"/"Last Name"과 "Full Name"/"이름"을 구분: full/이름은 name으로, first/last는 given/family로.
+  const nameIdx  = cols ? cols.findIndex(c => (c.includes('full') && c.includes('name')) || c === 'name' || c === '이름') : 1;
+  const givenIdx = cols ? cols.findIndex(c => c.includes('first') || c.includes('given')) : -1;
+  const familyIdx = cols ? cols.findIndex(c => c.includes('last') || c.includes('family')) : -1;
+  const orgIdx   = cols ? cols.findIndex(c => c.includes('org') || c.includes('unit') || c.includes('부서')) : 2;
+  const titleIdx = cols ? cols.findIndex(c => c.includes('title') || c.includes('직급')) : 3;
+  return dataLines.map(line => {
+    const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+    const email = (parts[emailIdx] || '').toLowerCase();
+    if (!email.endsWith('@sejong-21c.com')) return null;
+    let name = '';
+    if (nameIdx >= 0 && parts[nameIdx]) name = parts[nameIdx];
+    else if (givenIdx >= 0 || familyIdx >= 0) name = [parts[familyIdx]||'', parts[givenIdx]||''].join('').trim();
+    if (!name) name = guessNameFromEmail(email);
+    return {
+      email,
+      name,
+      orgUnitPath: orgIdx >= 0 ? (parts[orgIdx] || '') : '',
+      suspended: false,
+      _csvTitle: titleIdx >= 0 ? (parts[titleIdx] || '') : '',
+    };
+  }).filter(Boolean);
+}
+
 async function connectGoogleCalendar() {
   const token = await gcalRequestToken(true);
   if (!token) { alert('구글 캘린더 연동에 실패했습니다. 다시 시도해주세요.'); return; }
@@ -3000,10 +3312,13 @@ async function loadGCalEvents() {
     });
     if (!res.ok) { if (res.status === 401) gcalAccessToken = null; gcalLoadedMonthKey = null; return; }
     const data = await res.json();
-    gcalEventsCache = (data.items || []).filter(ev => ev.status !== 'cancelled').map(ev => {
+    // 구글 "근무 위치"(workingLocation) 기능이 평일마다 자동 생성하는 "사무실" 종일 일정 등은
+    // 실제 약속이 아니므로 목록/삭제 대상에서 제외해야 함 (삭제 시도 시 근무위치 설정 자체가 깨짐).
+    gcalEventsCache = (data.items || []).filter(ev => ev.status !== 'cancelled' && ev.eventType !== 'workingLocation' && ev.eventType !== 'outOfOffice' && ev.eventType !== 'focusTime').map(ev => {
       const startStr = (ev.start && (ev.start.date || ev.start.dateTime)) || '';
       return {
         id: 'gcal_' + ev.id,
+        rawId: ev.id, // 삭제 API 호출용 원본 구글 이벤트 ID
         title: ev.summary || '(제목 없음)',
         date: startStr.slice(0, 10),
         time: (ev.start && ev.start.dateTime) ? ev.start.dateTime.slice(11, 16) : '',
@@ -3015,7 +3330,7 @@ async function loadGCalEvents() {
 }
 async function pushEventToGCal(ev) {
   const token = await gcalGetToken();
-  if (!token) return;
+  if (!token) return null;
   // v29.5: 23시대 일정은 +1시간이 다음날로 넘어가야 하는데 문자열로 시(hour)만 clamp하면
   // 시작=종료 시각이 같아져 0분짜리 일정이 되는 버그가 있었음 — 실제 Date 연산으로 정확히 계산.
   let body;
@@ -3028,19 +3343,60 @@ async function pushEventToGCal(ev) {
     body = { summary: ev.title, start: { date: ev.date }, end: { date: ev.date } };
   }
   try {
-    await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     gcalLoadedMonthKey = null; // 다음 렌더에서 새로고침
-  } catch (e) { console.warn('[GCal] 이벤트 등록 실패:', e); }
+    if (!res.ok) return null;
+    const created = await res.json();
+    return created.id || null; // 나중에 삭제할 때 필요한 구글 이벤트 ID
+  } catch (e) { console.warn('[GCal] 이벤트 등록 실패:', e); return null; }
+}
+// v29.6: 구글 캘린더에서 특정 이벤트 삭제 (양방향 동기화 — 등록뿐 아니라 삭제도 반영)
+async function deleteGCalEvent(rawId) {
+  const token = await gcalGetToken();
+  if (!token || !rawId) return;
+  try {
+    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(rawId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    gcalLoadedMonthKey = null;
+  } catch (e) { console.warn('[GCal] 이벤트 삭제 실패:', e); }
+}
+// SJ FLOW 일정 삭제 — 구글 캘린더에서 온 이벤트든 직접 만든 이벤트든 한 곳에서 처리.
+// 직접 만든 이벤트에 gcalEventId가 있으면(연동 중 등록됐던 것) 구글 쪽도 같이 삭제.
+function deleteEvent(id) {
+  if (!confirm('이 일정을 삭제하시겠습니까?')) return;
+  if (String(id).startsWith('gcal_')) {
+    const ev = gcalEventsCache.find(e => e.id === id);
+    if (!ev) return;
+    gcalEventsCache = gcalEventsCache.filter(e => e.id !== id);
+    render();
+    if (gcalConnected) deleteGCalEvent(ev.rawId).then(() => render());
+    return;
+  }
+  const ev = state.events.find(e => e.id === id);
+  state.events = state.events.filter(e => e.id !== id);
+  save(); render(); closeModal();
+  // v29.9: Firestore에서도 삭제 (다른 기기·사용자에게 즉시 반영)
+  if (window.fb && fb.db) {
+    fb.deleteDoc(fb.doc(fb.db, 'events', id)).catch(e => console.error('[events 삭제 실패]', e));
+  }
+  if (ev && ev.gcalEventId && gcalConnected) deleteGCalEvent(ev.gcalEventId);
 }
 function showDate(ds) {
   const ev = allEvents().filter(e => e.date === ds);
   if (!ev.length) return openEvent(ds);
+  // v29.6: 직접 만든 일정과 구글 캘린더 일정은 삭제 가능 (Cowork 브리핑에서 자동 생성된
+  // 일정은 외부 자동화가 관리하는 데이터라 여기서 지우면 다음 동기화 때 다시 나타나므로 제외)
   openModal(`${ds} 일정`, `
-    ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;"><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}</div></div>`).join('')}
+    ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}${e.source==='google'?' · 🔗 구글':''}</div></div>
+      ${e.source!=='briefing' ? `<button class="btn btn-sm" style="color:#dc2626;flex-shrink:0;" onclick="deleteEvent('${e.id}')">삭제</button>` : ''}
+    </div>`).join('')}
     <button class="btn btn-primary btn-sm" onclick="closeModal();openEvent('${ds}')">+ 이 날에 일정 추가</button>`);
 }
 function openEvent(ds) {
@@ -3058,7 +3414,25 @@ function openEvent(ds) {
     const newEv = { id: 'e' + Date.now(), title, date: document.getElementById('evD').value, time: document.getElementById('evTm').value, color: document.getElementById('evC').value, dept: document.getElementById('evDept').value, createdBy: state.currentUser };
     state.events.push(newEv);
     save(); closeModal(); render();
-    if (gcalConnected) pushEventToGCal(newEv); // 구글 캘린더 연동 중이면 내 캘린더에도 자동 등록
+    // v29.9: Firestore에도 저장 (다른 기기·사용자한테 실시간 반영). 문서 ID는 로컬 id 그대로 사용.
+    if (window.fb && fb.db) {
+      const { id: _id, ...body } = newEv;
+      fb.setDoc(fb.doc(fb.db, 'events', newEv.id), body).catch(e => console.error('[events 저장 실패]', e));
+    }
+    if (gcalConnected) {
+      // 구글 캘린더 연동 중이면 내 캘린더에도 자동 등록하고, 나중에 삭제할 수 있도록
+      // 반환된 구글 이벤트 ID를 로컬 레코드에도 저장해둔다.
+      pushEventToGCal(newEv).then(gid => {
+        if (!gid) return;
+        const rec = state.events.find(e => e.id === newEv.id);
+        if (rec) {
+          rec.gcalEventId = gid; save();
+          if (window.fb && fb.db) {
+            fb.setDoc(fb.doc(fb.db, 'events', newEv.id), { gcalEventId: gid }, { merge: true }).catch(() => {});
+          }
+        }
+      });
+    }
   });
 }
 
@@ -3159,6 +3533,34 @@ function projects() {
 }
 
 /* ═════════════ 📅 전체 프로젝트 일정 요약 (통합 간트) ═════════════ */
+// 일정 성과(계획 대비 실적) 기반 그라데이션 색상 — 늦음(빨강)→정상(초록)→앞섬(파랑) 연속 스펙트럼
+// wbs.html의 동일 로직과 짝을 이룸 (모듈 간 공유 불가한 단일 HTML 구조라 중복 정의)
+function expectedPctByDate(s, e) {
+  if (!s || !e) return null;
+  const sd = new Date(s), ed = new Date(e), td = new Date(new Date().toISOString().slice(0, 10));
+  if (isNaN(sd) || isNaN(ed) || ed <= sd) return null;
+  if (td <= sd) return 0; if (td >= ed) return 100;
+  return (td - sd) / (ed - sd) * 100;
+}
+const SCHED_HEALTH_STOPS = [
+  [-30, [153, 27, 27]], [-15, [220, 38, 38]], [-7, [249, 115, 22]], [-2, [245, 158, 11]],
+  [0, [163, 230, 53]], [4, [34, 197, 94]], [12, [21, 128, 61]], [22, [37, 99, 235]], [35, [29, 78, 216]],
+];
+function scheduleHealthRGB(diff) {
+  if (diff == null || isNaN(diff)) return [148, 163, 184];
+  const st = SCHED_HEALTH_STOPS;
+  const d = Math.max(st[0][0], Math.min(st[st.length - 1][0], diff));
+  let lo = st[0], hi = st[st.length - 1];
+  for (let i = 0; i < st.length - 1; i++) { if (d >= st[i][0] && d <= st[i + 1][0]) { lo = st[i]; hi = st[i + 1]; break; } }
+  const span = hi[0] - lo[0], t = span === 0 ? 0 : (d - lo[0]) / span;
+  return lo[1].map((c, i) => Math.round(c + (hi[1][i] - c) * t));
+}
+function scheduleHealthColor(diff) { const [r, g, b] = scheduleHealthRGB(diff); return `rgb(${r},${g},${b})`; }
+function scheduleHealthGradient(diff) {
+  const rgb = scheduleHealthRGB(diff);
+  const light = rgb.map(c => Math.round(c + (255 - c) * 0.55));
+  return `linear-gradient(90deg, rgb(${light.join(',')}), rgb(${rgb.join(',')}))`;
+}
 function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
   if (projs.length === 0) return '';
 
@@ -3166,10 +3568,11 @@ function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
     const sd = new Date(p.start), ed = new Date(p.end);
     const left = Math.max(0, (sd - yearStart) / yearTotal * 100);
     const width = Math.max(1, Math.min(100-left, (ed - sd) / yearTotal * 100));
-    
-    // 진도율에 따라 진행 부분 / 미진행 부분 분리 색상
+
+    // 일정 성과(계획 대비 실적) 기반 그라데이션 — 늦음(빨강)~정상(초록)~앞섬(파랑)
     const pct = p.progress || 0;
-    const doneColor = pct >= 100 ? '#16a34a' : pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#fbbf24';
+    const expPct = expectedPctByDate(p.start, p.end);
+    const doneColor = expPct == null ? '#22c55e' : scheduleHealthGradient(pct - expPct);
     const todoColor = '#e4e7ec';
     const pmName = getU(p.pm).name;
     
@@ -3196,9 +3599,9 @@ function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
       <div class="utl-head">
         <div class="utl-title">📅 전체 프로젝트 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">2026년 · 막대 클릭 시 상세 화면</span></div>
         <div class="utl-legend">
+          <span><span class="utl-dot" style="background:#dc2626;"></span>지연</span>
           <span><span class="utl-dot" style="background:#22c55e;"></span>정상</span>
-          <span><span class="utl-dot" style="background:#f59e0b;"></span>주의</span>
-          <span><span class="utl-dot" style="background:#fbbf24;"></span>초기</span>
+          <span><span class="utl-dot" style="background:#2563eb;"></span>초과달성</span>
           <span><span class="utl-dot" style="background:var(--danger);"></span>오늘</span>
         </div>
       </div>
@@ -3289,6 +3692,8 @@ function openModal(title, bodyHtml, onConfirm) {
 }
 function closeModal() {
   document.getElementById('modal').style.display = 'none';
+  // v29.9: openExtraPerms 등에서 확장한 폭을 원상 복구 (다음 모달 정상 표시용)
+  const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '';
 }
 document.addEventListener('click', function(e){
   const m = document.getElementById('modal');
@@ -3637,6 +4042,13 @@ async function ensureDeptChannel(deptName) {
 // 프로젝트 등록 시 프로젝트 채널 자동 생성
 async function ensureProjectChannel(projectId, name) {
   if (!projectId) return;
+  // v29.9: name 없이 호출되면 Firestore가 `undefined` 값 저장을 거부하고 오류 로그를 뿌려
+  // 화면 리렌더에 영향 줌. 이런 데이터는 스킵. (원인: 옛 버전에서 저장된 name 필드 없는
+  // 프로젝트가 state.projects에 남아있을 수 있음)
+  if (!name || typeof name !== 'string') {
+    console.warn('[Firestore] 프로젝트 채널 스킵 — name 없음:', projectId);
+    return;
+  }
   try {
     await fb.setDoc(fb.doc(fb.db, 'channels', 'proj_' + projectId), { name, type: 'project', projectId }, { merge: true });
   } catch (e) { console.error('[Firestore] 프로젝트 채널 생성 오류:', e); }
@@ -4152,13 +4564,28 @@ function org() {
   // 사용자 한 줄 (컴팩트 테이블 row)
   const userRow = (u) => {
     const g = GRADES[u.grade] || GRADES.member;
-    const extras = (u.extraPerms||[]).map(p => EXTRA_PERMS[p] ? `<span class="perm-chip">+${EXTRA_PERMS[p].label}</span>` : '').join('');
+    // v29.8: 새 세분화 권한 뱃지 (개별 허용은 +초록, 개별 차단은 -빨강) + 구 extraPerms 하위호환 표시
+    const mpChips = [];
+    Object.entries(u.modulePerms||{}).forEach(([mid, acts]) => {
+      const mod = PERM_MODULES[mid];
+      Object.entries(acts||{}).forEach(([aid, val]) => {
+        const act = mod?.actions?.[aid];
+        if (!act) return;
+        const sign = val ? '+' : '-';
+        const bg   = val ? '#dcfce7' : '#fee2e2';
+        const fg   = val ? '#166534' : '#991b1b';
+        mpChips.push(`<span class="perm-chip" style="background:${bg};color:${fg};" title="${mod.label} / ${act.label}">${sign}${act.label}</span>`);
+      });
+    });
+    const legacyChips = (u.extraPerms||[]).map(p => EXTRA_PERMS[p] ? `<span class="perm-chip" title="구 시스템">+${EXTRA_PERMS[p].label}</span>` : '').join('');
+    const extras = [mpChips.join(''), legacyChips].filter(Boolean).join('');
     let btns = '';
     if (isSuper) {
       btns += `<button class="org-ico-btn" onclick="openExtraPerms('${u.id}')" title="개별 권한 부여">⚙️</button>`;
       if (u.grade !== 'super') {
         btns += `<button class="org-ico-btn" onclick="openEditUserProfile('${u.id}')" title="부서/직급 수정">✏️</button>`;
-        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화'}">${u.disabled?'🔓':'🔒'}</button>`;
+        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화 (로그인 차단, 기록 유지)'}">${u.disabled?'🔓':'🔒'}</button>`;
+        btns += `<button class="org-ico-btn" style="color:#991b1b;" onclick="hardDeleteUser('${u.id}')" title="계정 완전 삭제 (users 문서 제거)">🗑️</button>`;
       }
     }
     return `<tr style="${u.disabled?'opacity:.5;':''}">
@@ -4170,9 +4597,37 @@ function org() {
     </tr>`;
   };
 
+  // v29.9: 사전 등록 대기 계정 (아직 Google 로그인 안 한 미리 등록된 계정들)
+  const pending = state.pendingUsers || [];
+  const pendingHtml = (isSuper && pending.length) ? `
+    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--warning);padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 style="font-size:13px;">⏳ 사전 등록 대기 계정 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(${pending.length}명 · 해당 이메일로 첫 로그인 시 자동 승격)</span></h3>
+      </div>
+      <table class="org-table" style="font-size:12px;">
+        <thead><tr><th>이메일</th><th>이름</th><th>부서/직급</th><th>등록일</th><th style="text-align:right;">관리</th></tr></thead>
+        <tbody>${pending.map(p => `<tr>
+          <td style="font-family:monospace;font-size:11px;">${p.email||'-'}</td>
+          <td>${p.name||'-'}</td>
+          <td>${p.dept||'-'} · ${p.title||'-'}</td>
+          <td style="color:var(--text-lighter);">${p.createdAt?new Date(p.createdAt).toISOString().slice(0,10):'-'}</td>
+          <td style="text-align:right;white-space:nowrap;">
+            <button class="org-ico-btn" onclick="openPendingUser('${p.id}')" title="수정">✏️</button>
+            <button class="org-ico-btn" style="color:#dc2626;" onclick="deletePendingUser('${p.id}')" title="삭제">🗑️</button>
+          </td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>` : '';
+
   return `<div class="mod-head">
     <div><div class="mod-title">👥 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (부서/직급 수정·권한 부여·비활성화 가능)':'조회 전용'} · 계정은 Google 로그인으로 본인이 직접 생성</div></div>
+    ${isSuper ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="openWorkspaceImport()" title="Workspace 사용자 목록을 자동으로 불러와 일괄 사전 등록">👥 Workspace에서 가져오기</button>
+      <button class="btn btn-primary btn-sm" onclick="openPendingUser()">+ 계정 미리 등록</button>
+    </div>` : ''}
   </div>
+
+  ${pendingHtml}
 
   <details style="margin-bottom:14px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);">
     <summary style="cursor:pointer;padding:10px 14px;font-size:13px;font-weight:600;color:var(--primary);">🔐 권한 체계 보기 (등급 자동 결정 규칙)</summary>
@@ -4182,7 +4637,17 @@ function org() {
       </div>
       <div style="margin-top:10px;font-size:11px;color:var(--text-light);line-height:1.6;">
         📌 이사 이상→임원 · 부장→부서장 · 차장 이하→일반 · 시스템 오너→슈퍼관리자<br>
-        💡 등급은 기본 권한입니다. 일반 등급이어도 <b>⚙️ 버튼</b>으로 개인에게 스케줄·견적 등 추가 권한을 줄 수 있습니다.
+        💡 등급은 기본 권한입니다. <b>⚙️ 버튼</b>으로 도구별·액션별 개인 권한(NCR 삭제, CAR 삭제, ITP 승인 등)을 세분화해서 부여/차단할 수 있습니다.
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-light);line-height:1.6;padding-top:8px;border-top:1px solid var(--border-light);">
+        <b style="color:var(--text);">🔧 도구별 기본 부여 규칙</b><br>
+        ${Object.entries(PERM_MODULES).map(([mid, mod]) => {
+          const actions = Object.entries(mod.actions).map(([aid, act]) => {
+            const sem = grantSemantics(act.defaultGrant, mod);
+            return `${act.label}: <span style="color:var(--primary);">${sem.desc}</span>`;
+          }).join(' · ');
+          return `<div style="padding:3px 0;">${mod.icon} <b>${mod.label}</b> — ${actions}</div>`;
+        }).join('')}
       </div>
     </div>
   </details>
@@ -4200,32 +4665,151 @@ function org() {
   </div>`;
 }
 
-// 개별 추가 권한 부여 (슈퍼 전용)
+// 개별 추가 권한 부여 (슈퍼 전용) — v29.8부터 도구별·액션별 세분화, v29.9 UI 재설계
+// 각 모듈·액션을 하나의 표 안에 도구별 그룹핑, 라디오 3열(기본/허용/차단)로 조작.
 function openExtraPerms(uid) {
   const me = getU(state.currentUser);
   if (!me || me.grade !== 'super') { alert('권한 부여는 슈퍼관리자만 가능합니다.'); return; }
   const u = getU(uid);
   if (!u) return;
-  const cur = u.extraPerms || [];
-  const rows = Object.entries(EXTRA_PERMS).map(([k,v])=>`
-    <label style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;">
-      <input type="checkbox" name="xperm" value="${k}" ${cur.includes(k)?'checked':''} style="margin-top:2px;">
-      <div><div style="font-weight:600;font-size:13px;">${v.label}</div><div style="font-size:11px;color:var(--text-light);">${v.desc}</div></div>
-    </label>`).join('');
+  const curMP = u.modulePerms || {};
+  const rows = [];
+  Object.entries(PERM_MODULES).forEach(([modId, mod]) => {
+    // 모듈 헤더 행 — 도구 이름과 그 도구의 기본 접근 부서를 한 줄로
+    rows.push(`
+      <tr style="background:var(--primary-lighter);">
+        <td colspan="6" style="padding:8px 12px;font-size:12.5px;font-weight:700;color:var(--primary);">
+          ${mod.icon} ${mod.label}${mod.baseDept?` <span style="font-weight:400;color:var(--text-light);font-size:10.5px;">· 기본 접근: ${mod.baseDept}</span>`:''}
+        </td>
+      </tr>`);
+    Object.entries(mod.actions).forEach(([actId, act]) => {
+      const sem = grantSemantics(act.defaultGrant, mod);
+      const gotByDefault = sem.fn(u);
+      const explicit = curMP[modId] && (actId in (curMP[modId]||{})) ? curMP[modId][actId] : null;
+      const st = explicit === true ? 'allow' : explicit === false ? 'deny' : 'default';
+      const effective = explicit === true ? true : explicit === false ? false : gotByDefault;
+      const pillBg = effective ? '#dcfce7' : '#f3f4f6';
+      const pillFg = effective ? '#166534' : '#6b7280';
+      const pillText = effective ? '✅ 가능' : '⛔ 불가';
+      const name = `mp_${modId}_${actId}`;
+      rows.push(`
+        <tr style="border-top:1px solid var(--border-light);">
+          <td style="padding:8px 12px;font-size:12px;color:var(--text);">${act.label}</td>
+          <td style="padding:8px 8px;font-size:11px;color:var(--text-light);">${sem.desc}<span style="color:${gotByDefault?'#059669':'#9ca3af'};font-size:10px;margin-left:4px;">${gotByDefault?'✓':'—'}</span></td>
+          <td style="padding:8px 8px;text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:${pillBg};color:${pillFg};">${pillText}</span></td>
+          <td style="padding:8px 8px;text-align:center;"><label style="cursor:pointer;"><input type="radio" name="${name}" value="default" ${st==='default'?'checked':''} data-mp="${modId}.${actId}"></label></td>
+          <td style="padding:8px 8px;text-align:center;"><label style="cursor:pointer;"><input type="radio" name="${name}" value="allow" ${st==='allow'?'checked':''} data-mp="${modId}.${actId}"></label></td>
+          <td style="padding:8px 8px;text-align:center;"><label style="cursor:pointer;"><input type="radio" name="${name}" value="deny" ${st==='deny'?'checked':''} data-mp="${modId}.${actId}"></label></td>
+        </tr>`);
+    });
+  });
+  const legacy = (u.extraPerms||[]).length ? `
+    <div style="margin-top:14px;padding:9px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;">
+      ⚠️ 이전 방식의 추가 권한 남아있음: ${(u.extraPerms||[]).map(k => EXTRA_PERMS[k]?.label || k).join(', ')} — 계속 유지됩니다. 신 방식으로 이관하려면 위 표에서 다시 설정하세요.
+    </div>` : '';
   openModal(`⚙️ 개별 권한 — ${u.name} ${u.title}`, `
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">등급(<b>${(GRADES[u.grade]||{}).label}</b>)과 별개로 추가 권한을 선택합니다.</div>
-    ${rows}
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;line-height:1.6;">
+      등급 <b>${(GRADES[u.grade]||{}).label}</b> · 부서 <b>${u.dept||'-'}</b><br>
+      각 액션마다 <b>기본</b> (도구별 기본 규칙 따름) / <b>👍 개별 허용</b> / <b>🚫 개별 차단</b> 셋 중 하나를 선택합니다.<br>
+      <span style="color:var(--text-lighter);font-size:11px;">"기본 부여 대상" 옆 <span style="color:#059669;">✓</span>는 이 사용자가 기본으로 자격이 있음을 뜻합니다.</span>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-light);">도구 · 액션</th>
+            <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--text-light);">기본 부여 대상</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:var(--text-light);width:70px;">현재</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:var(--text-light);width:60px;">기본</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#059669;width:70px;">👍 허용</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#dc2626;width:70px;">🚫 차단</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>
+    ${legacy}
   `, async () => {
-    const checked = Array.from(document.querySelectorAll('input[name="xperm"]:checked')).map(c=>c.value);
+    const nextMP = {};
+    document.querySelectorAll('input[type="radio"][data-mp]:checked').forEach(r => {
+      const [modId, actId] = r.getAttribute('data-mp').split('.');
+      if (r.value === 'default') return;
+      nextMP[modId] = nextMP[modId] || {};
+      nextMP[modId][actId] = (r.value === 'allow');
+    });
     try {
-      await fb.updateDoc(fb.doc(fb.db, 'users', uid), { extraPerms: checked });
-      u.extraPerms = checked;
+      await fb.updateDoc(fb.doc(fb.db, 'users', uid), { modulePerms: nextMP });
+      u.modulePerms = nextMP;
       closeModal();
+      // 저장 후 모달 폭은 다음 모달을 위해 원래대로 복구
+      const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '';
       render();
     } catch (e) {
       alert('저장 중 오류가 발생했습니다: ' + (e.message || e));
     }
   });
+  // 권한 표가 넓기 때문에 이 모달만 유일하게 폭 확장 (기본 480 → 820)
+  const _mBox = document.querySelector('#modal .modal'); if (_mBox) _mBox.style.maxWidth = '820px';
+}
+
+// v29.9: 계정 사전 등록 (슈퍼관리자 전용) — 신규 입사자 등이 아직 Google 로그인 하기 전에
+// 이메일·이름·부서·직급을 미리 넣어두면, 해당 이메일로 첫 로그인 시 자동으로 실제 users 문서로
+// 승격되어 소속 입력 화면을 건너뛴다. pendingUsers 컬렉션에 저장.
+async function openPendingUser(pendingId) {
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') { alert('계정 사전 등록은 슈퍼관리자만 가능합니다.'); return; }
+  let p = pendingId ? (state.pendingUsers || []).find(x => x.id === pendingId) : null;
+  const editing = !!p;
+  if (!p) p = { email: '', name: '', dept: '품질관리부', title: '사원' };
+  const deptOpts = DEPTS.map(d => `<option value="${d.name}" ${p.dept===d.name?'selected':''}>${d.name}</option>`).join('');
+  const titleOpts = TITLES.map(t => `<option value="${t}" ${p.title===t?'selected':''}>${t}</option>`).join('');
+  openModal(editing ? `✏️ 사전 등록 계정 수정` : `+ 계정 미리 등록`, `
+    <div style="font-size:11px;color:var(--text-light);background:var(--bg);padding:9px 12px;border-radius:6px;margin-bottom:14px;line-height:1.55;">
+      💡 이 이메일 계정으로 사용자가 처음 Google 로그인하면, 아래 입력한 부서·직급 정보로 자동으로 계정이 생성됩니다. 소속 입력 화면을 건너뛰게 하는 관리 편의 기능.
+    </div>
+    <div class="fg"><label class="fl">이메일 <span style="color:var(--danger);">*</span></label><input class="fi" id="puEmail" placeholder="name@sejong-21c.com" value="${p.email||''}" ${editing?'readonly style="background:#f5f5f5;"':''}></div>
+    <div class="fg"><label class="fl">이름</label><input class="fi" id="puName" placeholder="홍길동" value="${p.name||''}"></div>
+    <div class="fg" style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="fl">부서</label><select class="fs" id="puDept">${deptOpts}</select></div>
+      <div style="flex:1;"><label class="fl">직급</label><select class="fs" id="puTitle">${titleOpts}</select></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-light);margin-top:-6px;margin-bottom:10px;">직급에 따라 권한 등급이 자동 결정됩니다 (이사 이상→임원, 부장→부서장, 그 외→일반).</div>
+  `, async () => {
+    const email = document.getElementById('puEmail').value.trim().toLowerCase();
+    const name  = document.getElementById('puName').value.trim();
+    const dept  = document.getElementById('puDept').value;
+    const title = document.getElementById('puTitle').value;
+    if (!email || !email.endsWith('@sejong-21c.com')) { alert('sejong-21c.com 이메일을 입력해주세요.'); return; }
+    // 이미 실제 등록된 이메일인지 확인 (중복 방지)
+    const already = (state.users||[]).find(u => (u.email||'').toLowerCase() === email);
+    if (already) { alert(`이미 등록된 계정입니다: ${already.name} ${already.title} (${already.dept})`); return; }
+    // 같은 이메일의 다른 pending 문서와 중복 방지 (수정 중이면 자기 자신 제외)
+    const dup = (state.pendingUsers||[]).find(x => (x.email||'').toLowerCase() === email && x.id !== (pendingId||''));
+    if (dup) { alert(`이미 사전 등록 대기 중인 이메일입니다.`); return; }
+    const payload = {
+      email, name, dept, title,
+      grade: gradeByTitle(title),
+      createdAt: p.createdAt || Date.now(),
+      createdBy: p.createdBy || state.currentUser,
+      updatedAt: Date.now(),
+    };
+    try {
+      if (editing) await fb.setDoc(fb.doc(fb.db, 'pendingUsers', pendingId), payload, { merge: true });
+      else await fb.setDoc(fb.doc(fb.db, 'pendingUsers', 'pu_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)), payload);
+      closeModal();
+    } catch (e) {
+      alert('저장 중 오류가 발생했습니다: ' + (e.message || e));
+    }
+  });
+}
+async function deletePendingUser(pendingId) {
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') return;
+  const p = (state.pendingUsers||[]).find(x => x.id === pendingId);
+  if (!p) return;
+  if (!confirm(`사전 등록 계정 "${p.email}"을(를) 삭제할까요?`)) return;
+  try { await fb.deleteDoc(fb.doc(fb.db, 'pendingUsers', pendingId)); }
+  catch (e) { alert('삭제 중 오류: ' + (e.message || e)); }
 }
 
 // 부서/직급 수정 (슈퍼관리자 전용) — 계정 자체는 Google 로그인으로 본인이 만들므로, 관리자는 소속 정보만 조정
@@ -4272,6 +4856,34 @@ async function toggleUserDisabled(uid) {
     render();
   } catch (e) {
     alert('처리 중 오류가 발생했습니다: ' + (e.message || e));
+  }
+}
+
+// v29.9: 계정 완전 삭제 (슈퍼 전용, 이중 확인). Firestore users 문서 자체를 제거.
+// NCR·CAR·프로젝트·업무 등에 남아있는 UID 참조는 그대로 두지만 이름 조회가 실패해
+// "삭제된 사용자"로 표시됨. 감사 목적으로는 이 방식이 안전 — 기록은 지우지 않고
+// 계정만 제거. Google Auth의 계정 자체는 별개(재로그인 시 promotePendingUser로 재생성 가능).
+async function hardDeleteUser(uid) {
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') return;
+  const u = getU(uid);
+  if (!u) return;
+  if (u.grade === 'super') { alert('슈퍼관리자 계정은 삭제할 수 없습니다.'); return; }
+  if (u.id === state.currentUser) { alert('본인 계정은 삭제할 수 없습니다.'); return; }
+  const c1 = confirm(`⚠️ ${u.name} ${u.title} (${u.email}) 계정을 완전 삭제합니다.\n\n· 이 사용자의 로그인 정보가 users 컬렉션에서 제거됩니다.\n· NCR·CAR·프로젝트·업무 등 기록에 남아있는 사용자 UID는 유지되지만, 이름 조회가 실패해 "삭제된 사용자"로 표시됩니다.\n· 이 사용자가 다시 Google 로그인하면 새 계정으로 재등록됩니다 (필요 시 사전 등록으로 미리 소속 지정).\n\n비활성화만 원하시면 [취소]하고 🔒 버튼을 사용하세요.\n\n계속하시겠습니까?`);
+  if (!c1) return;
+  const confirmText = prompt(`정말 삭제하려면 이메일 앞부분을 입력하세요:\n(예: ${(u.email||'').split('@')[0]})`);
+  if (!confirmText || confirmText.trim().toLowerCase() !== (u.email||'').split('@')[0].toLowerCase()) {
+    alert('입력이 일치하지 않아 삭제를 취소했습니다.');
+    return;
+  }
+  try {
+    await fb.deleteDoc(fb.doc(fb.db, 'users', uid));
+    // 로컬 state에서도 즉시 제거 (Firestore 스냅샷 콜백이 곧 덮어쓰지만 UI 반응성용)
+    state.users = (state.users||[]).filter(x => x.id !== uid);
+    render();
+  } catch (e) {
+    alert('삭제 중 오류가 발생했습니다: ' + (e.message || e));
   }
 }
 
@@ -4325,8 +4937,17 @@ function openApproval() {
 }
 
 /* ═════════════ 🎬 초기화 ═════════════ */
-function init() {
+async function init() {
   if (!window.fb) { setTimeout(init, 100); return; } // Firebase SDK 로딩 대기
+  // v29.7.3: 리디렉션에서 돌아왔으면 signInWithCredential이 완료될 때까지 대기 후에
+  // onAuthStateChanged를 등록. 그 전에 등록하면 sign-in 완료 전의 null 상태로 handleAuthChange가
+  // 호출되어 로그인 화면이 잠깐 뜨는 "깜빡임"이 발생하고, 사용자가 버튼을 다시 눌러 왕복이 반복되는
+  // 문제가 있었음. hash에 access_token이 있을 때만 대기 UI 표시.
+  const hasRedirectHash = /[#&]access_token=|^#access_token=/.test(location.hash);
+  if (hasRedirectHash) {
+    showAuthLoading();
+    try { await processRedirectLogin(); } catch (e) { console.error('[init] processRedirectLogin 실패', e); }
+  }
   fb.onAuthStateChanged(fb.auth, handleAuthChange);
 }
 window.addEventListener('DOMContentLoaded', init);

@@ -133,44 +133,20 @@ input[type=file]{display:none}
   <div class="step">
     <div class="step-num">1</div>
     <div class="step-title">프로젝트 & 아이템</div>
-    <select id="proj" onchange="onProjChange()" style="margin-bottom:8px">
-      <option value="">— 프로젝트 선택 —</option>
-    </select>
+    <div id="proj-badge" style="font-size:13px;font-weight:600;color:#185fa5;background:#eef4fb;padding:9px 12px;border-radius:10px;margin-bottom:8px">⏳ ITP Builder 데이터 로딩 중...</div>
     <select id="item" disabled onchange="onItemChange()">
       <option value="">— 아이템 선택 —</option>
     </select>
-    <div id="item-mgr" style="display:none;margin-top:10px;border-top:0.5px solid #f0ede8;padding-top:10px">
-      <p style="font-size:12px;color:#888;margin-bottom:6px">아이템 관리</p>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="new-item" placeholder="새 아이템 입력" style="flex:1;font-size:13px;padding:9px 12px">
-        <button onclick="addItem()" style="padding:9px 14px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">추가</button>
-      </div>
-      <div id="item-list" style="margin-top:8px;display:flex;flex-direction:column;gap:4px"></div>
-    </div>
-    <button onclick="toggleItemMgr()" id="mgr-toggle-btn" style="margin-top:8px;background:none;border:none;color:#185fa5;font-size:12px;cursor:pointer;padding:0;display:none">
-      <i class="ti ti-settings" aria-hidden="true"></i> 아이템 관리
-    </button>
     <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid #f0ede8">
       <p style="font-size:12px;color:#888;margin-bottom:6px;font-weight:500">
         <i class="ti ti-list-check" aria-hidden="true" style="margin-right:3px"></i>
-        검사 항목 (Manufacture Manager 연동)
+        검사 항목 (ITP Builder 연동)
       </p>
       <select id="itp" disabled onchange="onItpChange()">
         <option value="">— ITP 검사 항목 선택 —</option>
-        <option value="01">01. General Welding Inspection (용접 종합)</option>
-        <option value="02">02. Material Inspection (재료 검사)</option>
-        <option value="03">03. Bending Inspection (벤딩 검사)</option>
-        <option value="04">04. Forming Inspection (성형 검사)</option>
-        <option value="05">05. Fit-up Inspection (가조립)</option>
-        <option value="06">06. NDE — Non-Destructive (비파괴)</option>
-        <option value="07">07. Dimension Report (치수 검사)</option>
-        <option value="08">08. Hydrostatic &amp; Leak Test (수압·누설)</option>
-        <option value="09">09. Final Visual Inspection (최종 외관)</option>
-        <option value="10">10. Surface Treatment (산세·버핑)</option>
-        <option value="11">11. Shipping Preparation (출하 준비)</option>
       </select>
       <p style="font-size:10px;color:#999;margin-top:5px;line-height:1.4">
-        ※ 아이템 선택 후 활성화 · EPC Control 연동 시 자동 갱신
+        ※ 아이템 선택 후 활성화 · ITP Builder 연동 데이터
       </p>
 
       <!-- 검사값 입력 영역 (ITP 항목별 동적 필드) -->
@@ -324,54 +300,75 @@ input[type=file]{display:none}
 <div class="toast" id="toast"></div>
 
 <script>
-const STORE_KEY='sejong_insp_records';
-const PROJ_KEY='sejong_projects';
-
-// v1.0 — ITP Builder에서 업로드한 검사자(Inspector) List를 그대로 읽어온다.
-// index.html이 iframe에 ?pid=...를 넘겨주므로 ITP Builder와 동일한 키 규칙을 사용.
+const STORE_KEY='sejong_insp_records'; // 이전 버전 마이그레이션용
 const MI_PID = new URLSearchParams(window.location.search).get('pid') || 'standalone';
 const MASTER_INSPECTOR_KEY = `sjp_master_inspector_list__${MI_PID}`;
+const ITP_BUILDER_KEY = `sjp_itp_builder_v1__${MI_PID}`;
+const INSP_RESULTS_KEY = `sjp_insp_results__${MI_PID}`;
 function loadInspectorMasterList(){
   try { const v = JSON.parse(localStorage.getItem(MASTER_INSPECTOR_KEY)||'null'); return Array.isArray(v) ? v : []; } catch(e) { return []; }
 }
 let selectedInspectors = []; // 이번 등록 건에 토글로 선택된 검사자(이름) 목록
 
-const DEFAULT_PROJECTS={
-  'P-2025-041 / Canned Motor Pump (정유화학)':[
-    'CMP-001 / Feed Pump A','CMP-002 / Feed Pump B',
-    'CMP-003 / Circulation Pump','CMP-004 / Charge Pump',
-    'CMP-005 / Product Pump A','CMP-006 / Product Pump B'
-  ],
-  'P-2025-038 / Shell & Tube Heat Exchanger (석유화학)':[
-    'HEX-001 / Feed/Effluent Exchanger','HEX-002 / Trim Cooler',
-    'HEX-003 / Overhead Condenser','HEX-004 / Reboiler',
-    'HEX-005 / BFW Preheater'
-  ],
-  'P-2025-035 / SUS Storage Tank (제약)':[
-    'TK-001 / Feed Tank (10㎥)','TK-002 / Product Tank (20㎥)',
-    'TK-003 / Slop Tank (5㎥)','TK-004 / Buffer Tank (15㎥)'
-  ],
-  'P-2025-029 / Pressure Vessel (가스처리)':[
-    'PV-001 / Suction Drum','PV-002 / Separator',
-    'PV-003 / Knock-out Drum A','PV-004 / Knock-out Drum B',
-    'PV-005 / Filter Vessel'
-  ],
-  'P-2025-022 / Agitator & Reactor (정밀화학)':[
-    'RX-001 / Main Reactor (5㎥)','RX-002 / Pre-reactor (2㎥)',
-    'RX-003 / Neutralization Tank','AG-001 / Agitator Assembly',
-    'AG-002 / Seal Pot'
-  ]
-};
-
-function loadProjects(){
-  try{
-    const d=localStorage.getItem(PROJ_KEY);
-    return d ? JSON.parse(d) : JSON.parse(JSON.stringify(DEFAULT_PROJECTS));
-  }catch(e){ return JSON.parse(JSON.stringify(DEFAULT_PROJECTS)); }
+function loadITPBuilderState(){
+  try{ const v=JSON.parse(localStorage.getItem(ITP_BUILDER_KEY)||'null'); return v||null; }catch(e){ return null; }
 }
-function saveProjects(d){try{localStorage.setItem(PROJ_KEY,JSON.stringify(d));}catch(e){}}
-function loadRecords(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||[];}catch(e){return[];}}
-function saveRecords(r){try{localStorage.setItem(STORE_KEY,JSON.stringify(r));}catch(e){showToast('저장 공간 부족');}}
+
+function loadResults(){
+  try{
+    const r=JSON.parse(localStorage.getItem(INSP_RESULTS_KEY)||'null');
+    if(Array.isArray(r)) return r;
+    // 이전 버전 데이터 마이그레이션
+    const old=JSON.parse(localStorage.getItem(STORE_KEY)||'null');
+    if(Array.isArray(old)&&old.length){ try{ localStorage.setItem(INSP_RESULTS_KEY,JSON.stringify(old)); }catch(e){} }
+    return Array.isArray(old)?old:[];
+  }catch(e){ return []; }
+}
+function saveResults(r){ try{ localStorage.setItem(INSP_RESULTS_KEY,JSON.stringify(r)); }catch(e){ showToast('저장 공간 부족'); } }
+
+function getItpFieldsKey(activity){
+  const a=(activity||'').toLowerCase();
+  if(a.includes('welding')) return '01';
+  if(a.includes('material')) return '02';
+  if(a.includes('bending')) return '03';
+  if(a.includes('forming')) return '04';
+  if(a.includes('fit-up')||a.includes('fit up')) return '05';
+  if(a.includes('nde')||a.includes('non-dest')) return '06';
+  if(a.includes('dimension')||a.includes('visual & dim')) return '07';
+  if(a.includes('hydrost')||a.includes('pressure test')) return '08';
+  if(a.includes('final visual')) return '09';
+  if(a.includes('surface')||a.includes('acid')||a.includes('buffing')||a.includes('painting')) return '10';
+  if(a.includes('shipping')) return '11';
+  return null;
+}
+// localStorage 5MB 한계 — 저장 실패 시 오래된 5건을 백업 다운로드 후 공간 확보 재시도
+function saveResults(r){
+  try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(r)); return true; }
+  catch(e) {
+    if (r.length > 5) {
+      const sorted = [...r].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      const oldFive = sorted.slice(0, 5);
+      const remaining = r.filter(x => !oldFive.some(o => o.id === x.id));
+      try {
+        const blob = new Blob([JSON.stringify(oldFive, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `현장검사_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+      } catch(_) {}
+      try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(remaining)); alert('⚠️ 저장 공간이 부족해 오래된 검사 기록 5건을 JSON으로 백업 다운로드했습니다. 새 기록은 정상 저장됐습니다.'); return true; }
+      catch(_) {}
+    }
+    showToast('저장 공간 부족 — 사진 크기를 줄이거나 이전 기록을 정리하세요.');
+    return false;
+  }
+}
+function getStorageUsagePercent(){
+  try {
+    const bytes = new Blob([localStorage.getItem(INSP_RESULTS_KEY) || '']).size;
+    return Math.min(100, Math.round(bytes / (5 * 1024 * 1024) * 100));
+  } catch(e) { return 0; }
+}
 
 // ── 초기화 ──────────────────────────────
 window.addEventListener('DOMContentLoaded', ()=>{
@@ -392,58 +389,58 @@ window.addEventListener('DOMContentLoaded', ()=>{
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');processFiles(Array.from(e.dataTransfer.files));});
   fi.addEventListener('change',()=>{processFiles(Array.from(fi.files));fi.value='';});
 
-  // 프로젝트 드롭다운 초기화
-  initProjSelect();
+  // ITP Builder 연동 초기화
+  initFromITPBuilder();
   renderInspectorToggles();
   renderHist();
 });
 
-// ── 프로젝트 & 아이템 ────────────────────
-function initProjSelect(){
-  const sel=document.getElementById('proj');
-  const projects=loadProjects();
-  sel.innerHTML='<option value="">— 프로젝트 선택 —</option>';
-  Object.keys(projects).forEach(p=>{
-    const opt=document.createElement('option');
-    opt.value=p; opt.textContent=p; sel.appendChild(opt);
-  });
-  // SJ FLOW에서 프로젝트를 선택해 들어온 경우 → 자동 선택 + 드롭다운 숨김
-  const urlProj = new URLSearchParams(window.location.search).get('proj');
-  if (urlProj) {
-    // 목록에 없으면 추가 (SJ FLOW 프로젝트 코드)
-    if (!Array.from(sel.options).some(o => o.value === urlProj)) {
-      const opt=document.createElement('option');
-      opt.value=urlProj; opt.textContent=urlProj; sel.appendChild(opt);
-    }
-    sel.value = urlProj;
-    onProjChange();
-    // 프로젝트 드롭다운 숨김 (이미 선택됨) — 선택된 프로젝트는 작게 표시
-    sel.style.display = 'none';
-    const badge = document.createElement('div');
-    badge.style.cssText = 'font-size:13px;font-weight:600;color:#185fa5;background:#eef4fb;padding:9px 12px;border-radius:10px;margin-bottom:8px;';
-    badge.innerHTML = '📁 ' + urlProj;
-    sel.parentNode.insertBefore(badge, sel);
-  }
-}
-
-function onProjChange(){
-  const proj=document.getElementById('proj').value;
+// ── ITP Builder 연동 초기화 ─────────────────
+function initFromITPBuilder(){
+  const state=loadITPBuilderState();
+  const badge=document.getElementById('proj-badge');
   const itemSel=document.getElementById('item');
-  const mgrBtn=document.getElementById('mgr-toggle-btn');
-  const itemMgr=document.getElementById('item-mgr');
   const itpSel=document.getElementById('itp');
+
+  if(!state){
+    badge.innerHTML='⚠️ ITP Builder 데이터 없음 — 먼저 ITP Builder에서 프로젝트를 작성해 주세요';
+    badge.style.background='#fff3cd'; badge.style.color='#856404';
+    itemSel.innerHTML='<option value="">— 아이템 선택 —</option>';
+    itemSel.disabled=true;
+    itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
+    itpSel.disabled=true;
+    return;
+  }
+
+  const projCode=state.proj?.code||'';
+  const projName=state.proj?.name||state.proj||'';
+  const projLabel=[projCode, projName].filter(Boolean).join(' / ')||'(프로젝트 정보 없음)';
+  badge.innerHTML='📁 '+projLabel;
+  badge.style.background='#eef4fb'; badge.style.color='#185fa5';
+
+  // 아이템 드롭다운
   itemSel.innerHTML='<option value="">— 아이템 선택 —</option>';
-  itpSel.value='';
-  itpSel.disabled=true;
-  if(!proj){itemSel.disabled=true;mgrBtn.style.display='none';itemMgr.style.display='none';return;}
-  const projects=loadProjects();
-  (projects[proj]||[]).forEach(it=>{
+  (state.items||[]).forEach(it=>{
+    const label=[it.tag, it.name].filter(Boolean).join(' / ');
     const opt=document.createElement('option');
-    opt.value=it; opt.textContent=it; itemSel.appendChild(opt);
+    opt.value=label; opt.textContent=label;
+    itemSel.appendChild(opt);
   });
-  itemSel.disabled=false;
-  mgrBtn.style.display='inline-flex';
-  renderItemList(proj);
+  itemSel.disabled=(state.items||[]).length===0;
+
+  // ITP 드롭다운 (active rows만)
+  itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
+  const activeRows=(state.itpRows||[]).filter(r=>r.active!==false);
+  activeRows.forEach((row,i)=>{
+    const fk=getItpFieldsKey(row.activity);
+    const opt=document.createElement('option');
+    opt.value=row.id||String(i);
+    opt.dataset.activity=row.activity||'';
+    opt.dataset.fieldsKey=fk||'';
+    opt.textContent=(fk?fk+'. ':'')+row.activity;
+    itpSel.appendChild(opt);
+  });
+  itpSel.disabled=true; // 아이템 선택 후 활성화
 }
 
 function onItemChange(){
@@ -559,12 +556,14 @@ const ITP_FIELDS={
 };
 
 function onItpChange(){
-  const itpId=document.getElementById('itp').value;
+  const itpSel=document.getElementById('itp');
+  const itpVal=itpSel.value;
   const wrap=document.getElementById('insp-wrap');
-  if(!itpId){ wrap.style.display='none'; return; }
+  if(!itpVal){ wrap.style.display='none'; return; }
   wrap.style.display='block';
-  renderInspFields(itpId);
-  // 기본 펼침 상태
+  const selOpt=itpSel.options[itpSel.selectedIndex];
+  const fieldsKey=selOpt?.dataset?.fieldsKey||'';
+  renderInspFields(fieldsKey);
   document.getElementById('insp-fields').style.display='block';
   document.getElementById('insp-toggle-ic').innerHTML='<i class="ti ti-chevron-up" aria-hidden="true"></i>';
 }
@@ -825,46 +824,6 @@ function collectInspData(){
   return data;
 }
 
-function toggleItemMgr(){
-  const mgr=document.getElementById('item-mgr');
-  mgr.style.display=mgr.style.display==='none'?'block':'none';
-}
-
-function renderItemList(proj){
-  const items=loadProjects()[proj]||[];
-  const el=document.getElementById('item-list');
-  el.innerHTML='';
-  items.forEach((it,i)=>{
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;justify-content:space-between;background:#f7f6f3;border-radius:8px;padding:7px 10px';
-    row.innerHTML=`<span style="font-size:13px;color:#3a3a38">${it}</span>
-      <button onclick="removeItem(${i})" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px;padding:0"><i class="ti ti-trash"></i></button>`;
-    el.appendChild(row);
-  });
-}
-
-function addItem(){
-  const proj=document.getElementById('proj').value;
-  const val=document.getElementById('new-item').value.trim();
-  if(!proj||!val){showToast('⚠️ 프로젝트와 아이템명을 입력해 주세요');return;}
-  const projects=loadProjects();
-  if(!projects[proj])projects[proj]=[];
-  if(projects[proj].includes(val)){showToast('⚠️ 이미 있는 아이템입니다');return;}
-  projects[proj].push(val);
-  saveProjects(projects);
-  document.getElementById('new-item').value='';
-  onProjChange();
-  showToast('✅ 아이템이 추가되었습니다');
-}
-
-function removeItem(idx){
-  const proj=document.getElementById('proj').value;
-  const projects=loadProjects();
-  projects[proj].splice(idx,1);
-  saveProjects(projects);
-  onProjChange();
-  showToast('🗑️ 아이템이 삭제되었습니다');
-}
 
 // ── 합부 판정 ────────────────────────────
 // ── 검사자 토글 선택 (ITP Builder 업로드 목록 + 직접 추가) ──
@@ -966,20 +925,24 @@ function removePending(i){pendingFiles.splice(i,1);renderPreviews();}
 
 // ── 등록 ─────────────────────────────────
 function submitUpload(){
-  const proj=document.getElementById('proj').value;
+  const state=loadITPBuilderState();
+  const projCode=state?.proj?.code||'';
+  const projName=state?.proj?.name||state?.proj||'';
+  const proj=[projCode, projName].filter(Boolean).join(' / ')||'(프로젝트 미지정)';
   const item=document.getElementById('item').value;
   const date=document.getElementById('insp-date').value;
-  const itpSelect=document.getElementById('itp');
-  const itpId=itpSelect.value;
-  const itpName=itpSelect.options[itpSelect.selectedIndex]?.text.replace(/^[0-9]+\.\s*/, '').replace(/\s*\(.*\)$/, '')||'';
-  const stage=itpId ? `${itpId}. ${itpName}` : '—';
+  const itpSel=document.getElementById('itp');
+  const itpVal=itpSel.value;
+  const selOpt=itpSel.options[itpSel.selectedIndex];
+  const itpName=selOpt?.dataset?.activity||selOpt?.text||'';
+  const fieldsKey=selOpt?.dataset?.fieldsKey||'';
+  const stage=itpVal ? (fieldsKey?fieldsKey+'. ':'')+itpName : '—';
   const result=document.querySelector('#result-grid .stage-btn.sel')?.dataset.val||'합격';
   const failNote=document.getElementById('fail-note').value||'';
   const note=result==='합격'?'합격':`${result} — ${failNote||'사유 미기재'}`;
   const inspData=collectInspData();
-  if(!proj){showToast('⚠️ 프로젝트를 선택해 주세요');return;}
   if(!item){showToast('⚠️ 아이템을 선택해 주세요');return;}
-  if(!itpId){showToast('⚠️ ITP 검사 항목을 선택해 주세요');return;}
+  if(!itpVal){showToast('⚠️ ITP 검사 항목을 선택해 주세요');return;}
   if(!date){showToast('⚠️ 검사 일시를 입력해 주세요');return;}
   if(!pendingFiles.length){showToast('⚠️ 사진을 1장 이상 선택해 주세요');return;}
 
@@ -996,20 +959,16 @@ function submitUpload(){
     w+=Math.random()*15+8;
     if(w>=100){w=100;clearInterval(iv);
       setTimeout(()=>{
-        const records=loadRecords();
-        const rec={id:Date.now(),proj,item,date,stage,itpId,itpName,result,note,inspData,inspectors:[...selectedInspectors],photos:pendingFiles.map(f=>({name:f.name,dataUrl:f.dataUrl}))};
-        records.unshift(rec);
-        saveRecords(records);
+        const results=loadResults();
+        const rec={id:Date.now(),proj,item,date,stage,itpId:itpVal,itpName,fieldsKey,result,note,inspData,inspectors:[...selectedInspectors],photos:pendingFiles.map(f=>({name:f.name,dataUrl:f.dataUrl}))};
+        results.unshift(rec);
+        saveResults(results);
         pendingFiles=[];renderPreviews();
-        document.getElementById('proj').value='';
-        document.getElementById('item').innerHTML='<option value="">— 아이템 선택 —</option>';
-        document.getElementById('item').disabled=true;
+        document.getElementById('item').value='';
         document.getElementById('itp').value='';
         document.getElementById('itp').disabled=true;
         document.getElementById('insp-wrap').style.display='none';
         document.getElementById('insp-fields').innerHTML='';
-        document.getElementById('mgr-toggle-btn').style.display='none';
-        document.getElementById('item-mgr').style.display='none';
         document.getElementById('fail-note').value='';
         selectResult('합격');
         selectedInspectors=[];renderInspectorToggles();
@@ -1032,12 +991,12 @@ function switchTab(tab){
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
   });
   document.getElementById('detail-screen').style.display='none';
-  if(tab==='upload') { initProjSelect(); renderInspectorToggles(); }
+  if(tab==='upload') { initFromITPBuilder(); renderInspectorToggles(); }
   if(tab==='hist') renderHist();
 }
 
 function renderHist(){
-  const records=loadRecords();
+  const records=loadResults();
   const el=document.getElementById('hist-list');
   const empty=document.getElementById('hist-empty');
   el.innerHTML='';
@@ -1063,7 +1022,7 @@ function renderHist(){
 let currentRecId=null,delTargetIdx=null;
 
 function openDetail(id){
-  const rec=loadRecords().find(r=>r.id===id);
+  const rec=loadResults().find(r=>r.id===id);
   if(!rec)return;
   currentRecId=id;
   document.getElementById('det-proj').textContent=rec.proj;
@@ -1100,12 +1059,12 @@ function askDel(idx,dataUrl){delTargetIdx=idx;document.getElementById('del-previ
 function cancelDel(){document.getElementById('del-modal').classList.remove('open');delTargetIdx=null;}
 function confirmDel(){
   if(delTargetIdx===null)return;
-  const records=loadRecords();
+  const records=loadResults();
   const ri=records.findIndex(r=>r.id===currentRecId);
   if(ri>-1){
     records[ri].photos.splice(delTargetIdx,1);
     if(!records[ri].photos.length)records.splice(ri,1);
-    saveRecords(records);
+    saveResults(records);
     document.getElementById('del-modal').classList.remove('open');
     delTargetIdx=null;
     showToast('🗑️ 사진이 삭제되었습니다');
@@ -1116,7 +1075,7 @@ function confirmDel(){
 
 // ── 사진대지 ──────────────────────────────
 function openSheet(){
-  const rec=loadRecords().find(r=>r.id===currentRecId);
+  const rec=loadResults().find(r=>r.id===currentRecId);
   if(!rec)return;
   const sg=document.getElementById('sel-grid');
   sg.innerHTML='';
@@ -1142,7 +1101,7 @@ function backToSelect(){
 const A4W=794,A4H=1123;
 
 function buildSheet(){
-  const rec=loadRecords().find(r=>r.id===currentRecId);
+  const rec=loadResults().find(r=>r.id===currentRecId);
   if(!rec)return;
   const chosen=[...document.querySelectorAll('.sel-item.chosen')].map(el=>parseInt(el.dataset.idx));
   if(!chosen.length){showToast('⚠️ 사진을 1장 이상 선택해 주세요');return;}
@@ -1274,7 +1233,7 @@ async function downloadPDF(){
       const pdfH=page.offsetHeight*(210/794);
       pdf.addImage(imgData,'JPEG',0,0,210,pdfH>297?297:pdfH);
     }
-    const rec=loadRecords().find(r=>r.id===currentRecId);
+    const rec=loadResults().find(r=>r.id===currentRecId);
     pdf.save(`사진대지_${rec?.stage||'검사'}_${(rec?.date||'').slice(0,10)}.pdf`);
     showToast('✅ PDF 다운로드 완료');
   }catch(e){

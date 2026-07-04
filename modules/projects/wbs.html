@@ -59,9 +59,7 @@ tr.sel td{background:#eef3fb}
 .ir{padding:7px 11px;border-bottom:1px solid #f0f4f8;cursor:pointer;border-left:3px solid transparent}
 .ir:hover{background:#f9fafb}.ir.sel{background:#eef3fb;border-left-color:#4a7fc1}
 .split-w{display:flex;flex:1;overflow:hidden}
-.tpn{width:42%;overflow:auto;background:#fff;border-radius:8px 0 0 8px;border:1px solid #e4e7ec;border-right:none}
-.gpn{flex:1;overflow:auto;background:#fff;border-radius:0 8px 8px 0;border:1px solid #e4e7ec}
-.spn{flex:1;overflow:auto;background:#fff;border-radius:8px;border:1px solid #e4e7ec}
+/* v29.9: 옛 3분할 뷰 클래스 (.tpn/.gpn/.spn) 는 어디에서도 사용 안 됨 — 통합 테이블로 대체됨. 제거. */
 .mrow{display:flex;background:#f8fafc;border-bottom:1px solid #e4e7ec;position:sticky;top:0;z-index:5}
 .mcl{flex:1;padding:6px 0;text-align:center;font-size:9px;font-weight:600;color:#6b7280;border-left:1px solid #e4e7ec;min-width:30px}
 .mcl:first-child{border-left:none}
@@ -189,7 +187,7 @@ tr.sel td{background:#eef3fb}
   /* 동기화 로그도 인쇄 안 함 */
   
   /* v28.4.2: 모든 컨테이너 overflow 해제 + height 제한 해제 */
-  .cont,.split-w,.spn,.gpn,.tpn,#v284-split-wrap,#v284-split-left,#v284-split-right,#v284-gantt-wrap{
+  .cont,.split-w,#v284-split-wrap,#v284-split-left,#v284-split-right,#v284-gantt-wrap{
     overflow:visible!important;
     height:auto!important;
     max-height:none!important;
@@ -255,9 +253,6 @@ tr.sel td{background:#eef3fb}
   .vb{padding:3px 7px;font-size:10px}
   .addb{padding:3px 8px;font-size:10px}
   .split-w{flex-direction:column}
-  .tpn{width:100%!important;border-right:1px solid #e4e7ec!important;border-radius:8px 8px 0 0!important;border-bottom:none}
-  .gpn{border-radius:0 0 8px 8px!important}
-  .spn,.tpn,.gpn{overflow-x:auto;-webkit-overflow-scrolling:touch}
   table{min-width:400px}
   .itp-wrap{flex-direction:column}
   .itp-L{width:100%!important;border-right:1px solid #e4e7ec!important;border-radius:8px 8px 0 0!important;max-height:280px}
@@ -359,6 +354,33 @@ function v28MhdrHTML(opts){
   return `<div class="v28-mhdr">${cells}</div>`;
 }
 function dp(ds){if(!ds)return 0;return Math.max(0,Math.min(100,(new Date(ds)-GS)/(GE-GS)*100));}
+// v29.6: 일정 성과(계획 대비 실적) 기반 그라데이션 색상 — 늦음(빨강)→정상(초록)→앞섬(파랑) 연속 스펙트럼
+function expectedPctByDate(s,e){
+  if(!s||!e)return null;
+  const sd=new Date(s),ed=new Date(e),td=new Date(new Date().toISOString().slice(0,10));
+  if(isNaN(sd)||isNaN(ed)||ed<=sd)return null;
+  if(td<=sd)return 0; if(td>=ed)return 100;
+  return(td-sd)/(ed-sd)*100;
+}
+const SCHED_HEALTH_STOPS=[
+  [-30,[153,27,27]],[-15,[220,38,38]],[-7,[249,115,22]],[-2,[245,158,11]],
+  [0,[163,230,53]],[4,[34,197,94]],[12,[21,128,61]],[22,[37,99,235]],[35,[29,78,216]]
+];
+function scheduleHealthRGB(diff){
+  if(diff==null||isNaN(diff))return[148,163,184];
+  const st=SCHED_HEALTH_STOPS;
+  const d=Math.max(st[0][0],Math.min(st[st.length-1][0],diff));
+  let lo=st[0],hi=st[st.length-1];
+  for(let i=0;i<st.length-1;i++){if(d>=st[i][0]&&d<=st[i+1][0]){lo=st[i];hi=st[i+1];break;}}
+  const span=hi[0]-lo[0],t=span===0?0:(d-lo[0])/span;
+  return lo[1].map((c,i)=>Math.round(c+(hi[1][i]-c)*t));
+}
+function scheduleHealthColor(diff){const[r,g,b]=scheduleHealthRGB(diff);return`rgb(${r},${g},${b})`;}
+function scheduleHealthGradient(diff){
+  const rgb=scheduleHealthRGB(diff);
+  const light=rgb.map(c=>Math.round(c+(255-c)*0.55));
+  return`linear-gradient(90deg, rgb(${light.join(',')}), rgb(${rgb.join(',')}))`;
+}
 const TPL=[
   {id:"01",ph:0,item:"PO / Datasheet 검토 및 확인",pt:"R",crit:"프로젝트 승인 문서와 일치"},
   {id:"02",ph:0,item:"도면 (제작도) 승인 여부 확인",pt:"R",crit:"AFC 스탬프 확인"},
@@ -818,7 +840,9 @@ function rWBS(){
       if(r){barS=r.s; barE=r.e;}
     }
     const l=dp(barS),wd=Math.max(dp(barE)-l,.5);const fp=pct==null?0:pct;
-    const ganttBar=`<div style="position:relative;height:20px;background:#f1f5f9;border-radius:2px;width:100%;margin-top:5px"><div class="v28-bar-outer" style="left:${l}%;width:${wd}%"><div class="v28-bar-fill" style="width:${fp}%"></div></div><span class="v28-bar-label" style="left:${l}%;width:${wd}%">${fp}%</span></div>`;
+    const _expPct=expectedPctByDate(barS,barE);
+    const _fillBg=_expPct==null?"#16a34a":scheduleHealthGradient(fp-_expPct);
+    const ganttBar=`<div style="position:relative;height:20px;background:#f1f5f9;border-radius:2px;width:100%;margin-top:5px"><div class="v28-bar-outer" style="left:${l}%;width:${wd}%"><div class="v28-bar-fill" style="width:${fp}%;background:${_fillBg}"></div></div><span class="v28-bar-label" style="left:${l}%;width:${wd}%">${fp}%</span></div>`;
     // 모든 컬럼을 한 행에 넣고 class로 표시 제어
     return `<tr class="wbs-row ${selCls}" data-a="selW" data-id="${w.id}" data-id-row="${w.id}">
       <td class="col-code"><div class="cell-inner"><span style="display:inline-flex;align-items:center;gap:3px;padding-left:${ind}px;white-space:nowrap"><span style="flex-shrink:0">${eb}</span><span style="font-weight:${w.lv===0?700:400};font-size:11px;color:#4a7fc1;white-space:nowrap">${w.code}</span></span></div></td>
@@ -869,7 +893,7 @@ function rWBS(){
   // ═══ S-Curve 오버레이 좌표 (간트 막대 위, 전 행 관통) ═══
   const _E=evmsCalc(_pid);
   const _evX=dp(new Date().toISOString().slice(0,10));
-  const _N=1+items.length;            // summary + 데이터행 수
+  const _N=(_deptMode?0:1)+items.length;  // 요약행(부서모드에선 없음) + 데이터행 수
   const _ph=_N*100;                   // 전체 곡선 세로 좌표 (행당 100)
   const _pvPts=(_sMin?`${dp(_sMin).toFixed(1)},${_ph} `:'')+_E.curve.map(p=>`${dp(p.date).toFixed(1)},${((100-p.pv)/100*_ph).toFixed(1)}`).join(' ');
   const _evPts=`${(_sMin?dp(_sMin):0).toFixed(1)},${_ph} ${_evX.toFixed(1)},${((100-_E.ev)/100*_ph).toFixed(1)}`;
@@ -923,7 +947,7 @@ function rWBS(){
         </tr>
       </thead>
       <tbody>
-        ${summaryRow}${items.map((w,i)=>wRowUnified(w,i+1)).join("")}
+        ${_deptMode?'':summaryRow}${items.map((w,i)=>wRowUnified(w,_deptMode?i:i+1)).join("")}
       </tbody>
     </table>`;
   
@@ -1947,6 +1971,9 @@ async function v284GenerateExcel(){
     // ═══ EVMS (획득가치관리) 요약 — PDF/화면과 동일 지표 ═══
     try{
     const _Ex=evmsCalc(proj.id);
+    // v28.4.35: rowBorder()는 앞의 projWBS.forEach 루프 안에서만 정의되는 지역함수라
+    // 여기서 부르면 ReferenceError로 매번 조용히 실패했음(EVMS 요약 테두리가 항상 안 먹힘).
+    const evBorder={top:thinB,bottom:thinB,left:thinB,right:thinB};
     let evR=aoa.length;
     aoa.push([]); evR++;
     const _eh=[]; _eh[0]="■ EVMS (획득가치관리) 요약"; aoa.push(_eh);
@@ -1957,11 +1984,11 @@ async function v284GenerateExcel(){
     evR++;
     aoa.push([]); evR++;
     aoa.push(["코드","대단락","가중치","계획 PV","실행 EV","SV","SPI"]);
-    for(let c=0;c<7;c++)styles[XLSX.utils.encode_cell({r:evR,c})]={font:fontKR({bold:true,sz:9}),fill:{fgColor:{rgb:"F0F3F8"}},border:rowBorder(thinB,thinB),alignment:center};
+    for(let c=0;c<7;c++)styles[XLSX.utils.encode_cell({r:evR,c})]={font:fontKR({bold:true,sz:9}),fill:{fgColor:{rgb:"F0F3F8"}},border:evBorder,alignment:center};
     evR++;
     _Ex.rows.forEach(rr=>{
       aoa.push([rr.code,rr.name,rr.wt+"%",(rr.pv==null?"-":rr.pv+"%"),rr.ev+"%",(rr.sv>=0?"+":"")+rr.sv+"%p",(rr.spi==null?"-":rr.spi)]);
-      for(let c=0;c<7;c++)styles[XLSX.utils.encode_cell({r:evR,c})]={font:fontKR({sz:9}),border:rowBorder(thinB,thinB),alignment:c===1?left:center};
+      for(let c=0;c<7;c++)styles[XLSX.utils.encode_cell({r:evR,c})]={font:fontKR({sz:9}),border:evBorder,alignment:c===1?left:center};
       evR++;
     });
     aoa.push([]); evR++;
@@ -1996,7 +2023,10 @@ async function v284GenerateExcel(){
     });
     
     // v28.4.27 ⑥ 인쇄 영역 — A1 ~ 마지막 셀 (예: A1:CY47)
-    const printEndRef=XLSX.utils.encode_cell({r:totalRows-1,c:totalCols-1});
+    // v28.4.35: EVMS 요약이 totalRows 계산 이후에 aoa에 추가되므로, 실제 마지막 행은
+    // aoa.length 기준으로 잡아야 함(안 그러면 EVMS 요약이 인쇄영역 밖으로 잘림)
+    const finalRowCount=Math.max(totalRows,aoa.length);
+    const printEndRef=XLSX.utils.encode_cell({r:finalRowCount-1,c:totalCols-1});
     ws['!ref']=`A1:${printEndRef}`;
     // 인쇄 설정: 한 페이지에 가로 맞춤
     ws['!pageSetup']={
@@ -2036,7 +2066,7 @@ async function v284GenerateExcel(){
     wb.Workbook.Names=wb.Workbook.Names||[];
     wb.Workbook.Names.push({
       Name:'_xlnm.Print_Area',
-      Ref:`'MASTER SCHEDULE'!$A$1:$${XLSX.utils.encode_col(totalCols-1)}$${totalRows}`,
+      Ref:`'MASTER SCHEDULE'!$A$1:$${XLSX.utils.encode_col(totalCols-1)}$${finalRowCount}`,
       Sheet:0
     });
     
@@ -2939,51 +2969,6 @@ function subscribeWbsData(pid){
     return false;
   }
 
-  function _attachToHeader_LEGACY_DISABLED() {
-    const thdr = document.querySelector(".thdr");
-    if (!thdr) return false;
-    if (thdr.querySelector("#sjp-hdr-btn")) return true; // 이미 부착됨
-
-    // 분할/트리/간트 그룹 찾기 (vb 클래스 버튼들의 부모)
-    const vbBtn = thdr.querySelector(".vb");
-    const splitGroup = vbBtn ? vbBtn.parentNode : null;
-
-    const btn = document.createElement("button");
-    btn.id = "sjp-hdr-btn";
-    btn.type = "button";
-    btn.textContent = "🏢 Sejong-Platform +";
-    btn.title = "Sejong-Platform 도구 메뉴";
-    btn.style.cssText = [
-      "padding:4px 10px",
-      "background:#4a7fc1",
-      "color:#fff",
-      "border:none",
-      "border-radius:5px",
-      "font-size:11px",
-      "font-weight:600",
-      "cursor:pointer",
-      "margin-left:8px",
-      "margin-right:4px",
-      "white-space:nowrap"
-    ].join(";");
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      toggleDropdown();
-    };
-
-    // 분할 그룹 바로 다음 위치 (즉 트리/간트 옆, + 추가 앞)에 삽입
-    if (splitGroup && splitGroup.parentNode === thdr) {
-      if (splitGroup.nextSibling) {
-        thdr.insertBefore(btn, splitGroup.nextSibling);
-      } else {
-        thdr.appendChild(btn);
-      }
-    } else {
-      // 분할 그룹 못 찾으면 thdr 끝에 부착
-      thdr.appendChild(btn);
-    }
-    return true;
-  }
 
   function toggleDropdown() {
     if (_dropdown) {

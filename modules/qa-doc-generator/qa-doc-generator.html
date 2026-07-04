@@ -206,8 +206,13 @@ input:focus, select:focus, textarea:focus { outline: none; }
   /* 마지막 페이지 끝에서 빈 페이지 생성 방지 */
   .qa-report-body:last-child { page-break-after: avoid !important; }
 
-  /* Final VI 페이지 2 (PHOTO REPORT) — 명시적 페이지 분리 + 동일 사이즈 */
-  .qa-report-body > div[style*="pageBreakBefore"] {
+  /* v3.4 — 페이지 2(Final VI/Nozzle/DIM/Fitup 분할) 공통 wrapper.
+     예전엔 .qa-report-body > div[style*="pageBreakBefore"] 로 잡으려 했지만 두 가지 이유로 전혀
+     매칭되지 않고 있었음: (1) React가 inline style을 "break-before: page" 형태로 직렬화해서
+     문자열 "pageBreakBefore"가 실제로는 존재하지 않음 (2) 이 div는 .qa-report-body의 직계 자식이
+     아니라 손자(각 Preview 컴포넌트 자체 wrapper 밑)라서 > 선택자로도 안 잡힘 → padding/min-height가
+     한 번도 적용된 적이 없어서 페이지 2 제목이 용지 맨 위에 바싹 붙어 나오던 버그. className으로 교체. */
+  .qa-page2 {
     box-sizing: border-box !important;
     padding: 10mm 8mm !important;
     min-height: 275mm !important;
@@ -245,10 +250,19 @@ input:focus, select:focus, textarea:focus { outline: none; }
     overflow: hidden !important;
   }
   /* Final VI 페이지 2: 사진 2매 각 90mm — 헤더 25 + 90*2 + gap 12 = 217mm + padding 20 = 237mm (38mm 버퍼) */
-  .qa-report-body > div[style*="pageBreakBefore"] .pf-img {
+  .qa-page2 .pf-img {
     height: 90mm !important;
     min-height: 90mm !important;
     max-height: 90mm !important;
+  }
+  /* v3.3 — 위 .pf-img 축소는 IDZ 내부 div만 줄이고, 그걸 감싸는 height:440(px) 바깥 wrapper는
+     그대로 440px를 차지해서 사진 2장이 도합 880px(≈233mm)+헤더까지 A4 한 장을 넘겨 3페이지로
+     밀리던 버그 수정 — wrapper도 똑같이 90mm로 강제 */
+  .fi-photo-box {
+    height: 90mm !important;
+    min-height: 90mm !important;
+    max-height: 90mm !important;
+    flex: none !important;
   }
   /* v2.6 — IDZ UI 오버레이 인쇄 숨김 ("✕ 클릭 초기화", "클릭 후 Ctrl+V 붙여넣기" 등) */
   .pf-img > span,
@@ -264,12 +278,18 @@ input:focus, select:focus, textarea:focus { outline: none; }
     display: none !important;
   }
   /* 이미지가 로딩된 경우만 표시 — img가 있으면 placeholder span은 자동 숨김 (조건부 렌더) */
-  /* Final VI 페이지 2 wrapper의 marginTop 무력화 (페이지 3 넘김 방지) */
-  .qa-report-body > div[style*="pageBreakBefore"] {
+  /* 페이지 2 wrapper의 marginTop 무력화 (페이지 3 넘김 방지) */
+  .qa-page2 {
     margin-top: 0 !important;
   }
   /* Nozzle 15+ 노즐: 이미지 영역 페이지 1 풀로 */
   .noz-big .pf-img {
+    height: 220mm !important;
+    min-height: 220mm !important;
+    max-height: 220mm !important;
+  }
+  /* v3.2 — DIM Check Point 11+ (2 chunk 이상): 이미지 영역 페이지 1 풀로 */
+  .pf-img.dim-big {
     height: 220mm !important;
     min-height: 220mm !important;
     max-height: 220mm !important;
@@ -383,32 +403,6 @@ const WPS_SEED = [
   {id:"GTFC-003", wpsNo:"SJTC-WPS-GTAW-004/FCAW-003", pqrNo:"SJTC-PQ-GTAW-004-01 & FCAW-003", process:"GTAW/FCAW", type:"Manual/Semi-Auto", joint:"GROOVE & FILLET", pNo:"1 to 8", thkRange:"1.5~16mm", filler:"6/ER309+E309LT0-1(4)", pos:"All/F,H"}
 ];
 
-// 자격 만료 임박자 (2026-07 cluster) 표시용 더미 유효기간 — 추후 EPC가 실데이터 주입
-const WELDER_SEED = [
-  {id:"SJ-KYG-GT-01", name:"강용구",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-07"},
-  {id:"SJ-KYG-FC-01", name:"강용구",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-25"},
-  {id:"SJ-KHS-GT-01", name:"강희석",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-04-04"},
-  {id:"SJ-KHS-FC-01", name:"강희석",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-18"},
-  {id:"SJ-KOG-GT-01", name:"권오근",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-04"},
-  {id:"SJ-KOG-FC-01", name:"권오근",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-05"},
-  {id:"SJ-KOG-SAW-01", name:"권오근", process:"SAW(M)",   pNo:"1~15F, 34, 41~49 *3", thk:"Max.44mm",    pos:"F",    dueDate:"2026-06-02"},
-  {id:"SJ-KKD-GT-01", name:"김기동",  process:"GTAW(MC)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-15"},
-  {id:"SJ-KKD-FC-01", name:"김기동",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-08"},
-  {id:"SJ-KDY-GT-01", name:"김두용",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-18"},
-  {id:"SJ-KDY-FC-01", name:"김두용",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-27"},
-  {id:"SJ-SSH-GT-01", name:"서석현",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"All",  dueDate:"2026-07-07"},
-  {id:"SJ-SSH-FC-01", name:"서석현",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F",    dueDate:"2026-07-04"},
-  {id:"SJ-SBC-GT-01", name:"석병찬",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-16"},
-  {id:"SJ-SBC-FC-01", name:"석병찬",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F,V",  dueDate:"2026-06-19"},
-  {id:"SJ-SDB-GT-01", name:"신동범",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-05"},
-  {id:"SJ-SDB-FC-01", name:"신동범",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-04"},
-  {id:"SJ-LSG-GT-01", name:"이상근",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-18"},
-  {id:"SJ-LSG-FC-01", name:"이상근",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-06-02"},
-  {id:"SJ-CBY-GT-01", name:"최병유",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.36mm",    pos:"F,V",  dueDate:"2026-07-18"},
-  {id:"SJ-CBY-FC-01", name:"최병유",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max to be welded", pos:"F,H", dueDate:"2026-07-13"},
-  {id:"SJ-HDY-GT-01", name:"하동윤",  process:"GTAW(M)",  pNo:"1~15F, 34, 41~49 *3", thk:"Max.17.48mm", pos:"All",  dueDate:"2026-07-07"},
-  {id:"SJ-HDY-FC-01", name:"하동윤",  process:"FCAW(SA)", pNo:"1~15F, 34, 41~49 *3", thk:"Max.20mm",    pos:"F",    dueDate:"2026-07-05"}
-];
 
 // ════════════ 3. EPC 글로벌 슬롯 ════════════
 window.EPC_PROJECT = window.EPC_PROJECT || null;
@@ -434,21 +428,9 @@ setInterval(() => {
 }, 1000);
 
 const getWPS = () => window.WPS_LIST || WPS_SEED;
-const getWelders = () => window.WELDER_LIST || WELDER_SEED;
 const generateDocNo = (projNo, type, seq) => {
   if (window.EPC_DOC_NO_GENERATOR) return window.EPC_DOC_NO_GENERATOR(projNo, type, seq);
   return `${projNo||"PROJ"}-${type}-${String(seq).padStart(3,"0")}`;
-};
-
-// 용접사 상태 분류
-const welderStatus = (dueDate) => {
-  if (!dueDate) return {label:"valid", color:"#1d9e75"};
-  const due = new Date(dueDate);
-  const now = new Date(); // v2.0 — 이전엔 "2026-05-26"로 고정되어 있어 실제 오늘 날짜 기준 만료 판정이 틀렸음
-  const days = (due - now) / (1000*60*60*24);
-  if (days < 0) return {label:"expired", color:"#c00", emoji:"❌"};
-  if (days < 30) return {label:"expiring_soon", color:"#d4a017", emoji:"⚠"};
-  return {label:"valid", color:"#1d9e75", emoji:"✓"};
 };
 
 // ════════════ 4. 공차 함수 (UG-81 / B16.9) ════════════
@@ -1302,23 +1284,23 @@ function FitupPreview({doc}){
     });
   });
   const HC1={...hc,whiteSpace:"nowrap"};
-  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
-    <style>{`@media print{.fc{display:none!important}col.fc{width:0!important}@page{size:A4 portrait;margin:10mm}}`}</style>
-    <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
-    <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
-    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
-      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
-      <tbody>
-        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-WI-{tNo}-01</td></tr>
-        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
-        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
-        <tr><td style={HC1}>Appl. Code</td><td style={tc} colSpan={3}>{it.appl_code||"—"}</td></tr>
-      </tbody>
-    </table>
-    <table {...fitGrid.gridProps} className={joints.length>=20?"fitup-joint-many":"fitup-joint-table"} style={{width:"100%",borderCollapse:"collapse",fontSize:10,tableLayout:"fixed"}}>
+  // v3.2 — Joint 20개 초과 시 21번째부터 "표가 넘어가는 페이지 = 새 보고서(-02)" 개념으로 분리
+  const isSplit = joints.length > 20;
+  const page1Joints = isSplit ? joints.slice(0,20) : joints;
+  const page2Joints = isSplit ? joints.slice(20) : [];
+  const headerTable = (seq) => <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+    <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+    <tbody>
+      <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-WI-{tNo}-{seq}</td></tr>
+      <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+      <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
+      <tr><td style={HC1}>Appl. Code</td><td style={tc} colSpan={3}>{it.appl_code||"—"}</td></tr>
+    </tbody>
+  </table>;
+  const renderJoints = (list, offset) => <table {...fitGrid.gridProps} className={list.length>=20?"fitup-joint-many":"fitup-joint-table"} style={{width:"100%",borderCollapse:"collapse",fontSize:10,tableLayout:"fixed"}}>
       <colgroup><col className="fc" style={{width:"4%"}}/><col style={{width:"9%"}}/><col style={{width:"20%"}}/><col style={{width:"9%"}}/><col style={{width:"8%"}}/><col style={{width:"12%"}}/><col style={{width:"13%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col className="fc" style={{width:"4%"}}/></colgroup>
       <thead><tr><th className="fc" style={TH9}>순서</th><th style={TH9}>Joint No.</th><th style={TH9}>Description</th><th style={TH9}>Weld Type</th><th style={TH9}>Root Gap</th><th style={TH9}>WPS</th><th style={TH9}>Welder</th><th style={TH9}>Date</th><th style={TH9}>Result</th><th className="fc" style={TH9}></th></tr></thead>
-      <tbody>{joints.map((j,i)=> <tr key={j.id}>
+      <tbody>{list.map((j,li)=>{ const i=offset+li; return <tr key={j.id}>
         <td className="fc" style={{...tc,textAlign:"center",padding:"2px",verticalAlign:"middle"}}>
           <div style={{display:"flex",flexDirection:"column",gap:1,alignItems:"center"}}>
             <button onClick={()=>moveJ(i,-1)} disabled={i===0} style={{fontSize:9,padding:"1px 3px",border:"1px solid #ccc",borderRadius:2,background:"#f5f5f5",color:i===0?"#ccc":"#444",cursor:i===0?"default":"pointer"}}>▲</button>
@@ -1357,8 +1339,21 @@ function FitupPreview({doc}){
           </select>
         </td>
         <td className="fc" style={{...tc,textAlign:"center",cursor:"pointer",color:"#c33",fontSize:12}} onClick={()=>sJ(joints.filter(x=>x.id!==j.id))}>✕</td>
-      </tr>)}</tbody>
-    </table>
+      </tr>;})}</tbody>
+    </table>;
+  return <div style={{fontFamily:"sans-serif",fontSize:11}}>
+    <style>{`@media print{.fc{display:none!important}col.fc{width:0!important}@page{size:A4 portrait;margin:10mm}}`}</style>
+    <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
+    <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
+    {headerTable("01")}
+    {renderJoints(page1Joints, 0)}
+    <div className="qa-page2" style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
+    {isSplit && <>
+      <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
+      <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
+      {headerTable("02")}
+      {renderJoints(page2Joints, 20)}
+    </>}
     <div className="fc" style={{display:"flex",gap:4,marginTop:5,alignItems:"center",flexWrap:"wrap",padding:"6px 8px",background:"#f5f5f5",borderRadius:4,border:"1px dashed #ccc"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#666"}}>➕ Joint 추가:</span>
       <input placeholder="No." value={nw.no} onChange={e=>sNW({...nw,no:e.target.value})} style={{fontSize:10,padding:"2px 5px",border:"1px solid #ccc",borderRadius:3,width:90}}/>
@@ -1371,6 +1366,7 @@ function FitupPreview({doc}){
       <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}><tbody><tr><td style={{...hc,width:"22%",whiteSpace:"nowrap"}}>Measuring Equipment</td><td style={tc}><input value={mEq} onChange={e=>sME(e.target.value)} placeholder="ex. Caliper / Tape Measure / Welding Gauge / Penetration Test Kit" style={{width:"100%",border:"none",background:"transparent",fontSize:11}}/></td></tr></tbody></table>
       <div style={{display:"flex",gap:24,marginTop:10,fontSize:10}}>{["Prepared by","Reviewed by","Approved by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
     </div>
+    </div>{/* v3.2 — Joint 20+ 페이지 2 wrapper 닫기 */}
   </div>;
 }
 /* ── DIM Description 라이브러리 ── */
@@ -1583,18 +1579,23 @@ function DIMPreview({doc}){
       </tbody>
     </table>;
   };
+  // v3.2 — Check Point가 11개 이상(2 chunk 이상)이면 사진 페이지와 표 페이지를 "보고서가 1장 더
+  // 생성되는" 개념으로 분리 (Nozzle과 동일 개념). DI 계열 번호 재정렬: DIM=01, DIM 2페이지=02,
+  // Nozzle=03, Nozzle 2페이지=04 (Nozzle 쪽 번호는 NozzlePreview에서 맞춰 변경됨).
+  const isSplit = chunks.length >= 2;
+  const headerTable = (seq) => <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+    <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+    <tbody>
+      <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-{seq}</td></tr>
+      <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+      <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+      <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
+    </tbody>
+  </table>;
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
     <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>SHELL DIMENSIONAL INSPECTION REPORT</div>
-    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
-      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
-      <tbody>
-        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-01</td></tr>
-        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
-        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
-        <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material</td><td style={tc}>{it.shell_mat||"—"}</td></tr>
-      </tbody>
-    </table>
+    {headerTable("01")}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
       {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="dimTol" checked={tolStd===v} onChange={()=>sTS(v)} style={{accentColor:SJB}}/>{l}</label>)}
@@ -1614,11 +1615,16 @@ function DIMPreview({doc}){
         <span>📐 Side Elevation — Ctrl+V 붙여넣기 → 📍핀 배치 ON → 클릭으로 A·B·C 마킹 (핀 개수 = Check Point 개수)</span>
         {pins.length>0&&<span style={{color:SJB,fontSize:9}}>현재 핀 {pins.length}개 / Row {rows.length}개<button onClick={ensureRowsForPins} style={{marginLeft:6,fontSize:9,padding:"1px 6px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>핀 → Row 동기화</button></span>}
       </div>
-      <div className="pf-img" style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,minHeight:Math.max(180,460-chunks.length*70),maxHeight:Math.max(220,500-chunks.length*70),background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleDI(ev.target.result);r.readAsDataURL(f);}}}>
+      <div className={isSplit?"pf-img dim-big":"pf-img"} style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,minHeight:isSplit?undefined:Math.max(180,460-chunks.length*70),maxHeight:isSplit?undefined:Math.max(220,500-chunks.length*70),background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleDI(ev.target.result);r.readAsDataURL(f);}}}>
         {dImg?<PinImg src={dImg} cps={rows} pk={dk} onPinChange={()=>sTick(t=>t+1)}/>:<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:Math.max(180,460-chunks.length*70),fontSize:12,color:"#aaa"}}>[ Side Elevation — Ctrl+V 붙여넣기 → 핀 배치 ]</div>}
         {dImg&&<button className="fc" onClick={()=>handleDI(null)} style={{position:"absolute",top:4,right:4,fontSize:9,padding:"1px 6px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:3,cursor:"pointer",zIndex:30}}>✕ 삭제</button>}
       </div>
     </div>
+    <div className="qa-page2" style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
+    {isSplit && <>
+      <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>SHELL DIMENSIONAL INSPECTION REPORT</div>
+      {headerTable("02")}
+    </>}
     {chunks.map((ch,ci)=>renderTable(ch,ci*COLS_PER_ROW))}
     {(isR||it.reactor_mount)&&(()=>{
       // BRACKET / LEG 자동 감지 (BOM에서)
@@ -1669,8 +1675,17 @@ function DIMPreview({doc}){
       </tr></tbody></table>;
     })()}
     <div style={{display:"flex",gap:24,marginTop:8,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
+    </div>{/* v3.2 — 2 chunk 이상 페이지 2 wrapper 닫기 */}
   </div>;
 }
+// v3.2 — DIM이 실제로 몇 장(01만 / 01+02)을 쓰는지 확인해서 Nozzle 번호를 자동으로 맞춰준다.
+// DIM 탭을 아직 한 번도 안 열었으면(=IMG_STORE에 저장된 rows 없음) 기본 항목 수는 항상 10개 이하이므로
+// 1장(01)만 쓴다고 가정 — 나중에 사용자가 DIM에서 Check Point를 늘려 2장이 되면 자동으로 반영됨.
+const dimPageCount = (it) => {
+  const saved = IMG_STORE.get(`dim_rows_${it.id||it.tag}`);
+  const rowCount = (saved && Array.isArray(saved)) ? saved.length : 0;
+  return Math.max(1, Math.ceil(rowCount / 10));
+};
 function NozzlePreview({doc}){
   const{item:it,proj:p}=doc;const isR=it.type.includes("Reactor"),isC=it.type.includes("Condenser")||it.type.includes("Heat");
   const nk1=`noz_${it.id||it.tag}_1`,nk2=`noz_${it.id||it.tag}_2`;
@@ -1701,26 +1716,36 @@ function NozzlePreview({doc}){
   const td2={border:"0.5px solid #bbb",padding:"3px 4px",fontSize:10,textAlign:"center",verticalAlign:"middle"};
   const tInput={width:"100%",border:"none",background:"transparent",fontSize:10,textAlign:"center"};
   const hc=hdr(),tc=bdr();const tNo=tagId(it.tag);const HC1={...hc,whiteSpace:"nowrap"};
-  const rcDef=isR?[{item:"Mount Flange Levelness",tol:"≤ 1mm/m",act:"",res:""},{item:"Mount Flange ↔ Outlet PAD Alignment",tol:"≤ 2mm",act:"",res:""},{item:"Mount Flange ↔ Bracket Parallelism",tol:"≤ 2mm",act:"",res:""},{item:"Impeller Clearance",tol:"50±20mm",act:"",res:""}]:[];
-  const[rcV,sRC]=useState(savedNoz.rcV||rcDef);
-  useEffect(()=>{IMG_STORE.set(nozKey,{noz,std,mEqN,rcV});},[noz,std,mEqN,rcV,nozKey]);
+  useEffect(()=>{IMG_STORE.set(nozKey,{noz,std,mEqN});},[noz,std,mEqN,nozKey]);
+  // v3.2 — 15+ 노즐로 그림/표가 물리적으로 2페이지로 나뉠 때, 데이터 표 페이지는 "2페이지에 이어지는
+  // 같은 보고서"가 아니라 "보고서가 1장 더 생성되는" 개념으로 취급. DI 계열 번호는 DIM이 실제로 몇 장을
+  // 쓰는지에 따라 자동으로 이어짐 (DIM이 01만 쓰면 Nozzle=02/03, DIM이 01·02 다 쓰면 Nozzle=03/04).
+  const isSplit = noz.length >= 15;
+  const dimPages = dimPageCount(it);
+  const nozSeq1 = String(dimPages + 1).padStart(2, "0");
+  const nozSeq2 = String(dimPages + 2).padStart(2, "0");
+  const headerTable = (seq) => <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
+    <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
+    <tbody>
+      <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-{seq}</td></tr>
+      <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
+      <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
+      <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material{isC?" (S/T)":""}</td><td style={tc}>{isC?`${it.shell_mat||"—"} / ${it.tube_mat||"—"}`:(it.shell_mat||"—")}</td></tr>
+    </tbody>
+  </table>;
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}.fc{display:none!important}}`}</style>
     <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
-    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
-      <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
-      <tbody>
-        <tr><td rowSpan={4} style={{...tc,verticalAlign:"middle",padding:"4px 6px"}}><LogoCell/></td><td style={HC1}>Customer</td><td style={tc}>{p.customer||"—"}</td><td style={HC1}>Report No.</td><td style={tc}>{p.no}-DI-{tNo}-02</td></tr>
-        <tr><td style={HC1}>Item Name</td><td style={tc}>{it.name||"—"}</td><td style={HC1}>Item No.</td><td style={tc}>{it.tag||"—"}</td></tr>
-        <tr><td style={HC1}>Project Name / Job No.</td><td style={tc}>{p.name} / {p.no}</td><td style={HC1}>Dwg No.</td><td style={tc}>{p.no?`${p.no}-${it.tag}-01`:"—"}</td></tr>
-        <tr><td style={HC1}>Appl. Code</td><td style={tc}>{it.appl_code||"—"}</td><td style={HC1}>Material{isC?" (S/T)":""}</td><td style={tc}>{isC?`${it.shell_mat||"—"} / ${it.tube_mat||"—"}`:(it.shell_mat||"—")}</td></tr>
-      </tbody>
-    </table>
+    {headerTable(nozSeq1)}
     {/* v2.3 — 15+ 노즐일 때 이미지 영역이 페이지 1을 독차지하고 데이터 표는 페이지 2로 */}
     <div className={noz.length>=15?"noz-big":""} style={{display:"flex",gap:6,marginBottom:6,minHeight:240,flex:noz.length>=15?1:undefined}}>
       <IDZ label="Nozzle Orientation — Ctrl+V (VIEW A-A) — 노즐 각도/위치 표시" persistKey={nk2}/>
     </div>
-    <div style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
+    <div className="qa-page2" style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
+    {isSplit && <>
+      <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
+      {headerTable(nozSeq2)}
+    </>}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
       {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="tolStd" checked={std===v} onChange={()=>sStd(v)} style={{accentColor:SJB}}/>{l}</label>)}
@@ -1747,7 +1772,6 @@ function NozzlePreview({doc}){
       <button onClick={()=>{if(!nw.no)return;sNz(p=>[...p,mkN(nw.no,nw.sz,nw.pos,nw.h,nw.l)]);sNW({no:"",sz:"",pos:"",h:"",l:""});}} style={{padding:"2px 8px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer",fontSize:10}}>+ 노즐</button>
       <button onClick={()=>sNz(p=>p.slice(0,-1))} style={{padding:"2px 6px",border:"0.5px solid #ccc",borderRadius:3,background:"#fff",cursor:"pointer",fontSize:10,color:"#888"}}>− 삭제</button>
     </div>
-    {isR&&rcV.length>0&&<div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:500,marginBottom:4,color:"#534ab7"}}>Reactor — Mount Flange &amp; Impeller Check</div><table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}><thead><tr>{["Check Item","Tolerance","Actual","Result"].map(h=> <th key={h} style={{...td2,background:"#f0eeff",fontWeight:500}}>{h}</th>)}</tr></thead><tbody>{rcV.map((r,i)=> <tr key={i}><td style={td2}>{r.item}</td><td style={td2}>{r.tol}</td><td style={td2}><input value={r.act} onChange={e=>sRC(p=>p.map((x,j)=>j===i?{...x,act:e.target.value}:x))} style={tInput}/></td><td style={td2}><select value={r.res} onChange={e=>sRC(p=>p.map((x,j)=>j===i?{...x,res:e.target.value}:x))} style={{fontSize:10,border:"none",background:"transparent"}}><option value="">—</option><option>ACCEPT</option><option>REJECT</option></select></td></tr>)}</tbody></table></div>}
     <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}><tbody><tr><td style={{...hc,width:"22%",whiteSpace:"nowrap"}}>Measuring Equipment</td><td style={tc}><input value={mEqN} onChange={e=>sMEN(e.target.value)} placeholder="ex. Protractor / Steel Tape / Plumb Bob / Level Gauge" style={{width:"100%",border:"none",background:"transparent",fontSize:11}}/></td></tr></tbody></table>
     <div style={{display:"flex",gap:24,marginTop:10,fontSize:10}}>{["Prepared by","Reviewed by","Approved by","Reviewed by / Witnessed by"].map(l=> <div key={l} style={{flex:1,borderTop:"0.5px solid #bbb",paddingTop:4}}>{l}<br/><br/>Date:</div>)}</div>
     </div>{/* v2.3 — 15+ 노즐 페이지 2 wrapper 닫기 */}
@@ -2014,7 +2038,7 @@ function FinalPreview({doc}){
     <div style={{textAlign:"center",fontSize:10,color:"#888",marginTop:8,paddingTop:4,borderTop:"0.5px solid #ddd"}}>1 / 2 페이지</div>
 
     {/* ─── 페이지 2: PHOTO REPORT (v3.0 — 패치노트 [7][8] 반영) ─── */}
-    <div style={{pageBreakBefore:"always", breakBefore:"page"}}>
+    <div className="qa-page2" style={{pageBreakBefore:"always", breakBefore:"page"}}>
       {/* v3.0 [8] 축약 헤더 — 3행 (Customer / Item Name / Appl.Code) */}
       <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>육안탐상검사보고서</div>
       <div style={{textAlign:"center",fontSize:12,marginBottom:6}}>VISUAL INSPECTION REPORT — Photo Report</div>
@@ -2031,13 +2055,13 @@ function FinalPreview({doc}){
       <div style={{display:"flex",flexDirection:"column",gap:12,flex:1,minHeight:0}}>
         <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
           <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>① Photo 1</div>
-          <div style={{height:440,display:"flex",minHeight:0}}>
+          <div className="fi-photo-box" style={{height:440,display:"flex",minHeight:0}}>
             <IDZ label="Final 사진 ① — Ctrl+V (직접 첨부)" persistKey={`fi_img_${it.id||it.tag}_1`}/>
           </div>
         </div>
         <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
           <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>② Photo 2</div>
-          <div style={{height:440,display:"flex",minHeight:0}}>
+          <div className="fi-photo-box" style={{height:440,display:"flex",minHeight:0}}>
             <IDZ label="Final 사진 ② — Ctrl+V (직접 첨부)" persistKey={`fi_img_${it.id||it.tag}_2`}/>
           </div>
         </div>
@@ -2056,8 +2080,8 @@ function PrintBar({title}){
       <button onClick={()=>window.print()} style={{padding:"4px 12px", background:SJB, color:"#fff", border:"none", borderRadius:4, cursor:"pointer", fontSize:11}}>🖨 인쇄</button>
     </div>
     <div style={{fontSize:10, color:"#666", padding:"4px 10px", marginTop:3, background:"#fffdf5", border:"0.5px dashed #ecd6a3", borderRadius:4}}>
-      <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 권장 옵션:</span>
-      &nbsp;Chrome/Edge 다이얼로그 → <strong>여백(Margins): "기본값" 또는 "없음"</strong> &nbsp;|&nbsp;
+      <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 필수 옵션:</span>
+      &nbsp;Chrome/Edge 다이얼로그 → <strong style={{color:"#c33"}}>여백(Margins): "없음(None)"</strong> (⚠ "기본값"을 선택하면 브라우저가 자체 여백을 추가로 넣어서 페이지가 한 장 더 넘어갈 수 있습니다) &nbsp;|&nbsp;
       <strong>"머리글 및 바닥글" 체크 해제</strong> &nbsp;|&nbsp;
       <strong>"배경 그래픽" 체크</strong>
     </div>
@@ -2088,6 +2112,8 @@ function App(){
   const [msg, setMsg] = useState("");
   // v3.0 — 저장/불러오기 상태
   const [currentProjId, setCurrentProjId] = useState(null);
+  // v3.1 — 불러오기 시 같은 아이템 id라도 Preview를 강제로 다시 마운트시켜 IMG_STORE(그림/표)를 새로 읽게 함
+  const [loadNonce, setLoadNonce] = useState(0);
   const [savedList, setSavedList] = useState(() => projIndexLoad());
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -2095,7 +2121,7 @@ function App(){
   const refreshSavedList = () => setSavedList(projIndexLoad());
 
   // v1.7 — ITP Builder localStorage에서 프로젝트/아이템을 읽어온다. 마운트 시(force:false)에는
-  // QA Gen에 아직 아무것도 없을 때만 채우고, "🔄 ITP 최신정보 새로고침" 버튼(force:true)에서는
+  // QA Gen에 아직 아무것도 없을 때만 채우고, "🔄 ITP 정보 끌어오기" 버튼(force:true)에서는
   // 사용자가 명시적으로 눌렀을 때만 현재 내용을 덮어쓴다 — 도면 등 갱신 내용이 자동으로는
   // 한 번만 반영되고 그 뒤로는 반영 안 되던 문제(항상 "처음 비어있을 때만" 였음)의 수동 해결책.
   const pullFromItpBuilder = ({force=false, silent=false, noOwnItemsYet=null, noOwnProjectYet=null}={}) => {
@@ -2120,7 +2146,7 @@ function App(){
         if (mapped[0]) setActiveItemId(mapped[0].id);
         touched = true;
       }
-      if (!silent) showMsg(touched ? "✓ ITP Builder 최신 정보를 반영했습니다" : "ℹ 반영할 새 내용이 없습니다 (이미 최신)", 4000);
+      if (!silent) showMsg(touched ? `✓ ITP Builder 최신 정보를 반영했습니다 (${itpData.proj?.no||"—"} · 아이템 ${itpData.items?.length||0}개)` : "ℹ 반영할 새 내용이 없습니다 (이미 최신)", 5000);
     } catch(e) {
       console.warn("[QA Doc Generator] ITP Builder 데이터 로드 실패", e.message);
       if (!silent) showMsg("⚠ 불러오기 실패 — " + e.message, 5000);
@@ -2138,6 +2164,8 @@ function App(){
     }
     const s = loadLS();
     if (s) {
+      // v3.1 — 그림/표 데이터(IMG_STORE)를 다른 state보다 먼저 복원해야 Preview가 마운트될 때 바로 읽어간다.
+      if (s.imgStore) Object.entries(s.imgStore).forEach(([k,v]) => IMG_STORE.set(k, v));
       if (s.proj) setProj(s.proj);
       if (s.items) setItems(s.items);
       if (s.docData) setDocData(s.docData);
@@ -2168,33 +2196,20 @@ function App(){
   }, []);
   // v3.0 — 자동저장은 "마지막 작업" 자동 복원용으로만 유지 (프로젝트 저장은 수동 Save/Save As로 분리)
   useEffect(() => {
-    const t = setTimeout(() => saveLS({proj, items, docData, activeItemId, activeDoc, currentProjId}), 1000);
+    const t = setTimeout(() => saveLS({proj, items, docData, activeItemId, activeDoc, currentProjId, imgStore: Object.fromEntries(IMG_STORE)}), 1000);
     return () => clearTimeout(t);
   }, [proj, items, docData, activeItemId, activeDoc, currentProjId]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
 
-  const handleImport = (file) => {
-    const r = new FileReader();
-    r.onload = e => {
-      try {
-        const d = JSON.parse(e.target.result);
-        if (d.proj) setProj(d.proj);
-        if (d.items) { setItems(d.items); if (d.items.length > 0) setActiveItemId(d.items[0].id); }
-        showMsg(`✓ ITP Builder에서 Import 완료 — ${d.items?.length||0}개 아이템`);
-      } catch(err) {
-        showMsg(`⚠ Import 실패: ${err.message}`);
-      }
-    };
-    r.readAsText(file);
-  };
-
   // v3.0 — 프로젝트 저장 / 불러오기 / 삭제
-  const collectPayload = () => ({ proj, items, docData, activeItemId, activeDoc });
+  // v3.1 — 각 보고서 Preview가 그림/표/핀 데이터를 저장해두는 IMG_STORE(그동안 저장/불러오기에서
+  // 완전히 누락되어 있었음 — "불러오기 하면 그림·데이터가 사라진다"는 버그의 원인)를 payload에 포함.
+  const collectPayload = () => ({ proj, items, docData, activeItemId, activeDoc, imgStore: Object.fromEntries(IMG_STORE) });
 
   // Save — 현재 프로젝트에 덮어쓰기 (없으면 Save As 대화상자)
   const handleSaveOverwrite = () => {
-    if (!currentProjId) { setShowSaveDialog(true); return; }
+    if (!currentProjId) { setSaveAsName(proj.no || proj.name || ""); setShowSaveDialog(true); return; }
     if (!confirm("현재 프로젝트에 덮어쓰시겠습니까?")) return;
     const idx = projIndexLoad().find(x => x.id === currentProjId);
     const name = idx ? idx.name : (proj.no || "프로젝트");
@@ -2205,8 +2220,7 @@ function App(){
 
   // Save As — 새 이름으로 저장 (대화상자 표시)
   const handleSaveAs = () => {
-    const defaultName = (proj.name || proj.no) ? `${proj.no || ""} ${proj.name || ""}`.trim() : "";
-    setSaveAsName(defaultName);
+    setSaveAsName(proj.no || proj.name || "");
     setShowSaveDialog(true);
   };
   const handleSaveAsConfirm = () => {
@@ -2238,6 +2252,10 @@ function App(){
     const data = projLoadOne(id);
     if (!data) { showMsg("⚠ 데이터 없음"); return; }
     if (proj.no && items.length > 0 && !confirm("현재 작업 내용이 사라집니다. 계속하시겠습니까?\n(저장하지 않은 변경사항은 유실됨)")) return;
+    // v3.1 — 그림/표 데이터(IMG_STORE) 복원. 다른 state보다 먼저 채워둬야 Preview 재마운트 시 바로 읽어간다.
+    IMG_STORE.clear();
+    if (data.imgStore) Object.entries(data.imgStore).forEach(([k,v]) => IMG_STORE.set(k, v));
+    setLoadNonce(n => n + 1);
     if (data.proj) setProj(data.proj);
     if (data.items) { setItems(data.items); if (data.items.length > 0) setActiveItemId(data.items[0].id); }
     if (data.docData) setDocData(data.docData);
@@ -2264,25 +2282,25 @@ function App(){
     }
   };
 
-  const handleExportData = () => {
-    const data = {proj, items, docData, exported_at: new Date().toISOString(), version:"qc_generator_v1"};
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `${proj.no || "project"}_qc_data.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showMsg(`✓ 데이터 Export 완료`);
-  };
-
   const handleNew = () => {
     if (!confirm("새 프로젝트로 초기화하시겠습니까?\n(현재 작업은 저장하지 않으면 사라집니다)")) return;
     setProj({no:"", name:"", customer:"", po:""});
     setItems([]); setActiveItemId(null);
     setDocData({});
-    setInspector({internal:"", client:"", thirdParty:"", thirdPartyCustom:"", vendor:""});
+    IMG_STORE.clear();   // v3.1 — 이전 프로젝트의 사진/표 데이터가 새 프로젝트로 새어들지 않도록 초기화
     setCurrentProjId(null);   // v3.0 — 프로젝트 컨텍스트도 초기화
     showMsg("✓ 새 프로젝트");
+  };
+
+  // v3.1 — 아이템 선택 목록에서 더 이상 필요 없는 아이템을 뺄 수 있게 삭제 기능 추가
+  const removeSelectedItem = (id) => {
+    const it = items.find(i => i.id === id);
+    if (!confirm(`"${it?.tag||""} · ${it?.name||""}" 아이템을 선택 목록에서 삭제하시겠습니까?\n(이미 작성한 검사 데이터/사진은 남아있을 수 있으나 이 화면에서 다시 선택할 수 없게 됩니다)`)) return;
+    setItems(prev => prev.filter(i => i.id !== id));
+    if (activeItemId === id) {
+      const next = items.find(i => i.id !== id);
+      setActiveItemId(next ? next.id : null);
+    }
   };
 
   const activeItem = items.find(i => i.id === activeItemId);
@@ -2291,10 +2309,6 @@ function App(){
     if (!activeItemId) return;
     setDocData(p => ({...p, [activeItemId]: {...(p[activeItemId]||{}), [key]:val}}));
   };
-
-  // 만료 임박 용접사 카운트
-  const expiringWelders = getWelders().filter(w => welderStatus(w.dueDate).label === "expiring_soon").length;
-  const expiredWelders = getWelders().filter(w => welderStatus(w.dueDate).label === "expired").length;
 
   return <div style={{maxWidth:1200, margin:"0 auto", padding:"14px"}}>
     {/* v1.2 EPC Control 톤 Topbar */}
@@ -2305,19 +2319,11 @@ function App(){
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
       <div className="epc-topbar-actions">
-        {(expiringWelders > 0 || expiredWelders > 0) &&
-          <span style={{fontSize:10, padding:"4px 10px", background:"var(--sjp-warning-bg)", color:"#996b04", borderRadius:5, fontWeight:700, border:"1px solid var(--sjp-warning)"}}>
-            ⚠ 만료임박 {expiringWelders}명 / 만료 {expiredWelders}명
-          </span>}
-        <input type="file" accept=".json" id="impFile" style={{display:"none"}}
-          onChange={e => e.target.files[0] && handleImport(e.target.files[0])}/>
-        <button onClick={()=>document.getElementById("impFile").click()} className="btn-success">📥 ITP에서 Import</button>
-        <button onClick={refreshFromItpBuilder} className="btn-secondary" title="같은 프로젝트(pid)로 열린 ITP Builder의 최신 프로젝트 정보·아이템을 다시 불러옵니다 (도면 갱신 등)">🔄 ITP 최신정보 새로고침</button>
+        <button onClick={refreshFromItpBuilder} className="btn-secondary" title="같은 프로젝트(pid)로 열린 ITP Builder의 최신 프로젝트 정보·아이템을 끌어옵니다 (ITP Builder의 '🚀 QA Doc Generator로 바로 전송'과 같은 내용을 QA Gen 쪽에서 요청하는 것)">🔄 ITP 정보 끌어오기</button>
         <button onClick={handleSaveOverwrite} className="btn-secondary" title="현재 프로젝트에 덮어쓰기">💾 저장{currentProjId&&<span style={{fontSize:9,marginLeft:4,color:"#1d9e75"}}>*</span>}</button>
         <button onClick={handleSaveAs} className="btn-secondary" title="새 이름으로 저장">💾+ 다른 이름</button>
         <button onClick={()=>{refreshSavedList();setShowLoadModal(true);}} className="btn-secondary" title="저장된 프로젝트 불러오기">📂 불러오기 ({savedList.length})</button>
-        <button onClick={handleExportData} className="btn-secondary" title="JSON 파일로 내보내기">💾 JSON Export</button>
-        <button onClick={handleNew} className="btn-secondary">🗋 New</button>
+        <button onClick={handleNew} className="btn-secondary" title="현재 화면을 비우고 새 프로젝트를 시작합니다 (저장된 프로젝트 목록에는 영향 없음)">🗋 New</button>
       </div>
     </div>
 
@@ -2328,7 +2334,7 @@ function App(){
         <div className="itp-link-info-title">ITP Builder 연동</div>
         <div className="itp-link-info-sub">
           ITP Builder에서 작성한 프로젝트·아이템 정보는 처음 열 때 비어있으면 자동으로 채워집니다. 이후 ITP Builder에서 도면 등 내용을 갱신했다면
-          상단 <strong>"🔄 ITP 최신정보 새로고침"</strong> 버튼으로 다시 불러와야 반영됩니다 (자동 실시간 동기화는 아님).
+          상단 <strong>"🔄 ITP 정보 끌어오기"</strong> 버튼으로 다시 불러와야 반영됩니다 (자동 실시간 동기화는 아님).
           EPC Control System과 연결 시 WBS 진척률·검사 기록이 양방향으로 갱신됩니다.
         </div>
       </div>
@@ -2357,8 +2363,8 @@ function App(){
     {items.length === 0 ?
       <div className="empty-state">
         <div style={{fontSize:14, marginBottom:8, fontWeight:600, color:"var(--sjp-text-main)"}}>📥 아이템이 없습니다</div>
-        <div style={{fontSize:11, lineHeight:1.7}}>상단의 <strong style={{color:"var(--sjp-success)"}}>"📥 ITP에서 Import"</strong> 버튼으로 ITP Builder에서 Export한 JSON을 불러오거나,<br/>
-        EPC Control System 연결 시 자동으로 동기화됩니다.</div>
+        <div style={{fontSize:11, lineHeight:1.7}}>같은 프로젝트의 ITP Builder에서 <strong style={{color:"var(--sjp-primary)"}}>"🚀 QA Doc Generator로 바로 전송"</strong>을 누르거나,<br/>
+        상단의 <strong style={{color:"var(--sjp-primary)"}}>"🔄 ITP 정보 끌어오기"</strong> 버튼으로 직접 불러올 수 있습니다.</div>
       </div>
       :
       <div className="no-print" style={{marginBottom:12, padding:"12px 14px", background:"#fff", border:"1px solid var(--sjp-border)", borderRadius:"var(--sjp-radius-lg)", boxShadow:"var(--sjp-shadow)"}}>
@@ -2372,12 +2378,16 @@ function App(){
           if (filtered.length === 0) return <div style={{fontSize:11, color:"var(--sjp-text-sub)", padding:"8px 0"}}>"{itemSearch}"와 일치하는 아이템이 없습니다.</div>;
           return <div style={{display:"flex", gap:6, flexWrap:"wrap", maxHeight: items.length>12 ? 160 : "none", overflowY: items.length>12 ? "auto" : "visible", padding: items.length>12 ? "2px 2px 4px" : 0}}>
             {filtered.map(it =>
-              <button key={it.id} onClick={()=>setActiveItemId(it.id)}
-                style={{padding:"8px 14px", fontSize:11, background: activeItemId===it.id?SJB:"#fff", color:activeItemId===it.id?"#fff":"var(--sjp-text-body)", border:`1px solid ${activeItemId===it.id?SJB:"var(--sjp-border)"}`, borderRadius:5, cursor:"pointer", fontWeight: activeItemId===it.id?700:500, transition:"all .12s", flexShrink:0}}>
-                <strong>{it.tag}</strong> · {it.name}
-                {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
-                  <span style={{marginLeft:5, fontSize:9, color: activeItemId===it.id?"#fff":"var(--sjp-warning)", fontWeight:700, padding:"1px 5px", background:activeItemId===it.id?"rgba(255,255,255,.2)":"var(--sjp-warning-bg)", borderRadius:3}}>CAP</span>}
-              </button>
+              <div key={it.id} style={{position:"relative", flexShrink:0}}>
+                <button onClick={()=>setActiveItemId(it.id)}
+                  style={{padding:"8px 22px 8px 14px", fontSize:11, background: activeItemId===it.id?SJB:"#fff", color:activeItemId===it.id?"#fff":"var(--sjp-text-body)", border:`1px solid ${activeItemId===it.id?SJB:"var(--sjp-border)"}`, borderRadius:5, cursor:"pointer", fontWeight: activeItemId===it.id?700:500, transition:"all .12s"}}>
+                  <strong>{it.tag}</strong> · {it.name}
+                  {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
+                    <span style={{marginLeft:5, fontSize:9, color: activeItemId===it.id?"#fff":"var(--sjp-warning)", fontWeight:700, padding:"1px 5px", background:activeItemId===it.id?"rgba(255,255,255,.2)":"var(--sjp-warning-bg)", borderRadius:3}}>CAP</span>}
+                </button>
+                <button onClick={(e)=>{e.stopPropagation(); removeSelectedItem(it.id);}} title="선택 목록에서 삭제"
+                  style={{position:"absolute", top:3, right:3, width:15, height:15, lineHeight:"13px", padding:0, fontSize:10, border:"none", borderRadius:"50%", background: activeItemId===it.id?"rgba(255,255,255,.35)":"var(--sjp-danger-bg)", color: activeItemId===it.id?"#fff":"var(--sjp-danger)", cursor:"pointer"}}>✕</button>
+              </div>
             )}
           </div>;
         })()}
@@ -2411,7 +2421,7 @@ function App(){
           // V25 doc 객체 합성 어댑터 — V25 Preview는 {doc:{type,item,proj,...}} 시그니처
           const doc = { type: activeDoc, item: activeItem, proj };
           // v2.1 [B-1] — Preview 컴포넌트에 key 부여 (Item/Part 전환 시 React 재마운트 → useState 재초기화)
-          const dKey = `${activeDoc}_${activeItem.id||activeItem.tag||""}`;
+          const dKey = `${activeDoc}_${activeItem.id||activeItem.tag||""}_${loadNonce}`;
           if (activeDoc === "BOM")     return <BOMPreview key={dKey} doc={doc}/>;
           if (activeDoc === "BENDING") {
             if (activeItem.head_top_type === "CAP (B16.9)" && activeItem.head_bot_type === "CAP (B16.9)") {
@@ -2439,7 +2449,7 @@ function App(){
                   {p}
                 </button>)}
               </div>
-              <HydroPreview key={`HYDRO_${activeItem.id||activeItem.tag||""}_${curPart}`} doc={{...doc, part: curPart, partSeq: hp.indexOf(curPart)+1}}/>
+              <HydroPreview key={`HYDRO_${activeItem.id||activeItem.tag||""}_${curPart}_${loadNonce}`} doc={{...doc, part: curPart, partSeq: hp.indexOf(curPart)+1}}/>
             </>;
           }
           if (activeDoc === "FINAL")   return <FinalPreview key={dKey} doc={doc}/>;
@@ -2503,7 +2513,7 @@ function App(){
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
-// ── 헤더 인라인 sejong-platform 버튼 (ITP에서 Import 옆) ──
+// ── 헤더 인라인 sejong-platform 버튼 (topbar 맨 앞) ──
 // React가 재렌더링할 때마다 .epc-topbar-actions가 새로 그려지므로 폴링 자동 재부착
 (function(){
   let _qaDropdown = null;
@@ -2531,8 +2541,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     ].join(";");
     btn.onclick = (e) => { e.stopPropagation(); toggleQaDropdown(); };
 
-    // 가장 앞 (ITP에서 Import 버튼 앞)에 삽입
-    const firstBtn = actions.querySelector("button.btn-success") || actions.querySelector("button");
+    // 가장 앞에 삽입
+    const firstBtn = actions.querySelector("button");
     if (firstBtn) {
       actions.insertBefore(btn, firstBtn);
     } else {
@@ -2599,7 +2609,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     document.getElementById("sjpq-epc").onclick = () => {
       closeQaDropdown();
       try { if (window.opener && !window.opener.closed) { window.opener.focus(); return; } } catch(e){}
-      window.location.href = "../epc-control/index.html";
+      // v29.9 fix: modules/epc-control/ 경로는 존재 안 함. 실제 EPC 화면은 프로젝트 상세(부모 index.html)
+      // → 프로젝트 카드 클릭 → WBS. 부모 창으로 돌아가면 사용자가 프로젝트 선택 가능.
+      window.location.href = "../../index.html";
     };
 
     document.getElementById("sjpq-reset").onclick = () => {
@@ -2614,10 +2626,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       );
       if (!ok) return;
       try {
-        localStorage.removeItem("sjp_qa_doc_generator_v1");
-        localStorage.removeItem("epc_control_v28_state");
-        localStorage.removeItem("sjp_itp_builder_v1");
-        localStorage.removeItem("sjp_mail_drafts");
+        // v29.9 fix: 실제 사용되는 키들은 PID-scoped 형식(`sjp_qa_doc_generator_v1__${PID}` 등).
+        // 이전엔 옛날 flat 키만 지워서 실질적으로 아무것도 초기화되지 않았음. 전체 순회하며
+        // 관련 prefix를 가진 키를 다 정리.
+        const kills = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (k.startsWith('sjp_qa_doc_generator_v1__')) kills.push(k);
+          else if (k.startsWith('sjp_qa_gen_proj:')) kills.push(k);
+          else if (k.startsWith('sjp_itp_builder_v1__')) kills.push(k);
+          else if (k === 'sjp_qa_doc_generator_v1') kills.push(k);
+          else if (k === 'sjp_itp_builder_v1') kills.push(k);
+          else if (k === 'epc_control_v28_state') kills.push(k);
+          else if (k === 'sjp_mail_drafts') kills.push(k);
+        }
+        kills.forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
       } catch(e){}
       alert("✅ 초기화 완료 — 페이지를 새로고침합니다.");
       window.location.reload();
@@ -2626,7 +2650,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     document.getElementById("sjpq-home").onclick = () => {
       closeQaDropdown();
       if (confirm("메인 메뉴로 이동하시겠습니까?\n저장하지 않은 작업이 있다면 먼저 JSON 백업하세요.")) {
-        window.location.href = "../../../index.html";
+        // v29.9 fix: 경로 오버슛(../../../) → 실제 파일은 ../../index.html
+        window.location.href = "../../index.html";
       }
     };
 
