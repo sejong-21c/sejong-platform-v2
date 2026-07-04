@@ -741,15 +741,16 @@ function gradeByTitle(title) {
   if (title === '부장') return 'manager';
   return 'member';
 }
-// 임시 비밀번호 자동생성 (영문 대/소 + 숫자 + 기호 8자리)
+// v29.9: 기본 시드 사용자 (실제 계정은 Google Auth 로그인·pendingUsers 승격으로 생성됨).
+// username/password/mustChangePw는 옛 로컬 로그인 시스템 잔재라 삭제 — 현재 인증은 이메일+uid만 씀.
 function defaultState() {
   return {
     currentUser: null,
     users: [
-      { id: 'u1', name: '김철우', title: '부장', dept: '품질관리부', grade: 'super',   username: 'cwkim',  password: 'admin', mustChangePw: false, email: 'cwkim@sejong-21c.com' },
-      { id: 'u2', name: '김시원', title: '대리', dept: '품질관리부', grade: 'member',  username: 'swkim',  password: 'sj1234', mustChangePw: true, email: 'swkim@sejong-21c.com' },
-      { id: 'u3', name: '신채완', title: '과장', dept: '품질관리부', grade: 'member',  username: 'cwshin', password: 'sj1234', mustChangePw: true, email: 'cwshin@sejong-21c.com' },
-      { id: 'u8', name: '곽노한', title: '이사', dept: '생산부', team: '시공팀', role: '현장소장', grade: 'exec',    username: 'nhkwak', password: 'sj1234', mustChangePw: true, email: 'nhkwak@sejong-21c.com' },
+      { id: 'u1', name: '김철우', title: '부장', dept: '품질관리부', grade: 'super',  email: 'cwkim@sejong-21c.com' },
+      { id: 'u2', name: '김시원', title: '대리', dept: '품질관리부', grade: 'member', email: 'swkim@sejong-21c.com' },
+      { id: 'u3', name: '신채완', title: '과장', dept: '품질관리부', grade: 'member', email: 'cwshin@sejong-21c.com' },
+      { id: 'u8', name: '곽노한', title: '이사', dept: '생산부', team: '시공팀', role: '현장소장', grade: 'exec', email: 'nhkwak@sejong-21c.com' },
     ],
     depts: [
       { id: 'd1', name: '품질관리부' }, { id: 'd2', name: '설계부' },
