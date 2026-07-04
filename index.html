@@ -424,6 +424,24 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .fi, .fs, .ft { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 13px; font-family: inherit; }
 .ft { min-height: 70px; resize: vertical; }
 
+/* AI 비서 위젯 */
+.ai-fab { position: fixed; right: 24px; bottom: 24px; width: 56px; height: 56px; border-radius: 50%; border: none; background: var(--primary); color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.25); z-index: 1700; display: flex; align-items: center; justify-content: center; }
+.ai-fab:hover { background: var(--primary-hover); }
+.ai-panel { position: fixed; right: 24px; bottom: 92px; width: 360px; max-width: 92vw; height: 480px; max-height: 70vh; background: var(--white); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.22); display: none; flex-direction: column; overflow: hidden; z-index: 1700; }
+.ai-panel.open { display: flex; }
+.ai-panel-head { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13px; }
+.ai-panel-head span.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 6px; }
+.ai-panel-body { flex: 1; overflow-y: auto; padding: 12px 14px; font-size: 13px; }
+.ai-msg { margin-bottom: 10px; line-height: 1.5; white-space: pre-wrap; }
+.ai-msg.user { text-align: right; color: var(--primary); }
+.ai-msg.assistant { color: var(--text); }
+.ai-msg.system { color: var(--text-lighter); font-size: 11px; }
+.ai-confirm-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin: 6px 0; background: var(--bg); font-size: 12px; }
+.ai-confirm-card .btn { margin-top: 8px; }
+.ai-panel-foot { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
+.ai-panel-foot input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; }
+.ai-hint { color: var(--text-lighter); font-size: 11px; margin-bottom: 10px; line-height: 1.6; }
+
 .empty-soon { padding: 60px 30px; text-align: center; }
 .empty-soon h3 { color: var(--primary); margin-bottom: 12px; }
 .empty-soon p { color: var(--text-light); line-height: 1.7; }
@@ -484,6 +502,24 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
       <button class="btn" onclick="closeModal()">취소</button>
       <button class="btn btn-primary" id="mOk">확인</button>
     </div>
+  </div>
+</div>
+
+<button class="ai-fab" id="aiFab" title="AI 비서" onclick="toggleAiPanel()">🤖</button>
+<div class="ai-panel" id="aiPanel">
+  <div class="ai-panel-head">
+    <div><span class="dot"></span>AI 비서</div>
+    <div>
+      <button class="icon-btn" title="API 키 설정" onclick="openAiKeyModal()">🔑</button>
+      <button class="icon-btn" onclick="toggleAiPanel()">✕</button>
+    </div>
+  </div>
+  <div class="ai-panel-body" id="aiMessages">
+    <div class="ai-hint">세종플랫폼 데이터 조회/등록을 대화로 처리합니다.<br>예) "지연된 업무 알려줘", "OO현장 배관설치 다음주 금요일까지 김철수한테 등록해줘"</div>
+  </div>
+  <div class="ai-panel-foot">
+    <input type="text" id="aiInput" placeholder="질문이나 명령을 입력하세요" onkeydown="if(event.key==='Enter') sendAiMessage();">
+    <button class="btn btn-primary" onclick="sendAiMessage()">전송</button>
   </div>
 </div>
 
@@ -4299,5 +4335,6 @@ window.addEventListener('resize', () => {
 });
 
 </script>
+<script src="modules/ai-assistant/ai-assistant.js"></script>
 </body>
 </html>
