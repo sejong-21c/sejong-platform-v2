@@ -414,21 +414,9 @@ setInterval(() => {
 }, 1000);
 
 const getWPS = () => window.WPS_LIST || WPS_SEED;
-const getWelders = () => window.WELDER_LIST || [];
 const generateDocNo = (projNo, type, seq) => {
   if (window.EPC_DOC_NO_GENERATOR) return window.EPC_DOC_NO_GENERATOR(projNo, type, seq);
   return `${projNo||"PROJ"}-${type}-${String(seq).padStart(3,"0")}`;
-};
-
-// 용접사 상태 분류
-const welderStatus = (dueDate) => {
-  if (!dueDate) return {label:"valid", color:"#1d9e75"};
-  const due = new Date(dueDate);
-  const now = new Date(); // v2.0 — 이전엔 "2026-05-26"로 고정되어 있어 실제 오늘 날짜 기준 만료 판정이 틀렸음
-  const days = (due - now) / (1000*60*60*24);
-  if (days < 0) return {label:"expired", color:"#c00", emoji:"❌"};
-  if (days < 14) return {label:"expiring_soon", color:"#d4a017", emoji:"⚠"};  // v3.1 — 30일 → 2주(14일) 전부터 임박
-  return {label:"valid", color:"#1d9e75", emoji:"✓"};
 };
 
 // ════════════ 4. 공차 함수 (UG-81 / B16.9) ════════════
@@ -2308,12 +2296,6 @@ function App(){
     setDocData(p => ({...p, [activeItemId]: {...(p[activeItemId]||{}), [key]:val}}));
   };
 
-  // 만료 임박 용접사 카운트 (v3.1 — 2주 이내 = 임박)
-  const weldersAll = getWelders();
-  const weldersWithDate = weldersAll.filter(w => w && typeof w === "object" && w.dueDate).length;
-  const expiringWelders = weldersAll.filter(w => welderStatus(w.dueDate).label === "expiring_soon").length;
-  const expiredWelders = weldersAll.filter(w => welderStatus(w.dueDate).label === "expired").length;
-
   return <div style={{maxWidth:1200, margin:"0 auto", padding:"14px"}}>
     {/* v1.2 EPC Control 톤 Topbar */}
     <div className="epc-topbar no-print">
@@ -2323,14 +2305,6 @@ function App(){
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
       <div className="epc-topbar-actions">
-        {(expiringWelders > 0 || expiredWelders > 0) &&
-          <span style={{fontSize:10, padding:"4px 10px", background:"var(--sjp-warning-bg)", color:"#996b04", borderRadius:5, fontWeight:700, border:"1px solid var(--sjp-warning)"}}>
-            ⚠ 만료임박(2주 이내) {expiringWelders}명 / 만료 {expiredWelders}명
-          </span>}
-        {weldersAll.length > 0 && weldersWithDate === 0 &&
-          <span style={{fontSize:10, padding:"4px 10px", background:"#f0f4f8", color:"#667", borderRadius:5, border:"1px solid #ccd"}} title="Welder List에 자격 만료일 정보가 없습니다. ITP Builder에서 Welder 리스트를 PDF로 재업로드하면 자동 인식됩니다 (직접 텍스트로 수정하면 만료일이 사라집니다).">
-            ℹ Welder {weldersAll.length}명 — 만료일 정보 없음
-          </span>}
         <button onClick={refreshFromItpBuilder} className="btn-secondary" title="같은 프로젝트(pid)로 열린 ITP Builder의 최신 프로젝트 정보·아이템을 끌어옵니다 (ITP Builder의 '🚀 QA Doc Generator로 바로 전송'과 같은 내용을 QA Gen 쪽에서 요청하는 것)">🔄 ITP 정보 끌어오기</button>
         <button onClick={handleSaveOverwrite} className="btn-secondary" title="현재 프로젝트에 덮어쓰기">💾 저장{currentProjId&&<span style={{fontSize:9,marginLeft:4,color:"#1d9e75"}}>*</span>}</button>
         <button onClick={handleSaveAs} className="btn-secondary" title="새 이름으로 저장">💾+ 다른 이름</button>
