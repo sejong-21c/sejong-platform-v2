@@ -84,20 +84,8 @@
     }
   });
 
-  registerAction('create_ncr', {
-    description: 'NCR(부적합보고서) 발행 — 이 브라우저에만 저장되는 로컬 데이터(전사 공유 아님)',
-    params: { proj: '프로젝트명/코드', item: '대상 장비/부위', grade: 'major 또는 minor 또는 obs', due: '조치기한 YYYY-MM-DD', desc: '부적합 내용' },
-    fill: function (v) {
-      openNewNCR();
-      setTimeout(function () {
-        var p = findProject(v.proj); if (p) $id('ncrProj').value = p.id;
-        setValue($id('ncrItem'), v.item);
-        setValue($id('ncrGrade'), v.grade);
-        setValue($id('ncrDue'), v.due);
-        setValue($id('ncrDesc'), v.desc);
-      }, 0);
-    }
-  });
+  // NCR/CAR는 v29.8 리팩터로 index.html 밖 별도 모듈(modules/ncr, modules/car)로 이동해서
+  // 더 이상 openNewNCR() 같은 부모 함수가 없다 — ITP Builder 등과 같은 Layer 4 취급으로 내림.
 
   registerAction('create_project', {
     description: '신규 프로젝트 등록',
@@ -194,8 +182,8 @@
 
   // ── 3. 범용 조회 도구 ───────────────────────────────────────────
   // 데이터 종류별 전용 함수를 계속 늘리는 대신, 컬렉션 하나를 통째로 넘기고 모델이 스스로 요약/판단하게 함.
-  var QUERYABLE = ['projects', 'tasks', 'users', 'channels', 'ncrs', 'cars', 'quotes', 'approvals', 'events', 'okrs'];
-  var LOCAL_ONLY = ['ncrs', 'cars', 'quotes', 'approvals', 'events', 'okrs']; // 이 브라우저에만 저장(전사 공유 아님)
+  var QUERYABLE = ['projects', 'tasks', 'users', 'channels', 'quotes', 'approvals', 'events', 'okrs'];
+  var LOCAL_ONLY = ['quotes', 'approvals', 'events', 'okrs']; // 이 브라우저에만 저장(전사 공유 아님)
   function queryState(collection) {
     if (collection === 'wbsData') return state.wbs || {};
     if (QUERYABLE.indexOf(collection) === -1) {
@@ -233,7 +221,7 @@
     '조회는 query_state 도구로 처리한다. 등록/생성 요청은 해당 액션 도구를 호출한다 — 네가 직접 저장하는 게 아니라, ',
     '실제 입력 폼을 열고 값을 미리 채워주는 것뿐이며 최종 저장은 사용자가 화면에서 직접 확인 버튼을 눌러야 한다는 것을 답변에 명시해라.',
     'ncrs/cars/quotes/approvals/events/okrs 데이터는 사용자 브라우저에만 저장되어 다른 직원 화면과 다를 수 있다 — 관련 질문에는 이 점을 알려줘라.',
-    'ITP Builder, QA 문서생성, 모바일 점검 관련 작업(도면/사진 업로드, 검사 문서 작성 등)은 아직 AI로 지원되지 않는다 — 그런 요청을 받으면 아직 지원되지 않는다고 명확히 답하고 해당 모듈을 직접 열어달라고 안내해라.',
+    'ITP Builder, QA 문서생성, 모바일 점검, NCR 관리, CAR 관리 관련 작업(도면/사진 업로드, 검사 문서 작성, 부적합/시정조치 등록·조회 등)은 아직 AI로 지원되지 않는다 — 그런 요청을 받으면 아직 지원되지 않는다고 명확히 답하고 해당 모듈을 직접 열어달라고 안내해라.',
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
   ].join(' ');
 
