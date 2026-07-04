@@ -11,7 +11,7 @@
  *  채팅창 안 인라인 확인 카드에서 사람이 "전송"을 눌러야 실행된다.)
  */
 (function () {
-  // ── 0. Gemini 설정 ──────────────────────────────────────────────
+  // ── 0. AI 제공사 설정 (Gemini / Claude) ─────────────────────────
   // itp-builder.html의 API_KEY_LS 패턴과 동일하게, 키를 소스에 박지 않고
   // 각자 브라우저의 localStorage에 저장한다 — git 히스토리/배포 소스에 키가 남지 않음.
   // 무료 API 키 발급: https://aistudio.google.com/apikey
@@ -24,6 +24,24 @@
   function geminiUrl() {
     return 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + getGeminiKey();
   }
+
+  // Claude 키 — itp-builder.html과 동일한 localStorage 키를 그대로 재사용한다.
+  // ITP Builder에서 이미 키를 등록해둔 사용자는 AI 비서에서도 별도 입력 없이 바로 쓸 수 있다.
+  var CLAUDE_KEY_LS = 'sjp_claude_api_key';
+  var getClaudeKey = function () { try { return localStorage.getItem(CLAUDE_KEY_LS) || ''; } catch (e) { return ''; } };
+  var setClaudeKey = function (k) { try { if (k) localStorage.setItem(CLAUDE_KEY_LS, k); else localStorage.removeItem(CLAUDE_KEY_LS); } catch (e) {} };
+  var CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+
+  var PROVIDER_LS = 'sjp_ai_provider';
+  function getProvider() {
+    try {
+      var p = localStorage.getItem(PROVIDER_LS);
+      if (p === 'gemini' || p === 'claude') return p;
+    } catch (e) {}
+    return getClaudeKey() ? 'claude' : 'gemini';
+  }
+  function setProvider(p) { try { localStorage.setItem(PROVIDER_LS, p); } catch (e) {} }
+  function getActiveKey() { return getProvider() === 'claude' ? getClaudeKey() : getGeminiKey(); }
 
   // ── 1. AI 액션/조회 레지스트리 (window.SJP.ai) ─────────────────
   window.SJP = window.SJP || {};
@@ -200,8 +218,10 @@
   }
   ai.queryState = queryState;
 
-  // ── 4. Gemini function-calling 루프 ─────────────────────────────
-  function buildTools() {
+  // ── 4. 모델(Gemini/Claude) 공용 function-calling 루프 ────────────
+  var QUERY_STATE_DESC = '세종플랫폼 데이터 조회. collection에는 다음 중 하나만: ' + QUERYABLE.join(', ') + ', wbsData';
+
+  function buildGeminiTools() {
     var decls = Object.keys(ai.actions).map(function (name) {
       var def = ai.actions[name];
       var props = {};
@@ -210,10 +230,25 @@
     });
     decls.push({
       name: 'query_state',
-      description: '세종플랫폼 데이터 조회. collection에는 다음 중 하나만: ' + QUERYABLE.join(', ') + ', wbsData',
+      description: QUERY_STATE_DESC,
       parameters: { type: 'OBJECT', properties: { collection: { type: 'STRING' } }, required: ['collection'] }
     });
     return [{ functionDeclarations: decls }];
+  }
+
+  function buildClaudeTools() {
+    var decls = Object.keys(ai.actions).map(function (name) {
+      var def = ai.actions[name];
+      var props = {};
+      Object.keys(def.params).forEach(function (k) { props[k] = { type: 'string', description: def.params[k] }; });
+      return { name: name, description: def.description, input_schema: { type: 'object', properties: props } };
+    });
+    decls.push({
+      name: 'query_state',
+      description: QUERY_STATE_DESC,
+      input_schema: { type: 'object', properties: { collection: { type: 'string' } }, required: ['collection'] }
+    });
+    return decls;
   }
 
   var SYSTEM_INSTRUCTION = [
@@ -225,26 +260,89 @@
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
   ].join(' ');
 
+  // 대화 기록은 제공사 중립 형식으로 보관하고, 각 provider 호출부에서만 변환한다.
+  // { role:'user', text } | { role:'model', text } | { role:'model', functionCall:{name,args,id} } | { role:'function', name, result, callId }
   var history = [];
 
-  async function callGeminiOnce(contents) {
+  function geminiContentsFromHistory(h) {
+    return h.map(function (t) {
+      if (t.role === 'user') return { role: 'user', parts: [{ text: t.text }] };
+      if (t.role === 'model' && t.functionCall) return { role: 'model', parts: [{ functionCall: { name: t.functionCall.name, args: t.functionCall.args } }] };
+      if (t.role === 'model') return { role: 'model', parts: [{ text: t.text }] };
+      return { role: 'function', parts: [{ functionResponse: { name: t.name, response: { result: t.result } } }] };
+    });
+  }
+
+  async function callGeminiOnce(h) {
     if (!getGeminiKey()) {
-      throw new Error('아직 API 키가 설정되지 않았습니다 — 우측 상단 🔑 버튼을 눌러 키를 입력해주세요.');
+      throw new Error('아직 Gemini API 키가 설정되지 않았습니다 — 우측 상단 🔑 버튼을 눌러 키를 입력해주세요.');
     }
     var res = await fetch(geminiUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-        contents: contents,
-        tools: buildTools()
+        contents: geminiContentsFromHistory(h),
+        tools: buildGeminiTools()
       })
     });
     if (!res.ok) {
       var errText = await res.text().catch(function () { return ''; });
       throw new Error('Gemini 호출 실패 (' + res.status + '): ' + errText.slice(0, 300));
     }
-    return res.json();
+    var data = await res.json();
+    var candidate = data.candidates && data.candidates[0];
+    var parts = (candidate && candidate.content && candidate.content.parts) || [];
+    var fnPart = parts.find(function (p) { return p.functionCall; });
+    if (fnPart) return { type: 'function_call', name: fnPart.functionCall.name, args: fnPart.functionCall.args || {} };
+    var text = parts.map(function (p) { return p.text || ''; }).join('').trim() || '(응답 없음)';
+    return { type: 'text', text: text };
+  }
+
+  function claudeMessagesFromHistory(h) {
+    return h.map(function (t) {
+      if (t.role === 'user') return { role: 'user', content: t.text };
+      if (t.role === 'model' && t.functionCall) return { role: 'assistant', content: [{ type: 'tool_use', id: t.functionCall.id, name: t.functionCall.name, input: t.functionCall.args }] };
+      if (t.role === 'model') return { role: 'assistant', content: t.text };
+      return { role: 'user', content: [{ type: 'tool_result', tool_use_id: t.callId, content: JSON.stringify(t.result) }] };
+    });
+  }
+
+  async function callClaudeOnce(h) {
+    var key = getClaudeKey();
+    if (!key) {
+      throw new Error('아직 Claude API 키가 설정되지 않았습니다 — 우측 상단 🔑 버튼을 눌러 키를 입력해주세요.');
+    }
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 1024,
+        system: SYSTEM_INSTRUCTION,
+        messages: claudeMessagesFromHistory(h),
+        tools: buildClaudeTools()
+      })
+    });
+    if (!res.ok) {
+      var errText = await res.text().catch(function () { return ''; });
+      throw new Error('Claude 호출 실패 (' + res.status + '): ' + errText.slice(0, 300));
+    }
+    var data = await res.json();
+    var blocks = data.content || [];
+    var toolUse = blocks.find(function (b) { return b.type === 'tool_use'; });
+    if (toolUse) return { type: 'function_call', name: toolUse.name, args: toolUse.input || {}, callId: toolUse.id };
+    var text = blocks.filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join('').trim() || '(응답 없음)';
+    return { type: 'text', text: text };
+  }
+
+  function callProviderOnce(h) {
+    return getProvider() === 'claude' ? callClaudeOnce(h) : callGeminiOnce(h);
   }
 
   async function executeFunctionCall(name, args) {
@@ -263,21 +361,17 @@
   }
 
   async function runConversation(userText) {
-    history.push({ role: 'user', parts: [{ text: userText }] });
+    history.push({ role: 'user', text: userText });
     for (var i = 0; i < 5; i++) {
-      var data = await callGeminiOnce(history);
-      var candidate = data.candidates && data.candidates[0];
-      var parts = (candidate && candidate.content && candidate.content.parts) || [];
-      var fnCall = parts.find(function (p) { return p.functionCall; });
-      if (fnCall) {
-        history.push({ role: 'model', parts: parts });
-        var result = await executeFunctionCall(fnCall.functionCall.name, fnCall.functionCall.args || {});
-        history.push({ role: 'function', parts: [{ functionResponse: { name: fnCall.functionCall.name, response: { result: result } } }] });
+      var result = await callProviderOnce(history);
+      if (result.type === 'function_call') {
+        history.push({ role: 'model', functionCall: { name: result.name, args: result.args, id: result.callId } });
+        var execResult = await executeFunctionCall(result.name, result.args);
+        history.push({ role: 'function', name: result.name, result: execResult, callId: result.callId });
         continue;
       }
-      var text = parts.map(function (p) { return p.text || ''; }).join('').trim() || '(응답 없음)';
-      history.push({ role: 'model', parts: [{ text: text }] });
-      return text;
+      history.push({ role: 'model', text: result.text });
+      return result.text;
     }
     return '요청을 처리하는 데 단계가 너무 많이 필요합니다. 질문을 조금 더 구체적으로 나눠서 다시 시도해주세요.';
   }
@@ -315,29 +409,42 @@
   }
 
   window.openAiKeyModal = function () {
-    openModal('🔑 Gemini API 키', '' +
+    var provider = getProvider();
+    openModal('🔑 AI 비서 설정', '' +
       '<div class="fg">' +
-      '<label class="fl">개인 무료 API 키 (aistudio.google.com/apikey 에서 발급)</label>' +
-      '<input class="fi" id="aiKeyInput" placeholder="AIza..." value="' + getGeminiKey() + '">' +
+      '<label class="fl">사용할 AI</label>' +
+      '<select class="fi" id="aiProviderInput">' +
+      '<option value="gemini"' + (provider === 'gemini' ? ' selected' : '') + '>Gemini (무료 티어)</option>' +
+      '<option value="claude"' + (provider === 'claude' ? ' selected' : '') + '>Claude</option>' +
+      '</select>' +
       '</div>' +
-      '<div style="font-size:11px;color:var(--text-lighter);line-height:1.6;">이 키는 이 브라우저의 localStorage에만 저장되고, google 서버로만 직접 전송됩니다 — 저장소(git)나 세종플랫폼 서버로는 전송/저장되지 않습니다.</div>' +
-      '<button class="btn" style="margin-top:10px;" onclick="setGeminiKeyFromModal(\'\')">키 삭제</button>',
+      '<div class="fg">' +
+      '<label class="fl">Gemini API 키 (aistudio.google.com/apikey 에서 무료 발급)</label>' +
+      '<input class="fi" id="aiGeminiKeyInput" placeholder="AIza..." value="' + getGeminiKey() + '">' +
+      '</div>' +
+      '<div class="fg">' +
+      '<label class="fl">Claude API 키 (console.anthropic.com 에서 발급 — ITP Builder와 공용)</label>' +
+      '<input class="fi" id="aiClaudeKeyInput" placeholder="sk-ant-..." value="' + getClaudeKey() + '">' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-lighter);line-height:1.6;">키는 각각 이 브라우저의 localStorage에만 저장되고, 선택한 AI 쪽 서버로만 직접 전송됩니다 — 저장소(git)나 세종플랫폼 서버로는 전송/저장되지 않습니다. 필드를 비운 채 저장하면 해당 키가 삭제됩니다.</div>',
       function () {
-        var v = $id('aiKeyInput').value.trim();
-        setGeminiKey(v);
+        var newProvider = $id('aiProviderInput').value;
+        setGeminiKey($id('aiGeminiKeyInput').value.trim());
+        setClaudeKey($id('aiClaudeKeyInput').value.trim());
+        if (newProvider !== getProvider()) history = [];
+        setProvider(newProvider);
         closeModal();
-        appendMsg('system', v ? '✓ API 키가 저장되었습니다.' : 'API 키가 삭제되었습니다.');
+        appendMsg('system', '✓ 설정이 저장되었습니다. (현재: ' + (newProvider === 'claude' ? 'Claude' : 'Gemini') + ')');
       }
     );
   };
-  window.setGeminiKeyFromModal = function (v) { setGeminiKey(v); closeModal(); appendMsg('system', 'API 키가 삭제되었습니다.'); };
 
   var keyHintShown = false;
   window.toggleAiPanel = function () {
     $id('aiPanel').classList.toggle('open');
-    if ($id('aiPanel').classList.contains('open') && !getGeminiKey() && !keyHintShown) {
+    if ($id('aiPanel').classList.contains('open') && !getActiveKey() && !keyHintShown) {
       keyHintShown = true;
-      appendMsg('system', '아직 API 키가 없습니다 — 우측 상단 🔑 버튼을 눌러 무료 키를 등록해주세요 (aistudio.google.com/apikey).');
+      appendMsg('system', '아직 API 키가 없습니다 — 우측 상단 🔑 버튼을 눌러 Gemini(무료) 또는 Claude API 키를 등록해주세요.');
     }
   };
 
