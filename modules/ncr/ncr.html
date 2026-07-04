@@ -11,6 +11,10 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  // v29.12: 첨부파일을 Firestore 문서에 base64로 통째로 넣던 방식(1MB 제한에 걸려
+  // 조용히 저장 실패)을 버리고, 메신저 모듈과 동일하게 Firebase Storage에 실제
+  // 업로드 후 다운로드 URL만 Firestore에 저장하는 방식으로 전환.
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -21,7 +25,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, setDoc, deleteDoc, collection, onSnapshot };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), storage: getStorage(fbApp), doc, setDoc, deleteDoc, collection, onSnapshot, ref, uploadBytes, getDownloadURL };
 </script>
 <style>
 /* ── CSS 변수 (main app 동일) ── */
@@ -202,7 +206,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
     </div>
     <div class="npm-footer">
       <button class="btn" onclick="closeNCRParseModal()" style="background:var(--bg);color:var(--text);">취소</button>
-      <button class="btn btn-primary" onclick="confirmNCRParse()">✅ NCR 등록</button>
+      <button id="ncr-parse-confirm-btn" class="btn btn-primary" onclick="confirmNCRParse()">✅ NCR 등록</button>
     </div>
   </div>
 </div>
@@ -605,7 +609,7 @@ function render() {
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
               <td style="white-space:nowrap;">
                 <button class="org-ico-btn" onclick="openNCRMgr('${n.id}')" title="상세">📋</button>
-                ${n.meta?.fileDataUrl ? `<button class="org-ico-btn" onclick="viewNCRFile('${n.id}')" title="파일 보기">📄</button>` : ''}
+                ${(n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewNCRFile('${n.id}')" title="파일 보기">📄</button>` : ''}
                 ${!n.carId && n.status!=='closed' ? `<button class="org-ico-btn" onclick="createCARfromNCR('${n.id}')" title="CAR 발행">🔧</button>` : ''}
                 ${n.carId ? `<span style="font-size:10px;color:var(--primary);">${n.carId}</span>` : ''}
                 ${delBtn}
@@ -635,6 +639,10 @@ function openNewNCR() {
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
 
   openModal('+ NCR 발행', `
+    <div class="fg">
+      <label class="fl">NCR 등록번호 (비워두면 자동 채번)</label>
+      <input class="fi" id="ncrNo" placeholder="예: SJ-NCR-2026-01">
+    </div>
     <div class="fg">
       <label class="fl">프로젝트</label>
       <select class="fs" id="ncrProj" onchange="document.getElementById('ncrProjDirect').style.display=this.value==='__direct__'?'block':'none'">${projOpts}</select>
@@ -670,6 +678,7 @@ function openNewNCR() {
     </div>
     <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="ncrDesc" rows="3" placeholder="부적합 사항을 기재하세요"></textarea></div>
   `, () => {
+    const ncrNo    = document.getElementById('ncrNo').value.trim();
     const projSel  = document.getElementById('ncrProj').value;
     const proj     = projSel;
     const projDirect = document.getElementById('ncrProjDirect').value.trim();
@@ -686,7 +695,7 @@ function openNewNCR() {
     const disposition = document.getElementById('ncrDisp').value;
     if (!desc) { alert('부적합 내용을 입력하세요.'); return; }
     const num = nextNcrNo(new Date().getFullYear());
-    const id = `NCR-${new Date().getFullYear()}-${num}`;
+    const id = ncrNo || `NCR-${new Date().getFullYear()}-${num}`;
     if ((state.ncrs||[]).some(n => n.id === id)) { alert(`NCR No. [${id}] 이미 존재합니다.`); return; }
     if (!state.ncrs) state.ncrs = [];
     state.ncrs.push({
@@ -756,16 +765,14 @@ function openNCRMgr(ncrId) {
       <div style="display:flex;gap:8px;align-items:center;">
         <button type="button" class="btn btn-sm" onclick="document.getElementById('mgr-file-input').click()">📎 파일 선택</button>
         <span id="mgr-file-name" style="font-size:12px;color:var(--text-light);">${n.meta?.fileName||'없음'}</span>
-        ${n.meta?.fileDataUrl ? `<button type="button" class="btn btn-sm" onclick="viewNCRFile('${n.id}')">📄 현재 파일 보기</button>` : ''}
+        ${(n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button type="button" class="btn btn-sm" onclick="viewNCRFile('${n.id}')">📄 현재 파일 보기</button>` : ''}
       </div>
       <input type="file" id="mgr-file-input" accept=".pdf,.docx" style="display:none" onchange="(function(inp){
         const f=inp.files[0]; if(!f) return;
-        const r=new FileReader();
-        r.onload=function(e){ window._mgrFileDataUrl=e.target.result; window._mgrFileName=f.name; document.getElementById('mgr-file-name').textContent=f.name; };
-        r.readAsDataURL(f);
+        window._mgrRawFile=f; window._mgrFileName=f.name; document.getElementById('mgr-file-name').textContent=f.name;
       })(this)">
     </div>
-  `, () => {
+  `, async () => {
     n.desc        = document.getElementById('mgr-desc').value.trim() || n.desc;
     n.item        = document.getElementById('mgr-item').value.trim();
     n.grade       = document.getElementById('mgr-grade').value;
@@ -776,15 +783,18 @@ function openNCRMgr(ncrId) {
     const closedAt = document.getElementById('mgr-closed').value;
     if (closedAt) { n.closedAt = closedAt; n.status = 'closed'; }
     else if (n.closedAt && !closedAt) { n.closedAt = ''; n.status = 'open'; }
-    if (window._mgrFileDataUrl) {
-      const attach = safeAttachOrNull(window._mgrFileDataUrl);
+    if (window._mgrRawFile) {
+      const btn = document.getElementById('modal-confirm');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ 업로드 중...'; }
+      const attach = await uploadAttachmentOrNull('ncr', n.id, window._mgrRawFile);
+      if (btn) { btn.disabled = false; btn.textContent = '확인'; }
       if (!attach.ok) return;
-      if (attach.value) {
+      if (attach.url) {
         if (!n.meta) n.meta = {};
-        n.meta.fileDataUrl = attach.value;
-        n.meta.fileName = window._mgrFileName || '첨부파일';
+        n.meta.fileUrl = attach.url;
+        n.meta.fileName = attach.name;
       }
-      window._mgrFileDataUrl = null; window._mgrFileName = null;
+      window._mgrRawFile = null; window._mgrFileName = null;
     }
     save(); closeModal(); render();
   });
@@ -864,16 +874,27 @@ function issueNCRFromTrav(itemId, stage) {
   });
 }
 
-// v29.11 fix: Firestore 문서 하나의 최대 크기는 1MB. 스캔본 PDF 등 큰 파일을
-// meta.fileDataUrl에 통째로 넣어 저장하면 로컬 화면엔 즉시 보이지만 Firestore
-// setDoc은 조용히 실패(콘솔에만 에러)해서, 같은 파일을 몇 번을 다시 등록해도 매번
-// "등록 즉시 사라지는" 것처럼 보였음. 저장 전에 미리 검사해서 사용자에게 알린다.
-const MAX_ATTACH_CHARS = 700 * 1024; // base64 기준 — Firestore 1MB 제한 대비 여유 확보
-function safeAttachOrNull(dataUrl) {
-  if (!dataUrl || dataUrl.length <= MAX_ATTACH_CHARS) return { ok: true, value: dataUrl || null };
-  const mb = (dataUrl.length / 1024 / 1024).toFixed(1);
-  const proceed = confirm(`첨부 파일 용량이 너무 커서(${mb}MB) 서버에 저장할 수 없습니다.\n파일 없이 저장하시겠습니까?\n(취소를 누르면 저장이 중단됩니다 — 더 작은 파일로 다시 첨부해 주세요)`);
-  return { ok: proceed, value: null };
+// v29.12: Firestore 문서 하나의 최대 크기는 1MB라, 첨부파일을 meta.fileDataUrl에
+// base64로 통째로 넣으면 조용히 저장 실패(콘솔에만 에러)해서 "등록 즉시 사라지는"
+// 것처럼 보였음. 메신저 모듈과 동일하게 Firebase Storage에 실제 업로드하고
+// 다운로드 URL만 Firestore에 저장하는 방식으로 전환 — Firestore 용량 제한과 무관해짐.
+const MAX_ATTACH_MB = 25; // Storage 자체 한도가 아니라, 느린 회선에서의 실사용 배려용 상한
+async function uploadAttachmentOrNull(coll, id, file) {
+  if (!file) return { ok: true, url: null, name: null };
+  if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
+    alert(`첨부 파일이 너무 큽니다(${(file.size/1024/1024).toFixed(1)}MB). ${MAX_ATTACH_MB}MB 이하 파일만 첨부할 수 있습니다.`);
+    return { ok: false, url: null, name: null };
+  }
+  try {
+    const storageRef = fb.ref(fb.storage, `${coll}-attachments/${id}/${Date.now()}_${file.name}`);
+    await fb.uploadBytes(storageRef, file);
+    const url = await fb.getDownloadURL(storageRef);
+    return { ok: true, url, name: file.name };
+  } catch (e) {
+    console.error(`[${coll} 첨부파일 업로드]`, e);
+    const proceed = confirm(`첨부 파일 업로드에 실패했습니다: ${e.message || e}\n파일 없이 저장하시겠습니까?\n(취소를 누르면 저장이 중단됩니다)`);
+    return { ok: proceed, url: null, name: null };
+  }
 }
 
 /* ═══ 삭제 플로우 ═══ */
@@ -987,8 +1008,9 @@ function removeNcrListItem(type, val, selectId) {
 
 function viewNCRFile(ncrId) {
   const n = (state.ncrs||[]).find(x => x.id === ncrId);
-  if (!n?.meta?.fileDataUrl) { alert('저장된 파일이 없습니다.'); return; }
-  window.open(_toBlobUrl(n.meta.fileDataUrl), '_blank');
+  if (n?.meta?.fileUrl) { window.open(n.meta.fileUrl, '_blank'); return; }
+  if (n?.meta?.fileDataUrl) { window.open(_toBlobUrl(n.meta.fileDataUrl), '_blank'); return; } // 구버전 레코드(용량 제한 이전) 호환
+  alert('저장된 파일이 없습니다.');
 }
 
 /* ═══ 경향분석 ═══ */
@@ -1168,7 +1190,7 @@ function renderNCRTrend() {
       <td style="font-weight:700;">${n.id}</td>
       <td>${p}</td><td>${n.item||'-'}</td>
       <td>${n.location||'-'}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
-      <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td>
+      <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
       <td><span class="b-pill ${n.status==='closed'?'green':'red'}">${n.status==='closed'?'종결':'진행중'}</span></td>
     </tr>`;
   }).join('');
@@ -1205,8 +1227,8 @@ function renderNCRTrend() {
       <h4>📋 상세 목록</h4>
       <div style="overflow-x:auto;">
         <table class="ntr-table">
-          <thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>상태</th></tr></thead>
-          <tbody>${tableRows||'<tr><td colspan="9" style="text-align:center;color:var(--text-light);padding:20px;">데이터 없음</td></tr>'}</tbody>
+          <thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
+          <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;color:var(--text-light);padding:20px;">데이터 없음</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -1237,34 +1259,35 @@ function printNCRTrend() {
     const st = n.status==='closed';
     return `<tr><td style="font-weight:700;">${n.id}</td><td>${p}</td><td>${n.item||'-'}</td>
       <td>${n.location||'-'}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
-      <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td>
+      <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
       <td><span class="b-pill ${st?'green':'red'}">${st?'종결':'진행중'}</span></td></tr>`;
   }).join('');
 
   const w = window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NCR 품질 경향분석 보고서</title><style>
-    @page{size:A4 landscape;margin:8mm 10mm;}
+    @page{size:A4 landscape;margin:10mm 12mm;}
     *{box-sizing:border-box;}
-    body{font-family:'Malgun Gothic',sans-serif;margin:0;padding:0;color:#222;font-size:10px;background:#fff;}
-    .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;border-bottom:2px solid #7c3aed;padding-bottom:4px;}
-    h1{font-size:14px;margin:0;color:#7c3aed;}
-    .meta{font-size:8.5px;color:#888;}
-    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;}
-    .kpi{background:#f5f3ff;border-radius:5px;padding:5px 8px;text-align:center;}
-    .kpi .v{font-size:16px;font-weight:800;color:#7c3aed;line-height:1.2;}
-    .kpi .l{font-size:8px;color:#888;}
-    .top{display:grid;grid-template-columns:1fr 2.8fr;gap:6px;margin-bottom:6px;}
-    .card{border:1px solid #e0e0e0;border-radius:5px;padding:6px;}
-    .card-title{font-size:9px;font-weight:700;color:#7c3aed;margin:0 0 4px;}
-    .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
-    .ch-title{font-size:8.5px;font-weight:700;color:#888;margin-bottom:3px;}
-    .ch{border:1px solid #eee;border-radius:4px;padding:5px;overflow:hidden;}
-    table{width:100%;border-collapse:collapse;font-size:8.5px;}
-    th{background:#f5f3ff;color:#7c3aed;font-weight:700;padding:3px 5px;text-align:left;border-bottom:1.5px solid #ddd6fe;}
-    td{padding:2.5px 5px;border-bottom:1px solid #f0f0f0;}
-    .b-pill{display:inline-block;padding:1px 5px;border-radius:7px;font-size:7.5px;font-weight:600;}
+    body{font-family:'Malgun Gothic',sans-serif;margin:0;padding:0;color:#222;font-size:11px;background:#fff;}
+    .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;border-bottom:2px solid #7c3aed;padding-bottom:6px;}
+    h1{font-size:16px;margin:0;color:#7c3aed;}
+    .meta{font-size:9.5px;color:#888;}
+    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+    .kpi{background:#f5f3ff;border-radius:6px;padding:8px 10px;text-align:center;}
+    .kpi .v{font-size:20px;font-weight:800;color:#7c3aed;line-height:1.2;}
+    .kpi .l{font-size:9px;color:#888;}
+    .section-title{font-size:12px;font-weight:700;color:#7c3aed;margin:2px 0 6px;}
+    .card{border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:10px;}
+    .card-title{font-size:10px;font-weight:700;color:#7c3aed;margin:0 0 6px;}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .ch-title{font-size:9.5px;font-weight:700;color:#888;margin-bottom:5px;}
+    .ch{border:1px solid #eee;border-radius:5px;padding:8px;overflow:hidden;}
+    table{width:100%;border-collapse:collapse;font-size:9.5px;}
+    th{background:#f5f3ff;color:#7c3aed;font-weight:700;padding:4px 6px;text-align:left;border-bottom:1.5px solid #ddd6fe;}
+    td{padding:3.5px 6px;border-bottom:1px solid #f0f0f0;}
+    .b-pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:8.5px;font-weight:600;}
     .b-pill.green{background:#d1fae5;color:#065f46;}.b-pill.red{background:#fee2e2;color:#991b1b;}
     svg{overflow:visible;display:block;width:100%;}
+    .page-break{page-break-before:always;break-before:page;}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
     <div class="hdr"><h1>📊 NCR 품질 경향분석 보고서</h1>
@@ -1275,21 +1298,18 @@ function printNCRTrend() {
       <div class="kpi"><div class="v" style="color:#059669;">${ncrs.filter(n=>n.status==='closed').length}</div><div class="l">종결</div></div>
       <div class="kpi"><div class="v">${ncrs.filter(n=>n.grade==='major').length}</div><div class="l">중대 등급</div></div>
     </div>
-    <div class="top">
-      <div class="card"><div class="card-title">📈 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
-      <div class="card"><div class="card-title">📊 항목별 분포</div>
-        <div class="grid5">
-          <div class="ch"><div class="ch-title">프로젝트별</div>${_barSvg(projEntries,COLORS)}</div>
-          <div class="ch"><div class="ch-title">발생장소별</div>${_barSvg(locEntries,COLORS)}</div>
-          <div class="ch"><div class="ch-title">불량원인별</div>${_barSvg(causeEntries,COLORS)}</div>
-          <div class="ch"><div class="ch-title">불량원인 상세별</div>${_barSvg(detailEntries,COLORS)}</div>
-          <div class="ch"><div class="ch-title">처리방안별</div>${_donutSvg(dispEntries,COLORS)}</div>
-        </div>
-      </div>
+    <div class="card"><div class="card-title">📈 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
+    <div class="section-title">📊 항목별 분포</div>
+    <div class="grid3">
+      <div class="ch"><div class="ch-title">프로젝트별</div>${_barSvg(projEntries,COLORS)}</div>
+      <div class="ch"><div class="ch-title">발생장소별</div>${_barSvg(locEntries,COLORS)}</div>
+      <div class="ch"><div class="ch-title">불량원인별</div>${_barSvg(causeEntries,COLORS)}</div>
+      <div class="ch"><div class="ch-title">불량원인 상세별</div>${_barSvg(detailEntries,COLORS)}</div>
+      <div class="ch"><div class="ch-title">처리방안별</div>${_donutSvg(dispEntries,COLORS)}</div>
     </div>
-    <div class="card"><div class="card-title">📋 상세 목록</div>
-      <table><thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>상태</th></tr></thead>
-        <tbody>${tableRows||'<tr><td colspan="9" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
+    <div class="card page-break"><div class="card-title">📋 상세 목록</div>
+      <table><thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
+        <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
       </table>
     </div>
     <script>window.onload=()=>{window.print();}<\/script>
@@ -1326,8 +1346,9 @@ function handleNCRFile(input) {
       const parsed = parseNCRText(text, file.name);
       parsed.ocrFailed  = ocrFailed  || false;
       parsed.imgDataUrl = imgDataUrl || null;
-      parsed.fileDataUrl = fileDataUrl;
+      parsed.fileDataUrl = fileDataUrl; // 등록 전 미리보기 전용(저장은 Storage 업로드로 처리)
       parsed.fileName    = file.name;
+      parsed.rawFile     = file;
       showNCRParseModal(parsed);
     };
     if (ext === 'pdf') {
@@ -1449,6 +1470,7 @@ function showNCRParseModal(p) {
   }
   window._ncrParseFileDataUrl = p.fileDataUrl||null;
   window._ncrParseFileName    = p.fileName   ||null;
+  window._ncrParseRawFile     = p.rawFile    ||null;
 
   document.getElementById('ncr-parse-modal').classList.add('open');
   document.getElementById('ncr-parse-body').innerHTML = `
@@ -1490,7 +1512,7 @@ function showNCRParseModal(p) {
   `;
 }
 
-function confirmNCRParse() {
+async function confirmNCRParse() {
   const ncrNo      = document.getElementById('np-ncrno').value.trim();
   const date       = document.getElementById('np-date').value;
   const projSel    = document.getElementById('np-proj').value;
@@ -1514,7 +1536,14 @@ function confirmNCRParse() {
     alert(`NCR No. [${id}] 가 이미 등록되어 있습니다.\nNCR No. 를 다르게 입력하세요.`);
     return;
   }
-  const attach = safeAttachOrNull(window._ncrParseFileDataUrl || null);
+  const btn = document.getElementById('ncr-parse-confirm-btn');
+  const rawFile = window._ncrParseRawFile || null;
+  let attach = { ok: true, url: null, name: null };
+  if (rawFile) {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 파일 업로드 중...'; }
+    attach = await uploadAttachmentOrNull('ncr', id, rawFile);
+    if (btn) { btn.disabled = false; btn.textContent = '✅ NCR 등록'; }
+  }
   if (!attach.ok) return;
   if (!state.ncrs) state.ncrs = [];
   state.ncrs.push({
@@ -1523,10 +1552,11 @@ function confirmNCRParse() {
     issuedBy: state.currentUser,
     issuedAt: date||new Date().toISOString().slice(0,10),
     carId:null,
-    meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__'?projDirect:'', fileDataUrl: attach.value, fileName: attach.value ? (window._ncrParseFileName||null) : null }
+    meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__'?projDirect:'', fileUrl: attach.url, fileName: attach.name }
   });
   window._ncrParseFileDataUrl = null;
   window._ncrParseFileName    = null;
+  window._ncrParseRawFile     = null;
   save(); closeNCRParseModal(); render();
 }
 

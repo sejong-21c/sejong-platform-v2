@@ -10,6 +10,10 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  // v29.12: 첨부파일을 Firestore 문서에 base64로 통째로 넣던 방식(1MB 제한에 걸려
+  // 조용히 저장 실패)을 버리고, 메신저 모듈과 동일하게 Firebase Storage에 실제
+  // 업로드 후 다운로드 URL만 Firestore에 저장하는 방식으로 전환.
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -20,7 +24,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, setDoc, deleteDoc, collection, onSnapshot };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), storage: getStorage(fbApp), doc, setDoc, deleteDoc, collection, onSnapshot, ref, uploadBytes, getDownloadURL };
 </script>
 <style>
 :root {
@@ -193,7 +197,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
     </div>
     <div class="cpm-footer">
       <button class="btn" onclick="closeCARParseModal()" style="background:var(--bg);color:var(--text);">취소</button>
-      <button class="btn btn-primary" onclick="confirmCARParse()">✅ CAR 등록</button>
+      <button id="car-parse-confirm-btn" class="btn btn-primary" onclick="confirmCARParse()">✅ CAR 등록</button>
     </div>
   </div>
 </div>
@@ -507,7 +511,7 @@ function render() {
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
               <td style="white-space:nowrap;">
                 <button class="org-ico-btn" onclick="openCARMgr('${c.id}')" title="상세/수정">📋</button>
-                ${c.meta?.fileDataUrl ? `<button class="org-ico-btn" onclick="viewCARFile('${c.id}')" title="파일 보기">📄</button>` : ''}
+                ${(c.meta?.fileUrl || c.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewCARFile('${c.id}')" title="파일 보기">📄</button>` : ''}
                 ${(()=>{
                   // v29.10: CAR 삭제는 즉시 실행되지 않고 항상 24시간 대기 요청으로만 처리된다.
                   const pendingReq = (state.carDeleteReqs||[]).find(r => r.carId === c.id && r.status === 'pending');
@@ -541,6 +545,10 @@ function openNewCAR() {
   ].join('');
   openModal('+ CAR 발행', `
     <div class="fg">
+      <label class="fl">CAR 등록번호 (비워두면 자동 채번)</label>
+      <input class="fi" id="carNo" placeholder="예: SJ-CAR-2026-01">
+    </div>
+    <div class="fg">
       <label class="fl">프로젝트</label>
       <select class="fs" id="carProj" onchange="document.getElementById('carProjDirect').style.display=this.value==='__direct__'?'block':'none'">${projOpts}</select>
       <input class="fi" id="carProjDirect" placeholder="프로젝트명 직접 입력" style="margin-top:6px;display:none;">
@@ -564,6 +572,7 @@ function openNewCAR() {
       <div style="flex:1;"><label class="fl">회신기한</label><input class="fi" type="date" id="carReplyDue"></div>
     </div>
   `, () => {
+    const carNo     = document.getElementById('carNo').value.trim();
     const proj      = document.getElementById('carProj').value;
     const projDirect= document.getElementById('carProjDirect').value.trim();
     const client    = document.getElementById('carClient').value.trim();
@@ -580,8 +589,10 @@ function openNewCAR() {
     if (!state.cars) state.cars = [];
     const num = nextCarNo(new Date().getFullYear());
     const today = new Date().toISOString().slice(0,10);
+    const id = carNo || `CAR-${new Date().getFullYear()}-${num}`;
+    if ((state.cars||[]).some(c => c.id === id)) { alert(`CAR No. [${id}] 이미 존재합니다.`); return; }
     state.cars.push({
-      id: `CAR-${new Date().getFullYear()}-${num}`,
+      id,
       ncrId: null, proj, action, reqDept, status: 'in-progress',
       qualReq, field, cause,
       issuedAt: issuedAt || today,
@@ -645,16 +656,14 @@ function openCARMgr(carId) {
       <div style="display:flex;gap:8px;align-items:center;">
         <button type="button" class="btn btn-sm" onclick="document.getElementById('mgr-car-file-input').click()">📎 파일 선택</button>
         <span id="mgr-car-file-name" style="font-size:12px;color:var(--text-light);">${c.meta?.fileName||'없음'}</span>
-        ${c.meta?.fileDataUrl ? `<button type="button" class="btn btn-sm" onclick="viewCARFile('${c.id}')">📄 현재 파일 보기</button>` : ''}
+        ${(c.meta?.fileUrl || c.meta?.fileDataUrl) ? `<button type="button" class="btn btn-sm" onclick="viewCARFile('${c.id}')">📄 현재 파일 보기</button>` : ''}
       </div>
       <input type="file" id="mgr-car-file-input" accept=".pdf,.docx" style="display:none" onchange="(function(inp){
         const f=inp.files[0]; if(!f) return;
-        const r=new FileReader();
-        r.onload=function(e){ window._mgrCARFileDataUrl=e.target.result; window._mgrCARFileName=f.name; document.getElementById('mgr-car-file-name').textContent=f.name; };
-        r.readAsDataURL(f);
+        window._mgrCARRawFile=f; window._mgrCARFileName=f.name; document.getElementById('mgr-car-file-name').textContent=f.name;
       })(this)">
     </div>
-  `, () => {
+  `, async () => {
     c.action    = document.getElementById('mgr-action').value.trim() || c.action;
     c.reqDept   = document.getElementById('mgr-reqDept').value.trim();
     c.qualReq   = document.getElementById('mgr-qualReq').value;
@@ -674,14 +683,17 @@ function openCARMgr(carId) {
     else if (newStatus !== 'closed') c.closedAt = closedAt || null;
     else c.closedAt = closedAt;
     c.status = newStatus;
-    if (window._mgrCARFileDataUrl) {
-      const attach = safeAttachOrNull(window._mgrCARFileDataUrl);
+    if (window._mgrCARRawFile) {
+      const btn = document.getElementById('modal-confirm');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ 업로드 중...'; }
+      const attach = await uploadAttachmentOrNull('car', c.id, window._mgrCARRawFile);
+      if (btn) { btn.disabled = false; btn.textContent = '확인'; }
       if (!attach.ok) return;
-      if (attach.value) {
-        c.meta.fileDataUrl = attach.value;
-        c.meta.fileName = window._mgrCARFileName || '첨부파일';
+      if (attach.url) {
+        c.meta.fileUrl = attach.url;
+        c.meta.fileName = attach.name;
       }
-      window._mgrCARFileDataUrl = null; window._mgrCARFileName = null;
+      window._mgrCARRawFile = null; window._mgrCARFileName = null;
     }
     save(); closeModal(); render();
   });
@@ -712,16 +724,27 @@ async function closeCAR(carId) {
   save(); render();
 }
 
-// v29.11 fix: Firestore 문서 하나의 최대 크기는 1MB. 스캔본 PDF 등 큰 파일을
-// meta.fileDataUrl에 통째로 넣어 저장하면 로컬 화면엔 즉시 보이지만 Firestore
-// setDoc은 조용히 실패(콘솔에만 에러)해서, 같은 파일을 몇 번을 다시 등록해도 매번
-// "등록 즉시 사라지는" 것처럼 보였음. 저장 전에 미리 검사해서 사용자에게 알린다.
-const MAX_ATTACH_CHARS = 700 * 1024; // base64 기준 — Firestore 1MB 제한 대비 여유 확보
-function safeAttachOrNull(dataUrl) {
-  if (!dataUrl || dataUrl.length <= MAX_ATTACH_CHARS) return { ok: true, value: dataUrl || null };
-  const mb = (dataUrl.length / 1024 / 1024).toFixed(1);
-  const proceed = confirm(`첨부 파일 용량이 너무 커서(${mb}MB) 서버에 저장할 수 없습니다.\n파일 없이 저장하시겠습니까?\n(취소를 누르면 저장이 중단됩니다 — 더 작은 파일로 다시 첨부해 주세요)`);
-  return { ok: proceed, value: null };
+// v29.12: Firestore 문서 하나의 최대 크기는 1MB라, 첨부파일을 meta.fileDataUrl에
+// base64로 통째로 넣으면 조용히 저장 실패(콘솔에만 에러)해서 "등록 즉시 사라지는"
+// 것처럼 보였음. 메신저 모듈과 동일하게 Firebase Storage에 실제 업로드하고
+// 다운로드 URL만 Firestore에 저장하는 방식으로 전환 — Firestore 용량 제한과 무관해짐.
+const MAX_ATTACH_MB = 25; // Storage 자체 한도가 아니라, 느린 회선에서의 실사용 배려용 상한
+async function uploadAttachmentOrNull(coll, id, file) {
+  if (!file) return { ok: true, url: null, name: null };
+  if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
+    alert(`첨부 파일이 너무 큽니다(${(file.size/1024/1024).toFixed(1)}MB). ${MAX_ATTACH_MB}MB 이하 파일만 첨부할 수 있습니다.`);
+    return { ok: false, url: null, name: null };
+  }
+  try {
+    const storageRef = fb.ref(fb.storage, `${coll}-attachments/${id}/${Date.now()}_${file.name}`);
+    await fb.uploadBytes(storageRef, file);
+    const url = await fb.getDownloadURL(storageRef);
+    return { ok: true, url, name: file.name };
+  } catch (e) {
+    console.error(`[${coll} 첨부파일 업로드]`, e);
+    const proceed = confirm(`첨부 파일 업로드에 실패했습니다: ${e.message || e}\n파일 없이 저장하시겠습니까?\n(취소를 누르면 저장이 중단됩니다)`);
+    return { ok: proceed, url: null, name: null };
+  }
 }
 
 /* ═══ 삭제 플로우 ═══ */
@@ -794,8 +817,9 @@ function fmtCARRemain(ms) {
 
 function viewCARFile(carId) {
   const c = (state.cars||[]).find(x => x.id === carId);
-  if (!c?.meta?.fileDataUrl) { alert('저장된 파일이 없습니다.'); return; }
-  window.open(_toBlobUrl(c.meta.fileDataUrl), '_blank');
+  if (c?.meta?.fileUrl) { window.open(c.meta.fileUrl, '_blank'); return; }
+  if (c?.meta?.fileDataUrl) { window.open(_toBlobUrl(c.meta.fileDataUrl), '_blank'); return; } // 구버전 레코드(용량 제한 이전) 호환
+  alert('저장된 파일이 없습니다.');
 }
 
 /* ═══ 차트 헬퍼 (NCR과 동일) ═══ */
@@ -1126,8 +1150,9 @@ function handleCARFile(input) {
       const parsed = parseCARText(text, file.name);
       parsed.ocrFailed = ocrFailed || false;
       parsed.imgDataUrl = imgDataUrl || null;
-      parsed.fileDataUrl = fileDataUrl;
+      parsed.fileDataUrl = fileDataUrl; // 등록 전 미리보기 전용(저장은 Storage 업로드로 처리)
       parsed.fileName = file.name;
+      parsed.rawFile = file;
       showCARParseModal(parsed);
     };
     if (ext === 'pdf') {
@@ -1235,6 +1260,7 @@ function showCARParseModal(p) {
   }
   window._carParseFileDataUrl = p.fileDataUrl || null;
   window._carParseFileName    = p.fileName    || null;
+  window._carParseRawFile     = p.rawFile     || null;
 
   document.getElementById('car-parse-modal').classList.add('open');
   document.getElementById('car-parse-body').innerHTML = `
@@ -1280,7 +1306,7 @@ function showCARParseModal(p) {
   `;
 }
 
-function confirmCARParse() {
+async function confirmCARParse() {
   const carNo    = document.getElementById('cp-carno').value.trim();
   const ncrRef   = document.getElementById('cp-ncrref').value.trim();
   const date     = document.getElementById('cp-date').value;
@@ -1303,7 +1329,14 @@ function confirmCARParse() {
   if ((state.cars||[]).some(c => c.id === id)) {
     alert(`CAR No. [${id}] 가 이미 등록되어 있습니다.\nCAR No. 를 다르게 입력하세요.`); return;
   }
-  const attach = safeAttachOrNull(window._carParseFileDataUrl || null);
+  const btn = document.getElementById('car-parse-confirm-btn');
+  const rawFile = window._carParseRawFile || null;
+  let attach = { ok: true, url: null, name: null };
+  if (rawFile) {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 파일 업로드 중...'; }
+    attach = await uploadAttachmentOrNull('car', id, rawFile);
+    if (btn) { btn.disabled = false; btn.textContent = '✅ CAR 등록'; }
+  }
   if (!attach.ok) return;
   if (!state.cars) state.cars = [];
   const ncrId = ncrRef || null;
@@ -1317,8 +1350,8 @@ function confirmCARParse() {
     meta: {
       client, dwgNo, wrNo,
       projDirect: projSel==='__direct__' ? projDirect : '',
-      fileDataUrl: attach.value,
-      fileName: attach.value ? (window._carParseFileName || null) : null
+      fileUrl: attach.url,
+      fileName: attach.name
     }
   });
   if (ncrId) {
@@ -1327,6 +1360,7 @@ function confirmCARParse() {
   }
   window._carParseFileDataUrl = null;
   window._carParseFileName    = null;
+  window._carParseRawFile     = null;
   save(); closeCARParseModal(); render();
 }
 
