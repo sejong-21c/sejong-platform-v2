@@ -1241,8 +1241,22 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         // 뒤 날짜를 최우선으로 쓰고, 라벨이 없으면 해당 줄~다음 2줄 중 가장 늦은(미래) 날짜를 채택
         // (만료일은 통상 발급일보다 늦은 날짜이므로).
         let curName = "";
-        const dateReG = /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/g;
-        const toISO = (m) => `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+        // v3.5 — 엑셀 날짜 셀은 SheetJS(raw:false)가 셀 자체의 표시 서식을 그대로 따라가는데, 이
+        // 회사 양식은 "m/d/yy" 짧은 날짜 서식이라 "10/29/26"(연도 2자리, 맨 뒤)으로 나온다. 기존
+        // 정규식은 "연도 4자리가 맨 앞"만 허용해서 이 값을 아예 못 읽고 있었음(실제 파일로 재현·확인).
+        // 연도-앞(YYYY-MM-DD 등)과 연도-뒤(M/D/YY, M/D/YYYY) 두 형태를 모두 지원.
+        const parseAnyDate = (str) => {
+          if (!str) return "";
+          let m = str.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/); // YYYY-MM-DD 형
+          if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+          m = str.match(/(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2}|\d{4})/); // M/D/YY(YY) 형 (미국식, 엑셀 짧은 날짜)
+          if (m) {
+            let yr = m[3];
+            if (yr.length === 2) yr = (parseInt(yr,10) < 50 ? "20" : "19") + yr;
+            return `${yr}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+          }
+          return "";
+        };
         // v3.4 — xlsx(회사 표준 양식)는 셀 좌표가 그대로 보존되므로, 줄 안의 아무 날짜나 스캔하는
         // 대신 "만료" 라벨이 있는 헤더 열을 찾아 그 열 값만 만료일로 쓴다. 기존 방식은 O열(최초
         // 승인일자)과 Q열(승인 만료일자)이 한 줄에 같이 있을 때 잘못된 날짜를 집을 위험이 있었음.
@@ -1258,22 +1272,18 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           }
           if (expiryColIdx < 0) expiryColIdx = 16; // Q열 기본값
         }
-        const findDueDateXlsx = (li) => {
-          const cell = (texts[li].split("\t")[expiryColIdx] || "").trim();
-          const m = cell.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
-          return m ? toISO(m) : "";
-        };
+        const findDueDateXlsx = (li) => parseAnyDate((texts[li].split("\t")[expiryColIdx] || "").trim());
         const findDueDate = (li) => {
           const win = [texts[li]||"", texts[li+1]||"", texts[li+2]||""].join(" | ");
           const labelPos = win.indexOf("만료");
           if (labelPos >= 0) {
             const after = win.slice(labelPos, labelPos + 40);
-            const m = after.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
-            if (m) return toISO(m);
+            const d = parseAnyDate(after);
+            if (d) return d;
           }
-          const all = [...win.matchAll(dateReG)];
+          const all = [...win.matchAll(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/g)].map(m => parseAnyDate(m[0]));
           if (!all.length) return "";
-          return all.map(toISO).reduce((a,b) => (a > b ? a : b));
+          return all.reduce((a,b) => (a > b ? a : b));
         };
         texts.forEach((line, li) => {
           const cells = line.split(/\t+/).map(c=>c.trim());
