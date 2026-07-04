@@ -1240,7 +1240,37 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         // 발급일=과거 날짜)를 잘못 집어서 "이미 만료"로 오판정하던 버그 수정. "만료" 라벨 바로
         // 뒤 날짜를 최우선으로 쓰고, 라벨이 없으면 해당 줄~다음 2줄 중 가장 늦은(미래) 날짜를 채택
         // (만료일은 통상 발급일보다 늦은 날짜이므로).
-        let curName = "";
+        const isXlsx = (ext === "xlsx" || ext === "xls");
+        // v3.6 — 이름 셀 매칭 전략을 xlsx/PDF로 분리.
+        // - xlsx: SheetJS가 병합 셀을 항상 병합 범위의 "첫 행"에만 값으로 채워주고 행 순서도 원본
+        //   그대로 보존하므로, "가장 최근에 본 이름을 계속 물려쓰는" 순차 방식이 정확함 (예: GT-01/
+        //   FC-01/SAW 3개 공정이 한 이름 아래 있어도 이름 칸은 첫 행에만 있고 나머지는 비어 있음 —
+        //   실제 파일로 확인. 이 경우 "가장 가까운 줄"로 찾으면 SAW 행이 다음 사람 이름을 잘못
+        //   물려받는 회귀가 생김).
+        // - PDF: pdf.js가 y좌표로 줄을 재구성할 때, GT-01/FC-01 두 행에 걸친 병합 이름 셀이 그 두
+        //   행 "사이"에 놓이는 경우가 있어 각 사람의 첫 번째 행(GT-01)이 이전 사람 이름을 잘못
+        //   물려받는 문제가 있었음(실제 PDF로 재현). 이 경우는 줄 인덱스가 가장 가까운 이름을
+        //   앞뒤 상관없이 채택해야 정확함.
+        let curNameSeq = "";
+        const seqNameByLine = texts.map(line => {
+          const nameCell = line.split(/\t+/).map(c=>c.trim()).find(c => /^[가-힣]{2,4}$/.test(c));
+          if (nameCell) curNameSeq = nameCell;
+          return curNameSeq;
+        });
+        const nameLines = [];
+        texts.forEach((line, li) => {
+          const nameCell = line.split(/\t+/).map(c=>c.trim()).find(c => /^[가-힣]{2,4}$/.test(c));
+          if (nameCell) nameLines.push({li, name: nameCell});
+        });
+        const nearestName = (li) => {
+          if (!nameLines.length) return "";
+          let best = nameLines[0], bestDist = Math.abs(nameLines[0].li - li);
+          for (const n of nameLines) {
+            const d = Math.abs(n.li - li);
+            if (d < bestDist) { best = n; bestDist = d; }
+          }
+          return best.name;
+        };
         // v3.5 — 엑셀 날짜 셀은 SheetJS(raw:false)가 셀 자체의 표시 서식을 그대로 따라가는데, 이
         // 회사 양식은 "m/d/yy" 짧은 날짜 서식이라 "10/29/26"(연도 2자리, 맨 뒤)으로 나온다. 기존
         // 정규식은 "연도 4자리가 맨 앞"만 허용해서 이 값을 아예 못 읽고 있었음(실제 파일로 재현·확인).
@@ -1263,7 +1293,6 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         // 헤더에서 "만료" 열을 못 찾으면 회사 양식 기준 Q열(0-index 16)을 기본값으로 사용.
         // v3.4 주의: 이 블록만 split("\t") (단일 탭)을 써야 함 — split(/\t+/)는 빈 셀이 연속될 때
         // 구분자를 하나로 합쳐버려서 이후 모든 컬럼 인덱스가 밀려버림 (실제 xlsx 테스트로 확인된 버그).
-        const isXlsx = (ext === "xlsx" || ext === "xls");
         let expiryColIdx = -1;
         if (isXlsx) {
           for (const line of texts) {
@@ -1286,12 +1315,10 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           return all.reduce((a,b) => (a > b ? a : b));
         };
         texts.forEach((line, li) => {
-          const cells = line.split(/\t+/).map(c=>c.trim());
-          const nameCell = cells.find(c => /^[가-힣]{2,4}$/.test(c));
-          if (nameCell) curName = nameCell;
           const norm = line.replace(/\s+/g, "");
           const ms = norm.match(/SJ-[A-Z]{2,4}-[A-Z]{2,4}(-\d{2})?(,\d{2})?/g);
           if (!ms) return;
+          const curName = isXlsx ? seqNameByLine[li] : nearestName(li);
           const dueDate = isXlsx ? findDueDateXlsx(li) : findDueDate(li);
           ms.forEach(id => {
             if (seen.has(id)) return;
