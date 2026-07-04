@@ -1027,7 +1027,9 @@ const PROJ_STATUS_META = {
 function projStatusMeta(p) { return PROJ_STATUS_META[p && p.status] || PROJ_STATUS_META.active; }
 function getWBS(pid) { return state.wbs[pid] || []; }
 // 제작공정관리(Manufacture Manager/WBS 일괄등록)가 만든 item은 tag가 아닌 tagNo 필드를 씀 — 통일해서 반환
-function getItems(pid) { return (state.items[pid] || []).map(it => it.tag ? it : { ...it, tag: it.tagNo || '' }); }
+function getItems(pid) { return (state.items[pid] || []).filter(it => !it.hidden).map(it => it.tag ? it : { ...it, tag: it.tagNo || '' }); }
+// v3.7 — 중복/불필요 아이템을 실수로 삭제해도 복구할 수 있도록 완전 삭제 대신 hidden 플래그로 숨김 처리.
+function getHiddenItems(pid) { return (state.items[pid] || []).filter(it => it.hidden).map(it => it.tag ? it : { ...it, tag: it.tagNo || '' }); }
 /* Cowork 메일 자동분류 결과(개인별 briefing.schedule) → 캘린더 일정으로 자동 반영 */
 function getBriefingScheduleEvents() {
   const b = state.briefings && state.briefings[state.currentUser];
@@ -2319,6 +2321,7 @@ function renderITPBuilder() {
   const p = getP(pid);
   if (!p) { view.itpSelectedProj = null; return `<div class="content-pad">${renderITPProjects()}</div>`; }
   const items = getItems(pid);
+  const hiddenItems = getHiddenItems(pid);
   const selectedItem = view.itpSelectedItem ? items.find(i => i.id === view.itpSelectedItem) : items[0];
   if (selectedItem && view.itpSelectedItem !== selectedItem.id) view.itpSelectedItem = selectedItem.id;
   
@@ -2373,8 +2376,9 @@ function renderITPBuilder() {
             <button class="btn btn-sm btn-primary" style="margin-top:10px;" onclick="openNewTag('${p.id}')">+ 첫 아이템 등록</button>
           </div>
         ` : items.map(it => `
-          <div class="itp-item-card${selectedItem && selectedItem.id===it.id?' sel':''}" onclick="setITPItem('${it.id}')">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div class="itp-item-card${selectedItem && selectedItem.id===it.id?' sel':''}" onclick="setITPItem('${it.id}')" style="position:relative;">
+            <button onclick="event.stopPropagation();deleteITPItem('${p.id}','${it.id}');" title="삭제 (복구 가능)" style="position:absolute;top:6px;right:6px;width:18px;height:18px;line-height:16px;padding:0;font-size:11px;border:none;border-radius:50%;background:var(--bg);color:#c00;cursor:pointer;">✕</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-right:18px;">
               <span class="itp-tag">${it.tag}</span>
               <span style="font-size:10px;background:var(--bg);padding:1px 6px;border-radius:3px;">${it.type}</span>
             </div>
@@ -2383,7 +2387,22 @@ function renderITPBuilder() {
             <div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">${it.spec}</div>
           </div>
         `).join('')}
-        
+
+        ${hiddenItems.length > 0 ? `
+          <div style="margin-top:10px;">
+            <button class="btn btn-sm" style="width:100%;" onclick="toggleShowDeletedItems()">${view.itpShowDeletedItems ? '▲ 숨기기' : '▼'} 삭제된 아이템 (${hiddenItems.length})</button>
+            ${view.itpShowDeletedItems ? hiddenItems.map(it => `
+              <div class="itp-item-card" style="opacity:.6;cursor:default;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="itp-tag">${it.tag}</span>
+                  <button class="btn btn-sm" onclick="restoreITPItem('${p.id}','${it.id}')" style="font-size:10px;padding:2px 8px;">↺ 복구</button>
+                </div>
+                <div style="font-size:12px;margin-top:2px;">${it.name}</div>
+              </div>
+            `).join('') : ''}
+          </div>
+        ` : ''}
+
         ${selectedItem ? `
           <div style="margin-top:14px;padding:10px;background:var(--primary-lighter);border-radius:5px;font-size:10px;line-height:1.6;">
             <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">→ 우측 ITP Builder에서</div>
@@ -3620,6 +3639,37 @@ function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
 
 function toggleShowHidden() {
   view.showHiddenProj = !view.showHiddenProj;
+  render();
+}
+// v3.7 — 검사 대상 아이템(제작공정관리 연동) 중복/불필요 항목 삭제 + 복구.
+// 완전 삭제 대신 hidden 플래그만 세워서 실수로 지워도 되돌릴 수 있게 함.
+async function deleteITPItem(pid, itemId) {
+  const items = state.items[pid];
+  const it = items && items.find(x => x.id === itemId);
+  if (!it) return;
+  if (!confirm(`"${it.tag || it.tagNo || itemId}" 아이템을 삭제하시겠습니까?\n(하단 "삭제된 아이템"에서 다시 복구할 수 있습니다)`)) return;
+  it.hidden = true;
+  save();
+  render();
+  if (window.fb && fb.db) {
+    try { await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { items }, { merge: true }); }
+    catch (e) { alert('삭제 동기화 중 오류가 발생했습니다: ' + (e.message || e)); }
+  }
+}
+async function restoreITPItem(pid, itemId) {
+  const items = state.items[pid];
+  const it = items && items.find(x => x.id === itemId);
+  if (!it) return;
+  delete it.hidden;
+  save();
+  render();
+  if (window.fb && fb.db) {
+    try { await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { items }, { merge: true }); }
+    catch (e) { alert('복구 동기화 중 오류가 발생했습니다: ' + (e.message || e)); }
+  }
+}
+function toggleShowDeletedItems() {
+  view.itpShowDeletedItems = !view.itpShowDeletedItems;
   render();
 }
 async function toggleHideProj(pid) {

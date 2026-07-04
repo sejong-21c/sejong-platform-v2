@@ -1579,10 +1579,11 @@ function DIMPreview({doc}){
       </tbody>
     </table>;
   };
-  // v3.2 — Check Point가 11개 이상(2 chunk 이상)이면 사진 페이지와 표 페이지를 "보고서가 1장 더
-  // 생성되는" 개념으로 분리 (Nozzle과 동일 개념). DI 계열 번호 재정렬: DIM=01, DIM 2페이지=02,
-  // Nozzle=03, Nozzle 2페이지=04 (Nozzle 쪽 번호는 NozzlePreview에서 맞춰 변경됨).
-  const isSplit = chunks.length >= 2;
+  // v3.2 — Check Point가 21개 이상(3 chunk 이상, T열까지 20개는 1페이지에 다 들어감 — U열부터
+  // 넘침)이면 사진 페이지와 표 페이지를 "보고서가 1장 더 생성되는" 개념으로 분리 (Nozzle과 동일
+  // 개념). DI 계열 번호 재정렬: DIM=01, DIM 2페이지=02, Nozzle=03, Nozzle 2페이지=04 (Nozzle
+  // 쪽 번호는 NozzlePreview에서 맞춰 변경됨).
+  const isSplit = chunks.length >= 3;
   const headerTable = (seq) => <table style={{width:"100%",borderCollapse:"collapse",marginBottom:6}}>
     <colgroup><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"28%"}}/><col style={{width:"12%"}}/><col style={{width:"33%"}}/></colgroup>
     <tbody>
