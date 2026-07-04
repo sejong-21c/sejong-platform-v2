@@ -1516,6 +1516,10 @@ async function hydrateUsersAndEnter(uid) {
   gcalConnected = !!getU(uid).gcalConnected; // 이전에 구글 캘린더 연동한 적 있으면 상태 표시 + 조용한 토큰 갱신 시도
   save();
   startFirestoreSync();
+  // v29.9: 슈퍼관리자 세션 진입 후 잔재 프로젝트가 있으면 조용히 정리 (한 번만).
+  //   startFirestoreSync가 projects onSnapshot을 걸어 state.projects를 채운 뒤 실행되어야 하므로
+  //   짧게 지연을 두고 호출. 이후엔 재발할 여지가 없어 세션당 1회만 시도.
+  setTimeout(() => cleanupGhostProjects().catch(() => {}), 1500);
   finishLogin();
 }
 
@@ -1574,6 +1578,26 @@ function reconcileProjectProgress() {
       fb.setDoc(fb.doc(fb.db, 'projects', p.id), updates, { merge: true }).catch(() => {});
     }
   });
+}
+// v29.9: name도 code도 없는 잔재 프로젝트 자동 정리 (슈퍼관리자 세션에서 1회 시도).
+// 원인: 옛 버전에서 실수로 부서 데이터가 projects 컬렉션에 저장된 게 남아있음.
+// 이런 엔트리는 UI에 의미도 없고, ensureProjectChannel에서 name undefined로 계속 오류 발생.
+let _ghostProjectsCleanedThisSession = false;
+async function cleanupGhostProjects() {
+  if (_ghostProjectsCleanedThisSession) return;
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') return;
+  if (!window.fb || !fb.db) return;
+  const ghosts = (state.projects || []).filter(p =>
+    p && p.id && (!p.name || !String(p.name).trim()) && (!p.code || !String(p.code).trim())
+  );
+  if (!ghosts.length) { _ghostProjectsCleanedThisSession = true; return; }
+  _ghostProjectsCleanedThisSession = true;
+  console.warn('[SJ FLOW] 잔재 프로젝트 자동 정리:', ghosts.map(g => g.id).join(', '));
+  for (const g of ghosts) {
+    try { await fb.deleteDoc(fb.doc(fb.db, 'projects', g.id)); }
+    catch (e) { console.error('[프로젝트 정리 실패]', g.id, e); }
+  }
 }
 let _channelsSeeded = false;
 function startFirestoreSync() {
