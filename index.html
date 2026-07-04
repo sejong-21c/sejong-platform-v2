@@ -1583,6 +1583,7 @@ function startFirestoreSync() {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     reconcileProjectProgress();
     if (!_channelsSeeded) { _channelsSeeded = true; seedMissingChannels().catch(() => {}); }
+    save(); // v29.9: iframe 모듈(NCR/CAR 등)이 localStorage 스냅샷을 읽으므로 매 동기화마다 반영
     render();
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
   // v29.9: 사전 등록 대기 계정 목록 (슈퍼관리자만 조직/권한 화면에서 관리)
@@ -1595,10 +1596,12 @@ function startFirestoreSync() {
   // "개인+부서" 가시성 필터도 실질적으로 무의미했음(공유될 데이터 자체가 없음).
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'events'), snap => {
     state.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    save();
     render();
   }, err => console.error('[Firestore] events 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
     state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    save();
     render();
   }, err => console.error('[Firestore] tasks 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
@@ -1610,6 +1613,7 @@ function startFirestoreSync() {
       state.items[pid] = data.items || [];
     });
     reconcileProjectProgress();
+    save(); // v29.9: iframe이 items 참조하므로 매 동기화마다 localStorage 반영
     render();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
   // 메신저 UI는 modules/messenger/messenger.html(iframe)로 이동했지만, 상단 알림배지는
