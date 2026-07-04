@@ -250,6 +250,15 @@ input:focus, select:focus, textarea:focus { outline: none; }
     min-height: 90mm !important;
     max-height: 90mm !important;
   }
+  /* v3.3 — 위 .pf-img 축소는 IDZ 내부 div만 줄이고, 그걸 감싸는 height:440(px) 바깥 wrapper는
+     그대로 440px를 차지해서 사진 2장이 도합 880px(≈233mm)+헤더까지 A4 한 장을 넘겨 3페이지로
+     밀리던 버그 수정 — wrapper도 똑같이 90mm로 강제 */
+  .fi-photo-box {
+    height: 90mm !important;
+    min-height: 90mm !important;
+    max-height: 90mm !important;
+    flex: none !important;
+  }
   /* v2.6 — IDZ UI 오버레이 인쇄 숨김 ("✕ 클릭 초기화", "클릭 후 Ctrl+V 붙여넣기" 등) */
   .pf-img > span,
   .pf-img > div[style*="position:absolute"],
@@ -2041,13 +2050,13 @@ function FinalPreview({doc}){
       <div style={{display:"flex",flexDirection:"column",gap:12,flex:1,minHeight:0}}>
         <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
           <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>① Photo 1</div>
-          <div style={{height:440,display:"flex",minHeight:0}}>
+          <div className="fi-photo-box" style={{height:440,display:"flex",minHeight:0}}>
             <IDZ label="Final 사진 ① — Ctrl+V (직접 첨부)" persistKey={`fi_img_${it.id||it.tag}_1`}/>
           </div>
         </div>
         <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
           <div style={{fontSize:11,fontWeight:600,color:"#666",marginBottom:3,borderBottom:"1px solid #ddd",paddingBottom:2}}>② Photo 2</div>
-          <div style={{height:440,display:"flex",minHeight:0}}>
+          <div className="fi-photo-box" style={{height:440,display:"flex",minHeight:0}}>
             <IDZ label="Final 사진 ② — Ctrl+V (직접 첨부)" persistKey={`fi_img_${it.id||it.tag}_2`}/>
           </div>
         </div>
