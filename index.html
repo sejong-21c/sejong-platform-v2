@@ -819,6 +819,17 @@ if (!state.users || !state.users.length || !state.users[0].email) {
   if (changed) { localStorage.setItem(KEY, JSON.stringify(state)); console.info('[SJ FLOW] 신규 필드 보강 완료'); }
 })();
 function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+// v29.9-fix: 전체 state를 통째로 덮어쓰는 대신 특정 키 하나만 업데이트하는 부분 저장.
+// iframe(NCR/CAR 등)이 localStorage에 자기 소유 데이터를 쓴 걸 부모의 save()가 stale 상태로
+// 덮어써 데이터가 유실되는 race를 방지. 부모의 onSnapshot 핸들러들이 이 방식을 사용.
+function savePartial(key, value) {
+  try {
+    const raw = localStorage.getItem(KEY);
+    const disk = raw ? JSON.parse(raw) : {};
+    disk[key] = value;
+    localStorage.setItem(KEY, JSON.stringify(disk));
+  } catch (e) { console.warn('[savePartial]', key, e); }
+}
 function resetData() {
   if (!confirm('프로젝트·업무·일정 등 작업 데이터를 초기화합니다.\n(로그인·사용자 정보는 유지됩니다)\n계속할까요?')) return;
   const keep = { currentUser: state.currentUser, users: state.users, lastActive: state.lastActive, briefings: state.briefings };
@@ -1607,7 +1618,9 @@ function startFirestoreSync() {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     reconcileProjectProgress();
     if (!_channelsSeeded) { _channelsSeeded = true; seedMissingChannels().catch(() => {}); }
-    save(); // v29.9: iframe 모듈(NCR/CAR 등)이 localStorage 스냅샷을 읽으므로 매 동기화마다 반영
+    // v29.9-fix: 전체 save() 대신 이 키만 부분 저장 — iframe이 자기 소유 데이터(ncrs/cars 등)를
+    // localStorage에 쓴 걸 부모의 save()가 덮어써 iframe의 새 데이터가 사라지던 race 방지.
+    savePartial('projects', state.projects);
     render();
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
   // v29.9: 사전 등록 대기 계정 목록 (슈퍼관리자만 조직/권한 화면에서 관리)
@@ -1620,12 +1633,12 @@ function startFirestoreSync() {
   // "개인+부서" 가시성 필터도 실질적으로 무의미했음(공유될 데이터 자체가 없음).
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'events'), snap => {
     state.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    save();
+    savePartial('events', state.events);
     render();
   }, err => console.error('[Firestore] events 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
     state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    save();
+    savePartial('tasks', state.tasks);
     render();
   }, err => console.error('[Firestore] tasks 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
@@ -1637,7 +1650,9 @@ function startFirestoreSync() {
       state.items[pid] = data.items || [];
     });
     reconcileProjectProgress();
-    save(); // v29.9: iframe이 items 참조하므로 매 동기화마다 localStorage 반영
+    // v29.9-fix: 전체 save() 대신 wbs+items만 부분 저장 (race 방지)
+    savePartial('wbs', state.wbs);
+    savePartial('items', state.items);
     render();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
   // 메신저 UI는 modules/messenger/messenger.html(iframe)로 이동했지만, 상단 알림배지는
