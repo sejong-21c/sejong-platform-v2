@@ -638,18 +638,26 @@ function openCARMgr(carId) {
 }
 
 /* ═══ CAR 완료 처리 ═══ */
-function closeCAR(carId) {
+async function closeCAR(carId) {
   const c = (state.cars||[]).find(x => x.id === carId);
   if (!c) return;
   if (!confirm(`${carId}을(를) 완료 처리하시겠습니까?`)) return;
   c.status   = 'closed';
   c.closedAt = new Date().toISOString().slice(0,10);
+  let ncrUpdated = null;
   if (c.ncrId) {
     const n = (state.ncrs||[]).find(x => x.id === c.ncrId);
     if (n && n.status !== 'closed' && confirm(`연계된 ${n.id}도 종결 처리할까요?`)) {
       n.status   = 'closed';
       n.closedAt = new Date().toISOString().slice(0,10);
+      ncrUpdated = n;
     }
+  }
+  // v29.9 fix: CAR 모듈의 save()는 cars만 Firestore로 동기화하므로, 연계 NCR을 종결하는
+  // 경우 그 변경도 명시적으로 서버에 반영해야 다른 사용자한테 보임.
+  if (ncrUpdated && window.fb && fb.db) {
+    try { await fb.setDoc(fb.doc(fb.db, 'ncrs', ncrUpdated.id), { status: 'closed', closedAt: ncrUpdated.closedAt }, { merge: true }); }
+    catch (e) { console.error('[NCR 종결 반영 실패]', e); }
   }
   save(); render();
 }

@@ -265,7 +265,7 @@ function canDoLocal(moduleId, action, user) {
 // 개별 CRUD 지점마다 손대는 대신 save()를 감싸서, 직전에 동기화한 스냅샷과 비교해
 // 바뀐/삭제된 문서만 Firestore에 반영 (원격에서 받은 변경은 스냅샷도 같이 갱신해서
 // 되돌려쓰기(핑퐁) 방지).
-const _lastSynced = { ncrs: [], ncrDeleteReqs: [] };
+const _lastSynced = { ncrs: [], ncrDeleteReqs: [], cars: [] };
 async function syncArrayToFirestore(coll, arr) {
   if (!window.fb || !fb.db) return;
   const current = arr || [];
@@ -298,6 +298,14 @@ function startNcrFirestoreSync() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
     render();
   }, e => console.error('[ncrDeleteReqs 동기화 구독]', e));
+  // v29.9 fix: cars 컬렉션도 구독. NCR에서 CAR 발행할 때 서버 최신 상태를 알아야
+  // syncArrayToFirestore의 diff 계산이 정확하고, 다른 사용자가 CAR 발행한 것도 즉시 반영됨.
+  fb.onSnapshot(fb.collection(fb.db, 'cars'), snap => {
+    state.cars = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    _lastSynced.cars = JSON.parse(JSON.stringify(state.cars));
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    render();
+  }, e => console.error('[cars(참조) 동기화 구독]', e));
 }
 
 function save() {
@@ -306,6 +314,9 @@ function save() {
     try { window.parent.render(); } catch(e) {}
     syncArrayToFirestore('ncrs', state.ncrs);
     syncArrayToFirestore('ncrDeleteReqs', state.ncrDeleteReqs);
+    // v29.9 fix: NCR에서 CAR 발행(createCARfromNCR)이 state.cars에 push하는데 여기서
+    // 동기화 안 되면 발행자 로컬에만 남고 다른 사용자한테는 안 보였음.
+    syncArrayToFirestore('cars', state.cars);
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       alert('⚠️ 저장 공간 부족 — 파일 첨부 없이 저장하거나 오래된 데이터를 정리하세요.');
@@ -736,7 +747,19 @@ function createCARfromNCR(ncrId) {
     if (!state.cars) state.cars = [];
     const num = String(state.cars.length + 1).padStart(3,'0');
     const carId = `CAR-${new Date().getFullYear()}-${num}`;
-    state.cars.push({ id:carId, ncrId, proj:n.proj, action, assignee, status:'in-progress', requestedAt:new Date().toISOString().slice(0,10), dueDate:due||'', closedAt:null });
+    // v29.9 fix: CAR 모듈 스키마와 일치하는 필드명 사용 (issuedAt/replyDue). 이전엔
+    // requestedAt/dueDate로 잘못 저장돼 CAR 목록에서 빈 값으로 표시되고, 기한 초과 판정도 안 됐음.
+    state.cars.push({
+      id: carId, ncrId, proj: n.proj, action,
+      reqDept: getU(assignee)?.dept || '', // 담당자의 부서를 시정조치요구부서로
+      status: 'in-progress',
+      qualReq: '', field: '', cause: '',
+      issuedAt: new Date().toISOString().slice(0,10),
+      replyDue: due || '',
+      repliedAt: '', actionAt: '',
+      closedAt: null,
+      meta: {},
+    });
     n.carId = carId;
     save(); closeModal(); render();
   });

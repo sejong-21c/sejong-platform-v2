@@ -122,7 +122,6 @@ function startFirestoreSync() {
 }
 
 function getP(id) { return (state.projects||[]).find(p => p.id === id) || null; }
-function getU(id) { return (state.users||[]).find(u => u.id === id) || null; }
 function projLabel(n) {
   if (n.proj === '__direct__') return n.meta?.projDirect || '직접입력';
   const p = getP(n.proj);

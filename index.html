@@ -8,7 +8,7 @@
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signInWithCredential, signOut, onAuthStateChanged
+    getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
@@ -27,7 +27,7 @@
   const fbApp = initializeApp(firebaseConfig);
   window.fb = {
     auth: getAuth(fbApp), db: getFirestore(fbApp),
-    GoogleAuthProvider, signInWithPopup, signInWithRedirect, signInWithCredential, signOut, onAuthStateChanged,
+    GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged,
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit,
   };
@@ -742,25 +742,6 @@ function gradeByTitle(title) {
   return 'member';
 }
 // 임시 비밀번호 자동생성 (영문 대/소 + 숫자 + 기호 8자리)
-function genTempPassword() {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghijkmnpqrstuvwxyz';
-  const digit = '23456789';
-  const symbol = '!@#$%^&*';
-  const all = upper + lower + digit + symbol;
-  // 각 종류 최소 1개 보장
-  let pw = [
-    upper[Math.floor(Math.random()*upper.length)],
-    lower[Math.floor(Math.random()*lower.length)],
-    digit[Math.floor(Math.random()*digit.length)],
-    symbol[Math.floor(Math.random()*symbol.length)],
-  ];
-  for (let i = 0; i < 4; i++) pw.push(all[Math.floor(Math.random()*all.length)]);
-  // 셔플
-  for (let i = pw.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [pw[i],pw[j]]=[pw[j],pw[i]]; }
-  return pw.join('');
-}
-
 function defaultState() {
   return {
     currentUser: null,
@@ -813,12 +794,12 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b16';
+const WBS_BUILD = 'b17';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b9';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const NCR_BUILD = 'b2';
-const CAR_BUILD = 'b3';
+const NCR_BUILD = 'b3';
+const CAR_BUILD = 'b4';
 const QADASH_BUILD = 'b4';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
@@ -1072,8 +1053,11 @@ window.SJP.bridge = {
       ...items.filter(it => it.id === selected),
       ...items.filter(it => it.id !== selected)
     ] : items;
+    // v29.9 fix: id 필드를 문자열 원본 그대로 사용. 이전엔 Date.parse(문자열 id)가 NaN이라
+      // Math.random 폴백이 250ms 폴링마다 새 값 반환 → 다운스트림 안정성 해침.
+      // 신과장 빌더는 tag 기준으로 매칭하므로 숫자 강제 변환 불필요.
     return sorted.map(it => ({
-      id: Date.parse(it.id) || Math.floor(Math.random()*1e10),
+      id: it.id,
       tag: it.tag,
       name: it.name,
       type: it.type || 'Pressure Vessel',
@@ -1146,9 +1130,34 @@ window.SJP.bridge = {
       }
     });
     save();
+    // v29.9 fix: state.items[pid]를 Firestore(wbsData/{pid})의 items 필드로도 반영.
+    // 안 하면 부모의 onSnapshot(wbsData) 다음 발화 때 items가 서버 값(예전 값)으로 덮여 씀 → silent data loss.
+    // wbsData 문서에 { rows, items } 형태로 저장돼 있으므로 items만 merge 업데이트.
+    if (window.fb && fb.db) {
+      fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { items: state.items[pid] }, { merge: true })
+        .catch(e => console.error('[SJ FLOW → Firestore wbsData items 동기화 실패]', e));
+    }
     console.log('[SJ FLOW ← ITP Builder] items 동기화:', pid, epcItems.length, '개');
   },
-  
+  // v29.9: QA Doc Gen이 "EPC 합격품 가져오기"용으로 호출. 현재 프로젝트에서 traveller의
+  // 모든 검사 단계가 'accepted'인 tag만 반환. wbs.html의 동일 이름 함수와 동일 동작.
+  getAcceptedItems: function() {
+    const pid = view.itpSelectedProj || view.qaSelectedProj;
+    if (!pid) return [];
+    const items = getItems(pid);
+    const trvs = state.travellers || {};
+    return items.filter(it => {
+      const t = trvs[it.id];
+      if (!t) return false;
+      const stages = Object.values(t);
+      if (!stages.length) return false;
+      return stages.every(s => s && s.status === 'accepted');
+    }).map(it => ({
+      id: it.id, tag: it.tag, name: it.name, type: it.type || '',
+      spec: it.spec || '', material: it.material || ''
+    }));
+  },
+
   // ITP 9~18개 항목 템플릿 → Traveller의 검사 단계로 연결 (선택)
   setItpTemplate: function(itemId, tplItems) {
     // tplItems = [{id, item, ph, pt, crit}, ...]
@@ -1452,76 +1461,6 @@ function showAuthLoading() {
   const app = document.querySelector('.app');
   if (app) app.style.display = 'none';
 }
-// v29.7: 로그인을 Firebase의 signInWithPopup/signInWithRedirect 대신 Google Identity
-// Services(GIS) 토큰 클라이언트로 전환 — 아이폰 사파리/크롬에서 리디렉션 왕복 중
-// sessionStorage가 지워지며 "missing initial state" 오류가 반복되던 문제를 근본적으로
-// 회피함(캘린더 연동에 쓰던 것과 동일한 방식으로, 같은 기기에서 이미 안정성 검증됨).
-// 같은 OAuth 클라이언트(GCAL_CLIENT_ID)를 재사용하되 스코프만 로그인용으로 별도 요청.
-// ↑ v29.7.2에서 위 doGoogleLoginRedirect()로 교체됨 — 아래는 더는 기본 경로로 쓰이지 않는
-//   과거 방식(디버깅/비교용으로만 코드 보존).
-let loginTokenClient = null;
-function loginEnsureTokenClient() {
-  if (loginTokenClient) return loginTokenClient;
-  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return null;
-  loginTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GCAL_CLIENT_ID,
-    scope: 'email profile',
-    hosted_domain: 'sejong-21c.com',
-    callback: () => {}, // 요청 시점마다 doGoogleLogin()에서 덮어씀
-  });
-  return loginTokenClient;
-}
-async function doGoogleLogin() {
-  const err = document.getElementById('loginErr');
-  if (err) err.style.display = 'none';
-  if (!window.fb) { alert('로그인 시스템을 초기화하는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
-  const tc = loginEnsureTokenClient();
-  if (!tc) { return doGoogleLoginLegacy(); } // GIS 스크립트 로드 실패 시에만 예전 방식으로 폴백
-  tc.callback = async (resp) => {
-    if (!resp || resp.error) {
-      if (resp && (resp.error === 'popup_closed' || resp.error === 'access_denied')) return;
-      if (err) { err.textContent = '로그인에 실패했습니다: ' + (resp && resp.error || '알 수 없는 오류'); err.style.display = 'block'; }
-      return;
-    }
-    try {
-      const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${resp.access_token}` } });
-      const info = await infoRes.json();
-      if (!info.email || !info.email.toLowerCase().endsWith('@sejong-21c.com')) {
-        if (err) { err.textContent = '@sejong-21c.com 계정만 로그인할 수 있습니다.'; err.style.display = 'block'; }
-        return;
-      }
-      const credential = fb.GoogleAuthProvider.credential(null, resp.access_token);
-      await fb.signInWithCredential(fb.auth, credential);
-      // 이후 화면 전환은 onAuthStateChanged(handleAuthChange)가 담당
-    } catch (e) {
-      console.error(e);
-      if (err) { err.textContent = '로그인 처리 중 오류가 발생했습니다: ' + (e.message || e); err.style.display = 'block'; }
-    }
-  };
-  // v29.7.1: prompt:''는 먼저 "조용한 시도"(숨은 iframe)를 하는데, 아이폰 사파리/크롬의
-  // 교차 사이트 추적 방지 정책이 이걸 막으면서 화면만 깜빡이고 아무 반응이 없는 문제가 있었음.
-  // select_account로 조용한 시도 단계 자체를 건너뛰고 매번 명확한 계정 선택 화면을 띄움.
-  tc.requestAccessToken({ prompt: 'select_account' });
-}
-// 예전 방식(Firebase 팝업/리디렉션) — GIS를 못 쓸 때만 쓰는 안전망
-async function doGoogleLoginLegacy() {
-  const err = document.getElementById('loginErr');
-  if (err) err.style.display = 'none';
-  const provider = new fb.GoogleAuthProvider();
-  provider.setCustomParameters({ hd: 'sejong-21c.com' });
-  try {
-    await fb.signInWithPopup(fb.auth, provider);
-  } catch (e) {
-    if (e && e.code === 'auth/popup-closed-by-user') return;
-    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request')) {
-      fb.signInWithRedirect(fb.auth, provider);
-      return;
-    }
-    console.error(e);
-    if (err) { err.textContent = '로그인에 실패했습니다: ' + (e.message || e); err.style.display = 'block'; }
-  }
-}
-
 // 최초 로그인 시 소속(부서/직급) 입력받아 Firestore 프로필 생성
 function showProfileSetup(fu) {
   const ov = document.getElementById('authOverlay');

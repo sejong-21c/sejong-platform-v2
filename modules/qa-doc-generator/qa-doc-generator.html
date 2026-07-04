@@ -2621,7 +2621,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     document.getElementById("sjpq-epc").onclick = () => {
       closeQaDropdown();
       try { if (window.opener && !window.opener.closed) { window.opener.focus(); return; } } catch(e){}
-      window.location.href = "../epc-control/index.html";
+      // v29.9 fix: modules/epc-control/ 경로는 존재 안 함. 실제 EPC 화면은 프로젝트 상세(부모 index.html)
+      // → 프로젝트 카드 클릭 → WBS. 부모 창으로 돌아가면 사용자가 프로젝트 선택 가능.
+      window.location.href = "../../index.html";
     };
 
     document.getElementById("sjpq-reset").onclick = () => {
@@ -2648,7 +2650,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     document.getElementById("sjpq-home").onclick = () => {
       closeQaDropdown();
       if (confirm("메인 메뉴로 이동하시겠습니까?\n저장하지 않은 작업이 있다면 먼저 JSON 백업하세요.")) {
-        window.location.href = "../../../index.html";
+        // v29.9 fix: 경로 오버슛(../../../) → 실제 파일은 ../../index.html
+        window.location.href = "../../index.html";
       }
     };
 
