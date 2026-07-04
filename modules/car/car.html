@@ -280,13 +280,26 @@ function deleteFirestoreDoc(coll, id) {
   if (!window.fb || !fb.db) return;
   fb.deleteDoc(fb.doc(fb.db, coll, id)).catch(e => console.error(`[${coll} 삭제]`, e));
 }
+// v29.11 fix: 연달아 여러 건을 빠르게 등록하면, 방금 등록한 항목이 서버에 아직
+// 반영되기 전에 onSnapshot이 옛 스냅샷으로 state.cars를 통째로 교체해버려 그 항목이
+// 잠깐 배열에서 빠지고, 그 사이 다음 항목의 번호(CAR-YYYY-NNN)가 배열 길이 기준으로
+// 계산되면서 방금 사라진 항목과 같은 번호를 만들어 서로 덮어쓰는 사고가 있었음(ncr.html과 동일).
+// 서버 스냅샷에 없는 로컬 항목이라도, 이전에 한 번도 동기화 확인된 적이 없다면(=이제
+// 막 로컬에서 추가돼 아직 서버 왕복이 안 끝난 것) 지우지 않고 합쳐서 유지한다.
+function mergeServerSnapshot(localArr, serverDocs, prevSynced) {
+  const serverIds = new Set(serverDocs.map(d => d.id));
+  const prevSyncedIds = new Set((prevSynced||[]).map(d => d.id));
+  const notYetSynced = (localArr||[]).filter(n => !serverIds.has(n.id) && !prevSyncedIds.has(n.id));
+  return [...serverDocs, ...notYetSynced];
+}
 function startCarFirestoreSync() {
   if (!window.fb || !fb.db) { setTimeout(startCarFirestoreSync, 300); return; }
   // v29.9.1: 인증 복원 전 구독 → permission-denied → 리스너 영구 종료 방지 (ncr.html과 동일)
   if (!fb.auth || !fb.auth.currentUser) { setTimeout(startCarFirestoreSync, 400); return; }
   fb.onSnapshot(fb.collection(fb.db, 'cars'), snap => {
-    state.cars = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-    _lastSynced.cars = JSON.parse(JSON.stringify(state.cars));
+    const serverDocs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    state.cars = mergeServerSnapshot(state.cars, serverDocs, _lastSynced.cars);
+    _lastSynced.cars = JSON.parse(JSON.stringify(serverDocs));
     try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
   }, e => console.error('[cars 동기화 구독]', e));
@@ -295,8 +308,9 @@ function startCarFirestoreSync() {
     render();
   }, e => console.error('[ncrs(참조) 동기화 구독]', e));
   fb.onSnapshot(fb.collection(fb.db, 'carDeleteReqs'), snap => {
-    state.carDeleteReqs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-    _lastSynced.carDeleteReqs = JSON.parse(JSON.stringify(state.carDeleteReqs));
+    const serverDocs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    state.carDeleteReqs = mergeServerSnapshot(state.carDeleteReqs, serverDocs, _lastSynced.carDeleteReqs);
+    _lastSynced.carDeleteReqs = JSON.parse(JSON.stringify(serverDocs));
     try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
   }, e => console.error('[carDeleteReqs 동기화 구독]', e));
@@ -315,6 +329,20 @@ function save() {
 
 function getP(id) { return (state.projects||[]).find(p => p.id === id) || {}; }
 function getU(id) { return (state.users||[]).find(u => u.id === id) || {}; }
+
+// v29.11 fix: 배열 길이(state.cars.length + 1) 기준 채번은 항목이 삭제되어 있거나
+// 동기화 지연으로 배열이 잠깐 짧아지는 경우 기존 번호와 충돌해 서로 덮어쓰는 사고로
+// 이어졌음. 실제 존재하는 최대 번호+1로 계산해 결번(삭제) 유무와 무관하게 항상
+// 미사용 번호를 반환한다.
+function nextCarNo(year) {
+  const prefix = `CAR-${year}-`;
+  const maxNum = (state.cars||[]).reduce((max, c) => {
+    if (typeof c.id !== 'string' || !c.id.startsWith(prefix)) return max;
+    const v = parseInt(c.id.slice(prefix.length), 10);
+    return Number.isFinite(v) && v > max ? v : max;
+  }, 0);
+  return String(maxNum + 1).padStart(3, '0');
+}
 
 function _toBlobUrl(dataUrl) {
   const [header, b64] = dataUrl.split(',');
@@ -550,7 +578,7 @@ function openNewCAR() {
     const replyDue  = document.getElementById('carReplyDue').value;
     if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
     if (!state.cars) state.cars = [];
-    const num = String(state.cars.length + 1).padStart(3,'0');
+    const num = nextCarNo(new Date().getFullYear());
     const today = new Date().toISOString().slice(0,10);
     state.cars.push({
       id: `CAR-${new Date().getFullYear()}-${num}`,
@@ -647,8 +675,12 @@ function openCARMgr(carId) {
     else c.closedAt = closedAt;
     c.status = newStatus;
     if (window._mgrCARFileDataUrl) {
-      c.meta.fileDataUrl = window._mgrCARFileDataUrl;
-      c.meta.fileName = window._mgrCARFileName || '첨부파일';
+      const attach = safeAttachOrNull(window._mgrCARFileDataUrl);
+      if (!attach.ok) return;
+      if (attach.value) {
+        c.meta.fileDataUrl = attach.value;
+        c.meta.fileName = window._mgrCARFileName || '첨부파일';
+      }
       window._mgrCARFileDataUrl = null; window._mgrCARFileName = null;
     }
     save(); closeModal(); render();
@@ -678,6 +710,18 @@ async function closeCAR(carId) {
     catch (e) { console.error('[NCR 종결 반영 실패]', e); }
   }
   save(); render();
+}
+
+// v29.11 fix: Firestore 문서 하나의 최대 크기는 1MB. 스캔본 PDF 등 큰 파일을
+// meta.fileDataUrl에 통째로 넣어 저장하면 로컬 화면엔 즉시 보이지만 Firestore
+// setDoc은 조용히 실패(콘솔에만 에러)해서, 같은 파일을 몇 번을 다시 등록해도 매번
+// "등록 즉시 사라지는" 것처럼 보였음. 저장 전에 미리 검사해서 사용자에게 알린다.
+const MAX_ATTACH_CHARS = 700 * 1024; // base64 기준 — Firestore 1MB 제한 대비 여유 확보
+function safeAttachOrNull(dataUrl) {
+  if (!dataUrl || dataUrl.length <= MAX_ATTACH_CHARS) return { ok: true, value: dataUrl || null };
+  const mb = (dataUrl.length / 1024 / 1024).toFixed(1);
+  const proceed = confirm(`첨부 파일 용량이 너무 커서(${mb}MB) 서버에 저장할 수 없습니다.\n파일 없이 저장하시겠습니까?\n(취소를 누르면 저장이 중단됩니다 — 더 작은 파일로 다시 첨부해 주세요)`);
+  return { ok: proceed, value: null };
 }
 
 /* ═══ 삭제 플로우 ═══ */
@@ -1254,11 +1298,13 @@ function confirmCARParse() {
   const status   = document.getElementById('cp-status').value;
   if (!action) { alert('시정조치 내용을 입력하세요.'); return; }
   const today = new Date().toISOString().slice(0,10);
-  const num = String((state.cars||[]).length + 1).padStart(3,'0');
+  const num = nextCarNo(new Date().getFullYear());
   const id = carNo || `CAR-${new Date().getFullYear()}-${num}`;
   if ((state.cars||[]).some(c => c.id === id)) {
     alert(`CAR No. [${id}] 가 이미 등록되어 있습니다.\nCAR No. 를 다르게 입력하세요.`); return;
   }
+  const attach = safeAttachOrNull(window._carParseFileDataUrl || null);
+  if (!attach.ok) return;
   if (!state.cars) state.cars = [];
   const ncrId = ncrRef || null;
   state.cars.push({
@@ -1271,8 +1317,8 @@ function confirmCARParse() {
     meta: {
       client, dwgNo, wrNo,
       projDirect: projSel==='__direct__' ? projDirect : '',
-      fileDataUrl: window._carParseFileDataUrl || null,
-      fileName: window._carParseFileName || null
+      fileDataUrl: attach.value,
+      fileName: attach.value ? (window._carParseFileName || null) : null
     }
   });
   if (ncrId) {
