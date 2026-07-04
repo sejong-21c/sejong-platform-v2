@@ -3346,6 +3346,8 @@ function openModal(title, bodyHtml, onConfirm) {
 }
 function closeModal() {
   document.getElementById('modal').style.display = 'none';
+  // v29.9: openExtraPerms 등에서 확장한 폭을 원상 복구 (다음 모달 정상 표시용)
+  const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '';
 }
 document.addEventListener('click', function(e){
   const m = document.getElementById('modal');
@@ -4229,7 +4231,8 @@ function org() {
       btns += `<button class="org-ico-btn" onclick="openExtraPerms('${u.id}')" title="개별 권한 부여">⚙️</button>`;
       if (u.grade !== 'super') {
         btns += `<button class="org-ico-btn" onclick="openEditUserProfile('${u.id}')" title="부서/직급 수정">✏️</button>`;
-        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화'}">${u.disabled?'🔓':'🔒'}</button>`;
+        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화 (로그인 차단, 기록 유지)'}">${u.disabled?'🔓':'🔒'}</button>`;
+        btns += `<button class="org-ico-btn" style="color:#991b1b;" onclick="hardDeleteUser('${u.id}')" title="계정 완전 삭제 (users 문서 제거)">🗑️</button>`;
       }
     }
     return `<tr style="${u.disabled?'opacity:.5;':''}">
@@ -4306,73 +4309,91 @@ function org() {
   </div>`;
 }
 
-// 개별 추가 권한 부여 (슈퍼 전용) — v29.8부터 도구별·액션별 세분화 방식 사용
+// 개별 추가 권한 부여 (슈퍼 전용) — v29.8부터 도구별·액션별 세분화, v29.9 UI 재설계
+// 각 모듈·액션을 하나의 표 안에 도구별 그룹핑, 라디오 3열(기본/허용/차단)로 조작.
 function openExtraPerms(uid) {
   const me = getU(state.currentUser);
   if (!me || me.grade !== 'super') { alert('권한 부여는 슈퍼관리자만 가능합니다.'); return; }
   const u = getU(uid);
   if (!u) return;
   const curMP = u.modulePerms || {};
-  // 각 모듈·액션별로 3-상태 라디오: 기본(default) / 명시적 허용(true) / 명시적 차단(false)
-  const modules = Object.entries(PERM_MODULES).map(([modId, mod]) => {
-    const actions = Object.entries(mod.actions).map(([actId, act]) => {
+  const rows = [];
+  Object.entries(PERM_MODULES).forEach(([modId, mod]) => {
+    // 모듈 헤더 행 — 도구 이름과 그 도구의 기본 접근 부서를 한 줄로
+    rows.push(`
+      <tr style="background:var(--primary-lighter);">
+        <td colspan="6" style="padding:8px 12px;font-size:12.5px;font-weight:700;color:var(--primary);">
+          ${mod.icon} ${mod.label}${mod.baseDept?` <span style="font-weight:400;color:var(--text-light);font-size:10.5px;">· 기본 접근: ${mod.baseDept}</span>`:''}
+        </td>
+      </tr>`);
+    Object.entries(mod.actions).forEach(([actId, act]) => {
       const sem = grantSemantics(act.defaultGrant, mod);
       const gotByDefault = sem.fn(u);
       const explicit = curMP[modId] && (actId in (curMP[modId]||{})) ? curMP[modId][actId] : null;
-      const state = explicit === true ? 'allow' : explicit === false ? 'deny' : 'default';
+      const st = explicit === true ? 'allow' : explicit === false ? 'deny' : 'default';
       const effective = explicit === true ? true : explicit === false ? false : gotByDefault;
-      const pillColor = effective ? '#059669' : '#9ca3af';
+      const pillBg = effective ? '#dcfce7' : '#f3f4f6';
+      const pillFg = effective ? '#166534' : '#6b7280';
       const pillText = effective ? '✅ 가능' : '⛔ 불가';
-      const defaultDesc = `기본: ${sem.desc}${gotByDefault ? ' → 이 사용자에 해당' : ''}`;
-      return `
-        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--border-light);">
-          <div>
-            <div style="font-size:12.5px;font-weight:600;">${act.label}</div>
-            <div style="font-size:10.5px;color:var(--text-lighter);margin-top:2px;">${defaultDesc}</div>
-          </div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <span style="font-size:10px;color:${pillColor};font-weight:700;margin-right:6px;">${pillText}</span>
-            <select data-mp="${modId}.${actId}" style="padding:4px 6px;font-size:11px;border:1px solid var(--border);border-radius:5px;background:#fff;">
-              <option value="default" ${state==='default'?'selected':''}>기본(${gotByDefault?'허용':'차단'})</option>
-              <option value="allow"   ${state==='allow'  ?'selected':''}>👍 개별 허용</option>
-              <option value="deny"    ${state==='deny'   ?'selected':''}>🚫 개별 차단</option>
-            </select>
-          </div>
-        </div>`;
-    }).join('');
-    return `
-      <div style="border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;">
-        <div style="padding:9px 12px;background:var(--primary-lighter);font-size:13px;font-weight:700;color:var(--primary);">${mod.icon} ${mod.label}${mod.baseDept?` <span style="font-weight:400;color:var(--text-light);font-size:11px;">· 기본 접근: ${mod.baseDept}</span>`:''}</div>
-        ${actions}
-      </div>`;
-  }).join('');
-  // (구) EXTRA_PERMS 잔여 값 표시 — 참고만
+      const name = `mp_${modId}_${actId}`;
+      rows.push(`
+        <tr style="border-top:1px solid var(--border-light);">
+          <td style="padding:8px 12px;font-size:12px;color:var(--text);">${act.label}</td>
+          <td style="padding:8px 8px;font-size:11px;color:var(--text-light);">${sem.desc}<span style="color:${gotByDefault?'#059669':'#9ca3af'};font-size:10px;margin-left:4px;">${gotByDefault?'✓':'—'}</span></td>
+          <td style="padding:8px 8px;text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:${pillBg};color:${pillFg};">${pillText}</span></td>
+          <td style="padding:8px 8px;text-align:center;"><label style="cursor:pointer;"><input type="radio" name="${name}" value="default" ${st==='default'?'checked':''} data-mp="${modId}.${actId}"></label></td>
+          <td style="padding:8px 8px;text-align:center;"><label style="cursor:pointer;"><input type="radio" name="${name}" value="allow" ${st==='allow'?'checked':''} data-mp="${modId}.${actId}"></label></td>
+          <td style="padding:8px 8px;text-align:center;"><label style="cursor:pointer;"><input type="radio" name="${name}" value="deny" ${st==='deny'?'checked':''} data-mp="${modId}.${actId}"></label></td>
+        </tr>`);
+    });
+  });
   const legacy = (u.extraPerms||[]).length ? `
     <div style="margin-top:14px;padding:9px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;">
-      ⚠️ 이전 방식의 추가 권한 남아있음: ${(u.extraPerms||[]).map(k => EXTRA_PERMS[k]?.label || k).join(', ')} — 계속 유지되지만, 새 시스템으로 전환을 권장합니다.
+      ⚠️ 이전 방식의 추가 권한 남아있음: ${(u.extraPerms||[]).map(k => EXTRA_PERMS[k]?.label || k).join(', ')} — 계속 유지됩니다. 신 방식으로 이관하려면 위 표에서 다시 설정하세요.
     </div>` : '';
   openModal(`⚙️ 개별 권한 — ${u.name} ${u.title}`, `
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">등급 <b>${(GRADES[u.grade]||{}).label}</b> · 부서 <b>${u.dept||'-'}</b><br>각 도구·액션마다 기본 부여를 유지하거나, 개인에게 명시적 허용/차단을 설정합니다.</div>
-    ${modules}
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;line-height:1.6;">
+      등급 <b>${(GRADES[u.grade]||{}).label}</b> · 부서 <b>${u.dept||'-'}</b><br>
+      각 액션마다 <b>기본</b> (도구별 기본 규칙 따름) / <b>👍 개별 허용</b> / <b>🚫 개별 차단</b> 셋 중 하나를 선택합니다.<br>
+      <span style="color:var(--text-lighter);font-size:11px;">"기본 부여 대상" 옆 <span style="color:#059669;">✓</span>는 이 사용자가 기본으로 자격이 있음을 뜻합니다.</span>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-light);">도구 · 액션</th>
+            <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--text-light);">기본 부여 대상</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:var(--text-light);width:70px;">현재</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:var(--text-light);width:60px;">기본</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#059669;width:70px;">👍 허용</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#dc2626;width:70px;">🚫 차단</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>
     ${legacy}
   `, async () => {
-    // 셀렉트 값들을 modulePerms 객체로 재구성 — 'default'는 저장 안 함 (Firestore 문서 슬림하게)
     const nextMP = {};
-    document.querySelectorAll('select[data-mp]').forEach(sel => {
-      const [modId, actId] = sel.getAttribute('data-mp').split('.');
-      if (sel.value === 'default') return;
+    document.querySelectorAll('input[type="radio"][data-mp]:checked').forEach(r => {
+      const [modId, actId] = r.getAttribute('data-mp').split('.');
+      if (r.value === 'default') return;
       nextMP[modId] = nextMP[modId] || {};
-      nextMP[modId][actId] = (sel.value === 'allow');
+      nextMP[modId][actId] = (r.value === 'allow');
     });
     try {
       await fb.updateDoc(fb.doc(fb.db, 'users', uid), { modulePerms: nextMP });
       u.modulePerms = nextMP;
       closeModal();
+      // 저장 후 모달 폭은 다음 모달을 위해 원래대로 복구
+      const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '';
       render();
     } catch (e) {
       alert('저장 중 오류가 발생했습니다: ' + (e.message || e));
     }
   });
+  // 권한 표가 넓기 때문에 이 모달만 유일하게 폭 확장 (기본 480 → 820)
+  const _mBox = document.querySelector('#modal .modal'); if (_mBox) _mBox.style.maxWidth = '820px';
 }
 
 // v29.9: 계정 사전 등록 (슈퍼관리자 전용) — 신규 입사자 등이 아직 Google 로그인 하기 전에
@@ -4479,6 +4500,34 @@ async function toggleUserDisabled(uid) {
     render();
   } catch (e) {
     alert('처리 중 오류가 발생했습니다: ' + (e.message || e));
+  }
+}
+
+// v29.9: 계정 완전 삭제 (슈퍼 전용, 이중 확인). Firestore users 문서 자체를 제거.
+// NCR·CAR·프로젝트·업무 등에 남아있는 UID 참조는 그대로 두지만 이름 조회가 실패해
+// "삭제된 사용자"로 표시됨. 감사 목적으로는 이 방식이 안전 — 기록은 지우지 않고
+// 계정만 제거. Google Auth의 계정 자체는 별개(재로그인 시 promotePendingUser로 재생성 가능).
+async function hardDeleteUser(uid) {
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') return;
+  const u = getU(uid);
+  if (!u) return;
+  if (u.grade === 'super') { alert('슈퍼관리자 계정은 삭제할 수 없습니다.'); return; }
+  if (u.id === state.currentUser) { alert('본인 계정은 삭제할 수 없습니다.'); return; }
+  const c1 = confirm(`⚠️ ${u.name} ${u.title} (${u.email}) 계정을 완전 삭제합니다.\n\n· 이 사용자의 로그인 정보가 users 컬렉션에서 제거됩니다.\n· NCR·CAR·프로젝트·업무 등 기록에 남아있는 사용자 UID는 유지되지만, 이름 조회가 실패해 "삭제된 사용자"로 표시됩니다.\n· 이 사용자가 다시 Google 로그인하면 새 계정으로 재등록됩니다 (필요 시 사전 등록으로 미리 소속 지정).\n\n비활성화만 원하시면 [취소]하고 🔒 버튼을 사용하세요.\n\n계속하시겠습니까?`);
+  if (!c1) return;
+  const confirmText = prompt(`정말 삭제하려면 이메일 앞부분을 입력하세요:\n(예: ${(u.email||'').split('@')[0]})`);
+  if (!confirmText || confirmText.trim().toLowerCase() !== (u.email||'').split('@')[0].toLowerCase()) {
+    alert('입력이 일치하지 않아 삭제를 취소했습니다.');
+    return;
+  }
+  try {
+    await fb.deleteDoc(fb.doc(fb.db, 'users', uid));
+    // 로컬 state에서도 즉시 제거 (Firestore 스냅샷 콜백이 곧 덮어쓰지만 UI 반응성용)
+    state.users = (state.users||[]).filter(x => x.id !== uid);
+    render();
+  } catch (e) {
+    alert('삭제 중 오류가 발생했습니다: ' + (e.message || e));
   }
 }
 
