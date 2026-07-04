@@ -1923,7 +1923,13 @@ function iframeViewKey() {
   if (v.selectedTool === 'qa' && v.qaSelectedProj) return 'qa:' + v.qaSelectedProj;
   if (v.selectedTool === 'mobile' && v.mobileSelectedProj) return 'mobile:' + v.mobileSelectedProj;
   if (v.selectedTool === 'deptsch' && v.deptSchedProj) return 'deptsch:' + v.deptSchedDept + ':' + v.deptSchedProj;
+  // v29.9-fix: ncr/car/qadash iframe도 재생성 방지 가드에 포함 — 이 세 도구가 누락되어
+  // Firestore onSnapshot이 발화할 때마다 iframe이 재로드되어 진행 중이던 발행/수정 모달이 사라짐.
+  if (v.selectedTool === 'ncr') return 'ncr';
+  if (v.selectedTool === 'car') return 'car';
+  if (v.selectedTool === 'qadash') return 'qadash';
   if (v.cur === 'manday') return 'manday';
+  if (v.cur === 'messenger') return 'messenger';
   if (v.travProj && !v.selectedTraveller) return 'travtag:' + v.travProj;
   return null;
 }
@@ -1989,6 +1995,8 @@ function render() {
     if (!view.mobileSelectedProj) { content.innerHTML = `<div class="content-pad">${renderMobileProjects()}</div>`; return; }
     content.innerHTML = renderMobileFrame(); return;
   }
+  // v29.9-fix: 원래대로 innerHTML로 설정하되, iframeViewKey()가 이제 ncr/car/qadash를 반환하므로
+  // 위쪽의 dataset.ifkey 가드가 재render를 스킵해 iframe이 재로드되지 않음.
   if (view.selectedTool === 'ncr') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html?v=${NCR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'car') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html?v=${CAR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'qadash') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/quality/qa-dashboard.html?v=${QADASH_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="품질종합분석표"></iframe></div>`; return; }
