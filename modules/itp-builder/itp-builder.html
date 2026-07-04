@@ -578,11 +578,6 @@ const STORAGE_KEY = `sjp_itp_builder_v1__${PID}`;
 const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} };
 const loadLS = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"); } catch(e) { return null; } };
 
-// v1.9 — 제작공정관리(EPC) 연동 후보 아이템 중 "필요 없음"으로 숨긴 Tag 목록(프로젝트별)
-const CAND_HIDDEN_KEY = `sjp_itp_cand_hidden__${PID}`;
-const loadCandHidden = () => { try { return new Set(JSON.parse(localStorage.getItem(CAND_HIDDEN_KEY)||"[]")); } catch(e) { return new Set(); } };
-const saveCandHidden = (set) => { try { localStorage.setItem(CAND_HIDDEN_KEY, JSON.stringify(Array.from(set))); } catch(e){} };
-
 // v1.5 — WPS/Welder Master List: 프로젝트별(pid) localStorage 공유 키.
 // ITP Builder에서 업로드한 목록을 QA Doc Generator가 그대로 읽어감(N/A 대신 실데이터).
 // v1.6 — "해당 PJT 공통"이므로 전역 공유가 아니라 프로젝트(pid) 단위로 분리.
@@ -677,18 +672,6 @@ function makeGrid(onCellPaste){
   return {gridProps:{"data-grid":"1",onKeyDown,onPaste},cellProps:(r,c)=>({"data-r":r,"data-c":c})};
 }
 
-// ════════ 5. Revision 계산 ════════
-function calcRev({items, specReqs, revComments}){
-  const hasItems = items?.length > 0;
-  const hasSpec = specReqs?.length > 0;
-  const hasDWG = items?.some(i => i.dwgUrl);
-  const hasComments = revComments?.length > 0;
-  if (hasComments && hasDWG) return {rev:"Rev. 2", percent:100, color:"#4a7fc1", label:"Comment 반영 — 발주처 송부 가능"};
-  if (hasDWG) return {rev:"Rev. 1", percent:90, color:"#1d9e75", label:"도면 반영 완료"};
-  if (hasItems || hasSpec) return {rev:"Rev. 0", percent:60, color:"#d4a017", label:"Draft — 도면 추가 시 Rev. 1 자동 승격"};
-  return {rev:"—", percent:0, color:"#6b7280", label:"입력 대기"};
-}
-
 // ════════ 6. ITP 기본 행 (v1.6 — 회사 표준 ITP Sample_rev.1 기준 17개 항목으로 확장) ════════
 const mkR = (id, activity, code, criteria, doc, sj, qc, client, active, specOnly=false) =>
   ({id, activity, code, criteria, doc, witness:{sj, qc, client}, active, specOnly, remarks:""});
@@ -713,7 +696,7 @@ const ITP_BASE = [
 ];
 
 // ════════ 7. ITP Preview ════════
-function ITPPreview({proj, items, specReqs, revInfo, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols}){
+function ITPPreview({proj, items, specReqs, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols}){
   const active = rows.filter(r => r.active);
   const isHX = items.some(i => i.type.includes("Condenser") || i.type.includes("Heat"));
   const isSUS = !isHX && items.some(i => /(316|304|sus|sts)/i.test(i.shell_mat||""));
@@ -765,18 +748,8 @@ function ITPPreview({proj, items, specReqs, revInfo, rows, setRows, docNo, setDo
     setNewRow({activity:"", code:"", criteria:"", doc:"", remarks:""});
   };
 
-  const pendingNote = revInfo.rev === "Rev. 0" && items.length > 0 && !items.some(i => i.dwgUrl);
-
   return <div style={{fontFamily:"Arial,sans-serif", fontSize:10}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}.ic{display:none!important}}`}</style>
-    <div className="no-print rev-banner" style={{borderLeftColor: revInfo.color, background: revInfo.color+"15"}}>
-      <strong style={{color:revInfo.color}}>{revInfo.rev}</strong>
-      <span style={{marginLeft:8, color:"#666"}}>{revInfo.label}</span>
-      <span style={{marginLeft:8, color:"#999", fontSize:11}}>({revInfo.percent}%)</span>
-    </div>
-    {pendingNote && <div className="no-print rev-banner rev-pending">
-      ⚠ 도면 미도착 — 시방서·견적서 기반 Draft. 도면 추가 시 Tag·치수·재질이 자동 확정되며 Rev. 1로 승격됩니다.
-    </div>}
 
     <table style={{width:"100%", borderCollapse:"collapse"}}>
       <colgroup><col style={{width:"30%"}}/><col style={{width:"15%"}}/><col style={{width:"25%"}}/><col style={{width:"10%"}}/><col style={{width:"20%"}}/></colgroup>
@@ -936,12 +909,6 @@ function App(){
   // v1.6 — 좌측 "검사 대상 아이템"(제작공정관리)에서 기본으로 불러와 나열하는 것이 기본 동작.
   // 샘플 더미 아이템 대신 빈 배열로 시작하고, mount effect에서 EPC 목록과 병합한다.
   const [items, setItems] = useState([]);
-  // v1.9 — 제작공정관리(EPC) 연동 후보 아이템: 자동으로 items에 등록하지 않고, 사용자가 선택해서
-  // "1. 아이템 등록"에 넣을지 직접 결정한다 (30~40개 대형 PJT 대비 검색/숨기기 지원).
-  const [epcCandidates, setEpcCandidates] = useState([]);
-  const [candHidden, setCandHidden] = useState(() => loadCandHidden());
-  const [candChecked, setCandChecked] = useState(() => new Set());
-  const [candSearch, setCandSearch] = useState("");
   const [newItem, setNewItem] = useState({...DEF_ITEM});
   const [specReqs, setSpecReqs] = useState([]);
   const [quoteItems, setQuoteItems] = useState([]);
@@ -998,15 +965,13 @@ function App(){
       if (s.itpDocNo) setItpDocNo(s.itpDocNo);
       if (s.itpRev) setItpRev(s.itpRev);
     }
-    // EPC Control System에서 데이터 동기화 (window.SJP.bridge 존재 시)
+    // EPC Control System에서 프로젝트 정보 동기화 (window.SJP.bridge 존재 시).
+    // v2.0 — 아이템(검사 대상 아이템)은 index.html 좌측 패널(제작공정관리 연동)에서 직접 선택해
+    // 들어오는 방식으로 통일 — 여기서 items에 자동/후보 병합하지 않음 (중복 등록 혼란 방지).
     if (window.SJP?.bridge?.isConnected?.()) {
       const epcProj = window.SJP.bridge.getProject?.();
-      const epcItems = window.SJP.bridge.getItems?.();
       if (epcProj) setProj(p => ({...p, ...epcProj}));
-      // v1.9 — 제작공정관리(EPC) 아이템은 자동으로 "등재된 아이템"에 넣지 않는다.
-      // 후보 목록으로만 보여주고, 사용자가 선택한 것만 명시적으로 등록하도록 변경.
-      if (epcItems) setEpcCandidates(epcItems);
-      setTimeout(()=>showMsg("✓ EPC Control에서 데이터 동기화 완료", 5000), 100);
+      setTimeout(()=>showMsg("✓ EPC Control에서 프로젝트 정보 동기화 완료", 5000), 100);
     }
   }, []);
 
@@ -1021,8 +986,6 @@ function App(){
   useEffect(() => { if (wpsList.length) window.WPS_LIST = wpsList; }, [wpsList]);
   useEffect(() => { if (welderList.length) window.WELDER_LIST = welderList; }, [welderList]);
   useEffect(() => { if (inspectorList.length) window.INSPECTOR_LIST = inspectorList; }, [inspectorList]);
-
-  const revInfo = calcRev({items, specReqs, revComments});
 
   useEffect(() => {
     setItpRows(prev => {
@@ -1046,10 +1009,6 @@ function App(){
     }
   }, [proj.no]);
 
-  useEffect(() => {
-    const newRev = revInfo.rev === "Rev. 0" ? "0" : revInfo.rev === "Rev. 1" ? "1" : revInfo.rev === "Rev. 2" ? "2" : itpRev;
-    if (newRev !== itpRev) setItpRev(newRev);
-  }, [revInfo.rev]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
 
@@ -1096,7 +1055,7 @@ function App(){
     } else if (kind === "quote") {
       const qi = Array.isArray(parsed.items) ? parsed.items : [];
       setQuoteItems(qi);
-      // 견적서 기반 사전 등록 (Rev.0) — 이미 있는 Tag는 건드리지 않고 신규 Tag만 추가
+      // 견적서 기반 사전 등록 — 이미 있는 Tag는 건드리지 않고 신규 Tag만 추가
       setItems(prev => {
         const byTag = new Map(prev.map(it => [it.tag, it]));
         qi.forEach(qi2 => { if (qi2.tag && !byTag.has(qi2.tag)) byTag.set(qi2.tag, {...DEF_ITEM, ...qi2, id: Date.now()+Math.random()}); });
@@ -1108,7 +1067,7 @@ function App(){
       const patch = {...parsed, ...(dwgUrl?{dwgUrl, dwgName:fileMeta.name}:{})};
       if (targetItemId) {
         setItems(prev => prev.map(it => it.id === targetItemId ? {...it, ...patch} : it));
-        showMsg(`✓ 도면 반영 완료 — 기존 아이템에 적용 (Rev. 1 승격)`, 5000);
+        showMsg(`✓ 도면 반영 완료 — 기존 아이템에 적용`, 5000);
       } else {
         setNewItem(prev => ({...prev, ...patch, tag: prev.tag || parsed.tag || ""}));
         showMsg(`✓ 도면 반영 완료 — 아이템 필드 자동 채움`, 5000);
@@ -1284,6 +1243,26 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         let curName = "";
         const dateReG = /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/g;
         const toISO = (m) => `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+        // v3.4 — xlsx(회사 표준 양식)는 셀 좌표가 그대로 보존되므로, 줄 안의 아무 날짜나 스캔하는
+        // 대신 "만료" 라벨이 있는 헤더 열을 찾아 그 열 값만 만료일로 쓴다. 기존 방식은 O열(최초
+        // 승인일자)과 Q열(승인 만료일자)이 한 줄에 같이 있을 때 잘못된 날짜를 집을 위험이 있었음.
+        // 헤더에서 "만료" 열을 못 찾으면 회사 양식 기준 Q열(0-index 16)을 기본값으로 사용.
+        // v3.4 주의: 이 블록만 split("\t") (단일 탭)을 써야 함 — split(/\t+/)는 빈 셀이 연속될 때
+        // 구분자를 하나로 합쳐버려서 이후 모든 컬럼 인덱스가 밀려버림 (실제 xlsx 테스트로 확인된 버그).
+        const isXlsx = (ext === "xlsx" || ext === "xls");
+        let expiryColIdx = -1;
+        if (isXlsx) {
+          for (const line of texts) {
+            const idx = line.split("\t").findIndex(c => c.includes("만료"));
+            if (idx >= 0) { expiryColIdx = idx; break; }
+          }
+          if (expiryColIdx < 0) expiryColIdx = 16; // Q열 기본값
+        }
+        const findDueDateXlsx = (li) => {
+          const cell = (texts[li].split("\t")[expiryColIdx] || "").trim();
+          const m = cell.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+          return m ? toISO(m) : "";
+        };
         const findDueDate = (li) => {
           const win = [texts[li]||"", texts[li+1]||"", texts[li+2]||""].join(" | ");
           const labelPos = win.indexOf("만료");
@@ -1303,7 +1282,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           const norm = line.replace(/\s+/g, "");
           const ms = norm.match(/SJ-[A-Z]{2,4}-[A-Z]{2,4}(-\d{2})?(,\d{2})?/g);
           if (!ms) return;
-          const dueDate = findDueDate(li);
+          const dueDate = isXlsx ? findDueDateXlsx(li) : findDueDate(li);
           ms.forEach(id => {
             if (seen.has(id)) return;
             seen.add(id);
@@ -1363,34 +1342,6 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   const removeItem = (id) => {
     if (!confirm("이 아이템을 삭제하시겠습니까?")) return;
     setItems(p => p.filter(i => i.id !== id));
-  };
-
-  // v1.9 — 제작공정관리 후보 아이템 선택/숨기기 (수동 등록)
-  const toggleCandChecked = (tag) => setCandChecked(prev => {
-    const next = new Set(prev);
-    next.has(tag) ? next.delete(tag) : next.add(tag);
-    return next;
-  });
-  const hideCandidates = (tags) => setCandHidden(prev => {
-    const next = new Set(prev);
-    tags.forEach(t => next.add(t));
-    saveCandHidden(next);
-    return next;
-  });
-  const unhideAllCandidates = () => { setCandHidden(new Set()); saveCandHidden(new Set()); };
-  const addSelectedCandidates = () => {
-    if (candChecked.size === 0) return;
-    setItems(prev => {
-      const byTag = new Map(prev.map(it => [it.tag, it]));
-      epcCandidates.forEach(ei => {
-        if (candChecked.has(ei.tag) && !byTag.has(ei.tag)) {
-          byTag.set(ei.tag, {...DEF_ITEM, ...ei, id: Date.now()+Math.random()});
-        }
-      });
-      return Array.from(byTag.values());
-    });
-    showMsg(`✓ 검사 대상 아이템 ${candChecked.size}개 등록`);
-    setCandChecked(new Set());
   };
 
   // v2.1 — SJP bridge 전송(EPC Control/Firestore 연동)과 JSON 파일 다운로드를 분리.
@@ -1472,7 +1423,6 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <div className="epc-topbar-title">ITP Builder v1.4</div>
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
-      <div className="epc-topbar-badge">{revInfo.rev}</div>
       <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}>🔑 API 키{getApiKey()?" ✓":""}</button>
       <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
     </div>
@@ -1525,7 +1475,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
               📋 추가 요구사항: <strong>{specReqs.length}개</strong>
             </div>
             <div style={{fontSize:10, color: quoteItems.length > 0 ? "#7f77dd" : "var(--sjp-text-sub)"}}>
-              💰 견적 아이템: <strong>{quoteItems.length}개</strong> (도면 미도착 상태에서도 Rev. 0 ITP 생성 가능, 도면 첨부 시 Rev. 1 자동 승격)
+              💰 견적 아이템: <strong>{quoteItems.length}개</strong> (도면 미도착 상태에서도 ITP 생성 가능)
             </div>
           </div>
           {specReqs.length > 0 && <div style={{marginTop:8, maxHeight:200, overflowY:"auto"}}>
@@ -1651,46 +1601,6 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       </div>
 
       <div>
-        {epcCandidates.length > 0 && (() => {
-          const registeredTags = new Set(items.map(it => it.tag));
-          const visible = epcCandidates.filter(ei => ei.tag && !registeredTags.has(ei.tag) && !candHidden.has(ei.tag));
-          const q = candSearch.trim().toLowerCase();
-          const filtered = q ? visible.filter(ei => (ei.tag||"").toLowerCase().includes(q) || (ei.name||"").toLowerCase().includes(q)) : visible;
-          const hiddenCount = candHidden.size;
-          return <div className="card" style={{marginBottom:12}}>
-            <div className="card-h">📦 제작공정관리 연동 후보 ({filtered.length}개)
-              <span style={{fontSize:9, fontWeight:400, color:"var(--sjp-text-sub)", marginLeft:6}}>선택한 항목만 아이템 등록에 추가됩니다</span>
-            </div>
-            <div className="card-b">
-              {visible.length > 8 &&
-                <input value={candSearch} onChange={e=>setCandSearch(e.target.value)} placeholder="Tag/이름 검색..." style={{width:"100%", marginBottom:6, padding:"4px 6px", fontSize:11, border:"1px solid var(--sjp-border)", borderRadius:4}}/>}
-              {filtered.length === 0 ?
-                <div style={{padding:12, textAlign:"center", color:"#aaa", fontSize:11}}>
-                  표시할 후보가 없습니다.
-                  {hiddenCount>0 && <><br/><button onClick={unhideAllCandidates} style={{marginTop:6, fontSize:9, padding:"2px 8px", border:"1px solid var(--sjp-border)", borderRadius:3, background:"#fff", cursor:"pointer"}}>숨김 {hiddenCount}개 다시 보기</button></>}
-                </div>
-                :
-                <div style={{maxHeight:220, overflowY:"auto"}}>
-                  {filtered.map(ei =>
-                    <div key={ei.tag} style={{display:"flex", alignItems:"center", gap:6, padding:"4px 2px", borderBottom:"1px solid var(--sjp-border)"}}>
-                      <input type="checkbox" checked={candChecked.has(ei.tag)} onChange={()=>toggleCandChecked(ei.tag)}/>
-                      <div style={{flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
-                        <strong style={{fontSize:11}}>{ei.tag}</strong>
-                        <span style={{fontSize:10, color:"var(--sjp-text-sub)", marginLeft:6}}>{ei.name||"—"}</span>
-                      </div>
-                      <button onClick={()=>hideCandidates([ei.tag])} title="목록에서 숨기기 (이미 처리됐거나 필요 없는 경우)" style={{fontSize:9, padding:"1px 6px", border:"1px solid var(--sjp-border)", borderRadius:3, background:"#fff", cursor:"pointer", color:"#999", flexShrink:0}}>숨기기</button>
-                    </div>
-                  )}
-                </div>
-              }
-              <div style={{display:"flex", gap:6, marginTop:8, alignItems:"center"}}>
-                <button onClick={addSelectedCandidates} disabled={candChecked.size===0} className="btn-primary" style={{fontSize:11, padding:"4px 10px"}}>+ 선택 항목 등록 ({candChecked.size})</button>
-                {hiddenCount>0 && <button onClick={unhideAllCandidates} style={{fontSize:9, color:"var(--sjp-text-sub)", background:"none", border:"none", cursor:"pointer", textDecoration:"underline"}}>숨김 {hiddenCount}개 초기화</button>}
-              </div>
-            </div>
-          </div>;
-        })()}
-
         <div className="card">
           <div className="card-h">등재된 아이템 ({items.length}개)</div>
           <div className="card-b">
@@ -1718,8 +1628,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
                     {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
                       <span style={{color:"var(--sjp-warning)", marginLeft:5, fontWeight:600}}>(CAP)</span>}
                   </div>
-                  {it.dwgUrl ? <div style={{fontSize:9, color:"var(--sjp-success)", marginTop:2}}>✓ 도면 첨부 — Rev. 1 기여</div>
-                    : <div style={{fontSize:9, color:"var(--sjp-warning)", marginTop:2}}>⚠ 도면 미첨부 — Rev. 0</div>}
+                  {it.dwgUrl ? <div style={{fontSize:9, color:"var(--sjp-success)", marginTop:2}}>✓ 도면 첨부됨</div>
+                    : <div style={{fontSize:9, color:"var(--sjp-warning)", marginTop:2}}>⚠ 도면 미첨부</div>}
                   <PasteBox kind="dwg" targetItemId={it.id} prompt={buildParsePrompt("dwg")} onApply={handlePasteApply} onCopyPrompt={copyPrompt}/>
                 </div>
               )
@@ -1760,7 +1670,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       </div>
 
       <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff"}}>
-        <ITPPreview proj={proj} items={items} specReqs={specReqs} revInfo={revInfo}
+        <ITPPreview proj={proj} items={items} specReqs={specReqs}
           rows={itpRows} setRows={setItpRows} docNo={itpDocNo} setDocNo={setItpDocNo} rev={itpRev} setRev={setItpRev}
           witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
       </div>

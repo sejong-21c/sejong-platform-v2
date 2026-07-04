@@ -1125,9 +1125,11 @@ window.SJP.bridge = {
     if (!state.items[pid]) state.items[pid] = [];
     epcItems.forEach(ei => {
       // tagNo로 매칭, 없으면 신규 추가
+      // v3.3 fix: 제작공정관리(WBS 일괄등록) 아이템은 tag가 아니라 tagNo 필드를 씀 — 그 필드도 같이
+      // 봐야 기존 아이템과 매칭됨. 안 그러면 매번 "못 찾음"으로 판정돼 중복 아이템이 계속 생성됐음.
       const tag = ei.tagNo || ei.tag;
       if (!tag) return;
-      let existing = state.items[pid].find(x => x.tag === tag);
+      let existing = state.items[pid].find(x => (x.tag || x.tagNo) === tag);
       if (existing) {
         existing.type = ei.type || existing.type;
         existing.spec = ei.spec || existing.spec;
