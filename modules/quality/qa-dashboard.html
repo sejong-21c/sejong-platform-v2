@@ -107,6 +107,8 @@ function loadState() {
 
 function startFirestoreSync() {
   if (!window.fb || !fb.db) { setTimeout(startFirestoreSync, 300); return; }
+  // v29.9.1: 인증 세션 복원 전에 구독하면 permission-denied로 리스너가 영구 종료됨 → 로그인 확인 후 구독
+  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startFirestoreSync, 400); return; }
   fb.onSnapshot(fb.collection(fb.db, 'ncrs'), snap => {
     state.ncrs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     render();

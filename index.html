@@ -799,9 +799,9 @@ const WBS_BUILD = 'b17';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b9';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const NCR_BUILD = 'b4';
-const CAR_BUILD = 'b4';
-const QADASH_BUILD = 'b5';
+const NCR_BUILD = 'b5';
+const CAR_BUILD = 'b5';
+const QADASH_BUILD = 'b6';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -818,10 +818,23 @@ if (!state.users || !state.users.length || !state.users[0].email) {
   });
   if (changed) { localStorage.setItem(KEY, JSON.stringify(state)); console.info('[SJ FLOW] 신규 필드 보강 완료'); }
 })();
-function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
-// v29.9-fix: 전체 state를 통째로 덮어쓰는 대신 특정 키 하나만 업데이트하는 부분 저장.
-// iframe(NCR/CAR 등)이 localStorage에 자기 소유 데이터를 쓴 걸 부모의 save()가 stale 상태로
-// 덮어써 데이터가 유실되는 race를 방지. 부모의 onSnapshot 핸들러들이 이 방식을 사용.
+// v29.9.1: localStorage 소유권 분리 — NCR/CAR iframe이 소유·기록하는 키 목록.
+// 부모(index.html)의 save()는 이 키들에 대해 "디스크(=iframe이 마지막으로 쓴 값)"를
+// 항상 진실로 받아들이고, 부모 메모리의 (페이지 로드 시점 그대로인) stale 사본으로
+// 절대 덮어쓰지 않는다. touchSession(마우스만 움직여도 20초마다 full save) 등
+// 부모의 모든 save() 경로가 iframe이 방금 등록한 NCR/CAR를 지워버리던 근본 원인 수정.
+const IFRAME_OWNED_KEYS = ['ncrs', 'ncrDeleteReqs', 'cars', 'carDeleteReqs'];
+function save() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const disk = JSON.parse(raw);
+      IFRAME_OWNED_KEYS.forEach(k => { if (disk[k] !== undefined) state[k] = disk[k]; });
+    }
+  } catch (e) { /* 디스크 파싱 실패 시엔 기존 동작(전체 저장) 유지 */ }
+  localStorage.setItem(KEY, JSON.stringify(state));
+}
+// 특정 키 하나만 갱신하는 부분 저장 — 부모의 onSnapshot 핸들러가 사용 (다른 키 불간섭).
 function savePartial(key, value) {
   try {
     const raw = localStorage.getItem(KEY);

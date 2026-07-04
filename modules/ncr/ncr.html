@@ -284,18 +284,34 @@ async function syncArrayToFirestore(coll, arr) {
   if (jobs.length) await Promise.all(jobs);
   _lastSynced[coll] = JSON.parse(JSON.stringify(current));
 }
+// v29.9.1: localStorage 소유권 분리 — 이 iframe이 소유한 키(ncrs/ncrDeleteReqs/cars)만
+// merge-write 한다. 이전처럼 state 전체를 통째로 쓰면 iframe이 로드 시점에 읽어둔 stale
+// projects/tasks/users가 부모(index.html)가 그 사이 Firestore에서 받아 저장한 최신 값을
+// 역으로 덮어써 양방향 데이터 유실 race가 생김 (부모 touchSession full save와 동일 병).
+function writeOwnedKeysToDisk() {
+  const raw = localStorage.getItem(KEY);
+  const disk = raw ? JSON.parse(raw) : {};
+  disk.ncrs = state.ncrs;
+  disk.ncrDeleteReqs = state.ncrDeleteReqs;
+  disk.cars = state.cars;
+  localStorage.setItem(KEY, JSON.stringify(disk));
+}
 function startNcrFirestoreSync() {
   if (!window.fb || !fb.db) { setTimeout(startNcrFirestoreSync, 300); return; }
+  // v29.9.1: 인증 세션 복원 전에 구독을 걸면 permission-denied로 리스너가 영구 종료되어
+  // 이후 실시간 동기화가 조용히 죽음 → 로그인 사용자 확인될 때까지 대기 후 구독.
+  // (로컬 테스트 모드처럼 Firebase 로그인이 없으면 구독하지 않음 — 오류 스팸 방지)
+  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startNcrFirestoreSync, 400); return; }
   fb.onSnapshot(fb.collection(fb.db, 'ncrs'), snap => {
     state.ncrs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     _lastSynced.ncrs = JSON.parse(JSON.stringify(state.ncrs));
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
   }, e => console.error('[ncrs 동기화 구독]', e));
   fb.onSnapshot(fb.collection(fb.db, 'ncrDeleteReqs'), snap => {
     state.ncrDeleteReqs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     _lastSynced.ncrDeleteReqs = JSON.parse(JSON.stringify(state.ncrDeleteReqs));
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
   }, e => console.error('[ncrDeleteReqs 동기화 구독]', e));
   // v29.9 fix: cars 컬렉션도 구독. NCR에서 CAR 발행할 때 서버 최신 상태를 알아야
@@ -303,14 +319,14 @@ function startNcrFirestoreSync() {
   fb.onSnapshot(fb.collection(fb.db, 'cars'), snap => {
     state.cars = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     _lastSynced.cars = JSON.parse(JSON.stringify(state.cars));
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
   }, e => console.error('[cars(참조) 동기화 구독]', e));
 }
 
 function save() {
   try {
-    localStorage.setItem(KEY, JSON.stringify(state));
+    writeOwnedKeysToDisk();
     try { window.parent.render(); } catch(e) {}
     syncArrayToFirestore('ncrs', state.ncrs);
     syncArrayToFirestore('ncrDeleteReqs', state.ncrDeleteReqs);

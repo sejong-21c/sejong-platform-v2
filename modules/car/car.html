@@ -264,30 +264,41 @@ async function syncArrayToFirestore(coll, arr) {
   if (jobs.length) await Promise.all(jobs);
   _lastSynced[coll] = JSON.parse(JSON.stringify(current));
 }
+// v29.9.1: localStorage 소유권 분리 — 이 iframe이 소유한 키(cars/carDeleteReqs)만 merge-write.
+// state 전체를 쓰면 로드 시점의 stale projects/users/ncrs가 다른 창(부모·NCR iframe)이
+// 그 사이 저장한 최신 값을 덮어써 양방향 데이터 유실 race가 생김.
+function writeOwnedKeysToDisk() {
+  const raw = localStorage.getItem(KEY);
+  const disk = raw ? JSON.parse(raw) : {};
+  disk.cars = state.cars;
+  disk.carDeleteReqs = state.carDeleteReqs;
+  localStorage.setItem(KEY, JSON.stringify(disk));
+}
 function startCarFirestoreSync() {
   if (!window.fb || !fb.db) { setTimeout(startCarFirestoreSync, 300); return; }
+  // v29.9.1: 인증 복원 전 구독 → permission-denied → 리스너 영구 종료 방지 (ncr.html과 동일)
+  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startCarFirestoreSync, 400); return; }
   fb.onSnapshot(fb.collection(fb.db, 'cars'), snap => {
     state.cars = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     _lastSynced.cars = JSON.parse(JSON.stringify(state.cars));
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
   }, e => console.error('[cars 동기화 구독]', e));
   fb.onSnapshot(fb.collection(fb.db, 'ncrs'), snap => {
-    state.ncrs = snap.docs.map(d => ({ ...d.data(), id: d.id })); // 읽기 전용(참조용)
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    state.ncrs = snap.docs.map(d => ({ ...d.data(), id: d.id })); // 읽기 전용(참조용) — 디스크엔 안 씀(NCR iframe 소유)
     render();
   }, e => console.error('[ncrs(참조) 동기화 구독]', e));
   fb.onSnapshot(fb.collection(fb.db, 'carDeleteReqs'), snap => {
     state.carDeleteReqs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     _lastSynced.carDeleteReqs = JSON.parse(JSON.stringify(state.carDeleteReqs));
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
   }, e => console.error('[carDeleteReqs 동기화 구독]', e));
 }
 
 function save() {
   try {
-    localStorage.setItem(KEY, JSON.stringify(state));
+    writeOwnedKeysToDisk();
     try { window.parent.render(); } catch(e) {}
     syncArrayToFirestore('cars', state.cars);
     syncArrayToFirestore('carDeleteReqs', state.carDeleteReqs);
