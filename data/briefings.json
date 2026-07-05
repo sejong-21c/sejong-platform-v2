@@ -23,118 +23,76 @@
     "nhkwak@sejong-21c.com": "곽노한 이사"
   },
   "cwkim@sejong-21c.com": {
-    "generatedAt": "2026-07-03 03:55 (정오 업데이트 자동 실행)",
-    "newMails": 4,
-    "processed": 3,
-    "urgentReplies": 3,
+    "generatedAt": "2026-07-06 12:00 (정오 업데이트 자동 실행)",
+    "newMails": 0,
+    "processed": 0,
+    "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "manday": 0,
     "keyActions": [
       {
-        "text": "[오늘 17:00 마감] 국도화학 T-6702 대금지급 관련 서류 제출 — 성적서·검사기록·납품증빙 최종 확인 (영업부 김민준 차장 요청)",
-        "proj": "SJ2026-016",
-        "priority": "high"
-      },
-      {
-        "text": "[오늘 17:00 마감] T-6702 MPL-P 폐수TANK 구동부 RUN-OUT TEST REPORT 회신 확인 (정상진 부장 → MDB 제출용)",
-        "proj": "SJ2026-016",
-        "priority": "high"
-      },
-      {
-        "text": "[오늘 마감] NCR-2026-15 진양화성 임의용접 부적합 조치계획 회신 (김시원 대리 발행 → 최가람 주임)",
-        "proj": "SJE437-26",
-        "priority": "high"
-      },
-      {
-        "text": "[오늘 14:00] 260706 월요공정회의 Weekly Project Report 품질관리부 파트 작성·제출 (양식 변경: 1)영업→1)PM, 종료임박·소규모 하단 분리)",
-        "proj": "부서업무",
-        "priority": "high"
-      },
-      {
-        "text": "[오늘 10:00] 삼성전기 BT-6LINE 내방 브리핑 (전기부문 영신시스템 Master Schedule 포함)",
-        "proj": "SJ435-26",
-        "priority": "high"
-      },
-      {
-        "text": "주간공정회의자료 검토 — HA KOREA·BGF·ZOTEFOAMS 주간공정보고서 참조 (eric.kim 정오 전 송부)",
-        "proj": "부서업무",
-        "priority": "mid"
-      },
-      {
-        "text": "[금주] 본사 출입신청서 제출 + 한국엔지니어링협회 기술자 경력신고 등록 완료",
-        "proj": "부서업무",
-        "priority": "mid"
-      },
-      {
-        "text": "GitHub Pages(sejong21c.com) 배포 워크플로우 반복 실패 확인 — 최근 커밋 다수 build 실패, 사이트 반영 지연 점검 필요",
+        "text": "GitHub Pages(sejong21c.com) 배포 반복 실패 — 07/04 커밋 2건(ff5e118, d156e0b) build 실패 알림 수신. 워크플로우 로그 확인 및 사이트 반영 여부 점검 필요",
         "proj": "전산/플랫폼",
+        "priority": "high"
+      },
+      {
+        "text": "[오늘 13:30] 현장실사(김철우·김명식) — 주간 회의록 액션. 사전 준비물·이동 확인",
+        "proj": "부서업무",
         "priority": "mid"
       },
       {
-        "text": "GitHub SSH 인증키 신규 추가(sejong-macbook) 본인 등록 여부 확인 (보안)",
+        "text": "260706 월요공정회의 Weekly Project Report 품질관리부 파트 제출 여부 확인 (오전 09:00 마감 경과)",
+        "proj": "부서업무",
+        "priority": "mid"
+      },
+      {
+        "text": "Google 계정 신규 로그인(Apple iPhone, 07/03 23:50) 본인 확인 — BTCC 크립토 스팸 5건 동반 수신, 피싱·계정도용 주의 및 스팸 처리 권장",
         "proj": "보안",
-        "priority": "low"
+        "priority": "mid"
+      },
+      {
+        "text": "SJ2026-017 국도화학 T-7191 Tank 오전 납품 도착(08:00) 후속 — 입고 검사/수령 확인",
+        "proj": "SJ2026-017",
+        "priority": "mid"
       }
     ],
     "urgentList": [
       {
-        "subject": "Fwd: [대금지급관련 서류안내] 국도화학 T-6702 Tank 납품 외 2건 (금일 마감)",
-        "from": "김민준 차장(mjkim)",
-        "proj": "SJ2026-016"
-      },
-      {
-        "subject": "[NCR-2026-15] 진양화성 임의용접 조치계획 회신 (금일 마감)",
-        "from": "김시원 대리(swkim)→최가람 주임",
-        "proj": "SJE437-26"
-      },
-      {
-        "subject": "Re: [월요일공정회의] 260706 Weekly Project Report 기준자료 (금일 14:00 작성)",
-        "from": "양병우 부장(bwyang)",
-        "proj": "부서업무"
-      },
-      {
-        "subject": "주간공정회의자료 (HA KOREA·BGF·ZOTEFOAMS)",
-        "from": "eric.kim",
-        "proj": "부서업무"
+        "subject": "[sejong-21c/sejong-platform-v2] Run failed: pages build and deployment (ff5e118, d156e0b)",
+        "from": "GitHub Actions (notifications@github.com)",
+        "proj": "전산/플랫폼"
       }
     ],
     "schedule": [
       {
-        "title": "삼성전기 BT-6LINE 내방 브리핑 (전기부문 영신시스템 포함)",
-        "date": "2026-07-03",
-        "time": "10:00",
-        "proj": "SJ435-26",
+        "title": "SJ2026-017 국도화학 T-7191 Tank 납품 도착",
+        "date": "2026-07-06",
+        "time": "08:00",
+        "proj": "SJ2026-017",
         "color": "blue"
       },
       {
-        "title": "260706 Weekly Project Report 작성·제출 (품질관리부 파트)",
-        "date": "2026-07-03",
-        "time": "14:00",
+        "title": "주간 회의 (Google Meet)",
+        "date": "2026-07-06",
+        "time": "08:15",
+        "proj": "부서업무",
+        "color": "blue"
+      },
+      {
+        "title": "260706 월요공정회의 Weekly Project Report 제출 마감",
+        "date": "2026-07-06",
+        "time": "09:00",
         "proj": "부서업무",
         "color": "orange"
       },
       {
-        "title": "T-6702 RUN-OUT TEST REPORT 회신 마감 + 대금지급 서류 제출 마감",
-        "date": "2026-07-03",
-        "time": "17:00",
-        "proj": "SJ2026-016",
-        "color": "red"
-      },
-      {
-        "title": "NCR-2026-15 진양화성 조치계획 회신 마감",
-        "date": "2026-07-03",
-        "proj": "SJE437-26",
-        "color": "red"
-      },
-      {
-        "title": "제41회 원자력관리자 하계강좌 (~07/03)",
-        "date": "2026-07-03",
-        "time": "09:00",
-        "proj": "원자력",
-        "dept": "nuclear",
-        "color": "green"
+        "title": "현장실사 (김철우·김명식) — 회의록 액션",
+        "date": "2026-07-06",
+        "time": "13:30",
+        "proj": "부서업무",
+        "color": "orange"
       },
       {
         "title": "KHNP 유자격 심사결과 후속 조치",
@@ -179,20 +137,8 @@
       }
     ],
     "nuclear": {
-      "summary": "정오 기준 신규 원자력 메일 없음. 진행 현황 유지: 하계강좌 최종일(~07/03), KHNP R&D 과제 진행 전환(07/02), 유자격 심사결과(202600239) 후속(07/07), 원자력산업실태조사 제출(7/31), 2차 품질보증교육 모집(~7/10).",
+      "summary": "정오 기준 신규 원자력 메일 없음. 진행 현황 유지: KHNP 유자격 보조기기 품질분야 심사결과(202600239) 후속 조치(07/07), 2차 원자력 품질보증 및 안전문화 제고과정 모집(~07/10), 2025년도(31회) 원자력산업실태조사 제출(~07/31). 하계강좌는 07/03 종료.",
       "items": [
-        {
-          "text": "제41회 원자력관리자 하계강좌 최종일 (~07/03)",
-          "proj": "교육",
-          "priority": "high",
-          "category": "교육/세미나"
-        },
-        {
-          "text": "KHNP R&D 과제 진행 전환 확인 — 06/29 취소통보 → 07/02 진행 안내 재수신",
-          "proj": "KHNP R&D",
-          "priority": "high",
-          "category": "R&D"
-        },
         {
           "text": "KHNP 유자격 보조기기 품질분야 심사결과 후속 조치 (202600239, 07/07)",
           "proj": "KHNP 유자격",
@@ -200,25 +146,19 @@
           "category": "심사/인증"
         },
         {
-          "text": "2025년도(31회) 원자력산업실태조사 참여·제출 (7/31 마감)",
-          "proj": "원자력산업",
-          "priority": "mid",
-          "category": "규제/조사"
-        },
-        {
-          "text": "2차 원자력 품질보증 및 안전문화 제고과정 모집 (~7/10)",
+          "text": "2차 원자력 품질보증 및 안전문화 제고과정 모집 (~07/10)",
           "proj": "교육",
           "priority": "mid",
           "category": "교육/세미나"
+        },
+        {
+          "text": "2025년도(31회) 원자력산업실태조사 참여·제출 (~07/31)",
+          "proj": "원자력산업",
+          "priority": "mid",
+          "category": "규제/조사"
         }
       ],
       "schedule": [
-        {
-          "title": "원자력관리자 하계강좌 최종일 (~07/03)",
-          "date": "2026-07-03",
-          "time": "09:00",
-          "color": "green"
-        },
         {
           "title": "KHNP 유자격 심사결과 후속 조치",
           "date": "2026-07-07",
