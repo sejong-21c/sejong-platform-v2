@@ -23,7 +23,7 @@
     "nhkwak@sejong-21c.com": "곽노한 이사"
   },
   "cwkim@sejong-21c.com": {
-    "generatedAt": "2026-07-06 12:00 (정오 업데이트 자동 실행)",
+    "generatedAt": "2026-07-06 16:30 (오후 마감 자동 실행)",
     "newMails": 0,
     "processed": 0,
     "urgentReplies": 1,
@@ -33,34 +33,34 @@
     "manday": 0,
     "keyActions": [
       {
-        "text": "GitHub Pages(sejong21c.com) 배포 반복 실패 — 07/04 커밋 2건(ff5e118, d156e0b) build 실패 알림 수신. 워크플로우 로그 확인 및 사이트 반영 여부 점검 필요",
+        "text": "[미해결·이월] GitHub Pages(sejong21c.com) 배포 반복 실패 — 07/04 커밋 2건(ff5e118, d156e0b) build 실패. 주말 경과, 내일 오전 워크플로우 로그 확인·재배포 및 사이트 반영 점검",
         "proj": "전산/플랫폼",
         "priority": "high"
       },
       {
-        "text": "[오늘 13:30] 현장실사(김철우·김명식) — 주간 회의록 액션. 사전 준비물·이동 확인",
+        "text": "[내일 07-07 10:00] 삼성전기 BT-6LINE 자동밸브 제작 전 미팅 참석 결재(L3) 및 안건 사전 검토 — 3-WAY VALVE 방향, 오일프리 미적용 실리콘 도포 가능여부, SE-23-021 검사서",
+        "proj": "SJ435-26",
+        "priority": "high"
+      },
+      {
+        "text": "[내일 07-07 마감] 한수원 경주본사 출입신청(파단기 PT, 차현욱 과장) — 원클릭 통합출입신청, 참석인원 일괄 신청",
+        "proj": "원자력",
+        "priority": "high"
+      },
+      {
+        "text": "260706 월요공정회의 Weekly Project Report 품질관리부 파트 제출 여부 최종 확인 (09:00 마감 경과)",
         "proj": "부서업무",
         "priority": "mid"
       },
       {
-        "text": "260706 월요공정회의 Weekly Project Report 품질관리부 파트 제출 여부 확인 (오전 09:00 마감 경과)",
-        "proj": "부서업무",
-        "priority": "mid"
-      },
-      {
-        "text": "Google 계정 신규 로그인(Apple iPhone, 07/03 23:50) 본인 확인 — BTCC 크립토 스팸 5건 동반 수신, 피싱·계정도용 주의 및 스팸 처리 권장",
-        "proj": "보안",
-        "priority": "mid"
-      },
-      {
-        "text": "SJ2026-017 국도화학 T-7191 Tank 오전 납품 도착(08:00) 후속 — 입고 검사/수령 확인",
+        "text": "SJ2026-017 국도화학 T-7191 Tank 오전 납품 도착(08:00) 후속 — 입고검사/수령 확인 마무리",
         "proj": "SJ2026-017",
         "priority": "mid"
       }
     ],
     "urgentList": [
       {
-        "subject": "[sejong-21c/sejong-platform-v2] Run failed: pages build and deployment (ff5e118, d156e0b)",
+        "subject": "[sejong-21c/sejong-platform-v2] Run failed: pages build and deployment (ff5e118, d156e0b) — 주말 경과 미해결",
         "from": "GitHub Actions (notifications@github.com)",
         "proj": "전산/플랫폼"
       }
@@ -95,6 +95,20 @@
         "color": "orange"
       },
       {
+        "title": "삼성전기 BT-6LINE 자동밸브 제작 전 미팅 (제조+품질+기술)",
+        "date": "2026-07-07",
+        "time": "10:00",
+        "proj": "SJ435-26",
+        "color": "red"
+      },
+      {
+        "title": "한수원 경주본사 출입신청 마감 (파단기 PT)",
+        "date": "2026-07-07",
+        "proj": "원자력",
+        "dept": "nuclear",
+        "color": "orange"
+      },
+      {
         "title": "KHNP 유자격 심사결과 후속 조치",
         "date": "2026-07-07",
         "proj": "원자력",
@@ -102,7 +116,7 @@
         "color": "orange"
       },
       {
-        "title": "제조 AX 스마트팩토리 세미나 (DDP)",
+        "title": "[교육] 스마트팩토리 진동분석 설비고장예지 (수원, 3일 집체)",
         "date": "2026-07-07",
         "time": "09:00",
         "proj": "부서업무",
@@ -137,8 +151,14 @@
       }
     ],
     "nuclear": {
-      "summary": "정오 기준 신규 원자력 메일 없음. 진행 현황 유지: KHNP 유자격 보조기기 품질분야 심사결과(202600239) 후속 조치(07/07), 2차 원자력 품질보증 및 안전문화 제고과정 모집(~07/10), 2025년도(31회) 원자력산업실태조사 제출(~07/31). 하계강좌는 07/03 종료.",
+      "summary": "오후 마감 기준 신규 원자력 메일 없음. 내일(07-07) 한수원 경주본사 출입신청 마감(파단기 PT, 차현욱 과장) — 원클릭 통합출입신청. 진행 현황: KHNP 유자격 보조기기 품질분야 심사결과(202600239) 후속(07/07), 2차 원자력 품질보증 및 안전문화 제고과정 모집(~07/10), 2025년도(31회) 원자력산업실태조사 제출(~07/31).",
       "items": [
+        {
+          "text": "한수원 경주본사 출입신청 마감 — 파단기 PT (차현욱 과장), 07/07",
+          "proj": "R&D_KHNP_파단기",
+          "priority": "high",
+          "category": "출입/현장"
+        },
         {
           "text": "KHNP 유자격 보조기기 품질분야 심사결과 후속 조치 (202600239, 07/07)",
           "proj": "KHNP 유자격",
@@ -159,6 +179,11 @@
         }
       ],
       "schedule": [
+        {
+          "title": "한수원 경주본사 출입신청 마감 (파단기 PT)",
+          "date": "2026-07-07",
+          "color": "orange"
+        },
         {
           "title": "KHNP 유자격 심사결과 후속 조치",
           "date": "2026-07-07",
