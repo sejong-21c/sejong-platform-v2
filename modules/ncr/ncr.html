@@ -714,6 +714,11 @@ function openNewNCR() {
 function openNCRMgr(ncrId) {
   const n = (state.ncrs||[]).find(x => x.id === ncrId);
   if (!n) return;
+  // v29.13 fix: 이전에 다른 NCR을 열어 파일을 골랐다가 저장하지 않고 닫으면(취소/X)
+  // window._mgrUploadPromise가 안 지워진 채 남아, 다음에 아무 파일도 안 고른 이
+  // NCR을 저장할 때도 그 stale 업로드를 기다리며 "업로드 중..."에 멈춰있는 것처럼
+  // 보이는 버그가 있었음. 모달을 열 때마다 항상 초기화한다.
+  window._mgrUploadPromise = null; window._mgrFileName = null;
   const g  = NCR_GRADE[n.grade]  || NCR_GRADE.obs;
   const st = NCR_STATUS[n.status] || NCR_STATUS.open;
   const p  = getP(n.proj);
@@ -769,7 +774,8 @@ function openNCRMgr(ncrId) {
       </div>
       <input type="file" id="mgr-file-input" accept=".pdf,.docx" style="display:none" onchange="(function(inp){
         const f=inp.files[0]; if(!f) return;
-        window._mgrRawFile=f; window._mgrFileName=f.name; document.getElementById('mgr-file-name').textContent=f.name;
+        window._mgrFileName=f.name; document.getElementById('mgr-file-name').textContent=f.name;
+        window._mgrUploadPromise = startAttachmentUpload('ncr', f); // 파일 고른 즉시 백그라운드 업로드 시작(체감 대기시간 제거)
       })(this)">
     </div>
   `, async () => {
@@ -783,10 +789,10 @@ function openNCRMgr(ncrId) {
     const closedAt = document.getElementById('mgr-closed').value;
     if (closedAt) { n.closedAt = closedAt; n.status = 'closed'; }
     else if (n.closedAt && !closedAt) { n.closedAt = ''; n.status = 'open'; }
-    if (window._mgrRawFile) {
+    if (window._mgrUploadPromise) {
       const btn = document.getElementById('modal-confirm');
       if (btn) { btn.disabled = true; btn.textContent = '⏳ 업로드 중...'; }
-      const attach = await uploadAttachmentOrNull('ncr', n.id, window._mgrRawFile);
+      const attach = await resolveAttachmentOrNull('ncr', window._mgrUploadPromise);
       if (btn) { btn.disabled = false; btn.textContent = '확인'; }
       if (!attach.ok) return;
       if (attach.url) {
@@ -794,7 +800,7 @@ function openNCRMgr(ncrId) {
         n.meta.fileUrl = attach.url;
         n.meta.fileName = attach.name;
       }
-      window._mgrRawFile = null; window._mgrFileName = null;
+      window._mgrUploadPromise = null; window._mgrFileName = null;
     }
     save(); closeModal(); render();
   });
@@ -878,18 +884,41 @@ function issueNCRFromTrav(itemId, stage) {
 // base64로 통째로 넣으면 조용히 저장 실패(콘솔에만 에러)해서 "등록 즉시 사라지는"
 // 것처럼 보였음. 메신저 모듈과 동일하게 Firebase Storage에 실제 업로드하고
 // 다운로드 URL만 Firestore에 저장하는 방식으로 전환 — Firestore 용량 제한과 무관해짐.
+// v29.13 fix: 업로드를 "등록" 버튼 클릭 시점에 시작하면 그 순간 몇 초씩 멈춘 것처럼
+// 느껴짐(예전엔 base64라 네트워크 왕복 없이 즉시 반응했던 것과 비교됨). 파일을
+// 고른 직후(OCR 파싱 중) 백그라운드로 업로드를 미리 시작해두고, 등록 버튼을 누를
+// 때는 이미 끝나 있을 업로드 결과만 기다리도록 분리 — 체감 대기시간을 없앤다.
 const MAX_ATTACH_MB = 25; // Storage 자체 한도가 아니라, 느린 회선에서의 실사용 배려용 상한
-async function uploadAttachmentOrNull(coll, id, file) {
-  if (!file) return { ok: true, url: null, name: null };
-  if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
-    alert(`첨부 파일이 너무 큽니다(${(file.size/1024/1024).toFixed(1)}MB). ${MAX_ATTACH_MB}MB 이하 파일만 첨부할 수 있습니다.`);
-    return { ok: false, url: null, name: null };
-  }
+const ATTACH_UPLOAD_TIMEOUT_MS = 20000;
+function _timeoutAfter(ms, msg) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms));
+}
+function startAttachmentUpload(coll, file) {
+  if (!file) return null;
+  const p = (async () => {
+    if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
+      throw new Error(`${MAX_ATTACH_MB}MB 이하 파일만 첨부할 수 있습니다 (현재 ${(file.size/1024/1024).toFixed(1)}MB)`);
+    }
+    // v29.13.1: 'ncr-attachments/...' 같은 새 최상위 경로는 Storage 보안 규칙에 허용
+    // 항목이 없을 수 있어, 이미 정상 동작이 검증된 메신저 모듈의 'messages/{폴더}/{파일}'
+    // 2단 구조를 그대로 재사용해 규칙 문제 가능성을 우회한다.
+    const storageRef = fb.ref(fb.storage, `messages/${coll}-attachments/${Date.now()}_${file.name}`);
+    // v29.13.2 fix: 사내 방화벽/보안 정책이 Storage 요청 자체를 조용히 막는 환경에서는
+    // uploadBytes가 성공도 실패도 안 하고 영원히 멈춰서, "업로드 중..." 버튼이 평생
+    // 안 풀리는 문제가 있었음. 일정 시간 안에 안 끝나면 실패로 간주해 등록이 막히지
+    //않게(파일 없이라도 저장 가능하게) 시간제한을 둔다.
+    await Promise.race([fb.uploadBytes(storageRef, file), _timeoutAfter(ATTACH_UPLOAD_TIMEOUT_MS, '업로드 응답이 없습니다(20초 초과) — 사내 네트워크에서 파일 서버 접속이 막혀 있을 수 있습니다.')]);
+    const url = await Promise.race([fb.getDownloadURL(storageRef), _timeoutAfter(ATTACH_UPLOAD_TIMEOUT_MS, '다운로드 URL 조회 응답이 없습니다(20초 초과).')]);
+    return { url, name: file.name };
+  })();
+  p.catch(() => {}); // 등록 버튼을 누르기 전(=아직 아무도 안 기다리는 동안) 실패해도 콘솔에 unhandled rejection 경고 안 뜨게. 실제 처리는 resolveAttachmentOrNull에서.
+  return p;
+}
+async function resolveAttachmentOrNull(coll, uploadPromise) {
+  if (!uploadPromise) return { ok: true, url: null, name: null };
   try {
-    const storageRef = fb.ref(fb.storage, `${coll}-attachments/${id}/${Date.now()}_${file.name}`);
-    await fb.uploadBytes(storageRef, file);
-    const url = await fb.getDownloadURL(storageRef);
-    return { ok: true, url, name: file.name };
+    const { url, name } = await uploadPromise;
+    return { ok: true, url, name };
   } catch (e) {
     console.error(`[${coll} 첨부파일 업로드]`, e);
     const proceed = confirm(`첨부 파일 업로드에 실패했습니다: ${e.message || e}\n파일 없이 저장하시겠습니까?\n(취소를 누르면 저장이 중단됩니다)`);
@@ -1141,14 +1170,14 @@ function _fillMonths(raw, yr) {
   return out;
 }
 
-function _lineSvg(monthData) {
+function _lineSvg(monthData, H=160) {
   const keys = Object.keys(monthData).sort();
   if (!keys.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
   const vals = keys.map(k => monthData[k]);
   const maxV = Math.max(...vals, 1);
   const n = keys.length;
   const sameYr = new Set(keys.map(k=>k.slice(0,4))).size===1;
-  const W=300, PL=40, PR=20, PT=30, PB=46, H=160;
+  const W=300, PL=40, PR=20, PT=30, PB=46;
   const iW=W-PL-PR, iH=H-PT-PB;
   const xs = n===1 ? [PL+Math.round(iW/2)] : keys.map((_,i)=>PL+Math.round(i/(n-1)*iW));
   const ys = vals.map(v=>PT+iH-Math.round(v/maxV*iH));
@@ -1271,23 +1300,22 @@ function printNCRTrend() {
     .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;border-bottom:2px solid #7c3aed;padding-bottom:6px;}
     h1{font-size:16px;margin:0;color:#7c3aed;}
     .meta{font-size:9.5px;color:#888;}
-    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
-    .kpi{background:#f5f3ff;border-radius:6px;padding:8px 10px;text-align:center;}
-    .kpi .v{font-size:20px;font-weight:800;color:#7c3aed;line-height:1.2;}
+    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px;}
+    .kpi{background:#f5f3ff;border-radius:6px;padding:5px 10px;text-align:center;}
+    .kpi .v{font-size:17px;font-weight:800;color:#7c3aed;line-height:1.2;}
     .kpi .l{font-size:9px;color:#888;}
-    .section-title{font-size:12px;font-weight:700;color:#7c3aed;margin:2px 0 6px;}
-    .card{border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:10px;}
-    .card-title{font-size:10px;font-weight:700;color:#7c3aed;margin:0 0 6px;}
-    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-    .ch-title{font-size:9.5px;font-weight:700;color:#888;margin-bottom:5px;}
-    .ch{border:1px solid #eee;border-radius:5px;padding:8px;overflow:hidden;}
-    table{width:100%;border-collapse:collapse;font-size:9.5px;}
-    th{background:#f5f3ff;color:#7c3aed;font-weight:700;padding:4px 6px;text-align:left;border-bottom:1.5px solid #ddd6fe;}
-    td{padding:3.5px 6px;border-bottom:1px solid #f0f0f0;}
+    .section-title{font-size:12px;font-weight:700;color:#7c3aed;margin:2px 0 4px;}
+    .card{border:1px solid #e0e0e0;border-radius:6px;padding:6px 10px;margin-bottom:6px;}
+    .card-title{font-size:10px;font-weight:700;color:#7c3aed;margin:0 0 2px;}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px;}
+    .ch-title{font-size:9.5px;font-weight:700;color:#888;margin-bottom:3px;}
+    .ch{border:1px solid #eee;border-radius:5px;padding:6px;overflow:hidden;}
+    table{width:100%;border-collapse:collapse;font-size:9px;}
+    th{background:#f5f3ff;color:#7c3aed;font-weight:700;padding:3px 6px;text-align:left;border-bottom:1.5px solid #ddd6fe;}
+    td{padding:2px 6px;border-bottom:1px solid #f0f0f0;}
     .b-pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:8.5px;font-weight:600;}
     .b-pill.green{background:#d1fae5;color:#065f46;}.b-pill.red{background:#fee2e2;color:#991b1b;}
     svg{overflow:visible;display:block;width:100%;}
-    .page-break{page-break-before:always;break-before:page;}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
     <div class="hdr"><h1>📊 NCR 품질 경향분석 보고서</h1>
@@ -1298,7 +1326,7 @@ function printNCRTrend() {
       <div class="kpi"><div class="v" style="color:#059669;">${ncrs.filter(n=>n.status==='closed').length}</div><div class="l">종결</div></div>
       <div class="kpi"><div class="v">${ncrs.filter(n=>n.grade==='major').length}</div><div class="l">중대 등급</div></div>
     </div>
-    <div class="card"><div class="card-title">📈 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
+    <div class="card"><div class="card-title">📈 월별 발생 추이</div>${_lineSvg(byMonth, 90)}</div>
     <div class="section-title">📊 항목별 분포</div>
     <div class="grid3">
       <div class="ch"><div class="ch-title">프로젝트별</div>${_barSvg(projEntries,COLORS)}</div>
@@ -1307,7 +1335,7 @@ function printNCRTrend() {
       <div class="ch"><div class="ch-title">불량원인 상세별</div>${_barSvg(detailEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">처리방안별</div>${_donutSvg(dispEntries,COLORS)}</div>
     </div>
-    <div class="card page-break"><div class="card-title">📋 상세 목록</div>
+    <div class="card"><div class="card-title">📋 상세 목록</div>
       <table><thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
         <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
       </table>
@@ -1338,6 +1366,9 @@ function handleNCRFile(input) {
   const file = input.files[0];
   if (!file) return;
   input.value = '';
+  // 파일을 고른 즉시 Storage 업로드를 백그라운드로 시작 — OCR/파싱 + 사용자가
+  // 내용 확인하는 시간과 겹치게 해서, 등록 버튼을 누를 때는 체감 대기시간이 없게 한다.
+  const uploadPromise = startAttachmentUpload('ncr', file);
   const ext = file.name.split('.').pop().toLowerCase();
   const frDataUrl = new FileReader();
   frDataUrl.onload = evDU => {
@@ -1348,7 +1379,7 @@ function handleNCRFile(input) {
       parsed.imgDataUrl = imgDataUrl || null;
       parsed.fileDataUrl = fileDataUrl; // 등록 전 미리보기 전용(저장은 Storage 업로드로 처리)
       parsed.fileName    = file.name;
-      parsed.rawFile     = file;
+      parsed.uploadPromise = uploadPromise;
       showNCRParseModal(parsed);
     };
     if (ext === 'pdf') {
@@ -1470,7 +1501,7 @@ function showNCRParseModal(p) {
   }
   window._ncrParseFileDataUrl = p.fileDataUrl||null;
   window._ncrParseFileName    = p.fileName   ||null;
-  window._ncrParseRawFile     = p.rawFile    ||null;
+  window._ncrParseUploadPromise = p.uploadPromise||null;
 
   document.getElementById('ncr-parse-modal').classList.add('open');
   document.getElementById('ncr-parse-body').innerHTML = `
@@ -1537,11 +1568,11 @@ async function confirmNCRParse() {
     return;
   }
   const btn = document.getElementById('ncr-parse-confirm-btn');
-  const rawFile = window._ncrParseRawFile || null;
+  const uploadPromise = window._ncrParseUploadPromise || null;
   let attach = { ok: true, url: null, name: null };
-  if (rawFile) {
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ 파일 업로드 중...'; }
-    attach = await uploadAttachmentOrNull('ncr', id, rawFile);
+  if (uploadPromise) {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 파일 업로드 중...'; } // 대부분 이미 끝나있어 순간적으로만 보임
+    attach = await resolveAttachmentOrNull('ncr', uploadPromise);
     if (btn) { btn.disabled = false; btn.textContent = '✅ NCR 등록'; }
   }
   if (!attach.ok) return;
@@ -1556,7 +1587,7 @@ async function confirmNCRParse() {
   });
   window._ncrParseFileDataUrl = null;
   window._ncrParseFileName    = null;
-  window._ncrParseRawFile     = null;
+  window._ncrParseUploadPromise = null;
   save(); closeNCRParseModal(); render();
 }
 

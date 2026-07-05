@@ -608,6 +608,11 @@ function openNewCAR() {
 function openCARMgr(carId) {
   const c = (state.cars||[]).find(x => x.id === carId);
   if (!c) return;
+  // v29.13 fix: 이전에 다른 CAR을 열어 파일을 골랐다가 저장하지 않고 닫으면(취소/X)
+  // window._mgrCARUploadPromise가 안 지워진 채 남아, 다음에 아무 파일도 안 고른 이
+  // CAR을 저장할 때도 그 stale 업로드를 기다리며 "업로드 중..."에 멈춰있는 것처럼
+  // 보이는 버그가 있었음. 모달을 열 때마다 항상 초기화한다.
+  window._mgrCARUploadPromise = null; window._mgrCARFileName = null;
   const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
   const p  = getP(c.proj);
   const projName = c.proj==='__direct__' ? (c.meta?.projDirect||'직접입력') : (p?.code ? `${p.code} ${p.name}` : '-');
@@ -660,7 +665,8 @@ function openCARMgr(carId) {
       </div>
       <input type="file" id="mgr-car-file-input" accept=".pdf,.docx" style="display:none" onchange="(function(inp){
         const f=inp.files[0]; if(!f) return;
-        window._mgrCARRawFile=f; window._mgrCARFileName=f.name; document.getElementById('mgr-car-file-name').textContent=f.name;
+        window._mgrCARFileName=f.name; document.getElementById('mgr-car-file-name').textContent=f.name;
+        window._mgrCARUploadPromise = startAttachmentUpload('car', f); // 파일 고른 즉시 백그라운드 업로드 시작(체감 대기시간 제거)
       })(this)">
     </div>
   `, async () => {
@@ -683,17 +689,17 @@ function openCARMgr(carId) {
     else if (newStatus !== 'closed') c.closedAt = closedAt || null;
     else c.closedAt = closedAt;
     c.status = newStatus;
-    if (window._mgrCARRawFile) {
+    if (window._mgrCARUploadPromise) {
       const btn = document.getElementById('modal-confirm');
       if (btn) { btn.disabled = true; btn.textContent = '⏳ 업로드 중...'; }
-      const attach = await uploadAttachmentOrNull('car', c.id, window._mgrCARRawFile);
+      const attach = await resolveAttachmentOrNull('car', window._mgrCARUploadPromise);
       if (btn) { btn.disabled = false; btn.textContent = '확인'; }
       if (!attach.ok) return;
       if (attach.url) {
         c.meta.fileUrl = attach.url;
         c.meta.fileName = attach.name;
       }
-      window._mgrCARRawFile = null; window._mgrCARFileName = null;
+      window._mgrCARUploadPromise = null; window._mgrCARFileName = null;
     }
     save(); closeModal(); render();
   });
@@ -728,18 +734,41 @@ async function closeCAR(carId) {
 // base64로 통째로 넣으면 조용히 저장 실패(콘솔에만 에러)해서 "등록 즉시 사라지는"
 // 것처럼 보였음. 메신저 모듈과 동일하게 Firebase Storage에 실제 업로드하고
 // 다운로드 URL만 Firestore에 저장하는 방식으로 전환 — Firestore 용량 제한과 무관해짐.
+// v29.13 fix: 업로드를 "등록" 버튼 클릭 시점에 시작하면 그 순간 몇 초씩 멈춘 것처럼
+// 느껴짐(예전엔 base64라 네트워크 왕복 없이 즉시 반응했던 것과 비교됨). 파일을
+// 고른 직후(OCR 파싱 중) 백그라운드로 업로드를 미리 시작해두고, 등록 버튼을 누를
+// 때는 이미 끝나 있을 업로드 결과만 기다리도록 분리 — 체감 대기시간을 없앤다.
 const MAX_ATTACH_MB = 25; // Storage 자체 한도가 아니라, 느린 회선에서의 실사용 배려용 상한
-async function uploadAttachmentOrNull(coll, id, file) {
-  if (!file) return { ok: true, url: null, name: null };
-  if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
-    alert(`첨부 파일이 너무 큽니다(${(file.size/1024/1024).toFixed(1)}MB). ${MAX_ATTACH_MB}MB 이하 파일만 첨부할 수 있습니다.`);
-    return { ok: false, url: null, name: null };
-  }
+const ATTACH_UPLOAD_TIMEOUT_MS = 20000;
+function _timeoutAfter(ms, msg) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms));
+}
+function startAttachmentUpload(coll, file) {
+  if (!file) return null;
+  const p = (async () => {
+    if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
+      throw new Error(`${MAX_ATTACH_MB}MB 이하 파일만 첨부할 수 있습니다 (현재 ${(file.size/1024/1024).toFixed(1)}MB)`);
+    }
+    // v29.13.1: 'car-attachments/...' 같은 새 최상위 경로는 Storage 보안 규칙에 허용
+    // 항목이 없을 수 있어, 이미 정상 동작이 검증된 메신저 모듈의 'messages/{폴더}/{파일}'
+    // 2단 구조를 그대로 재사용해 규칙 문제 가능성을 우회한다.
+    const storageRef = fb.ref(fb.storage, `messages/${coll}-attachments/${Date.now()}_${file.name}`);
+    // v29.13.2 fix: 사내 방화벽/보안 정책이 Storage 요청 자체를 조용히 막는 환경에서는
+    // uploadBytes가 성공도 실패도 안 하고 영원히 멈춰서, "업로드 중..." 버튼이 평생
+    // 안 풀리는 문제가 있었음. 일정 시간 안에 안 끝나면 실패로 간주해 등록이 막히지
+    // 않게(파일 없이라도 저장 가능하게) 시간제한을 둔다.
+    await Promise.race([fb.uploadBytes(storageRef, file), _timeoutAfter(ATTACH_UPLOAD_TIMEOUT_MS, '업로드 응답이 없습니다(20초 초과) — 사내 네트워크에서 파일 서버 접속이 막혀 있을 수 있습니다.')]);
+    const url = await Promise.race([fb.getDownloadURL(storageRef), _timeoutAfter(ATTACH_UPLOAD_TIMEOUT_MS, '다운로드 URL 조회 응답이 없습니다(20초 초과).')]);
+    return { url, name: file.name };
+  })();
+  p.catch(() => {}); // 등록 버튼을 누르기 전(=아직 아무도 안 기다리는 동안) 실패해도 콘솔에 unhandled rejection 경고 안 뜨게. 실제 처리는 resolveAttachmentOrNull에서.
+  return p;
+}
+async function resolveAttachmentOrNull(coll, uploadPromise) {
+  if (!uploadPromise) return { ok: true, url: null, name: null };
   try {
-    const storageRef = fb.ref(fb.storage, `${coll}-attachments/${id}/${Date.now()}_${file.name}`);
-    await fb.uploadBytes(storageRef, file);
-    const url = await fb.getDownloadURL(storageRef);
-    return { ok: true, url, name: file.name };
+    const { url, name } = await uploadPromise;
+    return { ok: true, url, name };
   } catch (e) {
     console.error(`[${coll} 첨부파일 업로드]`, e);
     const proceed = confirm(`첨부 파일 업로드에 실패했습니다: ${e.message || e}\n파일 없이 저장하시겠습니까?\n(취소를 누르면 저장이 중단됩니다)`);
@@ -1142,6 +1171,9 @@ function handleCARFile(input) {
   const file = input.files[0];
   if (!file) return;
   input.value = '';
+  // 파일을 고른 즉시 Storage 업로드를 백그라운드로 시작 — OCR/파싱 + 사용자가
+  // 내용 확인하는 시간과 겹치게 해서, 등록 버튼을 누를 때는 체감 대기시간이 없게 한다.
+  const uploadPromise = startAttachmentUpload('car', file);
   const ext = file.name.split('.').pop().toLowerCase();
   const frDataUrl = new FileReader();
   frDataUrl.onload = evDU => {
@@ -1152,7 +1184,7 @@ function handleCARFile(input) {
       parsed.imgDataUrl = imgDataUrl || null;
       parsed.fileDataUrl = fileDataUrl; // 등록 전 미리보기 전용(저장은 Storage 업로드로 처리)
       parsed.fileName = file.name;
-      parsed.rawFile = file;
+      parsed.uploadPromise = uploadPromise;
       showCARParseModal(parsed);
     };
     if (ext === 'pdf') {
@@ -1260,7 +1292,7 @@ function showCARParseModal(p) {
   }
   window._carParseFileDataUrl = p.fileDataUrl || null;
   window._carParseFileName    = p.fileName    || null;
-  window._carParseRawFile     = p.rawFile     || null;
+  window._carParseUploadPromise = p.uploadPromise || null;
 
   document.getElementById('car-parse-modal').classList.add('open');
   document.getElementById('car-parse-body').innerHTML = `
@@ -1330,11 +1362,11 @@ async function confirmCARParse() {
     alert(`CAR No. [${id}] 가 이미 등록되어 있습니다.\nCAR No. 를 다르게 입력하세요.`); return;
   }
   const btn = document.getElementById('car-parse-confirm-btn');
-  const rawFile = window._carParseRawFile || null;
+  const uploadPromise = window._carParseUploadPromise || null;
   let attach = { ok: true, url: null, name: null };
-  if (rawFile) {
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ 파일 업로드 중...'; }
-    attach = await uploadAttachmentOrNull('car', id, rawFile);
+  if (uploadPromise) {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 파일 업로드 중...'; } // 대부분 이미 끝나있어 순간적으로만 보임
+    attach = await resolveAttachmentOrNull('car', uploadPromise);
     if (btn) { btn.disabled = false; btn.textContent = '✅ CAR 등록'; }
   }
   if (!attach.ok) return;
@@ -1360,7 +1392,7 @@ async function confirmCARParse() {
   }
   window._carParseFileDataUrl = null;
   window._carParseFileName    = null;
-  window._carParseRawFile     = null;
+  window._carParseUploadPromise = null;
   save(); closeCARParseModal(); render();
 }
 
