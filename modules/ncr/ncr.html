@@ -782,30 +782,48 @@ function openNCRMgr(ncrId) {
       })(this)">
     </div>
   `, async () => {
-    n.desc        = document.getElementById('mgr-desc').value.trim() || n.desc;
-    n.item        = document.getElementById('mgr-item').value.trim();
-    n.grade       = document.getElementById('mgr-grade').value;
-    n.location    = document.getElementById('mgr-loc').value;
-    n.cause       = document.getElementById('mgr-cause').value;
-    n.causeDetail = document.getElementById('mgr-detail').value;
-    n.disposition = document.getElementById('mgr-disp').value;
-    const closedAt = document.getElementById('mgr-closed').value;
-    if (closedAt) { n.closedAt = closedAt; n.status = 'closed'; }
-    else if (n.closedAt && !closedAt) { n.closedAt = ''; n.status = 'open'; }
+    // v29.13.5 fix: 입력값은 await 전에 미리 읽어두고, 실제 반영은 await 이후
+    // "그 시점의" state.ncrs에서 다시 조회한 객체에 적용한다. 첨부파일 조각을
+    // ncrs 컬렉션에 함께 저장하다 보니, 업로드 중 실시간 동기화가 state.ncrs
+    // 배열을 통째로 새로 갈아끼우는 경우가 있어(mergeServerSnapshot), 모달을 열
+    // 때 붙잡아둔 n 참조가 그 사이 배열에서 떨어져 나가(stale) 수정 내용이
+    // 조용히 저장 안 되던(특히 파일) 버그가 있었음.
+    const descVal        = document.getElementById('mgr-desc').value.trim();
+    const itemVal        = document.getElementById('mgr-item').value.trim();
+    const gradeVal       = document.getElementById('mgr-grade').value;
+    const locationVal    = document.getElementById('mgr-loc').value;
+    const causeVal       = document.getElementById('mgr-cause').value;
+    const causeDetailVal = document.getElementById('mgr-detail').value;
+    const dispositionVal = document.getElementById('mgr-disp').value;
+    const closedAtVal    = document.getElementById('mgr-closed').value;
+
+    let attach = { ok: true, chunkId: null, totalChunks: 0, name: null };
     if (window._mgrUploadPromise) {
       const btn = document.getElementById('modal-confirm');
       if (btn) { btn.disabled = true; btn.textContent = '⏳ 업로드 중...'; }
-      const attach = await resolveAttachmentOrNull('ncr', window._mgrUploadPromise);
+      attach = await resolveAttachmentOrNull('ncr', window._mgrUploadPromise);
       if (btn) { btn.disabled = false; btn.textContent = '확인'; }
       if (!attach.ok) return;
-      if (attach.chunkId) {
-        if (!n.meta) n.meta = {};
-        n.meta.fileChunkId = attach.chunkId;
-        n.meta.fileChunks = attach.totalChunks;
-        n.meta.fileName = attach.name;
-      }
-      window._mgrUploadPromise = null; window._mgrFileName = null;
     }
+
+    const current = (state.ncrs||[]).find(x => x.id === ncrId);
+    if (!current) { window._mgrUploadPromise = null; window._mgrFileName = null; closeModal(); render(); return; }
+    current.desc        = descVal || current.desc;
+    current.item        = itemVal;
+    current.grade       = gradeVal;
+    current.location    = locationVal;
+    current.cause       = causeVal;
+    current.causeDetail = causeDetailVal;
+    current.disposition = dispositionVal;
+    if (closedAtVal) { current.closedAt = closedAtVal; current.status = 'closed'; }
+    else if (current.closedAt && !closedAtVal) { current.closedAt = ''; current.status = 'open'; }
+    if (attach.chunkId) {
+      if (!current.meta) current.meta = {};
+      current.meta.fileChunkId = attach.chunkId;
+      current.meta.fileChunks = attach.totalChunks;
+      current.meta.fileName = attach.name;
+    }
+    window._mgrUploadPromise = null; window._mgrFileName = null;
     save(); closeModal(); render();
   });
 }

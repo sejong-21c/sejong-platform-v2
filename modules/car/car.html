@@ -673,38 +673,61 @@ function openCARMgr(carId) {
       })(this)">
     </div>
   `, async () => {
-    c.action    = document.getElementById('mgr-action').value.trim() || c.action;
-    c.reqDept   = document.getElementById('mgr-reqDept').value.trim();
-    c.qualReq   = document.getElementById('mgr-qualReq').value;
-    c.field     = document.getElementById('mgr-field').value;
-    c.cause     = document.getElementById('mgr-cause').value;
-    c.issuedAt  = document.getElementById('mgr-issuedAt').value || c.issuedAt;
-    c.replyDue  = document.getElementById('mgr-replyDue').value;
-    c.repliedAt = document.getElementById('mgr-repliedAt').value;
-    c.actionAt  = document.getElementById('mgr-actionAt').value;
-    if (!c.meta) c.meta = {};
-    c.meta.client = document.getElementById('mgr-client').value.trim();
-    c.meta.dwgNo  = document.getElementById('mgr-dwg').value.trim();
-    c.meta.wrNo   = document.getElementById('mgr-wr').value.trim();
-    const newStatus = document.getElementById('mgr-status').value;
-    const closedAt  = document.getElementById('mgr-closed').value;
-    if (newStatus === 'closed' && !c.closedAt) c.closedAt = closedAt || new Date().toISOString().slice(0,10);
-    else if (newStatus !== 'closed') c.closedAt = closedAt || null;
-    else c.closedAt = closedAt;
-    c.status = newStatus;
+    // v29.13.5 fix: 입력값은 await 전에 미리 읽어두고, 실제 반영은 await 이후
+    // "그 시점의" state.cars에서 다시 조회한 객체에 적용한다. 첨부파일 조각을
+    // cars 컬렉션에 함께 저장하다 보니, 업로드 중 실시간 동기화가 state.cars
+    // 배열을 통째로 새로 갈아끼우는 경우가 있어(mergeServerSnapshot), 모달을 열
+    // 때 붙잡아둔 c 참조가 그 사이 배열에서 떨어져 나가(stale) 수정 내용이
+    // 조용히 저장 안 되던(특히 파일) 버그가 있었음.
+    const actionVal    = document.getElementById('mgr-action').value.trim();
+    const reqDeptVal   = document.getElementById('mgr-reqDept').value.trim();
+    const qualReqVal   = document.getElementById('mgr-qualReq').value;
+    const fieldVal     = document.getElementById('mgr-field').value;
+    const causeVal     = document.getElementById('mgr-cause').value;
+    const issuedAtVal  = document.getElementById('mgr-issuedAt').value;
+    const replyDueVal  = document.getElementById('mgr-replyDue').value;
+    const repliedAtVal = document.getElementById('mgr-repliedAt').value;
+    const actionAtVal  = document.getElementById('mgr-actionAt').value;
+    const clientVal    = document.getElementById('mgr-client').value.trim();
+    const dwgNoVal     = document.getElementById('mgr-dwg').value.trim();
+    const wrNoVal      = document.getElementById('mgr-wr').value.trim();
+    const newStatus    = document.getElementById('mgr-status').value;
+    const closedAtVal  = document.getElementById('mgr-closed').value;
+
+    let attach = { ok: true, chunkId: null, totalChunks: 0, name: null };
     if (window._mgrCARUploadPromise) {
       const btn = document.getElementById('modal-confirm');
       if (btn) { btn.disabled = true; btn.textContent = '⏳ 업로드 중...'; }
-      const attach = await resolveAttachmentOrNull('car', window._mgrCARUploadPromise);
+      attach = await resolveAttachmentOrNull('car', window._mgrCARUploadPromise);
       if (btn) { btn.disabled = false; btn.textContent = '확인'; }
       if (!attach.ok) return;
-      if (attach.chunkId) {
-        c.meta.fileChunkId = attach.chunkId;
-        c.meta.fileChunks = attach.totalChunks;
-        c.meta.fileName = attach.name;
-      }
-      window._mgrCARUploadPromise = null; window._mgrCARFileName = null;
     }
+
+    const current = (state.cars||[]).find(x => x.id === carId);
+    if (!current) { window._mgrCARUploadPromise = null; window._mgrCARFileName = null; closeModal(); render(); return; }
+    current.action    = actionVal || current.action;
+    current.reqDept   = reqDeptVal;
+    current.qualReq   = qualReqVal;
+    current.field     = fieldVal;
+    current.cause     = causeVal;
+    current.issuedAt  = issuedAtVal || current.issuedAt;
+    current.replyDue  = replyDueVal;
+    current.repliedAt = repliedAtVal;
+    current.actionAt  = actionAtVal;
+    if (!current.meta) current.meta = {};
+    current.meta.client = clientVal;
+    current.meta.dwgNo  = dwgNoVal;
+    current.meta.wrNo   = wrNoVal;
+    if (newStatus === 'closed' && !current.closedAt) current.closedAt = closedAtVal || new Date().toISOString().slice(0,10);
+    else if (newStatus !== 'closed') current.closedAt = closedAtVal || null;
+    else current.closedAt = closedAtVal;
+    current.status = newStatus;
+    if (attach.chunkId) {
+      current.meta.fileChunkId = attach.chunkId;
+      current.meta.fileChunks = attach.totalChunks;
+      current.meta.fileName = attach.name;
+    }
+    window._mgrCARUploadPromise = null; window._mgrCARFileName = null;
     save(); closeModal(); render();
   });
 }
