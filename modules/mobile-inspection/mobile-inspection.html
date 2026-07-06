@@ -417,8 +417,19 @@ window.addEventListener('DOMContentLoaded', ()=>{
 });
 
 // ── ITP Builder 연동 초기화 ─────────────────
+// v29.15: 현재 ITP Builder는 프로젝트 전체가 ITP 체크리스트 하나를 공유하고
+// 아이템별로 다르게 지정하는 기능이 없다(별도 확인 완료). 하지만 아이템 종류에
+// 따라 필요한 검사가 다른 게 정상이므로, ITP Builder를 건드리지 않고 mobile-
+// inspection이 "아이템별 ITP가 있을 수 있다"고 가정하고 먼저 대비해둔다:
+// state.itpRowsByItem[itemId]가 있으면 그 아이템 전용 목록을 쓰고, 없으면
+// 지금처럼 프로젝트 공통 state.itpRows로 자연스럽게 대체(fallback)된다.
+// 나중에 ITP Builder(또는 다른 곳)가 itpRowsByItem을 채워주기 시작하면 이
+// 코드는 수정 없이 바로 아이템별 ITP를 반영하게 된다.
+let _itpState=null; // initFromITPBuilder에서 로드해 onItemChange가 재사용
+
 function initFromITPBuilder(){
   const state=loadITPBuilderState();
+  _itpState=state;
   const badge=document.getElementById('proj-badge');
   const itemSel=document.getElementById('item');
   const itpSel=document.getElementById('itp');
@@ -448,18 +459,32 @@ function initFromITPBuilder(){
     const label=[it.tag, it.name].filter(Boolean).join(' / ');
     const opt=document.createElement('option');
     opt.value=label; opt.textContent=label;
+    opt.dataset.itemId=it.id||''; // 아이템별 ITP 조회용 — 저장되는 값(item)은 기존처럼 라벨 그대로 유지
     itemSel.appendChild(opt);
   });
   itemSel.disabled=items.length===0;
 
-  // ITP 드롭다운 (active rows만)
+  // ITP 드롭다운은 아이템 선택 전엔 비워둔다 — onItemChange에서 선택된
+  // 아이템 기준으로 채운다(아이템별 ITP 대비).
   itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
-  // v29.14.2 fix: 화면에 붙는 번호가 getItpFieldsKey()(입력 폼 종류 구분용 카테고리
-  // 코드, 01~11로 재사용됨)였어서 여러 항목이 같은 번호를 달거나(예: 10번이 4개),
-  // 순서도 뒤죽박죽으로 보였음. ITP_BASE(itp-builder.html)의 실제 순번은 row.id에
-  // 그대로 1~17로 들어있으므로, 표시 번호와 정렬 모두 row.id 기준으로 바꾼다.
-  // getItpFieldsKey는 입력 필드 종류 결정용으로 dataset에는 계속 남겨둔다.
-  const activeRows=(state.itpRows||[])
+  itpSel.disabled=true;
+}
+
+// v29.14.2 fix: 화면에 붙는 번호가 getItpFieldsKey()(입력 폼 종류 구분용 카테고리
+// 코드, 01~11로 재사용됨)였어서 여러 항목이 같은 번호를 달거나(예: 10번이 4개),
+// 순서도 뒤죽박죽으로 보였음. ITP_BASE(itp-builder.html)의 실제 순번은 row.id에
+// 그대로 1~17로 들어있으므로, 표시 번호와 정렬 모두 row.id 기준으로 바꾼다.
+// getItpFieldsKey는 입력 필드 종류 결정용으로 dataset에는 계속 남겨둔다.
+function renderItpOptionsForItem(itemId){
+  const itpSel=document.getElementById('itp');
+  itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
+  if(!_itpState) return;
+  // v29.15: 아이템 전용 ITP(itpRowsByItem[itemId])가 있으면 우선 사용, 없으면
+  // 프로젝트 공통 목록(itpRows)으로 대체 — 지금은 항상 후자지만 나중에 아이템별
+  // 데이터가 생기면 코드 수정 없이 자동으로 반영된다.
+  const perItemRows=itemId && _itpState.itpRowsByItem && _itpState.itpRowsByItem[itemId];
+  const rows=(perItemRows && perItemRows.length) ? perItemRows : (_itpState.itpRows||[]);
+  const activeRows=rows
     .filter(r=>r.active!==false)
     .sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
   activeRows.forEach((row,i)=>{
@@ -473,15 +498,18 @@ function initFromITPBuilder(){
     opt.textContent=seqLabel+row.activity;
     itpSel.appendChild(opt);
   });
-  itpSel.disabled=true; // 아이템 선택 후 활성화
 }
 
 function onItemChange(){
-  const item=document.getElementById('item').value;
+  const itemSelEl=document.getElementById('item');
+  const item=itemSelEl.value;
   const itpSel=document.getElementById('itp');
   if(item){
+    const itemId=itemSelEl.options[itemSelEl.selectedIndex]?.dataset.itemId||'';
+    renderItpOptionsForItem(itemId);
     itpSel.disabled=false;
   }else{
+    renderItpOptionsForItem('');
     itpSel.value='';
     itpSel.disabled=true;
     document.getElementById('insp-wrap').style.display='none';
