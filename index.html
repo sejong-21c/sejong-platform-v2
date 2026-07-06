@@ -1292,7 +1292,9 @@ function renderNav() {
       d.tools.forEach(tid => {
         const t = TOOLS[tid];
         if (!t) return;
-        const isActive = view.selectedTool === tid;
+        // v29: 부서 스케줄은 부서마다 같은 tid('deptsch')를 쓰므로, 지금 열린 부서와도 일치해야 하이라이트한다.
+        // 안 그러면 품질부에서 부서스케줄 열었는데 사이드바 모든 부서의 '부서 스케줄'이 파랗게 강조되는 버그.
+        const isActive = view.selectedTool === tid && (tid !== 'deptsch' || view.deptSchedDept === d.name);
         const isPending = t.status === 'soon';
         html.push(`<div class="tool-item${isActive?' active':''}${isPending?' pending':''}"
             ${isPending ? '' : `onclick="openTool('${tid}','${d.name}')"`}
@@ -2583,34 +2585,79 @@ function closeMobileProj() { view.mobileSelectedProj = null; render(); }
 
 /* ═════════════ 📅 부서 스케줄 (부서 도구) ═════════════ */
 // 1단계: '부서 자체 업무' 카드 + 프로젝트 카드 목록
-// 부서 자체 업무(dept_* 컨테이너) WBS 대단락을 renderMiniGantt와 같은 톤으로 요약해 보여준다.
-// 실제 프로젝트가 아니므로 전체기간 막대 없이 WBS 항목 막대만 그린다.
-function renderDeptSelfGantt(rows) {
+// 부서 자체 업무 요약을 "전체 프로젝트 일정 요약"과 동일한 utl-* 톤(1년 12개월 헤더 + 프로젝트 라벨 열 + 진척 바)으로 그린다.
+// 대상은 WBS 최상위(lv=0) 행 하나당 한 줄. 실제 projects 문서가 없는 컨테이너라 상단 프로젝트 목록에는 절대 나오지 않아야 함(v29.9 fix 참고).
+function renderDeptSelfGantt(rows, deptName) {
   const tops = (rows || []).filter(w => w.lv === 0);
-  if (!tops.length) return '<div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">등록된 업무가 없습니다.</div>';
   const y = new Date().getFullYear();
-  const yearStart = new Date(y, 0, 1), yearEnd = new Date(y, 11, 31);
-  const yearTotal = yearEnd - yearStart;
+  const yearStart = new Date(y, 0, 1);
+  const yearTotal = new Date(y, 11, 31) - yearStart;
   const todayPct = Math.max(0, Math.min(100, (new Date() - yearStart) / yearTotal * 100));
   const months = ['1','2','3','4','5','6','7','8','9','10','11','12'];
-  const barH = Math.max(4, Math.min(8, Math.floor(34 / tops.length)));
-  const sm = { done: '#16a34a', doing: '#f59e0b', todo: '#94a3b8', delay: '#dc2626' };
-  const bars = tops.map((w, i) => {
-    if (!w.start || !w.end) return '';
-    const ws = new Date(w.start), we = new Date(w.end);
-    const wl = Math.max(0, (ws - yearStart) / yearTotal * 100);
-    const ww = Math.max(0.5, Math.min(100 - wl, (we - ws) / yearTotal * 100));
-    const bg = sm[w.status] || '#94a3b8';
-    const top = 2 + i * (barH + 1);
-    return `<div style="position:absolute;left:${wl}%;width:${ww}%;top:${top}px;height:${barH}px;background:${bg};border-radius:2px;opacity:.85;" title="${w.code||''} ${w.name||''} (${w.pct||0}%)"></div>`;
+  if (!tops.length) {
+    return `
+      <div class="utl-wrap" style="margin-top:12px;">
+        <div class="utl-head">
+          <div class="utl-title">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년</span></div>
+        </div>
+        <div style="padding:24px;text-align:center;font-size:12px;color:var(--text-lighter);">등록된 자체 업무가 없습니다. 아래 "부서 전용" 카드를 클릭해 업무를 추가해주세요.</div>
+      </div>`;
+  }
+  const rowsHtml = tops.map(w => {
+    const s = w.start, e = w.end;
+    const sd = s ? new Date(s) : null, ed = e ? new Date(e) : null;
+    const valid = sd && ed && !isNaN(sd) && !isNaN(ed) && ed > sd;
+    const left = valid ? Math.max(0, (sd - yearStart) / yearTotal * 100) : 0;
+    const width = valid ? Math.max(1, Math.min(100 - left, (ed - sd) / yearTotal * 100)) : 0;
+    const pct = Number(w.pct) || 0;
+    const expPct = valid ? expectedPctByDate(s, e) : null;
+    const doneColor = expPct == null ? '#22c55e' : scheduleHealthGradient(pct - expPct);
+    const todoColor = '#e4e7ec';
+    const period = valid ? `${s} ~ ${e}` : '기간 미정';
+    return `
+      <div class="utl-row" onclick="openDeptSchedProj('__self__')">
+        <div class="utl-info">
+          <div class="utl-code">${w.code || ''}</div>
+          <div class="utl-name" title="${w.name || ''}">${w.name || '(제목 없음)'}</div>
+          <div class="utl-meta">${period} · <b>${pct}%</b></div>
+        </div>
+        <div class="utl-track">
+          <div class="utl-today" style="left:${todayPct}%;"></div>
+          ${valid ? `<div class="utl-bar" style="left:${left}%;width:${width}%;background:${todoColor};">
+            <div class="utl-bar-fill" style="width:${pct}%;background:${doneColor};"></div>
+            <span class="utl-bar-label">${w.code || ''} · ${pct}%</span>
+          </div>` : ''}
+        </div>
+      </div>`;
   }).join('');
   return `
-    <div class="proj-mini-gantt">
-      <div class="proj-gantt-months">${months.map(m => `<div class="proj-gantt-mcell">${m}</div>`).join('')}</div>
-      <div class="proj-gantt-track">${bars}<div class="proj-gantt-today" style="left:${todayPct}%;"></div></div>
+    <div class="utl-wrap" style="margin-top:12px;">
+      <div class="utl-head">
+        <div class="utl-title">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년 · 막대 클릭 시 상세 화면</span></div>
+        <div class="utl-legend">
+          <span><span class="utl-dot" style="background:#dc2626;"></span>지연</span>
+          <span><span class="utl-dot" style="background:#22c55e;"></span>정상</span>
+          <span><span class="utl-dot" style="background:#2563eb;"></span>초과달성</span>
+          <span><span class="utl-dot" style="background:var(--danger);"></span>오늘</span>
+        </div>
+      </div>
+      <div class="utl-grid">
+        <div class="utl-month-row">
+          <div class="utl-info utl-info-hdr">업무</div>
+          <div class="utl-track utl-month-hdr">
+            ${months.map(m => `<div class="utl-mcell">${m}월</div>`).join('')}
+          </div>
+        </div>
+        ${rowsHtml}
+      </div>
     </div>`;
 }
-function toggleDeptSchedProjList() { view.deptSchedProjListOpen = !view.deptSchedProjListOpen; render(); }
+// 프로젝트 목록 접기/펼치기는 부서마다 독립적으로 기억한다 (단일 boolean이면 사이드바에서 부서 바꿔도 상태가 남아버림).
+function toggleDeptSchedProjList(deptName) {
+  view.deptSchedProjListOpenByDept = view.deptSchedProjListOpenByDept || {};
+  view.deptSchedProjListOpenByDept[deptName] = !view.deptSchedProjListOpenByDept[deptName];
+  render();
+}
 function renderDeptSchedProjects() {
   const dept = view.deptSchedDept || getU(state.currentUser).dept || '';
   const canEdit = canEditDeptSchedule(dept);
@@ -2627,7 +2674,7 @@ function renderDeptSchedProjects() {
     </div>`).join('');
   const did = (DEPTS.find(d => d.name === dept) || {}).id || '';
   const selfPid = `dept_${did}`;
-  const projListOpen = !!view.deptSchedProjListOpen;
+  const projListOpen = !!(view.deptSchedProjListOpenByDept && view.deptSchedProjListOpenByDept[dept]);
   return `
     <div class="mod-head">
       <div>
@@ -2636,17 +2683,17 @@ function renderDeptSchedProjects() {
       </div>
       <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
     </div>
-    <div style="margin-bottom:14px;">
+    <div style="margin-bottom:18px;">
       <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏢 부서 자체 업무 (프로젝트 외)</div>
       <div class="proj-grid">
         <div class="proj" style="border-style:dashed;" onclick="openDeptSchedProj('__self__')">
-          <div class="proj-open-hint">→ 열기</div>
+          <div class="proj-open-hint">→ 편집</div>
           <div class="proj-code">부서 전용</div>
           <div class="proj-name">${dept} 자체 업무 일정</div>
           <div class="proj-meta"><span style="color:var(--text-lighter);">프로젝트에 속하지 않는 부서 내부 업무</span></div>
-          ${renderDeptSelfGantt(state.wbs[selfPid])}
         </div>
       </div>
+      ${renderDeptSelfGantt(state.wbs[selfPid], dept)}
     </div>
     ${(() => {
       const bEvents = getDeptBriefingEvents(did).filter(e => e.date >= new Date().toISOString().slice(0,10)).sort((a,b) => a.date.localeCompare(b.date));
@@ -2656,9 +2703,9 @@ function renderDeptSchedProjects() {
           return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">' + e.title + '</div><div style="font-size:12px;color:' + (e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)') + ';font-weight:600;white-space:nowrap;margin-left:8px;">' + e.date + (e.time ? ' ' + e.time : '') + '</div></div>';
         }).join('') + '</div></div>';
     })()}
-    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:8px;" onclick="toggleDeptSchedProjList()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <div style="font-size:12px;font-weight:700;color:var(--text-light);">📊 프로젝트별 ${dept} 스케줄 (${projs.length})</div>
-      <span style="font-size:11px;color:var(--text-lighter);">${projListOpen ? '▼ 접기' : '▶ 펼치기'}</span>
+      <button class="btn btn-sm" onclick="toggleDeptSchedProjList('${dept}')" style="display:inline-flex;align-items:center;gap:4px;">${projListOpen ? '▼ 접기' : '▶ 펼치기'}</button>
     </div>
     ${projListOpen ? `<div class="proj-grid">${projCards || '<div style="color:var(--text-lighter);font-size:12px;padding:20px;">등록된 프로젝트가 없습니다.</div>'}</div>` : ''}
   `;
