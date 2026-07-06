@@ -4114,12 +4114,66 @@ function visibleTasks() {
   const myDept = getU(state.currentUser).dept;
   return state.tasks.filter(t => t.assignee === state.currentUser || getU(t.assignee).dept === myDept);
 }
+// v29.10: 대시보드에 자동 파싱돼 나오던 항목들(Cowork 브리핑 keyActions/urgentList/원자력 items,
+// 부서 자체 업무 WBS 대단락)을 업무관리 칸반에도 함께 노출한다. 실제 state.tasks 문서를 만들지
+// 않고 화면에서만 합쳐서 표시(virtual) — 자동 파싱 결과를 사용자가 매번 손으로 다시 등록할
+// 필요를 없애기 위함. 각 카드에 어디서 왔는지 소스 배지를 붙여 실제 업무와 구분한다.
+function getBriefingVirtualTasks() {
+  const b = state.briefings && state.briefings[state.currentUser];
+  if (!b) return [];
+  const out = [];
+  (b.keyActions || []).forEach((a, i) => out.push({
+    id: 'brf_ka_' + state.currentUser + '_' + i,
+    title: a.text, proj: a.proj || '', assignee: state.currentUser,
+    due: '', priority: a.priority === 'high' ? 'high' : 'mid',
+    status: 'todo', virtual: true, source: '핵심 액션', sourceColor: '#dc2626',
+  }));
+  (b.urgentList || []).forEach((m, i) => out.push({
+    id: 'brf_ug_' + state.currentUser + '_' + i,
+    title: m.subject, proj: m.proj || '', assignee: state.currentUser,
+    due: '', priority: 'high', status: 'todo', virtual: true,
+    source: '긴급 메일', sourceColor: '#f59e0b', subLine: m.from || '',
+  }));
+  if (b.nuclear && Array.isArray(b.nuclear.items)) {
+    b.nuclear.items.forEach((it, i) => out.push({
+      id: 'brf_nu_' + state.currentUser + '_' + i,
+      title: it.text, proj: it.proj || '', assignee: state.currentUser,
+      due: '', priority: it.priority === 'high' ? 'high' : 'mid',
+      status: 'todo', virtual: true, source: '☢️ ' + (it.category || '원자력'), sourceColor: '#f59e0b',
+    }));
+  }
+  return out;
+}
+// 내가 속한 부서의 자체 업무(dept_*)와 내가 담당자로 지정된 프로젝트 WBS 대단락 중 미완료 항목을
+// 칸반에 함께 표시. 진행상태(status)를 그대로 칸반 컬럼에 매핑한다.
+function getScheduleVirtualTasks() {
+  const myDept = getU(state.currentUser).dept;
+  const myDeptId = DEPT_NAME_TO_ID[myDept] || '';
+  const out = [];
+  // 부서 자체 업무 (dept_*)
+  if (myDeptId && state.wbs['dept_' + myDeptId]) {
+    (state.wbs['dept_' + myDeptId] || []).filter(w => w.lv === 0).forEach((w, i) => {
+      const status = w.status === 'delay' ? 'todo' : (['todo','doing','review','done'].indexOf(w.status) >= 0 ? w.status : 'todo');
+      out.push({
+        id: 'wbs_dept_' + myDeptId + '_' + (w.code || i),
+        title: w.name || '(제목 없음)', proj: '', assignee: state.currentUser,
+        due: w.end || '', priority: w.status === 'delay' ? 'high' : 'mid',
+        status: status, virtual: true, source: myDept + ' 자체', sourceColor: '#3a6bb5',
+      });
+    });
+  }
+  return out;
+}
+function allKanbanTasks() {
+  return [...visibleTasks(), ...getBriefingVirtualTasks(), ...getScheduleVirtualTasks()];
+}
 function tasks() {
   const cols = [{ id:'todo', label:'할 일' }, { id:'doing', label:'진행 중' }, { id:'review', label:'검토' }, { id:'done', label:'완료' }];
-  const myTasks = visibleTasks();
+  const myTasks = allKanbanTasks();
+  const virtualCount = myTasks.filter(t => t.virtual).length;
   return `
     <div class="mod-head">
-      <div><div class="mod-title">✅ 업무 관리</div><div class="mod-sub">칸반 보드 · 개인+부서 업무</div></div>
+      <div><div class="mod-title">✅ 업무 관리</div><div class="mod-sub">칸반 보드 · 개인+부서 업무 · 자동 파싱 포함${virtualCount ? ` <span style="color:var(--text-light);">(자동 ${virtualCount}건)</span>` : ''}</div></div>
       <button class="btn btn-primary" onclick="openTask()">+ 업무 추가</button>
     </div>
     <div class="kanban">
@@ -4128,13 +4182,24 @@ function tasks() {
         return `
           <div class="kb-col">
             <div class="kb-head"><span>${c.label}</span><span class="kb-count">${list.length}</span></div>
-            ${list.map(t => `
-              <div class="task ${t.priority}">
-                <div class="task-title">${t.title}</div>
-                <div class="task-meta"><span>${getP(t.proj).code}</span><span>${getU(t.assignee).name}</span></div>
-                <div class="task-meta" style="margin-top:4px;"><span style="color:var(--text-lighter);">마감 ${t.due}</span></div>
-              </div>
-            `).join('')}
+            ${list.map(t => {
+              const p = t.proj ? getP(t.proj) : null;
+              // 실제 프로젝트가 아니면 briefing 원문 문자열(예: "SJ2026-002", "ISO")을 그대로 보여준다.
+              const projCode = (p && p.code) ? p.code : (t.proj || '');
+              const assigneeName = getU(t.assignee) ? getU(t.assignee).name : '';
+              const badge = t.virtual
+                ? `<span class="b-pill" style="background:${t.sourceColor||'#94a3b8'};color:#fff;font-size:9px;padding:1px 6px;">${t.source||'자동'}</span>`
+                : '';
+              return `
+                <div class="task ${t.priority}"${t.virtual?' style="opacity:.92;border-left-color:'+(t.sourceColor||'#94a3b8')+';"':''}>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">${badge}</div>
+                  <div class="task-title">${t.title}</div>
+                  <div class="task-meta"><span>${projCode}</span><span>${assigneeName}</span></div>
+                  ${t.subLine ? `<div class="task-meta" style="margin-top:4px;color:var(--text-lighter);">${t.subLine}</div>` : ''}
+                  ${t.due ? `<div class="task-meta" style="margin-top:4px;"><span style="color:var(--text-lighter);">마감 ${t.due}</span></div>` : ''}
+                </div>
+              `;
+            }).join('')}
           </div>
         `;
       }).join('')}
