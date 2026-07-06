@@ -315,19 +315,22 @@ function loadITPBuilderState(){
 }
 
 // v29.14 fix: 아이템(장비/부위)이 ITP Builder에 직접 입력되지 않고 WBS/EPC Control
-// 시스템(window.SJP.bridge, 궁극적으로 Firestore wbsData/{pid})에서 관리되는
-// 경우, ITP Builder 로컬 저장값(sjp_itp_builder_v1__*)엔 아이템이 비어있어도
-// 실제로는 존재한다. QA Doc Generator가 이미 쓰고 있는 것과 동일한 방식으로
-// index.html(SJ FLOW) 호스트의 bridge에 접근해 아이템을 가져온다.
+// 시스템(궁극적으로 Firestore wbsData/{pid})에서 관리되는 경우, ITP Builder
+// 로컬 저장값(sjp_itp_builder_v1__*)엔 아이템이 비어있어도 실제로는 존재한다.
+// v29.14.1 fix: 처음엔 window.SJP.bridge.getItems()를 썼는데, 이 함수는 pid를
+// 안 받고 "지금 SJ FLOW의 ITP 탭에서 선택된 프로젝트"(view.itpSelectedProj)
+// 기준으로만 동작해서 mobile-inspection이 보여주는 프로젝트와 무관했음(그래서
+// 여전히 안 됐음). index.html에 pid를 직접 받는 진짜 데이터 함수
+// getItems(pid) = state.items[pid] (hidden 필터링 포함)가 따로 있어 이걸 직접 호출한다.
 function getHost(){
-  try { if (window.opener && !window.opener.closed && window.opener.SJP) return window.opener; } catch(e){}
-  try { if (window.parent && window.parent !== window && window.parent.SJP) return window.parent; } catch(e){}
+  try { if (window.opener && !window.opener.closed && window.opener.getItems) return window.opener; } catch(e){}
+  try { if (window.parent && window.parent !== window && window.parent.getItems) return window.parent; } catch(e){}
   return null;
 }
 function getBridgeItems(){
   try {
     const host = getHost();
-    const items = host?.SJP?.bridge?.getItems?.();
+    const items = host?.getItems?.(MI_PID);
     return Array.isArray(items) ? items : [];
   } catch(e) { return []; }
 }
