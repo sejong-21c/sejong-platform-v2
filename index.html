@@ -545,7 +545,7 @@ const NAV = [
   { id: 'tasks',     icon: '✅', label: '업무관리' },
   { id: 'messenger', icon: '💬', label: '메신저' },
   { id: 'quotes',    icon: '💰', label: '견적', deptOnly: '영업부' },
-  { id: 'okr',       icon: '🎯', label: '목표(OKR)', wip: true },
+  { id: 'okr',       icon: '🎯', label: '목표(OKR)', sub: '데모' },
   { id: 'manday',    icon: '⏱', label: 'Manday Tracker', superOnly: true },
   { id: 'org',       icon: '👥', label: '조직/권한', superOnly: true },
   { id: 'approval',  icon: '📝', label: '결재', wip: true },
@@ -4824,33 +4824,151 @@ function openQuote() {
   });
 }
 
-/* ═════════════ 🎯 OKR ═════════════ */
-function okr() {
-  const company = state.okrs.filter(o=>o.level==='company');
-  const dept = state.okrs.filter(o=>o.level==='dept');
-  const person = state.okrs.filter(o=>o.level==='person');
-  const renderOKR = (o, indent=0) => {
-    const children = state.okrs.filter(c=>c.parent===o.id);
-    const c = o.progress>=70?'var(--success)':o.progress>=40?'var(--primary)':'var(--warning)';
-    return `<div class="okr-item" style="margin-left:${indent*20}px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-        <span class="b-pill ${o.level==='company'?'blue':o.level==='dept'?'green':'gray'}">${o.level==='company'?'🏢 전사':o.level==='dept'?'🏛 부서':'👤 개인'}</span>
-        <strong style="flex:1;font-size:13px;">${o.title}</strong>
-        ${o.owner?`<span style="font-size:11px;color:var(--text-light);">${getU(o.owner).name}</span>`:''}
-        <span style="font-size:11px;color:var(--text-light);">${o.period}</span>
-        <strong style="color:${c};">${o.progress}%</strong>
+/* ═════════════ 🎯 목표 관리 — 데모 화면 (구조 시안) ═════════════
+   본 함수는 아직 데이터 저장/편집 미구현 상태의 "구조 미리보기" 데모입니다.
+   구조: 목표(Objective) + 마일스톤 리스트 · 스코프: 부서 연간 / 개인 분기
+   사용자가 확정하면 Firestore 연동·편집 모달·업무관리/캘린더 연동 붙일 예정. */
+function _demoOkrs(uid) {
+  const me = getU(uid);
+  const myDept = me && me.dept ? me.dept : '품질관리부';
+  const myDeptId = DEPT_NAME_TO_ID[myDept] || 'quality';
+  return [
+    { id:'d1', scope:'dept', deptId: myDeptId, deptName: myDept,
+      title: 'ASME 재갱신 완료', why: '3년 갱신 필수 · 실패 시 원자력 수주 불가',
+      end: '2027-03-31', period: '2026 연간',
+      milestones: [
+        { title:'서류 준비', due:'2026-09-30', done:true, at:'2026-09-25' },
+        { title:'예비 감사 통과', due:'2026-11-30', done:true, at:'2026-11-15' },
+        { title:'본 감사 통과', due:'2027-02-28', done:false },
+        { title:'인증서 수령', due:'2027-03-15', done:false },
+      ]},
+    { id:'d2', scope:'dept', deptId: myDeptId, deptName: myDept,
+      title: 'NCR 발생 30% 감축', why: '상반기 24건 → 하반기 17건 이하',
+      end: '2026-12-31', period: '2026 연간',
+      milestones: [
+        { title:'원인 분석 리포트', due:'2026-08-31', done:true, at:'2026-08-20' },
+        { title:'재발방지 SOP 배포', due:'2026-10-31', done:false },
+        { title:'4Q NCR 4건 이하 유지', due:'2026-12-31', done:false },
+      ]},
+    { id:'d3', scope:'dept', deptId: myDeptId, deptName: myDept,
+      title: '한수원 유자격 신규 등록', why: '원자력 수주 파이프라인 확장',
+      end: '2027-01-31', period: '2026 연간',
+      milestones: [
+        { title:'서류 초안 완성', due:'2026-10-15', done:false },
+        { title:'감사 준비', due:'2026-12-15', done:false },
+        { title:'현장 실사 통과', due:'2027-01-31', done:false },
+      ]},
+    { id:'p1', scope:'personal', ownerId: uid,
+      title: '품질종합분석표 v2 배포', why: 'NCR/CAR 추이를 부서장이 바로 확인',
+      end: '2026-09-30', period: '2026 Q3',
+      milestones: [
+        { title:'요구사항 정리', due:'2026-07-15', done:true, at:'2026-07-10' },
+        { title:'프로토타입 배포', due:'2026-08-15', done:false },
+        { title:'피드백 반영 최종 배포', due:'2026-09-30', done:false },
+      ]},
+    { id:'p2', scope:'personal', ownerId: uid,
+      title: 'ITP Builder 도면 자동인식 도입', why: '표준 도면 태그 추출 시간 30분→3분',
+      end: '2026-09-30', period: '2026 Q3',
+      milestones: [
+        { title:'OCR 라이브러리 벤치마크', due:'2026-07-20', done:false },
+        { title:'PoC 완성', due:'2026-08-31', done:false },
+      ]},
+  ];
+}
+function _okrProgress(o) {
+  if (!o.milestones || !o.milestones.length) return 0;
+  const done = o.milestones.filter(m => m.done).length;
+  return Math.round(done / o.milestones.length * 100);
+}
+function _okrProgressColor(pct) {
+  return pct >= 70 ? 'var(--success)' : pct >= 40 ? 'var(--primary)' : 'var(--warning)';
+}
+function _renderOkrCard(o) {
+  const pct = _okrProgress(o);
+  const color = _okrProgressColor(pct);
+  const dueMs = new Date(o.end).getTime();
+  const now = Date.now();
+  const daysLeft = Math.floor((dueMs - now) / 86400000);
+  const dueClass = daysLeft < 0 ? 'red' : daysLeft < 14 ? 'orange' : 'gray';
+  const dueText = daysLeft < 0 ? `마감 ${-daysLeft}일 지남` : daysLeft === 0 ? '오늘 마감' : `D-${daysLeft}`;
+  const doneCount = (o.milestones || []).filter(m => m.done).length;
+  const totalCount = (o.milestones || []).length;
+  return `
+    <div class="card" style="margin-bottom:12px;padding:14px 16px;border-left:3px solid ${color};">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
+        ${o.scope==='dept'
+          ? `<span class="b-pill blue">🏛 ${o.deptName||'부서'}</span>`
+          : `<span class="b-pill gray">👤 개인</span>`}
+        <span class="b-pill" style="background:#f1f5f9;color:var(--text-light);">${o.period||''}</span>
+        <strong style="flex:1;font-size:14px;">${o.title}</strong>
+        <span class="b-pill ${dueClass}">${dueText}</span>
+        <strong style="color:${color};font-size:15px;">${pct}%</strong>
       </div>
-      <div class="bar"><div class="bar-fill" style="width:${o.progress}%;background:${c};"></div></div>
-      ${children.map(ch=>renderOKR(ch,indent+1)).join('')}
+      ${o.why ? `<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;padding-left:2px;">${o.why}</div>` : ''}
+      <div class="bar" style="margin-bottom:10px;"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
+      <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;">📌 마일스톤 ${doneCount}/${totalCount}</div>
+      ${(o.milestones||[]).map(m => `
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-light);">
+          <span style="width:16px;height:16px;border-radius:3px;border:1.5px solid ${m.done?'var(--success)':'var(--border)'};background:${m.done?'var(--success)':'#fff'};color:#fff;font-size:11px;text-align:center;line-height:12px;">${m.done?'✓':''}</span>
+          <span style="flex:1;font-size:13px;${m.done?'text-decoration:line-through;color:var(--text-lighter);':''}">${m.title}</span>
+          <span style="font-size:11px;color:var(--text-lighter);">${m.done && m.at ? '완료 '+m.at : (m.due||'')}</span>
+        </div>
+      `).join('')}
+      <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:6px;">
+        <button class="btn btn-sm" style="opacity:.5;" title="아직 편집 미구현 — 데모 화면입니다">✎ 편집</button>
+        <button class="btn btn-sm" style="opacity:.5;" title="아직 편집 미구현 — 데모 화면입니다">＋ 마일스톤</button>
+      </div>
     </div>`;
+}
+function okr() {
+  const uid = state.currentUser;
+  const me = getU(uid);
+  const myDept = me && me.dept ? me.dept : '';
+  const myDeptId = DEPT_NAME_TO_ID[myDept] || '';
+  const allDemo = _demoOkrs(uid);
+  const deptGoals = allDemo.filter(o => o.scope === 'dept' && o.deptId === myDeptId);
+  const personGoals = allDemo.filter(o => o.scope === 'personal' && o.ownerId === uid);
+  const totalPct = (list) => {
+    if (!list.length) return 0;
+    return Math.round(list.reduce((a, o) => a + _okrProgress(o), 0) / list.length);
   };
-  return `<div class="mod-head">
-    <div><div class="mod-title">🎯 목표 관리 (OKR)</div><div class="mod-sub">전사 → 부서 → 개인 목표 정렬</div></div>
-    <button class="btn btn-primary">+ 신규 목표</button>
-  </div>
-  <div class="card"><h3 style="font-size:14px;margin-bottom:14px;">2026년 OKR 트리</h3>
-    ${company.map(c=>renderOKR(c)).join('')}
-  </div>`;
+  const deptPct = totalPct(deptGoals);
+  const personPct = totalPct(personGoals);
+  return `
+    <div class="mod-head">
+      <div>
+        <div class="mod-title">🎯 목표 관리 <span class="b-pill" style="background:#fef3c7;color:#92400e;font-size:10px;margin-left:6px;">🚧 데모</span></div>
+        <div class="mod-sub">부서·개인 두 스코프 · 목표+마일스톤 방식 시안 · 로그인 계정(${me.name||'-'}·${myDept||'-'}) 기준</div>
+      </div>
+      <button class="btn btn-primary" onclick="alert('데모 화면입니다. 구조가 마음에 드시면 편집·저장 기능을 붙이겠습니다.')">+ 신규 목표</button>
+    </div>
+
+    <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400e;">
+      <b>🚧 데모 화면입니다.</b> 지금은 예시 데이터로 UI 흐름만 보여드립니다. 편집/저장은 아직 안 됩니다.
+      구조(카드 레이아웃·마일스톤 방식·부서/개인 2단·필터)와 대략적인 느낌만 확인해주세요.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+      <div class="card" style="padding:14px 16px;">
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">🏛 ${myDept||'부서'} 연간 목표</div>
+        <div style="font-size:24px;font-weight:700;">${deptGoals.length}<span style="font-size:12px;color:var(--text-light);font-weight:400;margin-left:6px;">개</span></div>
+        <div class="bar" style="margin-top:6px;"><div class="bar-fill" style="width:${deptPct}%;background:${_okrProgressColor(deptPct)};"></div></div>
+        <div style="font-size:11px;color:var(--text-light);margin-top:4px;">평균 진척률 ${deptPct}%</div>
+      </div>
+      <div class="card" style="padding:14px 16px;">
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">👤 내 분기 목표</div>
+        <div style="font-size:24px;font-weight:700;">${personGoals.length}<span style="font-size:12px;color:var(--text-light);font-weight:400;margin-left:6px;">개</span></div>
+        <div class="bar" style="margin-top:6px;"><div class="bar-fill" style="width:${personPct}%;background:${_okrProgressColor(personPct)};"></div></div>
+        <div style="font-size:11px;color:var(--text-light);margin-top:4px;">평균 진척률 ${personPct}%</div>
+      </div>
+    </div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏛 ${myDept||'부서'} 연간 목표 (${deptGoals.length})</div>
+    ${deptGoals.length ? deptGoals.map(_renderOkrCard).join('') : '<div class="card" style="text-align:center;padding:20px;color:var(--text-lighter);font-size:12px;">부서 목표가 없습니다.</div>'}
+
+    <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;">👤 내 분기 목표 (${personGoals.length})</div>
+    ${personGoals.length ? personGoals.map(_renderOkrCard).join('') : '<div class="card" style="text-align:center;padding:20px;color:var(--text-lighter);font-size:12px;">개인 목표가 없습니다.</div>'}
+  `;
 }
 
 /* ═════════════ 👥 조직/권한 ═════════════ */
