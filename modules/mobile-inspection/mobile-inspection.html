@@ -454,14 +454,23 @@ function initFromITPBuilder(){
 
   // ITP 드롭다운 (active rows만)
   itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
-  const activeRows=(state.itpRows||[]).filter(r=>r.active!==false);
+  // v29.14.2 fix: 화면에 붙는 번호가 getItpFieldsKey()(입력 폼 종류 구분용 카테고리
+  // 코드, 01~11로 재사용됨)였어서 여러 항목이 같은 번호를 달거나(예: 10번이 4개),
+  // 순서도 뒤죽박죽으로 보였음. ITP_BASE(itp-builder.html)의 실제 순번은 row.id에
+  // 그대로 1~17로 들어있으므로, 표시 번호와 정렬 모두 row.id 기준으로 바꾼다.
+  // getItpFieldsKey는 입력 필드 종류 결정용으로 dataset에는 계속 남겨둔다.
+  const activeRows=(state.itpRows||[])
+    .filter(r=>r.active!==false)
+    .sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
   activeRows.forEach((row,i)=>{
     const fk=getItpFieldsKey(row.activity);
+    const seq=Number(row.id);
+    const seqLabel=Number.isFinite(seq)?String(seq).padStart(2,'0')+'. ':'';
     const opt=document.createElement('option');
     opt.value=row.id||String(i);
     opt.dataset.activity=row.activity||'';
     opt.dataset.fieldsKey=fk||'';
-    opt.textContent=(fk?fk+'. ':'')+row.activity;
+    opt.textContent=seqLabel+row.activity;
     itpSel.appendChild(opt);
   });
   itpSel.disabled=true; // 아이템 선택 후 활성화
