@@ -2583,6 +2583,34 @@ function closeMobileProj() { view.mobileSelectedProj = null; render(); }
 
 /* ═════════════ 📅 부서 스케줄 (부서 도구) ═════════════ */
 // 1단계: '부서 자체 업무' 카드 + 프로젝트 카드 목록
+// 부서 자체 업무(dept_* 컨테이너) WBS 대단락을 renderMiniGantt와 같은 톤으로 요약해 보여준다.
+// 실제 프로젝트가 아니므로 전체기간 막대 없이 WBS 항목 막대만 그린다.
+function renderDeptSelfGantt(rows) {
+  const tops = (rows || []).filter(w => w.lv === 0);
+  if (!tops.length) return '<div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">등록된 업무가 없습니다.</div>';
+  const y = new Date().getFullYear();
+  const yearStart = new Date(y, 0, 1), yearEnd = new Date(y, 11, 31);
+  const yearTotal = yearEnd - yearStart;
+  const todayPct = Math.max(0, Math.min(100, (new Date() - yearStart) / yearTotal * 100));
+  const months = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const barH = Math.max(4, Math.min(8, Math.floor(34 / tops.length)));
+  const sm = { done: '#16a34a', doing: '#f59e0b', todo: '#94a3b8', delay: '#dc2626' };
+  const bars = tops.map((w, i) => {
+    if (!w.start || !w.end) return '';
+    const ws = new Date(w.start), we = new Date(w.end);
+    const wl = Math.max(0, (ws - yearStart) / yearTotal * 100);
+    const ww = Math.max(0.5, Math.min(100 - wl, (we - ws) / yearTotal * 100));
+    const bg = sm[w.status] || '#94a3b8';
+    const top = 2 + i * (barH + 1);
+    return `<div style="position:absolute;left:${wl}%;width:${ww}%;top:${top}px;height:${barH}px;background:${bg};border-radius:2px;opacity:.85;" title="${w.code||''} ${w.name||''} (${w.pct||0}%)"></div>`;
+  }).join('');
+  return `
+    <div class="proj-mini-gantt">
+      <div class="proj-gantt-months">${months.map(m => `<div class="proj-gantt-mcell">${m}</div>`).join('')}</div>
+      <div class="proj-gantt-track">${bars}<div class="proj-gantt-today" style="left:${todayPct}%;"></div></div>
+    </div>`;
+}
+function toggleDeptSchedProjList() { view.deptSchedProjListOpen = !view.deptSchedProjListOpen; render(); }
 function renderDeptSchedProjects() {
   const dept = view.deptSchedDept || getU(state.currentUser).dept || '';
   const canEdit = canEditDeptSchedule(dept);
@@ -2597,6 +2625,9 @@ function renderDeptSchedProjects() {
       <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
       <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</div>
     </div>`).join('');
+  const did = (DEPTS.find(d => d.name === dept) || {}).id || '';
+  const selfPid = `dept_${did}`;
+  const projListOpen = !!view.deptSchedProjListOpen;
   return `
     <div class="mod-head">
       <div>
@@ -2613,11 +2644,11 @@ function renderDeptSchedProjects() {
           <div class="proj-code">부서 전용</div>
           <div class="proj-name">${dept} 자체 업무 일정</div>
           <div class="proj-meta"><span style="color:var(--text-lighter);">프로젝트에 속하지 않는 부서 내부 업무</span></div>
+          ${renderDeptSelfGantt(state.wbs[selfPid])}
         </div>
       </div>
     </div>
     ${(() => {
-      const did = (DEPTS.find(d => d.name === dept) || {}).id || '';
       const bEvents = getDeptBriefingEvents(did).filter(e => e.date >= new Date().toISOString().slice(0,10)).sort((a,b) => a.date.localeCompare(b.date));
       if (!bEvents.length) return '';
       return '<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">📬 Cowork 메일 자동 연동 일정 (' + bEvents.length + ')</div>' +
@@ -2625,8 +2656,11 @@ function renderDeptSchedProjects() {
           return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">' + e.title + '</div><div style="font-size:12px;color:' + (e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)') + ';font-weight:600;white-space:nowrap;margin-left:8px;">' + e.date + (e.time ? ' ' + e.time : '') + '</div></div>';
         }).join('') + '</div></div>';
     })()}
-    <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">📊 프로젝트별 ${dept} 스케줄</div>
-    <div class="proj-grid">${projCards || '<div style="color:var(--text-lighter);font-size:12px;padding:20px;">등록된 프로젝트가 없습니다.</div>'}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:8px;" onclick="toggleDeptSchedProjList()">
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);">📊 프로젝트별 ${dept} 스케줄 (${projs.length})</div>
+      <span style="font-size:11px;color:var(--text-lighter);">${projListOpen ? '▼ 접기' : '▶ 펼치기'}</span>
+    </div>
+    ${projListOpen ? `<div class="proj-grid">${projCards || '<div style="color:var(--text-lighter);font-size:12px;padding:20px;">등록된 프로젝트가 없습니다.</div>'}</div>` : ''}
   `;
 }
 function openDeptSchedProj(pid) { view.deptSchedProj = pid; render(); }

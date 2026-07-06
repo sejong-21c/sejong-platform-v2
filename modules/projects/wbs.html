@@ -1531,6 +1531,9 @@ function v28Save(){
   const rows = WBS.filter(w=>w.projId===_wbsPid);
   const items = MITEM[_wbsPid] || [];
   fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, updatedAt: Date.now()}).catch(e=>console.warn("v28Save fail",e));
+  // v29: 부서 자체 업무 컨테이너(dept_*)는 실제 projects 문서가 없다 — 여기서 progress를 merge-write하면
+  // Firestore가 name/code 없는 잔재 프로젝트 문서를 새로 만들어버려 회사 전체 프로젝트 목록에 "undefined" 카드로 샌다.
+  if (_deptMode) return;
   // 대단락(lv=0) 평균 진척률을 projects 문서에도 반영 — 대시보드/카드 목록의 진도율(p.progress)과 동기화
   const tops=rows.filter(w=>w.lv===0);
   const progress=tops.length?Math.round(tops.reduce((a,w)=>a+(wCS(w).pct||0),0)/tops.length):0;
