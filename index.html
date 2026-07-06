@@ -185,13 +185,18 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .kb-col { background: var(--bg); border-radius: var(--radius); padding: 12px; min-height: 200px; }
 .kb-head { display: flex; justify-content: space-between; margin-bottom: 12px; font-weight: 600; font-size: 13px; }
 .kb-count { background: var(--white); border-radius: 10px; padding: 2px 8px; font-size: 11px; color: var(--text-light); }
-.task { background: var(--white); border-radius: 6px; padding: 12px; margin-bottom: 8px; border-left: 3px solid var(--primary); cursor: pointer; }
+.task { background: var(--white); border-radius: 6px; padding: 12px; margin-bottom: 8px; border-left: 3px solid var(--primary); cursor: grab; user-select: none; }
 .task:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.task.dragging { opacity: 0.4; cursor: grabbing; }
+.kb-col.drag-over { background: var(--primary-lighter); outline: 2px dashed var(--primary); outline-offset: -4px; }
 .task-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.task.done .task-title { text-decoration: line-through; color: var(--text-light); }
 .task-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-light); }
 .task.high { border-left-color: var(--danger); }
 .task.mid { border-left-color: var(--warning); }
 .task.low { border-left-color: var(--success); }
+.cal-event.done { text-decoration: line-through; opacity: 0.6; }
+.cal-event.task-ev { border: 1px dashed rgba(255,255,255,0.4); }
 
 .proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .proj { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; position: relative; transition: all .15s; }
@@ -826,6 +831,9 @@ function defaultState() {
     cars: [],
     // 확인한 알림 ID 목록 (배지에서 제외)
     dismissedNotifs: [],
+    // v29.10: 자동 파싱된 가상 업무(브리핑/부서WBS)의 사용자별 진행 상태 오버라이드.
+    // { [virtualTaskId]: { status, completedAt } } — Firestore userState/{uid} 문서와 동기화.
+    taskOverrides: {},
   };
 }
 
@@ -854,7 +862,7 @@ if (!state.users || !state.users.length || !state.users[0].email) {
 (function migrateFields() {
   const def = defaultState();
   let changed = false;
-  ['ncrs','cars','briefings','reports','channels','messages','channelReads','approvals','events','tasks','travellers','quotes','okrs','dismissedNotifs'].forEach(k => {
+  ['ncrs','cars','briefings','reports','channels','messages','channelReads','approvals','events','tasks','travellers','quotes','okrs','dismissedNotifs','taskOverrides'].forEach(k => {
     if (state[k] === undefined && def[k] !== undefined) { state[k] = def[k]; changed = true; }
   });
   if (changed) { localStorage.setItem(KEY, JSON.stringify(state)); console.info('[SJ FLOW] 신규 필드 보강 완료'); }
@@ -1056,7 +1064,7 @@ function visibleManualEvents() {
     return e.createdBy === state.currentUser || e.dept === myDept;
   });
 }
-function allEvents() { return [...visibleManualEvents(), ...getBriefingScheduleEvents(), ...gcalEventsCache]; }
+function allEvents() { return [...visibleManualEvents(), ...getBriefingScheduleEvents(), ...gcalEventsCache, ...getTaskCalendarEvents()]; }
 /* 특정 부서(DEPTS id) 관련 briefing schedule 이벤트 반환 — 부서 스케줄에 자동 포함 */
 function getDeptBriefingEvents(deptId) {
   const events = [];
@@ -1701,6 +1709,15 @@ function startFirestoreSync() {
     savePartial('tasks', state.tasks);
     render();
   }, err => console.error('[Firestore] tasks 동기화 오류:', err)));
+  // v29.10: 자동 파싱 가상 업무의 개인별 진행상태(taskOverrides)를 여러 기기에서 동일하게 보이도록 동기화.
+  if (state.currentUser) {
+    _fsUnsubs.push(fb.onSnapshot(fb.doc(fb.db, 'userState', state.currentUser), snap => {
+      const d = snap.exists() ? snap.data() : {};
+      state.taskOverrides = d.taskOverrides || {};
+      savePartial('taskOverrides', state.taskOverrides);
+      render();
+    }, err => console.warn('[Firestore] userState 동기화 오류:', err.message)));
+  }
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
     snap.docChanges().forEach(ch => {
       const pid = ch.doc.id;
@@ -3032,7 +3049,7 @@ function calendar() {
     const isT = ds === today;
     h += `<div class="cal-day ${isT?'today':''}" onclick="showDate('${ds}')">
       <div class="cal-date">${d}</div>
-      ${ev.slice(0,3).map(e=>`<div class="cal-event ${e.color}" title="${e.title}">${e.title}</div>`).join('')}
+      ${ev.slice(0,3).map(e=>`<div class="cal-event ${e.color}${e.extraClass?' '+e.extraClass:''}" title="${e.title}${e.done?' (완료)':''}">${e.done?'✓ ':''}${e.title}</div>`).join('')}
       ${ev.length>3?`<div style="font-size:10px;color:var(--text-light);">+${ev.length-3}</div>`:''}
     </div>`;
   }
@@ -4118,47 +4135,54 @@ function visibleTasks() {
 // 부서 자체 업무 WBS 대단락)을 업무관리 칸반에도 함께 노출한다. 실제 state.tasks 문서를 만들지
 // 않고 화면에서만 합쳐서 표시(virtual) — 자동 파싱 결과를 사용자가 매번 손으로 다시 등록할
 // 필요를 없애기 위함. 각 카드에 어디서 왔는지 소스 배지를 붙여 실제 업무와 구분한다.
+function _applyOverride(t) {
+  const ov = state.taskOverrides && state.taskOverrides[t.id];
+  if (ov && ov.status) return { ...t, status: ov.status, completedAt: ov.completedAt || null };
+  return t;
+}
 function getBriefingVirtualTasks() {
   const b = state.briefings && state.briefings[state.currentUser];
   if (!b) return [];
   const out = [];
-  (b.keyActions || []).forEach((a, i) => out.push({
+  (b.keyActions || []).forEach((a, i) => out.push(_applyOverride({
     id: 'brf_ka_' + state.currentUser + '_' + i,
     title: a.text, proj: a.proj || '', assignee: state.currentUser,
     due: '', priority: a.priority === 'high' ? 'high' : 'mid',
     status: 'todo', virtual: true, source: '핵심 액션', sourceColor: '#dc2626',
-  }));
-  (b.urgentList || []).forEach((m, i) => out.push({
+  })));
+  (b.urgentList || []).forEach((m, i) => out.push(_applyOverride({
     id: 'brf_ug_' + state.currentUser + '_' + i,
     title: m.subject, proj: m.proj || '', assignee: state.currentUser,
     due: '', priority: 'high', status: 'todo', virtual: true,
     source: '긴급 메일', sourceColor: '#f59e0b', subLine: m.from || '',
-  }));
+  })));
   if (b.nuclear && Array.isArray(b.nuclear.items)) {
-    b.nuclear.items.forEach((it, i) => out.push({
+    b.nuclear.items.forEach((it, i) => out.push(_applyOverride({
       id: 'brf_nu_' + state.currentUser + '_' + i,
       title: it.text, proj: it.proj || '', assignee: state.currentUser,
       due: '', priority: it.priority === 'high' ? 'high' : 'mid',
       status: 'todo', virtual: true, source: '☢️ ' + (it.category || '원자력'), sourceColor: '#f59e0b',
-    }));
+    })));
   }
   return out;
 }
-// 내가 속한 부서의 자체 업무(dept_*)와 내가 담당자로 지정된 프로젝트 WBS 대단락 중 미완료 항목을
-// 칸반에 함께 표시. 진행상태(status)를 그대로 칸반 컬럼에 매핑한다.
+// 부서 자체 업무 WBS 대단락은 실제 wbsData 문서를 갖고 있어서 status 필드를 직접 갱신한다(공유).
+// 브리핑 가상 업무는 원본이 매일 갱신되는 파싱 결과라 자체 status가 없음 → taskOverrides로 개인 보관.
 function getScheduleVirtualTasks() {
   const myDept = getU(state.currentUser).dept;
   const myDeptId = DEPT_NAME_TO_ID[myDept] || '';
   const out = [];
-  // 부서 자체 업무 (dept_*)
   if (myDeptId && state.wbs['dept_' + myDeptId]) {
     (state.wbs['dept_' + myDeptId] || []).filter(w => w.lv === 0).forEach((w, i) => {
       const status = w.status === 'delay' ? 'todo' : (['todo','doing','review','done'].indexOf(w.status) >= 0 ? w.status : 'todo');
       out.push({
-        id: 'wbs_dept_' + myDeptId + '_' + (w.code || i),
+        id: 'wbs_dept_' + myDeptId + '_' + i,
+        _wbsIdx: i, _wbsPid: 'dept_' + myDeptId,
         title: w.name || '(제목 없음)', proj: '', assignee: state.currentUser,
         due: w.end || '', priority: w.status === 'delay' ? 'high' : 'mid',
-        status: status, virtual: true, source: myDept + ' 자체', sourceColor: '#3a6bb5',
+        status: status, virtual: true, wbsBacked: true,
+        source: myDept + ' 자체', sourceColor: '#3a6bb5',
+        completedAt: w.completedAt || null,
       });
     });
   }
@@ -4166,6 +4190,85 @@ function getScheduleVirtualTasks() {
 }
 function allKanbanTasks() {
   return [...visibleTasks(), ...getBriefingVirtualTasks(), ...getScheduleVirtualTasks()];
+}
+
+// 드래그앤드롭 진행 상태 이동. 실제 tasks 문서 / 부서 WBS / 브리핑 오버라이드를 각각 다른 경로로 저장.
+async function moveTask(taskId, newStatus) {
+  if (!['todo','doing','review','done'].includes(newStatus)) return;
+  const all = allKanbanTasks();
+  const t = all.find(x => x.id === taskId);
+  if (!t) return;
+  if (t.status === newStatus) return;
+  const completedAt = newStatus === 'done' ? new Date().toISOString() : null;
+  // 실제 Firestore tasks 문서
+  if (!t.virtual) {
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'tasks', taskId),
+        { status: newStatus, completedAt: completedAt }, { merge: true });
+    } catch (e) { alert('업무 이동 저장 실패: ' + (e.message || e)); }
+    return;
+  }
+  // 부서 자체 업무 WBS 대단락 — 문서 자체를 갱신 (부서 공유 상태)
+  if (t.wbsBacked && t._wbsPid && t._wbsIdx != null) {
+    const pid = t._wbsPid;
+    const rows = (state.wbs[pid] || []).slice();
+    if (rows[t._wbsIdx]) {
+      rows[t._wbsIdx] = { ...rows[t._wbsIdx], status: newStatus, completedAt: completedAt, pctManual: newStatus === 'done' ? 100 : rows[t._wbsIdx].pctManual };
+      state.wbs[pid] = rows;
+      savePartial('wbs', state.wbs);
+      render();
+      try {
+        await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { rows, updatedAt: Date.now() }, { merge: true });
+      } catch (e) { alert('부서 업무 상태 저장 실패: ' + (e.message || e)); }
+    }
+    return;
+  }
+  // 브리핑 가상 업무 — 개인 오버라이드 저장 (Firestore userState/{uid}.taskOverrides)
+  state.taskOverrides = state.taskOverrides || {};
+  state.taskOverrides[taskId] = { status: newStatus, completedAt: completedAt };
+  savePartial('taskOverrides', state.taskOverrides);
+  render();
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'userState', state.currentUser),
+      { taskOverrides: state.taskOverrides }, { merge: true });
+  } catch (e) { console.warn('[taskOverrides] Firestore 저장 실패:', e.message); }
+}
+
+// 드래그 핸들러
+let _draggingTaskId = null;
+function onTaskDragStart(ev, id) {
+  _draggingTaskId = id;
+  ev.dataTransfer.effectAllowed = 'move';
+  try { ev.dataTransfer.setData('text/plain', id); } catch(e) {}
+  ev.currentTarget.classList.add('dragging');
+}
+function onTaskDragEnd(ev) {
+  _draggingTaskId = null;
+  ev.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.kb-col.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+function onColDragOver(ev) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; ev.currentTarget.classList.add('drag-over'); }
+function onColDragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
+function onColDrop(ev, colId) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('drag-over');
+  const id = _draggingTaskId || (ev.dataTransfer && ev.dataTransfer.getData('text/plain'));
+  if (!id) return;
+  moveTask(id, colId);
+}
+
+// 업무 → 캘린더 이벤트: 마감일 있는 실제/부서WBS 업무를 캘린더에 표시.
+// 완료 상태면 취소선(cal-event.done), 미완료면 우선순위에 맞는 색상.
+function getTaskCalendarEvents() {
+  const out = [];
+  const push = (t, dateStr, isDone) => out.push({
+    id: 'tsk_' + t.id, title: t.title, date: dateStr, time: '',
+    color: isDone ? 'green' : (t.priority === 'high' ? 'red' : t.priority === 'low' ? 'green' : 'orange'),
+    source: 'task', taskId: t.id, done: !!isDone, extraClass: 'task-ev' + (isDone ? ' done' : ''),
+  });
+  visibleTasks().forEach(t => { if (t.due) push(t, t.due, t.status === 'done'); });
+  getScheduleVirtualTasks().forEach(t => { if (t.due) push(t, t.due, t.status === 'done'); });
+  return out;
 }
 function tasks() {
   const cols = [{ id:'todo', label:'할 일' }, { id:'doing', label:'진행 중' }, { id:'review', label:'검토' }, { id:'done', label:'완료' }];
@@ -4180,23 +4283,25 @@ function tasks() {
       ${cols.map(c => {
         const list = myTasks.filter(t => t.status === c.id);
         return `
-          <div class="kb-col">
+          <div class="kb-col" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event,'${c.id}')">
             <div class="kb-head"><span>${c.label}</span><span class="kb-count">${list.length}</span></div>
             ${list.map(t => {
               const p = t.proj ? getP(t.proj) : null;
-              // 실제 프로젝트가 아니면 briefing 원문 문자열(예: "SJ2026-002", "ISO")을 그대로 보여준다.
               const projCode = (p && p.code) ? p.code : (t.proj || '');
               const assigneeName = getU(t.assignee) ? getU(t.assignee).name : '';
               const badge = t.virtual
                 ? `<span class="b-pill" style="background:${t.sourceColor||'#94a3b8'};color:#fff;font-size:9px;padding:1px 6px;">${t.source||'자동'}</span>`
                 : '';
+              const doneClass = t.status === 'done' ? ' done' : '';
+              const virtStyle = t.virtual ? ' style="opacity:.92;border-left-color:'+(t.sourceColor||'#94a3b8')+';"' : '';
               return `
-                <div class="task ${t.priority}"${t.virtual?' style="opacity:.92;border-left-color:'+(t.sourceColor||'#94a3b8')+';"':''}>
+                <div class="task ${t.priority}${doneClass}"${virtStyle} draggable="true"
+                     ondragstart="onTaskDragStart(event,'${t.id}')" ondragend="onTaskDragEnd(event)">
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">${badge}</div>
                   <div class="task-title">${t.title}</div>
                   <div class="task-meta"><span>${projCode}</span><span>${assigneeName}</span></div>
                   ${t.subLine ? `<div class="task-meta" style="margin-top:4px;color:var(--text-lighter);">${t.subLine}</div>` : ''}
-                  ${t.due ? `<div class="task-meta" style="margin-top:4px;"><span style="color:var(--text-lighter);">마감 ${t.due}</span></div>` : ''}
+                  ${t.due ? `<div class="task-meta" style="margin-top:4px;"><span style="color:var(--text-lighter);">마감 ${t.due}${t.status==='done'&&t.completedAt?' · 완료 '+String(t.completedAt).slice(0,10):''}</span></div>` : ''}
                 </div>
               `;
             }).join('')}
