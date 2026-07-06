@@ -2703,7 +2703,7 @@ function renderDeptSchedProjects() {
           return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">' + e.title + '</div><div style="font-size:12px;color:' + (e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)') + ';font-weight:600;white-space:nowrap;margin-left:8px;">' + e.date + (e.time ? ' ' + e.time : '') + '</div></div>';
         }).join('') + '</div></div>';
     })()}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
       <div style="font-size:12px;font-weight:700;color:var(--text-light);">📊 프로젝트별 ${dept} 스케줄 (${projs.length})</div>
       <button class="btn btn-sm" onclick="toggleDeptSchedProjList('${dept}')" style="display:inline-flex;align-items:center;gap:4px;">${projListOpen ? '▼ 접기' : '▶ 펼치기'}</button>
     </div>
