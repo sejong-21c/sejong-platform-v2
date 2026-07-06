@@ -314,6 +314,24 @@ function loadITPBuilderState(){
   try{ const v=JSON.parse(localStorage.getItem(ITP_BUILDER_KEY)||'null'); return v||null; }catch(e){ return null; }
 }
 
+// v29.14 fix: 아이템(장비/부위)이 ITP Builder에 직접 입력되지 않고 WBS/EPC Control
+// 시스템(window.SJP.bridge, 궁극적으로 Firestore wbsData/{pid})에서 관리되는
+// 경우, ITP Builder 로컬 저장값(sjp_itp_builder_v1__*)엔 아이템이 비어있어도
+// 실제로는 존재한다. QA Doc Generator가 이미 쓰고 있는 것과 동일한 방식으로
+// index.html(SJ FLOW) 호스트의 bridge에 접근해 아이템을 가져온다.
+function getHost(){
+  try { if (window.opener && !window.opener.closed && window.opener.SJP) return window.opener; } catch(e){}
+  try { if (window.parent && window.parent !== window && window.parent.SJP) return window.parent; } catch(e){}
+  return null;
+}
+function getBridgeItems(){
+  try {
+    const host = getHost();
+    const items = host?.SJP?.bridge?.getItems?.();
+    return Array.isArray(items) ? items : [];
+  } catch(e) { return []; }
+}
+
 function loadResults(){
   try{
     const r=JSON.parse(localStorage.getItem(INSP_RESULTS_KEY)||'null');
@@ -418,15 +436,18 @@ function initFromITPBuilder(){
   badge.innerHTML='📁 '+projLabel;
   badge.style.background='#eef4fb'; badge.style.color='#185fa5';
 
-  // 아이템 드롭다운
+  // 아이템 드롭다운 — ITP Builder 로컬 저장값이 비어있으면 WBS/EPC Control
+  // 브릿지(window.SJP.bridge)에서 가져온다 (필드명 tag/name 동일해 그대로 사용 가능).
   itemSel.innerHTML='<option value="">— 아이템 선택 —</option>';
-  (state.items||[]).forEach(it=>{
+  const localItems=state.items||[];
+  const items=localItems.length?localItems:getBridgeItems();
+  items.forEach(it=>{
     const label=[it.tag, it.name].filter(Boolean).join(' / ');
     const opt=document.createElement('option');
     opt.value=label; opt.textContent=label;
     itemSel.appendChild(opt);
   });
-  itemSel.disabled=(state.items||[]).length===0;
+  itemSel.disabled=items.length===0;
 
   // ITP 드롭다운 (active rows만)
   itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
