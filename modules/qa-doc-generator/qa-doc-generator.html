@@ -211,7 +211,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
      매칭되지 않고 있었음: (1) React가 inline style을 "break-before: page" 형태로 직렬화해서
      문자열 "pageBreakBefore"가 실제로는 존재하지 않음 (2) 이 div는 .qa-report-body의 직계 자식이
      아니라 손자(각 Preview 컴포넌트 자체 wrapper 밑)라서 > 선택자로도 안 잡힘 → padding/min-height가
-     한 번도 적용된 적이 없어서 페이지 2 제목이 용지 맨 위에 바싹 붙어 나오던 버그. className으로 교체. */
+     한 번도 적용된 적이 없어서 페이지 2 제목이 용지 맨 위에 바싹 붙어 나오던 버그. className으로 교체.
+     ⚠ v3.5 회귀 주의 — Nozzle/DIM/Fitup은 실제 분할 여부(isSplit)가 있을 때만 이 className을
+     붙여야 함. 무조건 붙이면 !important 규칙이 항상 이겨서(isSplit이 false라 inline style이
+     "auto"여도) 강제로 다음 페이지로 넘어가버림 — 체크포인트 5개짜리처럼 분할이 필요 없는
+     문서까지 페이지가 갈라지던 실제 버그로 확인됨. Final VI만 항상 2페이지라서 무조건 적용이 맞음. */
   .qa-page2 {
     box-sizing: border-box !important;
     padding: 10mm 8mm !important;
@@ -1347,7 +1351,7 @@ function FitupPreview({doc}){
     <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
     {headerTable("01")}
     {renderJoints(page1Joints, 0)}
-    <div className="qa-page2" style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
+    <div className={isSplit?"qa-page2":""} style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
     {isSplit && <>
       <div style={{textAlign:"center",fontSize:13,fontWeight:700}}>FIT-UP &amp; WELDING INSPECTION REPORT</div>
       <div style={{textAlign:"center",fontSize:11,color:"#555",marginBottom:6}}>핏업 및 용접 검사 보고서</div>
@@ -1621,7 +1625,7 @@ function DIMPreview({doc}){
         {dImg&&<button className="fc" onClick={()=>handleDI(null)} style={{position:"absolute",top:4,right:4,fontSize:9,padding:"1px 6px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:3,cursor:"pointer",zIndex:30}}>✕ 삭제</button>}
       </div>
     </div>
-    <div className="qa-page2" style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
+    <div className={isSplit?"qa-page2":""} style={{pageBreakBefore:isSplit?"always":"auto",breakBefore:isSplit?"page":"auto"}}>
     {isSplit && <>
       <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>SHELL DIMENSIONAL INSPECTION REPORT</div>
       {headerTable("02")}
@@ -1742,7 +1746,7 @@ function NozzlePreview({doc}){
     <div className={noz.length>=15?"noz-big":""} style={{display:"flex",gap:6,marginBottom:6,minHeight:240,flex:noz.length>=15?1:undefined}}>
       <IDZ label="Nozzle Orientation — Ctrl+V (VIEW A-A) — 노즐 각도/위치 표시" persistKey={nk2}/>
     </div>
-    <div className="qa-page2" style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
+    <div className={isSplit?"qa-page2":""} style={{pageBreakBefore:noz.length>=15?"always":"auto",breakBefore:noz.length>=15?"page":"auto"}}>
     {isSplit && <>
       <div style={{textAlign:"center",fontSize:13,fontWeight:700,marginBottom:4}}>NOZZLE ORIENTATION INSPECTION REPORT</div>
       {headerTable(nozSeq2)}
