@@ -548,7 +548,7 @@ const NAV = [
   { id: 'okr',       icon: '🎯', label: '목표(OKR)', wip: true },
   { id: 'manday',    icon: '⏱', label: 'Manday Tracker', superOnly: true },
   { id: 'org',       icon: '👥', label: '조직/권한', superOnly: true },
-  { id: 'approval',  icon: '📝', label: '결재' },
+  { id: 'approval',  icon: '📝', label: '결재', wip: true },
 ];
 const TOOLS = {
   'itp':       { name: 'ITP Builder',       icon: '📋', desc: 'ASME·TEMA ITP 자동 생성',   status: 'live', ver: 'v1.4'  },
@@ -2097,7 +2097,7 @@ function render() {
       <div style="font-size:52px;margin-bottom:16px;">${curNav.icon}</div>
       <h3 style="font-size:18px;margin-bottom:8px;">${curNav.label}</h3>
       <p style="color:var(--text-light);margin-bottom:6px;">현재 준비 중인 기능입니다.</p>
-      <p style="color:var(--text-lighter);font-size:12px;">${view.cur==='okr'?'NCR · CAR 연동 등 업무 데이터와 연계하여 개발 예정입니다.':'사내 메신저 기능을 준비하고 있습니다.'}</p>
+      <p style="color:var(--text-lighter);font-size:12px;">${view.cur==='okr'?'NCR · CAR 연동 등 업무 데이터와 연계하여 개발 예정입니다.':view.cur==='approval'?'전자결재 워크플로우와 서명·기안 양식을 준비하고 있습니다.':'사내 메신저 기능을 준비하고 있습니다.'}</p>
       <span class="b-pill" style="background:#fef3c7;color:#92400e;margin-top:16px;display:inline-block;">🚧 준비중</span>
     </div></div>`;
     return;
