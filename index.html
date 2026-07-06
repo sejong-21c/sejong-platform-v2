@@ -2596,11 +2596,11 @@ function renderDeptSelfGantt(rows, deptName) {
   const months = ['1','2','3','4','5','6','7','8','9','10','11','12'];
   if (!tops.length) {
     return `
-      <div class="utl-wrap" style="margin-top:12px;">
+      <div class="utl-wrap" style="margin-top:0;cursor:pointer;" onclick="openDeptSchedProj('__self__')" title="클릭하면 편집 화면으로 이동합니다">
         <div class="utl-head">
           <div class="utl-title">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년</span></div>
         </div>
-        <div style="padding:24px;text-align:center;font-size:12px;color:var(--text-lighter);">등록된 자체 업무가 없습니다. 아래 "부서 전용" 카드를 클릭해 업무를 추가해주세요.</div>
+        <div style="padding:24px;text-align:center;font-size:12px;color:var(--text-lighter);">등록된 자체 업무가 없습니다. 이 영역을 클릭해 편집 화면으로 이동한 뒤 업무를 추가해주세요.</div>
       </div>`;
   }
   const rowsHtml = tops.map(w => {
@@ -2631,9 +2631,9 @@ function renderDeptSelfGantt(rows, deptName) {
       </div>`;
   }).join('');
   return `
-    <div class="utl-wrap" style="margin-top:12px;">
+    <div class="utl-wrap" style="margin-top:0;">
       <div class="utl-head">
-        <div class="utl-title">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년 · 막대 클릭 시 상세 화면</span></div>
+        <div class="utl-title" style="cursor:pointer;" onclick="openDeptSchedProj('__self__')" title="클릭하면 편집 화면으로 이동합니다">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년 · 제목 또는 막대 클릭 시 편집 화면</span></div>
         <div class="utl-legend">
           <span><span class="utl-dot" style="background:#dc2626;"></span>지연</span>
           <span><span class="utl-dot" style="background:#22c55e;"></span>정상</span>
@@ -2685,14 +2685,6 @@ function renderDeptSchedProjects() {
     </div>
     <div style="margin-bottom:18px;">
       <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏢 부서 자체 업무 (프로젝트 외)</div>
-      <div class="proj-grid">
-        <div class="proj" style="border-style:dashed;" onclick="openDeptSchedProj('__self__')">
-          <div class="proj-open-hint">→ 편집</div>
-          <div class="proj-code">부서 전용</div>
-          <div class="proj-name">${dept} 자체 업무 일정</div>
-          <div class="proj-meta"><span style="color:var(--text-lighter);">프로젝트에 속하지 않는 부서 내부 업무</span></div>
-        </div>
-      </div>
       ${renderDeptSelfGantt(state.wbs[selfPid], dept)}
     </div>
     ${(() => {
