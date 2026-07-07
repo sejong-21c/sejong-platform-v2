@@ -2896,7 +2896,10 @@ async function openWbsHistory() {
   inner.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><b style="font-size:14px;">📜 WBS 이력 (Revision History · ' + list.length + '건)</b><button onclick="document.getElementById(\'wbsHistOverlay\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#6b7280;">✕</button></div>' +
     '<div style="font-size:11px;color:#9ca3af;margin-bottom:6px;">Rev을 클릭하면 그 시점의 WBS를 읽기 전용으로 조회합니다. 현재 Rev.' + (_wbsRev||0) + '</div>' +
-    '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button onclick="cleanupWbsHistory()" style="font-size:11px;padding:4px 10px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:4px;cursor:pointer;" title="연속된 동일 스냅샷을 하나만 남기고 정리">🧹 중복 이력 정리</button></div>' +
+    '<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">' +
+      '<button onclick="cleanupWbsHistory()" style="font-size:11px;padding:4px 10px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:4px;cursor:pointer;" title="연속된 동일 스냅샷을 하나만 남기고 정리">🧹 중복 이력 정리</button>' +
+      '<button onclick="resetWbsRev()" style="font-size:11px;padding:4px 10px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:4px;cursor:pointer;" title="모든 이력 삭제 + Rev 번호 0으로 초기화 (현재 마스터 내용은 유지)">🔄 Rev 완전 초기화</button>' +
+    '</div>' +
     rowsHtml;
   ov.appendChild(inner);
   ov.addEventListener("click", ev => { if (ev.target === ov) ov.remove(); });
@@ -2965,6 +2968,39 @@ async function cleanupWbsHistory() {
   } catch (e) { alert("정리 중 오류: " + (e.message || e)); }
 }
 window.cleanupWbsHistory = cleanupWbsHistory;
+
+// v29.13.3: Rev 완전 초기화 — 이 프로젝트의 모든 wbsHistory 삭제 + wbsData.rev = 0.
+// 마스터 rows/items는 그대로 유지(현재 상태를 유지하되 번호만 리셋).
+async function resetWbsRev() {
+  if (!window.fb || !_wbsPid) return;
+  if (!confirm(
+    "⚠️ 이 프로젝트의 모든 이력 스냅샷을 삭제하고 Rev 번호를 0으로 초기화합니다.\n\n" +
+    "· 현재 화면의 WBS 내용은 그대로 유지됩니다\n" +
+    "· 이력은 완전히 삭제됩니다 (되돌릴 수 없음)\n" +
+    "· 다음 저장부터 Rev 1로 다시 시작합니다\n\n" +
+    "계속하시겠습니까?"
+  )) return;
+  const typedCheck = prompt("정말 초기화하려면 아래에 '초기화' 라고 입력해주세요:");
+  if (typedCheck !== '초기화') return alert("초기화가 취소됐습니다.");
+  try {
+    // 모든 이력 문서 조회 + 병렬 삭제
+    const q = fb.query(fb.collection(fb.db, "wbsHistory"), fb.where("pid", "==", _wbsPid));
+    const snap = await fb.getDocs(q);
+    const ids = [];
+    snap.forEach(d => ids.push(d.id));
+    if (ids.length) {
+      await Promise.all(ids.map(id => fb.deleteDoc(fb.doc(fb.db, "wbsHistory", id))));
+    }
+    // wbsData.rev = 0으로 리셋(rows/items는 그대로 두고 rev 필드만)
+    await fb.setDoc(fb.doc(fb.db, "wbsData", _wbsPid), { rev: 0, updatedAt: Date.now() }, { merge: true });
+    _wbsRev = 0;
+    const revEl = document.getElementById("wbsRevBadge");
+    if (revEl) revEl.textContent = "Rev. 0";
+    alert(`✅ 완료 — 이력 ${ids.length}건 삭제, Rev이 0으로 초기화됐습니다.\n다음 편집·저장부터 Rev 1로 다시 카운트됩니다.`);
+    const ov = document.getElementById("wbsHistOverlay"); if (ov) ov.remove();
+  } catch (e) { alert("초기화 중 오류: " + (e.message || e)); }
+}
+window.resetWbsRev = resetWbsRev;
 (async function initFromFirestore(){
   const qs = new URLSearchParams(window.location.search);
   const view = qs.get("view");
