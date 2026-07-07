@@ -4373,6 +4373,11 @@ function visibleTasks() {
 // 부서 자체 업무 WBS 대단락)을 업무관리 칸반에도 함께 노출한다. 실제 state.tasks 문서를 만들지
 // 않고 화면에서만 합쳐서 표시(virtual) — 자동 파싱 결과를 사용자가 매번 손으로 다시 등록할
 // 필요를 없애기 위함. 각 카드에 어디서 왔는지 소스 배지를 붙여 실제 업무와 구분한다.
+// v29.15: 완료(100%) 목표 표시/숨김 토글. 기본은 숨김(false), 사용자가 열어보고 싶을 때만 true.
+function toggleOkrShowCompleted() {
+  view.okrShowCompleted = !view.okrShowCompleted;
+  render();
+}
 function _applyOverride(t) {
   const ov = state.taskOverrides && state.taskOverrides[t.id];
   if (ov && ov.status) return { ...t, status: ov.status, completedAt: ov.completedAt || null };
@@ -5226,13 +5231,19 @@ function okr() {
   const myDept = me && me.dept ? me.dept : '';
   const myDeptId = DEPT_NAME_TO_ID[myDept] || '';
   const isDeptManager = isSuperOrExec(me) || me.grade === 'manager';
+  const showCompleted = !!view.okrShowCompleted;
+  // v29.15: 100% 달성 목표는 기본적으로 숨김. 토글로 다시 보기 가능.
+  const _isDone = o => _okrProgress(o) >= 100;
   const all = (state.okrs || []).filter(o => o && o.scope);
-  const deptGoals = all.filter(o => o.scope === 'dept' && o.deptId === myDeptId)
+  const filterDone = arr => showCompleted ? arr : arr.filter(o => !_isDone(o));
+  const deptAll = all.filter(o => o.scope === 'dept' && o.deptId === myDeptId)
                        .sort((a, b) => (a.end || '').localeCompare(b.end || ''));
-  const personGoals = all.filter(o => o.scope === 'personal' && o.ownerId === uid)
+  const deptGoals = filterDone(deptAll);
+  const personAll = all.filter(o => o.scope === 'personal' && o.ownerId === uid)
                          .sort((a, b) => (a.end || '').localeCompare(b.end || ''));
+  const personGoals = filterDone(personAll);
   // v29.14: 부서장·super/exec가 부서원에게 대신 설정한 개인 목표 목록. 본인 것은 위 personGoals에 이미 포함되니 제외.
-  const deptMemberPersonalGoals = isDeptManager
+  const deptMemberAll = isDeptManager
     ? all.filter(o => {
         if (o.scope !== 'personal') return false;
         if (o.ownerId === uid) return false;
@@ -5240,6 +5251,9 @@ function okr() {
         return owner && owner.dept === myDept;
       }).sort((a, b) => (a.end || '').localeCompare(b.end || ''))
     : [];
+  const deptMemberPersonalGoals = filterDone(deptMemberAll);
+  const hiddenDone = (deptAll.length - deptGoals.length) + (personAll.length - personGoals.length) + (deptMemberAll.length - deptMemberPersonalGoals.length);
+  const totalDone = deptAll.filter(_isDone).length + personAll.filter(_isDone).length + deptMemberAll.filter(_isDone).length;
   const totalPct = (list) => {
     if (!list.length) return 0;
     return Math.round(list.reduce((a, o) => a + _okrProgress(o), 0) / list.length);
@@ -5252,8 +5266,12 @@ function okr() {
         <div class="mod-title">🎯 목표 관리</div>
         <div class="mod-sub">부서 연간 · 개인 분기 목표 · 로그인 계정(${me.name||'-'}·${myDept||'-'}) 기준 · 마일스톤 체크 시 진척률 자동 반영</div>
       </div>
-      <button class="btn btn-primary" onclick="openOkrModal(null)">+ 신규 목표</button>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        ${totalDone > 0 ? `<button class="btn btn-sm" onclick="toggleOkrShowCompleted()" title="100% 달성 목표 표시/숨김 전환">${showCompleted ? '🙈 완료 숨기기' : '👁 완료 보기'} <span style="color:var(--text-lighter);font-weight:400;">(${totalDone})</span></button>` : ''}
+        <button class="btn btn-primary" onclick="openOkrModal(null)">+ 신규 목표</button>
+      </div>
     </div>
+    ${(!showCompleted && hiddenDone > 0) ? `<div style="font-size:11px;color:var(--text-lighter);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:4px;">✅ 완료된 목표 ${hiddenDone}개가 숨겨져 있습니다. 위 버튼으로 다시 볼 수 있어요.</div>` : ''}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
       <div class="card" style="padding:14px 16px;">
