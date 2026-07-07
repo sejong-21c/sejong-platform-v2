@@ -5123,10 +5123,11 @@ function openOkrModal(okrId, defaultScope) {
   const canMakeDept = me.grade === 'manager' || me.grade === 'exec' || me.grade === 'super';
   const existing = okrId ? (state.okrs || []).find(o => o.id === okrId) : null;
   const scope = existing ? existing.scope : (defaultScope || 'personal');
-  const title = existing ? existing.title : '';
-  const why = existing ? existing.why : '';
-  const period = existing ? existing.period : (scope === 'dept' ? '2026 연간' : '2026 Q3');
-  const end = existing ? existing.end : '';
+  // 기존 OKR 문서에 필드가 없는 경우(예: 초기에 생성된 문서)에도 죽지 않도록 방어. .replace() 등이 undefined에서 폭발.
+  const title = (existing && existing.title) || '';
+  const why = (existing && existing.why) || '';
+  const period = (existing && existing.period) || (scope === 'dept' ? '2026 연간' : '2026 Q3');
+  const end = (existing && existing.end) || '';
   const currentAssignee = existing ? (existing.assigneeId || '') : state.currentUser;
   const scopeOpts = [
     `<option value="personal" ${scope==='personal'?'selected':''}>👤 개인 (본인만 편집)</option>`,
@@ -5146,6 +5147,7 @@ function openOkrModal(okrId, defaultScope) {
     <div class="fg"><label class="fl">왜 이 목표인지 (선택)</label><input class="fi" id="okrWhy" placeholder="예: 3년 갱신 필수 · 실패 시 원자력 수주 불가" value="${why.replace(/"/g,'&quot;')}"></div>
     <div class="fg"><label class="fl">기간</label><input class="fi" id="okrPeriod" placeholder="예: 2026 연간, 2026 Q3" value="${period}"></div>
     <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="okrEnd" value="${end}"></div>
+    <div class="fg"><label class="fl">진행률 % (선택 · 비우면 마일스톤 완료율로 자동 계산)</label><input class="fi" type="number" min="0" max="100" id="okrPctManual" placeholder="예: 42" value="${existing && existing.pctManual!=null ? existing.pctManual : ''}"></div>
     <div style="font-size:11px;color:var(--text-lighter);margin-top:8px;">저장 후 하단 "＋ 마일스톤" 버튼으로 마일스톤을 추가하세요.</div>
   `, async () => {
     const t = document.getElementById('okrTitle').value.trim();
@@ -5163,6 +5165,14 @@ function openOkrModal(okrId, defaultScope) {
     doc.why = document.getElementById('okrWhy').value.trim();
     doc.period = document.getElementById('okrPeriod').value.trim();
     doc.end = document.getElementById('okrEnd').value;
+    // 진행률 수동 입력값 (비어있으면 null → 자동 계산 복원)
+    const pctRaw = document.getElementById('okrPctManual').value.trim();
+    if (pctRaw === '') doc.pctManual = null;
+    else {
+      const pctN = Number(pctRaw);
+      if (isNaN(pctN) || pctN < 0 || pctN > 100) return alert('진행률은 0~100 사이 숫자로 입력하거나 비워두세요.');
+      doc.pctManual = Math.round(pctN);
+    }
     doc.updatedAt = Date.now();
     if (s === 'dept') {
       doc.deptId = myDeptId; doc.deptName = me.dept; doc.ownerId = null;
