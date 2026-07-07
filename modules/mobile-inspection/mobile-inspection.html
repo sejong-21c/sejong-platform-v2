@@ -433,6 +433,16 @@ function getBOMForItem(pid,itemId){
   const rows=payload?.imgStore?.['bom_'+itemId];
   return Array.isArray(rows) ? rows : [];
 }
+// QA Doc Generator의 Dimension Check IR(치수검사 성적서) 연동 — 저장 시
+// localStorage['sjp_qa_gen_proj:'+pid].imgStore['dim_rows_'+아이템ID]에
+// [{p:'A', desc:'Shell ID', dwg, actual, remark}, ...] 형태로 저장된다.
+// p = Check Point 라벨, desc = Description.
+function getDimCheckpointsForItem(pid,itemId){
+  if(!itemId) return [];
+  const payload=getQAGProjectPayload(pid);
+  const rows=payload?.imgStore?.['dim_rows_'+itemId];
+  return Array.isArray(rows) ? rows.map(r=>({point:r.p||'', desc:r.desc||''})) : [];
+}
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -721,9 +731,8 @@ const ITP_FIELDS={
   },
   '06':{name:'NDE — Non-Destructive', fields:[], note:'📷 사진만 등록 · PC 환경에서 Accept + NDE Report 업로드'},
   '07':{name:'Dimension Report', fields:[
-    {key:'measurePoint', label:'측정 포인트', type:'select',
-      options:['— 선택 —','Shell 외경','Shell 내경','Shell 길이','Head 외경','Head 두께','Nozzle 위치','Saddle 간격','Bracket PCD','Installation Bolt 위치','기타'],
-      hint:'도면 / 치수검사보고서 포인트 외부 불러오기'},
+    {key:'measurePoint', label:'측정 포인트', type:'select', source:'dim-checkpoint',
+      hint:'QA Doc Generator Dimension Check IR에서 자동 불러오기'},
     {key:'measureValue', label:'측정값', type:'text', ph:'mm'},
     {key:'multiPoints', label:'추가 포인트 (자유 기록)', type:'textarea',
       ph:'A: 1500 mm\nB: 6000 mm\nC: 1200 mm\n...'}
@@ -827,8 +836,11 @@ function buildField(f, prefix=''){
     inner = `<input class="insp-field" data-key="${dk}" type="date" style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">`;
   } else if(f.type==='select'){
     let opts;
-    const isBomSelect = f.source==='bom-description';
-    if(isBomSelect){
+    // v2.3 — QA Doc Generator 연동 select(BOM 자재 파트, Dimension Check IR
+    // 측정 포인트)는 둘 다 "자료 없어도 직접 입력 가능" 패턴을 공유하므로
+    // source 값에 따라 옵션만 다르게 만들고 나머지는 공통 처리한다.
+    const needsCustom = f.source==='bom-description' || f.source==='dim-checkpoint';
+    if(f.source==='bom-description'){
       // Part No.(= BOM 테이블 행 번호, QA Doc Generator와 동일하게 1부터)를 라벨
       // 앞에 붙여, Description이 같은 자재(예: Shell Plate가 여러 장)도 서로
       // 구분되는 별개 옵션으로 남긴다 — 이름만으로 합쳐서 중복 제거하지 않는다.
@@ -840,6 +852,16 @@ function buildField(f, prefix=''){
         ? '<option value="">— 선택 —</option>'+partOpts.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
         : '<option value="">— BOM 데이터 없음(QA Doc Generator에서 자재 명세 작성 필요) —</option>')
         + '<option value="__custom__">✏️ 직접 입력...</option>';
+    } else if(f.source==='dim-checkpoint'){
+      // Check Point 라벨(A, B, C...)에 Description을 붙여 표시 — Description이
+      // 비어있는(아직 QA Doc Generator에서 안 채운) 행은 제외한다.
+      const dimOpts=getDimCheckpointsForItem(MI_PID,currentItemId)
+        .filter(r=>r.desc.trim())
+        .map(r=>`${r.point}. ${r.desc.trim()}`);
+      opts = (dimOpts.length
+        ? '<option value="">— 선택 —</option>'+dimOpts.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+        : '<option value="">— Dimension Check IR 데이터 없음(QA Doc Generator에서 작성 필요) —</option>')
+        + '<option value="__custom__">✏️ 직접 입력...</option>';
     } else {
       opts = (f.options||[]).map(o => {
         const v = typeof o==='string'?o:o.v;
@@ -847,11 +869,11 @@ function buildField(f, prefix=''){
         return `<option value="${v}">${l}</option>`;
       }).join('');
     }
-    inner = `<select class="insp-field" data-key="${dk}"${isBomSelect?' onchange="toggleBomCustomInput(this)"':''} style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">${opts}</select>`;
+    inner = `<select class="insp-field" data-key="${dk}"${needsCustom?' onchange="toggleBomCustomInput(this)"':''} style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">${opts}</select>`;
     // 자료 유무와 무관하게 직접 입력이 가능하도록, 선택 안 보이는 텍스트 입력을
     // select 바로 뒤에 같이 렌더링해 두고 "직접 입력..." 선택 시에만 전환한다.
-    if(isBomSelect){
-      inner += `<input type="text" data-key="${dk}" placeholder="자재 파트 직접 입력" style="display:none;margin-top:6px;width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">`;
+    if(needsCustom){
+      inner += `<input type="text" data-key="${dk}" placeholder="${f.label} 직접 입력" style="display:none;margin-top:6px;width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">`;
     }
   } else if(f.type==='checkbox'){
     const checked = f.defaultChecked ? 'checked' : '';
