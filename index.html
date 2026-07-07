@@ -5132,7 +5132,13 @@ function canEditOkr(o) {
   const me = getU(state.currentUser);
   if (!me) return false;
   if (isSuperOrExec(me)) return true;    // super/exec 은 무조건 편집 가능 (모든 목표)
-  if (o.scope === 'personal') return o.ownerId === state.currentUser;
+  if (o.scope === 'personal') {
+    if (o.ownerId === state.currentUser) return true;
+    // v29.14: 같은 부서 부서장(manager)은 부서원의 개인 목표도 편집 가능(대신 설정해준 뒤 관리)
+    const owner = getU(o.ownerId);
+    if (owner && owner.dept === me.dept && me.grade === 'manager') return true;
+    return false;
+  }
   // 부서 목표: 같은 부서 + (manager 이상 OR 지정된 담당자 본인)
   const myDeptId = DEPT_NAME_TO_ID[me.dept] || '';
   if (myDeptId !== o.deptId) return false;
@@ -5160,6 +5166,7 @@ function _renderOkrCard(o) {
           : `<span class="b-pill gray">👤 개인</span>`}
         <span class="b-pill" style="background:#f1f5f9;color:var(--text-light);">${o.period||''}</span>
         ${o.scope==='dept' && o.assigneeId ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${(getU(o.assigneeId)||{}).name||'담당자'}</span>` : ''}
+        ${o.scope==='personal' && o.ownerId && o.ownerId !== state.currentUser ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${(getU(o.ownerId)||{}).name||'대상자'}</span>` : ''}
         <strong style="flex:1;font-size:14px;">${o.title||''}</strong>
         <span class="b-pill ${dueClass}">${dueText}</span>
         <strong style="color:${color};font-size:15px;">${pct}%</strong>
@@ -5213,11 +5220,21 @@ function okr() {
   const me = getU(uid);
   const myDept = me && me.dept ? me.dept : '';
   const myDeptId = DEPT_NAME_TO_ID[myDept] || '';
+  const isDeptManager = isSuperOrExec(me) || me.grade === 'manager';
   const all = (state.okrs || []).filter(o => o && o.scope);
   const deptGoals = all.filter(o => o.scope === 'dept' && o.deptId === myDeptId)
                        .sort((a, b) => (a.end || '').localeCompare(b.end || ''));
   const personGoals = all.filter(o => o.scope === 'personal' && o.ownerId === uid)
                          .sort((a, b) => (a.end || '').localeCompare(b.end || ''));
+  // v29.14: 부서장·super/exec가 부서원에게 대신 설정한 개인 목표 목록. 본인 것은 위 personGoals에 이미 포함되니 제외.
+  const deptMemberPersonalGoals = isDeptManager
+    ? all.filter(o => {
+        if (o.scope !== 'personal') return false;
+        if (o.ownerId === uid) return false;
+        const owner = getU(o.ownerId);
+        return owner && owner.dept === myDept;
+      }).sort((a, b) => (a.end || '').localeCompare(b.end || ''))
+    : [];
   const totalPct = (list) => {
     if (!list.length) return 0;
     return Math.round(list.reduce((a, o) => a + _okrProgress(o), 0) / list.length);
@@ -5253,6 +5270,11 @@ function okr() {
 
     <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;">👤 내 분기 목표 (${personGoals.length})</div>
     ${personGoals.length ? personGoals.map(_renderOkrCard).join('') : `<div class="card" style="text-align:center;padding:24px;color:var(--text-lighter);font-size:12px;">등록된 개인 목표가 없습니다. <a onclick="openOkrModal(null,'personal')" style="color:var(--primary);cursor:pointer;text-decoration:underline;">+ 첫 개인 목표 등록하기</a></div>`}
+
+    ${isDeptManager && deptMemberPersonalGoals.length ? `
+      <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;">👥 부서원 개인 목표 (${deptMemberPersonalGoals.length}) <span style="font-size:10px;color:var(--text-lighter);font-weight:400;">— 부서장이 부서원에게 설정한 개인 목표</span></div>
+      ${deptMemberPersonalGoals.map(_renderOkrCard).join('')}
+    ` : ''}
   `;
 }
 
@@ -5270,15 +5292,26 @@ function openOkrModal(okrId, defaultScope) {
   const period = (existing && existing.period) || (scope === 'dept' ? '2026 연간' : '2026 Q3');
   const end = (existing && existing.end) || '';
   const currentAssignee = existing ? (existing.assigneeId || '') : state.currentUser;
+  // v29.14: 개인 목표는 부서장(및 super/exec)이 부서원에게 대신 설정 가능. 그 외엔 본인만.
+  const canSetPersonalOwner = isSuperOrExec(me) || me.grade === 'manager';
+  const currentPersonalOwner = existing && existing.scope === 'personal' ? (existing.ownerId || state.currentUser) : state.currentUser;
   const scopeOpts = [
-    `<option value="personal" ${scope==='personal'?'selected':''}>👤 개인 (본인만 편집)</option>`,
+    `<option value="personal" ${scope==='personal'?'selected':''}>👤 개인 (본인 또는 부서원)</option>`,
     canMakeDept ? `<option value="dept" ${scope==='dept'?'selected':''}>🏛 ${me.dept||'부서'} (부서장·관리자급만 편집)</option>` : ''
   ].join('');
   // 부서 목표 담당자 후보: 같은 부서 소속 유저 전체
   const deptMembers = (state.users || []).filter(u => u.dept === me.dept);
   const assigneeOpts = deptMembers.map(u => `<option value="${u.id}" ${u.id===currentAssignee?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
+  // 개인 목표 대상자 후보 (부서장·super·exec만 노출): 같은 부서 유저 전체
+  const personalOwnerOpts = deptMembers.map(u => `<option value="${u.id}" ${u.id===currentPersonalOwner?'selected':''}>${u.name} ${u.title||''}${u.id===state.currentUser?' (본인)':''}</option>`).join('');
   openModal(existing ? '목표 수정' : '신규 목표 등록', `
-    <div class="fg"><label class="fl">스코프</label><select class="fs" id="okrScope"${existing?' disabled':''} onchange="document.getElementById('okrAssigneeRow').style.display=this.value==='dept'?'block':'none';">${scopeOpts}</select>${existing?'<div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">스코프는 생성 후 변경할 수 없습니다.</div>':''}</div>
+    <div class="fg"><label class="fl">스코프</label><select class="fs" id="okrScope"${existing?' disabled':''} onchange="document.getElementById('okrAssigneeRow').style.display=this.value==='dept'?'block':'none';document.getElementById('okrOwnerRow').style.display=(this.value==='personal'&&${canSetPersonalOwner?'true':'false'})?'block':'none';">${scopeOpts}</select>${existing?'<div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">스코프는 생성 후 변경할 수 없습니다.</div>':''}</div>
+    ${canSetPersonalOwner ? `
+    <div class="fg" id="okrOwnerRow" style="display:${scope==='personal'?'block':'none'};">
+      <label class="fl">대상자 (개인 목표만)</label>
+      <select class="fs" id="okrOwner">${personalOwnerOpts}</select>
+      <div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">부서장이 부서원에게 목표를 대신 설정할 때 대상자를 지정합니다. 본인 목표라면 본인을 선택하세요.</div>
+    </div>` : '<div id="okrOwnerRow" style="display:none;"></div>'}
     <div class="fg" id="okrAssigneeRow" style="display:${scope==='dept'?'block':'none'};">
       <label class="fl">담당자 (부서 목표만)</label>
       <select class="fs" id="okrAssignee">${assigneeOpts}</select>
@@ -5326,7 +5359,10 @@ function openOkrModal(okrId, defaultScope) {
       const assigneeSel = document.getElementById('okrAssignee');
       doc.assigneeId = assigneeSel ? assigneeSel.value : state.currentUser;
     } else {
-      doc.ownerId = state.currentUser; doc.deptId = null; doc.deptName = null; doc.assigneeId = null;
+      // v29.14: 부서장(+super/exec)이 부서원에게 대신 설정 가능 → okrOwner 셀렉트 값 우선
+      const ownerSel = document.getElementById('okrOwner');
+      doc.ownerId = (canSetPersonalOwner && ownerSel) ? ownerSel.value : state.currentUser;
+      doc.deptId = null; doc.deptName = null; doc.assigneeId = null;
     }
     try {
       await fb.setDoc(fb.doc(fb.db, 'okrs', doc.id), doc);
