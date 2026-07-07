@@ -2631,9 +2631,11 @@ function renderDeptSelfGantt(rows, deptName) {
     return me && (me.grade === 'manager' || me.grade === 'exec' || me.grade === 'super');
   })();
   const myDeptId = (DEPTS.find(d => d.name === deptName) || {}).id || '';
-  const alreadyOkrTitles = new Set(
-    (state.okrs || []).filter(o => o.scope === 'dept' && o.deptId === myDeptId).map(o => (o.title||'').trim())
-  );
+  // 이미 부서 목표로 등록된 대단락은 목표 문서 id를 함께 저장 — "등록 취소" 시 어떤 OKR 문서를 지울지 알아야 함.
+  const okrByTitle = {};
+  (state.okrs || []).forEach(o => {
+    if (o.scope === 'dept' && o.deptId === myDeptId && o.title) okrByTitle[o.title.trim()] = o.id;
+  });
   const rowsHtml = tops.map((w, wi) => {
     const s = w.start, e = w.end;
     const sd = s ? new Date(s) : null, ed = e ? new Date(e) : null;
@@ -2645,10 +2647,10 @@ function renderDeptSelfGantt(rows, deptName) {
     const doneColor = expPct == null ? '#22c55e' : scheduleHealthGradient(pct - expPct);
     const todoColor = '#e4e7ec';
     const period = valid ? `${s} ~ ${e}` : '기간 미정';
-    const alreadyPromoted = alreadyOkrTitles.has((w.name||'').trim());
+    const promotedOkrId = okrByTitle[(w.name||'').trim()];
     const promoteBtn = meCanPromote
-      ? (alreadyPromoted
-          ? `<span title="이미 부서 목표로 등록됨" style="font-size:10px;color:var(--success);white-space:nowrap;">🎯 목표 등록됨</span>`
+      ? (promotedOkrId
+          ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;background:#dcfce7;color:#166534;border-color:#86efac;" onclick="event.stopPropagation();demoteWbsRowFromOkr('${promotedOkrId}')" title="클릭하면 부서 목표에서 내림">🎯 등록됨 · ✕ 취소</button>`
           : `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;" onclick="event.stopPropagation();promoteWbsRowToOkr('dept_${myDeptId}',${wi})">🎯 목표로 승격</button>`)
       : '';
     return `
@@ -2739,6 +2741,16 @@ async function promoteWbsRowToOkr(pid, rowIndex) {
     await fb.setDoc(fb.doc(fb.db, 'okrs', okr.id), okr);
     alert(`"${goalTitle}" 부서 목표로 등록되었습니다.${okr.milestones.length?` 하위 ${okr.milestones.length}개 항목이 마일스톤으로 함께 추가됐습니다.`:''}`);
   } catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
+}
+// 반대 액션 — promoteWbsRowToOkr의 역동작. 부서스케줄 대단락이 이미 목표로 등록된 상태에서
+// "🎯 등록됨 · ✕ 취소" 버튼 눌러 목표 문서를 삭제(=목표에서 내림).
+async function demoteWbsRowFromOkr(okrId) {
+  const o = (state.okrs || []).find(x => x.id === okrId);
+  if (!o) return;
+  if (!canEditOkr(o)) return alert('삭제 권한이 없습니다.');
+  if (!confirm(`"${o.title}"을(를) 부서 목표에서 내리시겠습니까?\n마일스톤 ${(o.milestones||[]).length}개도 함께 삭제됩니다.\n(부서 스케줄의 대단락 자체는 그대로 남습니다)`)) return;
+  try { await fb.deleteDoc(fb.doc(fb.db, 'okrs', okrId)); }
+  catch (e) { alert('삭제 중 오류: ' + (e.message || e)); }
 }
 // 프로젝트 목록 접기/펼치기는 부서마다 독립적으로 기억한다 (단일 boolean이면 사이드바에서 부서 바꿔도 상태가 남아버림).
 function toggleDeptSchedProjList(deptName) {
@@ -4969,9 +4981,30 @@ function openQuote() {
          개인 목표 = 본인만 편집·조회
    연동: 캘린더 · 업무관리 칸반 · 대시보드 위젯에 자동 노출 */
 function _okrProgress(o) {
+  // pctManual이 지정돼 있으면 그 값을 우선 사용 (마일스톤 체크와 무관하게 사용자가 직접 관리)
+  if (o.pctManual != null && o.pctManual !== '') {
+    return Math.max(0, Math.min(100, Math.round(Number(o.pctManual)) || 0));
+  }
   if (!o.milestones || !o.milestones.length) return 0;
   const done = o.milestones.filter(m => m.done).length;
   return Math.round(done / o.milestones.length * 100);
+}
+async function setOkrPctManual(okrId) {
+  const o = (state.okrs || []).find(x => x.id === okrId);
+  if (!o || !canEditOkr(o)) return;
+  const cur = o.pctManual != null && o.pctManual !== '' ? String(o.pctManual) : '';
+  const v = prompt('진행률 (0~100). 비운 채 확인하면 마일스톤 기준 자동 계산으로 되돌립니다.', cur);
+  if (v === null) return;
+  const trimmed = String(v).trim();
+  let newPct = null;
+  if (trimmed !== '') {
+    const n = Number(trimmed);
+    if (isNaN(n) || n < 0 || n > 100) return alert('0~100 사이의 숫자를 입력해주세요.');
+    newPct = Math.round(n);
+  }
+  const updated = { ...o, pctManual: newPct, updatedAt: Date.now() };
+  try { await fb.setDoc(fb.doc(fb.db, 'okrs', okrId), updated); }
+  catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
 }
 function _okrProgressColor(pct) {
   return pct >= 70 ? 'var(--success)' : pct >= 40 ? 'var(--primary)' : 'var(--warning)';
@@ -5011,6 +5044,7 @@ function _renderOkrCard(o) {
         <strong style="flex:1;font-size:14px;">${o.title||''}</strong>
         <span class="b-pill ${dueClass}">${dueText}</span>
         <strong style="color:${color};font-size:15px;">${pct}%</strong>
+        ${o.pctManual != null && o.pctManual !== '' ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;" title="마일스톤과 무관하게 사용자가 직접 지정한 진행률입니다">✎ 수동</span>' : ''}
       </div>
       ${o.why ? `<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;padding-left:2px;">${o.why}</div>` : ''}
       <div class="bar" style="margin-bottom:10px;"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
@@ -5025,7 +5059,8 @@ function _renderOkrCard(o) {
         </div>
       `).join('')}
       ${editable ? `
-      <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:6px;">
+      <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="setOkrPctManual('${o.id}')" title="마일스톤 체크와 무관하게 진행률을 직접 지정하거나, 비워서 자동 계산으로 돌립니다.">${o.pctManual!=null&&o.pctManual!==''?'✎ 수동 '+o.pctManual+'%':'✎ 진행률 지정'}</button>
         <button class="btn btn-sm" onclick="openOkrMilestoneModal('${o.id}')">＋ 마일스톤</button>
         <button class="btn btn-sm" onclick="openOkrModal('${o.id}')">✎ 편집</button>
         <button class="btn btn-sm" onclick="deleteOkr('${o.id}')" style="color:var(--danger);">🗑 삭제</button>
