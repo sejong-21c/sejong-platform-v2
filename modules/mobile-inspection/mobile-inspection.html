@@ -777,6 +777,7 @@ function renderInspFields(itpId){
   if(def.specialType==='material-list'){
     wrap.innerHTML=buildMaterialList(def);
     bindFieldEvents(itpId);
+    autoPopulateMaterialRows();
     updateMaterialOverallResult();
     return;
   }
@@ -949,9 +950,20 @@ function buildMaterialList(def){
   return html;
 }
 
-// 자재 추가 (Material Inspection 전용)
+// QA Doc Generator BOM에 등록된 자재 수만큼 자재검사 행을 미리 만들어 둔다.
+// 자재 파트는 해당 BOM 항목으로 미리 선택해 두고, 판정(rowResult)만 하면
+// 되게 한다 — BOM이 비어 있으면 아무 행도 만들지 않고 "자재 추가"로 시작한다.
+function autoPopulateMaterialRows(){
+  const bomRows=getBOMForItem(MI_PID,currentItemId)
+    .map((r,i)=>({partNo:i+1, name:(r.name||'').trim()}))
+    .filter(r=>r.name);
+  bomRows.forEach(r=>addMaterialRow(`${r.partNo}. ${r.name}`));
+}
+
+// 자재 추가 (Material Inspection 전용). presetPartName을 주면 자재 파트
+// select를 해당 BOM 항목으로 미리 선택해 둔다(자동 생성 행용).
 let _materialCounter = 0;
-function addMaterialRow(){
+function addMaterialRow(presetPartName){
   const def = ITP_FIELDS['02'];
   if(!def || !def.materialFields) return;
   const container = document.getElementById('material-list-container');
@@ -969,6 +981,10 @@ function addMaterialRow(){
   });
   div.innerHTML = inner;
   container.appendChild(div);
+  if(presetPartName){
+    const sel=div.querySelector(`select[data-key="mat${idx}.partName"]`);
+    if(sel) sel.value=presetPartName;
+  }
   bindFieldEvents('02'); // 새로 추가된 행의 mode-toggle(판정) 버튼에 이벤트 연결
   updateMaterialOverallResult();
 }
