@@ -668,11 +668,17 @@ function grantSemantics(grantKey, mod) {
   return table[grantKey] || table['none'];
 }
 
-// 새 세분화 권한 체크 (도구별·액션별) — 슈퍼 무조건 O, 개별 오버라이드 우선, 아니면 기본 부여 판정
+// v29.12: 슈퍼관리자·대표이사(임원)는 무조건 모든 권한을 가진다.
+// 여기 한 곳에서만 판정하고, 모든 canXxx() 함수는 이걸 최우선 조건으로 사용한다.
+function isSuperOrExec(u) {
+  u = u || getU(state.currentUser);
+  return !!(u && (u.grade === 'super' || u.grade === 'exec'));
+}
+// 새 세분화 권한 체크 (도구별·액션별) — super/exec 무조건 O, 개별 오버라이드 우선, 아니면 기본 부여 판정
 function canDo(moduleId, action, user, ctx) {
   user = user || getU(state.currentUser);
   if (!user) return false;
-  if (user.grade === 'super') return true;
+  if (isSuperOrExec(user)) return true;
   const mod = PERM_MODULES[moduleId];
   if (!mod) return false;
   const act = mod.actions[action];
@@ -686,26 +692,26 @@ function canDo(moduleId, action, user, ctx) {
 function hasPerm(perm, u) {
   u = u || getU(state.currentUser);
   if (!u) return false;
-  if (u.grade === 'super') return true;
+  if (isSuperOrExec(u)) return true;
   return Array.isArray(u.extraPerms) && u.extraPerms.includes(perm);
 }
 // 프로젝트 생성/삭제 · PM 지정 권한: 영업부 + 슈퍼 + 임원 + (개별)project
 function canEditProject() {
   const u = getU(state.currentUser);
   if (!u) return false;
-  return u.grade === 'super' || u.grade === 'exec' || u.dept === '영업부' || hasPerm('project', u);
+  return isSuperOrExec(u) || u.dept === '영업부' || hasPerm('project', u);
 }
 function canAssignPM() {
   const u = getU(state.currentUser);
   if (!u) return false;
-  return u.grade === 'super' || u.dept === '영업부' || hasPerm('project', u);
+  return isSuperOrExec(u) || u.dept === '영업부' || hasPerm('project', u);
 }
 // 특정 프로젝트의 스케줄(WBS·간트) 수정 권한
-// → 영업부/슈퍼/임원 + 그 프로젝트의 PM 본인 + (개별)schedule
+// → super/exec/영업부 + 그 프로젝트의 PM 본인 + (개별)schedule + (신규) 프로젝트 members에 지정된 부서원
 function canEditSchedule(projId) {
   const u = getU(state.currentUser);
   if (!u) return false;
-  if (canEditProject()) return true;            // 전체 관리 권한자
+  if (canEditProject()) return true;            // 전체 관리 권한자 (super/exec/영업부/project)
   if (hasPerm('schedule', u)) return true;       // 개별 스케줄 관리 권한
   const p = getP(projId);
   if (p && p.pm === state.currentUser) return true; // 이 프로젝트 PM 본인
@@ -715,7 +721,7 @@ function canEditSchedule(projId) {
 function canEditDeptSchedule(dept) {
   const u = getU(state.currentUser);
   if (!u) return false;
-  if (u.grade === 'super' || u.grade === 'exec') return true;
+  if (isSuperOrExec(u)) return true;
   if (hasPerm('deptSchedule', u)) return true;
   if (u.grade === 'manager' && u.dept === dept) return true; // 해당 부서 부서장/관리자급
   return false;
@@ -724,8 +730,8 @@ function canEditDeptSchedule(dept) {
 function canSeeNav(item) {
   const u = getU(state.currentUser);
   if (!u) return false;
-  if (u.grade === 'super') return true;          // 슈퍼는 전부
-  if (item.superOnly) return false;               // 조직/권한 = 슈퍼만
+  if (isSuperOrExec(u)) return true;              // super/exec 은 모든 메뉴
+  if (item.superOnly) return false;               // 조직/권한 = super/exec 만
   if (item.deptOnly) {
     // 견적 = 영업부 + 개별 quotes 권한자
     if (item.id === 'quotes' && hasPerm('quotes', u)) return true;
@@ -733,11 +739,11 @@ function canSeeNav(item) {
   }
   return true;                                    // 나머지는 전원
 }
-// 부서 도구함 노출 여부 (자기 부서 + 슈퍼)
+// 부서 도구함 노출 여부 (자기 부서 + super/exec)
 function canSeeDept(deptName) {
   const u = getU(state.currentUser);
   if (!u) return false;
-  if (u.grade === 'super') return true;
+  if (isSuperOrExec(u)) return true;
   return u.dept === deptName;
 }
 const KEY = 'SJ_FLOW_V04';
@@ -5028,12 +5034,12 @@ function _okrProgressColor(pct) {
 function canEditOkr(o) {
   const me = getU(state.currentUser);
   if (!me) return false;
-  if (me.grade === 'super') return true;
+  if (isSuperOrExec(me)) return true;    // super/exec 은 무조건 편집 가능 (모든 목표)
   if (o.scope === 'personal') return o.ownerId === state.currentUser;
-  // 부서 목표: 같은 부서 + (manager/exec 이상 OR 지정된 담당자 본인)
+  // 부서 목표: 같은 부서 + (manager 이상 OR 지정된 담당자 본인)
   const myDeptId = DEPT_NAME_TO_ID[me.dept] || '';
   if (myDeptId !== o.deptId) return false;
-  if (me.grade === 'manager' || me.grade === 'exec') return true;
+  if (me.grade === 'manager') return true;
   return o.assigneeId === state.currentUser;
 }
 function _renderOkrCard(o) {

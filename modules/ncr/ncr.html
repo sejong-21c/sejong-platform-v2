@@ -252,15 +252,16 @@ function loadState() {
 function canDoLocal(moduleId, action, user) {
   user = user || (state.users||[]).find(x => x.id === state.currentUser);
   if (!user) return false;
-  if (user.grade === 'super') return true;
+  // v29.12: 슈퍼관리자·대표이사는 모든 도구·모든 액션 무조건 허용
+  if (user.grade === 'super' || user.grade === 'exec') return true;
   const explicit = user.modulePerms && user.modulePerms[moduleId] && user.modulePerms[moduleId][action];
   if (explicit === true) return true;
   if (explicit === false) return false;
-  // NCR/CAR 기본 부여: register=품질관리부원, delete=품질관리부장 이상
+  // NCR/CAR 기본 부여: register=품질관리부원, delete=품질관리부장
   const dept = '품질관리부';
   if (moduleId === 'ncr' || moduleId === 'car') {
     if (action === 'register') return user.dept === dept;
-    if (action === 'delete')   return user.dept === dept && (user.grade === 'manager' || user.grade === 'exec');
+    if (action === 'delete')   return user.dept === dept && user.grade === 'manager';
   }
   return false;
 }
