@@ -2626,7 +2626,15 @@ function renderDeptSelfGantt(rows, deptName) {
         <div style="padding:24px;text-align:center;font-size:12px;color:var(--text-lighter);">등록된 자체 업무가 없습니다. 이 영역을 클릭해 편집 화면으로 이동한 뒤 업무를 추가해주세요.</div>
       </div>`;
   }
-  const rowsHtml = tops.map(w => {
+  const meCanPromote = (function(){
+    const me = getU(state.currentUser);
+    return me && (me.grade === 'manager' || me.grade === 'exec' || me.grade === 'super');
+  })();
+  const myDeptId = (DEPTS.find(d => d.name === deptName) || {}).id || '';
+  const alreadyOkrTitles = new Set(
+    (state.okrs || []).filter(o => o.scope === 'dept' && o.deptId === myDeptId).map(o => (o.title||'').trim())
+  );
+  const rowsHtml = tops.map((w, wi) => {
     const s = w.start, e = w.end;
     const sd = s ? new Date(s) : null, ed = e ? new Date(e) : null;
     const valid = sd && ed && !isNaN(sd) && !isNaN(ed) && ed > sd;
@@ -2637,12 +2645,21 @@ function renderDeptSelfGantt(rows, deptName) {
     const doneColor = expPct == null ? '#22c55e' : scheduleHealthGradient(pct - expPct);
     const todoColor = '#e4e7ec';
     const period = valid ? `${s} ~ ${e}` : '기간 미정';
+    const alreadyPromoted = alreadyOkrTitles.has((w.name||'').trim());
+    const promoteBtn = meCanPromote
+      ? (alreadyPromoted
+          ? `<span title="이미 부서 목표로 등록됨" style="font-size:10px;color:var(--success);white-space:nowrap;">🎯 목표 등록됨</span>`
+          : `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;" onclick="event.stopPropagation();promoteWbsRowToOkr('dept_${myDeptId}',${wi})">🎯 목표로 승격</button>`)
+      : '';
     return `
       <div class="utl-row" onclick="openDeptSchedProj('__self__')">
         <div class="utl-info">
           <div class="utl-code">${w.code || ''}</div>
           <div class="utl-name" title="${w.name || ''}">${w.name || '(제목 없음)'}</div>
-          <div class="utl-meta">${period} · <b>${pct}%</b></div>
+          <div class="utl-meta" style="display:flex;align-items:center;gap:6px;justify-content:space-between;">
+            <span>${period} · <b>${pct}%</b></span>
+            ${promoteBtn}
+          </div>
         </div>
         <div class="utl-track">
           <div class="utl-today" style="left:${todayPct}%;"></div>
@@ -2674,6 +2691,54 @@ function renderDeptSelfGantt(rows, deptName) {
         ${rowsHtml}
       </div>
     </div>`;
+}
+// 부서 자체 업무 WBS 대단락 → 부서 OKR로 승격. 대단락 이름=목표 제목, 시작/마감=기간,
+// 하위 WBS 행(같은 pid의 lv=1 이상)이 있으면 그 이름들을 마일스톤으로 자동 채운다.
+async function promoteWbsRowToOkr(pid, rowIndex) {
+  const me = getU(state.currentUser);
+  if (!(me.grade === 'manager' || me.grade === 'exec' || me.grade === 'super')) {
+    return alert('부서 목표는 부서장·관리자급만 등록할 수 있습니다.');
+  }
+  const rows = (state.wbs[pid] || []);
+  const top = rows[rowIndex];
+  if (!top || top.lv !== 0) return alert('대단락 행만 목표로 승격할 수 있습니다.');
+  // 같은 대단락에 속하는 하위 행들을 찾음 (다음 lv=0 행 직전까지)
+  const children = [];
+  for (let i = rowIndex + 1; i < rows.length; i++) {
+    if (rows[i].lv === 0) break;
+    if (rows[i].lv === 1) children.push(rows[i]);
+  }
+  const deptId = pid.replace(/^dept_/, '');
+  const deptName = (DEPTS.find(d => d.id === deptId) || {}).name || me.dept || '부서';
+  const goalTitle = (top.name || '').trim();
+  if (!goalTitle) return alert('목표 제목이 될 대단락 이름이 비어있습니다.');
+  // 중복 방지
+  const dup = (state.okrs || []).find(o => o.scope==='dept' && o.deptId===deptId && (o.title||'').trim()===goalTitle);
+  if (dup) return alert('이미 같은 이름의 부서 목표가 있습니다.');
+  const period = (top.start || '').slice(0,4) + ' 연간';
+  const okr = {
+    id: 'okr_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    scope: 'dept', deptId: deptId, deptName: deptName,
+    ownerId: null, assigneeId: state.currentUser,
+    title: goalTitle,
+    why: '부서 스케줄 대단락에서 승격',
+    period: period,
+    end: top.end || '',
+    milestones: children.map((c, i) => ({
+      id: 'm_' + Date.now() + '_' + i,
+      title: c.name || `마일스톤 ${i+1}`,
+      due: c.end || '',
+      done: c.status === 'done',
+      at: c.status === 'done' ? (c.end || '') : null,
+    })),
+    createdBy: state.currentUser,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'okrs', okr.id), okr);
+    alert(`"${goalTitle}" 부서 목표로 등록되었습니다.${okr.milestones.length?` 하위 ${okr.milestones.length}개 항목이 마일스톤으로 함께 추가됐습니다.`:''}`);
+  } catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
 }
 // 프로젝트 목록 접기/펼치기는 부서마다 독립적으로 기억한다 (단일 boolean이면 사이드바에서 부서 바꿔도 상태가 남아버림).
 function toggleDeptSchedProjList(deptName) {
@@ -4252,6 +4317,12 @@ async function moveTask(taskId, newStatus) {
   if (!t) return;
   if (t.status === newStatus) return;
   const completedAt = newStatus === 'done' ? new Date().toISOString() : null;
+  // OKR 마일스톤 placeholder — 실제 저장 없음, 목표 관리 모듈로 이동만 유도
+  if (t.okrPlaceholder) {
+    alert('이 목표에는 아직 마일스톤이 없습니다. 목표 관리 화면에서 마일스톤을 먼저 추가해주세요.');
+    view.cur = 'okr'; render();
+    return;
+  }
   // 실제 Firestore tasks 문서
   if (!t.virtual) {
     try {
@@ -4910,9 +4981,11 @@ function canEditOkr(o) {
   if (!me) return false;
   if (me.grade === 'super') return true;
   if (o.scope === 'personal') return o.ownerId === state.currentUser;
-  // 부서 목표: 같은 부서 + manager/exec 이상
+  // 부서 목표: 같은 부서 + (manager/exec 이상 OR 지정된 담당자 본인)
   const myDeptId = DEPT_NAME_TO_ID[me.dept] || '';
-  return myDeptId === o.deptId && (me.grade === 'manager' || me.grade === 'exec');
+  if (myDeptId !== o.deptId) return false;
+  if (me.grade === 'manager' || me.grade === 'exec') return true;
+  return o.assigneeId === state.currentUser;
 }
 function _renderOkrCard(o) {
   const pct = _okrProgress(o);
@@ -4934,6 +5007,7 @@ function _renderOkrCard(o) {
           ? `<span class="b-pill blue">🏛 ${o.deptName||'부서'}</span>`
           : `<span class="b-pill gray">👤 개인</span>`}
         <span class="b-pill" style="background:#f1f5f9;color:var(--text-light);">${o.period||''}</span>
+        ${o.scope==='dept' && o.assigneeId ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${(getU(o.assigneeId)||{}).name||'담당자'}</span>` : ''}
         <strong style="flex:1;font-size:14px;">${o.title||''}</strong>
         <span class="b-pill ${dueClass}">${dueText}</span>
         <strong style="color:${color};font-size:15px;">${pct}%</strong>
@@ -5018,12 +5092,21 @@ function openOkrModal(okrId, defaultScope) {
   const why = existing ? existing.why : '';
   const period = existing ? existing.period : (scope === 'dept' ? '2026 연간' : '2026 Q3');
   const end = existing ? existing.end : '';
+  const currentAssignee = existing ? (existing.assigneeId || '') : state.currentUser;
   const scopeOpts = [
     `<option value="personal" ${scope==='personal'?'selected':''}>👤 개인 (본인만 편집)</option>`,
     canMakeDept ? `<option value="dept" ${scope==='dept'?'selected':''}>🏛 ${me.dept||'부서'} (부서장·관리자급만 편집)</option>` : ''
   ].join('');
+  // 부서 목표 담당자 후보: 같은 부서 소속 유저 전체
+  const deptMembers = (state.users || []).filter(u => u.dept === me.dept);
+  const assigneeOpts = deptMembers.map(u => `<option value="${u.id}" ${u.id===currentAssignee?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
   openModal(existing ? '목표 수정' : '신규 목표 등록', `
-    <div class="fg"><label class="fl">스코프</label><select class="fs" id="okrScope"${existing?' disabled':''}>${scopeOpts}</select>${existing?'<div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">스코프는 생성 후 변경할 수 없습니다.</div>':''}</div>
+    <div class="fg"><label class="fl">스코프</label><select class="fs" id="okrScope"${existing?' disabled':''} onchange="document.getElementById('okrAssigneeRow').style.display=this.value==='dept'?'block':'none';">${scopeOpts}</select>${existing?'<div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">스코프는 생성 후 변경할 수 없습니다.</div>':''}</div>
+    <div class="fg" id="okrAssigneeRow" style="display:${scope==='dept'?'block':'none'};">
+      <label class="fl">담당자 (부서 목표만)</label>
+      <select class="fs" id="okrAssignee">${assigneeOpts}</select>
+      <div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">부서 목표를 실제로 추진할 사람을 지정합니다. 담당자 본인 + 부서장·관리자급이 편집할 수 있습니다.</div>
+    </div>
     <div class="fg"><label class="fl">목표 (Objective)</label><input class="fi" id="okrTitle" placeholder="예: ASME 재갱신 완료" value="${title.replace(/"/g,'&quot;')}"></div>
     <div class="fg"><label class="fl">왜 이 목표인지 (선택)</label><input class="fi" id="okrWhy" placeholder="예: 3년 갱신 필수 · 실패 시 원자력 수주 불가" value="${why.replace(/"/g,'&quot;')}"></div>
     <div class="fg"><label class="fl">기간</label><input class="fi" id="okrPeriod" placeholder="예: 2026 연간, 2026 Q3" value="${period}"></div>
@@ -5046,8 +5129,13 @@ function openOkrModal(okrId, defaultScope) {
     doc.period = document.getElementById('okrPeriod').value.trim();
     doc.end = document.getElementById('okrEnd').value;
     doc.updatedAt = Date.now();
-    if (s === 'dept') { doc.deptId = myDeptId; doc.deptName = me.dept; doc.ownerId = null; }
-    else { doc.ownerId = state.currentUser; doc.deptId = null; doc.deptName = null; }
+    if (s === 'dept') {
+      doc.deptId = myDeptId; doc.deptName = me.dept; doc.ownerId = null;
+      const assigneeSel = document.getElementById('okrAssignee');
+      doc.assigneeId = assigneeSel ? assigneeSel.value : state.currentUser;
+    } else {
+      doc.ownerId = state.currentUser; doc.deptId = null; doc.deptName = null; doc.assigneeId = null;
+    }
     try {
       await fb.setDoc(fb.doc(fb.db, 'okrs', doc.id), doc);
       closeModal();
@@ -5101,17 +5189,35 @@ async function deleteOkrMilestone(okrId, msIdx) {
 }
 
 // ── 다른 모듈 연동 헬퍼 ───────────────────────────────────────
-// 캘린더/업무관리 칸반에 노출할 "가상 업무" 목록. 마감일 있는 마일스톤만 대상.
+// 업무관리 칸반에 노출할 "가상 업무" 목록.
+// - 개인 목표: 본인 것만
+// - 부서 목표: 담당자 본인 것만 (지정 안 된 legacy 데이터는 부서원 전체 노출)
+// - 마일스톤 0개인 목표는 목표 자체를 placeholder 카드로 보여줌 (마일스톤 추가 유도)
 function getOkrMilestoneVirtualTasks() {
   const me = getU(state.currentUser);
   const myDeptId = DEPT_NAME_TO_ID[me.dept] || '';
   const uid = state.currentUser;
   const out = [];
   (state.okrs || []).forEach(o => {
-    const isMine = (o.scope === 'personal' && o.ownerId === uid) ||
-                   (o.scope === 'dept' && o.deptId === myDeptId);
-    if (!isMine) return;
-    (o.milestones || []).forEach((m, mi) => {
+    const isPersonalMine = o.scope === 'personal' && o.ownerId === uid;
+    const isDeptAssignedToMe = o.scope === 'dept' && o.deptId === myDeptId && (o.assigneeId ? o.assigneeId === uid : true);
+    if (!isPersonalMine && !isDeptAssignedToMe) return;
+    const sourceColor = o.scope === 'dept' ? '#3a6bb5' : '#8b5cf6';
+    const subLine = o.scope === 'dept' ? `부서 목표 · ${o.period||''}` : `개인 목표 · ${o.period||''}`;
+    const milestones = o.milestones || [];
+    if (!milestones.length) {
+      // 마일스톤 없는 목표 — placeholder 카드로 노출해 사용자가 목표의 존재를 잊지 않게 하고,
+      // 클릭하면 OKR 모듈로 이동해 마일스톤을 추가하도록 유도.
+      out.push({
+        id: 'okr_ph_' + o.id, _okrId: o.id, okrBacked: false, okrPlaceholder: true,
+        title: (o.title || '목표') + ' — 마일스톤을 추가하세요',
+        proj: '', assignee: uid, due: o.end || '', priority: 'mid', status: 'todo',
+        virtual: true, source: '🎯 ' + (o.title || '목표'),
+        sourceColor: sourceColor, completedAt: null, subLine: subLine + ' · 마일스톤 없음',
+      });
+      return;
+    }
+    milestones.forEach((m, mi) => {
       const status = m.done ? 'done' : 'todo';
       out.push({
         id: 'okr_ms_' + o.id + '_' + mi,
@@ -5119,9 +5225,7 @@ function getOkrMilestoneVirtualTasks() {
         title: m.title || '(마일스톤)', proj: '', assignee: uid,
         due: m.due || '', priority: 'mid', status: status,
         virtual: true, source: '🎯 ' + (o.title || '목표'),
-        sourceColor: o.scope === 'dept' ? '#3a6bb5' : '#8b5cf6',
-        completedAt: m.at || null,
-        subLine: o.scope === 'dept' ? `부서 목표 · ${o.period||''}` : `개인 목표 · ${o.period||''}`,
+        sourceColor: sourceColor, completedAt: m.at || null, subLine: subLine,
       });
     });
   });
