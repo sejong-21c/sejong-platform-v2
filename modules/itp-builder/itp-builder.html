@@ -7,6 +7,25 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script type="module">
+  // Firebase Firestore — ITP Builder 데이터를 index.html/NCR/CAR와 공유 (같은 오리진이라 로그인 세션도 자동 공유됨)
+  // v2.1: 이전엔 localStorage에만 저장되어 계정/브라우저마다 화면이 따로 놀았음(다른 계정으로 열면 안 보임).
+  // NCR/CAR와 동일하게 Firestore 문서-청크 방식으로 사진/도면까지 포함해 클라우드 동기화.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot };
+</script>
 <style>
 /* ═══════════════════════════════════════════════════════════
    EPC Control System 디자인 토큰 (인라인 정의 — sjp-tokens.css 의존성 제거)
@@ -589,6 +608,84 @@ const MASTER_LIST_KEYS = {wps: MASTER_WPS_KEY, welder: MASTER_WELDER_KEY, inspec
 const saveMasterList = (kind, arr) => { try { localStorage.setItem(MASTER_LIST_KEYS[kind], JSON.stringify(arr)); } catch(e){} };
 const loadMasterList = (kind) => { try { return JSON.parse(localStorage.getItem(MASTER_LIST_KEYS[kind])||"null"); } catch(e) { return null; } };
 
+// ════════ 3-1. Firestore 클라우드 동기화 (v2.1) ════════
+// NCR/CAR와 동일한 문서-청크 방식 — Firebase Storage는 사내 방화벽에 막히는 환경이 있어 회피,
+// Firestore 문서 여러 개로 잘라 저장(700KB/청크). 열 때 최신값을 가져오는 방식(실시간 반영 아님).
+const ITP_FS_COLL = "itpBuilderDocs";
+const FILE_CHUNK_SIZE = 700 * 1024;
+const _lastPushedDwg = {}; // itemId -> 마지막으로 업로드한 dwgUrl 문자열 (재청크 방지)
+
+function _timeoutAfter(ms, msg) { return new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms)); }
+
+// Firebase Auth 세션 복원은 비동기라 마운트 직후엔 currentUser가 잠시 비어있을 수 있음.
+// 최대 5초 폴링 후에도 없으면 에러를 던져 호출자가 실패를 명확히 알 수 있게 함(false-positive 성공 방지).
+async function waitForFbAuth(timeoutMs = 5000) {
+  const start = Date.now();
+  while (!window.fb || !fb.db || !fb.auth?.currentUser) {
+    if (Date.now() - start > timeoutMs) throw new Error("로그인 세션을 확인할 수 없습니다 (오프라인이거나 로그인 전일 수 있음)");
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+
+async function chunkUploadString(coll, keyPrefix, dataUrlStr) {
+  const chunkId = `chunk__${keyPrefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  const totalChunks = Math.ceil(dataUrlStr.length / FILE_CHUNK_SIZE);
+  const jobs = [];
+  for (let i = 0; i < totalChunks; i++) {
+    const chunk = dataUrlStr.slice(i*FILE_CHUNK_SIZE, (i+1)*FILE_CHUNK_SIZE);
+    jobs.push(fb.setDoc(fb.doc(fb.db, coll, `${chunkId}__${i}`), { chunkId, chunkIndex: i, totalChunks, data: chunk }));
+  }
+  await Promise.race([Promise.all(jobs), _timeoutAfter(20000, "저장 응답이 없습니다(20초 초과)")]);
+  return { chunkId, totalChunks };
+}
+
+async function loadChunkedString(coll, chunkId, totalChunks) {
+  const jobs = [];
+  for (let i = 0; i < totalChunks; i++) jobs.push(fb.getDoc(fb.doc(fb.db, coll, `${chunkId}__${i}`)));
+  const snaps = await Promise.all(jobs);
+  return snaps.map(s => s.data()?.data || "").join("");
+}
+
+async function writeItpDocToFirestore(payload) {
+  await waitForFbAuth();
+  const items = await Promise.all((payload.items||[]).map(async it => {
+    if (!it.dwgUrl || typeof it.dwgUrl !== "string" || !it.dwgUrl.startsWith("data:")) return it;
+    const cacheKey = it.id || it.tag;
+    if (_lastPushedDwg[cacheKey]?.src === it.dwgUrl) {
+      const {chunkId, totalChunks} = _lastPushedDwg[cacheKey];
+      const {dwgUrl, ...rest} = it;
+      return {...rest, dwgChunkId: chunkId, dwgChunks: totalChunks};
+    }
+    const {chunkId, totalChunks} = await chunkUploadString(ITP_FS_COLL, `dwg_${cacheKey}`, it.dwgUrl);
+    _lastPushedDwg[cacheKey] = {src: it.dwgUrl, chunkId, totalChunks};
+    const {dwgUrl, ...rest} = it;
+    return {...rest, dwgChunkId: chunkId, dwgChunks: totalChunks};
+  }));
+  const doc = {...payload, items};
+  await fb.setDoc(fb.doc(fb.db, ITP_FS_COLL, PID), doc);
+}
+
+function pushToFirestore(payload) {
+  writeItpDocToFirestore(payload).catch(e => console.error("[ITP Builder 클라우드 저장]", e));
+}
+
+async function loadFromFirestoreOrSkip(applyFn) {
+  if (!window.fb || !fb.db) { setTimeout(() => loadFromFirestoreOrSkip(applyFn), 300); return; }
+  if (!fb.auth?.currentUser) { setTimeout(() => loadFromFirestoreOrSkip(applyFn), 400); return; }
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, ITP_FS_COLL, PID));
+    if (!snap.exists()) return; // 클라우드에 아직 없음(신규 프로젝트거나 이 기능 이전 데이터) — 로컬 상태 유지
+    const cloud = snap.data();
+    const items = await Promise.all((cloud.items||[]).map(async it => {
+      if (!it.dwgChunkId) return it;
+      const dwgUrl = await loadChunkedString(ITP_FS_COLL, it.dwgChunkId, it.dwgChunks);
+      const {dwgChunkId, dwgChunks, ...rest} = it;
+      return {...rest, dwgUrl};
+    }));
+    applyFn({...cloud, items});
+  } catch (e) { console.error("[ITP Builder 클라우드 불러오기]", e); }
+}
+
 // ════════ 4. UI 헬퍼 ════════
 function Logo({h=46}){
   const [err, sErr] = useState(false);
@@ -973,14 +1070,32 @@ function App(){
       if (epcProj) setProj(p => ({...p, ...epcProj}));
       setTimeout(()=>showMsg("✓ EPC Control에서 프로젝트 정보 동기화 완료", 5000), 100);
     }
+    // v2.1 — 클라우드(Firestore)에 더 최신 데이터가 있으면 로컬을 덮어씀(다른 계정에서 작업한 내용 반영).
+    // 오프라인/미존재 시 조용히 실패하고 로컬 상태 그대로 유지.
+    loadFromFirestoreOrSkip(cloud => {
+      if (cloud.proj) setProj(cloud.proj);
+      if (cloud.items) setItems(cloud.items);
+      if (cloud.specReqs) setSpecReqs(cloud.specReqs);
+      if (cloud.quoteItems) setQuoteItems(cloud.quoteItems);
+      if (cloud.revComments) setRevComments(cloud.revComments);
+      if (cloud.itpRows) setItpRows(cloud.itpRows);
+      if (cloud.itpDocNo) setItpDocNo(cloud.itpDocNo);
+      if (cloud.itpRev) setItpRev(cloud.itpRev);
+      if (cloud.wpsList) { setWpsList(cloud.wpsList); saveMasterList("wps", cloud.wpsList); }
+      if (cloud.welderList) { setWelderList(cloud.welderList); saveMasterList("welder", cloud.welderList); }
+      if (cloud.inspectorList) { setInspectorList(cloud.inspectorList); saveMasterList("inspector", cloud.inspectorList); }
+      showMsg("✓ 클라우드에서 최신 데이터를 불러왔습니다", 4000);
+    });
   }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      saveLS({proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev});
+      const payload = {proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev, wpsList, welderList, inspectorList};
+      saveLS(payload);
+      pushToFirestore(payload);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev]);
+  }, [proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev, wpsList, welderList, inspectorList]);
 
   // v1.5 — 업로드된 WPS/Welder 목록을 window 전역에도 반영 (동일 페이지 내 다른 참조 대응)
   useEffect(() => { if (wpsList.length) window.WPS_LIST = wpsList; }, [wpsList]);
@@ -1416,6 +1531,15 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     const bridged = pushToHost();
     showMsg(`✓ QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 6000);
   };
+  // v2.1 — 자동저장(1초 디바운스)과 동일한 함수를 즉시 실행. 이 기능 도입 이전부터 로컬에만
+  // 저장돼있던 기존 프로젝트도 이 버튼 한 번으로 클라우드에 올라가 다른 계정에서 보이게 된다.
+  const handleManualCloudUpload = async () => {
+    showMsg("☁ 클라우드에 업로드 중...", 30000);
+    try {
+      await writeItpDocToFirestore({proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev, wpsList, welderList, inspectorList});
+      showMsg("✓ 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
+    } catch (e) { showMsg(`⚠ 업로드 실패: ${e.message||e}`, 6000); }
+  };
   const handleExport = () => {
     const data = {proj, items, specReqs, quoteItems, wpsList, welderList, inspectorList, exported_at:new Date().toISOString(), version:"itp_builder_v1.2"};
     const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
@@ -1690,6 +1814,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>자동 저장</span>
         <div style={{flex:1}}/>
         <button onClick={sendToQADoc} className="btn-primary" title="파일 다운로드 없이, 지금 상태를 바로 QA Doc Generator에 전달합니다">🚀 QA Doc Generator로 바로 전송</button>
+        <button onClick={handleManualCloudUpload} className="btn-secondary" title="현재 화면의 내용을 지금 즉시 클라우드에 업로드합니다 (다른 계정에서도 볼 수 있게 됨)">☁ 지금 클라우드로 업로드</button>
         <button onClick={handleExport} className="btn-secondary">💾 QC Gen으로 Export</button>
       </div>
 

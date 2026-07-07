@@ -7,6 +7,25 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script type="module">
+  // Firebase Firestore — QA Doc Generator 데이터를 index.html/NCR/CAR와 공유 (같은 오리진이라 로그인 세션도 자동 공유됨)
+  // v4.0: 이전엔 localStorage에만 저장되어 계정/브라우저마다 화면이 따로 놀았음(다른 계정으로 열면 안 보임).
+  // NCR/CAR와 동일하게 Firestore 문서-청크 방식으로 사진까지 포함해 클라우드 동기화.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot };
+</script>
 <style>
 /* ═══════════════════════════════════════════════════════════
    EPC Control System 디자인 토큰 (인라인 정의)
@@ -642,6 +661,88 @@ const projGenId = (name) => {
 };
 
 const imgKey = (kind, tag, suffix="") => `${kind}_${tag}${suffix?"_"+suffix:""}`;
+
+// ════════════ 5-1. Firestore 클라우드 동기화 (v4.0) ════════════
+// NCR/CAR와 동일한 문서-청크 방식 — Firebase Storage는 사내 방화벽에 막히는 환경이 있어 회피,
+// Firestore 문서 여러 개로 잘라 저장(700KB/청크). 열 때 최신값을 가져오는 방식(실시간 반영 아님).
+const QAG_FS_COLL = "qaGenDocs";
+const QAG_PROJ_INDEX_COLL = "qaGenProjIndex";
+const FILE_CHUNK_SIZE = 700 * 1024;
+const _lastPushedImg = {};      // "coll/docId/key" -> 마지막으로 업로드한 dataUrl 문자열 (재청크 방지)
+const _lastChunkPointer = {};   // "coll/docId/key" -> {chunkId, totalChunks}
+
+function _timeoutAfter(ms, msg) { return new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms)); }
+
+// Firebase Auth 세션 복원은 비동기라 마운트 직후엔 currentUser가 잠시 비어있을 수 있음.
+// 최대 5초 폴링 후에도 없으면 에러를 던져 호출자가 실패를 명확히 알 수 있게 함(false-positive 성공 방지).
+async function waitForFbAuth(timeoutMs = 5000) {
+  const start = Date.now();
+  while (!window.fb || !fb.db || !fb.auth?.currentUser) {
+    if (Date.now() - start > timeoutMs) throw new Error("로그인 세션을 확인할 수 없습니다 (오프라인이거나 로그인 전일 수 있음)");
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+
+async function chunkUploadString(coll, keyPrefix, dataUrlStr) {
+  const chunkId = `chunk__${keyPrefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  const totalChunks = Math.ceil(dataUrlStr.length / FILE_CHUNK_SIZE);
+  const jobs = [];
+  for (let i = 0; i < totalChunks; i++) {
+    const chunk = dataUrlStr.slice(i*FILE_CHUNK_SIZE, (i+1)*FILE_CHUNK_SIZE);
+    jobs.push(fb.setDoc(fb.doc(fb.db, coll, `${chunkId}__${i}`), { chunkId, chunkIndex: i, totalChunks, data: chunk }));
+  }
+  await Promise.race([Promise.all(jobs), _timeoutAfter(20000, "저장 응답이 없습니다(20초 초과)")]);
+  return { chunkId, totalChunks };
+}
+
+async function loadChunkedString(coll, chunkId, totalChunks) {
+  const jobs = [];
+  for (let i = 0; i < totalChunks; i++) jobs.push(fb.getDoc(fb.doc(fb.db, coll, `${chunkId}__${i}`)));
+  const snaps = await Promise.all(jobs);
+  return snaps.map(s => s.data()?.data || "").join("");
+}
+
+// 사진성 base64("data:...")와 소량 JSON을 기계적으로 구분 — 새 사진 필드가 추가돼도 자동으로 잡힘
+function splitImgStoreForCloud(imgStoreObj) {
+  const small = {}, large = {};
+  for (const [k, v] of Object.entries(imgStoreObj || {})) {
+    if (typeof v === "string" && v.startsWith("data:")) large[k] = v; else small[k] = v;
+  }
+  return { small, large };
+}
+
+async function pushQaGenDocToFirestore(coll, docId, payload, extraFields = {}) {
+  await waitForFbAuth();
+  const { small, large } = splitImgStoreForCloud(payload.imgStore);
+  const chunkPointers = {};
+  for (const [key, dataUrl] of Object.entries(large)) {
+    const cacheKey = `${coll}/${docId}/${key}`;
+    if (_lastPushedImg[cacheKey] === dataUrl) { chunkPointers[key] = _lastChunkPointer[cacheKey]; continue; }
+    const { chunkId, totalChunks } = await chunkUploadString(coll, `${docId}_${key}`, dataUrl);
+    chunkPointers[key] = { chunkId, totalChunks };
+    _lastPushedImg[cacheKey] = dataUrl;
+    _lastChunkPointer[cacheKey] = chunkPointers[key];
+  }
+  const doc = { ...payload, imgStore: small, imgStoreChunks: chunkPointers, ...extraFields };
+  await fb.setDoc(fb.doc(fb.db, coll, docId), doc);
+}
+
+function pushQaGenDocFireAndForget(coll, docId, payload, extraFields) {
+  pushQaGenDocToFirestore(coll, docId, payload, extraFields).catch(e => console.error(`[QA Doc Gen 클라우드 저장 - ${coll}]`, e));
+}
+
+async function loadQaGenDocFromFirestore(coll, docId) {
+  const snap = await fb.getDoc(fb.doc(fb.db, coll, docId));
+  if (!snap.exists()) return null;
+  const cloud = snap.data();
+  const restoredImg = { ...(cloud.imgStore || {}) };
+  const pointers = cloud.imgStoreChunks || {};
+  await Promise.all(Object.entries(pointers).map(async ([key, {chunkId, totalChunks}]) => {
+    restoredImg[key] = await loadChunkedString(coll, chunkId, totalChunks);
+  }));
+  const { imgStoreChunks, ...rest } = cloud;
+  return { ...rest, imgStore: restoredImg };
+}
 
 // ════════════ 6. UI 헬퍼 ════════════
 function FI({value, onChange, placeholder, style={}}){
@@ -2124,6 +2225,22 @@ function App(){
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveAsName, setSaveAsName] = useState("");
   const refreshSavedList = () => setSavedList(projIndexLoad());
+  // v4.0 — 로컬 목록 + 클라우드에서 다른 계정이 저장한 프로젝트도 함께 보여줌(1회 조회, 실시간 아님)
+  const refreshSavedListWithCloud = async () => {
+    const local = projIndexLoad();
+    setSavedList(local);
+    if (!window.fb || !fb.db || !fb.auth?.currentUser) return;
+    try {
+      const snap = await fb.getDocs(fb.collection(fb.db, QAG_PROJ_INDEX_COLL));
+      const cloudEntries = snap.docs.filter(d => !d.id.startsWith("chunk__")).map(d => ({
+        id: d.id, name: d.data().name || d.id, projNo: d.data().projNo || "",
+        itemCount: (d.data().items||[]).length, updatedAt: d.data().updatedAt || "", createdAt: d.data().createdAt || "", _cloudOnly: true,
+      }));
+      const localIds = new Set(local.map(x => x.id));
+      const merged = [...local, ...cloudEntries.filter(x => !localIds.has(x.id))];
+      setSavedList(merged);
+    } catch (e) { console.error("[QA Doc Gen 저장 목록 클라우드 조회]", e); }
+  };
 
   // v1.7 — ITP Builder localStorage에서 프로젝트/아이템을 읽어온다. 마운트 시(force:false)에는
   // QA Gen에 아직 아무것도 없을 때만 채우고, "🔄 ITP 정보 끌어오기" 버튼(force:true)에서는
@@ -2198,10 +2315,33 @@ function App(){
     if (!s || !s.proj || !s.proj.no) {
       pullFromItpBuilder({force:false, silent:false, noOwnItemsYet: !(s && s.items && s.items.length>0), noOwnProjectYet: true});
     }
+    // v4.0 — 클라우드(Firestore)에 더 최신 데이터가 있으면 로컬을 덮어씀(다른 계정에서 작업한 내용 반영).
+    // 오프라인/미존재 시 조용히 실패하고 로컬 상태 그대로 유지.
+    (async function loadCloudOrSkip(){
+      if (!window.fb || !fb.db) { setTimeout(loadCloudOrSkip, 300); return; }
+      if (!fb.auth?.currentUser) { setTimeout(loadCloudOrSkip, 400); return; }
+      try {
+        const cloud = await loadQaGenDocFromFirestore(QAG_FS_COLL, QAG_PID);
+        if (!cloud) return; // 신규 프로젝트거나 이 기능 이전 데이터 — 로컬 상태 유지
+        if (cloud.imgStore) Object.entries(cloud.imgStore).forEach(([k,v]) => IMG_STORE.set(k, v));
+        if (cloud.proj) setProj(cloud.proj);
+        if (cloud.items) setItems(cloud.items);
+        if (cloud.docData) setDocData(cloud.docData);
+        if (cloud.activeItemId) setActiveItemId(cloud.activeItemId);
+        if (cloud.activeDoc) setActiveDoc(cloud.activeDoc);
+        if (cloud.currentProjId) setCurrentProjId(cloud.currentProjId);
+        setLoadNonce(n => n+1);
+        showMsg("✓ 클라우드에서 최신 데이터를 불러왔습니다", 4000);
+      } catch (e) { console.error("[QA Doc Generator 클라우드 불러오기]", e); }
+    })();
   }, []);
   // v3.0 — 자동저장은 "마지막 작업" 자동 복원용으로만 유지 (프로젝트 저장은 수동 Save/Save As로 분리)
   useEffect(() => {
-    const t = setTimeout(() => saveLS({proj, items, docData, activeItemId, activeDoc, currentProjId, imgStore: Object.fromEntries(IMG_STORE)}), 1000);
+    const t = setTimeout(() => {
+      const payload = {proj, items, docData, activeItemId, activeDoc, currentProjId, imgStore: Object.fromEntries(IMG_STORE)};
+      saveLS(payload);
+      pushQaGenDocFireAndForget(QAG_FS_COLL, QAG_PID, payload);
+    }, 1000);
     return () => clearTimeout(t);
   }, [proj, items, docData, activeItemId, activeDoc, currentProjId]);
 
@@ -2218,8 +2358,13 @@ function App(){
     if (!confirm("현재 프로젝트에 덮어쓰시겠습니까?")) return;
     const idx = projIndexLoad().find(x => x.id === currentProjId);
     const name = idx ? idx.name : (proj.no || "프로젝트");
-    const ok = projSave(currentProjId, name, collectPayload());
-    if (ok) { refreshSavedList(); showMsg(`✓ 저장 완료 — ${name}`); }
+    const payload = collectPayload();
+    const ok = projSave(currentProjId, name, payload);
+    if (ok) {
+      refreshSavedList();
+      showMsg(`✓ 저장 완료 — ${name}`);
+      pushQaGenDocFireAndForget(QAG_PROJ_INDEX_COLL, currentProjId, payload, {name, projNo: payload.proj?.no||""});
+    }
     else { showMsg("⚠ 저장 실패 (용량 초과 가능)"); }
   };
 
@@ -2240,22 +2385,29 @@ function App(){
     } else {
       id = projGenId(name);
     }
-    const ok = projSave(id, name, collectPayload());
+    const payload = collectPayload();
+    const ok = projSave(id, name, payload);
     if (ok) {
       setCurrentProjId(id);
       refreshSavedList();
       setShowSaveDialog(false);
       setSaveAsName("");
       showMsg(`✓ 저장 완료 — ${name}`);
+      pushQaGenDocFireAndForget(QAG_PROJ_INDEX_COLL, id, payload, {name, projNo: payload.proj?.no||""});
     } else {
       showMsg("⚠ 저장 실패 (용량 초과 가능)");
     }
   };
 
-  // Load — 저장된 프로젝트 불러오기
-  const handleLoadProj = (id) => {
-    const data = projLoadOne(id);
-    if (!data) { showMsg("⚠ 데이터 없음"); return; }
+  // Load — 저장된 프로젝트 불러오기 (로컬에 없으면 클라우드에서 조회 — 다른 계정이 저장한 프로젝트)
+  const handleLoadProj = async (id) => {
+    let data = projLoadOne(id);
+    if (!data) {
+      if (!window.fb || !fb.db) { showMsg("⚠ 데이터 없음"); return; }
+      try { data = await loadQaGenDocFromFirestore(QAG_PROJ_INDEX_COLL, id); }
+      catch (e) { console.error("[QA Doc Gen 클라우드 프로젝트 불러오기]", e); }
+      if (!data) { showMsg("⚠ 데이터 없음"); return; }
+    }
     if (proj.no && items.length > 0 && !confirm("현재 작업 내용이 사라집니다. 계속하시겠습니까?\n(저장하지 않은 변경사항은 유실됨)")) return;
     // v3.1 — 그림/표 데이터(IMG_STORE) 복원. 다른 state보다 먼저 채워둬야 Preview 재마운트 시 바로 읽어간다.
     IMG_STORE.clear();
@@ -2297,6 +2449,16 @@ function App(){
     showMsg("✓ 새 프로젝트");
   };
 
+  // v4.0 — 자동저장(1초 디바운스)과 동일한 함수를 즉시 실행. 이 기능 도입 이전부터 로컬에만
+  // 저장돼있던 기존 프로젝트도 이 버튼 한 번으로 클라우드에 올라가 다른 계정에서 보이게 된다.
+  const handleManualCloudUpload = async () => {
+    showMsg("☁ 클라우드에 업로드 중...", 30000);
+    try {
+      await pushQaGenDocToFirestore(QAG_FS_COLL, QAG_PID, collectPayload());
+      showMsg("✓ 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
+    } catch (e) { showMsg(`⚠ 업로드 실패: ${e.message||e}`, 6000); }
+  };
+
   // v3.1 — 아이템 선택 목록에서 더 이상 필요 없는 아이템을 뺄 수 있게 삭제 기능 추가
   const removeSelectedItem = (id) => {
     const it = items.find(i => i.id === id);
@@ -2327,8 +2489,9 @@ function App(){
         <button onClick={refreshFromItpBuilder} className="btn-secondary" title="같은 프로젝트(pid)로 열린 ITP Builder의 최신 프로젝트 정보·아이템을 끌어옵니다 (ITP Builder의 '🚀 QA Doc Generator로 바로 전송'과 같은 내용을 QA Gen 쪽에서 요청하는 것)">🔄 ITP 정보 끌어오기</button>
         <button onClick={handleSaveOverwrite} className="btn-secondary" title="현재 프로젝트에 덮어쓰기">💾 저장{currentProjId&&<span style={{fontSize:9,marginLeft:4,color:"#1d9e75"}}>*</span>}</button>
         <button onClick={handleSaveAs} className="btn-secondary" title="새 이름으로 저장">💾+ 다른 이름</button>
-        <button onClick={()=>{refreshSavedList();setShowLoadModal(true);}} className="btn-secondary" title="저장된 프로젝트 불러오기">📂 불러오기 ({savedList.length})</button>
+        <button onClick={()=>{refreshSavedListWithCloud();setShowLoadModal(true);}} className="btn-secondary" title="저장된 프로젝트 불러오기 (다른 계정이 클라우드에 저장한 것 포함)">📂 불러오기 ({savedList.length})</button>
         <button onClick={handleNew} className="btn-secondary" title="현재 화면을 비우고 새 프로젝트를 시작합니다 (저장된 프로젝트 목록에는 영향 없음)">🗋 New</button>
+        <button onClick={handleManualCloudUpload} className="btn-secondary" title="현재 화면의 내용을 지금 즉시 클라우드에 업로드합니다 (다른 계정에서도 볼 수 있게 됨)">☁ 지금 클라우드로 업로드</button>
       </div>
     </div>
 
