@@ -661,7 +661,11 @@ async function writeItpDocToFirestore(payload) {
     const {dwgUrl, ...rest} = it;
     return {...rest, dwgChunkId: chunkId, dwgChunks: totalChunks};
   }));
-  const doc = {...payload, items};
+  // JSON 라운드트립으로 정규화 — EPC Control(window.parent.SJP.bridge)에서 넘어온 proj 등의 객체는
+  // 부모 iframe의 JS realm에서 만들어져 이 창의 Object.prototype과 달라(cross-realm), Firestore SDK가
+  // "커스텀 Object"로 오인해 setDoc을 거부하는 문제가 있었음(2026-07-07 실사용 중 발견). 이 창 realm의
+  // 순수 plain object로 재생성해 해결. 함수/undefined 등 Firestore가 못 저장하는 값도 함께 제거됨.
+  const doc = JSON.parse(JSON.stringify({...payload, items}));
   await fb.setDoc(fb.doc(fb.db, ITP_FS_COLL, PID), doc);
 }
 
