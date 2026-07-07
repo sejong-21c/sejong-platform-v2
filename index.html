@@ -1064,7 +1064,7 @@ function visibleManualEvents() {
     return e.createdBy === state.currentUser || e.dept === myDept;
   });
 }
-function allEvents() { return [...visibleManualEvents(), ...getBriefingScheduleEvents(), ...gcalEventsCache, ...getTaskCalendarEvents()]; }
+function allEvents() { return [...visibleManualEvents(), ...getBriefingScheduleEvents(), ...gcalEventsCache, ...getTaskCalendarEvents(), ...getOkrCalendarEvents()]; }
 /* 특정 부서(DEPTS id) 관련 briefing schedule 이벤트 반환 — 부서 스케줄에 자동 포함 */
 function getDeptBriefingEvents(deptId) {
   const events = [];
@@ -1718,6 +1718,12 @@ function startFirestoreSync() {
       render();
     }, err => console.warn('[Firestore] userState 동기화 오류:', err.message)));
   }
+  // v29.11: 목표 관리 (okrs 컬렉션) 실시간 동기화. 부서/개인 필터는 클라이언트 side에서 처리.
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'okrs'), snap => {
+    state.okrs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    savePartial('okrs', state.okrs);
+    render();
+  }, err => console.error('[Firestore] okrs 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
     snap.docChanges().forEach(ch => {
       const pid = ch.doc.id;
@@ -2969,6 +2975,52 @@ function dashboard() {
     </div>
     ${nuclearCard}
     ${hasBriefing ? `<div style="margin-top:14px;">${myTasksCard}</div>` : ''}
+    ${(() => {
+      // v29.11: 대시보드 OKR 위젯 — 내 부서 목표 + 내 개인 목표 진척 요약 + 임박 마일스톤 3건
+      const myDeptId = DEPT_NAME_TO_ID[u.dept] || '';
+      const uid = state.currentUser;
+      const okrs = (state.okrs || []).filter(o =>
+        (o.scope === 'personal' && o.ownerId === uid) ||
+        (o.scope === 'dept' && o.deptId === myDeptId));
+      if (!okrs.length) return '';
+      const avgPct = Math.round(okrs.reduce((a, o) => a + _okrProgress(o), 0) / okrs.length);
+      const color = _okrProgressColor(avgPct);
+      const upcoming = [];
+      const nowStr = today;
+      okrs.forEach(o => (o.milestones || []).forEach((m, mi) => {
+        if (m.done || !m.due || m.due < nowStr) return;
+        upcoming.push({ okr: o, m: m, mi: mi });
+      }));
+      upcoming.sort((a, b) => a.m.due.localeCompare(b.m.due));
+      const top3 = upcoming.slice(0, 3);
+      return `
+      <div class="card" style="margin-top:14px;">
+        <h3 style="margin-bottom:12px;font-size:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <span>🎯 내 목표 진척 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— 부서 ${okrs.filter(o=>o.scope==='dept').length}개 + 개인 ${okrs.filter(o=>o.scope==='personal').length}개 · 평균 <b style="color:${color};">${avgPct}%</b></span></span>
+          <button class="btn btn-sm" onclick="switchMod('okr')">전체 보기 →</button>
+        </h3>
+        <div class="bar" style="margin-bottom:12px;"><div class="bar-fill" style="width:${avgPct}%;background:${color};"></div></div>
+        ${okrs.slice(0,4).map(o => {
+          const pct = _okrProgress(o);
+          const c = _okrProgressColor(pct);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-light);">
+            <span class="b-pill ${o.scope==='dept'?'blue':'gray'}" style="flex-shrink:0;">${o.scope==='dept'?'🏛':'👤'}</span>
+            <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.title||''}</span>
+            <span style="width:100px;flex-shrink:0;"><div class="bar" style="height:6px;"><div class="bar-fill" style="width:${pct}%;background:${c};"></div></div></span>
+            <span style="font-size:12px;font-weight:600;color:${c};min-width:38px;text-align:right;">${pct}%</span>
+          </div>`;
+        }).join('')}
+        ${top3.length ? `
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border-light);">
+          <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px;">📌 임박 마일스톤 (3건)</div>
+          ${top3.map(x => `
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${x.m.title} <span style="color:var(--text-lighter);">· ${x.okr.title}</span></span>
+              <span style="font-size:11px;color:var(--warning);font-weight:600;flex-shrink:0;">${x.m.due}</span>
+            </div>`).join('')}
+        </div>` : ''}
+      </div>`;
+    })()}
     ${reportsCard}
     <div class="card" style="margin-top:14px;">
       <h3 style="margin-bottom:14px;font-size:14px;">🏗️ ${isExec?'전사':isManager?u.dept:'참여'} 프로젝트 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(카드 클릭 → 상세)</span></h3>
@@ -4189,7 +4241,7 @@ function getScheduleVirtualTasks() {
   return out;
 }
 function allKanbanTasks() {
-  return [...visibleTasks(), ...getBriefingVirtualTasks(), ...getScheduleVirtualTasks()];
+  return [...visibleTasks(), ...getBriefingVirtualTasks(), ...getScheduleVirtualTasks(), ...getOkrMilestoneVirtualTasks()];
 }
 
 // 드래그앤드롭 진행 상태 이동. 실제 tasks 문서 / 부서 WBS / 브리핑 오버라이드를 각각 다른 경로로 저장.
@@ -4206,6 +4258,21 @@ async function moveTask(taskId, newStatus) {
       await fb.setDoc(fb.doc(fb.db, 'tasks', taskId),
         { status: newStatus, completedAt: completedAt }, { merge: true });
     } catch (e) { alert('업무 이동 저장 실패: ' + (e.message || e)); }
+    return;
+  }
+  // OKR 마일스톤 — 원본 okrs/{id}.milestones[i].done 을 갱신 (todo 또는 done만 의미가 있으므로 매핑 단순화)
+  if (t.okrBacked && t._okrId != null) {
+    const o = (state.okrs || []).find(x => x.id === t._okrId);
+    if (!o) return;
+    const idx = t._msIdx;
+    const ms = (o.milestones || [])[idx];
+    if (!ms) return;
+    const targetDone = newStatus === 'done';
+    if (ms.done === targetDone) return;
+    const newMs = { ...ms, done: targetDone, at: targetDone ? new Date().toISOString().slice(0,10) : null };
+    const updated = { ...o, milestones: (o.milestones||[]).map((m,i) => i===idx?newMs:m), updatedAt: Date.now() };
+    try { await fb.setDoc(fb.doc(fb.db, 'okrs', o.id), updated); }
+    catch (e) { alert('마일스톤 상태 저장 실패: ' + (e.message || e)); }
     return;
   }
   // 부서 자체 업무 WBS 대단락 — 문서 자체를 갱신 (부서 공유 상태)
@@ -4824,57 +4891,12 @@ function openQuote() {
   });
 }
 
-/* ═════════════ 🎯 목표 관리 — 데모 화면 (구조 시안) ═════════════
-   본 함수는 아직 데이터 저장/편집 미구현 상태의 "구조 미리보기" 데모입니다.
-   구조: 목표(Objective) + 마일스톤 리스트 · 스코프: 부서 연간 / 개인 분기
-   사용자가 확정하면 Firestore 연동·편집 모달·업무관리/캘린더 연동 붙일 예정. */
-function _demoOkrs(uid) {
-  const me = getU(uid);
-  const myDept = me && me.dept ? me.dept : '품질관리부';
-  const myDeptId = DEPT_NAME_TO_ID[myDept] || 'quality';
-  return [
-    { id:'d1', scope:'dept', deptId: myDeptId, deptName: myDept,
-      title: 'ASME 재갱신 완료', why: '3년 갱신 필수 · 실패 시 원자력 수주 불가',
-      end: '2027-03-31', period: '2026 연간',
-      milestones: [
-        { title:'서류 준비', due:'2026-09-30', done:true, at:'2026-09-25' },
-        { title:'예비 감사 통과', due:'2026-11-30', done:true, at:'2026-11-15' },
-        { title:'본 감사 통과', due:'2027-02-28', done:false },
-        { title:'인증서 수령', due:'2027-03-15', done:false },
-      ]},
-    { id:'d2', scope:'dept', deptId: myDeptId, deptName: myDept,
-      title: 'NCR 발생 30% 감축', why: '상반기 24건 → 하반기 17건 이하',
-      end: '2026-12-31', period: '2026 연간',
-      milestones: [
-        { title:'원인 분석 리포트', due:'2026-08-31', done:true, at:'2026-08-20' },
-        { title:'재발방지 SOP 배포', due:'2026-10-31', done:false },
-        { title:'4Q NCR 4건 이하 유지', due:'2026-12-31', done:false },
-      ]},
-    { id:'d3', scope:'dept', deptId: myDeptId, deptName: myDept,
-      title: '한수원 유자격 신규 등록', why: '원자력 수주 파이프라인 확장',
-      end: '2027-01-31', period: '2026 연간',
-      milestones: [
-        { title:'서류 초안 완성', due:'2026-10-15', done:false },
-        { title:'감사 준비', due:'2026-12-15', done:false },
-        { title:'현장 실사 통과', due:'2027-01-31', done:false },
-      ]},
-    { id:'p1', scope:'personal', ownerId: uid,
-      title: '품질종합분석표 v2 배포', why: 'NCR/CAR 추이를 부서장이 바로 확인',
-      end: '2026-09-30', period: '2026 Q3',
-      milestones: [
-        { title:'요구사항 정리', due:'2026-07-15', done:true, at:'2026-07-10' },
-        { title:'프로토타입 배포', due:'2026-08-15', done:false },
-        { title:'피드백 반영 최종 배포', due:'2026-09-30', done:false },
-      ]},
-    { id:'p2', scope:'personal', ownerId: uid,
-      title: 'ITP Builder 도면 자동인식 도입', why: '표준 도면 태그 추출 시간 30분→3분',
-      end: '2026-09-30', period: '2026 Q3',
-      milestones: [
-        { title:'OCR 라이브러리 벤치마크', due:'2026-07-20', done:false },
-        { title:'PoC 완성', due:'2026-08-31', done:false },
-      ]},
-  ];
-}
+/* ═════════════ 🎯 목표 관리 (OKR) — Firestore 연동 정식 구현 ═════════════
+   구조: 목표(Objective) + 마일스톤 · 스코프: 부서 연간 / 개인 분기
+   저장: Firestore okrs/{id} 문서 (state.okrs 실시간 동기화, startFirestoreSync에서 구독)
+   권한: 부서 목표 = 같은 부서 소속 + (manager/exec/super) 등급만 편집
+         개인 목표 = 본인만 편집·조회
+   연동: 캘린더 · 업무관리 칸반 · 대시보드 위젯에 자동 노출 */
 function _okrProgress(o) {
   if (!o.milestones || !o.milestones.length) return 0;
   const done = o.milestones.filter(m => m.done).length;
@@ -4883,16 +4905,28 @@ function _okrProgress(o) {
 function _okrProgressColor(pct) {
   return pct >= 70 ? 'var(--success)' : pct >= 40 ? 'var(--primary)' : 'var(--warning)';
 }
+function canEditOkr(o) {
+  const me = getU(state.currentUser);
+  if (!me) return false;
+  if (me.grade === 'super') return true;
+  if (o.scope === 'personal') return o.ownerId === state.currentUser;
+  // 부서 목표: 같은 부서 + manager/exec 이상
+  const myDeptId = DEPT_NAME_TO_ID[me.dept] || '';
+  return myDeptId === o.deptId && (me.grade === 'manager' || me.grade === 'exec');
+}
 function _renderOkrCard(o) {
   const pct = _okrProgress(o);
   const color = _okrProgressColor(pct);
   const dueMs = new Date(o.end).getTime();
   const now = Date.now();
-  const daysLeft = Math.floor((dueMs - now) / 86400000);
-  const dueClass = daysLeft < 0 ? 'red' : daysLeft < 14 ? 'orange' : 'gray';
-  const dueText = daysLeft < 0 ? `마감 ${-daysLeft}일 지남` : daysLeft === 0 ? '오늘 마감' : `D-${daysLeft}`;
+  const daysLeft = isNaN(dueMs) ? null : Math.floor((dueMs - now) / 86400000);
+  const dueClass = daysLeft === null ? 'gray' : daysLeft < 0 ? 'red' : daysLeft < 14 ? 'orange' : 'gray';
+  const dueText = daysLeft === null ? '기한 미정'
+                  : daysLeft < 0 ? `마감 ${-daysLeft}일 지남`
+                  : daysLeft === 0 ? '오늘 마감' : `D-${daysLeft}`;
   const doneCount = (o.milestones || []).filter(m => m.done).length;
   const totalCount = (o.milestones || []).length;
+  const editable = canEditOkr(o);
   return `
     <div class="card" style="margin-bottom:12px;padding:14px 16px;border-left:3px solid ${color};">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
@@ -4900,24 +4934,28 @@ function _renderOkrCard(o) {
           ? `<span class="b-pill blue">🏛 ${o.deptName||'부서'}</span>`
           : `<span class="b-pill gray">👤 개인</span>`}
         <span class="b-pill" style="background:#f1f5f9;color:var(--text-light);">${o.period||''}</span>
-        <strong style="flex:1;font-size:14px;">${o.title}</strong>
+        <strong style="flex:1;font-size:14px;">${o.title||''}</strong>
         <span class="b-pill ${dueClass}">${dueText}</span>
         <strong style="color:${color};font-size:15px;">${pct}%</strong>
       </div>
       ${o.why ? `<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;padding-left:2px;">${o.why}</div>` : ''}
       <div class="bar" style="margin-bottom:10px;"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
       <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;">📌 마일스톤 ${doneCount}/${totalCount}</div>
-      ${(o.milestones||[]).map(m => `
+      ${(o.milestones||[]).map((m, mi) => `
         <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-light);">
-          <span style="width:16px;height:16px;border-radius:3px;border:1.5px solid ${m.done?'var(--success)':'var(--border)'};background:${m.done?'var(--success)':'#fff'};color:#fff;font-size:11px;text-align:center;line-height:12px;">${m.done?'✓':''}</span>
-          <span style="flex:1;font-size:13px;${m.done?'text-decoration:line-through;color:var(--text-lighter);':''}">${m.title}</span>
+          <span onclick="${editable?`toggleOkrMilestone('${o.id}',${mi})`:''}"
+                style="width:18px;height:18px;border-radius:3px;border:1.5px solid ${m.done?'var(--success)':'var(--border)'};background:${m.done?'var(--success)':'#fff'};color:#fff;font-size:12px;text-align:center;line-height:14px;flex-shrink:0;${editable?'cursor:pointer;':'cursor:not-allowed;opacity:.6;'}">${m.done?'✓':''}</span>
+          <span style="flex:1;font-size:13px;${m.done?'text-decoration:line-through;color:var(--text-lighter);':''}">${m.title||''}</span>
           <span style="font-size:11px;color:var(--text-lighter);">${m.done && m.at ? '완료 '+m.at : (m.due||'')}</span>
+          ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="deleteOkrMilestone('${o.id}',${mi})" title="마일스톤 삭제">✕</button>` : ''}
         </div>
       `).join('')}
+      ${editable ? `
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:6px;">
-        <button class="btn btn-sm" style="opacity:.5;" title="아직 편집 미구현 — 데모 화면입니다">✎ 편집</button>
-        <button class="btn btn-sm" style="opacity:.5;" title="아직 편집 미구현 — 데모 화면입니다">＋ 마일스톤</button>
-      </div>
+        <button class="btn btn-sm" onclick="openOkrMilestoneModal('${o.id}')">＋ 마일스톤</button>
+        <button class="btn btn-sm" onclick="openOkrModal('${o.id}')">✎ 편집</button>
+        <button class="btn btn-sm" onclick="deleteOkr('${o.id}')" style="color:var(--danger);">🗑 삭제</button>
+      </div>` : `<div style="margin-top:6px;font-size:10px;color:var(--text-lighter);text-align:right;">조회 전용 (편집 권한 없음)</div>`}
     </div>`;
 }
 function okr() {
@@ -4925,9 +4963,11 @@ function okr() {
   const me = getU(uid);
   const myDept = me && me.dept ? me.dept : '';
   const myDeptId = DEPT_NAME_TO_ID[myDept] || '';
-  const allDemo = _demoOkrs(uid);
-  const deptGoals = allDemo.filter(o => o.scope === 'dept' && o.deptId === myDeptId);
-  const personGoals = allDemo.filter(o => o.scope === 'personal' && o.ownerId === uid);
+  const all = (state.okrs || []).filter(o => o && o.scope);
+  const deptGoals = all.filter(o => o.scope === 'dept' && o.deptId === myDeptId)
+                       .sort((a, b) => (a.end || '').localeCompare(b.end || ''));
+  const personGoals = all.filter(o => o.scope === 'personal' && o.ownerId === uid)
+                         .sort((a, b) => (a.end || '').localeCompare(b.end || ''));
   const totalPct = (list) => {
     if (!list.length) return 0;
     return Math.round(list.reduce((a, o) => a + _okrProgress(o), 0) / list.length);
@@ -4937,15 +4977,10 @@ function okr() {
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">🎯 목표 관리 <span class="b-pill" style="background:#fef3c7;color:#92400e;font-size:10px;margin-left:6px;">🚧 데모</span></div>
-        <div class="mod-sub">부서·개인 두 스코프 · 목표+마일스톤 방식 시안 · 로그인 계정(${me.name||'-'}·${myDept||'-'}) 기준</div>
+        <div class="mod-title">🎯 목표 관리</div>
+        <div class="mod-sub">부서 연간 · 개인 분기 목표 · 로그인 계정(${me.name||'-'}·${myDept||'-'}) 기준 · 마일스톤 체크 시 진척률 자동 반영</div>
       </div>
-      <button class="btn btn-primary" onclick="alert('데모 화면입니다. 구조가 마음에 드시면 편집·저장 기능을 붙이겠습니다.')">+ 신규 목표</button>
-    </div>
-
-    <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400e;">
-      <b>🚧 데모 화면입니다.</b> 지금은 예시 데이터로 UI 흐름만 보여드립니다. 편집/저장은 아직 안 됩니다.
-      구조(카드 레이아웃·마일스톤 방식·부서/개인 2단·필터)와 대략적인 느낌만 확인해주세요.
+      <button class="btn btn-primary" onclick="openOkrModal(null)">+ 신규 목표</button>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
@@ -4964,11 +4999,141 @@ function okr() {
     </div>
 
     <div style="font-size:13px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏛 ${myDept||'부서'} 연간 목표 (${deptGoals.length})</div>
-    ${deptGoals.length ? deptGoals.map(_renderOkrCard).join('') : '<div class="card" style="text-align:center;padding:20px;color:var(--text-lighter);font-size:12px;">부서 목표가 없습니다.</div>'}
+    ${deptGoals.length ? deptGoals.map(_renderOkrCard).join('') : `<div class="card" style="text-align:center;padding:24px;color:var(--text-lighter);font-size:12px;">등록된 부서 목표가 없습니다.${(me.grade==='manager'||me.grade==='exec'||me.grade==='super')?' <a onclick="openOkrModal(null,\'dept\')" style="color:var(--primary);cursor:pointer;text-decoration:underline;">+ 첫 부서 목표 등록하기</a>':''}</div>`}
 
     <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;">👤 내 분기 목표 (${personGoals.length})</div>
-    ${personGoals.length ? personGoals.map(_renderOkrCard).join('') : '<div class="card" style="text-align:center;padding:20px;color:var(--text-lighter);font-size:12px;">개인 목표가 없습니다.</div>'}
+    ${personGoals.length ? personGoals.map(_renderOkrCard).join('') : `<div class="card" style="text-align:center;padding:24px;color:var(--text-lighter);font-size:12px;">등록된 개인 목표가 없습니다. <a onclick="openOkrModal(null,'personal')" style="color:var(--primary);cursor:pointer;text-decoration:underline;">+ 첫 개인 목표 등록하기</a></div>`}
   `;
+}
+
+// 목표 생성/편집 모달. okrId===null이면 새 목표, 있으면 편집.
+// defaultScope는 empty state 링크에서 스코프를 미리 결정할 때 사용.
+function openOkrModal(okrId, defaultScope) {
+  const me = getU(state.currentUser);
+  const myDeptId = DEPT_NAME_TO_ID[me.dept] || '';
+  const canMakeDept = me.grade === 'manager' || me.grade === 'exec' || me.grade === 'super';
+  const existing = okrId ? (state.okrs || []).find(o => o.id === okrId) : null;
+  const scope = existing ? existing.scope : (defaultScope || 'personal');
+  const title = existing ? existing.title : '';
+  const why = existing ? existing.why : '';
+  const period = existing ? existing.period : (scope === 'dept' ? '2026 연간' : '2026 Q3');
+  const end = existing ? existing.end : '';
+  const scopeOpts = [
+    `<option value="personal" ${scope==='personal'?'selected':''}>👤 개인 (본인만 편집)</option>`,
+    canMakeDept ? `<option value="dept" ${scope==='dept'?'selected':''}>🏛 ${me.dept||'부서'} (부서장·관리자급만 편집)</option>` : ''
+  ].join('');
+  openModal(existing ? '목표 수정' : '신규 목표 등록', `
+    <div class="fg"><label class="fl">스코프</label><select class="fs" id="okrScope"${existing?' disabled':''}>${scopeOpts}</select>${existing?'<div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">스코프는 생성 후 변경할 수 없습니다.</div>':''}</div>
+    <div class="fg"><label class="fl">목표 (Objective)</label><input class="fi" id="okrTitle" placeholder="예: ASME 재갱신 완료" value="${title.replace(/"/g,'&quot;')}"></div>
+    <div class="fg"><label class="fl">왜 이 목표인지 (선택)</label><input class="fi" id="okrWhy" placeholder="예: 3년 갱신 필수 · 실패 시 원자력 수주 불가" value="${why.replace(/"/g,'&quot;')}"></div>
+    <div class="fg"><label class="fl">기간</label><input class="fi" id="okrPeriod" placeholder="예: 2026 연간, 2026 Q3" value="${period}"></div>
+    <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="okrEnd" value="${end}"></div>
+    <div style="font-size:11px;color:var(--text-lighter);margin-top:8px;">저장 후 하단 "＋ 마일스톤" 버튼으로 마일스톤을 추가하세요.</div>
+  `, async () => {
+    const t = document.getElementById('okrTitle').value.trim();
+    if (!t) return alert('목표 제목을 입력하세요.');
+    const s = existing ? existing.scope : document.getElementById('okrScope').value;
+    if (s === 'dept' && !canMakeDept) return alert('부서 목표는 부서장·관리자급만 등록할 수 있습니다.');
+    const doc = existing ? { ...existing } : {
+      id: 'okr_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      scope: s,
+      milestones: [],
+      createdBy: state.currentUser,
+      createdAt: Date.now(),
+    };
+    doc.title = t;
+    doc.why = document.getElementById('okrWhy').value.trim();
+    doc.period = document.getElementById('okrPeriod').value.trim();
+    doc.end = document.getElementById('okrEnd').value;
+    doc.updatedAt = Date.now();
+    if (s === 'dept') { doc.deptId = myDeptId; doc.deptName = me.dept; doc.ownerId = null; }
+    else { doc.ownerId = state.currentUser; doc.deptId = null; doc.deptName = null; }
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'okrs', doc.id), doc);
+      closeModal();
+    } catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
+  });
+}
+async function deleteOkr(okrId) {
+  const o = (state.okrs || []).find(x => x.id === okrId);
+  if (!o) return;
+  if (!canEditOkr(o)) return alert('삭제 권한이 없습니다.');
+  if (!confirm(`"${o.title}" 목표를 삭제하시겠습니까?\n마일스톤 ${(o.milestones||[]).length}개도 함께 삭제됩니다.`)) return;
+  try { await fb.deleteDoc(fb.doc(fb.db, 'okrs', okrId)); }
+  catch (e) { alert('삭제 중 오류: ' + (e.message || e)); }
+}
+function openOkrMilestoneModal(okrId) {
+  const o = (state.okrs || []).find(x => x.id === okrId);
+  if (!o || !canEditOkr(o)) return;
+  openModal('마일스톤 추가', `
+    <div class="fg"><label class="fl">마일스톤 내용</label><input class="fi" id="msTitle" placeholder="예: 예비 감사 통과"></div>
+    <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="msDue"></div>
+  `, async () => {
+    const t = document.getElementById('msTitle').value.trim();
+    if (!t) return alert('마일스톤 내용을 입력하세요.');
+    const newMs = { id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+                    title: t, due: document.getElementById('msDue').value, done: false };
+    const updated = { ...o, milestones: [...(o.milestones||[]), newMs], updatedAt: Date.now() };
+    try { await fb.setDoc(fb.doc(fb.db, 'okrs', okrId), updated); closeModal(); }
+    catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
+  });
+}
+async function toggleOkrMilestone(okrId, msIdx) {
+  const o = (state.okrs || []).find(x => x.id === okrId);
+  if (!o || !canEditOkr(o)) return;
+  const ms = (o.milestones || [])[msIdx];
+  if (!ms) return;
+  const nowDone = !ms.done;
+  const newMs = { ...ms, done: nowDone, at: nowDone ? new Date().toISOString().slice(0,10) : null };
+  const updated = { ...o, milestones: (o.milestones||[]).map((m,i) => i===msIdx?newMs:m), updatedAt: Date.now() };
+  try { await fb.setDoc(fb.doc(fb.db, 'okrs', okrId), updated); }
+  catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
+}
+async function deleteOkrMilestone(okrId, msIdx) {
+  const o = (state.okrs || []).find(x => x.id === okrId);
+  if (!o || !canEditOkr(o)) return;
+  const ms = (o.milestones || [])[msIdx];
+  if (!ms) return;
+  if (!confirm(`마일스톤 "${ms.title}"을(를) 삭제하시겠습니까?`)) return;
+  const updated = { ...o, milestones: (o.milestones||[]).filter((_,i) => i!==msIdx), updatedAt: Date.now() };
+  try { await fb.setDoc(fb.doc(fb.db, 'okrs', okrId), updated); }
+  catch (e) { alert('삭제 중 오류: ' + (e.message || e)); }
+}
+
+// ── 다른 모듈 연동 헬퍼 ───────────────────────────────────────
+// 캘린더/업무관리 칸반에 노출할 "가상 업무" 목록. 마감일 있는 마일스톤만 대상.
+function getOkrMilestoneVirtualTasks() {
+  const me = getU(state.currentUser);
+  const myDeptId = DEPT_NAME_TO_ID[me.dept] || '';
+  const uid = state.currentUser;
+  const out = [];
+  (state.okrs || []).forEach(o => {
+    const isMine = (o.scope === 'personal' && o.ownerId === uid) ||
+                   (o.scope === 'dept' && o.deptId === myDeptId);
+    if (!isMine) return;
+    (o.milestones || []).forEach((m, mi) => {
+      const status = m.done ? 'done' : 'todo';
+      out.push({
+        id: 'okr_ms_' + o.id + '_' + mi,
+        _okrId: o.id, _msIdx: mi, okrBacked: true,
+        title: m.title || '(마일스톤)', proj: '', assignee: uid,
+        due: m.due || '', priority: 'mid', status: status,
+        virtual: true, source: '🎯 ' + (o.title || '목표'),
+        sourceColor: o.scope === 'dept' ? '#3a6bb5' : '#8b5cf6',
+        completedAt: m.at || null,
+        subLine: o.scope === 'dept' ? `부서 목표 · ${o.period||''}` : `개인 목표 · ${o.period||''}`,
+      });
+    });
+  });
+  return out;
+}
+function getOkrCalendarEvents() {
+  return getOkrMilestoneVirtualTasks().filter(t => t.due).map(t => ({
+    id: 'okrcal_' + t.id, title: t.title, date: t.due, time: '',
+    color: t.status === 'done' ? 'green' : 'blue',
+    source: 'okr', done: t.status === 'done',
+    extraClass: 'task-ev' + (t.status === 'done' ? ' done' : ''),
+  }));
 }
 
 /* ═════════════ 👥 조직/권한 ═════════════ */
