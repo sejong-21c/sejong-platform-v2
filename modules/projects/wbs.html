@@ -275,6 +275,10 @@ body.sjp-readonly [data-a="delW"],
 body.sjp-readonly [data-a="delMI"] { display: none !important; }
 .sjp-ro-badge { display:none; }
 body.sjp-readonly .sjp-ro-badge { display:inline-flex; align-items:center; gap:4px; background:#fef3c7; color:#92400e; font-size:10px; font-weight:600; padding:3px 9px; border-radius:12px; margin-left:8px; }
+/* v29.11: 비PM용 "변경 요청" 버튼 — 읽기전용일 때만 표시 */
+.sjp-req-btn { display:none; }
+body.sjp-readonly .sjp-req-btn { display:inline-block; padding:4px 10px; margin-left:6px; background:#fef3c7; color:#92400e; border:1px solid #fbbf24; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; }
+body.sjp-readonly .sjp-req-btn:hover { background:#fde68a; }
 </style>
 <!-- v28.4.3: PDF 생성 라이브러리 (jsPDF + html2canvas) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -956,7 +960,7 @@ function rWBS(){
     : `<div class="wbs-unified-wrap" style="position:relative;overflow:auto;background:#fff;border-radius:8px;border:1px solid #e4e7ec;flex:1;min-height:160px;max-height:none">
     ${unifiedTable}
   </div>`;
-  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span></div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
+  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span></div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button><button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다">📝 PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
   <div class="fbar"><span style="font-size:10px;color:#9ca3af;margin-right:3px">필터:</span>${["전체","완료","진행중","미시작","지연"].map(f=>`<button class="fb${S.wf===f?" on":""}" data-a="setWF" data-f="${f}">${f}(${fCnt(f)})</button>`).join("")}</div>
   <div class="cont">${(S.wv!=="evms" && !_deptMode)?`<div style="margin-bottom:10px;border:1px solid #e4e7ec;border-radius:8px;background:#f8fafc;overflow:hidden;flex-shrink:0">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer" data-a="tgEvms"><span style="font-size:11px;font-weight:700;color:#1e40af">📈 EVMS 요약 (계획·실행·일정차이·SPI)</span><span style="font-size:11px;color:#6b7280">${S.evmsHide?'▶ 펼치기':'▼ 접기'}</span></div>
@@ -1528,9 +1532,17 @@ function v28WeeklySummary(){
 // v29: Firestore 자동 저장 (WBS 행/아이템을 프로젝트당 wbsData/{pid} 문서 하나로)
 function v28Save(){
   if(!window.fb || !_wbsPid) return;
+  // v29.11: 편집 권한 없는 사용자(canEdit=0)가 실수로 저장 트리거를 걸어도 Firestore에 쓰지 않는다.
+  // (subscribeWbsData의 metadata.hasPendingWrites 가드가 있지만 이중 방어)
+  if (document.body.classList.contains("sjp-readonly")) return;
   const rows = WBS.filter(w=>w.projId===_wbsPid);
   const items = MITEM[_wbsPid] || [];
-  fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, updatedAt: Date.now()}).catch(e=>console.warn("v28Save fail",e));
+  // v29.11: WBS 개정 번호(rev). 저장 때마다 +1 (증분 저장). PM이 승인한 각 변경 세트가 새 Rev.
+  _wbsRev = (Number(_wbsRev) || 0) + 1;
+  fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, rev: _wbsRev, updatedAt: Date.now()}, {merge: true}).catch(e=>console.warn("v28Save fail",e));
+  // Rev 표시가 있으면 즉시 반영
+  const revEl = document.getElementById("wbsRevBadge");
+  if (revEl) revEl.textContent = "Rev. " + _wbsRev;
   // v29: 부서 자체 업무 컨테이너(dept_*)는 실제 projects 문서가 없다 — 여기서 progress를 merge-write하면
   // Firestore가 name/code 없는 잔재 프로젝트 문서를 새로 만들어버려 회사 전체 프로젝트 목록에 "undefined" 카드로 샌다.
   if (_deptMode) return;
@@ -1542,6 +1554,43 @@ function v28Save(){
 // R() 호출 시마다 자동 저장 (디바운스) — 초기 로드는 initFromFirestore()의 subscribeWbsData()가 담당
 let v28SaveTimer=null;
 const _origR=R;R=function(){_origR.apply(this,arguments);clearTimeout(v28SaveTimer);v28SaveTimer=setTimeout(v28Save,400);};
+
+// v29.11: 비PM 사용자가 스케줄 변경을 PM에게 요청. 텍스트 기반 결재 요청(1차 MVP).
+// PM은 결재 메뉴에서 승인 후 직접 WBS를 편집. Firestore approvals 컬렉션에 저장.
+async function submitWbsChangeRequest() {
+  if (!_wbsPid || !window.fb) return;
+  const desc = prompt("PM에게 요청할 스케줄 변경 내용을 입력하세요 (어떤 항목을 어떻게 바꾸고 싶은지 구체적으로).\n\n예: SJ2026-002 · 배관공사 시작일을 2026-07-15 → 2026-08-01로 변경 요청 (자재 입고 지연)");
+  if (!desc || !desc.trim()) return;
+  const cur = fb.auth && fb.auth.currentUser;
+  if (!cur) return alert("로그인 정보가 없습니다. 새로고침 후 다시 시도해주세요.");
+  // 프로젝트 정보 조회해서 reviewer(PM) 결정
+  let pmUid = null, projCode = "", projName = "";
+  try {
+    const psnap = await fb.getDoc(fb.doc(fb.db, "projects", _wbsPid));
+    if (psnap.exists()) {
+      const pd = psnap.data();
+      pmUid = pd.pm || null; projCode = pd.code || ""; projName = pd.name || "";
+    }
+  } catch (e) { console.warn("PM 조회 실패:", e.message); }
+  if (!pmUid) return alert("이 프로젝트의 PM이 지정되어 있지 않아 결재 요청을 보낼 수 없습니다. 관리자에게 PM 지정을 요청해주세요.");
+  const id = "app_" + Date.now() + "_" + Math.random().toString(36).slice(2,6);
+  const today = new Date().toISOString().slice(0,10);
+  const doc = {
+    id, type: "schedule-change",
+    title: `[${projCode||_wbsPid}] WBS 변경 요청`,
+    projId: _wbsPid, projCode, projName,
+    description: desc.trim(),
+    author: cur.uid, approver: pmUid, to: pmUid,
+    status: "pending", date: today, createdAt: Date.now(),
+    // 참고용 스냅샷 (승인 시 PM이 참고)
+    baseRev: _wbsRev,
+  };
+  try {
+    await fb.setDoc(fb.doc(fb.db, "approvals", id), doc);
+    alert("✅ PM에게 변경 요청을 전송했습니다.\n\n부장님 · PM이 '결재' 메뉴에서 확인 후 승인하면 WBS에 반영됩니다.");
+  } catch (e) { alert("전송 중 오류: " + (e.message || e)); }
+}
+window.submitWbsChangeRequest = submitWbsChangeRequest;
 
 // JSON Export
 function v28Export(){
@@ -2662,6 +2711,7 @@ setTimeout(()=>{
 // v29: SJ FLOW(index.html)와 같은 Firestore를 직접 읽어서 프로젝트 메타 + WBS/아이템을 불러옴.
 // 같은 오리진이라 index.html에서 로그인한 Firebase Auth 세션이 이 iframe에도 자동으로 이어짐.
 let _wbsPid = null;
+let _wbsRev = 0;
 function subscribeWbsData(pid){
   fb.onSnapshot(fb.doc(fb.db, "wbsData", pid), snap => {
     // hasPendingWrites=true면 방금 이 창에서 쓴 내용이 로컬에 반영된 것뿐이라 무시
@@ -2671,6 +2721,10 @@ function subscribeWbsData(pid){
     const d = snap.data();
     WBS.length = 0; (d.rows||[]).forEach(w => WBS.push(w));
     MITEM[pid] = d.items || [];
+    // v29.11: Rev 동기화 — Firestore 원본을 존중해서 로컬 카운트를 맞춘다.
+    _wbsRev = Number(d.rev) || 0;
+    const revEl = document.getElementById("wbsRevBadge");
+    if (revEl) revEl.textContent = "Rev. " + _wbsRev;
     v28RecalcRange();
     R();
   }, err => console.warn("[SJ FLOW] wbsData 구독 실패:", err.message));
