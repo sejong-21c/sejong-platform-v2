@@ -717,6 +717,89 @@ function canEditSchedule(projId) {
   if (p && p.pm === state.currentUser) return true; // 이 프로젝트 PM 본인
   return false;
 }
+// v29.12: 프로젝트 팀 관리 — PM이 부서별 담당 인원을 지정한다. projects/{pid}.members = { deptId: [uid, ...] }
+function isProjectMember(projId, uid) {
+  const p = getP(projId);
+  if (!p || !p.members) return false;
+  uid = uid || state.currentUser;
+  return Object.values(p.members).some(list => Array.isArray(list) && list.includes(uid));
+}
+// 마스터 wbsData 직접 편집 권한: super/exec + 영업부 + PM 본인 + 스케줄 개별권한
+function canEditWbsMaster(projId) {
+  const u = getU(state.currentUser);
+  if (!u) return false;
+  if (isSuperOrExec(u)) return true;
+  if (u.dept === '영업부' || hasPerm('project', u)) return true;
+  if (hasPerm('schedule', u)) return true;
+  const p = getP(projId);
+  return !!(p && p.pm === state.currentUser);
+}
+// WBS 변경 제안(shadow doc + PM 결재) 권한: 프로젝트 members에 지정된 사람
+function canProposeWbsChange(projId) {
+  if (canEditWbsMaster(projId)) return true;
+  return isProjectMember(projId, state.currentUser);
+}
+// PM 또는 팀 배정 권한자(super/exec/영업부)만 members 편집 가능
+function canManageProjectMembers(projId) {
+  const u = getU(state.currentUser);
+  if (!u) return false;
+  if (isSuperOrExec(u) || u.dept === '영업부' || hasPerm('project', u)) return true;
+  const p = getP(projId);
+  return !!(p && p.pm === state.currentUser);
+}
+// 팀 지정 모달 — PM이 부서별로 담당 직원(부서원 uid)을 체크박스로 지정
+function openProjectMembers(pid) {
+  const p = getP(pid);
+  if (!p) return alert('프로젝트를 찾을 수 없습니다.');
+  if (!canManageProjectMembers(pid)) return alert('이 프로젝트의 팀을 지정할 권한이 없습니다.');
+  const currentMembers = (p.members && typeof p.members === 'object') ? p.members : {};
+  // 부서별 사용자 그룹
+  const usersByDept = {};
+  (state.users || []).forEach(u => {
+    if (!u.dept) return;
+    if (!usersByDept[u.dept]) usersByDept[u.dept] = [];
+    usersByDept[u.dept].push(u);
+  });
+  const deptHtml = DEPTS.map(d => {
+    const list = usersByDept[d.name] || [];
+    if (!list.length) return '';
+    const assigned = new Set(currentMembers[d.id] || []);
+    return `
+      <div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px;">${d.icon} ${d.name}
+          <span style="font-size:10px;color:var(--text-lighter);font-weight:400;">· 지정됨 ${assigned.size} / ${list.length}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:4px;">
+          ${list.map(u => `
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:2px 4px;">
+              <input type="checkbox" data-mdept="${d.id}" data-muid="${u.id}" ${assigned.has(u.id)?'checked':''}>
+              <span>${u.name} <span style="color:var(--text-lighter);">${u.title||''}</span></span>
+            </label>
+          `).join('')}
+        </div>
+      </div>`;
+  }).filter(Boolean).join('');
+  openModal(`👥 팀 지정 — ${p.code} ${p.name}`, `
+    <div style="font-size:11px;color:var(--text-lighter);margin-bottom:10px;">
+      각 부서에서 이 프로젝트를 담당할 직원을 지정하세요. 지정된 직원만 해당 부서 필터의 WBS를 편집·업무 등록할 수 있고, 변경 사항은 PM(${(getU(p.pm)||{}).name||'미지정'})의 결재 후 반영됩니다.
+    </div>
+    ${deptHtml || '<div style="text-align:center;padding:16px;color:var(--text-lighter);font-size:12px;">등록된 사용자가 없습니다.</div>'}
+  `, async () => {
+    // 체크 상태 수집
+    const nextMembers = {};
+    document.querySelectorAll('#modal input[type="checkbox"][data-mdept]').forEach(cb => {
+      if (!cb.checked) return;
+      const deptId = cb.getAttribute('data-mdept');
+      const uid = cb.getAttribute('data-muid');
+      if (!nextMembers[deptId]) nextMembers[deptId] = [];
+      nextMembers[deptId].push(uid);
+    });
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'projects', pid), { members: nextMembers }, { merge: true });
+      closeModal();
+    } catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
+  });
+}
 // v29: 부서 스케줄 편집 권한 → 슈퍼/임원 + 그 부서의 관리자급(부서장) 본인 + (개별)deptSchedule
 function canEditDeptSchedule(dept) {
   const u = getU(state.currentUser);
@@ -845,7 +928,7 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b18';
+const WBS_BUILD = 'b19';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b10';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -2165,8 +2248,11 @@ function renderEPCControl() {
   const backLabel = view.selectedTool === 'epc' ? '프로젝트 선택' : '프로젝트 목록';
   
   // EPC Control v28.5 모듈 경로 (embed=1로 사이드바 숨김, canEdit=권한)
-  const _canEdit = canEditSchedule(p.id) ? '1' : '0';
-  const epcPath = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_canEdit}&v=${WBS_BUILD}`;
+  // v29.12: shadow 모드 결정 — master 편집 권한 없지만 프로젝트 members에 지정된 사람은 shadow 편집 가능
+  const _master = canEditWbsMaster(p.id);
+  const _canEdit = (_master || canProposeWbsChange(p.id)) ? '1' : '0';
+  const _shadowUid = (!_master && canProposeWbsChange(p.id)) ? state.currentUser : '';
+  const epcPath = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&embed=1&canEdit=${_canEdit}${_shadowUid?'&shadowUid='+encodeURIComponent(_shadowUid):''}&v=${WBS_BUILD}`;
 
   return `
     <div style="display:flex;flex-direction:column;height:100%;">
@@ -2819,22 +2905,30 @@ function closeDeptSchedProj() { view.deptSchedProj = null; render(); }
 // 2단계: WBS 엔진(wbs.html)을 부서 필터/부서 컨테이너 모드로 로드
 function renderDeptSchedFrame() {
   const dept = view.deptSchedDept || getU(state.currentUser).dept || '';
-  const canEdit = canEditDeptSchedule(dept) ? '1' : '0';
   const deptId = (DEPTS.find(d => d.name === dept) || {}).id || 'etc';
-  let src, title;
+  let src, title, shadowUid = '', canEdit = '0';
   if (view.deptSchedProj === '__self__') {
+    // 부서 자체 업무 — 부서장·관리자급만 편집(기존 규칙 그대로), shadow 없음
+    canEdit = canEditDeptSchedule(dept) ? '1' : '0';
     src = `modules/projects/wbs.html?pid=dept_${encodeURIComponent(deptId)}&deptMode=1&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}&v=${WBS_BUILD}`;
     title = `${dept} 자체 업무 일정`;
   } else {
     const p = getP(view.deptSchedProj);
-    src = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}&v=${WBS_BUILD}`;
+    // v29.12: 프로젝트 부서 필터 뷰 — master 편집자가 아니고 project members에 있으면 shadow 모드로 편집
+    const master = canEditWbsMaster(p.id) || canEditDeptSchedule(dept);
+    const propose = canProposeWbsChange(p.id);
+    canEdit = (master || propose) ? '1' : '0';
+    shadowUid = (!master && propose) ? state.currentUser : '';
+    src = `modules/projects/wbs.html?proj=${encodeURIComponent(p.code)}&pid=${encodeURIComponent(p.id)}&dept=${encodeURIComponent(dept)}&embed=1&canEdit=${canEdit}${shadowUid?'&shadowUid='+encodeURIComponent(shadowUid):''}&v=${WBS_BUILD}`;
     title = `${p.code} ${p.name} — ${dept}`;
   }
   return `<div style="display:flex;flex-direction:column;height:100%;">
     <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">
       <button class="back-btn" onclick="closeDeptSchedProj()">← ${dept} 목록</button>
       <span style="font-size:13px;font-weight:600;">${title}</span>
-      ${canEdit==='0'?'<span class="b-pill gray" style="margin-left:auto;">조회 전용</span>':''}
+      ${canEdit==='0' ? '<span class="b-pill gray" style="margin-left:auto;">조회 전용</span>'
+        : shadowUid ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;margin-left:auto;">🟡 변경 제안 모드 · 저장 시 PM 결재 대기</span>'
+        : ''}
     </div>
     <div style="flex:1;position:relative;overflow:hidden;background:#fff;">
       <iframe src="${src}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="${title}"></iframe>
@@ -3781,7 +3875,10 @@ function projects() {
           <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||"미지정"}${canAssignPM()?` <button onclick="event.stopPropagation();openAssignPM('${p.id}')" style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 2px;" title="PM 지정/변경">✏️</button>`:""}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%"></div></div>
-          <div style="margin-top:6px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text-lighter);display:flex;justify-content:space-between;align-items:center;gap:6px;">
+            <span>${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</span>
+            ${canManageProjectMembers(p.id)?`<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;" onclick="event.stopPropagation();openProjectMembers('${p.id}')" title="부서별 담당 직원 지정">👥 팀 ${(function(){const m=p.members||{};let c=0;Object.values(m).forEach(l=>c+=(l||[]).length);return c;})()}</button>`:''}
+          </div>
         </div>
       `;}).join('')}
     </div>
@@ -5847,16 +5944,44 @@ async function decideApproval(aid, decision) {
   const patch = {
     status: decision, decidedBy: uid, decidedAt: Date.now(), decisionNote: note.trim(),
   };
+  // v29.12: type='wbs-shadow' + approved 이면 shadow doc을 master wbsData에 자동 반영 후 shadow 삭제.
+  let autoApplied = false;
+  if (a.type === 'wbs-shadow' && decision === 'approved' && a.projId && a.shadowUid) {
+    try {
+      const pendId = a.projId + "_" + a.shadowUid;
+      const psnap = await fb.getDoc(fb.doc(fb.db, 'wbsPending', pendId));
+      if (!psnap.exists()) {
+        return alert('원본 pending 문서를 찾지 못했습니다. 이미 반영됐거나 폐기된 것 같습니다.');
+      }
+      const pd = psnap.data();
+      // 현재 master rev 조회 → 1 증가
+      let curRev = 0;
+      try {
+        const msnap = await fb.getDoc(fb.doc(fb.db, 'wbsData', a.projId));
+        if (msnap.exists()) curRev = Number(msnap.data().rev) || 0;
+      } catch (e) {}
+      const newRev = curRev + 1;
+      await fb.setDoc(fb.doc(fb.db, 'wbsData', a.projId),
+        { rows: pd.rows || [], items: pd.items || [], rev: newRev, updatedAt: Date.now() },
+        { merge: true });
+      await fb.deleteDoc(fb.doc(fb.db, 'wbsPending', pendId));
+      patch.appliedAt = Date.now();
+      patch.appliedRev = newRev;
+      autoApplied = true;
+    } catch (e) {
+      return alert('자동 반영 중 오류: ' + (e.message || e) + '\n결재는 저장하지 않았습니다.');
+    }
+  }
   try {
     await fb.setDoc(fb.doc(fb.db, 'approvals', aid), patch, { merge: true });
-    // WBS 변경 요청이 승인되면 PM에게 안내: 실제 WBS 편집은 결재 후 PM이 직접 반영해야 함(1차 MVP)
-    if (a.type === 'schedule-change' && decision === 'approved') {
-      alert('✅ 승인 완료.\n이제 프로젝트 관리에서 해당 프로젝트를 열고 WBS를 실제로 반영해주세요.');
+    if (a.type === 'wbs-shadow' && decision === 'approved' && autoApplied) {
+      alert(`✅ 승인 완료 · 마스터 WBS에 자동 반영 (Rev. ${patch.appliedRev}).`);
+    } else if (a.type === 'schedule-change' && decision === 'approved') {
+      alert('✅ 승인 완료.\n텍스트 요청은 자동 반영되지 않으니, 프로젝트 관리에서 실제 WBS를 수정해주세요.');
     } else {
       alert(`✅ ${decision==='approved'?'승인':'반려'} 처리 완료.`);
     }
     closeModal();
-    // 모달 사이즈 원복
     document.querySelector('#modal .modal').style.maxWidth = '';
     document.getElementById('modalConfirm').style.display = '';
     document.getElementById('modalCancel').textContent = '취소';

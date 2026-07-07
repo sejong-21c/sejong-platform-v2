@@ -279,6 +279,11 @@ body.sjp-readonly .sjp-ro-badge { display:inline-flex; align-items:center; gap:4
 .sjp-req-btn { display:none; }
 body.sjp-readonly .sjp-req-btn { display:inline-block; padding:4px 10px; margin-left:6px; background:#fef3c7; color:#92400e; border:1px solid #fbbf24; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; }
 body.sjp-readonly .sjp-req-btn:hover { background:#fde68a; }
+/* v29.12: shadow 편집 안내 바 */
+#wbsShadowBar { display:none; align-items:center; gap:10px; padding:8px 14px; background:#fef3c7; color:#92400e; border-bottom:1px solid #fbbf24; font-size:12px; font-weight:600; }
+#wbsShadowBar .grow { flex:1; }
+#wbsShadowBar button { padding:4px 12px; border-radius:4px; border:1px solid #fbbf24; background:#fff; color:#92400e; font-size:11px; font-weight:700; cursor:pointer; }
+#wbsShadowBar button.primary { background:#f59e0b; color:#fff; border-color:#f59e0b; }
 </style>
 <!-- v28.4.3: PDF 생성 라이브러리 (jsPDF + html2canvas) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -418,8 +423,13 @@ let REC={},PIM={};
 const SHOW_LIMIT=15;
 // v29: 담당 부서 목록 (index.html DEPTS와 동일 순서). WBS 행 dept 태그·부서 필터에 사용.
 const DEPT_LIST=["영업부","설계부","구매부","생산부","품질관리부","현장시공","안전관리부","총무부","재무부"];
-// URL ?dept=<부서> 부서 필터 모드 / ?deptMode=1 부서 자체 업무 컨테이너 모드
+// URL ?dept=<부서> 부서 필터 모드 / ?deptMode=1 부서 자체 업무 컨테이너 모드 / ?shadowUid=<uid> shadow 편집 모드
 let _deptFilter=null, _deptMode=false;
+// v29.12: shadow 모드 — master(wbsData) 대신 개인 pending(wbsPending/{pid}_{uid})에 저장.
+// 이 uid의 pending doc이 존재하면 화면엔 그걸 보여주고, 없으면 master를 보여준다.
+let _shadowUid=null;
+let _shadowRows=null; // 로컬 캐시 (shadow 활성 시 WBS를 이걸로 덮어씀)
+let _shadowItems=null;
 let S={
   mv:"wbs",wp:"wbs",
   wv:"split",wf:"전체",wexp:{w1:true,w2:true,w3:true,w4:true},
@@ -1537,6 +1547,17 @@ function v28Save(){
   if (document.body.classList.contains("sjp-readonly")) return;
   const rows = WBS.filter(w=>w.projId===_wbsPid);
   const items = MITEM[_wbsPid] || [];
+  // v29.12: shadow 모드면 master를 건드리지 않고 개인 pending 문서에만 저장. Rev도 여기선 안 바꿈.
+  if (_shadowUid) {
+    _shadowRows = rows; _shadowItems = items;
+    const pendId = _wbsPid + "_" + _shadowUid;
+    fb.setDoc(fb.doc(fb.db, "wbsPending", pendId),
+      { pid: _wbsPid, uid: _shadowUid, rows, items, baseRev: _wbsRev || 0, updatedAt: Date.now() }
+    ).catch(e => console.warn("shadow save fail", e));
+    // 상단 pending 배지 갱신
+    updateShadowIndicator(true);
+    return;
+  }
   // v29.11: WBS 개정 번호(rev). 저장 때마다 +1 (증분 저장). PM이 승인한 각 변경 세트가 새 Rev.
   _wbsRev = (Number(_wbsRev) || 0) + 1;
   fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, rev: _wbsRev, updatedAt: Date.now()}, {merge: true}).catch(e=>console.warn("v28Save fail",e));
@@ -2713,22 +2734,98 @@ setTimeout(()=>{
 let _wbsPid = null;
 let _wbsRev = 0;
 function subscribeWbsData(pid){
+  // 마스터 wbsData 구독. shadow 활성 시엔 화면엔 shadow가 우선 보이지만, 마스터도 백그라운드로 최신 유지.
   fb.onSnapshot(fb.doc(fb.db, "wbsData", pid), snap => {
-    // hasPendingWrites=true면 방금 이 창에서 쓴 내용이 로컬에 반영된 것뿐이라 무시
-    // (그대로 다시 적용하면 저장→갱신→저장… 무한루프가 생김)
     if (snap.metadata.hasPendingWrites) return;
     if (!snap.exists()) return;
     const d = snap.data();
-    WBS.length = 0; (d.rows||[]).forEach(w => WBS.push(w));
-    MITEM[pid] = d.items || [];
-    // v29.11: Rev 동기화 — Firestore 원본을 존중해서 로컬 카운트를 맞춘다.
     _wbsRev = Number(d.rev) || 0;
     const revEl = document.getElementById("wbsRevBadge");
     if (revEl) revEl.textContent = "Rev. " + _wbsRev;
+    // shadow 활성 & 로컬 shadow 스냅샷 존재 → shadow가 화면 진실. master 데이터는 로드하지만 화면 갱신은 shadow 기준.
+    if (_shadowUid && _shadowRows) {
+      // master rev만 반영. 화면 rows는 유지.
+      R();
+      return;
+    }
+    WBS.length = 0; (d.rows||[]).forEach(w => WBS.push(w));
+    MITEM[pid] = d.items || [];
     v28RecalcRange();
     R();
   }, err => console.warn("[SJ FLOW] wbsData 구독 실패:", err.message));
+  // v29.12: shadow 모드면 개인 pending 구독 추가. 존재하면 그 rows를 화면에 덮어씀.
+  if (_shadowUid) {
+    const pendId = pid + "_" + _shadowUid;
+    fb.onSnapshot(fb.doc(fb.db, "wbsPending", pendId), snap => {
+      if (snap.metadata.hasPendingWrites) return;
+      if (snap.exists()) {
+        const d = snap.data();
+        _shadowRows = d.rows || [];
+        _shadowItems = d.items || [];
+        WBS.length = 0; _shadowRows.forEach(w => WBS.push(w));
+        MITEM[pid] = _shadowItems;
+        updateShadowIndicator(true);
+      } else {
+        // pending doc이 삭제됐음(승인 완료 또는 폐기) → master로 리셋되도록 다음 master 이벤트에 위임
+        _shadowRows = null; _shadowItems = null;
+        updateShadowIndicator(false);
+        // 즉시 master 재적용을 원한다면 여기서 별도 재fetch 필요 — 다음 master onSnapshot에 자동 동기화.
+      }
+      v28RecalcRange();
+      R();
+    }, err => console.warn("[SJ FLOW] wbsPending 구독 실패:", err.message));
+  }
 }
+// shadow 상태 배지 표시/숨김
+function updateShadowIndicator(active) {
+  const el = document.getElementById("wbsShadowBar");
+  if (!el) return;
+  el.style.display = active ? "flex" : "none";
+}
+async function submitShadowForApproval() {
+  if (!_shadowUid || !_wbsPid || !window.fb) return;
+  if (!_shadowRows) return alert("아직 저장된 변경 사항이 없습니다.");
+  const cur = fb.auth && fb.auth.currentUser;
+  if (!cur) return alert("로그인 정보가 없습니다.");
+  // 프로젝트 정보 조회
+  let pmUid = null, projCode = "", projName = "";
+  try {
+    const psnap = await fb.getDoc(fb.doc(fb.db, "projects", _wbsPid));
+    if (psnap.exists()) {
+      const pd = psnap.data();
+      pmUid = pd.pm || null; projCode = pd.code || ""; projName = pd.name || "";
+    }
+  } catch (e) { console.warn("PM 조회 실패:", e.message); }
+  if (!pmUid) return alert("이 프로젝트의 PM이 지정되어 있지 않아 결재 요청을 보낼 수 없습니다.");
+  const id = "app_" + Date.now() + "_" + Math.random().toString(36).slice(2,6);
+  const today = new Date().toISOString().slice(0,10);
+  const doc = {
+    id, type: "wbs-shadow",
+    title: `[${projCode||_wbsPid}] WBS 변경 제안 (자동 반영)`,
+    projId: _wbsPid, projCode, projName,
+    shadowUid: _shadowUid,
+    description: `부서원의 WBS 편집이 저장됐습니다. 승인 시 마스터에 자동 반영됩니다.`,
+    author: cur.uid, approver: pmUid, to: pmUid,
+    status: "pending", date: today, createdAt: Date.now(),
+    baseRev: _wbsRev,
+  };
+  try {
+    await fb.setDoc(fb.doc(fb.db, "approvals", id), doc);
+    alert("✅ PM에게 변경 제안을 제출했습니다.\n승인되면 자동으로 마스터 WBS에 반영됩니다.");
+  } catch (e) { alert("전송 중 오류: " + (e.message || e)); }
+}
+async function discardShadow() {
+  if (!_shadowUid || !_wbsPid || !window.fb) return;
+  if (!confirm("저장한 변경 사항을 폐기하시겠습니까?\n마스터 상태로 되돌아갑니다.")) return;
+  const pendId = _wbsPid + "_" + _shadowUid;
+  try {
+    await fb.deleteDoc(fb.doc(fb.db, "wbsPending", pendId));
+    alert("폐기했습니다. 페이지가 마스터 상태로 갱신됩니다.");
+    location.reload();
+  } catch (e) { alert("폐기 중 오류: " + (e.message || e)); }
+}
+window.submitShadowForApproval = submitShadowForApproval;
+window.discardShadow = discardShadow;
 (async function initFromFirestore(){
   const qs = new URLSearchParams(window.location.search);
   const view = qs.get("view");
@@ -2738,6 +2835,22 @@ function subscribeWbsData(pid){
   // v29: 부서 스케줄 진입 — ?dept=<부서> 필터, ?deptMode=1 부서 자체 업무 컨테이너
   _deptFilter = qs.get("dept") || null;
   _deptMode = qs.get("deptMode") === "1";
+  _shadowUid = qs.get("shadowUid") || null;
+  if (_shadowUid) {
+    console.info("[SJ FLOW] shadow 편집 모드 활성 — uid:", _shadowUid);
+    // 페이지 최상단에 shadow 안내 바 삽입 (R() 재렌더에 영향받지 않도록 body 직하 고정)
+    setTimeout(() => {
+      if (document.getElementById("wbsShadowBar")) return;
+      const bar = document.createElement("div");
+      bar.id = "wbsShadowBar";
+      bar.innerHTML =
+        '<span>🟡 <b>변경 제안 모드</b> — 저장한 변경사항은 PM 승인 후 마스터 WBS에 반영됩니다.</span>' +
+        '<span class="grow"></span>' +
+        '<button onclick="discardShadow()" title="변경사항을 폐기하고 마스터로 복귀">🗑 폐기</button>' +
+        '<button class="primary" onclick="submitShadowForApproval()" title="현재 저장된 변경사항으로 PM 결재 요청">📤 PM 결재 요청</button>';
+      document.body.insertBefore(bar, document.body.firstChild);
+    }, 0);
+  }
 
   // ★ 화면 모드(mv)는 URL의 ?view= 값만으로 즉시(동기적으로) 확정한다.
   if (view === "mm") S = {...S, mv:"mm", mp: pid ? "items" : "projects", mproj:null};
