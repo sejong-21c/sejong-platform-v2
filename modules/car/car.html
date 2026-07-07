@@ -394,7 +394,7 @@ function _opts(arr, sel='') {
 }
 
 function _deptOpts(sel='') {
-  const DEPT_LIST = ['영업부','설계부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'];
+  const DEPT_LIST = ['영업부','기술부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'];
   const fromUsers = [...new Set((state.users||[]).map(u=>u.dept).filter(Boolean))];
   const merged = [...new Set([...DEPT_LIST, ...fromUsers])];
   return ['<option value="">— 미선택 —</option>',
