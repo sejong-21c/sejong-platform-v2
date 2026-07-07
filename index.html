@@ -5184,16 +5184,21 @@ function _renderOkrCard(o) {
         const boxContent = isFull ? '✓' : '';
         const pctPillColor = isFull ? 'var(--success)' : isPartial ? '#b45309' : 'var(--text-lighter)';
         const pctPillBg = isFull ? '#dcfce7' : isPartial ? '#fef3c7' : '#f1f5f9';
+        // v29.14: 마일스톤 담당자 배지 (부서 목표에서 특정 부서원에게 할당된 경우)
+        const msAssignee = m.assigneeId ? getU(m.assigneeId) : null;
+        const assigneeBadge = msAssignee ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 6px;">👤 ${msAssignee.name||'담당'}</span>` : '';
         return `
         <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-light);">
           <span onclick="${editable?`toggleOkrMilestone('${o.id}',${mi})`:''}"
                 title="${editable?'클릭: 0%↔100% 토글':''}"
                 style="width:18px;height:18px;border-radius:3px;border:1.5px solid ${boxBorder};background:${boxBg};color:#fff;font-size:12px;text-align:center;line-height:14px;flex-shrink:0;${editable?'cursor:pointer;':'cursor:not-allowed;opacity:.6;'}">${boxContent}</span>
           <span style="flex:1;font-size:13px;${isFull?'text-decoration:line-through;color:var(--text-lighter);':''}">${m.title||''}</span>
+          ${assigneeBadge}
           <span onclick="${editable?`setMilestonePct('${o.id}',${mi})`:''}"
                 title="${editable?'클릭: 진행률 % 지정':''}"
                 style="font-size:10px;font-weight:700;background:${pctPillBg};color:${pctPillColor};padding:2px 7px;border-radius:10px;${editable?'cursor:pointer;':''}min-width:36px;text-align:center;">${mPct}%</span>
           <span style="font-size:11px;color:var(--text-lighter);">${isFull && m.at ? '완료 '+m.at : (m.due||'')}</span>
+          ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="openOkrMilestoneModal('${o.id}',${mi})" title="마일스톤 수정 (제목·마감일·담당자)">✎</button>` : ''}
           ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="deleteOkrMilestone('${o.id}',${mi})" title="마일스톤 삭제">✕</button>` : ''}
         </div>`;
       }).join('')}
@@ -5378,18 +5383,41 @@ async function deleteOkr(okrId) {
   try { await fb.deleteDoc(fb.doc(fb.db, 'okrs', okrId)); }
   catch (e) { alert('삭제 중 오류: ' + (e.message || e)); }
 }
-function openOkrMilestoneModal(okrId) {
+function openOkrMilestoneModal(okrId, msIdx) {
   const o = (state.okrs || []).find(x => x.id === okrId);
   if (!o || !canEditOkr(o)) return;
-  openModal('마일스톤 추가', `
-    <div class="fg"><label class="fl">마일스톤 내용</label><input class="fi" id="msTitle" placeholder="예: 예비 감사 통과"></div>
-    <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="msDue"></div>
+  const editing = (msIdx != null) ? (o.milestones||[])[msIdx] : null;
+  // 부서 목표의 마일스톤은 부서원 개인에게 지정 가능. 개인 목표의 마일스톤은 목표 자체의 owner에게 자동 귀속.
+  const showAssigneeSel = o.scope === 'dept';
+  const me = getU(state.currentUser);
+  const deptMembers = showAssigneeSel ? (state.users || []).filter(u => u.dept === me.dept) : [];
+  const curAssignee = editing ? (editing.assigneeId || o.assigneeId || '') : (o.assigneeId || '');
+  const assigneeOpts = '<option value="">— 지정 안 함 (목표 담당자로 자동 귀속) —</option>' +
+    deptMembers.map(u => `<option value="${u.id}" ${u.id===curAssignee?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
+  openModal(editing ? '마일스톤 수정' : '마일스톤 추가', `
+    <div class="fg"><label class="fl">마일스톤 내용</label><input class="fi" id="msTitle" placeholder="예: 예비 감사 통과" value="${editing?(editing.title||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="msDue" value="${editing?(editing.due||''):''}"></div>
+    ${showAssigneeSel ? `
+    <div class="fg"><label class="fl">담당자 (선택)</label>
+      <select class="fs" id="msAssignee">${assigneeOpts}</select>
+      <div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">지정하면 그 사람의 업무관리 칸반에 이 마일스톤이 나타납니다.</div>
+    </div>` : ''}
   `, async () => {
     const t = document.getElementById('msTitle').value.trim();
     if (!t) return alert('마일스톤 내용을 입력하세요.');
-    const newMs = { id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
-                    title: t, due: document.getElementById('msDue').value, done: false };
-    const updated = { ...o, milestones: [...(o.milestones||[]), newMs], updatedAt: Date.now() };
+    const assigneeSel = document.getElementById('msAssignee');
+    const assigneeId = assigneeSel ? (assigneeSel.value || null) : null;
+    const due = document.getElementById('msDue').value;
+    let newMilestones;
+    if (editing) {
+      newMilestones = (o.milestones||[]).map((m, i) => i === msIdx ? { ...m, title: t, due, assigneeId } : m);
+    } else {
+      newMilestones = [...(o.milestones||[]), {
+        id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        title: t, due, done: false, assigneeId
+      }];
+    }
+    const updated = { ...o, milestones: newMilestones, updatedAt: Date.now() };
     try { await fb.setDoc(fb.doc(fb.db, 'okrs', okrId), updated); closeModal(); }
     catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
   });
@@ -5476,14 +5504,22 @@ function getOkrMilestoneVirtualTasks() {
   const out = [];
   (state.okrs || []).forEach(o => {
     const isPersonalMine = o.scope === 'personal' && o.ownerId === uid;
-    const isDeptAssignedToMe = o.scope === 'dept' && o.deptId === myDeptId && (o.assigneeId ? o.assigneeId === uid : true);
-    if (!isPersonalMine && !isDeptAssignedToMe) return;
+    // v29.14: 부서 목표는 이제 마일스톤별로 담당자가 다를 수 있음. 이 목표에 내가 할당된 마일스톤이 하나라도 있으면 처리.
+    const isDeptGoalRelevant = o.scope === 'dept' && o.deptId === myDeptId;
+    if (!isPersonalMine && !isDeptGoalRelevant) return;
     const sourceColor = o.scope === 'dept' ? '#3a6bb5' : '#8b5cf6';
     const subLine = o.scope === 'dept' ? `부서 목표 · ${o.period||''}` : `개인 목표 · ${o.period||''}`;
     const milestones = o.milestones || [];
-    if (!milestones.length) {
-      // 마일스톤 없는 목표 — placeholder 카드로 노출해 사용자가 목표의 존재를 잊지 않게 하고,
-      // 클릭하면 OKR 모듈로 이동해 마일스톤을 추가하도록 유도.
+    // 이 목표에서 나에게 배정된 마일스톤 필터
+    const myMilestones = milestones.map((m, i) => ({ m, mi: i })).filter(({ m }) => {
+      if (o.scope === 'personal') return true; // 개인 목표는 owner=me면 전부 표시
+      // 부서 목표: 마일스톤별 assigneeId 우선. 없으면 목표-레벨 assigneeId로 폴백. 둘 다 없으면 목표 담당 없음 → 표시 안 함.
+      if (m.assigneeId) return m.assigneeId === uid;
+      if (o.assigneeId) return o.assigneeId === uid;
+      return false;
+    });
+    if (!milestones.length && isPersonalMine) {
+      // 마일스톤 없는 개인 목표 placeholder (부서 목표는 placeholder 안 만듦 — 부서장/담당자가 알아서 관리)
       out.push({
         id: 'okr_ph_' + o.id, _okrId: o.id, okrBacked: false, okrPlaceholder: true,
         title: (o.title || '목표') + ' — 마일스톤을 추가하세요',
@@ -5493,7 +5529,7 @@ function getOkrMilestoneVirtualTasks() {
       });
       return;
     }
-    milestones.forEach((m, mi) => {
+    myMilestones.forEach(({ m, mi }) => {
       const status = m.done ? 'done' : 'todo';
       out.push({
         id: 'okr_ms_' + o.id + '_' + mi,
