@@ -670,24 +670,42 @@ const ITP_FIELDS={
     fields:[]
   },
   '03':{name:'Bending Inspection', fields:[
-    {key:'id', label:'ID (Inside Diameter)', type:'minmax', ph:'mm',
-      showIf:{key:'hasJacket', value:true}},
-    {key:'length', label:'Length', type:'text', ph:'mm',
-      showIf:{key:'hasJacket', value:true}},
-    {key:'thkZones', label:'구간별 Thickness', type:'multi-zone',
-      zones:['A','B','C','D'], ph:'mm',
-      showIf:{key:'hasJacket', value:true}},
-    {key:'hasJacket', label:'JACKET 포함', type:'checkbox'}
-  ]},
-  '04':{name:'Forming Inspection', fields:[
-    {key:'id', label:'ID (Inside Diameter)', type:'text', ph:'mm'},
-    {key:'outRound', label:'Out-of-Roundness', type:'minmax', ph:'mm'},
+    // 기본(모재) 치수는 항상 입력 — Jacket 유무와 무관하게 1개는 필요.
+    // 이름은 별도 지정 안 하면 동체=Shell, Jacket=Jacket으로 기본값이 들어간다.
+    {key:'shellName', label:'동체 이름', type:'text', ph:'예: Shell', defaultVal:'Shell'},
+    {key:'id', label:'ID (Inside Diameter)', type:'minmax', ph:'mm'},
+    {key:'length', label:'Length', type:'text', ph:'mm'},
     {key:'thkZones', label:'구간별 Thickness', type:'multi-zone',
       zones:['A','B','C','D'], ph:'mm'},
-    {key:'crownR', label:'Inside Crown Radius', type:'minmax', ph:'mm'},
-    {key:'knuckleR', label:'Knuckle Radius', type:'minmax', ph:'mm'},
-    {key:'innerDepth', label:'Inside Depth (깊이)', type:'text', ph:'mm'}
+    {key:'hasJacket', label:'JACKET 포함', type:'checkbox'},
+    // Jacket이 적용된 제품은 Jacket 자체 치수를 추가로 입력한다.
+    {key:'jacketName', label:'Jacket 동체 이름', type:'text', ph:'예: Jacket', defaultVal:'Jacket',
+      showIf:{key:'hasJacket', value:true}},
+    {key:'jacketId', label:'Jacket ID (Inside Diameter)', type:'minmax', ph:'mm',
+      showIf:{key:'hasJacket', value:true}},
+    {key:'jacketLength', label:'Jacket Length', type:'text', ph:'mm',
+      showIf:{key:'hasJacket', value:true}},
+    {key:'jacketThkZones', label:'Jacket 구간별 Thickness', type:'multi-zone',
+      zones:['A','B','C','D'], ph:'mm',
+      showIf:{key:'hasJacket', value:true}}
   ]},
+  // 경판(Head)이 보통 2~3개(상부/하부, 필요 시 중간) 쓰이므로, 경판마다
+  // 전체 측정값 세트를 하나씩 추가하는 목록형으로 구성한다.
+  '04':{name:'Forming Inspection', specialType:'head-list',
+    headFields:[
+      // 이름은 별도 지정 안 하면 추가 순서대로 Shell Top head → Shell BTM head
+      // → Jacket BTM head 순으로 기본값이 들어간다(addHeadRow 참고).
+      {key:'name', label:'경판 이름', type:'text', ph:'예: Shell Top Head'},
+      {key:'id', label:'ID (Inside Diameter)', type:'text', ph:'mm'},
+      {key:'outRound', label:'Out-of-Roundness', type:'minmax', ph:'mm'},
+      {key:'thkZones', label:'구간별 Thickness', type:'multi-zone',
+        zones:['A','B','C','D'], ph:'mm'},
+      {key:'crownR', label:'Inside Crown Radius', type:'minmax', ph:'mm'},
+      {key:'knuckleR', label:'Knuckle Radius', type:'minmax', ph:'mm'},
+      {key:'innerDepth', label:'Inside Depth (깊이)', type:'text', ph:'mm'}
+    ],
+    fields:[]
+  },
   '05':{name:'Fit-up Inspection', specialType:'joint-list',
     externalRefs:[
       {key:'wpsNo', label:'WPS No.', hint:'01 General Welding Inspection 에서 자동 불러오기'},
@@ -779,6 +797,12 @@ function renderInspFields(itpId){
     bindFieldEvents(itpId);
     autoPopulateMaterialRows();
     updateMaterialOverallResult();
+    return;
+  }
+  // v2.2 — 특수 모드: Forming Inspection 경판 목록
+  if(def.specialType==='head-list'){
+    wrap.innerHTML=buildHeadList(def);
+    bindFieldEvents(itpId);
     return;
   }
   let html='';
@@ -885,7 +909,8 @@ function buildField(f, prefix=''){
     `).join('');
     inner = `<div style="display:flex;flex-direction:column;gap:6px">${items}</div>`;
   } else { // text default
-    inner = `<input class="insp-field" data-key="${dk}" type="text" placeholder="${f.ph||''}" style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">`;
+    const dv = f.defaultVal!==undefined ? ` value="${escapeHtml(f.defaultVal)}"` : '';
+    inner = `<input class="insp-field" data-key="${dk}" type="text" placeholder="${f.ph||''}"${dv} style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">`;
   }
 
   // checkbox 외 일반 필드는 외부 label 표시
@@ -938,6 +963,45 @@ function addJoint(){
   });
   div.innerHTML = inner;
   container.appendChild(div);
+}
+
+// Forming Inspection 경판 목록 빌더
+function buildHeadList(def){
+  let html = '<div id="head-list-container" style="display:flex;flex-direction:column;gap:10px"></div>';
+  html += `<button type="button" onclick="addHeadRow()" style="margin-top:10px;width:100%;padding:10px;background:#185fa5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+    <i class="ti ti-plus" aria-hidden="true"></i> 경판 추가
+  </button>`;
+  html += `<p style="font-size:11px;color:#999;margin-top:8px;line-height:1.5">경판(상부/하부, 필요 시 중간)이 보통 2~3개 사용되므로, 경판마다 각각 추가해 개별로 측정값을 입력합니다.</p>`;
+  return html;
+}
+
+// 경판 추가 (Forming Inspection 전용)
+let _headCounter = 0;
+// 이름을 별도로 안 적으면 추가되는 순서대로 이 이름이 기본값으로 들어간다.
+// 4번째부터는 정해진 관례가 없어 비워 둔다.
+const HEAD_DEFAULT_NAMES=['Shell Top head','Shell BTM head','Jacket BTM head'];
+function addHeadRow(){
+  const def = ITP_FIELDS['04'];
+  if(!def || !def.headFields) return;
+  const container = document.getElementById('head-list-container');
+  if(!container) return;
+  const idx = _headCounter++;
+  const pos = container.children.length; // 현재 행 개수 = 기본 이름 순번(0-based)
+  const div = document.createElement('div');
+  div.className = 'head-entry';
+  div.style.cssText = 'padding:12px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
+  let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #f0ede8">
+    <strong style="font-size:13px;color:#185fa5">경판 #${idx+1}</strong>
+    <button type="button" onclick="this.closest('.head-entry').remove()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
+  </div>`;
+  def.headFields.forEach(f=>{
+    inner += buildField(f, `head${idx}`);
+  });
+  div.innerHTML = inner;
+  container.appendChild(div);
+  const nameInput = div.querySelector(`input[data-key="head${idx}.name"]`);
+  if(nameInput) nameInput.value = HEAD_DEFAULT_NAMES[pos] || '';
+  bindFieldEvents('04');
 }
 
 // Material Inspection 자재 행 목록 빌더
@@ -1124,6 +1188,20 @@ function collectInspData(){
         mat[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
       });
       data.materials.push(mat);
+    });
+  }
+  // head-list(경판) 별도 수집
+  const headEntries = document.querySelectorAll('#insp-fields .head-entry');
+  if(headEntries.length){
+    data.heads = [];
+    headEntries.forEach(entry=>{
+      const head = {};
+      entry.querySelectorAll('.insp-field').forEach(el=>{
+        const parts = el.dataset.key.split('.');
+        const fld = parts.slice(1).join('.');
+        head[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
+      });
+      data.heads.push(head);
     });
   }
   return data;
