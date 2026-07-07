@@ -4,7 +4,7 @@
   // Firebase Firestore — 프로젝트 메타/WBS 데이터를 index.html과 공유 (같은 오리진이라 로그인 세션도 자동 공유됨)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -15,7 +15,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, onSnapshot, onAuthStateChanged };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, onSnapshot, onAuthStateChanged, collection, getDocs, query, where };
 </script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1543,6 +1543,11 @@ function v28WeeklySummary(){
 }
 
 // v29: Firestore 자동 저장 (WBS 행/아이템을 프로젝트당 wbsData/{pid} 문서 하나로)
+// v29.13.1: 마지막으로 확인한 rows/items 서명. 이 값과 동일하면 저장 스킵 → 무의미한 rev 증가 방지.
+let _lastSavedSig = null;
+function _sig(rows, items) {
+  try { return JSON.stringify({ r: rows, i: items }); } catch (e) { return null; }
+}
 function v28Save(){
   if(!window.fb || !_wbsPid) return;
   // v29.11: 편집 권한 없는 사용자(canEdit=0)가 실수로 저장 트리거를 걸어도 Firestore에 쓰지 않는다.
@@ -1552,6 +1557,11 @@ function v28Save(){
   if (_viewRev) return;
   const rows = WBS.filter(w=>w.projId===_wbsPid);
   const items = MITEM[_wbsPid] || [];
+  // v29.13.1: R()이 재렌더 때마다 400ms 후 저장을 스케줄하는데, 실제 변경이 없어도 저장돼 rev가 계속 오르는 문제.
+  // 현재 스냅샷 서명과 마지막 저장분이 같으면 no-op.
+  const curSig = _sig(rows, items);
+  if (_lastSavedSig !== null && curSig === _lastSavedSig) return;
+  _lastSavedSig = curSig;
   // v29.12: shadow 모드면 master를 건드리지 않고 개인 pending 문서에만 저장. Rev도 여기선 안 바꿈.
   if (_shadowUid) {
     _shadowRows = rows; _shadowItems = items;
@@ -2765,6 +2775,8 @@ function subscribeWbsData(pid){
     }
     WBS.length = 0; (d.rows||[]).forEach(w => WBS.push(w));
     MITEM[pid] = d.items || [];
+    // v29.13.1: 서버에서 로드한 상태를 마지막 저장 상태로 간주 → 즉시 재저장 방지.
+    _lastSavedSig = _sig(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]);
     v28RecalcRange();
     R();
   }, err => console.warn("[SJ FLOW] wbsData 구독 실패:", err.message));
@@ -2846,15 +2858,12 @@ window.discardShadow = discardShadow;
 // 클릭 시 그 시점 rows/items를 화면에 로드(읽기 전용).
 async function openWbsHistory() {
   if (!window.fb || !_wbsPid) return;
-  // 이 pid로 시작하는 문서들 나열. Firestore where prefix 쿼리 필요 없이 컬렉션 전체 fetch 후 클라이언트 필터로도 충분(문서 수가 적을 것).
   let list = [];
   try {
-    const col = fb.collection(fb.db, "wbsHistory");
-    const snap = await fb.getDocs(col);
-    snap.forEach(d => {
-      const data = d.data();
-      if (data && data.pid === _wbsPid) list.push({ id: d.id, ...data });
-    });
+    // 이 프로젝트 pid로 필터 (컬렉션 전체 스캔은 문서 수가 많아지면 느려지지만, 프로젝트당 수십~수백 rev 수준이면 충분).
+    const q = fb.query(fb.collection(fb.db, "wbsHistory"), fb.where("pid", "==", _wbsPid));
+    const snap = await fb.getDocs(q);
+    snap.forEach(d => list.push({ id: d.id, ...d.data() }));
   } catch (e) {
     alert("이력 조회 중 오류: " + (e.message || e));
     return;
