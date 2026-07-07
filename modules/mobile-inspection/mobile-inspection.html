@@ -240,10 +240,11 @@ input[type=file]{display:none}
         <button type="button" onclick="addAdHocInspector()" style="padding:0 16px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">+ 추가</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px" id="result-grid">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px" id="result-grid">
       <button class="stage-btn sel" data-val="합격" id="btn-pass" onclick="selectResult('합격')"><i class="ti ti-circle-check" aria-hidden="true"></i>합격</button>
       <button class="stage-btn" data-val="조건부합격" id="btn-cond" onclick="selectResult('조건부합격')"><i class="ti ti-alert-circle" aria-hidden="true"></i>조건부합격</button>
       <button class="stage-btn" data-val="불합격" id="btn-fail" onclick="selectResult('불합격')"><i class="ti ti-circle-x" aria-hidden="true"></i>불합격</button>
+      <button class="stage-btn" data-val="진행중" id="btn-progress" onclick="selectResult('진행중')"><i class="ti ti-clock" aria-hidden="true"></i>진행중</button>
     </div>
     <div id="fail-reason" style="display:none">
       <label style="font-size:12px;color:#888;margin-bottom:4px;display:block">불합격 사유</label>
@@ -417,6 +418,42 @@ function getBridgeItems(){
   } catch(e) { return []; }
 }
 
+// QA Doc Generator 연동 — Bill of Materials(자재 명세) 읽어오기.
+// QA Doc Generator는 프로젝트 저장 시 localStorage['sjp_qa_gen_proj:'+pid]에
+// { ..., imgStore:{ 'bom_'+아이템ID: [{name,mat,sz,qty,heat,remark}, ...] } }
+// 형태로 저장한다(name = Description). 별도 브릿지 함수가 없어 저장 위치를
+// 직접 읽는다 — QA Doc Generator에서 저장을 안 했으면 빈 배열을 반환한다.
+function getQAGProjectPayload(pid){
+  try { return JSON.parse(localStorage.getItem('sjp_qa_gen_proj:'+pid)||'null'); }
+  catch(e){ return null; }
+}
+function getBOMForItem(pid,itemId){
+  if(!itemId) return [];
+  const payload=getQAGProjectPayload(pid);
+  const rows=payload?.imgStore?.['bom_'+itemId];
+  return Array.isArray(rows) ? rows : [];
+}
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// BOM 연동 select에서 "직접 입력..."을 고르면 select 대신 바로 뒤 텍스트
+// 입력이 실제 값(insp-field)을 담당하도록 전환한다 — collectInspData()가
+// 같은 data-key를 가진 요소를 중복으로 읽지 않도록 항상 한쪽만 활성화한다.
+function toggleBomCustomInput(sel){
+  const input=sel.nextElementSibling;
+  if(!input) return;
+  if(sel.value==='__custom__'){
+    sel.classList.remove('insp-field');
+    input.style.display='block';
+    input.classList.add('insp-field');
+    input.focus();
+  }else{
+    input.classList.remove('insp-field');
+    input.style.display='none';
+    sel.classList.add('insp-field');
+  }
+}
+
 function loadResults(){
   try{
     const r=JSON.parse(localStorage.getItem(INSP_RESULTS_KEY)||'null');
@@ -508,6 +545,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 // 나중에 ITP Builder(또는 다른 곳)가 itpRowsByItem을 채워주기 시작하면 이
 // 코드는 수정 없이 바로 아이템별 ITP를 반영하게 된다.
 let _itpState=null; // initFromITPBuilder에서 로드해 onItemChange가 재사용
+let currentItemId=''; // 선택된 아이템의 id — QA Doc Generator BOM 조회 등 아이템 단위 연동에 사용
 
 function initFromITPBuilder(){
   const state=loadITPBuilderState();
@@ -587,10 +625,11 @@ function onItemChange(){
   const item=itemSelEl.value;
   const itpSel=document.getElementById('itp');
   if(item){
-    const itemId=itemSelEl.options[itemSelEl.selectedIndex]?.dataset.itemId||'';
-    renderItpOptionsForItem(itemId);
+    currentItemId=itemSelEl.options[itemSelEl.selectedIndex]?.dataset.itemId||'';
+    renderItpOptionsForItem(currentItemId);
     itpSel.disabled=false;
   }else{
+    currentItemId='';
     renderItpOptionsForItem('');
     itpSel.value='';
     itpSel.disabled=true;
@@ -615,13 +654,21 @@ const ITP_FIELDS={
     {key:'welderId', label:'Welder ID', type:'text', ph:'예: W-2026-101',
       showIf:{key:'inspMode', value:'witness'}}
   ]},
-  '02':{name:'Material Inspection', fields:[
-    {key:'active', label:'검사 활성화', type:'checkbox', defaultChecked:true},
-    {key:'partName', label:'자재 파트', type:'select',
-      options:['— 선택 —','Shell','Head','Channel','Jacket','Jacket Head','In-Coil','Half-Coil']},
-    {key:'heatNo1', label:'Heat No. #1', type:'text', ph:'예: H-2606101'},
-    {key:'heatNo2', label:'Heat No. #2 (혼용 시)', type:'text', ph:'(선택 — 다른 Heat No. 혼용시)'}
-  ]},
+  // v2.1 — 자재는 한 번에 다 도착하지 않고 여러 번에 걸쳐 나눠서 검사하는
+  // 경우가 많아, 단일 필드 세트 대신 자재를 하나씩 추가하는 행 목록으로
+  // 변경. 행마다 개별 합부(rowResult)를 매겨두면, 하나라도 "보류"가 남아있는
+  // 동안은 전체 판정이 자동으로 "진행중"이 되고, 전부 정리되면 그때
+  // 합격/불합격을 사용자가 직접 확정한다(updateMaterialOverallResult 참고).
+  '02':{name:'Material Inspection', specialType:'material-list',
+    materialFields:[
+      {key:'partName', label:'자재 파트', type:'select', source:'bom-description',
+        hint:'QA Doc Generator BOM에서 자동 불러오기'},
+      {key:'heatNo', label:'Heat No.', type:'text', ph:'예: H-2606101'},
+      {key:'rowResult', label:'판정', type:'mode-toggle', defaultVal:'보류',
+        options:[{v:'합격',l:'합격'},{v:'불합격',l:'불합격'},{v:'보류',l:'보류'}]}
+    ],
+    fields:[]
+  },
   '03':{name:'Bending Inspection', fields:[
     {key:'id', label:'ID (Inside Diameter)', type:'minmax', ph:'mm'},
     {key:'hasJacket', label:'Jacket 있음 (체크시 Out-of-Roundness 활성화)', type:'checkbox'},
@@ -725,6 +772,13 @@ function renderInspFields(itpId){
     bindFieldEvents(itpId);
     return;
   }
+  // v2.1 — 특수 모드: Material Inspection 자재 행 목록
+  if(def.specialType==='material-list'){
+    wrap.innerHTML=buildMaterialList(def);
+    bindFieldEvents(itpId);
+    updateMaterialOverallResult();
+    return;
+  }
   let html='';
   (def.fields||[]).forEach(f=>{
     html+=buildField(f);
@@ -746,12 +800,33 @@ function buildField(f, prefix=''){
   } else if(f.type==='date'){
     inner = `<input class="insp-field" data-key="${dk}" type="date" style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">`;
   } else if(f.type==='select'){
-    const opts = (f.options||[]).map(o => {
-      const v = typeof o==='string'?o:o.v;
-      const l = typeof o==='string'?o:o.l;
-      return `<option value="${v}">${l}</option>`;
-    }).join('');
-    inner = `<select class="insp-field" data-key="${dk}" style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">${opts}</select>`;
+    let opts;
+    const isBomSelect = f.source==='bom-description';
+    if(isBomSelect){
+      // Part No.(= BOM 테이블 행 번호, QA Doc Generator와 동일하게 1부터)를 라벨
+      // 앞에 붙여, Description이 같은 자재(예: Shell Plate가 여러 장)도 서로
+      // 구분되는 별개 옵션으로 남긴다 — 이름만으로 합쳐서 중복 제거하지 않는다.
+      const partOpts=getBOMForItem(MI_PID,currentItemId)
+        .map((r,i)=>({partNo:i+1, name:(r.name||'').trim()}))
+        .filter(r=>r.name)
+        .map(r=>`${r.partNo}. ${r.name}`);
+      opts = (partOpts.length
+        ? '<option value="">— 선택 —</option>'+partOpts.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+        : '<option value="">— BOM 데이터 없음(QA Doc Generator에서 자재 명세 작성 필요) —</option>')
+        + '<option value="__custom__">✏️ 직접 입력...</option>';
+    } else {
+      opts = (f.options||[]).map(o => {
+        const v = typeof o==='string'?o:o.v;
+        const l = typeof o==='string'?o:o.l;
+        return `<option value="${v}">${l}</option>`;
+      }).join('');
+    }
+    inner = `<select class="insp-field" data-key="${dk}"${isBomSelect?' onchange="toggleBomCustomInput(this)"':''} style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">${opts}</select>`;
+    // 자료 유무와 무관하게 직접 입력이 가능하도록, 선택 안 보이는 텍스트 입력을
+    // select 바로 뒤에 같이 렌더링해 두고 "직접 입력..." 선택 시에만 전환한다.
+    if(isBomSelect){
+      inner += `<input type="text" data-key="${dk}" placeholder="자재 파트 직접 입력" style="display:none;margin-top:6px;width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">`;
+    }
   } else if(f.type==='checkbox'){
     const checked = f.defaultChecked ? 'checked' : '';
     inner = `<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff">
@@ -761,9 +836,14 @@ function buildField(f, prefix=''){
     // 체크박스는 라벨이 input 안에 통합 — 외부 label 생략
     return `<div style="margin-bottom:10px"${showIfAttr}>${inner}${hintBadge?'<div style="margin-top:4px">'+hintBadge+'</div>':''}</div>`;
   } else if(f.type==='mode-toggle'){
-    const opts = (f.options||[]).map((o,i) => `<button type="button" class="mode-btn" data-key="${dk}" data-val="${o.v}" data-idx="${i}" style="flex:1;padding:10px 8px;border:1.5px solid #d6d3cb;background:#fff;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:#888">${o.l}</button>`).join('');
+    const dv = f.defaultVal;
+    const opts = (f.options||[]).map((o,i) => {
+      const on = dv!==undefined && o.v===dv;
+      const style = `flex:1;padding:10px 8px;border:1.5px solid ${on?'#185fa5':'#d6d3cb'};background:${on?'#185fa5':'#fff'};border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:${on?'#fff':'#888'}`;
+      return `<button type="button" class="mode-btn" data-key="${dk}" data-val="${o.v}" data-idx="${i}" style="${style}">${o.l}</button>`;
+    }).join('');
     inner = `<div style="display:flex;gap:6px">${opts}</div>
-      <input type="hidden" class="insp-field" data-key="${dk}" data-mode-input="1">`;
+      <input type="hidden" class="insp-field" data-key="${dk}" data-mode-input="1" value="${dv!==undefined?dv:''}">`;
   } else if(f.type==='minmax'){
     const minL = f.minLabel || 'MIN';
     const maxL = f.maxLabel || 'MAX';
@@ -858,6 +938,55 @@ function addJoint(){
   container.appendChild(div);
 }
 
+// Material Inspection 자재 행 목록 빌더
+function buildMaterialList(def){
+  let html = '<div id="material-list-container" style="display:flex;flex-direction:column;gap:10px"></div>';
+  html += `<button type="button" onclick="addMaterialRow()" style="margin-top:10px;width:100%;padding:10px;background:#185fa5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+    <i class="ti ti-plus" aria-hidden="true"></i> 자재 추가
+  </button>`;
+  html += `<p style="font-size:11px;color:#999;margin-top:8px;line-height:1.5">여러 자재를 나눠서 검사할 때, 도착한 자재만 먼저 추가해 판정하고 나머지는 나중에 이어서 추가하면 됩니다. "보류"가 남아있는 동안은 전체 판정이 자동으로 "진행중"으로 표시됩니다.</p>`;
+  return html;
+}
+
+// 자재 추가 (Material Inspection 전용)
+let _materialCounter = 0;
+function addMaterialRow(){
+  const def = ITP_FIELDS['02'];
+  if(!def || !def.materialFields) return;
+  const container = document.getElementById('material-list-container');
+  if(!container) return;
+  const idx = _materialCounter++;
+  const div = document.createElement('div');
+  div.className = 'material-entry';
+  div.style.cssText = 'padding:12px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
+  let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #f0ede8">
+    <strong style="font-size:13px;color:#185fa5">자재 #${idx+1}</strong>
+    <button type="button" onclick="removeMaterialRow(this)" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
+  </div>`;
+  def.materialFields.forEach(f=>{
+    inner += buildField(f, `mat${idx}`);
+  });
+  div.innerHTML = inner;
+  container.appendChild(div);
+  bindFieldEvents('02'); // 새로 추가된 행의 mode-toggle(판정) 버튼에 이벤트 연결
+  updateMaterialOverallResult();
+}
+function removeMaterialRow(btn){
+  btn.closest('.material-entry').remove();
+  updateMaterialOverallResult();
+}
+
+// 자재 행들의 개별 판정을 모아 전체 합부 판정을 자동으로 계산한다.
+// 행이 하나도 없거나 "보류"가 하나라도 남아있으면 "진행중", 모두 정리됐을
+// 때만 합격/불합격을 자동 선택한다(이후 사용자가 직접 바꿀 수도 있다).
+function updateMaterialOverallResult(){
+  const rows=[...document.querySelectorAll('#insp-fields .material-entry')];
+  if(!rows.length){ selectResult('진행중'); return; }
+  const results=rows.map(r=>r.querySelector('input[data-mode-input="1"][data-key$=".rowResult"]')?.value||'');
+  if(results.some(v=>v!=='합격'&&v!=='불합격')){ selectResult('진행중'); return; }
+  selectResult(results.some(v=>v==='불합격') ? '불합격' : '합격');
+}
+
 // === 필드 이벤트 바인딩 (mode-toggle, showIf, datetime-pair auto-calc) ===
 function bindFieldEvents(itpId){
   // 1) mode-toggle 버튼 클릭
@@ -875,6 +1004,8 @@ function bindFieldEvents(itpId){
       if(hidden){ hidden.value = val; }
       // showIf 조건부 표시 갱신
       applyShowIf();
+      // 자재 행의 판정(rowResult) 변경 시 전체 합부 판정 자동 재계산
+      if(key.endsWith('.rowResult')) updateMaterialOverallResult();
     };
   });
   // 2) checkbox change → showIf 재평가
@@ -964,6 +1095,20 @@ function collectInspData(){
       data.joints.push(joint);
     });
   }
+  // material-list 별도 수집
+  const materialEntries = document.querySelectorAll('#insp-fields .material-entry');
+  if(materialEntries.length){
+    data.materials = [];
+    materialEntries.forEach(entry=>{
+      const mat = {};
+      entry.querySelectorAll('.insp-field').forEach(el=>{
+        const parts = el.dataset.key.split('.');
+        const fld = parts.slice(1).join('.');
+        mat[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
+      });
+      data.materials.push(mat);
+    });
+  }
   return data;
 }
 
@@ -1010,8 +1155,9 @@ function selectResult(val){
     '합격':      {id:'btn-pass',color:'#185fa5',bg:'#e6f1fb',border:'#185fa5'},
     '조건부합격':{id:'btn-cond',color:'#854f0b',bg:'#faeeda',border:'#ba7517'},
     '불합격':    {id:'btn-fail',color:'#c0392b',bg:'#fdf0ee',border:'#c0392b'},
+    '진행중':    {id:'btn-progress',color:'#555555',bg:'#f0f0ee',border:'#999999'},
   };
-  ['btn-pass','btn-cond','btn-fail'].forEach(id=>{
+  ['btn-pass','btn-cond','btn-fail','btn-progress'].forEach(id=>{
     const b=document.getElementById(id);
     b.classList.remove('sel');
     b.style.color='';b.style.background='';b.style.borderColor='';
@@ -1020,9 +1166,9 @@ function selectResult(val){
   const b=document.getElementById(c.id);
   b.classList.add('sel');
   b.style.color=c.color;b.style.background=c.bg;b.style.borderColor=c.border;
-  document.getElementById('fail-reason').style.display=(val!=='합격')?'block':'none';
+  document.getElementById('fail-reason').style.display=(val!=='합격'&&val!=='진행중')?'block':'none';
   document.getElementById('fail-reason').querySelector('label').textContent=val==='불합격'?'불합격 사유':'조건 내용';
-  if(val==='합격')document.getElementById('fail-note').value='';
+  if(val==='합격'||val==='진행중')document.getElementById('fail-note').value='';
 }
 
 // ── 사진 처리 ────────────────────────────
@@ -1168,12 +1314,13 @@ function submitUpload(){
   const stage=itpVal ? (fieldsKey?fieldsKey+'. ':'')+itpName : '—';
   const result=document.querySelector('#result-grid .stage-btn.sel')?.dataset.val||'합격';
   const failNote=document.getElementById('fail-note').value||'';
-  const note=result==='합격'?'합격':`${result} — ${failNote||'사유 미기재'}`;
+  const note=(result==='합격'||result==='진행중')?result:`${result} — ${failNote||'사유 미기재'}`;
   const inspData=collectInspData();
   if(!item){showToast('⚠️ 아이템을 선택해 주세요');return;}
   if(!itpVal){showToast('⚠️ ITP 검사 항목을 선택해 주세요');return;}
   if(!date){showToast('⚠️ 검사 일시를 입력해 주세요');return;}
   if(!pendingFiles.length){showToast('⚠️ 사진을 1장 이상 선택해 주세요');return;}
+  if(fieldsKey==='02' && !document.querySelectorAll('#insp-fields .material-entry').length){showToast('⚠️ 자재를 1건 이상 추가해 주세요');return;}
 
   const btn=document.getElementById('submit-btn');
   const pw=document.getElementById('prog-wrap');
