@@ -4980,14 +4980,24 @@ function openQuote() {
    권한: 부서 목표 = 같은 부서 소속 + (manager/exec/super) 등급만 편집
          개인 목표 = 본인만 편집·조회
    연동: 캘린더 · 업무관리 칸반 · 대시보드 위젯에 자동 노출 */
+// 마일스톤 하나의 진척률(%). pct 필드가 있으면 그 값, 없으면 legacy done boolean으로 폴백.
+function _milestonePct(m) {
+  if (m == null) return 0;
+  if (m.pct != null && m.pct !== '') return Math.max(0, Math.min(100, Math.round(Number(m.pct)) || 0));
+  return m.done ? 100 : 0;
+}
 function _okrProgress(o) {
-  // pctManual이 지정돼 있으면 그 값을 우선 사용 (마일스톤 체크와 무관하게 사용자가 직접 관리)
-  if (o.pctManual != null && o.pctManual !== '') {
-    return Math.max(0, Math.min(100, Math.round(Number(o.pctManual)) || 0));
+  const ms = (o && o.milestones) || [];
+  // 마일스톤이 없을 때만 목표 자체의 pctManual을 사용 (사용자 규칙).
+  // 마일스톤이 있으면 각 마일스톤 pct의 평균 — 100/부분/0이 모두 반영됨.
+  if (!ms.length) {
+    if (o && o.pctManual != null && o.pctManual !== '') {
+      return Math.max(0, Math.min(100, Math.round(Number(o.pctManual)) || 0));
+    }
+    return 0;
   }
-  if (!o.milestones || !o.milestones.length) return 0;
-  const done = o.milestones.filter(m => m.done).length;
-  return Math.round(done / o.milestones.length * 100);
+  const sum = ms.reduce((a, m) => a + _milestonePct(m), 0);
+  return Math.round(sum / ms.length);
 }
 async function setOkrPctManual(okrId) {
   const o = (state.okrs || []).find(x => x.id === okrId);
@@ -5044,27 +5054,44 @@ function _renderOkrCard(o) {
         <strong style="flex:1;font-size:14px;">${o.title||''}</strong>
         <span class="b-pill ${dueClass}">${dueText}</span>
         <strong style="color:${color};font-size:15px;">${pct}%</strong>
-        ${o.pctManual != null && o.pctManual !== '' ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;" title="마일스톤과 무관하게 사용자가 직접 지정한 진행률입니다">✎ 수동</span>' : ''}
+        ${totalCount === 0 && o.pctManual != null && o.pctManual !== '' ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;" title="마일스톤이 없어 사용자가 직접 지정한 진행률입니다">✎ 수동</span>' : ''}
       </div>
       ${o.why ? `<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;padding-left:2px;">${o.why}</div>` : ''}
       <div class="bar" style="margin-bottom:10px;"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
       <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;">📌 마일스톤 ${doneCount}/${totalCount}</div>
-      ${(o.milestones||[]).map((m, mi) => `
+      ${(o.milestones||[]).map((m, mi) => {
+        const mPct = _milestonePct(m);
+        const isFull = mPct >= 100;
+        const isPartial = mPct > 0 && mPct < 100;
+        const boxBg = isFull ? 'var(--success)' : isPartial ? '#f59e0b' : '#fff';
+        const boxBorder = isFull ? 'var(--success)' : isPartial ? '#f59e0b' : 'var(--border)';
+        const boxContent = isFull ? '✓' : '';
+        const pctPillColor = isFull ? 'var(--success)' : isPartial ? '#b45309' : 'var(--text-lighter)';
+        const pctPillBg = isFull ? '#dcfce7' : isPartial ? '#fef3c7' : '#f1f5f9';
+        return `
         <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-light);">
           <span onclick="${editable?`toggleOkrMilestone('${o.id}',${mi})`:''}"
-                style="width:18px;height:18px;border-radius:3px;border:1.5px solid ${m.done?'var(--success)':'var(--border)'};background:${m.done?'var(--success)':'#fff'};color:#fff;font-size:12px;text-align:center;line-height:14px;flex-shrink:0;${editable?'cursor:pointer;':'cursor:not-allowed;opacity:.6;'}">${m.done?'✓':''}</span>
-          <span style="flex:1;font-size:13px;${m.done?'text-decoration:line-through;color:var(--text-lighter);':''}">${m.title||''}</span>
-          <span style="font-size:11px;color:var(--text-lighter);">${m.done && m.at ? '완료 '+m.at : (m.due||'')}</span>
+                title="${editable?'클릭: 0%↔100% 토글':''}"
+                style="width:18px;height:18px;border-radius:3px;border:1.5px solid ${boxBorder};background:${boxBg};color:#fff;font-size:12px;text-align:center;line-height:14px;flex-shrink:0;${editable?'cursor:pointer;':'cursor:not-allowed;opacity:.6;'}">${boxContent}</span>
+          <span style="flex:1;font-size:13px;${isFull?'text-decoration:line-through;color:var(--text-lighter);':''}">${m.title||''}</span>
+          <span onclick="${editable?`setMilestonePct('${o.id}',${mi})`:''}"
+                title="${editable?'클릭: 진행률 % 지정':''}"
+                style="font-size:10px;font-weight:700;background:${pctPillBg};color:${pctPillColor};padding:2px 7px;border-radius:10px;${editable?'cursor:pointer;':''}min-width:36px;text-align:center;">${mPct}%</span>
+          <span style="font-size:11px;color:var(--text-lighter);">${isFull && m.at ? '완료 '+m.at : (m.due||'')}</span>
           ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="deleteOkrMilestone('${o.id}',${mi})" title="마일스톤 삭제">✕</button>` : ''}
-        </div>
-      `).join('')}
+        </div>`;
+      }).join('')}
       ${editable ? `
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
-        <button class="btn btn-sm" onclick="setOkrPctManual('${o.id}')" title="마일스톤 체크와 무관하게 진행률을 직접 지정하거나, 비워서 자동 계산으로 돌립니다.">${o.pctManual!=null&&o.pctManual!==''?'✎ 수동 '+o.pctManual+'%':'✎ 진행률 지정'}</button>
+        ${totalCount === 0
+          ? `<button class="btn btn-sm" onclick="setOkrPctManual('${o.id}')" title="마일스톤이 없을 때는 전체 진행률을 직접 지정할 수 있습니다.">${o.pctManual!=null&&o.pctManual!==''?'✎ 수동 '+o.pctManual+'%':'✎ 진행률 지정'}</button>`
+          : ''}
         <button class="btn btn-sm" onclick="openOkrMilestoneModal('${o.id}')">＋ 마일스톤</button>
         <button class="btn btn-sm" onclick="openOkrModal('${o.id}')">✎ 편집</button>
         <button class="btn btn-sm" onclick="deleteOkr('${o.id}')" style="color:var(--danger);">🗑 삭제</button>
-      </div>` : `<div style="margin-top:6px;font-size:10px;color:var(--text-lighter);text-align:right;">조회 전용 (편집 권한 없음)</div>`}
+      </div>
+      ${totalCount > 0 ? '<div style="margin-top:4px;font-size:10px;color:var(--text-lighter);text-align:right;">💡 진행률은 각 마일스톤 % 평균으로 자동 계산됩니다. 개별 마일스톤의 % 값을 클릭해 수정하세요.</div>' : ''}
+      ` : `<div style="margin-top:6px;font-size:10px;color:var(--text-lighter);text-align:right;">조회 전용 (편집 권한 없음)</div>`}
     </div>`;
 }
 function okr() {
@@ -5147,7 +5174,9 @@ function openOkrModal(okrId, defaultScope) {
     <div class="fg"><label class="fl">왜 이 목표인지 (선택)</label><input class="fi" id="okrWhy" placeholder="예: 3년 갱신 필수 · 실패 시 원자력 수주 불가" value="${why.replace(/"/g,'&quot;')}"></div>
     <div class="fg"><label class="fl">기간</label><input class="fi" id="okrPeriod" placeholder="예: 2026 연간, 2026 Q3" value="${period}"></div>
     <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="okrEnd" value="${end}"></div>
-    <div class="fg"><label class="fl">진행률 % (선택 · 비우면 마일스톤 완료율로 자동 계산)</label><input class="fi" type="number" min="0" max="100" id="okrPctManual" placeholder="예: 42" value="${existing && existing.pctManual!=null ? existing.pctManual : ''}"></div>
+    ${(existing && (existing.milestones||[]).length > 0)
+      ? '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;padding:8px 10px;background:#f8fafc;border-radius:4px;">💡 마일스톤이 있어 전체 진행률은 각 마일스톤 % 평균으로 자동 계산됩니다. 카드에서 마일스톤별로 % 값을 직접 지정하세요.</div>'
+      : '<div class="fg"><label class="fl">진행률 % (선택 · 마일스톤이 없을 때만 이 값이 사용됩니다)</label><input class="fi" type="number" min="0" max="100" id="okrPctManual" placeholder="예: 42" value="' + (existing && existing.pctManual!=null ? existing.pctManual : '') + '"></div>'}
     <div style="font-size:11px;color:var(--text-lighter);margin-top:8px;">저장 후 하단 "＋ 마일스톤" 버튼으로 마일스톤을 추가하세요.</div>
   `, async () => {
     const t = document.getElementById('okrTitle').value.trim();
@@ -5165,13 +5194,17 @@ function openOkrModal(okrId, defaultScope) {
     doc.why = document.getElementById('okrWhy').value.trim();
     doc.period = document.getElementById('okrPeriod').value.trim();
     doc.end = document.getElementById('okrEnd').value;
-    // 진행률 수동 입력값 (비어있으면 null → 자동 계산 복원)
-    const pctRaw = document.getElementById('okrPctManual').value.trim();
-    if (pctRaw === '') doc.pctManual = null;
-    else {
-      const pctN = Number(pctRaw);
-      if (isNaN(pctN) || pctN < 0 || pctN > 100) return alert('진행률은 0~100 사이 숫자로 입력하거나 비워두세요.');
-      doc.pctManual = Math.round(pctN);
+    // 진행률 수동 입력값 — 마일스톤이 있는 경우엔 필드 자체가 렌더되지 않으므로 있을 때만 처리.
+    // 비어있으면 null → 자동 계산 복원.
+    const pctInput = document.getElementById('okrPctManual');
+    if (pctInput) {
+      const pctRaw = pctInput.value.trim();
+      if (pctRaw === '') doc.pctManual = null;
+      else {
+        const pctN = Number(pctRaw);
+        if (isNaN(pctN) || pctN < 0 || pctN > 100) return alert('진행률은 0~100 사이 숫자로 입력하거나 비워두세요.');
+        doc.pctManual = Math.round(pctN);
+      }
     }
     doc.updatedAt = Date.now();
     if (s === 'dept') {
@@ -5216,8 +5249,30 @@ async function toggleOkrMilestone(okrId, msIdx) {
   if (!o || !canEditOkr(o)) return;
   const ms = (o.milestones || [])[msIdx];
   if (!ms) return;
-  const nowDone = !ms.done;
-  const newMs = { ...ms, done: nowDone, at: nowDone ? new Date().toISOString().slice(0,10) : null };
+  // 100% ↔ 0% 토글. done 필드는 backward compat용으로 pct와 동기화.
+  const curPct = _milestonePct(ms);
+  const nowDone = curPct < 100;
+  const newMs = { ...ms, pct: nowDone ? 100 : 0, done: nowDone, at: nowDone ? new Date().toISOString().slice(0,10) : null };
+  const updated = { ...o, milestones: (o.milestones||[]).map((m,i) => i===msIdx?newMs:m), updatedAt: Date.now() };
+  try { await fb.setDoc(fb.doc(fb.db, 'okrs', okrId), updated); }
+  catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
+}
+// 마일스톤 하나의 진척률을 부분값으로 지정. 프롬프트로 0~100 입력.
+async function setMilestonePct(okrId, msIdx) {
+  const o = (state.okrs || []).find(x => x.id === okrId);
+  if (!o || !canEditOkr(o)) return;
+  const ms = (o.milestones || [])[msIdx];
+  if (!ms) return;
+  const cur = _milestonePct(ms);
+  const v = prompt(`"${ms.title || '마일스톤'}"의 진행률 (0~100)`, String(cur));
+  if (v === null) return;
+  const trimmed = String(v).trim();
+  if (trimmed === '') return; // 취소로 취급
+  const n = Number(trimmed);
+  if (isNaN(n) || n < 0 || n > 100) return alert('0~100 사이의 숫자를 입력해주세요.');
+  const newPct = Math.round(n);
+  const newDone = newPct >= 100;
+  const newMs = { ...ms, pct: newPct, done: newDone, at: newDone ? new Date().toISOString().slice(0,10) : null };
   const updated = { ...o, milestones: (o.milestones||[]).map((m,i) => i===msIdx?newMs:m), updatedAt: Date.now() };
   try { await fb.setDoc(fb.doc(fb.db, 'okrs', okrId), updated); }
   catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
