@@ -670,13 +670,14 @@ const ITP_FIELDS={
     fields:[]
   },
   '03':{name:'Bending Inspection', fields:[
-    {key:'id', label:'ID (Inside Diameter)', type:'minmax', ph:'mm'},
-    {key:'hasJacket', label:'Jacket 있음 (체크시 Out-of-Roundness 활성화)', type:'checkbox'},
-    {key:'outRound', label:'Out-of-Roundness', type:'minmax', ph:'mm',
+    {key:'id', label:'ID (Inside Diameter)', type:'minmax', ph:'mm',
       showIf:{key:'hasJacket', value:true}},
-    {key:'length', label:'Length', type:'text', ph:'mm'},
+    {key:'length', label:'Length', type:'text', ph:'mm',
+      showIf:{key:'hasJacket', value:true}},
     {key:'thkZones', label:'구간별 Thickness', type:'multi-zone',
-      zones:['A','B','C','D'], ph:'mm'}
+      zones:['A','B','C','D'], ph:'mm',
+      showIf:{key:'hasJacket', value:true}},
+    {key:'hasJacket', label:'JACKET 포함', type:'checkbox'}
   ]},
   '04':{name:'Forming Inspection', fields:[
     {key:'id', label:'ID (Inside Diameter)', type:'text', ph:'mm'},
