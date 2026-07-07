@@ -928,7 +928,7 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b19';
+const WBS_BUILD = 'b20';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b10';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -5961,11 +5961,19 @@ async function decideApproval(aid, decision) {
         if (msnap.exists()) curRev = Number(msnap.data().rev) || 0;
       } catch (e) {}
       const newRev = curRev + 1;
+      const appliedAt = Date.now();
       await fb.setDoc(fb.doc(fb.db, 'wbsData', a.projId),
-        { rows: pd.rows || [], items: pd.items || [], rev: newRev, updatedAt: Date.now() },
+        { rows: pd.rows || [], items: pd.items || [], rev: newRev, updatedAt: appliedAt },
         { merge: true });
+      // v29.13: shadow 승인으로 반영된 스냅샷도 wbsHistory에 기록.
+      const revStr = String(newRev).padStart(4, '0');
+      try {
+        await fb.setDoc(fb.doc(fb.db, 'wbsHistory', a.projId + "_" + revStr),
+          { pid: a.projId, rev: newRev, rows: pd.rows || [], items: pd.items || [],
+            at: appliedAt, byUid: a.author || null, approvedBy: uid, source: "shadow-approve" });
+      } catch (e) { console.warn('history 저장 실패:', e.message); }
       await fb.deleteDoc(fb.doc(fb.db, 'wbsPending', pendId));
-      patch.appliedAt = Date.now();
+      patch.appliedAt = appliedAt;
       patch.appliedRev = newRev;
       autoApplied = true;
     } catch (e) {

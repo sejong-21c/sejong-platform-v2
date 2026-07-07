@@ -430,6 +430,9 @@ let _deptFilter=null, _deptMode=false;
 let _shadowUid=null;
 let _shadowRows=null; // 로컬 캐시 (shadow 활성 시 WBS를 이걸로 덮어씀)
 let _shadowItems=null;
+// v29.13: 이전 Rev 조회 모드. _viewRev이 설정되면 저장·구독 무시하고 그 스냅샷만 표시.
+let _viewRev=null;
+let _viewSnapshot=null;
 let S={
   mv:"wbs",wp:"wbs",
   wv:"split",wf:"전체",wexp:{w1:true,w2:true,w3:true,w4:true},
@@ -970,7 +973,7 @@ function rWBS(){
     : `<div class="wbs-unified-wrap" style="position:relative;overflow:auto;background:#fff;border-radius:8px;border:1px solid #e4e7ec;flex:1;min-height:160px;max-height:none">
     ${unifiedTable}
   </div>`;
-  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span></div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button><button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다">📝 PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
+  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span><button onclick="openWbsHistory()" style="font-size:11px;color:#7c3aed;background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:2px 8px;margin-left:4px;cursor:pointer" title="이전 Rev 이력 보기">📜 이력</button>${_viewRev?`<span style="font-size:11px;color:#b45309;font-weight:700;background:#fef3c7;padding:2px 8px;border-radius:10px;margin-left:6px">📖 이전 Rev.${_viewRev} 조회 중</span><button onclick="closeWbsHistoryView()" style="font-size:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer">← 현재로</button>`:''}</div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button><button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다">📝 PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
   <div class="fbar"><span style="font-size:10px;color:#9ca3af;margin-right:3px">필터:</span>${["전체","완료","진행중","미시작","지연"].map(f=>`<button class="fb${S.wf===f?" on":""}" data-a="setWF" data-f="${f}">${f}(${fCnt(f)})</button>`).join("")}</div>
   <div class="cont">${(S.wv!=="evms" && !_deptMode)?`<div style="margin-bottom:10px;border:1px solid #e4e7ec;border-radius:8px;background:#f8fafc;overflow:hidden;flex-shrink:0">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer" data-a="tgEvms"><span style="font-size:11px;font-weight:700;color:#1e40af">📈 EVMS 요약 (계획·실행·일정차이·SPI)</span><span style="font-size:11px;color:#6b7280">${S.evmsHide?'▶ 펼치기':'▼ 접기'}</span></div>
@@ -1545,6 +1548,8 @@ function v28Save(){
   // v29.11: 편집 권한 없는 사용자(canEdit=0)가 실수로 저장 트리거를 걸어도 Firestore에 쓰지 않는다.
   // (subscribeWbsData의 metadata.hasPendingWrites 가드가 있지만 이중 방어)
   if (document.body.classList.contains("sjp-readonly")) return;
+  // v29.13: 이전 Rev 조회 중이면 저장 금지 (스냅샷 뷰어 모드).
+  if (_viewRev) return;
   const rows = WBS.filter(w=>w.projId===_wbsPid);
   const items = MITEM[_wbsPid] || [];
   // v29.12: shadow 모드면 master를 건드리지 않고 개인 pending 문서에만 저장. Rev도 여기선 안 바꿈.
@@ -1560,7 +1565,15 @@ function v28Save(){
   }
   // v29.11: WBS 개정 번호(rev). 저장 때마다 +1 (증분 저장). PM이 승인한 각 변경 세트가 새 Rev.
   _wbsRev = (Number(_wbsRev) || 0) + 1;
-  fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, rev: _wbsRev, updatedAt: Date.now()}, {merge: true}).catch(e=>console.warn("v28Save fail",e));
+  const savedAt = Date.now();
+  const cur = fb.auth && fb.auth.currentUser;
+  const byUid = cur ? cur.uid : null;
+  fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, rev: _wbsRev, updatedAt: savedAt}, {merge: true}).catch(e=>console.warn("v28Save fail",e));
+  // v29.13: 매 저장마다 wbsHistory/{pid}_{padded_rev}에도 스냅샷 저장 → "이전 Rev 보기" 지원.
+  const revStr = String(_wbsRev).padStart(4, '0');
+  fb.setDoc(fb.doc(fb.db,"wbsHistory", _wbsPid + "_" + revStr),
+    { pid: _wbsPid, rev: _wbsRev, rows, items, at: savedAt, byUid: byUid, source: "master-save" }
+  ).catch(e => console.warn("history save fail", e));
   // Rev 표시가 있으면 즉시 반영
   const revEl = document.getElementById("wbsRevBadge");
   if (revEl) revEl.textContent = "Rev. " + _wbsRev;
@@ -2742,6 +2755,8 @@ function subscribeWbsData(pid){
     _wbsRev = Number(d.rev) || 0;
     const revEl = document.getElementById("wbsRevBadge");
     if (revEl) revEl.textContent = "Rev. " + _wbsRev;
+    // v29.13: 이전 Rev 조회 중이면 master 갱신을 화면에 반영하지 않는다(스냅샷 유지).
+    if (_viewRev) { R(); return; }
     // shadow 활성 & 로컬 shadow 스냅샷 존재 → shadow가 화면 진실. master 데이터는 로드하지만 화면 갱신은 shadow 기준.
     if (_shadowUid && _shadowRows) {
       // master rev만 반영. 화면 rows는 유지.
@@ -2826,6 +2841,85 @@ async function discardShadow() {
 }
 window.submitShadowForApproval = submitShadowForApproval;
 window.discardShadow = discardShadow;
+
+// v29.13: WBS 이력 뷰어 — wbsHistory/{pid}_{padded_rev} 컬렉션에서 이 프로젝트의 모든 rev 스냅샷을 나열,
+// 클릭 시 그 시점 rows/items를 화면에 로드(읽기 전용).
+async function openWbsHistory() {
+  if (!window.fb || !_wbsPid) return;
+  // 이 pid로 시작하는 문서들 나열. Firestore where prefix 쿼리 필요 없이 컬렉션 전체 fetch 후 클라이언트 필터로도 충분(문서 수가 적을 것).
+  let list = [];
+  try {
+    const col = fb.collection(fb.db, "wbsHistory");
+    const snap = await fb.getDocs(col);
+    snap.forEach(d => {
+      const data = d.data();
+      if (data && data.pid === _wbsPid) list.push({ id: d.id, ...data });
+    });
+  } catch (e) {
+    alert("이력 조회 중 오류: " + (e.message || e));
+    return;
+  }
+  list.sort((a, b) => (b.rev || 0) - (a.rev || 0));
+  if (!list.length) {
+    alert("아직 저장된 이력이 없습니다.\n앞으로 저장할 때마다 자동으로 이 프로젝트의 모든 Rev이 이력에 남습니다.");
+    return;
+  }
+  // 인라인 오버레이 모달 렌더
+  let existing = document.getElementById("wbsHistOverlay");
+  if (existing) existing.remove();
+  const ov = document.createElement("div");
+  ov.id = "wbsHistOverlay";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;";
+  const inner = document.createElement("div");
+  inner.style.cssText = "background:#fff;border-radius:8px;max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,.2);";
+  const rowsHtml = list.map(h => {
+    const dateStr = h.at ? new Date(h.at).toLocaleString("ko-KR") : "";
+    const src = h.source === "shadow-approve" ? "🔵 결재 승인 반영" : "🟣 PM 직접 저장";
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-bottom:1px solid #eee;cursor:pointer;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''" onclick="loadWbsHistory(${h.rev})">
+      <span style="font-size:13px;font-weight:700;color:#7c3aed;background:#f5f3ff;padding:3px 10px;border-radius:12px;min-width:70px;text-align:center;">Rev. ${h.rev}</span>
+      <div style="flex:1;">
+        <div style="font-size:11px;color:#6b7280;">${dateStr}</div>
+        <div style="font-size:10px;color:#9ca3af;">${src} · rows ${((h.rows||[]).length)} · items ${((h.items||[]).length)}</div>
+      </div>
+      <button style="font-size:11px;padding:4px 10px;background:#7c3aed;color:#fff;border:none;border-radius:4px;cursor:pointer;">👁 조회</button>
+    </div>`;
+  }).join("");
+  inner.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><b style="font-size:14px;">📜 WBS 이력 (Revision History)</b><button onclick="document.getElementById(\'wbsHistOverlay\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#6b7280;">✕</button></div>' +
+    '<div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">Rev을 클릭하면 그 시점의 WBS를 읽기 전용으로 조회합니다. 현재 Rev.' + (_wbsRev||0) + '</div>' + rowsHtml;
+  ov.appendChild(inner);
+  ov.addEventListener("click", ev => { if (ev.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+async function loadWbsHistory(rev) {
+  const ov = document.getElementById("wbsHistOverlay"); if (ov) ov.remove();
+  if (!window.fb || !_wbsPid) return;
+  const revStr = String(rev).padStart(4, "0");
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, "wbsHistory", _wbsPid + "_" + revStr));
+    if (!snap.exists()) { alert("해당 Rev 스냅샷을 찾을 수 없습니다."); return; }
+    const d = snap.data();
+    _viewRev = rev;
+    _viewSnapshot = d;
+    WBS.length = 0; (d.rows || []).forEach(w => WBS.push(w));
+    MITEM[_wbsPid] = d.items || [];
+    // 이전 Rev 조회 중엔 편집 잠금
+    document.body.classList.add("sjp-readonly");
+    v28RecalcRange();
+    R();
+  } catch (e) { alert("이력 로드 중 오류: " + (e.message || e)); }
+}
+function closeWbsHistoryView() {
+  _viewRev = null; _viewSnapshot = null;
+  // shadow 모드가 아니었고 원래 편집 권한이 있었다면 readonly 해제. shadow 모드였다면 유지.
+  const qs = new URLSearchParams(window.location.search);
+  if (qs.get("canEdit") !== "0") document.body.classList.remove("sjp-readonly");
+  // 현재 상태 새로고침 (마스터 재구독)
+  location.reload();
+}
+window.openWbsHistory = openWbsHistory;
+window.loadWbsHistory = loadWbsHistory;
+window.closeWbsHistoryView = closeWbsHistoryView;
 (async function initFromFirestore(){
   const qs = new URLSearchParams(window.location.search);
   const view = qs.get("view");
