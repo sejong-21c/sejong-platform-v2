@@ -126,11 +126,14 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .cpm-parse-badge.found  { background: #E8F5E9; color: #2E7D32; }
 .cpm-parse-badge.manual { background: #FFF3E0; color: #E65100; }
 .cpm-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; background: #fff; }
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1a18;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:all .3s;z-index:999;white-space:nowrap;font-weight:500}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 
 <div id="app">로딩 중...</div>
+<div class="toast" id="toast"></div>
 
 <!-- 일반 모달 -->
 <div class="overlay" id="modal">
@@ -264,7 +267,7 @@ async function syncArrayToFirestore(coll, arr) {
   currMap.forEach((x, id) => {
     const prev = prevMap.get(id);
     if (!prev || JSON.stringify(prev) !== JSON.stringify(x)) {
-      jobs.push(fb.setDoc(fb.doc(fb.db, coll, id), x).catch(e => console.error(`[${coll} 동기화]`, e)));
+      jobs.push(fb.setDoc(fb.doc(fb.db, coll, id), x).catch(e => { console.error(`[${coll} 동기화]`, e); notifySyncError(`클라우드 저장 실패(${coll}): ${e.message||e}`); }));
     }
   });
   if (jobs.length) await Promise.all(jobs);
@@ -343,14 +346,14 @@ function subscribeCarsColl() {
     _lastSynced.t_cars = JSON.parse(JSON.stringify(serverDocs));
     try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
-  }, e => { console.error('[cars 동기화 구독]', e); setTimeout(subscribeCarsColl, 3000); });
+  }, e => { console.error('[cars 동기화 구독]', e); notifySyncError(`CAR 실시간 동기화 실패: ${e.message||e}`); setTimeout(subscribeCarsColl, 3000); });
 }
 function subscribeNcrsRefColl() {
   fb.onSnapshot(fb.collection(fb.db, 't_ncrs'), snap => {
     // v29.13.4: 첨부파일 조각 문서 걸러내기 (cars와 동일)
     state.ncrs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => ({ ...d.data(), id: d.id })); // 읽기 전용(참조용) — 디스크엔 안 씀(NCR iframe 소유)
     render();
-  }, e => { console.error('[ncrs(참조) 동기화 구독]', e); setTimeout(subscribeNcrsRefColl, 3000); });
+  }, e => { console.error('[ncrs(참조) 동기화 구독]', e); notifySyncError(`NCR 참조 동기화 실패: ${e.message||e}`); setTimeout(subscribeNcrsRefColl, 3000); });
 }
 function subscribeCarDeleteReqsColl() {
   fb.onSnapshot(fb.collection(fb.db, 't_carDeleteReqs'), snap => {
@@ -359,7 +362,7 @@ function subscribeCarDeleteReqsColl() {
     _lastSynced.t_carDeleteReqs = JSON.parse(JSON.stringify(serverDocs));
     try { writeOwnedKeysToDisk(); } catch(e) {}
     render();
-  }, e => { console.error('[carDeleteReqs 동기화 구독]', e); setTimeout(subscribeCarDeleteReqsColl, 3000); });
+  }, e => { console.error('[carDeleteReqs 동기화 구독]', e); notifySyncError(`CAR 삭제요청 동기화 실패: ${e.message||e}`); setTimeout(subscribeCarDeleteReqsColl, 3000); });
 }
 
 function save() {
@@ -1496,6 +1499,22 @@ async function confirmCARParse() {
 }
 
 function closeCARParseModal() { document.getElementById('car-parse-modal').classList.remove('open'); }
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+// 클라우드 저장/구독 실패는 콘솔에만 남아 사용자가 원인을 알 방법이 없었다
+// (보안 정책상 콘솔 접근이 막힌 환경도 있음) — 화면에 토스트로 보여준다.
+// 재시도가 반복될 때 토스트가 계속 뜨지 않도록 1분에 한 번만 표시한다.
+let _lastSyncErrorToastAt = 0;
+function notifySyncError(msg){
+  const now = Date.now();
+  if (now - _lastSyncErrorToastAt < 60000) return;
+  _lastSyncErrorToastAt = now;
+  showToast('❌ '+msg);
+}
 
 /* ═══ 초기화 ═══ */
 loadState();

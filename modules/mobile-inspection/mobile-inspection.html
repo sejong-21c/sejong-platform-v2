@@ -597,10 +597,20 @@ async function resolveMissingPhotos(records, priorCache){
 }
 // Firestore 문서에는 사진 dataUrl을 통째로 넣지 않는다(1MB 제한) — 이미
 // uploadPhotoChunks로 조각 저장된 chunkId/totalChunks만 남기고 dataUrl은 뺀다.
+// 클라우드 저장/구독 실패는 콘솔에만 남아 사용자가 원인을 알 방법이 없었다
+// (보안 정책상 콘솔 접근이 막힌 환경도 있음) — 화면에 토스트로 보여준다.
+// 재시도가 반복될 때 토스트가 계속 뜨지 않도록 1분에 한 번만 표시한다.
+let _lastSyncErrorToastAt = 0;
+function notifySyncError(msg){
+  const now = Date.now();
+  if (now - _lastSyncErrorToastAt < 60000) return;
+  _lastSyncErrorToastAt = now;
+  showToast('❌ '+msg);
+}
 function syncInspRecordToFirestore(rec){
   if (!window.fb || !fb.db) return;
   const slim = { ...rec, photos: (rec.photos||[]).map(p => ({ name:p.name, caption:p.caption||'', chunkId:p.chunkId, totalChunks:p.totalChunks })) };
-  fb.setDoc(fb.doc(fb.db, INSP_COLL, String(rec.id)), slim).catch(e => console.error('[검사 기록 동기화]', e));
+  fb.setDoc(fb.doc(fb.db, INSP_COLL, String(rec.id)), slim).catch(e => { console.error('[검사 기록 동기화]', e); notifySyncError(`클라우드 저장 실패: ${e.message||e}`); });
 }
 function deleteInspRecordFromFirestore(rec){
   if (!window.fb || !fb.db) return;
@@ -629,7 +639,7 @@ function subscribeInspColl(){
       if (document.getElementById('hist-screen').style.display !== 'none') renderHist();
       if (document.getElementById('detail-screen').style.display !== 'none' && currentRecId!=null) openDetail(currentRecId);
     }catch(e){ console.error('[검사 기록 병합]', e); }
-  }, e => { console.error('[검사 기록 동기화 구독]', e); setTimeout(subscribeInspColl, 3000); });
+  }, e => { console.error('[검사 기록 동기화 구독]', e); notifySyncError(`검사 기록 실시간 동기화 실패: ${e.message||e}`); setTimeout(subscribeInspColl, 3000); });
 }
 
 // ── 초기화 ──────────────────────────────
