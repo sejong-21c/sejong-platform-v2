@@ -611,7 +611,8 @@ const loadMasterList = (kind) => { try { return JSON.parse(localStorage.getItem(
 // ════════ 3-1. Firestore 클라우드 동기화 (v2.1) ════════
 // NCR/CAR와 동일한 문서-청크 방식 — Firebase Storage는 사내 방화벽에 막히는 환경이 있어 회피,
 // Firestore 문서 여러 개로 잘라 저장(700KB/청크). 열 때 최신값을 가져오는 방식(실시간 반영 아님).
-const ITP_FS_COLL = "itpBuilderDocs";
+// v2.2 — 도구 개발 규칙: 신규 컬렉션은 "t_" 접두사 필수(그렇지 않으면 permission-denied).
+const ITP_FS_COLL = "t_itpBuilderDocs";
 const FILE_CHUNK_SIZE = 700 * 1024;
 const _lastPushedDwg = {}; // itemId -> 마지막으로 업로드한 dwgUrl 문자열 (재청크 방지)
 

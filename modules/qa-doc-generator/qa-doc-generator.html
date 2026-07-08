@@ -665,8 +665,9 @@ const imgKey = (kind, tag, suffix="") => `${kind}_${tag}${suffix?"_"+suffix:""}`
 // ════════════ 5-1. Firestore 클라우드 동기화 (v4.0) ════════════
 // NCR/CAR와 동일한 문서-청크 방식 — Firebase Storage는 사내 방화벽에 막히는 환경이 있어 회피,
 // Firestore 문서 여러 개로 잘라 저장(700KB/청크). 열 때 최신값을 가져오는 방식(실시간 반영 아님).
-const QAG_FS_COLL = "qaGenDocs";
-const QAG_PROJ_INDEX_COLL = "qaGenProjIndex";
+// v4.1 — 도구 개발 규칙: 신규 컬렉션은 "t_" 접두사 필수(그렇지 않으면 permission-denied).
+const QAG_FS_COLL = "t_qaGenDocs";
+const QAG_PROJ_INDEX_COLL = "t_qaGenProjIndex";
 const FILE_CHUNK_SIZE = 700 * 1024;
 const _lastPushedImg = {};      // "coll/docId/key" -> 마지막으로 업로드한 dataUrl 문자열 (재청크 방지)
 const _lastChunkPointer = {};   // "coll/docId/key" -> {chunkId, totalChunks}
