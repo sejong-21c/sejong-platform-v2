@@ -645,6 +645,26 @@ async function resolveMissingPhotos(records, priorCache){
   });
   if (jobs.length) await Promise.all(jobs);
 }
+// v29.25 fix: subscribeInspColl은 프로젝트 전체(다른 사용자 몫 포함) 기록을
+// 매번 병합하는데, 여기서 resolveMissingPhotos(전체 배열)를 그대로 쓰면 화면에
+// 보이지도 않는 다른 사람의 오래된 기록 사진까지 매번 Firestore에서 전부 다시
+// 받아와 로컬 캐시를 가득 채워버렸다 — saveResults의 트리밍이 매번 무의미해져
+// "새 등록" 화면을 열자마자 "저장 공간 부족" 토스트가 뜨는 사고로 이어짐.
+// 여기서는 네트워크로 새로 받아오지 않고 이전에 이미 로컬에 캐시돼 있던
+// dataUrl만 재사용한다 — 실제로 다시 받아오는 건 openDetail(상세보기를 열 때
+// 그 기록 하나만)에서만 한다. 아직 못 채운 기록은 등록이력 목록에서 회색
+// 빈 썸네일로 보이다가 상세보기를 열면 그때 채워진다.
+function preserveCachedPhotos(records, priorCache){
+  const priorById = new Map((priorCache||[]).map(r => [r.id, r]));
+  records.forEach(rec => {
+    const prior = priorById.get(rec.id);
+    (rec.photos||[]).forEach((p,i) => {
+      if (p.dataUrl) return;
+      const priorPhoto = prior?.photos?.[i];
+      if (priorPhoto?.dataUrl && priorPhoto.chunkId === p.chunkId) p.dataUrl = priorPhoto.dataUrl;
+    });
+  });
+}
 // Firestore 문서에는 사진 dataUrl을 통째로 넣지 않는다(1MB 제한) — 이미
 // uploadPhotoChunks로 조각 저장된 chunkId/totalChunks만 남기고 dataUrl은 뺀다.
 // 클라우드 저장/구독 실패는 콘솔에만 남아 사용자가 원인을 알 방법이 없었다
@@ -689,7 +709,7 @@ function subscribeInspColl(){
       const localBefore = loadResults();
       const merged = mergeServerSnapshot(localBefore, serverDocs, _lastSyncedInsp);
       _lastSyncedInsp = JSON.parse(JSON.stringify(serverDocs));
-      await resolveMissingPhotos(merged, localBefore);
+      preserveCachedPhotos(merged, localBefore);
       saveResults(merged);
       if (document.getElementById('hist-screen').style.display !== 'none') renderHist();
       if (document.getElementById('detail-screen').style.display !== 'none' && currentRecId!=null) openDetail(currentRecId);
