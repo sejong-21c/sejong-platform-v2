@@ -608,6 +608,28 @@ const MASTER_LIST_KEYS = {wps: MASTER_WPS_KEY, welder: MASTER_WELDER_KEY, inspec
 const saveMasterList = (kind, arr) => { try { localStorage.setItem(MASTER_LIST_KEYS[kind], JSON.stringify(arr)); } catch(e){} };
 const loadMasterList = (kind) => { try { return JSON.parse(localStorage.getItem(MASTER_LIST_KEYS[kind])||"null"); } catch(e) { return null; } };
 
+// v2.2 — id 중복 복구: addItem()이 Date.now()만으로 id를 만들던 시절(수정 전) 저장된
+// 데이터는 같은 밀리초에 연속 등록된 아이템끼리 id가 겹쳐있을 수 있음. 겹친 id를 가진
+// 아이템(첫 번째는 그대로 두고, 이후 겹치는 것들만) 새 id로 교체해 이후 동작이 다시
+// 여러 아이템에 동시에 적용되는 사고를 막는다. 단, 이미 겹친 id 때문에 한 아이템의
+// 내용이 다른 아이템에 잘못 복사되어 저장된 과거 데이터 자체는 여기서 복구되지 않음
+// (어느 필드가 원래 값이었는지 판단할 방법이 없음 — 사용자가 직접 다시 입력 필요).
+function dedupeItemIds(items) {
+  const seen = new Set();
+  let fixed = 0;
+  const result = (items||[]).map(it => {
+    if (seen.has(it.id)) {
+      fixed++;
+      const newId = Date.now()+Math.random();
+      seen.add(newId);
+      return {...it, id: newId};
+    }
+    seen.add(it.id);
+    return it;
+  });
+  return {items: result, fixed};
+}
+
 // ════════ 3-1. Firestore 클라우드 동기화 (v2.1) ════════
 // NCR/CAR와 동일한 문서-청크 방식 — Firebase Storage는 사내 방화벽에 막히는 환경이 있어 회피,
 // Firestore 문서 여러 개로 잘라 저장(700KB/청크). 열 때 최신값을 가져오는 방식(실시간 반영 아님).
@@ -1059,7 +1081,11 @@ function App(){
     const s = loadLS();
     if (s) {
       if (s.proj) setProj(s.proj);
-      if (s.items) setItems(s.items);
+      if (s.items) {
+        const {items: fixedItems, fixed} = dedupeItemIds(s.items);
+        setItems(fixedItems);
+        if (fixed > 0) showMsg(`⚠ 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
+      }
       if (s.specReqs) setSpecReqs(s.specReqs);
       if (s.quoteItems) setQuoteItems(s.quoteItems);
       if (s.revComments) setRevComments(s.revComments);
@@ -1079,7 +1105,11 @@ function App(){
     // 오프라인/미존재 시 조용히 실패하고 로컬 상태 그대로 유지.
     loadFromFirestoreOrSkip(cloud => {
       if (cloud.proj) setProj(cloud.proj);
-      if (cloud.items) setItems(cloud.items);
+      if (cloud.items) {
+        const {items: fixedItems, fixed} = dedupeItemIds(cloud.items);
+        setItems(fixedItems);
+        if (fixed > 0) showMsg(`⚠ 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
+      }
       if (cloud.specReqs) setSpecReqs(cloud.specReqs);
       if (cloud.quoteItems) setQuoteItems(cloud.quoteItems);
       if (cloud.revComments) setRevComments(cloud.revComments);
@@ -1491,7 +1521,12 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
 
   const addItem = () => {
     if (!newItem.tag || !newItem.name) { showMsg("⚠ Tag와 Name은 필수"); return; }
-    setItems(p => [...p, {...newItem, id: Date.now()}]);
+    // v2.2 fix: id를 Date.now()만으로 만들면 같은 밀리초 안에 여러 아이템을 연속 등록할 때
+    // (WBS에서 넘어온 아이템을 짧은 간격으로 여러 개 등록하는 경우 등) id가 겹쳐서, 한 아이템의
+    // 도면/등록 정보를 채우면 같은 id를 가진 다른 아이템에도 전부 똑같이 적용되는 사고가 있었음
+    // (진양화성 SJE437-26 실사용 중 발견 — applyParsedResult의 it.id===targetItemId 매칭이
+    // 여러 아이템에 동시에 걸림). 다른 아이템 생성 경로(1158/1181행)와 동일하게 Math.random() 추가.
+    setItems(p => [...p, {...newItem, id: Date.now()+Math.random()}]);
     setNewItem({...DEF_ITEM});
     showMsg(`✓ 아이템 추가 — ${newItem.tag}`);
   };
