@@ -10,7 +10,7 @@
   // 부장님 공지 규칙에 따라 반드시 't_'로 시작(t_mobileInspection).
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -21,7 +21,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, onSnapshot };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where };
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
 <style>
@@ -283,6 +283,9 @@ input[type=file]{display:none}
 
 <div id="hist-screen" style="display:none">
 <div class="wrap">
+  <select id="hist-item-filter" onchange="renderHist()" style="margin-bottom:2px">
+    <option value="">전체 아이템</option>
+  </select>
   <div id="hist-empty" style="text-align:center;padding:40px 0;color:#aaa;display:none">
     <i class="ti ti-photo-off" style="font-size:40px;display:block;margin-bottom:10px" aria-hidden="true"></i>
     <p style="font-size:14px">아직 등록된 사진이 없습니다</p>
@@ -508,8 +511,6 @@ function loadResults(){
     return Array.isArray(old)?old:[];
   }catch(e){ return []; }
 }
-function saveResults(r){ try{ localStorage.setItem(INSP_RESULTS_KEY,JSON.stringify(r)); }catch(e){ showToast('저장 공간 부족'); } }
-
 function getItpFieldsKey(activity){
   const a=(activity||'').toLowerCase();
   if(a.includes('welding')) return '01';
@@ -525,14 +526,39 @@ function getItpFieldsKey(activity){
   if(a.includes('shipping')) return '11';
   return null;
 }
-// localStorage 5MB 한계 — 저장 실패 시 오래된 5건을 백업 다운로드 후 공간 확보 재시도
+// v29.22 fix: 여러 사용자가 한 프로젝트에 계속 사진을 등록하면(전사 공유),
+// 로컬 캐시(localStorage, dataUrl 포함)가 끝없이 불어나 브라우저 저장 공간
+// 한도(보통 5~10MB)를 넘겨 "저장 공간 부족" 에러가 나던 문제가 있었다.
+// Firestore가 사진 원본을 이미 조각으로 갖고 있으므로, 로컬 캐시는 최신
+// 기록 위주로만 dataUrl을 들고 있고, 예산을 넘는 오래된 기록은 dataUrl을
+// 비우고 조각 참조(chunkId/totalChunks)만 남긴다 — 상세 화면을 열 때
+// resolveMissingPhotos가 Firestore에서 다시 불러온다.
+const LOCAL_PHOTO_CACHE_BUDGET = 3 * 1024 * 1024; // 대략치, JSON 문자열 길이 기준(약 3MB)
+function trimPhotoCacheForStorage(records){
+  const sorted=[...records].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const keepIds=new Set();
+  let used=0;
+  sorted.forEach(r=>{
+    const size=(r.photos||[]).reduce((s,p)=>s+(p.dataUrl?p.dataUrl.length:0),0);
+    if(used>0 && used+size>LOCAL_PHOTO_CACHE_BUDGET) return; // 예산 초과분은 캐시에서 뺌(최소 1건은 항상 유지)
+    used+=size; keepIds.add(r.id);
+  });
+  return records.map(r=>{
+    if(keepIds.has(r.id)) return r;
+    if(!(r.photos||[]).some(p=>p.dataUrl && p.chunkId)) return r; // 다시 불러올 방법 없는(로컬 전용) 사진은 그대로 둠
+    return {...r, photos:r.photos.map(p=>p.chunkId?{...p,dataUrl:undefined}:p)};
+  });
+}
+// localStorage 5MB 한계 — 위 트리밍으로 평소엔 여유가 있어야 하지만, 그래도
+// 넘치면 오래된 5건을 백업 다운로드 후 공간을 확보해 재시도한다(최후 수단).
 function saveResults(r){
-  try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(r)); return true; }
+  const trimmed = trimPhotoCacheForStorage(r);
+  try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(trimmed)); return true; }
   catch(e) {
     if (r.length > 5) {
       const sorted = [...r].sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const oldFive = sorted.slice(0, 5);
-      const remaining = r.filter(x => !oldFive.some(o => o.id === x.id));
+      const remaining = trimmed.filter(x => !oldFive.some(o => o.id === x.id));
       try {
         const blob = new Blob([JSON.stringify(oldFive, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -643,7 +669,12 @@ function startInspFirestoreSync(){
   subscribeInspColl();
 }
 function subscribeInspColl(){
-  fb.onSnapshot(fb.collection(fb.db, INSP_COLL), async snap => {
+  // v29.21 fix: pid로 걸러주는 조건 없이 컬렉션 전체를 구독하고 있어서,
+  // 어느 프로젝트로 들어가도 다른 프로젝트의 등록 이력까지 다 섞여 보였다.
+  // 이 프로젝트(MI_PID)의 기록만 구독 — 사진 조각 문서는 pid 필드가 아예
+  // 없어 이 쿼리에 자동으로 안 걸리므로(용량도 큰 폭으로 절약됨) 별도 처리 불필요.
+  const q = fb.query(fb.collection(fb.db, INSP_COLL), fb.where('pid','==',MI_PID));
+  fb.onSnapshot(q, async snap => {
     try{
       const serverDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => d.data());
       const localBefore = loadResults();
@@ -1697,7 +1728,7 @@ async function submitUpload(){
       pf.style.width=pct+'%';
       pl.textContent=`업로드 중... ${pct}%`;
     }
-    const rec={id:recId,proj,item,date,stage,itpId:itpVal,itpName,fieldsKey,result,note,inspData,inspectors:[...selectedInspectors],photos};
+    const rec={id:recId,pid:MI_PID,proj,item,date,stage,itpId:itpVal,itpName,fieldsKey,result,note,inspData,inspectors:[...selectedInspectors],photos};
 
     const results=loadResults();
     results.unshift(rec);
@@ -1736,14 +1767,34 @@ function switchTab(tab){
   if(tab==='hist') renderHist();
 }
 
+// 등록 이력을 아이템별로 필터링해서 볼 수 있게 한다 — 현재 선택값은
+// 옵션을 다시 그려도(등록/삭제 등으로 목록이 바뀌어도) 그대로 유지한다.
+function renderHistItemFilter(records){
+  const sel=document.getElementById('hist-item-filter');
+  const prev=sel.value;
+  const items=[...new Set(records.map(r=>r.item).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  sel.innerHTML='<option value="">전체 아이템</option>'+items.map(it=>`<option value="${escapeHtml(it)}">${escapeHtml(it)}</option>`).join('');
+  sel.value=items.includes(prev)?prev:'';
+}
 function renderHist(){
   const records=loadResults();
+  renderHistItemFilter(records);
+  const filterVal=document.getElementById('hist-item-filter').value;
+  const filtered=filterVal?records.filter(r=>r.item===filterVal):records;
   const el=document.getElementById('hist-list');
   const empty=document.getElementById('hist-empty');
   el.innerHTML='';
-  if(!records.length){empty.style.display='block';el.style.display='none';return;}
+  if(!records.length){
+    empty.querySelector('p').textContent='아직 등록된 사진이 없습니다';
+    empty.style.display='block';el.style.display='none';return;
+  }
+  if(!filtered.length){
+    empty.querySelector('p').textContent='이 아이템으로 등록된 기록이 없습니다';
+    empty.style.display='block';el.style.display='none';
+    return;
+  }
   empty.style.display='none';el.style.display='flex';
-  records.forEach(r=>{
+  filtered.forEach(r=>{
     const thumb=r.photos[0]?.dataUrl||'';
     const d=document.createElement('div');
     d.className='hist-item';
@@ -1762,7 +1813,7 @@ function renderHist(){
 
 let currentRecId=null,delTargetIdx=null;
 
-function openDetail(id){
+async function openDetail(id){
   const rec=loadResults().find(r=>r.id===id);
   if(!rec)return;
   currentRecId=id;
@@ -1772,20 +1823,32 @@ function openDetail(id){
   document.getElementById('det-stage').textContent=rec.stage;
   document.getElementById('det-inspectors').textContent=(rec.inspectors&&rec.inspectors.length)?rec.inspectors.join(', '):'—';
   document.getElementById('det-note').textContent=rec.note||'없음';
-  const rg=document.getElementById('reg-grid');
-  rg.innerHTML='';
-  rec.photos.forEach((p,i)=>{
-    const div=document.createElement('div');
-    div.className='reg-item';
-    div.innerHTML=`<img src="${p.dataUrl}" alt="사진${i+1}"><div class="overlay"><i class="ti ti-trash"></i></div>`;
-    div.onclick=()=>askDel(i,p.dataUrl);
-    rg.appendChild(div);
-  });
+  renderRegGrid(rec);
   document.getElementById('reg-count').textContent=`총 ${rec.photos.length}장`;
   document.getElementById('hist-screen').style.display='none';
   document.getElementById('upload-screen').style.display='none';
   document.getElementById('detail-screen').style.display='block';
   window.scrollTo(0,0);
+  // 오래된 기록은 용량 절약을 위해 로컬 캐시에서 사진 원본이 비워져 있을 수
+  // 있다 — 상세 화면을 열 때 빠진 사진만 Firestore에서 다시 불러와 채운다.
+  if((rec.photos||[]).some(p=>!p.dataUrl && p.chunkId)){
+    await resolveMissingPhotos([rec], []);
+    if(currentRecId===id) renderRegGrid(rec); // 그 사이 다른 기록으로 넘어갔으면 갱신 안 함
+    const results=loadResults();
+    const ri=results.findIndex(r=>r.id===id);
+    if(ri>-1){ results[ri]=rec; saveResults(results); }
+  }
+}
+function renderRegGrid(rec){
+  const rg=document.getElementById('reg-grid');
+  rg.innerHTML='';
+  rec.photos.forEach((p,i)=>{
+    const div=document.createElement('div');
+    div.className='reg-item';
+    div.innerHTML=`<img src="${p.dataUrl||''}" alt="사진${i+1}"><div class="overlay"><i class="ti ti-trash"></i></div>`;
+    div.onclick=()=>askDel(i,p.dataUrl);
+    rg.appendChild(div);
+  });
 }
 
 function backToHist(){
