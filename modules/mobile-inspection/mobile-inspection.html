@@ -462,6 +462,21 @@ function getDimCheckpointsForItem(pid,itemId){
   const rows=payload?.imgStore?.['dim_rows_'+itemId];
   return Array.isArray(rows) ? rows.map(r=>({point:r.p||'', desc:r.desc||''})) : [];
 }
+// QA Doc Generator의 Hydrostatic Test 연동 — 가압부(Shell/Jacket/Tube Side/
+// In-Coil/Half-Coil 등, 품목 구성에 따라 자켓·인코일·하프코일 유무로 1~여러
+// 개소가 생김)마다 localStorage['sjp_qa_gen_proj:'+pid].imgStore['hydro_set_'+
+// 아이템ID+'_'+가압부이름]에 {tpcVal(Test Pressure), ...} 저장된다. 가압부
+// 이름은 품목 구성에 따라 달라 규칙을 재현하는 대신, 실제로 QA Doc Generator가
+// 저장해 둔 키를 그대로 읽어 가압부 목록(개소 수 포함)을 그대로 반영한다.
+function getHydroPartsForItem(pid,itemId){
+  if(!itemId) return [];
+  const payload=getQAGProjectPayload(pid);
+  const store=payload?.imgStore||{};
+  const prefix=`hydro_set_${itemId}_`;
+  return Object.keys(store)
+    .filter(k=>k.startsWith(prefix))
+    .map(k=>({part:k.slice(prefix.length), testP:store[k]?.tpcVal||''}));
+}
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -740,10 +755,15 @@ function renderItpOptionsForItem(itemId){
   const activeRows=rows
     .filter(r=>r.active!==false)
     .sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
+  // v29.19 fix: 원본 id(1~17 중 일부)를 그대로 번호로 쓰면 비활성 항목이
+  // 중간에 있을 때 "11. ... 16. ..."처럼 번호가 튐. ITP Builder 화면/인쇄
+  // 문서는 활성 항목만 걸러낸 뒤 그 안에서 1부터 다시 매긴 순번을 쓰므로
+  // (itp-builder.html의 active.map((r,i)=>...{i+1}...)와 동일 규칙), 여기서도
+  // row.id 대신 배열 순번(i+1)을 표시 번호로 쓴다. 실제 값(row.id)은 그대로
+  // option.value/dataset에 남겨 기존 저장 데이터와의 매칭에는 영향 없다.
   activeRows.forEach((row,i)=>{
     const fk=getItpFieldsKey(row.activity);
-    const seq=Number(row.id);
-    const seqLabel=Number.isFinite(seq)?String(seq).padStart(2,'0')+'. ':'';
+    const seqLabel=String(i+1).padStart(2,'0')+'. ';
     const opt=document.createElement('option');
     opt.value=row.id||String(i);
     opt.dataset.activity=row.activity||'';
@@ -860,21 +880,30 @@ const ITP_FIELDS={
     {key:'multiPoints', label:'추가 포인트 (자유 기록)', type:'textarea',
       ph:'A: 1500 mm\nB: 6000 mm\nC: 1200 mm\n...'}
   ]},
-  '08':{name:'Hydrostatic & Leak Test', fields:[
-    {key:'designP', label:'설계 시험 압력', type:'text', ph:'MPa (예: 0.65)'},
-    {key:'testP', label:'실제 시험 압력', type:'text', ph:'MPa (예: 0.66)'},
-    {key:'medium', label:'시험 유체', type:'select',
-      options:['Water','Air','Nitrogen (N₂)','Hydrogen (H₂)','Helium (He)','Argon (Ar)','Oil','기타']},
-    {key:'temp', label:'시험 온도 (시작 / 종료)', type:'minmax', ph:'°C', minLabel:'시작', maxLabel:'종료'},
-    {key:'time', label:'시험 시각 (시작 / 종료)', type:'datetime-pair',
-      autoCalcKey:'holdTime'},
-    {key:'holdTime', label:'Holding Time (자동 계산)', type:'readonly-text',
-      ph:'시작/종료 입력 시 자동 계산'},
-    {key:'eqThermo', label:'온도계 (시리얼·관리번호)', type:'text',
-      ph:'서버 측정장비 외부 불러오기'},
-    {key:'eqPressure', label:'압력계 (시리얼·관리번호)', type:'text',
-      ph:'서버 측정장비 외부 불러오기'}
-  ]},
+  // 품목 구성(자켓/인코일/하프코일 유무)에 따라 가압부(Shell/Jacket/Tube Side
+  // 등)가 1개소에서 여러 개소까지 달라지므로, 가압부마다 하나씩 추가하는
+  // 목록형으로 구성. 설계 시험 압력은 QA Doc Generator의 Test Pressure를
+  // 가압부별로 자동으로 불러온다.
+  '08':{name:'Hydrostatic & Leak Test', specialType:'hydro-list',
+    hydroFields:[
+      {key:'name', label:'가압부 이름', type:'text', ph:'예: Shell'},
+      {key:'designP', label:'설계 시험 압력', type:'text', ph:'MPa (예: 0.65)',
+        hint:'QA Doc Generator Test Pressure에서 자동 불러오기'},
+      {key:'testP', label:'실제 시험 압력', type:'text', ph:'MPa (예: 0.66)'},
+      {key:'medium', label:'시험 유체', type:'select',
+        options:['Water','Air','Nitrogen (N₂)','Hydrogen (H₂)','Helium (He)','Argon (Ar)','Oil','기타']},
+      {key:'temp', label:'시험 온도 (시작 / 종료)', type:'minmax', ph:'°C', minLabel:'시작', maxLabel:'종료'},
+      {key:'time', label:'시험 시각 (시작 / 종료)', type:'datetime-pair',
+        autoCalcKey:'holdTime'},
+      {key:'holdTime', label:'Holding Time (자동 계산)', type:'readonly-text',
+        ph:'시작/종료 입력 시 자동 계산'},
+      {key:'eqThermo', label:'온도계 (시리얼·관리번호)', type:'text',
+        ph:'서버 측정장비 외부 불러오기'},
+      {key:'eqPressure', label:'압력계 (시리얼·관리번호)', type:'text',
+        ph:'서버 측정장비 외부 불러오기'}
+    ],
+    fields:[]
+  },
   '09':{name:'Final Visual Inspection', fields:[
     {key:'surfaceCond', label:'표면처리 조건', type:'external-ref',
       hint:'도면 표면처리 외부 불러오기',
@@ -935,6 +964,13 @@ function renderInspFields(itpId){
   if(def.specialType==='head-list'){
     wrap.innerHTML=buildHeadList(def);
     bindFieldEvents(itpId);
+    return;
+  }
+  // v29.20 — 특수 모드: Hydrostatic & Leak Test 가압부 목록
+  if(def.specialType==='hydro-list'){
+    wrap.innerHTML=buildHydroList(def);
+    bindFieldEvents(itpId);
+    autoPopulateHydroRows();
     return;
   }
   let html='';
@@ -1032,7 +1068,11 @@ function buildField(f, prefix=''){
     `).join('');
     inner = `<div style="display:grid;grid-template-columns:repeat(${zones.length},1fr);gap:6px">${inputs}</div>`;
   } else if(f.type==='datetime-pair'){
-    const ack = f.autoCalcKey || '';
+    // v29.20 fix: autoCalcKey는 필드 정의에 접두사 없이 적혀 있는데(예: 'holdTime'),
+    // 반복 목록(가압부 추가 등) 안에서 쓰이면 실제 holdTime 필드의 data-key는
+    // prefix가 붙어 있다(예: 'hydro0.holdTime') — 여기서도 동일하게 접두사를
+    // 붙여야 자동 계산 결과가 같은 행의 holdTime 칸에 정확히 들어간다.
+    const ack = f.autoCalcKey ? (prefix ? prefix+'.'+f.autoCalcKey : f.autoCalcKey) : '';
     inner = `<div style="display:grid;grid-template-columns:1fr;gap:6px">
       <div><span style="font-size:10px;color:#888;display:block;margin-bottom:2px">시작</span>
         <input class="insp-field" data-key="${dk}.start" data-auto-calc="${ack}" type="datetime-local" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box"></div>
@@ -1100,14 +1140,23 @@ function addJoint(){
   div.className = 'joint-entry';
   div.style.cssText = 'padding:12px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
   let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #f0ede8">
-    <strong style="font-size:13px;color:#185fa5">Joint #${idx+1}</strong>
-    <button type="button" onclick="this.closest('.joint-entry').remove()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash"></i></button>
+    <strong class="joint-title" style="font-size:13px;color:#185fa5">Joint #${idx+1}</strong>
+    <button type="button" onclick="this.closest('.joint-entry').remove()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
   </div>`;
   def.jointFields.forEach(f=>{
     inner += buildField(f, `joint${idx}`);
   });
   div.innerHTML = inner;
   container.appendChild(div);
+  // Joint No.를 입력하면 그 값을 제목에 그대로 반영 — 비어있으면 기본
+  // "Joint #n"으로 되돌아간다(L-seam/C-seam 공통 Fit-up 필드 정의라 둘 다 적용).
+  const jointNoInput = div.querySelector(`input[data-key="joint${idx}.jointNo"]`);
+  const titleEl = div.querySelector('.joint-title');
+  if (jointNoInput && titleEl){
+    jointNoInput.addEventListener('input', () => {
+      titleEl.textContent = jointNoInput.value.trim() || `Joint #${idx+1}`;
+    });
+  }
 }
 
 // Forming Inspection 경판 목록 빌더
@@ -1147,6 +1196,55 @@ function addHeadRow(){
   const nameInput = div.querySelector(`input[data-key="head${idx}.name"]`);
   if(nameInput) nameInput.value = HEAD_DEFAULT_NAMES[pos] || '';
   bindFieldEvents('04');
+}
+
+// Hydrostatic & Leak Test 가압부 목록 빌더
+function buildHydroList(def){
+  let html = '<div id="hydro-list-container" style="display:flex;flex-direction:column;gap:10px"></div>';
+  html += `<button type="button" onclick="addHydroRow()" style="margin-top:10px;width:100%;padding:10px;background:#185fa5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+    <i class="ti ti-plus" aria-hidden="true"></i> 가압부 추가
+  </button>`;
+  html += `<p style="font-size:11px;color:#999;margin-top:8px;line-height:1.5">품목 구성(자켓·인코일·하프코일 유무)에 따라 가압부가 1개소~여러 개소로 달라지므로, 가압부마다 각각 추가해 개별로 시험값을 입력합니다. QA Doc Generator에 등록된 가압부는 자동으로 채워집니다.</p>`;
+  return html;
+}
+
+// 가압부 추가 (Hydrostatic & Leak Test 전용). presetName/presetDesignP를 주면
+// QA Doc Generator에서 자동으로 가져온 가압부 이름·설계 시험 압력을 미리 채운다.
+let _hydroCounter = 0;
+function addHydroRow(presetName, presetDesignP){
+  const def = ITP_FIELDS['08'];
+  if(!def || !def.hydroFields) return;
+  const container = document.getElementById('hydro-list-container');
+  if(!container) return;
+  const idx = _hydroCounter++;
+  const div = document.createElement('div');
+  div.className = 'hydro-entry';
+  div.style.cssText = 'padding:12px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
+  let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #f0ede8">
+    <strong style="font-size:13px;color:#185fa5">가압부 #${idx+1}</strong>
+    <button type="button" onclick="this.closest('.hydro-entry').remove()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
+  </div>`;
+  def.hydroFields.forEach(f=>{
+    inner += buildField(f, `hydro${idx}`);
+  });
+  div.innerHTML = inner;
+  container.appendChild(div);
+  if(presetName){
+    const nameInput = div.querySelector(`input[data-key="hydro${idx}.name"]`);
+    if(nameInput) nameInput.value = presetName;
+  }
+  if(presetDesignP){
+    const designInput = div.querySelector(`input[data-key="hydro${idx}.designP"]`);
+    if(designInput) designInput.value = presetDesignP;
+  }
+  bindFieldEvents('08');
+}
+// QA Doc Generator에 저장된 가압부 수만큼 행을 미리 만들어 둔다 — 이름과
+// 설계 시험 압력(Test Pressure)을 자동으로 채우고, 실제 시험 압력 등 나머지는
+// 현장에서 입력한다. QA Doc Generator에 아직 저장된 게 없으면 아무 행도
+// 만들지 않고 "가압부 추가"로 시작한다.
+function autoPopulateHydroRows(){
+  getHydroPartsForItem(MI_PID,currentItemId).forEach(p=>addHydroRow(p.part, p.testP));
 }
 
 // Material Inspection 자재 행 목록 빌더
@@ -1347,6 +1445,20 @@ function collectInspData(){
         head[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
       });
       data.heads.push(head);
+    });
+  }
+  // hydro-list(가압부) 별도 수집
+  const hydroEntries = document.querySelectorAll('#insp-fields .hydro-entry');
+  if(hydroEntries.length){
+    data.hydroParts = [];
+    hydroEntries.forEach(entry=>{
+      const hydro = {};
+      entry.querySelectorAll('.insp-field').forEach(el=>{
+        const parts = el.dataset.key.split('.');
+        const fld = parts.slice(1).join('.');
+        hydro[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
+      });
+      data.hydroParts.push(hydro);
     });
   }
   return data;
@@ -1561,6 +1673,7 @@ async function submitUpload(){
   if(!date){showToast('⚠️ 검사 일시를 입력해 주세요');return;}
   if(!pendingFiles.length){showToast('⚠️ 사진을 1장 이상 선택해 주세요');return;}
   if(fieldsKey==='02' && !document.querySelectorAll('#insp-fields .material-entry').length){showToast('⚠️ 자재를 1건 이상 추가해 주세요');return;}
+  if(fieldsKey==='08' && !document.querySelectorAll('#insp-fields .hydro-entry').length){showToast('⚠️ 가압부를 1건 이상 추가해 주세요');return;}
 
   const btn=document.getElementById('submit-btn');
   const pw=document.getElementById('prog-wrap');
