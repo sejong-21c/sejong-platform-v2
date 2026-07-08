@@ -995,7 +995,7 @@ const ITP_FIELDS={
   '11':{name:'Shipping Preparation', fields:[], note:'📷 사진만 등록 · 포장·보호 상태 확인용'}
 };
 
-function onItpChange(){
+async function onItpChange(){
   const itpSel=document.getElementById('itp');
   const itpVal=itpSel.value;
   const wrap=document.getElementById('insp-wrap');
@@ -1003,6 +1003,14 @@ function onItpChange(){
   wrap.style.display='block';
   const selOpt=itpSel.options[itpSel.selectedIndex];
   const fieldsKey=selOpt?.dataset?.fieldsKey||'';
+  // v29.24: Material/Dimension/Hydrostatic만 QA Doc Generator 데이터를 쓰므로,
+  // 그 항목일 때만 클라우드에서 최신본을 받아온 뒤 그린다(다른 항목은 기다릴
+  // 필요 없이 바로 그림 — 매번 기다리면 체감 속도가 느려짐). 클라우드에만 있던
+  // items로 currentQagItemId가 새로 맞춰질 수 있어 다시 계산한다.
+  if(['02','07','08'].includes(fieldsKey)){
+    await refreshQAGFromCloud(MI_PID);
+    currentQagItemId = getQagItemId(MI_PID, currentItemTag, currentItemId);
+  }
   renderInspFields(fieldsKey);
   document.getElementById('insp-fields').style.display='block';
   document.getElementById('insp-toggle-ic').innerHTML='<i class="ti ti-chevron-up" aria-hidden="true"></i>';
@@ -1098,7 +1106,11 @@ function buildField(f, prefix=''){
         return `<option value="${v}">${l}</option>`;
       }).join('');
     }
-    inner = `<select class="insp-field" data-key="${dk}"${needsCustom?' onchange="toggleBomCustomInput(this)"':''} style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">${opts}</select>`;
+    // v29.23: 자재 파트(bom-description)를 고르면 QA Doc Generator BOM에 이미
+    // 적힌 Heat No.가 있는 경우 같이 채워준다 — 현장에서 이미 입력한 값은 덮지 않음.
+    const selOnchange = f.source==='bom-description' ? ' onchange="toggleBomCustomInput(this);onMaterialPartSelect(this)"'
+      : (needsCustom?' onchange="toggleBomCustomInput(this)"':'');
+    inner = `<select class="insp-field" data-key="${dk}"${selOnchange} style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">${opts}</select>`;
     // 자료 유무와 무관하게 직접 입력이 가능하도록, 선택 안 보이는 텍스트 입력을
     // select 바로 뒤에 같이 렌더링해 두고 "직접 입력..." 선택 시에만 전환한다.
     if(needsCustom){
@@ -1332,15 +1344,29 @@ function buildMaterialList(def){
 // 되게 한다 — BOM이 비어 있으면 아무 행도 만들지 않고 "자재 추가"로 시작한다.
 function autoPopulateMaterialRows(){
   const bomRows=getBOMForItem(MI_PID,currentQagItemId)
-    .map((r,i)=>({partNo:i+1, name:(r.name||'').trim()}))
+    .map((r,i)=>({partNo:i+1, name:(r.name||'').trim(), heat:(r.heat||'').trim()}))
     .filter(r=>r.name);
-  bomRows.forEach(r=>addMaterialRow(`${r.partNo}. ${r.name}`));
+  bomRows.forEach(r=>addMaterialRow(`${r.partNo}. ${r.name}`, r.heat));
+}
+// v29.23: 자재 파트를 (자동 생성이 아니라) 화면에서 직접 고를 때도 QA Doc
+// Generator BOM에 Heat No.가 이미 있으면 같이 채워준다. 현장에서 이미 입력한
+// 값은 덮어쓰지 않는다 — buildField의 select onchange에서 호출됨.
+function onMaterialPartSelect(sel){
+  const entry = sel.closest('.material-entry');
+  if(!entry) return;
+  const heatInput = entry.querySelector('.insp-field[data-key$=".heatNo"]');
+  if(!heatInput || heatInput.value) return;
+  const m = /^(\d+)\./.exec(sel.value||'');
+  if(!m) return;
+  const row = getBOMForItem(MI_PID,currentQagItemId)[Number(m[1])-1];
+  if(row && row.heat) heatInput.value = row.heat;
 }
 
 // 자재 추가 (Material Inspection 전용). presetPartName을 주면 자재 파트
-// select를 해당 BOM 항목으로 미리 선택해 둔다(자동 생성 행용).
+// select를 해당 BOM 항목으로, presetHeat을 주면 Heat No.를 미리 채워둔다
+// (자동 생성 행용 — QA Doc Generator BOM에 이미 적힌 Heat No. 반영).
 let _materialCounter = 0;
-function addMaterialRow(presetPartName){
+function addMaterialRow(presetPartName, presetHeat){
   const def = ITP_FIELDS['02'];
   if(!def || !def.materialFields) return;
   const container = document.getElementById('material-list-container');
@@ -1361,6 +1387,10 @@ function addMaterialRow(presetPartName){
   if(presetPartName){
     const sel=div.querySelector(`select[data-key="mat${idx}.partName"]`);
     if(sel) sel.value=presetPartName;
+  }
+  if(presetHeat){
+    const heatInput=div.querySelector(`input[data-key="mat${idx}.heatNo"]`);
+    if(heatInput) heatInput.value=presetHeat;
   }
   bindFieldEvents('02'); // 새로 추가된 행의 mode-toggle(판정) 버튼에 이벤트 연결
   updateMaterialOverallResult();
@@ -1460,6 +1490,74 @@ function toggleInspFields(){
     : '<i class="ti ti-chevron-down" aria-hidden="true"></i>';
 }
 
+// v29.23: 모바일 인스펙션에서 입력한 Heat No.를 QA Doc Generator BOM 표에도
+// 반영한다. 먼저 같은 PC/브라우저의 localStorage(자동저장 "마지막 작업" 키)를
+// 즉시 갱신해 두고, 변경된 BOM 배열을 돌려줘서 호출부가 클라우드 반영
+// (writeHeatNoBackToQAGCloud)도 이어서 할 수 있게 한다.
+function writeHeatNoBackToQAG(pid, qagItemId, materials){
+  if(!qagItemId || !Array.isArray(materials) || !materials.length) return null;
+  const KEY = 'sjp_qa_doc_generator_v1__'+pid;
+  let payload;
+  try { payload = JSON.parse(localStorage.getItem(KEY)||'null'); } catch(e){ return null; }
+  if(!payload || !payload.imgStore) return null;
+  const bomKey = 'bom_'+qagItemId;
+  const bomRows = payload.imgStore[bomKey];
+  if(!Array.isArray(bomRows)) return null;
+  let changed = false;
+  materials.forEach(m=>{
+    const heat = (m.heatNo||'').trim();
+    if(!heat) return;
+    const match = /^(\d+)\./.exec(m.partName||'');
+    if(!match) return;
+    const row = bomRows[Number(match[1])-1];
+    if(row && row.heat !== heat){ row.heat = heat; changed = true; }
+  });
+  if(!changed) return null;
+  try { localStorage.setItem(KEY, JSON.stringify(payload)); } catch(e){}
+  return { bomKey, bomRows };
+}
+// v29.24: Heat No.를 다른 기기·다른 사람 화면에도 반영 — QA Doc Generator가
+// 이미 전사 공유용으로 쓰는 t_qaGenDocs 컬렉션(문서 id=프로젝트 id)에 BOM
+// 배열만 부분 반영(merge)한다. 문서 전체를 덮어쓰지 않고 imgStore.bom_아이템ID
+// 필드만 갱신해서, 다른 필드(items/docData/proj 등)는 그대로 유지된다. 다만
+// QA Doc Generator가 정확히 같은 순간 자동저장(1초 디바운스, 전체 덮어쓰기)을
+// 하면 그쪽이 나중에 이겨서 이 반영이 지워질 수 있음 — 흔치 않은 동시편집
+// 상황으로 보고 우선 이렇게 처리(QA Doc Generator 코드는 다른 담당자 영역이라
+// 손대지 않음).
+async function writeHeatNoBackToQAGCloud(pid, bomKey, bomRows){
+  if(!window.fb || !fb.db || !fb.auth || !fb.auth.currentUser) return;
+  try {
+    await fb.setDoc(fb.doc(fb.db, 't_qaGenDocs', pid), { imgStore: { [bomKey]: bomRows } }, { merge: true });
+  } catch(e){
+    console.error('[QA Doc Generator Heat No. 클라우드 반영 실패]', e);
+    notifySyncError(`Heat No. 클라우드 반영 실패: ${e.message||e}`);
+  }
+}
+// v29.24: getQAGProjectPayload()는 로컬 캐시(localStorage)만 보므로, 다른
+// 기기·다른 사람이 방금 입력한 최신 BOM(Heat No. 포함)을 보려면 t_qaGenDocs
+// 컬렉션에서 한 번 받아와 로컬 캐시에 얹어둬야 한다. items도 같이 덮어써야
+// 하는 이유: getQagItemId()가 QA Doc Generator 기준 아이템 id를 찾을 때 이
+// items 배열의 tag를 기준으로 매칭하는데, 로컬에 QA Doc Generator 캐시가
+// 아예 없던 기기(이 기기에서 QA Doc Generator를 연 적이 없음)라면 items가
+// 없어 매칭 자체가 안 되기 때문 — imgStore만 병합하면 이 경우 못 찾는다.
+async function refreshQAGFromCloud(pid){
+  if(!window.fb || !fb.db || !fb.auth || !fb.auth.currentUser) return;
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, 't_qaGenDocs', pid));
+    if(!snap.exists()) return;
+    const cloud = snap.data();
+    if(!cloud) return;
+    const KEY = 'sjp_qa_doc_generator_v1__'+pid;
+    let local;
+    try { local = JSON.parse(localStorage.getItem(KEY)||'null'); } catch(e){ local = null; }
+    const merged = {
+      ...(local||{}),
+      items: cloud.items || (local && local.items) || [],
+      imgStore: { ...((local && local.imgStore)||{}), ...(cloud.imgStore||{}) },
+    };
+    localStorage.setItem(KEY, JSON.stringify(merged));
+  } catch(e){ console.error('[QA Doc Generator 클라우드 조회 실패]', e); }
+}
 function collectInspData(){
   const data={};
   document.querySelectorAll('#insp-fields .insp-field').forEach(el=>{
@@ -1773,6 +1871,10 @@ async function submitUpload(){
     results.unshift(rec);
     saveResults(results);
     syncInspRecordToFirestore(rec);
+    if(fieldsKey==='02' && inspData.materials){
+      const upd = writeHeatNoBackToQAG(MI_PID, currentQagItemId, inspData.materials);
+      if(upd) writeHeatNoBackToQAGCloud(MI_PID, upd.bomKey, upd.bomRows);
+    }
 
     pendingFiles=[];renderPreviews();
     document.getElementById('item').value='';

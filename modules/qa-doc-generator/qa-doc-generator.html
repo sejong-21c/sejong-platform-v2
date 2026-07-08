@@ -2341,8 +2341,19 @@ function App(){
     })();
   }, []);
   // v3.0 — 자동저장은 "마지막 작업" 자동 복원용으로만 유지 (프로젝트 저장은 수동 Save/Save As로 분리)
+  // FIX: 이 창을 오래 열어두고 있는 동안 다른 화면(모바일 인스펙션 등)이 이
+  // 프로젝트의 BOM 등을 Firestore에 직접 반영해두면, 이 창은 그 내용을 모른 채
+  // 자동저장 때 imgStore를 통째로 덮어써서 방금 반영된 값이 사라지는 문제가
+  // 있었음. 저장 직전에 클라우드 최신본을 한 번 확인해, 이 창이 아직 갖고
+  // 있지 않은 키만 채워 넣는다(이 창에서 편집 중인 값은 그대로 유지됨).
   useEffect(() => {
-    const t = setTimeout(() => {
+    const t = setTimeout(async () => {
+      try {
+        const cloud = await loadQaGenDocFromFirestore(QAG_FS_COLL, QAG_PID);
+        if (cloud && cloud.imgStore) {
+          Object.entries(cloud.imgStore).forEach(([k, v]) => { if (!IMG_STORE.has(k)) IMG_STORE.set(k, v); });
+        }
+      } catch (e) { /* 오프라인 등 실패 시 그냥 지금 상태로 저장 진행 */ }
       const payload = {proj, items, docData, activeItemId, activeDoc, currentProjId, imgStore: Object.fromEntries(IMG_STORE)};
       saveLS(payload);
       pushQaGenDocFireAndForget(QAG_FS_COLL, QAG_PID, payload);
