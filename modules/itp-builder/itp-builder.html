@@ -449,6 +449,9 @@ body {
   .ic { display: none !important; }
   /* ITP 표가 페이지 중간 잘림 방지 */
   table { page-break-inside: avoid; }
+  /* v2.3 — 전체 인쇄 모드: 아이템 경계마다 새 페이지로. 인라인 style="pageBreakBefore"는
+     React가 page-break-before로 직렬화해 속성 선택자로 못 잡으므로 className 기반으로 처리. */
+  .itp-print-page + .itp-print-page { page-break-before: always !important; }
 }
 </style>
 </head>
@@ -819,12 +822,34 @@ const ITP_BASE = [
   mkR(17, "Manufacturers Data Report", "", "N/A", "QVD", "S", "S", "R", true),
 ];
 
+// v2.3 — ITP를 프로젝트 공유 1개에서 아이템별 독립 문서로 전환하며 추가된 헬퍼.
+// buildSpecRows/buildInitialItpRows: 기존에 specReqs→itpRows 재생성 effect 안에 있던 로직을
+// 추출 — 이제 아이템마다 이 로직을 반복 적용해야 해서 별도 함수로 분리했다.
+function buildSpecRows(specReqs) {
+  return (specReqs||[]).map((req, i) => mkR(
+    1000+i, req.activity||"Customer Special Requirement",
+    req.code||"Per Customer Spec.", req.criteria||req.description||"—",
+    req.doc||"Inspection Record", "S", "S", req.hold?"H":"W", true, true
+  ));
+}
+function buildInitialItpRows(specReqs) { return [...ITP_BASE, ...buildSpecRows(specReqs)]; }
+// scopedSetter: React의 setState(value | updaterFn) 규약을 그대로 흉내 내서, ITPPreview 내부의
+// moveRow/붙여넣기 그리드/handleAddRow/인라인 편집이 "아이템별로 쪼개진 객체의 한 칸"을 마치
+// 예전의 단일 배열 state처럼 다루게 해준다 — ITPPreview 내부는 한 줄도 안 고쳐도 된다.
+function scopedSetter(setMapFn, itemId, fallback) {
+  return (updater) => setMapFn(prev => {
+    const current = prev[itemId] ?? fallback;
+    const next = (typeof updater === "function") ? updater(current) : updater;
+    return {...prev, [itemId]: next};
+  });
+}
+
 // ════════ 7. ITP Preview ════════
-function ITPPreview({proj, items, specReqs, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols}){
+function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols}){
   const active = rows.filter(r => r.active);
-  const isHX = items.some(i => i.type.includes("Condenser") || i.type.includes("Heat"));
-  const isSUS = !isHX && items.some(i => /(316|304|sus|sts)/i.test(i.shell_mat||""));
-  const iLbl = items.map(i => `${i.name||i.tag} / ${i.tag}`).join(", ");
+  const isHX = (item.type||"").includes("Condenser") || (item.type||"").includes("Heat");
+  const isSUS = !isHX && /(316|304|sus|sts)/i.test(item.shell_mat||"");
+  const iLbl = `${item.name||item.tag} / ${item.tag}`;
   const TH = {border:"1px solid #555", padding:"5px 6px", background:"#fff", fontSize:10, fontWeight:500, textAlign:"center", verticalAlign:"middle"};
   const TD = {border:"1px solid #888", padding:"4px 5px", fontSize:10, verticalAlign:"top"};
   const TS = {width:"100%", minHeight:36, border:"none", fontSize:9, resize:"none", background:"transparent", fontFamily:"Arial,sans-serif", lineHeight:1.5};
@@ -1040,14 +1065,22 @@ function App(){
   const [wpsList, setWpsList] = useState(() => loadMasterList("wps") || []);
   const [welderList, setWelderList] = useState(() => loadMasterList("welder") || []);
   const [inspectorList, setInspectorList] = useState(() => loadMasterList("inspector") || []);
-  const [itpRows, setItpRows] = useState([...ITP_BASE]);
+  // v2.3 — ITP를 프로젝트 공유 1개에서 아이템별 독립 문서로 전환. 왼쪽에서 아이템을 여러 개
+  // 등록해도 서로 다른 체크리스트/문서번호/리비전을 가지도록 아이템 id로 키를 삼은 객체로 관리.
+  const [itpRowsByItem, setItpRowsByItem] = useState({});   // {[itemId]: Row[]}
+  const [itpDocNoByItem, setItpDocNoByItem] = useState({}); // {[itemId]: string}
+  const [itpRevByItem, setItpRevByItem] = useState({});     // {[itemId]: string}
+  const [selectedItpItemId, setSelectedItpItemId] = useState(null);
+  const [printAllMode, setPrintAllMode] = useState(false);
+  // v2.3 — mobile-inspection.html이 ITP Builder의 items가 비어 WBS 브릿지 아이템만 있는
+  // 예외 상황에서 옛 공유 itpRows로 폴백하는 경로가 있어(itpRowsByItem에 해당 id가 없음),
+  // 그 경우 체크리스트가 통째로 비지 않도록 첫 번째 아이템 것만이라도 계속 함께 저장한다.
+  const buildLegacyItpRows = () => (items[0] ? (itpRowsByItem[items[0].id] || []) : []);
   const [witnessCols, setWitnessCols] = useState([
     {key:"sj",     name:"SJ",     bg:"#eef3fb"},
     {key:"qc",     name:"QC",     bg:"#eef3fb"},
     {key:"client", name:"Client", bg:"#eef3fb"}
   ]);
-  const [itpDocNo, setItpDocNo] = useState("");
-  const [itpRev, setItpRev] = useState("0");
   // v1.3 — AI Provider 상태 제거 (Cowork 연동 대기)
   const [msg, setMsg] = useState("");
   const [parsing, setParsing] = useState(null);
@@ -1085,13 +1118,19 @@ function App(){
         const {items: fixedItems, fixed} = dedupeItemIds(s.items);
         setItems(fixedItems);
         if (fixed > 0) showMsg(`⚠ 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
+        // v2.3 마이그레이션 — 예전 "프로젝트 공유 ITP 1개"였던 데이터를 아이템별로 분리.
+        // 새 필드가 이미 있으면 그대로 쓰고, 없을 때만 옛 공유 값을 현재 모든 아이템의
+        // 시작값으로 복사한다(1회성, 멱등 — 기존 실사용 데이터를 지우지 않기 위함).
+        if (s.itpRowsByItem) setItpRowsByItem(s.itpRowsByItem);
+        else if (s.itpRows && fixedItems.length) setItpRowsByItem(Object.fromEntries(fixedItems.map(it => [it.id, JSON.parse(JSON.stringify(s.itpRows))])));
+        if (s.itpDocNoByItem) setItpDocNoByItem(s.itpDocNoByItem);
+        else if (s.itpDocNo && fixedItems.length) setItpDocNoByItem(Object.fromEntries(fixedItems.map(it => [it.id, s.itpDocNo])));
+        if (s.itpRevByItem) setItpRevByItem(s.itpRevByItem);
+        else if (s.itpRev && fixedItems.length) setItpRevByItem(Object.fromEntries(fixedItems.map(it => [it.id, s.itpRev])));
       }
       if (s.specReqs) setSpecReqs(s.specReqs);
       if (s.quoteItems) setQuoteItems(s.quoteItems);
       if (s.revComments) setRevComments(s.revComments);
-      if (s.itpRows) setItpRows(s.itpRows);
-      if (s.itpDocNo) setItpDocNo(s.itpDocNo);
-      if (s.itpRev) setItpRev(s.itpRev);
     }
     // EPC Control System에서 프로젝트 정보 동기화 (window.SJP.bridge 존재 시).
     // v2.0 — 아이템(검사 대상 아이템)은 index.html 좌측 패널(제작공정관리 연동)에서 직접 선택해
@@ -1109,13 +1148,16 @@ function App(){
         const {items: fixedItems, fixed} = dedupeItemIds(cloud.items);
         setItems(fixedItems);
         if (fixed > 0) showMsg(`⚠ 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
+        if (cloud.itpRowsByItem) setItpRowsByItem(cloud.itpRowsByItem);
+        else if (cloud.itpRows && fixedItems.length) setItpRowsByItem(Object.fromEntries(fixedItems.map(it => [it.id, JSON.parse(JSON.stringify(cloud.itpRows))])));
+        if (cloud.itpDocNoByItem) setItpDocNoByItem(cloud.itpDocNoByItem);
+        else if (cloud.itpDocNo && fixedItems.length) setItpDocNoByItem(Object.fromEntries(fixedItems.map(it => [it.id, cloud.itpDocNo])));
+        if (cloud.itpRevByItem) setItpRevByItem(cloud.itpRevByItem);
+        else if (cloud.itpRev && fixedItems.length) setItpRevByItem(Object.fromEntries(fixedItems.map(it => [it.id, cloud.itpRev])));
       }
       if (cloud.specReqs) setSpecReqs(cloud.specReqs);
       if (cloud.quoteItems) setQuoteItems(cloud.quoteItems);
       if (cloud.revComments) setRevComments(cloud.revComments);
-      if (cloud.itpRows) setItpRows(cloud.itpRows);
-      if (cloud.itpDocNo) setItpDocNo(cloud.itpDocNo);
-      if (cloud.itpRev) setItpRev(cloud.itpRev);
       if (cloud.wpsList) { setWpsList(cloud.wpsList); saveMasterList("wps", cloud.wpsList); }
       if (cloud.welderList) { setWelderList(cloud.welderList); saveMasterList("welder", cloud.welderList); }
       if (cloud.inspectorList) { setInspectorList(cloud.inspectorList); saveMasterList("inspector", cloud.inspectorList); }
@@ -1125,40 +1167,69 @@ function App(){
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const payload = {proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev, wpsList, welderList, inspectorList};
+      const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList};
       saveLS(payload);
       pushToFirestore(payload);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev, wpsList, welderList, inspectorList]);
+  }, [proj, items, specReqs, quoteItems, revComments, itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList]);
 
   // v1.5 — 업로드된 WPS/Welder 목록을 window 전역에도 반영 (동일 페이지 내 다른 참조 대응)
   useEffect(() => { if (wpsList.length) window.WPS_LIST = wpsList; }, [wpsList]);
   useEffect(() => { if (welderList.length) window.WELDER_LIST = welderList; }, [welderList]);
   useEffect(() => { if (inspectorList.length) window.INSPECTOR_LIST = inspectorList; }, [inspectorList]);
 
+  // v2.3 — 아이템마다 독립된 itpRowsByItem을 채우는 유일한 지점. 아이템 생성 경로가 3곳
+  // (addItem, applyParsedResult의 project/quote 파싱)이라 각각 시딩 코드를 넣는 대신, 이미
+  // 전체 아이템을 순회하는 이 effect가 "아직 항목이 없는 아이템에 기본값을 채우는" 역할까지
+  // 겸한다 — 새 아이템은 다음 렌더에서 자동으로 ITP_BASE+specReqs 행을 받는다. 기존 아이템의
+  // id<1000(수동 편집분)은 그대로 보존하고 id>=1000(스펙 파생분)만 재생성한다.
+  // ⚠ 아래 마이그레이션 effect(위쪽에 선언됨)보다 반드시 나중에 실행되어야 함 — 둘 다
+  // 함수형 업데이트(prev=>...)를 쓰므로 순서가 지켜지면 마이그레이션 결과를 덮어쓰지 않는다.
   useEffect(() => {
-    setItpRows(prev => {
-      const base = prev.filter(r => r.id < 1000);
-      const specRows = specReqs.map((req, i) => mkR(
-        1000+i, req.activity||"Customer Special Requirement",
-        req.code||"Per Customer Spec.", req.criteria||req.description||"—",
-        req.doc||"Inspection Record", "S", "S", req.hold?"H":"W", true, true
-      ));
-      return [...base, ...specRows];
+    setItpRowsByItem(prev => {
+      const next = {...prev};
+      let changed = false;
+      items.forEach(it => {
+        const existing = next[it.id];
+        const base = existing ? existing.filter(r => r.id < 1000) : [...ITP_BASE];
+        const merged = [...base, ...buildSpecRows(specReqs)];
+        if (!existing || JSON.stringify(existing) !== JSON.stringify(merged)) { next[it.id] = merged; changed = true; }
+      });
+      return changed ? next : prev;
     });
-  }, [specReqs]);
+  }, [specReqs, items]);
 
   useEffect(() => {
-    if (proj.no && !itpDocNo && window.SJP?.bridge?.generateDocNo) {
-      setItpDocNo(window.SJP.bridge.generateDocNo(proj.no, "ITP", 1));
-    } else if (proj.no && !itpDocNo) {
-      // v1.3 fallback: SJP bridge 없을 때 기본 Doc No. 생성
-      const yr = new Date().getFullYear().toString().slice(-2);
-      setItpDocNo(`SJ-QA-ITP-${proj.no}-${yr}-001`);
-    }
-  }, [proj.no]);
+    if (!proj.no) return;
+    const yr = new Date().getFullYear().toString().slice(-2);
+    setItpDocNoByItem(prev => {
+      const next = {...prev};
+      let changed = false;
+      items.forEach((it, idx) => {
+        if (next[it.id]) return; // 이미 있는 문서번호는 덮어쓰지 않음
+        next[it.id] = window.SJP?.bridge?.generateDocNo
+          ? window.SJP.bridge.generateDocNo(proj.no, "ITP", idx+1)
+          : `SJ-QA-ITP-${proj.no}-${yr}-${String(idx+1).padStart(3,"0")}`;
+        changed = true;
+      });
+      return changed ? next : prev;
+    });
+    setItpRevByItem(prev => {
+      const next = {...prev};
+      let changed = false;
+      items.forEach(it => { if (next[it.id] === undefined) { next[it.id] = "0"; changed = true; } });
+      return changed ? next : prev;
+    });
+  }, [proj.no, items]);
 
+  // v2.3 — Step 2 진입 시 첫 아이템을 기본 선택. 선택돼 있던 아이템이 삭제된 경우에도
+  // 여기서 다른 아이템으로 자동 대체된다.
+  useEffect(() => {
+    if (step === 2 && items.length && !items.some(it => it.id === selectedItpItemId)) {
+      setSelectedItpItemId(items[0].id);
+    }
+  }, [step, items, selectedItpItemId]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
 
@@ -1534,6 +1605,10 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   const removeItem = (id) => {
     if (!confirm("이 아이템을 삭제하시겠습니까?")) return;
     setItems(p => p.filter(i => i.id !== id));
+    setItpRowsByItem(p => { const {[id]:_, ...rest} = p; return rest; });
+    setItpDocNoByItem(p => { const {[id]:_, ...rest} = p; return rest; });
+    setItpRevByItem(p => { const {[id]:_, ...rest} = p; return rest; });
+    if (selectedItpItemId === id) setSelectedItpItemId(null);
   };
 
   // v2.1 — SJP bridge 전송(EPC Control/Firestore 연동)과 JSON 파일 다운로드를 분리.
@@ -1552,7 +1627,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       items.forEach(localItem => {
         const epc = epcItemsAfter.find(e => e.tagNo === localItem.tag);
         if (!epc) return;
-        const tplItems = (itpRows || []).filter(r => r.active !== false).map((r, idx) => {
+        const tplItems = (itpRowsByItem[localItem.id] || []).filter(r => r.active !== false).map((r, idx) => {
           const rid = String(r.id || (idx+1)).padStart(2, "0");
           const ph = rid <= "05" ? 0 : rid <= "14" ? 1 : 2;
           const clientVal = (r.witness && r.witness.client) || r.client;
@@ -1567,7 +1642,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   // Step 2 "QA Doc Generator로 바로 전송" — 1초 자동저장을 기다리지 않고 지금 즉시 localStorage에
   // 쓴다. QA Doc Generator를 그 뒤에 열거나 "🔄 ITP 최신정보 새로고침"을 누르면 바로 반영된다.
   const sendToQADoc = () => {
-    saveLS({proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev});
+    saveLS({proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem});
     const bridged = pushToHost();
     showMsg(`✓ QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 6000);
   };
@@ -1576,7 +1651,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   const handleManualCloudUpload = async () => {
     showMsg("☁ 클라우드에 업로드 중...", 30000);
     try {
-      await writeItpDocToFirestore({proj, items, specReqs, quoteItems, revComments, itpRows, itpDocNo, itpRev, wpsList, welderList, inspectorList});
+      await writeItpDocToFirestore({proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList});
       showMsg("✓ 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
     } catch (e) { showMsg(`⚠ 업로드 실패: ${e.message||e}`, 6000); }
   };
@@ -1611,7 +1686,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     setProj({no:"", name:"", customer:"", po:"", scope:"", codes:{KS:true, ASME:true, TEMA:false, EN:false, API:false, Others:false}});
     setItems([]); setNewItem({...DEF_ITEM});
     setSpecReqs([]); setQuoteItems([]); setRevComments([]);
-    setItpRows([...ITP_BASE]); setItpDocNo(""); setItpRev("0"); setStep(0);
+    setItpRowsByItem({}); setItpDocNoByItem({}); setItpRevByItem({});
+    setSelectedItpItemId(null); setPrintAllMode(false); setStep(0);
         setWitnessCols([{key:"sj",name:"SJ",bg:"#eef3fb"},{key:"qc",name:"QC",bg:"#eef3fb"},{key:"client",name:"Client",bg:"#eef3fb"}]);
     showMsg(`✓ 새 프로젝트`);
   };
@@ -1848,7 +1924,9 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     </div>}
 
     {/* Step 2 */}
-    {step === 2 && <div>
+    {step === 2 && (() => {
+      const selectedItem = items.find(it => it.id === selectedItpItemId) || null;
+      return <div>
       <div className="no-print" style={{display:"flex", gap:6, marginBottom:8, alignItems:"center"}}>
         <button onClick={()=>setStep(1)} className="btn-secondary">← 수정하기</button>
         <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>자동 저장</span>
@@ -1858,10 +1936,30 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <button onClick={handleExport} className="btn-secondary">💾 QC Gen으로 Export</button>
       </div>
 
+      {!printAllMode && items.length > 1 &&
+        <div className="no-print" style={{display:"flex", gap:6, flexWrap:"wrap", marginBottom:8}}>
+          {items.map(it =>
+            <button key={it.id} onClick={()=>setSelectedItpItemId(it.id)}
+              style={{padding:"7px 14px", fontSize:11, background: selectedItpItemId===it.id?"var(--sjp-primary)":"#fff", color: selectedItpItemId===it.id?"#fff":"var(--sjp-text-body)", border:`1px solid ${selectedItpItemId===it.id?"var(--sjp-primary)":"var(--sjp-border)"}`, borderRadius:5, cursor:"pointer", fontWeight: selectedItpItemId===it.id?700:500}}>
+              <strong>{it.tag}</strong> · {it.name}
+            </button>
+          )}
+        </div>
+      }
+
       <div className="no-print" style={{marginBottom:8}}>
         <div className="print-bar">
-          <span style={{fontSize:11, fontWeight:600}}>📄 ITP — {proj.name || "프로젝트명"} ({proj.no || "Project No"})</span>
-          <button onClick={()=>window.print()} className="btn-primary">🖨 인쇄</button>
+          <span style={{fontSize:11, fontWeight:600}}>
+            📄 ITP — {proj.name || "프로젝트명"} ({proj.no || "Project No"})
+            {!printAllMode && selectedItem && <> · {selectedItem.tag}</>}
+            {printAllMode && <> · 전체 {items.length}개 아이템</>}
+          </span>
+          <div style={{display:"flex", gap:6}}>
+            <button onClick={()=>setPrintAllMode(m=>!m)} className="btn-secondary">
+              {printAllMode ? "◀ 개별 아이템 모드" : "🖨 전체 인쇄 모드"}
+            </button>
+            <button onClick={()=>window.print()} className="btn-primary" disabled={!printAllMode && !selectedItem}>🖨 인쇄</button>
+          </div>
         </div>
         <div style={{fontSize:10, color:"#666", padding:"4px 10px", marginTop:3, background:"#fffdf5", border:"0.5px dashed #ecd6a3", borderRadius:4}}>
           <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 필수 옵션:</span>
@@ -1871,12 +1969,29 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         </div>
       </div>
 
-      <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff"}}>
-        <ITPPreview proj={proj} items={items} specReqs={specReqs}
-          rows={itpRows} setRows={setItpRows} docNo={itpDocNo} setDocNo={setItpDocNo} rev={itpRev} setRev={setItpRev}
-          witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
-      </div>
-    </div>}
+      {!printAllMode && selectedItem &&
+        <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff"}}>
+          <ITPPreview proj={proj} item={selectedItem}
+            rows={itpRowsByItem[selectedItem.id] || buildInitialItpRows(specReqs)}
+            setRows={scopedSetter(setItpRowsByItem, selectedItem.id, buildInitialItpRows(specReqs))}
+            docNo={itpDocNoByItem[selectedItem.id] || ""} setDocNo={scopedSetter(setItpDocNoByItem, selectedItem.id, "")}
+            rev={itpRevByItem[selectedItem.id] || "0"} setRev={scopedSetter(setItpRevByItem, selectedItem.id, "0")}
+            witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
+        </div>
+      }
+
+      {printAllMode && items.map((it, idx) =>
+        <div key={it.id} className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom: idx < items.length-1 ? 16 : 0}}>
+          <ITPPreview proj={proj} item={it}
+            rows={itpRowsByItem[it.id] || buildInitialItpRows(specReqs)}
+            setRows={scopedSetter(setItpRowsByItem, it.id, buildInitialItpRows(specReqs))}
+            docNo={itpDocNoByItem[it.id] || ""} setDocNo={scopedSetter(setItpDocNoByItem, it.id, "")}
+            rev={itpRevByItem[it.id] || "0"} setRev={scopedSetter(setItpRevByItem, it.id, "0")}
+            witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
+        </div>
+      )}
+    </div>;
+    })()}
 
     <div className="no-print" style={{textAlign:"center", marginTop:20, fontSize:9, color:"#aaa"}}>
       ITP Builder v1.4 · modules/quality/itp-builder · Sejong-Platform
