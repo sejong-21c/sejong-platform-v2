@@ -4,6 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>현장 사진 등록</title>
+<script type="module">
+  // Firebase Firestore — 검사 기록을 index.html/ncr.html/car.html과 같은
+  // 프로젝트로 공유(같은 오리진이라 로그인 세션도 자동 공유됨). 컬렉션 이름은
+  // 부장님 공지 규칙에 따라 반드시 't_'로 시작(t_mobileInspection).
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, onSnapshot };
+</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -520,6 +539,99 @@ function getStorageUsagePercent(){
   } catch(e) { return 0; }
 }
 
+// ── Firestore 전사 공유 동기화 ────────────────────────────────────
+// localStorage(INSP_RESULTS_KEY)를 이 기기의 캐시로 쓰고, Firestore
+// t_mobileInspection 컬렉션을 전사 공유 저장소로 쓴다. NCR/CAR과 동일하게
+// 사진(Base64)은 Firestore 문서 1MB 제한을 피해 700KB씩 조각내 같은
+// 컬렉션에 'chunk__'로 시작하는 문서로 저장한다.
+const INSP_COLL = 't_mobileInspection';
+const INSP_CHUNK_SIZE = 700 * 1024;
+let _lastSyncedInsp = [];
+
+// 서버에서 막 받은 스냅샷으로 로컬 배열을 통째로 교체하면, 방금 로컬에서
+// 등록했지만 아직 서버 왕복이 안 끝난 항목이 순간적으로 사라질 수 있다
+// (NCR/CAR에서 실제로 겪은 버그). 서버에 없어도 이전에 동기화 확인된 적
+// 없는 로컬 항목은 지우지 않고 합쳐서 유지한다.
+function mergeServerSnapshot(localArr, serverDocs, prevSynced){
+  const serverIds = new Set(serverDocs.map(d => d.id));
+  const prevSyncedIds = new Set((prevSynced||[]).map(d => d.id));
+  const notYetSynced = (localArr||[]).filter(n => !serverIds.has(n.id) && !prevSyncedIds.has(n.id));
+  return [...serverDocs, ...notYetSynced];
+}
+
+async function uploadPhotoChunks(recId, photoIdx, dataUrl){
+  // chunkId를 recId+photoIdx로 고정해 재시도해도 조각이 겹쳐쓰기만 되고
+  // 중복/고아 문서가 남지 않게 한다.
+  const chunkId = `chunk__insp_${recId}_${photoIdx}`;
+  const totalChunks = Math.ceil(dataUrl.length / INSP_CHUNK_SIZE);
+  const jobs = [];
+  for (let i=0; i<totalChunks; i++){
+    const chunk = dataUrl.slice(i*INSP_CHUNK_SIZE, (i+1)*INSP_CHUNK_SIZE);
+    jobs.push(fb.setDoc(fb.doc(fb.db, INSP_COLL, `${chunkId}__${i}`), { chunkId, chunkIndex:i, totalChunks, data:chunk }));
+  }
+  await Promise.all(jobs);
+  return { chunkId, totalChunks };
+}
+async function loadPhotoDataUrl(chunkId, totalChunks){
+  const jobs = [];
+  for (let i=0; i<totalChunks; i++) jobs.push(fb.getDoc(fb.doc(fb.db, INSP_COLL, `${chunkId}__${i}`)));
+  const snaps = await Promise.all(jobs);
+  return snaps.map(s => s.data()?.data || '').join('');
+}
+// 다른 사용자가 등록한 기록은 사진이 조각(chunk)으로만 있고 dataUrl이
+// 없는 채로 들어온다 — 화면에 그리기 전에 채워 넣는다. 직전 로컬 캐시에
+// 이미 같은 chunkId로 풀어둔 게 있으면 재요청하지 않고 재사용한다.
+async function resolveMissingPhotos(records, priorCache){
+  const priorById = new Map((priorCache||[]).map(r => [r.id, r]));
+  const jobs = [];
+  records.forEach(rec => {
+    const prior = priorById.get(rec.id);
+    (rec.photos||[]).forEach((p,i) => {
+      if (p.dataUrl) return;
+      const priorPhoto = prior?.photos?.[i];
+      if (priorPhoto?.dataUrl && priorPhoto.chunkId === p.chunkId) { p.dataUrl = priorPhoto.dataUrl; return; }
+      if (p.chunkId && p.totalChunks) jobs.push(loadPhotoDataUrl(p.chunkId, p.totalChunks).then(url => { p.dataUrl = url; }).catch(()=>{}));
+    });
+  });
+  if (jobs.length) await Promise.all(jobs);
+}
+// Firestore 문서에는 사진 dataUrl을 통째로 넣지 않는다(1MB 제한) — 이미
+// uploadPhotoChunks로 조각 저장된 chunkId/totalChunks만 남기고 dataUrl은 뺀다.
+function syncInspRecordToFirestore(rec){
+  if (!window.fb || !fb.db) return;
+  const slim = { ...rec, photos: (rec.photos||[]).map(p => ({ name:p.name, caption:p.caption||'', chunkId:p.chunkId, totalChunks:p.totalChunks })) };
+  fb.setDoc(fb.doc(fb.db, INSP_COLL, String(rec.id)), slim).catch(e => console.error('[검사 기록 동기화]', e));
+}
+function deleteInspRecordFromFirestore(rec){
+  if (!window.fb || !fb.db) return;
+  fb.deleteDoc(fb.doc(fb.db, INSP_COLL, String(rec.id))).catch(e => console.error('[검사 기록 삭제]', e));
+  (rec.photos||[]).forEach(p => {
+    if (!p.chunkId || !p.totalChunks) return;
+    for (let i=0;i<p.totalChunks;i++) fb.deleteDoc(fb.doc(fb.db, INSP_COLL, `${p.chunkId}__${i}`)).catch(()=>{});
+  });
+}
+function startInspFirestoreSync(){
+  if (!window.fb || !fb.db) { setTimeout(startInspFirestoreSync, 300); return; }
+  // 인증 세션 복원 전에 구독하면 permission-denied로 리스너가 영구 종료됨
+  // (ncr.html/car.html과 동일 원인) — 로그인 확인 후 구독.
+  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startInspFirestoreSync, 400); return; }
+  subscribeInspColl();
+}
+function subscribeInspColl(){
+  fb.onSnapshot(fb.collection(fb.db, INSP_COLL), async snap => {
+    try{
+      const serverDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => d.data());
+      const localBefore = loadResults();
+      const merged = mergeServerSnapshot(localBefore, serverDocs, _lastSyncedInsp);
+      _lastSyncedInsp = JSON.parse(JSON.stringify(serverDocs));
+      await resolveMissingPhotos(merged, localBefore);
+      saveResults(merged);
+      if (document.getElementById('hist-screen').style.display !== 'none') renderHist();
+      if (document.getElementById('detail-screen').style.display !== 'none' && currentRecId!=null) openDetail(currentRecId);
+    }catch(e){ console.error('[검사 기록 병합]', e); }
+  }, e => { console.error('[검사 기록 동기화 구독]', e); setTimeout(subscribeInspColl, 3000); });
+}
+
 // ── 초기화 ──────────────────────────────
 window.addEventListener('DOMContentLoaded', ()=>{
 
@@ -543,6 +655,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   initFromITPBuilder();
   renderInspectorToggles();
   renderHist();
+  startInspFirestoreSync();
 });
 
 // ── ITP Builder 연동 초기화 ─────────────────
@@ -1416,10 +1529,10 @@ function closeCropModal(){document.getElementById('crop-modal').classList.remove
 window.addEventListener('resize',()=>{if(document.getElementById('crop-modal').classList.contains('open')&&cropImg)initCropCanvas();});
 
 // ── 등록 ─────────────────────────────────
-function submitUpload(){
-  const state=loadITPBuilderState();
-  const projCode=state?.proj?.code||'';
-  const projName=state?.proj?.name||state?.proj||'';
+async function submitUpload(){
+  const itpState=loadITPBuilderState();
+  const projCode=itpState?.proj?.code||'';
+  const projName=itpState?.proj?.name||itpState?.proj||'';
   const proj=[projCode, projName].filter(Boolean).join(' / ')||'(프로젝트 미지정)';
   const item=document.getElementById('item').value;
   const date=document.getElementById('insp-date').value;
@@ -1446,35 +1559,47 @@ function submitUpload(){
   btn.disabled=true;
   btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin .8s linear infinite;display:inline-block"></i> 업로드 중...';
   pw.style.display='block';
+  pf.style.width='0%';
+  pl.textContent='업로드 중... 0%';
 
-  let w=0;
-  const iv=setInterval(()=>{
-    w+=Math.random()*15+8;
-    if(w>=100){w=100;clearInterval(iv);
-      setTimeout(()=>{
-        const results=loadResults();
-        const rec={id:Date.now(),proj,item,date,stage,itpId:itpVal,itpName,fieldsKey,result,note,inspData,inspectors:[...selectedInspectors],photos:pendingFiles.map(f=>({name:f.name,dataUrl:f.dataUrl,caption:''}))};
-        results.unshift(rec);
-        saveResults(results);
-        pendingFiles=[];renderPreviews();
-        document.getElementById('item').value='';
-        document.getElementById('itp').value='';
-        document.getElementById('itp').disabled=true;
-        document.getElementById('insp-wrap').style.display='none';
-        document.getElementById('insp-fields').innerHTML='';
-        document.getElementById('fail-note').value='';
-        selectResult('합격');
-        selectedInspectors=[];renderInspectorToggles();
-        btn.disabled=false;
-        btn.innerHTML='<i class="ti ti-cloud-upload"></i> 등록하기';
-        pw.style.display='none';pf.style.width='0%';
-        showToast('✅ 등록 완료! ITP에 반영되었습니다');
-        switchTab('hist');openDetail(rec.id);
-      },300);
+  try{
+    const recId=Date.now();
+    const total=pendingFiles.length;
+    const photos=[];
+    for(let i=0;i<pendingFiles.length;i++){
+      const f=pendingFiles[i];
+      const {chunkId,totalChunks}=await uploadPhotoChunks(recId,i,f.dataUrl);
+      photos.push({name:f.name,caption:f.caption||'',chunkId,totalChunks,dataUrl:f.dataUrl});
+      const pct=Math.round(((i+1)/total)*100);
+      pf.style.width=pct+'%';
+      pl.textContent=`업로드 중... ${pct}%`;
     }
-    pf.style.width=w+'%';
-    pl.textContent='업로드 중... '+Math.round(w)+'%';
-  },100);
+    const rec={id:recId,proj,item,date,stage,itpId:itpVal,itpName,fieldsKey,result,note,inspData,inspectors:[...selectedInspectors],photos};
+
+    const results=loadResults();
+    results.unshift(rec);
+    saveResults(results);
+    syncInspRecordToFirestore(rec);
+
+    pendingFiles=[];renderPreviews();
+    document.getElementById('item').value='';
+    document.getElementById('itp').value='';
+    document.getElementById('itp').disabled=true;
+    document.getElementById('insp-wrap').style.display='none';
+    document.getElementById('insp-fields').innerHTML='';
+    document.getElementById('fail-note').value='';
+    selectResult('합격');
+    selectedInspectors=[];renderInspectorToggles();
+    showToast('✅ 등록 완료! ITP에 반영되었습니다');
+    switchTab('hist');openDetail(rec.id);
+  }catch(e){
+    console.error('[검사 기록 등록]', e);
+    showToast('❌ 업로드 실패: '+(e.message||e));
+  }finally{
+    btn.disabled=false;
+    btn.innerHTML='<i class="ti ti-cloud-upload"></i> 등록하기';
+    pw.style.display='none';pf.style.width='0%';
+  }
 }
 
 // ── 탭 & 이력 ────────────────────────────
@@ -1555,8 +1680,17 @@ function confirmDel(){
   const records=loadResults();
   const ri=records.findIndex(r=>r.id===currentRecId);
   if(ri>-1){
+    const removed=records[ri].photos[delTargetIdx];
     records[ri].photos.splice(delTargetIdx,1);
-    if(!records[ri].photos.length)records.splice(ri,1);
+    if(removed?.chunkId && removed?.totalChunks){
+      for(let i=0;i<removed.totalChunks;i++) fb.deleteDoc(fb.doc(fb.db,INSP_COLL,`${removed.chunkId}__${i}`)).catch(()=>{});
+    }
+    if(!records[ri].photos.length){
+      deleteInspRecordFromFirestore(records[ri]);
+      records.splice(ri,1);
+    }else{
+      syncInspRecordToFirestore(records[ri]);
+    }
     saveResults(records);
     document.getElementById('del-modal').classList.remove('open');
     delTargetIdx=null;
