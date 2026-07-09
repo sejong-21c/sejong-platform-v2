@@ -283,9 +283,11 @@ input[type=file]{display:none}
 
 <div id="hist-screen" style="display:none">
 <div class="wrap">
+  <div id="material-status-summary"></div>
   <select id="hist-item-filter" onchange="renderHist()" style="margin-bottom:2px">
     <option value="">전체 아이템</option>
   </select>
+  <div id="hist-checklist" style="display:none;margin-top:10px"></div>
   <div id="hist-empty" style="text-align:center;padding:40px 0;color:#aaa;display:none">
     <i class="ti ti-photo-off" style="font-size:40px;display:block;margin-bottom:10px" aria-hidden="true"></i>
     <p style="font-size:14px">아직 등록된 사진이 없습니다</p>
@@ -829,24 +831,29 @@ function initFromITPBuilder(){
 // 순서도 뒤죽박죽으로 보였음. ITP_BASE(itp-builder.html)의 실제 순번은 row.id에
 // 그대로 1~17로 들어있으므로, 표시 번호와 정렬 모두 row.id 기준으로 바꾼다.
 // getItpFieldsKey는 입력 필드 종류 결정용으로 dataset에는 계속 남겨둔다.
+// v29.15: 아이템 전용 ITP(itpRowsByItem[itemId])가 있으면 우선 사용, 없으면
+// 프로젝트 공통 목록(itpRows)으로 대체 — 지금은 항상 후자지만 나중에 아이템별
+// 데이터가 생기면 코드 수정 없이 자동으로 반영된다.
+// v29.19 fix: 원본 id(1~17 중 일부)를 그대로 번호로 쓰면 비활성 항목이
+// 중간에 있을 때 "11. ... 16. ..."처럼 번호가 튐. ITP Builder 화면/인쇄
+// 문서는 활성 항목만 걸러낸 뒤 그 안에서 1부터 다시 매긴 순번을 쓰므로
+// (itp-builder.html의 active.map((r,i)=>...{i+1}...)와 동일 규칙), 여기서도
+// row.id 대신 배열 순번(i+1)을 표시 번호로 쓴다. 실제 값(row.id)은 그대로
+// 남겨 기존 저장 데이터와의 매칭에는 영향 없다. renderItpOptionsForItem(새
+// 등록 화면 드롭다운)과 renderItpChecklistForItem(등록이력 체크리스트)이
+// 공유하는 헬퍼.
+function getActiveItpRows(itemId){
+  if(!_itpState) return [];
+  const perItemRows=itemId && _itpState.itpRowsByItem && _itpState.itpRowsByItem[itemId];
+  const rows=(perItemRows && perItemRows.length) ? perItemRows : (_itpState.itpRows||[]);
+  return rows
+    .filter(r=>r.active!==false)
+    .sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
+}
 function renderItpOptionsForItem(itemId){
   const itpSel=document.getElementById('itp');
   itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
-  if(!_itpState) return;
-  // v29.15: 아이템 전용 ITP(itpRowsByItem[itemId])가 있으면 우선 사용, 없으면
-  // 프로젝트 공통 목록(itpRows)으로 대체 — 지금은 항상 후자지만 나중에 아이템별
-  // 데이터가 생기면 코드 수정 없이 자동으로 반영된다.
-  const perItemRows=itemId && _itpState.itpRowsByItem && _itpState.itpRowsByItem[itemId];
-  const rows=(perItemRows && perItemRows.length) ? perItemRows : (_itpState.itpRows||[]);
-  const activeRows=rows
-    .filter(r=>r.active!==false)
-    .sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
-  // v29.19 fix: 원본 id(1~17 중 일부)를 그대로 번호로 쓰면 비활성 항목이
-  // 중간에 있을 때 "11. ... 16. ..."처럼 번호가 튐. ITP Builder 화면/인쇄
-  // 문서는 활성 항목만 걸러낸 뒤 그 안에서 1부터 다시 매긴 순번을 쓰므로
-  // (itp-builder.html의 active.map((r,i)=>...{i+1}...)와 동일 규칙), 여기서도
-  // row.id 대신 배열 순번(i+1)을 표시 번호로 쓴다. 실제 값(row.id)은 그대로
-  // option.value/dataset에 남겨 기존 저장 데이터와의 매칭에는 영향 없다.
+  const activeRows=getActiveItpRows(itemId);
   activeRows.forEach((row,i)=>{
     const fk=getItpFieldsKey(row.activity);
     const seqLabel=String(i+1).padStart(2,'0')+'. ';
@@ -1937,11 +1944,143 @@ function renderHistItemFilter(records){
   sel.innerHTML='<option value="">전체 아이템</option>'+items.map(it=>`<option value="${escapeHtml(it)}">${escapeHtml(it)}</option>`).join('');
   sel.value=items.includes(prev)?prev:'';
 }
+// v29.26: Material Inspection은 자재가 나눠서 도착해 여러 번에 걸쳐 등록되는
+// 경우가 많은데, 등록마다 그때 포함된 자재 행만 보고 개별 판정을 계산해
+// 저장해서, 여러 등록을 모았을 때 "이 아이템은 결국 합격/불합격인지" 알려주는
+// 화면이 없었다. 등록이력에 있는 모든 Material Inspection 등록을 아이템·검사
+// 항목별로 모아 BOM 자재 행(partName) 단위로 최신 판정을 누적 추적해서
+// 종합판정을 계산한다(같은 자재가 여러 등록에 걸쳐 나오면 더 최근 등록의
+// 판정을 최종값으로 씀).
+function getMaterialAggregateStatuses(pid){
+  const records = loadResults().filter(r => r.pid===pid && r.fieldsKey==='02' && Array.isArray(r.inspData && r.inspData.materials) && r.inspData.materials.length);
+  const groups = new Map(); // key: item+'||'+itpId
+  records.forEach(r=>{
+    const key = r.item+'||'+r.itpId;
+    if(!groups.has(key)) groups.set(key, { item:r.item, itpId:r.itpId, itpName:r.itpName, recs:[] });
+    groups.get(key).recs.push(r);
+  });
+  const out=[];
+  groups.forEach(g=>{
+    const sorted=[...g.recs].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    const latestByPart=new Map();
+    sorted.forEach(r=>{
+      r.inspData.materials.forEach(m=>{
+        if(m.partName) latestByPart.set(m.partName, m.rowResult||'보류');
+      });
+    });
+    // 현재 BOM 전체 자재 수를 알아야 "아직 등록 안 된 자재가 남았는지" 판단
+    // 가능 — 아이템 라벨("태그 / 이름")에서 태그를 뽑아 QA Doc Generator
+    // 아이템 id로 재해석한다. 못 찾으면 지금까지 등록된 자재 수만으로 판단.
+    const tag = (g.item||'').includes(' / ') ? g.item.split(' / ')[0] : g.item;
+    const qagId = getQagItemId(pid, tag, null);
+    const bomRows = qagId ? getBOMForItem(pid, qagId) : [];
+    const values = [...latestByPart.values()];
+    const judgedCount = latestByPart.size;
+    const totalCount = bomRows.length || judgedCount;
+    const failCount = values.filter(v=>v==='불합격').length;
+    let status;
+    if(failCount>0) status='불합격';
+    else if(totalCount>0 && judgedCount>=totalCount && values.every(v=>v==='합격')) status='합격';
+    else status='진행중';
+    out.push({ item:g.item, itpId:g.itpId, itpName:g.itpName, status, judgedCount, totalCount, failCount });
+  });
+  return out.sort((a,b)=>a.item.localeCompare(b.item,'ko'));
+}
+// 합부 판정 문자열 → 배지(이모지+텍스트). 종합판정 요약/체크리스트/체크리스트
+// 상세 목록에서 공통으로 쓴다.
+function statusBadgeHtml(status){
+  if(status==='합격') return '🟢 합격';
+  if(status==='불합격') return '🔴 불합격';
+  if(status==='조건부합격') return '🟠 조건부합격';
+  if(status==='진행중') return '🟡 진행중';
+  return status ? '⚪ '+escapeHtml(status) : '⚪ 미실시';
+}
+function renderMaterialStatusSummary(){
+  const wrap=document.getElementById('material-status-summary');
+  if(!wrap) return;
+  const statuses=getMaterialAggregateStatuses(MI_PID);
+  if(!statuses.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = `<div style="background:#f8f7f4;border:1px solid #e5e2da;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+    <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:600">📋 자재검사 종합판정 (여러 등록 누적)</div>
+    ${statuses.map(s=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #efece5;font-size:12px">
+        <span>${escapeHtml(s.item)} · ${escapeHtml(s.itpName||'')}</span>
+        <span style="font-weight:600;white-space:nowrap">${statusBadgeHtml(s.status)} <span style="color:#999;font-weight:400">(${s.judgedCount}/${s.totalCount} 완료${s.failCount?`, 불합격 ${s.failCount}건`:''})</span></span>
+      </div>`).join('')}
+  </div>`;
+}
+// v29.27 — 등록이력에서 아이템을 하나 고르면, 그 아이템의 ITP 체크리스트
+// (01~11단계) 전체를 상태와 함께 보여준다. 아이템 라벨("태그 / 이름")로는
+// ITP Builder의 아이템 id를 바로 알 수 없어, 같은 라벨을 만드는 아이템을
+// 다시 찾아 id를 역으로 구한다(initFromITPBuilder의 라벨 생성 규칙과 동일).
+function resolveItemIdFromLabel(label){
+  if(!_itpState || !label) return '';
+  const localItems=_itpState.items||[];
+  const items=localItems.length?localItems:getBridgeItems();
+  const match=items.find(it=>[it.tag,it.name].filter(Boolean).join(' / ')===label);
+  return match?(match.id||''):'';
+}
+function toggleChecklistStep(headerEl){
+  const detail=headerEl.nextElementSibling;
+  if(detail) detail.style.display = detail.style.display==='none' ? 'block' : 'none';
+}
+function renderItpChecklistForItem(item){
+  const wrap=document.getElementById('hist-checklist');
+  const itemId=resolveItemIdFromLabel(item);
+  const activeRows=getActiveItpRows(itemId);
+  if(!activeRows.length){
+    wrap.innerHTML='<p style="font-size:12px;color:#aaa;padding:10px 0;text-align:center">이 아이템의 ITP 목록을 찾을 수 없습니다(ITP Builder 확인 필요)</p>';
+    return;
+  }
+  const allRecords=loadResults().filter(r=>r.item===item);
+  const materialAggByItpId=new Map(getMaterialAggregateStatuses(MI_PID).filter(a=>a.item===item).map(a=>[String(a.itpId),a]));
+  wrap.innerHTML = activeRows.map((row,i)=>{
+    const seq=String(i+1).padStart(2,'0');
+    const fk=getItpFieldsKey(row.activity);
+    const itpId=String(row.id!=null?row.id:i);
+    const recsForStep=allRecords.filter(r=>String(r.itpId)===itpId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    let statusHtml;
+    if(fk==='02' && materialAggByItpId.has(itpId)){
+      const agg=materialAggByItpId.get(itpId);
+      statusHtml = `${statusBadgeHtml(agg.status)} <span style="color:#999;font-weight:400">(${agg.judgedCount}/${agg.totalCount}${agg.failCount?`, 불합격 ${agg.failCount}건`:''})</span>`;
+    } else if(recsForStep.length){
+      statusHtml = statusBadgeHtml(recsForStep[0].result);
+    } else {
+      statusHtml = '<span style="color:#bbb">⚪ 미실시</span>';
+    }
+    const countLabel = recsForStep.length ? `<span style="color:#999;font-size:11px;margin-left:6px">[${recsForStep.length}건 등록]</span>` : '';
+    const detailHtml = recsForStep.map(r=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;font-size:12px;border-top:1px solid #f0ede8">
+        <span>${escapeHtml(r.date.replace('T',' '))} · ${statusBadgeHtml(r.result)} · 사진 ${r.photos.length}장</span>
+        <button type="button" onclick="event.stopPropagation();openDetail(${r.id})" style="font-size:11px;padding:3px 10px;border:1px solid #d6d3cb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap">상세보기</button>
+      </div>`).join('');
+    return `<div style="border:1px solid #e5e2da;border-radius:10px;margin-bottom:6px;overflow:hidden;background:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;${recsForStep.length?'cursor:pointer':''}"${recsForStep.length?' onclick="toggleChecklistStep(this)"':''}>
+        <span style="font-size:13px">${seq}. ${escapeHtml(row.activity)}</span>
+        <span style="font-size:12px;white-space:nowrap;text-align:right">${statusHtml}${countLabel}</span>
+      </div>
+      ${recsForStep.length?`<div style="display:none;background:#faf9f7">${detailHtml}</div>`:''}
+    </div>`;
+  }).join('');
+}
 function renderHist(){
   const records=loadResults();
   renderHistItemFilter(records);
   const filterVal=document.getElementById('hist-item-filter').value;
-  const filtered=filterVal?records.filter(r=>r.item===filterVal):records;
+  const checklistWrap=document.getElementById('hist-checklist');
+  const summaryWrap=document.getElementById('material-status-summary');
+  if(filterVal){
+    summaryWrap.innerHTML='';
+    checklistWrap.style.display='block';
+    renderItpChecklistForItem(filterVal);
+    document.getElementById('hist-list').innerHTML='';
+    document.getElementById('hist-list').style.display='none';
+    document.getElementById('hist-empty').style.display='none';
+    return;
+  }
+  checklistWrap.style.display='none';
+  checklistWrap.innerHTML='';
+  renderMaterialStatusSummary();
   const el=document.getElementById('hist-list');
   const empty=document.getElementById('hist-empty');
   el.innerHTML='';
@@ -1949,13 +2088,8 @@ function renderHist(){
     empty.querySelector('p').textContent='아직 등록된 사진이 없습니다';
     empty.style.display='block';el.style.display='none';return;
   }
-  if(!filtered.length){
-    empty.querySelector('p').textContent='이 아이템으로 등록된 기록이 없습니다';
-    empty.style.display='block';el.style.display='none';
-    return;
-  }
   empty.style.display='none';el.style.display='flex';
-  filtered.forEach(r=>{
+  records.forEach(r=>{
     const thumb=r.photos[0]?.dataUrl||'';
     const d=document.createElement('div');
     d.className='hist-item';
@@ -2006,10 +2140,24 @@ function renderRegGrid(rec){
   rec.photos.forEach((p,i)=>{
     const div=document.createElement('div');
     div.className='reg-item';
-    div.innerHTML=`<img src="${p.dataUrl||''}" alt="사진${i+1}"><div class="overlay"><i class="ti ti-trash"></i></div>`;
+    div.innerHTML=`<img src="${p.dataUrl||''}" alt="사진${i+1}"><div class="overlay"><i class="ti ti-trash"></i></div>
+      <button type="button" class="reg-dl-btn" title="사진 다운로드" style="position:absolute;top:5px;right:5px;width:26px;height:26px;border:none;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2"><i class="ti ti-download" aria-hidden="true"></i></button>`;
     div.onclick=()=>askDel(i,p.dataUrl);
+    div.querySelector('.reg-dl-btn').onclick=(e)=>{ e.stopPropagation(); downloadPhoto(p, rec, i); };
     rg.appendChild(div);
   });
+}
+// v29.27 — 등록이력 상세보기에서 사진을 개별로 다운로드. 아직 로컬에
+// dataUrl이 없는(멀리서 조각만 받은) 사진은 openDetail에서 이미 채워두므로
+// 여기선 안내만 하고 강제로 다시 받아오지 않는다.
+function downloadPhoto(p, rec, idx){
+  if(!p.dataUrl){ showToast('⚠️ 사진을 아직 못 불러왔습니다 — 잠시 후 다시 시도하세요'); return; }
+  const safeItem=(rec.item||'item').replace(/[\\/:*?"<>|]/g,'_');
+  const safeStage=(rec.stage||'').replace(/[\\/:*?"<>|]/g,'_');
+  const a=document.createElement('a');
+  a.href=p.dataUrl;
+  a.download=`${safeItem}_${safeStage}_${(rec.date||'').slice(0,10)}_${idx+1}`;
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 function backToHist(){
