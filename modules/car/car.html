@@ -1132,12 +1132,9 @@ function renderCARTrend() {
   const byMonth=_fillMonths(byMonthRaw, fillYr);
 
   const tableRows=cars.map(c=>{
-    const p=getP(c.proj);
     const st=CAR_STATUS[c.status]||CAR_STATUS['in-progress'];
     return `<tr>
       <td style="font-weight:700;">${c.id}</td>
-      <td>${p?.code||'-'}</td>
-      <td>${c.meta?.client||'-'}</td>
       <td>${_fmtDept(c.reqDept)}</td>
       <td>${c.qualReq||'-'}</td>
       <td>${c.field||'-'}</td>
@@ -1150,8 +1147,6 @@ function renderCARTrend() {
       <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
     </tr>`;
   }).join('');
-
-  const projEntries=(()=>{ const m={}; cars.forEach(c=>{ const lbl=getP(c.proj)?.code||'미지정'; m[lbl]=(m[lbl]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
 
   document.getElementById('ctr-body').innerHTML = `
     <div class="ctr-kpi-row">
@@ -1167,7 +1162,6 @@ function renderCARTrend() {
     </div>
 
     <div class="ctr-grid">
-      <div class="ctr-chart-wrap"><div class="ctr-chart-title">프로젝트별</div>${_barSvg(projEntries, COLORS)}</div>
       <div class="ctr-chart-wrap"><div class="ctr-chart-title">품질요건별</div>${_barSvg(Object.entries(_count(cars,'qualReq')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
       <div class="ctr-chart-wrap"><div class="ctr-chart-title">발생분야별</div>${_barSvg(Object.entries(_count(cars,'field')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
       <div class="ctr-chart-wrap"><div class="ctr-chart-title">원인별</div>${_donutSvg(Object.entries(_count(cars,'cause')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
@@ -1178,8 +1172,8 @@ function renderCARTrend() {
       <h4>📋 상세 목록</h4>
       <div style="overflow-x:auto;">
         <table class="ctr-table">
-          <thead><tr><th>CAR No.</th><th>프로젝트</th><th>고객명</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
-          <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;color:var(--text-light);padding:20px;">데이터 없음</td></tr>'}</tbody>
+          <thead><tr><th>CAR No.</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
+          <tbody>${tableRows||'<tr><td colspan="11" style="text-align:center;color:var(--text-light);padding:20px;">데이터 없음</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -1199,15 +1193,14 @@ function printCARTrend() {
   const fillYr2=yr==='전체'?String(new Date().getFullYear()):yr;
   const byMonth=_fillMonths(byMonthRaw, fillYr2);
 
-  const projEntries=(()=>{ const m={}; cars.forEach(c=>{ const lbl=getP(c.proj)?.code||'미지정'; m[lbl]=(m[lbl]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
   const qualEntries=Object.entries(_count(cars,'qualReq')).sort((a,b)=>b[1]-a[1]);
   const fieldEntries=Object.entries(_count(cars,'field')).sort((a,b)=>b[1]-a[1]);
   const causeEntries=Object.entries(_count(cars,'cause')).sort((a,b)=>b[1]-a[1]);
   const statusEntries=Object.entries(_count(cars,'status')).map(([k,v])=>[CAR_STATUS[k]?.[1]||k,v]).sort((a,b)=>b[1]-a[1]);
 
   const tableRows=cars.map(c=>{
-    const p=getP(c.proj); const st=CAR_STATUS[c.status]||CAR_STATUS['in-progress'];
-    return `<tr><td style="font-weight:700;">${c.id}</td><td>${p?.code||'-'}</td><td>${c.meta?.client||'-'}</td>
+    const st=CAR_STATUS[c.status]||CAR_STATUS['in-progress'];
+    return `<tr><td style="font-weight:700;">${c.id}</td>
       <td>${_fmtDept(c.reqDept)}</td><td>${c.qualReq||'-'}</td><td>${c.field||'-'}</td><td>${c.cause||'-'}</td>
       <td>${c.issuedAt||'-'}</td><td>${c.replyDue||'-'}</td><td>${c.repliedAt||'-'}</td><td>${c.actionAt||'-'}</td><td>${c.closedAt||'-'}</td>
       <td><span class="b-pill ${st[0]}">${st[1]}</span></td></tr>`;
@@ -1228,7 +1221,7 @@ function printCARTrend() {
     .top{display:grid;grid-template-columns:1fr 2.8fr;gap:6px;margin-bottom:6px;}
     .card{border:1px solid #e0e0e0;border-radius:5px;padding:6px;}
     .card-title{font-size:9px;font-weight:700;color:#0369a1;margin:0 0 4px;}
-    .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
+    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
     .ch-title{font-size:8.5px;font-weight:700;color:#888;margin-bottom:3px;}
     .ch{border:1px solid #eee;border-radius:4px;padding:5px;overflow:hidden;}
     table{width:100%;border-collapse:collapse;font-size:8.5px;}
@@ -1253,8 +1246,7 @@ function printCARTrend() {
     <div class="top">
       <div class="card"><div class="card-title">📈 월별 발생 추이</div>${_lineSvg(byMonth, 90, 'height:80px;')}</div>
       <div class="card"><div class="card-title">📊 항목별 분포</div>
-        <div class="grid5">
-          <div class="ch"><div class="ch-title">프로젝트별</div>${_barSvg(projEntries,COLORS)}</div>
+        <div class="grid4">
           <div class="ch"><div class="ch-title">품질요건별</div>${_barSvg(qualEntries,COLORS)}</div>
           <div class="ch"><div class="ch-title">발생분야별</div>${_barSvg(fieldEntries,COLORS)}</div>
           <div class="ch"><div class="ch-title">원인별</div>${_donutSvg(causeEntries,COLORS)}</div>
@@ -1263,8 +1255,8 @@ function printCARTrend() {
       </div>
     </div>
     <div class="card pagebreak"><div class="card-title">📋 상세 목록</div>
-      <table><thead><tr><th>CAR No.</th><th>프로젝트</th><th>고객명</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
-        <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
+      <table><thead><tr><th>CAR No.</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
+        <tbody>${tableRows||'<tr><td colspan="11" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
       </table>
     </div>
     <script>window.onload=()=>{window.print();}<\/script>
@@ -1379,45 +1371,66 @@ async function extractPdfOCR(file, cb) {
 function parseCARText(text, filename) {
   const cl = s => (s||'').replace(/\s+/g,' ').trim();
   const fname = (filename||'').replace(/\.[^.]+$/,'');
-  const carNo = text.match(/CAR\s*No\.?\s*[：:]?\s*([\w\-]+)/i)?.[1] ||
-                text.match(/\b(CAR[-\s]?\d{2,4}[-\s]?\d{1,4})\b/i)?.[0]?.replace(/\s/g,'-') ||
-                fname.match(/(CAR[-\s]?\d{4}[-\s]\d+)/i)?.[1]?.replace(/\s/g,'-') || '';
+  // v29.42: 실제 사내 CAR 양식(SJ-QAF-1601-01)을 기준으로 라벨 위치를 정확히
+  // 지정해서 뽑는다. "발행번호 26 - CAR - 001"처럼 2자리 연도-분리표기라
+  // 기존 정규식(CAR-2026-001 형태 가정)으로는 아예 못 잡았었음.
+  const carNoTpl = text.match(/발행\s*번호\s*[：:]?\s*(\d{2,4})\s*-\s*CAR\s*-\s*(\d+)/i);
+  let carNo = '';
+  if (carNoTpl) {
+    const yy = carNoTpl[1].length === 2 ? '20'+carNoTpl[1] : carNoTpl[1];
+    carNo = `CAR-${yy}-${carNoTpl[2].padStart(3,'0')}`;
+  } else {
+    carNo = text.match(/CAR\s*No\.?\s*[：:]?\s*([\w\-]+)/i)?.[1] ||
+            text.match(/\b(CAR[-\s]?\d{2,4}[-\s]?\d{1,4})\b/i)?.[0]?.replace(/\s/g,'-') ||
+            fname.match(/(CAR[-\s]?\d{4}[-\s]\d+)/i)?.[1]?.replace(/\s/g,'-') || '';
+  }
   const ncrRef = text.match(/NCR\s*No\.?\s*[：:]?\s*([\w\-]+)/i)?.[1] ||
                  text.match(/\b(SJ-NCR-\d{4}-\d+|NCR[-\s]?\d{2,4}[-\s]?\d{1,4})\b/i)?.[0]?.replace(/\s/g,'-') || '';
-  const normDate = d => d.split(/[.\-\/]/).map((v,i)=>i>0&&v.length===1?'0'+v:v).join('-');
+  // "26.01.26"처럼 2자리 연도 날짜는, 라벨(발행일자/회신기한) 바로 뒤에서만
+  // 인식한다 — 라벨 없이 문서 전체를 훑는 블라인드 폴백은 오탐 위험이 커서
+  // 4자리 연도로만 제한.
+  const normDate = d => {
+    let [y,m,dd] = d.split(/[.\-\/]/);
+    if (y.length === 2) y = '20'+y;
+    if (m.length === 1) m = '0'+m;
+    if (dd.length === 1) dd = '0'+dd;
+    return `${y}-${m}-${dd}`;
+  };
   const dateMatches = [...text.matchAll(/(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/g)].map(m=>m[1]);
-  const dateRaw = text.match(/(?:발행일|작성일|Issue\s*Date)[^0-9]{0,12}(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i)?.[1] || dateMatches[0] || '';
+  const dateRaw = text.match(/(?:발행일자|발행일|작성일|Issue\s*Date)[^0-9]{0,12}(\d{2,4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i)?.[1] || dateMatches[0] || '';
   const issuedAt = dateRaw ? normDate(dateRaw) : '';
-  const dueRaw  = text.match(/(?:회신\s*기한|회신\s*요청일|Reply\s*Due|Due\s*Date)[^0-9]{0,12}(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i)?.[1] ||
+  const dueRaw  = text.match(/(?:회신\s*기한|회신\s*요청일|Reply\s*Due|Due\s*Date)[^0-9]{0,12}(\d{2,4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i)?.[1] ||
                   dateMatches.find(d => normDate(d) !== issuedAt) || '';
   const replyDue = dueRaw ? normDate(dueRaw) : '';
-  let projTitle = cl(text.match(/Project\s*(?:Title|명)\s*[：:]?\s*(.+?)(?=\s*고객|\s*Client|$)/i)?.[1]||'');
-  let client = cl(text.match(/(?:Client|고객명)\s*[：:]?\s*(.+?)(?=\s*도면|\s*Dwg|\s*W\.R|$)/i)?.[1]||'');
-  // 라벨로 못 찾았으면, 등록된 프로젝트 코드/이름이 문서 안에 그대로 있는지 찾아본다.
-  let matchedProj = null;
-  if (!projTitle) {
-    matchedProj = (state.projects||[]).find(pr => pr.code && text.includes(pr.code)) ||
-                  (state.projects||[]).find(pr => pr.name && pr.name.length > 3 && text.includes(pr.name));
-    if (matchedProj) {
-      projTitle = `${matchedProj.code||''} ${matchedProj.name||''}`.trim();
-      if (!client) client = matchedProj.client || '';
-    }
-  }
-  const dwgNo = cl(text.match(/Dwg\s*No\.?\s*[：:]?\s*([\w\-\/.]+)/i)?.[1]||'');
-  const wrNo  = cl(text.match(/W\.R\s*No\.?\s*[：:]?\s*([\w\-]+)/i)?.[1]||'');
-  // v29.40 fix: [^：:]* 가 콜론이 하나도 없는 문서에서 문서 전체를 먹어버려
-  // (조치 내용이 아예 안 잡힘) — "시정조치"가 라벨 뒤 15자/줄바꿈 안에서만
-  // 콜론을 찾도록 범위를 제한해, 콜론이 없어도 최소한 그 다음 문장은 잡히게 함.
-  const action = cl(text.match(/(?:시정조치|Corrective\s*Action)[^\n：:]{0,15}[：:]?\s*([\s\S]+?)(?=담당자|Assignee|회신기한|Reply\s*Due|Due\s*Date|$)/i)?.[1]||'');
-  // 드롭다운(발생분야/원인/품질요건/시정조치요구부서) — 옵션 텍스트가 문서
-  // 안에 그대로 있으면 미리 선택. 더 구체적인 항목을 먼저 확인하고("기타"는
-  // 배열 맨 끝에 있어 마지막에만 걸림).
+  // 조치부서(생산부, 구매부처럼 복수)를 시정조치요구부서로 — 문서 전체를
+  // 훑지 않고 "조치부서" 라벨 바로 뒤 구간에서만 부서명을 찾아 오탐을 막는다.
+  const DEPT_LIST_ALL = ['영업부','기술부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'];
+  const reqDeptLine = text.match(/조치\s*부서\s*[：:]?\s*([\s\S]+?)(?=발행구분|본\s*요구서|$)/i)?.[1] || '';
+  const reqDept = reqDeptLine ? DEPT_LIST_ALL.filter(d => reqDeptLine.includes(d)) : [];
+  // 품질위배사항 요구내용(요구자가 적는 문단) — 이 양식의 안내문구
+  // "구체적으로 기술" 뒤부터 "작 성 자" 전까지가 실제 요구내용 문단.
+  const reqContent = cl(
+    text.match(/구체적으로\s*기술\s*([\s\S]+?)(?=작\s*성\s*자|발생원인|조치내용|$)/i)?.[1] ||
+    text.match(/요구\s*내용[^\n]{0,40}?[：:]\s*([\s\S]+?)(?=작\s*성\s*자|발생원인|조치내용|$)/i)?.[1] || ''
+  );
+  // 발생원인/조치내용 칸 — 아직 미발행/미회신 문서는 이 칸들이 비어있는
+  // 경우가 대부분이라(정상), 못 찾으면 그냥 빈 문자열(직접입력)로 둔다.
+  const causeDetail = cl(text.match(/발생원인\s*([\s\S]*?)(?=조치\s*내용|작\s*성\s*자|$)/i)?.[1] || '');
+  const action = cl(
+    text.match(/조치\s*내용\s*([\s\S]*?)(?=작\s*성\s*자|조치\s*결과|확\s*인|$)/i)?.[1] ||
+    text.match(/(?:시정조치|Corrective\s*Action)\s*(?:내용|Content)[^\n：:]{0,10}[：:]?\s*([\s\S]+?)(?=담당자|Assignee|회신기한|Reply\s*Due|Due\s*Date|$)/i)?.[1] || ''
+  );
+  // 조치결과 확인란의 검토의견 → 결과. 대부분 미기재 상태라 빈 값이 정상.
+  const result = cl(text.match(/검토의견\s*[：:]?\s*([\s\S]*?)(?=검\s*토\s*자|부\s*서\s*장|$)/i)?.[1] || '');
+  // 품질요건(18개 챕터명)은 문구가 충분히 구체적이라 문서 전체 검색이 안전.
+  // 발생분야/원인 드롭다운은 옵션이 "관리"/"기타"처럼 짧아 무관한 텍스트에
+  // 오탐(품질관리부→관리, 체크 안 된 "기타" 체크박스 등)이 잦았던 항목이라
+  // 자동감지를 뺐다 — 항상 직접입력으로 두고 사용자가 고른다.
   const findOpt = opts => opts.find(o => text.includes(o)) || '';
   const qualReq = findOpt(CAR_QUAL_REQ);
-  const field = findOpt(CAR_FIELD);
-  const cause = findOpt(CAR_CAUSE);
-  const reqDept = findOpt(['영업부','기술부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부']);
-  return { carNo, ncrRef, issuedAt, replyDue, projTitle, client, dwgNo, wrNo, action, qualReq, field, cause, reqDept, matchedProjId: matchedProj?.id||'' };
+  const field = '';
+  const cause = '';
+  return { carNo, ncrRef, issuedAt, replyDue, reqContent, causeDetail, action, result, qualReq, field, cause, reqDept };
 }
 
 // v29.41: 프로젝트/고객명/도면번호/W.R No.는 파싱 확인 화면에서도 안 물어봄
@@ -1461,13 +1474,13 @@ function showCARParseModal(p) {
       <div class="cpm-field"><label>발생분야 ${badge(p.field)}</label><select id="cp-field" style="${inpStyle}">${_opts(CAR_FIELD, p.field)}</select></div>
       <div class="cpm-field"><label>원인 ${badge(p.cause)}</label><select id="cp-cause" style="${inpStyle}">${_opts(CAR_CAUSE, p.cause)}</select></div>
     </div>
-    <div class="cpm-field"><label>시정조치 요구내용</label><textarea id="cp-reqContent" rows="2" style="${inpStyle}resize:vertical;" placeholder="요구/지시된 사항을 기재하세요"></textarea></div>
-    <div class="cpm-field"><label>발생원인</label><textarea id="cp-causeDetail" rows="2" style="${inpStyle}resize:vertical;" placeholder="원인을 구체적으로 기재하세요"></textarea></div>
+    <div class="cpm-field"><label>시정조치 요구내용 ${badge(p.reqContent)}</label><textarea id="cp-reqContent" rows="2" style="${inpStyle}resize:vertical;" placeholder="요구/지시된 사항을 기재하세요">${p.reqContent||''}</textarea></div>
+    <div class="cpm-field"><label>발생원인 ${badge(p.causeDetail)}</label><textarea id="cp-causeDetail" rows="2" style="${inpStyle}resize:vertical;" placeholder="원인을 구체적으로 기재하세요">${p.causeDetail||''}</textarea></div>
     <div class="cpm-field"><label>조치내용 ${badge(p.action)}</label><textarea id="cp-action" rows="3" style="${inpStyle}min-height:60px;resize:vertical;">${p.action||''}</textarea></div>
-    <div class="cpm-field"><label>결과</label><textarea id="cp-result" rows="2" style="${inpStyle}resize:vertical;" placeholder="조치 결과 (나중에 입력해도 됨)"></textarea></div>
+    <div class="cpm-field"><label>결과 ${badge(p.result)}</label><textarea id="cp-result" rows="2" style="${inpStyle}resize:vertical;" placeholder="조치 결과 (나중에 입력해도 됨)">${p.result||''}</textarea></div>
     <div class="cpm-field">
-      <label>시정조치요구부서 ${badge(p.reqDept)} (여러 부서 선택 가능)</label>
-      <div id="cp-reqDeptGrid">${_deptCheckboxGrid(p.reqDept?[p.reqDept]:[])}</div>
+      <label>시정조치요구부서 ${badge(p.reqDept?.length>0)} (여러 부서 선택 가능)</label>
+      <div id="cp-reqDeptGrid">${_deptCheckboxGrid(p.reqDept||[])}</div>
     </div>
     <div class="cpm-field"><label>상태</label>
       <select id="cp-status" style="${inpStyle}">
