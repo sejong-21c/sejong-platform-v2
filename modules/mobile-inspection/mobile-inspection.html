@@ -317,6 +317,10 @@ input[type=file]{display:none}
       <tr><td>합부 판정</td><td id="det-note">—</td></tr>
     </table>
   </div>
+  <div class="step" id="det-inspdata-step" style="display:none">
+    <div class="step-title">입력한 검사값</div>
+    <div id="det-inspdata"></div>
+  </div>
   <div class="step">
     <div class="step-title">등록된 사진 <span style="font-size:13px;font-weight:400;color:#999">— 눌러서 삭제</span></div>
     <div class="reg-grid" id="reg-grid"></div>
@@ -1616,6 +1620,91 @@ async function refreshQAGFromCloud(pid){
     localStorage.setItem(KEY, JSON.stringify(merged));
   } catch(e){ console.error('[QA Doc Generator 클라우드 조회 실패]', e); }
 }
+// v29.33 — 등록이력 상세보기에서 실제 입력한 검사값(inspData)을 확인할 수
+// 있게 한다. ITP_FIELDS 정의를 그대로 재사용해 필드 타입별로 사람이 읽기
+// 쉬운 형태로 변환한다 — 입력 폼(buildField/collectInspData)이 만드는 키
+// 규칙(예: minmax는 'key.min'/'key.max')과 항상 맞춰가므로, 새 ITP 단계나
+// 필드가 추가돼도 이 함수를 따로 고칠 필요가 거의 없다.
+function fmtFieldValue(f, data){
+  const dk = f.key;
+  if(f.type==='minmax'){
+    const min=data[dk+'.min'], max=data[dk+'.max'];
+    if(!min && !max) return '—';
+    return `${f.minLabel||'MIN'} ${min||'—'} / ${f.maxLabel||'MAX'} ${max||'—'}`;
+  }
+  if(f.type==='multi-zone'){
+    const zones=f.zones||['A','B','C','D'];
+    return zones.map(z=>`${z}:${data[dk+'.'+z]||'—'}`).join(' · ');
+  }
+  if(f.type==='datetime-pair'){
+    const s=data[dk+'.start'], e=data[dk+'.end'];
+    if(!s && !e) return '—';
+    return `${(s||'—').replace('T',' ')} ~ ${(e||'—').replace('T',' ')}`;
+  }
+  if(f.type==='checkbox'){
+    const v=data[dk];
+    if(v && typeof v==='object') return v.checked ? `✓ ${escapeHtml(v.label||'')}` : '아니오';
+    return v ? '✓ 예' : '아니오';
+  }
+  if(f.type==='checklist'){
+    const items=f.items||[];
+    const checked=items.map((it,i)=>data[dk+'.'+i]).filter(v=>v && v.checked).map(v=>v.label);
+    return checked.length ? checked.map(escapeHtml).join(', ') : '(선택 없음)';
+  }
+  if(f.type==='external-ref') return null; // 안내용 필드 — 실제 입력값 없음
+  const v=data[dk];
+  if(v===undefined||v===null||v==='') return '—';
+  // select/mode-toggle은 저장값(v)이 {v,l} 중 v뿐이라, 정의된 옵션이 있으면
+  // 사람이 읽는 라벨(l)로 바꿔 보여준다 — 옵션에 없는 값(직접 입력 등)은
+  // 저장값 그대로 보여준다.
+  if((f.type==='select'||f.type==='mode-toggle') && Array.isArray(f.options)){
+    const opt=f.options.find(o=>(typeof o==='string'?o:o.v)===v);
+    if(opt) return escapeHtml(typeof opt==='string'?opt:opt.l);
+  }
+  return escapeHtml(String(v));
+}
+function renderFieldRows(fields, data){
+  return (fields||[]).filter(f=>{
+    // showIf 조건이 있는 필드(예: JACKET 포함 체크 시에만 나오는 항목)는
+    // 실제 그 조건을 만족한 기록에서만 보여준다 — 안 그러면 해당 없는
+    // 필드가 전부 "—"로 나열돼 읽기 번거로움.
+    if(!f.showIf) return true;
+    return String(data[f.showIf.key])===String(f.showIf.value);
+  }).map(f=>{
+    const val=fmtFieldValue(f, data);
+    if(val===null) return '';
+    return `<tr><td style="padding:5px 10px 5px 0;color:#888;font-size:11px;white-space:nowrap;vertical-align:top">${escapeHtml(f.label)}</td><td style="padding:5px 0;font-size:13px">${val}</td></tr>`;
+  }).join('');
+}
+function renderInspEntryList(rows, fields, emptyMsg, nameKey, nameFallbackPrefix){
+  if(!rows || !rows.length) return `<p style="color:#aaa;font-size:12px">${emptyMsg}</p>`;
+  return rows.map((r,i)=>`
+    <div style="border:1px solid #e5e2da;border-radius:8px;padding:8px 10px;margin-bottom:6px;background:#fafaf8">
+      <div style="font-size:12px;font-weight:600;color:#185fa5;margin-bottom:4px">${escapeHtml(r[nameKey]||(nameFallbackPrefix+' #'+(i+1)))}</div>
+      <table style="width:100%;border-collapse:collapse">${renderFieldRows(fields, r)}</table>
+    </div>`).join('');
+}
+function renderInspDataDetail(rec){
+  const def = ITP_FIELDS[rec.fieldsKey];
+  const data = rec.inspData || {};
+  if(!def) return '';
+  if(def.specialType==='material-list'){
+    return renderInspEntryList(data.materials, def.materialFields, '입력된 자재가 없습니다', 'partName', '자재');
+  }
+  if(def.specialType==='joint-list'){
+    return renderInspEntryList(data.joints, def.jointFields, '입력된 조인트가 없습니다', 'jointNo', 'Joint');
+  }
+  if(def.specialType==='head-list'){
+    return renderInspEntryList(data.heads, def.headFields, '입력된 경판이 없습니다', 'name', '경판');
+  }
+  if(def.specialType==='hydro-list'){
+    return renderInspEntryList(data.hydroParts, def.hydroFields, '입력된 가압부가 없습니다', 'name', '가압부');
+  }
+  if(def.fields && def.fields.length){
+    return `<table style="width:100%;border-collapse:collapse">${renderFieldRows(def.fields, data)}</table>`;
+  }
+  return ''; // 사진만 등록하는 단계(NDE/표면처리/포장 등) — 표시할 검사값 없음
+}
 function collectInspData(){
   const data={};
   document.querySelectorAll('#insp-fields .insp-field').forEach(el=>{
@@ -2155,6 +2244,9 @@ async function openDetail(id){
   document.getElementById('det-stage').textContent=rec.stage;
   document.getElementById('det-inspectors').textContent=(rec.inspectors&&rec.inspectors.length)?rec.inspectors.join(', '):'—';
   document.getElementById('det-note').textContent=rec.note||'없음';
+  const inspDataHtml=renderInspDataDetail(rec);
+  document.getElementById('det-inspdata').innerHTML=inspDataHtml;
+  document.getElementById('det-inspdata-step').style.display=inspDataHtml?'block':'none';
   renderRegGrid(rec);
   document.getElementById('reg-count').textContent=`총 ${rec.photos.length}장`;
   document.getElementById('hist-screen').style.display='none';
@@ -2438,7 +2530,7 @@ function buildSheet(){
         <div style="font-size:10px;color:#999">검사자</div>
         <div style="font-size:12px;font-weight:600;margin-top:1px">${(rec.inspectors&&rec.inspectors.length)?rec.inspectors.join(', '):'—'}</div>
       </div>
-      <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;grid-column:1/-1;overflow:hidden">
+      <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;overflow:hidden">
         <div style="font-size:10px;color:#999">합부 판정</div>
         <div style="font-size:12px;font-weight:600;margin-top:1px">${rec.note||'—'}</div>
       </div>`;
