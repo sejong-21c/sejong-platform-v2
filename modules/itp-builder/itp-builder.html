@@ -616,7 +616,10 @@ const MASTER_WELDER_KEY = `sjp_master_welder_list__${PID}`;
 // v1.9 — WPS/Welder와 동일한 방식의 검사자(Inspector) List
 const MASTER_INSPECTOR_KEY = `sjp_master_inspector_list__${PID}`;
 const MASTER_LIST_KEYS = {wps: MASTER_WPS_KEY, welder: MASTER_WELDER_KEY, inspector: MASTER_INSPECTOR_KEY};
-const saveMasterList = (kind, arr) => { try { localStorage.setItem(MASTER_LIST_KEYS[kind], JSON.stringify(arr)); } catch(e){} };
+// v2.5 fix — saveLS와 동일한 문제: 저장 실패(용량 초과)를 조용히 무시해서 "N개 업로드 완료"
+// 메시지는 뜨지만 실제로는 저장이 안 됐던 경우가 있었음(WPS/Welder List가 QA Doc Generator에
+// 안 보이던 원인 — Inspector는 우연히 그 전에 저장이 성공해 살아남았던 것으로 보임).
+const saveMasterList = (kind, arr) => { try { localStorage.setItem(MASTER_LIST_KEYS[kind], JSON.stringify(arr)); return true; } catch(e) { console.error(`[ITP Builder ${kind} 목록 저장 실패]`, e); return false; } };
 const loadMasterList = (kind) => { try { return JSON.parse(localStorage.getItem(MASTER_LIST_KEYS[kind])||"null"); } catch(e) { return null; } };
 
 // v2.2 — id 중복 복구: addItem()이 Date.now()만으로 id를 만들던 시절(수정 전) 저장된
@@ -1605,10 +1608,12 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         return;
       }
       const kindLabel = kind==="wps"?"WPS":kind==="welder"?"Welder":"검사자";
-      if (kind === "wps") { setWpsList(arr); window.WPS_LIST = arr; saveMasterList("wps", arr); }
-      else if (kind === "welder") { setWelderList(arr); window.WELDER_LIST = arr; saveMasterList("welder", arr); }
-      else { setInspectorList(arr); window.INSPECTOR_LIST = arr; saveMasterList("inspector", arr); }
-      showMsg(`✓ ${file.name}에서 ${arr.length}개 ${kindLabel} 항목 추출 완료 — QA Doc Generator에서도 자동 반영됩니다.`, 6000);
+      let savedOk;
+      if (kind === "wps") { setWpsList(arr); window.WPS_LIST = arr; savedOk = saveMasterList("wps", arr); }
+      else if (kind === "welder") { setWelderList(arr); window.WELDER_LIST = arr; savedOk = saveMasterList("welder", arr); }
+      else { setInspectorList(arr); window.INSPECTOR_LIST = arr; savedOk = saveMasterList("inspector", arr); }
+      if (savedOk) showMsg(`✓ ${file.name}에서 ${arr.length}개 ${kindLabel} 항목 추출 완료 — QA Doc Generator에서도 자동 반영됩니다.`, 6000);
+      else warnLocalSaveFailed();
     } catch (err) {
       console.error(err);
       showMsg(`⚠ 파싱 실패 — ${err.message||"알 수 없는 오류"}`, 6000);
