@@ -2036,6 +2036,27 @@ function updateNotifBadge() {
   badge.textContent = n > 99 ? '99+' : n;
   badge.style.display = n > 0 ? '' : 'none';
 }
+function _notifHref(n) {
+  if (n.href) return n.href;
+  if (n.mail) return _gmailUrl(n.title);
+  if (n.type === 'approval')  return '#approval';
+  if (n.type === 'message')   return '#messenger';
+  if (n.type === 'autoReg' || n.type === 'pendingWO') return '#projects';
+  if (n.type === 'action')    return _gmailUrl(n.title);
+  if (n.type === 'nuclear')   return _gmailUrl(n.title);
+  if (n.type === 'urgent')    return _gmailUrl(n.title);
+  return '';
+}
+function goNotif(nid, href, isExternal) {
+  document.getElementById('notifPanel').style.display = 'none';
+  if (isExternal) {
+    window.open(href, '_blank', 'noopener');
+  } else if (href.indexOf('#') === 0) {
+    var id = href.slice(1);
+    if (typeof switchMod === 'function') switchMod(id);
+    else location.hash = href;
+  }
+}
 function toggleNotifPanel(e) {
   if (e) e.stopPropagation();
   var panel = document.getElementById('notifPanel');
@@ -2052,16 +2073,20 @@ function toggleNotifPanel(e) {
     '</div>' +
     (notifs.length ? notifs.map(function(n, i) {
       var nid = _nid(n);
-      var mailLink = n.mail ? _gmailUrl(n.title) : '';
-      return '<div style="padding:10px 16px;border-bottom:1px solid var(--border-light);border-left:3px solid ' + (colors[n.type] || '#e5e7eb') + ';">' +
+      var href = _notifHref(n);
+      var isExternal = href.indexOf('http') === 0;
+      var arrow = href ? (isExternal ? ' ↗' : ' →') : '';
+      var rowClick = href
+        ? 'onclick="goNotif(\'' + nid.replace(/'/g, "\\'") + '\',\'' + href.replace(/'/g, "\\'") + '\',' + isExternal + ')" style="cursor:pointer;"'
+        : '';
+      return '<div ' + rowClick + ' style="padding:10px 16px;border-bottom:1px solid var(--border-light);border-left:3px solid ' + (colors[n.type] || '#e5e7eb') + ';' + (href ? 'cursor:pointer;' : '') + '" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'\'">' +
         '<div style="display:flex;gap:8px;align-items:flex-start;">' +
           '<span style="font-size:16px;flex-shrink:0;">' + n.icon + '</span>' +
           '<div style="flex:1;min-width:0;">' +
-            (mailLink ? '<a href="' + mailLink + '" target="_blank" style="font-size:13px;font-weight:500;line-height:1.4;color:var(--text);text-decoration:none;display:block;" onmouseover="this.style.color=\'var(--primary)\'" onmouseout="this.style.color=\'var(--text)\'">' + n.title + ' ↗</a>' :
-              '<div style="font-size:13px;font-weight:500;line-height:1.4;">' + n.title + '</div>') +
+            '<div style="font-size:13px;font-weight:500;line-height:1.4;color:var(--text);">' + n.title + arrow + '</div>' +
             '<div style="font-size:11px;color:var(--text-light);margin-top:2px;">' + n.sub + (n.proj ? ' · ' + n.proj : '') + '</div>' +
           '</div>' +
-          '<button onclick="dismissNotif(\'' + nid.replace(/'/g, "\\'") + '\')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;color:var(--text-light);" title="확인 완료">✓</button>' +
+          '<button onclick="event.stopPropagation();dismissNotif(\'' + nid.replace(/'/g, "\\'") + '\')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;color:var(--text-light);" title="확인 완료">✓</button>' +
         '</div>' +
       '</div>';
     }).join('') : '<div style="padding:30px;text-align:center;color:var(--text-light);font-size:13px;">새 알림이 없습니다</div>');
