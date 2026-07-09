@@ -2213,21 +2213,13 @@ function PrintBar({title}){
 
 // ════════════ 15. 메인 App ════════════
 function App(){
-  const [proj, setProj] = useState({
-    no: "SJ2026-030",
-    name: "(VDS)ESTER 공정용 수평콘덴서 교체공사",
-    customer: "㈜동성케미컬",
-    po: "SJT-WO-2026-030"
-  });
-  const [items, setItems] = useState([{
-    id: "i_dong_e101",
-    tag: "E-101",
-    type: "Condenser / Heat Exchanger",
-    spec: "ASME Sec.VIII Div.1 · TEMA Class R",
-    maker: "㈜세종기술",
-    status: "진행중"
-  }]);
-  const [activeItemId, setActiveItemId] = useState("i_dong_e101");
+  // v4.2 fix — 예전엔 여기가 실제 있었던 특정 고객사 프로젝트("동성케미컬 SJ2026-030")의
+  // 진짜 값 그대로였음. 데이터가 아직 하나도 안 채워진(로컬/클라우드/ITP Builder 전부 없음)
+  // 상태에서 이 값이 그대로 화면에 남아있으면, 다른 프로젝트를 열어놓은 것처럼 보이는
+  // 사고로 이어짐(국도화학 T-8405 화면에 동성케미컬 데이터 노출). 빈 값으로 시작.
+  const [proj, setProj] = useState({ no: "", name: "", customer: "", po: "" });
+  const [items, setItems] = useState([]);
+  const [activeItemId, setActiveItemId] = useState(null);
   const [itemSearch, setItemSearch] = useState(""); // v1.6 — 아이템 30~40개 이상일 때 검색으로 좁히기
   const [activeDoc, setActiveDoc] = useState("BOM");
   const [hydroPart, sHydroPart] = useState("Shell");
@@ -2314,9 +2306,13 @@ function App(){
       if (s.currentProjId) setCurrentProjId(s.currentProjId);  // v3.0 — 프로젝트 ID 복원
     }
     // ITP Builder가 sjp-bridge에 저장한 데이터 자동 인식 (안전 처리)
+    // v4.2 fix — bridge.getProject()/getItems()에 pid를 안 넘기면 "지금 ITP Builder 탭에서
+    // 선택된 프로젝트"(이 QA Gen 창의 pid와 무관)를 돌려줘서, 전혀 다른 고객의 프로젝트 데이터가
+    // 화면에 뜨는 사고가 있었음(국도화학 T-8405 화면에 동성케미컬 데이터 노출). 반드시 이
+    // 창의 QAG_PID를 명시로 넘긴다.
     if (window.SJP?.bridge) {
-      const bridgeProj = window.SJP.bridge.getProject?.();
-      const bridgeItems = window.SJP.bridge.getItems?.();
+      const bridgeProj = window.SJP.bridge.getProject?.(QAG_PID);
+      const bridgeItems = window.SJP.bridge.getItems?.(QAG_PID);
       if (bridgeProj && (!s || !s.proj || !s.proj.no)) {
         setProj(bridgeProj);
         setTimeout(()=>showMsg("✓ ITP Builder의 프로젝트 데이터를 자동 인식했습니다", 4000), 100);
