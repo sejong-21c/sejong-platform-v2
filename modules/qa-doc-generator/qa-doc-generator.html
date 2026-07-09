@@ -2218,6 +2218,17 @@ function App(){
   // 상태에서 이 값이 그대로 화면에 남아있으면, 다른 프로젝트를 열어놓은 것처럼 보이는
   // 사고로 이어짐(국도화학 T-8405 화면에 동성케미컬 데이터 노출). 빈 값으로 시작.
   const [proj, setProj] = useState({ no: "", name: "", customer: "", po: "" });
+  // v4.4 fix — window.WPS_LIST/WELDER_LIST/INSPECTOR_LIST/EPC_PROJECT/EPC_ITEMS는 일반 전역
+  // 변수라서, 1초 주기 폴링(438행 부근)이나 host 동기화(syncOnce)가 이 값을 갱신해도 React가
+  // 그 변경을 감지하고 다시 그려주지 않음 — EPCSlots가 마운트 시점의 (아직 못 찾은) 값으로
+  // 영원히 멈춰 보이는 사고였음(국도화학 T-8405에서 WPS/Welder를 몇 번을 다시 올려도 "EPC
+  // 연결 상태"가 계속 Standalone으로 보이던 원인). 1초마다 강제로 다시 그려서 최신 값을
+  // 반영한다.
+  const [_epcTick, setEpcTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setEpcTick(x => x + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
   const [items, setItems] = useState([]);
   const [activeItemId, setActiveItemId] = useState(null);
   const [itemSearch, setItemSearch] = useState(""); // v1.6 — 아이템 30~40개 이상일 때 검색으로 좁히기
