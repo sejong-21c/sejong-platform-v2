@@ -943,6 +943,8 @@
         "remark": "긴급 제작 건",
         "source": "[수주통보] CKS 수주통보서 (긴급 제작 건)"
       }
-    ]
+    ],
+    "dashboardHtmlPath": "data/dashboards/kim-2026-07-09-morning.html",
+    "runAt": "07:00"
   }
 }
