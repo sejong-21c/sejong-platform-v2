@@ -1214,19 +1214,37 @@ function App(){
   // id<1000(수동 편집분)은 그대로 보존하고 id>=1000(스펙 파생분)만 재생성한다.
   // ⚠ 아래 마이그레이션 effect(위쪽에 선언됨)보다 반드시 나중에 실행되어야 함 — 둘 다
   // 함수형 업데이트(prev=>...)를 쓰므로 순서가 지켜지면 마이그레이션 결과를 덮어쓰지 않는다.
+  // v2.6 fix — 예전엔 specReqs가 바뀔 때마다(또는 프로젝트를 다시 열 때마다) 이 effect가
+  // 자동으로 재실행돼서, Step 2에서 스펙 파생 행(id>=1000)을 수동으로 삭제해도 다시 들어올
+  // 때마다 되살아나는 불편이 있었음. 이제 이 effect는 "아직 아무 항목도 없는 새 아이템"에
+  // 처음 한 번 시딩하는 역할만 하고, 이미 있는 아이템의 스펙 파생 행 재생성은 아래
+  // applySpecReqsToExistingItems()로 분리해 "다음 → 아이템 등록" 버튼을 눌렀을 때만 실행한다.
   useEffect(() => {
     setItpRowsByItem(prev => {
       const next = {...prev};
       let changed = false;
       items.forEach(it => {
-        const existing = next[it.id];
-        const base = existing ? existing.filter(r => r.id < 1000) : [...ITP_BASE];
-        const merged = [...base, ...buildSpecRows(specReqs)];
-        if (!existing || JSON.stringify(existing) !== JSON.stringify(merged)) { next[it.id] = merged; changed = true; }
+        if (next[it.id]) return; // 이미 있는 아이템은 여기서 건드리지 않음
+        next[it.id] = [...ITP_BASE, ...buildSpecRows(specReqs)];
+        changed = true;
       });
       return changed ? next : prev;
     });
-  }, [specReqs, items]);
+  }, [items]);
+
+  // v2.6 — Step 0 "다음 → 아이템 등록" 클릭 시에만 명시적으로 호출. 현재 등록된 모든 아이템의
+  // id>=1000(스펙 파생) 블록을 지금 specReqs 기준으로 재생성하고, id<1000(수동 편집분)은 보존.
+  const applySpecReqsToExistingItems = () => {
+    setItpRowsByItem(prev => {
+      const next = {...prev};
+      items.forEach(it => {
+        const existing = next[it.id];
+        const base = existing ? existing.filter(r => r.id < 1000) : [...ITP_BASE];
+        next[it.id] = [...base, ...buildSpecRows(specReqs)];
+      });
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!proj.no) return;
@@ -1856,7 +1874,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           <input type="file" accept=".json" id="impFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleImport(e.target.files[0])}/>
           <button onClick={()=>document.getElementById("impFile").click()} className="btn-secondary">📥 JSON Import</button>
         </div>
-        <button onClick={()=>setStep(1)} className="btn-primary">다음 → 아이템 등록</button>
+        <button onClick={()=>{applySpecReqsToExistingItems(); setStep(1);}} className="btn-primary">다음 → 아이템 등록</button>
       </div>
     </div>}
 
