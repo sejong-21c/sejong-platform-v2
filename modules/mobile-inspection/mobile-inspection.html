@@ -2492,9 +2492,14 @@ function downloadPhoto(p, rec, idx){
   if(!p.dataUrl){ showToast('⚠️ 사진을 아직 못 불러왔습니다 — 잠시 후 다시 시도하세요'); return; }
   const safeItem=(rec.item||'item').replace(/[\\/:*?"<>|]/g,'_');
   const safeStage=(rec.stage||'').replace(/[\\/:*?"<>|]/g,'_');
+  // v29.38 fix: 확장자 없이 다운로드돼서 파일 형식을 못 알아보던 문제 —
+  // dataUrl의 실제 MIME 타입에서 확장자를 뽑아 붙인다(항상 image/jpeg로
+  // 만들어지지만, 혹시 달라져도 안전하게 대응).
+  const mimeMatch=/^data:image\/(\w+);/.exec(p.dataUrl);
+  const ext=mimeMatch ? (mimeMatch[1]==='jpeg'?'jpg':mimeMatch[1]) : 'jpg';
   const a=document.createElement('a');
   a.href=p.dataUrl;
-  a.download=`${safeItem}_${safeStage}_${(rec.date||'').slice(0,10)}_${idx+1}`;
+  a.download=`${safeItem}_${safeStage}_${(rec.date||'').slice(0,10)}_${idx+1}.${ext}`;
   document.body.appendChild(a); a.click(); a.remove();
 }
 
@@ -2541,9 +2546,17 @@ let sheetPages=[];      // [{count:4, slots:[idx,idx,null,null]}, ...]
 let sheetRec=null;      // 현재 레코드
 let pickerTarget=null;  // {pi, si}
 
-function openSheet(){
+// v29.37 fix: openDetail이 사진을 다시 받아와 saveResults로 저장해도, 이
+// 기록이 트리밍 예산(최근 것 위주 3MB)에 못 들면 저장하는 순간 바로 다시
+// dataUrl이 비워졌다 — 그래서 상세보기에는 사진이 잠깐 보이다가, 사진대지를
+// 열면(loadResults로 새로 읽음) 다시 빈 사진으로 보이는 사고가 있었다.
+// 사진대지를 열 때도 상세보기와 동일하게 빠진 사진을 즉시 다시 받아온다.
+async function openSheet(){
   const rec=loadResults().find(r=>r.id===currentRecId);
   if(!rec)return;
+  if((rec.photos||[]).some(p=>!p.dataUrl && p.chunkId)){
+    await resolveMissingPhotos([rec], []);
+  }
   sheetRec=rec;
   sheetPages=[];
   addSheetPage(true);
