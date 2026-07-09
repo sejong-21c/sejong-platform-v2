@@ -3172,6 +3172,16 @@ function dashboard() {
       </div>
       <button class="btn btn-primary" onclick="switchMod('tasks')">+ 빠른 등록</button>
     </div>
+    ${(b && b.dashboardHtmlPath) ? `
+      <div style="margin-bottom:16px;background:linear-gradient(135deg,#0b2545,#13315c);color:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 6px 20px rgba(11,37,69,.18);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="font-size:34px;line-height:1;">☀️</div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:16px;font-weight:700;margin-bottom:3px;">오늘의 아침 브리핑이 준비됐습니다</div>
+          <div style="font-size:12px;opacity:.85;">${b.runAt||''} 기준 · Gmail·발주처·sejong-platform 통합 · 9개 섹션 자동 정리</div>
+        </div>
+        <button onclick="openBriefingModal('${b.dashboardHtmlPath}')" style="background:#fff;color:#0b2545;font-weight:700;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15);">📖 브리핑 열기 →</button>
+      </div>
+    ` : ''}
     <div class="kpi-grid">${kpiCards}</div>
     ${keyActionsCard}
     <div class="dash-grid">
@@ -4108,6 +4118,38 @@ function closeModal() {
   // v29.9: openExtraPerms 등에서 확장한 폭을 원상 복구 (다음 모달 정상 표시용)
   const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '';
 }
+
+// v29.16: 아침 통합 브리핑 iframe 오버레이. briefings.json의 dashboardHtmlPath를 iframe으로 표시.
+function openBriefingModal(path) {
+  if (!path) return alert('브리핑 경로가 없습니다.');
+  // 기존 오버레이가 있으면 제거
+  let ov = document.getElementById('briefingOverlay');
+  if (ov) ov.remove();
+  ov = document.createElement('div');
+  ov.id = 'briefingOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;flex-direction:column;';
+  ov.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0b2545;color:#fff;">' +
+      '<div style="font-size:14px;font-weight:700;">☀️ 오늘의 아침 통합 브리핑</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<a href="' + path + '" target="_blank" rel="noopener" style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;">↗ 새 창</a>' +
+        '<button onclick="closeBriefingModal()" style="background:#fff;color:#0b2545;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">✕ 닫기</button>' +
+      '</div>' +
+    '</div>' +
+    '<iframe src="' + path + '" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
+  document.body.appendChild(ov);
+  // ESC로 닫기
+  const escHandler = function(e) {
+    if (e.key === 'Escape') { closeBriefingModal(); document.removeEventListener('keydown', escHandler); }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+function closeBriefingModal() {
+  const ov = document.getElementById('briefingOverlay');
+  if (ov) ov.remove();
+}
+window.openBriefingModal = openBriefingModal;
+window.closeBriefingModal = closeBriefingModal;
 document.addEventListener('click', function(e){
   const m = document.getElementById('modal');
   if (m && e.target === m) closeModal();
