@@ -597,8 +597,16 @@ const welderLineDisplay = (w) => {
 
 // ════════ 3. localStorage (v1.6 — 프로젝트별 분리) ════════
 const STORAGE_KEY = `sjp_itp_builder_v1__${PID}`;
-const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} };
+// v2.4 fix — 저장 실패(용량 초과 등)를 조용히 무시하면 "저장 완료"처럼 보이지만 실제로는
+// 아무것도 저장되지 않는 사고가 남(국도화학 T-8405 실사용 중 발견 — 브라우저 저장공간이 정확히
+// 10.00MB로 한도에 걸려있었음). 성공 여부를 반환해 호출부가 실패를 화면에 알릴 수 있게 함.
+const saveLS = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); return true; } catch(e) { console.error("[ITP Builder 로컬 저장 실패]", e); return false; } };
 const loadLS = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"); } catch(e) { return null; } };
+// v2.4 — 도면 이미지(dwgUrl)는 이미 Firestore에 청크로 저장되므로, 로컬 저장분에는 원본 base64를
+// 중복으로 넣지 않는다 — 여러 프로젝트를 거치며 브라우저 저장 용량을 가장 빨리 채우는 원인이었음.
+// 클라우드에서 불러올 때 청크를 재조립해 다시 채워지므로 내용 손실은 없음(오프라인 상태로 처음
+// 여는 경우에만 이 기기에서 잠깐 도면이 안 보일 수 있음).
+const stripDwgForLocalStorage = (items) => (items||[]).map(it => it.dwgUrl ? {...it, dwgUrl: undefined} : it);
 
 // v1.5 — WPS/Welder Master List: 프로젝트별(pid) localStorage 공유 키.
 // ITP Builder에서 업로드한 목록을 QA Doc Generator가 그대로 읽어감(N/A 대신 실데이터).
@@ -1076,6 +1084,15 @@ function App(){
   // 예외 상황에서 옛 공유 itpRows로 폴백하는 경로가 있어(itpRowsByItem에 해당 id가 없음),
   // 그 경우 체크리스트가 통째로 비지 않도록 첫 번째 아이템 것만이라도 계속 함께 저장한다.
   const buildLegacyItpRows = () => (items[0] ? (itpRowsByItem[items[0].id] || []) : []);
+  // v2.4 — 저장 실패(브라우저 저장공간 초과 등)를 화면에 알림. 1초마다 도는 자동저장에서
+  // 매번 뜨면 스팸이 되므로 1분에 한 번만 표시(NCR/CAR/모바일 인스펙션과 동일한 관례).
+  const lastQuotaWarnRef = useRef(0);
+  const warnLocalSaveFailed = () => {
+    const now = Date.now();
+    if (now - lastQuotaWarnRef.current < 60000) return;
+    lastQuotaWarnRef.current = now;
+    showMsg("⚠️ 이 기기의 저장 공간이 가득 차서 방금 작업한 내용이 이 브라우저에는 저장되지 않았습니다. 클라우드 저장은 별도로 진행되니 '☁ 지금 클라우드로 업로드'를 눌러 확인해주세요.", 10000);
+  };
   const [witnessCols, setWitnessCols] = useState([
     {key:"sj",     name:"SJ",     bg:"#eef3fb"},
     {key:"qc",     name:"QC",     bg:"#eef3fb"},
@@ -1112,6 +1129,7 @@ function App(){
 
   useEffect(() => {
     const s = loadLS();
+    const localSavedAt = s?.savedAt || 0;
     if (s) {
       if (s.proj) setProj(s.proj);
       if (s.items) {
@@ -1140,35 +1158,42 @@ function App(){
       if (epcProj) setProj(p => ({...p, ...epcProj}));
       setTimeout(()=>showMsg("✓ EPC Control에서 프로젝트 정보 동기화 완료", 5000), 100);
     }
-    // v2.1 — 클라우드(Firestore)에 더 최신 데이터가 있으면 로컬을 덮어씀(다른 계정에서 작업한 내용 반영).
-    // 오프라인/미존재 시 조용히 실패하고 로컬 상태 그대로 유지.
+    // v2.4 fix — "클라우드가 항상 최신"이라고 무조건 믿고 덮어쓰면, 클라우드 업로드가 조용히
+    // 실패했거나(오프라인·인증 타이밍) 아직 반영 전인 상태에서 재접속했을 때 방금 로컬에 저장한
+    // 더 최신 내용이 예전 클라우드 스냅샷으로 되돌아가는 사고가 났음(국도화학 T-8405 실사용 중
+    // WPS/Welder List가 사라진 원인 — 빈 배열([])도 참(truthy)이라 무조건 덮어써졌던 것도 원인).
+    // savedAt 타임스탬프를 비교해 클라우드가 로컬보다 "진짜로 더 최신"일 때만 반영하고, 배열
+    // 필드는 truthy가 아니라 length>0으로 판단한다.
     loadFromFirestoreOrSkip(cloud => {
-      if (cloud.proj) setProj(cloud.proj);
-      if (cloud.items) {
+      if ((cloud.savedAt||0) <= localSavedAt) return; // 로컬이 같거나 더 최신 — 클라우드로 덮어쓰지 않음
+      if (cloud.proj?.no) setProj(cloud.proj);
+      if (Array.isArray(cloud.items) && cloud.items.length) {
         const {items: fixedItems, fixed} = dedupeItemIds(cloud.items);
         setItems(fixedItems);
         if (fixed > 0) showMsg(`⚠ 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
         if (cloud.itpRowsByItem) setItpRowsByItem(cloud.itpRowsByItem);
-        else if (cloud.itpRows && fixedItems.length) setItpRowsByItem(Object.fromEntries(fixedItems.map(it => [it.id, JSON.parse(JSON.stringify(cloud.itpRows))])));
+        else if (cloud.itpRows?.length && fixedItems.length) setItpRowsByItem(Object.fromEntries(fixedItems.map(it => [it.id, JSON.parse(JSON.stringify(cloud.itpRows))])));
         if (cloud.itpDocNoByItem) setItpDocNoByItem(cloud.itpDocNoByItem);
         else if (cloud.itpDocNo && fixedItems.length) setItpDocNoByItem(Object.fromEntries(fixedItems.map(it => [it.id, cloud.itpDocNo])));
         if (cloud.itpRevByItem) setItpRevByItem(cloud.itpRevByItem);
         else if (cloud.itpRev && fixedItems.length) setItpRevByItem(Object.fromEntries(fixedItems.map(it => [it.id, cloud.itpRev])));
       }
-      if (cloud.specReqs) setSpecReqs(cloud.specReqs);
-      if (cloud.quoteItems) setQuoteItems(cloud.quoteItems);
-      if (cloud.revComments) setRevComments(cloud.revComments);
-      if (cloud.wpsList) { setWpsList(cloud.wpsList); saveMasterList("wps", cloud.wpsList); }
-      if (cloud.welderList) { setWelderList(cloud.welderList); saveMasterList("welder", cloud.welderList); }
-      if (cloud.inspectorList) { setInspectorList(cloud.inspectorList); saveMasterList("inspector", cloud.inspectorList); }
+      if (cloud.specReqs?.length) setSpecReqs(cloud.specReqs);
+      if (cloud.quoteItems?.length) setQuoteItems(cloud.quoteItems);
+      if (cloud.revComments?.length) setRevComments(cloud.revComments);
+      if (cloud.wpsList?.length) { setWpsList(cloud.wpsList); saveMasterList("wps", cloud.wpsList); }
+      if (cloud.welderList?.length) { setWelderList(cloud.welderList); saveMasterList("welder", cloud.welderList); }
+      if (cloud.inspectorList?.length) { setInspectorList(cloud.inspectorList); saveMasterList("inspector", cloud.inspectorList); }
       showMsg("✓ 클라우드에서 최신 데이터를 불러왔습니다", 4000);
     });
   }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList};
-      saveLS(payload);
+      const savedAt = Date.now();
+      const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt};
+      const ok = saveLS({...payload, items: stripDwgForLocalStorage(items)});
+      if (!ok) warnLocalSaveFailed();
       pushToFirestore(payload);
     }, 1000);
     return () => clearTimeout(timer);
@@ -1642,7 +1667,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   // Step 2 "QA Doc Generator로 바로 전송" — 1초 자동저장을 기다리지 않고 지금 즉시 localStorage에
   // 쓴다. QA Doc Generator를 그 뒤에 열거나 "🔄 ITP 최신정보 새로고침"을 누르면 바로 반영된다.
   const sendToQADoc = () => {
-    saveLS({proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem});
+    const ok = saveLS({proj, items: stripDwgForLocalStorage(items), specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt: Date.now()});
+    if (!ok) warnLocalSaveFailed();
     const bridged = pushToHost();
     showMsg(`✓ QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 6000);
   };
@@ -1651,7 +1677,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   const handleManualCloudUpload = async () => {
     showMsg("☁ 클라우드에 업로드 중...", 30000);
     try {
-      await writeItpDocToFirestore({proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList});
+      await writeItpDocToFirestore({proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt: Date.now()});
       showMsg("✓ 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
     } catch (e) { showMsg(`⚠ 업로드 실패: ${e.message||e}`, 6000); }
   };
