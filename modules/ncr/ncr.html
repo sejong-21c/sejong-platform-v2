@@ -1340,12 +1340,8 @@ function renderNCRTrend() {
       <div class="ntr-kpi"><div class="val">${ncrs.filter(n=>n.grade==='major').length}</div><div class="lbl">중대 등급</div></div>
     </div>
 
-    <div class="ntr-section">
-      <h4>📈 월별 발생 추이</h4>
-      ${_lineSvg(byMonth)}
-    </div>
-
     <div class="ntr-grid">
+      <div class="ntr-chart-wrap"><div class="ntr-chart-title">월별 발생 추이</div>${_lineSvg(byMonth)}</div>
       <div class="ntr-chart-wrap"><div class="ntr-chart-title">프로젝트별</div>${_barSvg((()=>{
         const m={};
         ncrs.forEach(n=>{

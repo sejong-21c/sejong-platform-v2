@@ -1156,12 +1156,8 @@ function renderCARTrend() {
       <div class="ctr-kpi"><div class="val" style="color:var(--success);">${cars.filter(c=>c.status==='closed').length}</div><div class="lbl">완료</div></div>
     </div>
 
-    <div class="ctr-section">
-      <h4>📈 월별 발생 추이</h4>
-      ${_lineSvg(byMonth)}
-    </div>
-
     <div class="ctr-grid">
+      <div class="ctr-chart-wrap"><div class="ctr-chart-title">월별 발생 추이</div>${_lineSvg(byMonth)}</div>
       <div class="ctr-chart-wrap"><div class="ctr-chart-title">품질요건별</div>${_barSvg(Object.entries(_count(cars,'qualReq')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
       <div class="ctr-chart-wrap"><div class="ctr-chart-title">발생분야별</div>${_barSvg(Object.entries(_count(cars,'field')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
       <div class="ctr-chart-wrap"><div class="ctr-chart-title">원인별</div>${_donutSvg(Object.entries(_count(cars,'cause')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
