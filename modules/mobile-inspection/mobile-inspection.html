@@ -561,24 +561,34 @@ function trimPhotoCacheForStorage(records){
   });
 }
 // localStorage 5MB 한계 — 위 트리밍으로 평소엔 여유가 있어야 하지만, 그래도
-// 넘치면 오래된 5건을 백업 다운로드 후 공간을 확보해 재시도한다(최후 수단).
+// 넘치면 오래된 기록을 백업 다운로드하며 지워 공간을 확보해 재시도한다(최후
+// 수단).
+// v29.29 fix: 예전(Firestore 연동 전) 로컬 전용 사진은 chunkId가 없어 트리밍
+// 대상에서 항상 제외되는데(다시 불러올 방법이 없어서), 이런 기록이 많이
+// 쌓인 계정은 트리밍을 해도 여전히 용량 초과가 나서 "5건만 한 번 정리하고
+// 실패하면 포기"하던 기존 방식으로는 해결이 안 됐다. 성공할 때까지(또는 더
+// 지울 기록이 없을 때까지) 오래된 것부터 5건씩 반복 백업+삭제하도록 수정.
 function saveResults(r){
-  const trimmed = trimPhotoCacheForStorage(r);
-  try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(trimmed)); return true; }
+  let working = trimPhotoCacheForStorage(r);
+  try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(working)); return true; }
   catch(e) {
-    if (r.length > 5) {
-      const sorted = [...r].sort((a,b) => (a.date||'').localeCompare(b.date||''));
-      const oldFive = sorted.slice(0, 5);
-      const remaining = trimmed.filter(x => !oldFive.some(o => o.id === x.id));
+    while (working.length > 0) {
+      const sorted = [...working].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      const batch = sorted.slice(0, Math.min(5, working.length));
       try {
-        const blob = new Blob([JSON.stringify(oldFive, null, 2)], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(batch, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `현장검사_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
+        a.href = url; a.download = `현장검사_백업_${new Date().toISOString().slice(0,10)}_${Date.now()}.json`; a.click();
         setTimeout(() => URL.revokeObjectURL(url), 3000);
       } catch(_) {}
-      try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(remaining)); alert('⚠️ 저장 공간이 부족해 오래된 검사 기록 5건을 JSON으로 백업 다운로드했습니다. 새 기록은 정상 저장됐습니다.'); return true; }
-      catch(_) {}
+      const removeIds = new Set(batch.map(x => x.id));
+      working = working.filter(x => !removeIds.has(x.id));
+      try {
+        localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(working));
+        alert(`⚠️ 저장 공간이 부족해 오래된 검사 기록 ${batch.length}건을 JSON으로 백업 다운로드하고 로컬에서 지웠습니다(사진은 백업 파일에 남아있습니다). 새 기록은 정상 저장됐습니다.`);
+        return true;
+      } catch(_) { /* 아직도 부족하면 다음 5건 반복 */ }
     }
     showToast('저장 공간 부족 — 사진 크기를 줄이거나 이전 기록을 정리하세요.');
     return false;
@@ -1937,10 +1947,19 @@ function switchTab(tab){
 
 // 등록 이력을 아이템별로 필터링해서 볼 수 있게 한다 — 현재 선택값은
 // 옵션을 다시 그려도(등록/삭제 등으로 목록이 바뀌어도) 그대로 유지한다.
+// v29.28 fix: 등록이 하나도 없는 아이템은 이 드롭다운에 아예 없어서, ITP
+// 체크리스트가 전부 "미실시"인 아이템은 선택할 방법조차 없었다(체크리스트
+// 기능 자체를 쓸 수 없었음). ITP Builder/브릿지의 전체 아이템 목록과, 등록
+// 기록에 나온 아이템 라벨(현재 아이템 목록에서 빠졌더라도 과거 기록 조회용)을
+// 합쳐서 보여준다.
 function renderHistItemFilter(records){
   const sel=document.getElementById('hist-item-filter');
   const prev=sel.value;
-  const items=[...new Set(records.map(r=>r.item).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const localItems=(_itpState && _itpState.items)||[];
+  const allItems=localItems.length?localItems:getBridgeItems();
+  const allItemLabels=(allItems||[]).map(it=>[it.tag,it.name].filter(Boolean).join(' / ')).filter(Boolean);
+  const recordItemLabels=records.map(r=>r.item).filter(Boolean);
+  const items=[...new Set([...allItemLabels, ...recordItemLabels])].sort((a,b)=>a.localeCompare(b,'ko'));
   sel.innerHTML='<option value="">전체 아이템</option>'+items.map(it=>`<option value="${escapeHtml(it)}">${escapeHtml(it)}</option>`).join('');
   sel.value=items.includes(prev)?prev:'';
 }
