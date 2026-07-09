@@ -891,6 +891,9 @@ function defaultState() {
     wbs: {},
     /* === 프로젝트별 검사 대상 아이템 === */
     items: {},
+    /* === Mobile Inspection 임시저장 목록 (t_mobileInspectionDrafts 동기화) —
+       프로젝트 선택 화면에 "임시저장 N건" 배지를 보여주기 위한 용도 === */
+    mobileInspectionDrafts: [],
     /* === Traveller 진척 데이터 (Tag별 ITP 9 항목 통과 여부) ===
        구조: travellers[itemId] = { '01': {status, worker, qc, witness, date, memo}, '02': {...}, ... }
        status: 'pending' | 'passed' | 'rejected'
@@ -1849,6 +1852,13 @@ function startFirestoreSync() {
     savePartial('items', state.items);
     render();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
+  // Mobile Inspection 임시저장(t_mobileInspectionDrafts) — 프로젝트 선택 화면에
+  // "임시저장 N건" 배지로 보여주기 위해 목록만 가볍게 구독한다(문서 내용은
+  // 필요 없고 pid만 세면 되지만, 별도 count-only 쿼리가 없어 그냥 전체를 받음).
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 't_mobileInspectionDrafts'), snap => {
+    state.mobileInspectionDrafts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error('[Firestore] t_mobileInspectionDrafts 동기화 오류:', err)));
   // 메신저 UI는 modules/messenger/messenger.html(iframe)로 이동했지만, 상단 알림배지는
   // 메신저를 열지 않아도 실시간으로 보여야 하므로 channels/messages/channelReads를 여기서도 독립 구독한다.
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'channels'), snap => {
@@ -2702,6 +2712,7 @@ function renderMobileProjects() {
       ${projs.map(p => {
         const itemCount = (state.items[p.id] || []).length;
         const isHidden = p.hidden;
+        const draftCount = (state.mobileInspectionDrafts || []).filter(d => d.pid === p.id).length;
         return `
         <div class="proj ${isHidden?'proj-hidden':''}" onclick="openMobileProj('${p.id}')">
           <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
@@ -2712,6 +2723,7 @@ function renderMobileProjects() {
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
           <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
+          ${draftCount>0?`<div style="margin-top:6px;font-size:11px;color:#856404;background:#fff3cd;border-radius:6px;padding:3px 8px;display:inline-block;font-weight:600;">📝 임시저장 ${draftCount}건</div>`:''}
         </div>
       `;}).join('')}
     </div>

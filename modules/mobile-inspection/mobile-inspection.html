@@ -276,10 +276,13 @@ input[type=file]{display:none}
       <input type="text" id="fail-note" placeholder="예: 치수 불량, 용접 결함 등">
     </div>
   </div>
+  <button type="button" id="draft-save-btn" onclick="saveDraft()" style="width:100%;padding:12px;margin-bottom:8px;background:#fff;color:#185fa5;border:1.5px solid #185fa5;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+    <i class="ti ti-device-floppy" aria-hidden="true"></i> 임시저장
+  </button>
   <button class="submit-btn" id="submit-btn" onclick="submitUpload()">
     <i class="ti ti-cloud-upload" aria-hidden="true"></i> 등록하기
   </button>
-  <p class="submit-note">등록 후 ITP 검사 이력에 자동 반영됩니다</p>
+  <p class="submit-note">임시저장은 검사값만 다른 기기에서 이어서 작성할 수 있습니다 (사진 제외) · 등록 후 ITP 검사 이력에 자동 반영됩니다</p>
   <div class="prog-wrap" id="prog-wrap">
     <p class="prog-label" id="prog-label">업로드 중...</p>
     <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
@@ -1076,6 +1079,8 @@ async function onItpChange(){
   renderInspFields(fieldsKey);
   document.getElementById('insp-fields').style.display='block';
   document.getElementById('insp-toggle-ic').innerHTML='<i class="ti ti-chevron-up" aria-hidden="true"></i>';
+  // v29.36: 이 아이템·검사 항목에 임시저장된 내용이 있으면 이어서 작성할지 물어본다.
+  checkAndOfferDraftRestore();
 }
 
 function renderInspFields(itpId){
@@ -1825,6 +1830,162 @@ function collectInspData(){
   return data;
 }
 
+// v29.36 — 임시저장: 현장(휴대폰)에서 작업을 시작했다가 PC로 이어서 하거나
+// 반대의 경우, 아직 "등록하기"를 안 누른 입력 중인 내용(검사값+사진)을
+// Firestore(t_mobileInspectionDrafts, pid+아이템+ITP 항목별로 슬롯 1개)에
+// 저장해 다른 기기에서 이어받을 수 있게 한다. 사진도 기존 uploadPhotoChunks로
+// 조각 저장하되 recId를 "draft_이 슬롯의 문서id"로 고정해, 같은 슬롯에
+// 다시 임시저장해도 조각이 계속 새로 쌓이지 않고 덮어써진다.
+function draftDocId(item, itpId){
+  return MI_PID+'__'+encodeURIComponent(item)+'__'+itpId;
+}
+async function saveDraft(){
+  const item = document.getElementById('item').value;
+  const itpSel = document.getElementById('itp');
+  const itpVal = itpSel.value;
+  if(!item || !itpVal){ showToast('⚠️ 아이템과 ITP 검사 항목을 먼저 선택하세요'); return; }
+  if(!window.fb || !fb.db){ showToast('⚠️ 오프라인 상태라 임시저장을 할 수 없습니다'); return; }
+  const btn=document.getElementById('draft-save-btn');
+  const origHtml=btn.innerHTML;
+  btn.disabled=true;
+  btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin .8s linear infinite;display:inline-block"></i> 임시저장 중...';
+  try{
+    const docId=draftDocId(item, itpVal);
+    const selOpt=itpSel.options[itpSel.selectedIndex];
+    const photos=[];
+    for(let i=0;i<pendingFiles.length;i++){
+      const f=pendingFiles[i];
+      if(!f.chunkId){
+        const up=await uploadPhotoChunks('draft_'+docId, i, f.dataUrl);
+        f.chunkId=up.chunkId; f.totalChunks=up.totalChunks; // 재저장 시 재업로드 방지
+      }
+      photos.push({name:f.name, caption:f.caption||'', chunkId:f.chunkId, totalChunks:f.totalChunks});
+    }
+    const draft={
+      pid:MI_PID, item, itpId:itpVal, itpName:selOpt?.dataset.activity||'', fieldsKey:selOpt?.dataset.fieldsKey||'',
+      date:document.getElementById('insp-date').value,
+      inspData:collectInspData(),
+      result:document.querySelector('#result-grid .stage-btn.sel')?.dataset.val||'합격',
+      failNote:document.getElementById('fail-note').value||'',
+      inspectors:[...selectedInspectors],
+      photos,
+      savedAt:new Date().toISOString()
+    };
+    await fb.setDoc(fb.doc(fb.db, 't_mobileInspectionDrafts', docId), draft);
+    showToast('💾 임시저장 완료 — 다른 기기에서 이어서 작성할 수 있습니다');
+  }catch(e){
+    console.error('[임시저장]', e);
+    showToast('❌ 임시저장 실패: '+(e.message||e));
+  }finally{
+    btn.disabled=false; btn.innerHTML=origHtml;
+  }
+}
+// 자재/조인트/경판/가압부 등 반복 행 목록에 임시저장 값을 되돌려 넣는다 —
+// 컨테이너를 비우고 카운터를 리셋한 뒤, 행마다 addFn()으로 빈 행을 새로
+// 만들고 저장된 값을 다시 채운다(자동 채움값은 그대로 덮어써짐).
+function restoreListEntries(containerId, addFn, resetCounter, rows){
+  const container=document.getElementById(containerId);
+  if(!container || !Array.isArray(rows)) return;
+  container.innerHTML='';
+  resetCounter();
+  rows.forEach(row=>{
+    addFn();
+    const entry=container.lastElementChild;
+    if(!entry) return;
+    Object.keys(row).forEach(fld=>{
+      const el=entry.querySelector(`.insp-field[data-key$=".${fld}"]`);
+      if(!el) return;
+      if(el.type==='checkbox'){ el.checked=!!(row[fld]&&row[fld].checked!==undefined?row[fld].checked:row[fld]); }
+      else if(el.dataset.modeInput==='1'){
+        const btn=entry.querySelector(`.mode-btn[data-key="${el.dataset.key}"][data-val="${CSS.escape(String(row[fld]))}"]`);
+        if(btn) btn.click(); else el.value=row[fld];
+      } else { el.value=row[fld]!=null?row[fld]:''; }
+    });
+  });
+}
+// 일반(반복 아닌) 필드 하나를 임시저장 값으로 되돌린다 — buildField/
+// collectInspData가 쓰는 키 규칙(minmax는 'key.min'/'key.max' 등)을 그대로 따라간다.
+function restoreFieldValue(f, data){
+  const dk=f.key;
+  const setVal=(key,val)=>{ if(val==null) return; const el=document.querySelector(`#insp-fields .insp-field[data-key="${key}"]`); if(el) el.value=val; };
+  if(f.type==='minmax'){ setVal(dk+'.min', data[dk+'.min']); setVal(dk+'.max', data[dk+'.max']); }
+  else if(f.type==='multi-zone'){ (f.zones||['A','B','C','D']).forEach(z=>setVal(dk+'.'+z, data[dk+'.'+z])); }
+  else if(f.type==='datetime-pair'){
+    setVal(dk+'.start', data[dk+'.start']); setVal(dk+'.end', data[dk+'.end']);
+    const startEl=document.querySelector(`#insp-fields input[data-key="${dk}.start"]`);
+    if(startEl) startEl.dispatchEvent(new Event('change'));
+  }
+  else if(f.type==='checkbox'){
+    const v=data[dk]; const el=document.querySelector(`#insp-fields input[data-key="${dk}"]`);
+    if(el){ el.checked = v && typeof v==='object' ? !!v.checked : !!v; el.dispatchEvent(new Event('change')); }
+  }
+  else if(f.type==='mode-toggle'){
+    const v=data[dk]; if(v==null) return;
+    const btn=document.querySelector(`#insp-fields .mode-btn[data-key="${dk}"][data-val="${CSS.escape(String(v))}"]`);
+    if(btn) btn.click();
+  }
+  else if(f.type==='checklist'){
+    (f.items||[]).forEach((it,i)=>{
+      const v=data[dk+'.'+i]; const el=document.querySelector(`#insp-fields input[data-key="${dk}.${i}"]`);
+      if(el && v) el.checked=!!v.checked;
+    });
+  }
+  else if(f.type==='select'){
+    setVal(dk, data[dk]);
+    const sel=document.querySelector(`#insp-fields select[data-key="${dk}"]`);
+    // 저장된 값이 지금 옵션 목록에 없으면(BOM 등 외부 데이터가 그 사이 바뀜)
+    // "직접 입력" 모드로 전환해 값을 보존한다.
+    if(sel && data[dk] && sel.value!==data[dk]){
+      sel.value='__custom__'; toggleBomCustomInput(sel);
+      const custom=sel.nextElementSibling; if(custom) custom.value=data[dk];
+    }
+  }
+  else { setVal(dk, data[dk]); }
+}
+async function checkAndOfferDraftRestore(){
+  const item=document.getElementById('item').value;
+  const itpVal=document.getElementById('itp').value;
+  if(!item || !itpVal || !window.fb || !fb.db || !fb.auth?.currentUser) return;
+  try{
+    const snap=await fb.getDoc(fb.doc(fb.db, 't_mobileInspectionDrafts', draftDocId(item, itpVal)));
+    if(!snap.exists()) return;
+    const draft=snap.data();
+    const savedLabel=(draft.savedAt||'').slice(0,16).replace('T',' ');
+    if(!confirm(`이 아이템·검사 항목에 임시저장된 내용이 있습니다 (${savedLabel} 저장).\n이어서 작성하시겠습니까?`)) return;
+    await applyDraftToForm(draft);
+  }catch(e){ console.error('[임시저장 불러오기]', e); }
+}
+async function applyDraftToForm(draft){
+  const def=ITP_FIELDS[draft.fieldsKey];
+  if(def){
+    if(def.specialType==='material-list') restoreListEntries('material-list-container', addMaterialRow, ()=>{_materialCounter=0;}, draft.inspData?.materials);
+    else if(def.specialType==='joint-list') restoreListEntries('joint-list-container', addJoint, ()=>{_jointCounter=0;}, draft.inspData?.joints);
+    else if(def.specialType==='head-list') restoreListEntries('head-list-container', addHeadRow, ()=>{_headCounter=0;}, draft.inspData?.heads);
+    else if(def.specialType==='hydro-list') restoreListEntries('hydro-list-container', addHydroRow, ()=>{_hydroCounter=0;}, draft.inspData?.hydroParts);
+    else (def.fields||[]).forEach(f=>restoreFieldValue(f, draft.inspData||{}));
+  }
+  if(document.querySelector('#insp-fields .material-entry')) updateMaterialOverallResult();
+  else if(draft.result) selectResult(draft.result);
+  if(draft.date) document.getElementById('insp-date').value=draft.date;
+  if(draft.failNote) document.getElementById('fail-note').value=draft.failNote;
+  if(Array.isArray(draft.inspectors)){ selectedInspectors=[...draft.inspectors]; renderInspectorToggles(); }
+  if(Array.isArray(draft.photos) && draft.photos.length){
+    pendingFiles.length=0;
+    for(const p of draft.photos){
+      try{
+        const dataUrl=await loadPhotoDataUrl(p.chunkId, p.totalChunks);
+        pendingFiles.push({name:p.name, caption:p.caption||'', dataUrl, chunkId:p.chunkId, totalChunks:p.totalChunks});
+      }catch(e){ console.error('[임시저장 사진 복원]', e); }
+    }
+    renderPreviews();
+  }
+  showToast('📝 임시저장된 내용을 불러왔습니다');
+}
+async function deleteDraftForCurrentSelection(item, itpVal){
+  if(!item || !itpVal || !window.fb || !fb.db) return;
+  try{ await fb.deleteDoc(fb.doc(fb.db, 't_mobileInspectionDrafts', draftDocId(item, itpVal))); }
+  catch(e){ console.error('[임시저장 삭제]', e); }
+}
 
 // ── 합부 판정 ────────────────────────────
 // ── 검사자 토글 선택 (ITP Builder 업로드 목록 + 직접 추가) ──
@@ -2055,7 +2216,10 @@ async function submitUpload(){
     const photos=[];
     for(let i=0;i<pendingFiles.length;i++){
       const f=pendingFiles[i];
-      const {chunkId,totalChunks}=await uploadPhotoChunks(recId,i,f.dataUrl);
+      // 임시저장 복원으로 이미 조각 업로드가 끝난 사진(chunkId 있음)은
+      // 재업로드하지 않고 그대로 재사용한다.
+      let chunkId=f.chunkId, totalChunks=f.totalChunks;
+      if(!chunkId){ const up=await uploadPhotoChunks(recId,i,f.dataUrl); chunkId=up.chunkId; totalChunks=up.totalChunks; }
       photos.push({name:f.name,caption:f.caption||'',chunkId,totalChunks,dataUrl:f.dataUrl});
       const pct=Math.round(((i+1)/total)*100);
       pf.style.width=pct+'%';
@@ -2071,6 +2235,7 @@ async function submitUpload(){
       const upd = writeHeatNoBackToQAG(MI_PID, currentQagItemId, inspData.materials);
       if(upd) writeHeatNoBackToQAGCloud(MI_PID, upd.bomKey, upd.bomRows);
     }
+    deleteDraftForCurrentSelection(item, itpVal); // 등록 완료했으니 임시저장은 정리
 
     pendingFiles=[];renderPreviews();
     document.getElementById('item').value='';
