@@ -377,6 +377,31 @@ footer {
   font-size: 11.5px; margin-top: 18px; padding-top: 12px;
 }
 
+/* v29.17: 클릭 가능한 항목 스타일 — 아이템 전체를 <a>로 감싸도 시각적으로 링크로 보이지 않게 */
+a.row-link {
+  text-decoration: none;
+  color: inherit;
+  display: contents;
+}
+.action-list li.clickable,
+.mail-item.clickable,
+.bid-item.clickable,
+tr.clickable {
+  cursor: pointer;
+  transition: background .1s;
+}
+.action-list li.clickable:hover,
+.mail-item.clickable:hover,
+.bid-item.clickable:hover,
+tr.clickable:hover {
+  background: var(--grybg);
+}
+.click-hint {
+  font-size: 10px; color: var(--mut); opacity: 0.6; margin-left: 4px;
+}
+a.row-link:hover .click-hint { opacity: 1; color: var(--accent); }
+
+
 @media (max-width: 900px) {
   .summary { grid-template-columns: repeat(2, 1fr); }
   .links { grid-template-columns: 1fr 1fr; }
@@ -418,50 +443,60 @@ footer {
       </ul>
     </div>
     <ol class="action-list">
-      <li>
-        <span class="num">1</span>
-        <div class="desc">
-          PPG KOREA <b>발주서 회신 확정</b>
-          <small>계약금 지불 조건 재확인 · sejong-platform 결재 대기 중</small>
-        </div>
-        <span class="tag">SJ2026-002</span>
-        <span class="due">D-day</span>
+      <li class="clickable">
+        <a class="row-link" href="https://sejong21c.com/#approval" target="_blank" rel="noopener" title="sejong-platform 결재 메뉴 열기">
+          <span class="num">1</span>
+          <div class="desc">
+            PPG KOREA <b>발주서 회신 확정</b> <span class="click-hint">→ 결재 열기</span>
+            <small>계약금 지불 조건 재확인 · sejong-platform 결재 대기 중</small>
+          </div>
+          <span class="tag">SJ2026-002</span>
+          <span class="due">D-day</span>
+        </a>
       </li>
-      <li>
-        <span class="num">2</span>
-        <div class="desc">
-          신채완 과장 <b>WBS 변경 요청 결재</b>
-          <small>배관공사 시작일 08/01 → 08/15 (자재 입고 지연)</small>
-        </div>
-        <span class="tag">SJ435-26</span>
-        <span class="due">D-day</span>
+      <li class="clickable">
+        <a class="row-link" href="https://sejong21c.com/#approval" target="_blank" rel="noopener" title="sejong-platform 결재 메뉴 열기">
+          <span class="num">2</span>
+          <div class="desc">
+            신채완 과장 <b>WBS 변경 요청 결재</b> <span class="click-hint">→ 결재 열기</span>
+            <small>배관공사 시작일 08/01 → 08/15 (자재 입고 지연)</small>
+          </div>
+          <span class="tag">SJ435-26</span>
+          <span class="due">D-day</span>
+        </a>
       </li>
-      <li class="mid">
-        <span class="num">3</span>
-        <div class="desc">
-          한수원 QA 감사 대응 <b>서류 최종 검토</b>
-          <small>ISO 19443 재인증 예비 감사 · 오늘 오후 발송 필요</small>
-        </div>
-        <span class="tag">원자력</span>
-        <span class="due">D-1</span>
+      <li class="mid clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/ISO+19443+예비+감사" target="_blank" rel="noopener" title="Gmail에서 관련 메일 검색">
+          <span class="num">3</span>
+          <div class="desc">
+            한수원 QA 감사 대응 <b>서류 최종 검토</b> <span class="click-hint">→ Gmail 열기</span>
+            <small>ISO 19443 재인증 예비 감사 · 오늘 오후 발송 필요</small>
+          </div>
+          <span class="tag">원자력</span>
+          <span class="due">D-1</span>
+        </a>
       </li>
-      <li class="mid">
-        <span class="num">4</span>
-        <div class="desc">
-          삼성전기 도면 회신 요청 <b>답변 초안</b>
-          <small>3-WAY VALVE 방향 · 오일프리 미적용 실리콘 도포 가능여부</small>
-        </div>
-        <span class="tag">SJ435-26</span>
-        <span class="due">D-1</span>
+      <li class="mid clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/BT-6라인+3-WAY+VALVE" target="_blank" rel="noopener" title="Gmail에서 관련 메일 검색">
+          <span class="num">4</span>
+          <div class="desc">
+            삼성전기 도면 회신 요청 <b>답변 초안</b> <span class="click-hint">→ Gmail 열기</span>
+            <small>3-WAY VALVE 방향 · 오일프리 미적용 실리콘 도포 가능여부</small>
+          </div>
+          <span class="tag">SJ435-26</span>
+          <span class="due">D-1</span>
+        </a>
       </li>
-      <li class="low">
-        <span class="num">5</span>
-        <div class="desc">
-          국도화학 T-7191 Tank <b>납품 후속 확인</b>
-          <small>어제 오전 도착 · 입고검사·수령 확인 완료 여부</small>
-        </div>
-        <span class="tag">SJ2026-017</span>
-        <span class="due">-</span>
+      <li class="low clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/T-7191+Tank+국도화학" target="_blank" rel="noopener" title="Gmail에서 관련 메일 검색">
+          <span class="num">5</span>
+          <div class="desc">
+            국도화학 T-7191 Tank <b>납품 후속 확인</b> <span class="click-hint">→ Gmail 열기</span>
+            <small>어제 오전 도착 · 입고검사·수령 확인 완료 여부</small>
+          </div>
+          <span class="tag">SJ2026-017</span>
+          <span class="due">-</span>
+        </a>
       </li>
     </ol>
   </section>
@@ -470,15 +505,15 @@ footer {
   <section>
     <h2><span class="ico">📬</span> 메일 자동 분류 요약 <span class="secnote">자동 라벨링 42건 · 수동 확인 5건</span></h2>
     <div class="chip-strip">
-      <div class="chip tot"><div class="k">신규 메일</div><div class="v"><span class="num">47</span><span class="unit">건</span></div></div>
-      <div class="chip urgent"><div class="k">긴급 답변</div><div class="v"><span class="num">3</span><span class="unit">건</span></div></div>
-      <div class="chip classify"><div class="k">자동 분류</div><div class="v"><span class="num">42</span><span class="unit">건</span></div></div>
-      <div class="chip"><div class="k">SJ435-26 삼성전기</div><div class="v"><span class="num">12</span><span class="unit">건</span></div></div>
-      <div class="chip"><div class="k">SJ2026-002 PPG</div><div class="v"><span class="num">8</span><span class="unit">건</span></div></div>
-      <div class="chip"><div class="k">원자력사업부</div><div class="v"><span class="num">6</span><span class="unit">건</span></div></div>
-      <div class="chip"><div class="k">인증서·감사</div><div class="v"><span class="num">4</span><span class="unit">건</span></div></div>
-      <div class="chip"><div class="k">NCR / CAR</div><div class="v"><span class="num">3 / 2</span><span class="unit">건</span></div></div>
-      <div class="chip"><div class="k">신규 Project</div><div class="v"><span class="num">1</span><span class="unit">건</span></div></div>
+      <a class="chip tot" href="https://mail.google.com/mail/u/0/#search/newer_than%3A1d" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">신규 메일 →</div><div class="v"><span class="num">47</span><span class="unit">건</span></div></a>
+      <a class="chip urgent" href="https://mail.google.com/mail/u/0/#search/is%3Aimportant+is%3Aunread" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">긴급 답변 →</div><div class="v"><span class="num">3</span><span class="unit">건</span></div></a>
+      <a class="chip classify" href="https://mail.google.com/mail/u/0/#inbox" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">자동 분류 →</div><div class="v"><span class="num">42</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/label%3ASJ435-26+OR+삼성전기" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">SJ435-26 삼성전기 →</div><div class="v"><span class="num">12</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/label%3ASJ2026-002+OR+PPG" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">SJ2026-002 PPG →</div><div class="v"><span class="num">8</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#label/원자력사업부" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">원자력사업부 →</div><div class="v"><span class="num">6</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/인증서+OR+감사+OR+ASME+OR+ISO" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">인증서·감사 →</div><div class="v"><span class="num">4</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/label%3ANCR+OR+label%3ACAR+OR+부적합+OR+시정조치" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">NCR / CAR →</div><div class="v"><span class="num">3 / 2</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://sejong21c.com/#projects" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">신규 Project →</div><div class="v"><span class="num">1</span><span class="unit">건</span></div></a>
     </div>
     <div class="note">🏷️ 자동 라벨링 42건은 프로젝트별·유형별로 Gmail 라벨이 이미 부여됨. 5건은 발신자/제목 기준 매칭 실패 → 수동 확인 후 라벨링 필요. <b>신규 Project 1건</b>은 sejong-platform Firestore projects 컬렉션에 자동 등록됨.</div>
 
@@ -491,35 +526,35 @@ footer {
       <table style="margin-top:6px">
         <thead><tr><th>수신</th><th>구분</th><th>제목·요약</th><th>대상 프로젝트</th><th>조치</th></tr></thead>
         <tbody>
-          <tr>
+          <tr class="clickable" onclick="window.open('https://mail.google.com/mail/u/0/#search/BT-6라인+3-WAY+VALVE', '_blank')">
             <td><span class="pill p-red">신규</span></td>
             <td><span class="cat" style="margin-left:0;background:#fee2e2;color:#991b1b;">NCR</span></td>
             <td><b>[삼성전기] BT-6라인 3-WAY VALVE 방향 불일치</b> — 오일프리 미적용 실리콘 도포 확인 요청, NCR 발행 검토</td>
             <td><b>SJ435-26</b></td>
             <td>도면 재검토 · NCR 등록 여부 판단</td>
           </tr>
-          <tr>
+          <tr class="clickable" onclick="window.open('https://mail.google.com/mail/u/0/#search/T-8405+폐수Tank+RT+재검사', '_blank')">
             <td><span class="pill p-red">신규</span></td>
             <td><span class="cat" style="margin-left:0;background:#fee2e2;color:#991b1b;">NCR</span></td>
             <td><b>[국도화학] T-8405 폐수Tank 용접부 결함 (RT 재검사)</b> — 방사선투과검사 재실시 결과 통보</td>
             <td><b>SJ2026-020</b></td>
             <td>NCR-2026-XX 등록 · 재작업 지시</td>
           </tr>
-          <tr>
+          <tr class="clickable" onclick="window.open('https://mail.google.com/mail/u/0/#search/CAR-2026-04+R-C202', '_blank')">
             <td><span class="pill p-amb">회신 요망</span></td>
             <td><span class="cat" style="margin-left:0;background:#ffedd5;color:#c2410c;">CAR</span></td>
             <td><b>[PPG KOREA] R-C202 용접부 균열 시정조치 요청 (CAR-2026-04)</b> — 재작업 완료 보고서 요구</td>
             <td><b>SJ2026-002</b></td>
             <td>재작업 완료 보고서 <b>금주 회신</b></td>
           </tr>
-          <tr>
+          <tr class="clickable" onclick="window.open('https://mail.google.com/mail/u/0/#search/NCR-2026-11+조광페인트', '_blank')">
             <td><span class="pill p-grn">진행</span></td>
             <td><span class="cat" style="margin-left:0;background:#fee2e2;color:#991b1b;">NCR</span></td>
             <td>[조광페인트] PAA 라인 압력계 오차 (기 발행 NCR-2026-11 종결 확인)</td>
             <td>SJ436-26</td>
             <td>Close-out 서명 · 종결 처리</td>
           </tr>
-          <tr>
+          <tr class="clickable" onclick="window.open('https://mail.google.com/mail/u/0/#search/CAR-2026-03+ISO+19443', '_blank')">
             <td><span class="pill p-grn">진행</span></td>
             <td><span class="cat" style="margin-left:0;background:#ffedd5;color:#c2410c;">CAR</span></td>
             <td>[한수원] ISO 19443 예비 감사 지적사항 (CAR-2026-03) — 시정조치 계획서 제출 예정</td>
@@ -747,85 +782,85 @@ footer {
   <div class="split">
     <section>
       <h2><span class="ico">📢</span> 원자력 입찰공고 <span class="secnote">발주처 포털 스크래핑</span></h2>
-      <div class="bid-item">
+      <a class="bid-item clickable" href="https://ebiz.khnp.co.kr/login.do" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div>
-          <div class="title">[NEW] 한울 3.4호기 이송대차 제작 <span class="cat c-bid">입찰</span></div>
+          <div class="title">[NEW] 한울 3.4호기 이송대차 제작 <span class="cat c-bid">입찰</span> <span class="click-hint">→ K-Pro</span></div>
           <div class="meta">한수원 한울3발 · 예비기초 <b>3.08억</b> · 사내 회람 확인</div>
         </div>
         <div class="side"><span class="pill p-red">D-7</span></div>
-      </div>
-      <div class="bid-item">
+      </a>
+      <a class="bid-item clickable" href="https://srm.kepco.net/index.do" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div>
-          <div class="title">분당 가스터빈 Inner Liner 제작구매 <span class="cat c-bid">참고</span></div>
+          <div class="title">분당 가스터빈 Inner Liner 제작구매 <span class="cat c-bid">참고</span> <span class="click-hint">→ SRM</span></div>
           <div class="meta">한국남동발전 SRM · 5.75억 · 화력·수익성 판단</div>
         </div>
         <div class="side"><span class="pill p-amb">D-4</span></div>
-      </div>
-      <div class="bid-item">
+      </a>
+      <a class="bid-item clickable" href="https://srm.kepco.net/index.do" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div>
-          <div class="title">분당 Support Cylinder 제작구매 <span class="cat c-bid">참고</span></div>
+          <div class="title">분당 Support Cylinder 제작구매 <span class="cat c-bid">참고</span> <span class="click-hint">→ SRM</span></div>
           <div class="meta">한국남동발전 SRM · 1.64억</div>
         </div>
         <div class="side"><span class="pill p-amb">D-4</span></div>
-      </div>
-      <div class="bid-item">
+      </a>
+      <a class="bid-item clickable" href="https://www.kaif.or.kr/ko/" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div>
-          <div class="title">원전부품설비 통합인증 지원사업(품질인증 2차) <span class="cat c-fund">지원</span></div>
+          <div class="title">원전부품설비 통합인증 지원사업(품질인증 2차) <span class="cat c-fund">지원</span> <span class="click-hint">→ KAIF</span></div>
           <div class="meta">한수원 대외협력실 · 042-868-7592</div>
         </div>
         <div class="side"><span class="pill p-amb">D-12</span></div>
-      </div>
-      <div class="bid-item">
+      </a>
+      <a class="bid-item clickable" href="https://ebiz.khnp.co.kr/login.do" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div>
-          <div class="title">한수원 파단판 외 1품목 (A등급 제작) <span class="cat c-bid">입찰</span></div>
+          <div class="title">한수원 파단판 외 1품목 (A등급 제작) <span class="cat c-bid">입찰</span> <span class="click-hint">→ K-Pro</span></div>
           <div class="meta">한수원 한빛3발 · K-Pro 포털 확인 필요</div>
         </div>
         <div class="side"><span class="pill p-gry">포털</span></div>
-      </div>
+      </a>
     </section>
 
     <section>
       <h2><span class="ico">📮</span> 신규 메일 <span class="secnote">최근 24시간 · 라벨링 완료</span></h2>
-      <div class="mail-item unread">
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/R-C202+Replacement+발주" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div class="av">P</div>
         <div class="body">
           <div class="subj">Re: R-C202 Replacement 발주 회신 (수정본)</div>
           <div class="from">PPG KOREA · j.park@ppg.co.kr · SJ2026-002</div>
         </div>
         <div class="stamp">07:02</div>
-      </div>
-      <div class="mail-item unread">
+      </a>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/BT-6라인+3-WAY+VALVE+방향" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div class="av">삼</div>
         <div class="body">
           <div class="subj">BT-6라인 3-WAY VALVE 방향 재검토 요청</div>
           <div class="from">삼성전기 · kim@sec.co.kr · SJ435-26</div>
         </div>
         <div class="stamp">06:47</div>
-      </div>
-      <div class="mail-item unread">
+      </a>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/한수원+ISO+19443+예비+감사" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div class="av">한</div>
         <div class="body">
           <div class="subj">[한수원] ISO 19443 예비 감사 일정 공지 (첨부)</div>
           <div class="from">한수원 QA 감사팀 · 원자력</div>
         </div>
         <div class="stamp">06:31</div>
-      </div>
-      <div class="mail-item">
+      </a>
+      <a class="mail-item clickable" href="https://mail.google.com/mail/u/0/#search/T-7191+Tank+납품" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div class="av">국</div>
         <div class="body">
           <div class="subj">T-7191 Tank 납품 확인 및 수령 검사 완료</div>
           <div class="from">국도화학 · SJ2026-017</div>
         </div>
         <div class="stamp">05:12</div>
-      </div>
-      <div class="mail-item">
+      </a>
+      <a class="mail-item clickable" href="https://sejong21c.com/#projects" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div class="av">P</div>
         <div class="body">
           <div class="subj">신규 Project · 진양화성 부산1공장 (자동 등록됨)</div>
-          <div class="from">진양화성 · sejong-platform projects 자동 등록</div>
+          <div class="from">진양화성 · sejong-platform projects · 클릭해 확인</div>
         </div>
         <div class="stamp">04:48</div>
-      </div>
+      </a>
     </section>
   </div>
 
