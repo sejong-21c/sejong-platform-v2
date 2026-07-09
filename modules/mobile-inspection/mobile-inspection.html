@@ -303,7 +303,7 @@ input[type=file]{display:none}
 
 <div id="detail-screen" style="display:none">
 <div class="wrap">
-  <button onclick="backToHist()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:#185fa5;font-size:14px;font-weight:600;cursor:pointer;padding:0;margin-bottom:4px">
+  <button onclick="backToHist()" style="grid-column:1 / -1;display:flex;align-items:center;gap:6px;background:none;border:none;color:#185fa5;font-size:14px;font-weight:600;cursor:pointer;padding:0;margin-bottom:4px">
     <i class="ti ti-arrow-left" aria-hidden="true"></i> 목록으로
   </button>
   <div class="step">
@@ -317,14 +317,14 @@ input[type=file]{display:none}
       <tr><td>합부 판정</td><td id="det-note">—</td></tr>
     </table>
   </div>
-  <div class="step" id="det-inspdata-step" style="display:none">
-    <div class="step-title">입력한 검사값</div>
-    <div id="det-inspdata"></div>
-  </div>
   <div class="step">
     <div class="step-title">등록된 사진 <span style="font-size:13px;font-weight:400;color:#999">— 눌러서 삭제</span></div>
     <div class="reg-grid" id="reg-grid"></div>
     <p class="reg-count" id="reg-count"></p>
+  </div>
+  <div class="step" id="det-inspdata-step" style="display:none;grid-column:1 / -1">
+    <div class="step-title">입력한 검사값</div>
+    <div id="det-inspdata"></div>
   </div>
   <div class="action-row">
     <button class="act-btn primary" onclick="openSheet()">
