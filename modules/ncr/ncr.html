@@ -1421,9 +1421,11 @@ function printNCRTrend() {
     table{width:100%;border-collapse:collapse;font-size:9px;}
     th{background:#f5f3ff;color:#7c3aed;font-weight:700;padding:3px 6px;text-align:left;border-bottom:1.5px solid #ddd6fe;}
     td{padding:2px 6px;border-bottom:1px solid #f0f0f0;}
+    tr{page-break-inside:avoid;}
     .b-pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:8.5px;font-weight:600;}
     .b-pill.green{background:#d1fae5;color:#065f46;}.b-pill.red{background:#fee2e2;color:#991b1b;}
     svg{overflow:visible;display:block;width:100%;}
+    .pagebreak{page-break-before:always;break-before:page;}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
     <div class="hdr"><h1>📊 NCR 품질 경향분석 보고서</h1>
@@ -1443,7 +1445,7 @@ function printNCRTrend() {
       <div class="ch"><div class="ch-title">불량원인 상세별</div>${_barSvg(detailEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">처리방안별</div>${_donutSvg(dispEntries,COLORS)}</div>
     </div>
-    <div class="card"><div class="card-title">📋 상세 목록</div>
+    <div class="card pagebreak"><div class="card-title">📋 상세 목록</div>
       <table><thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
         <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
       </table>
