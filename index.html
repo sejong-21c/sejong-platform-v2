@@ -970,7 +970,17 @@ function save() {
       IFRAME_OWNED_KEYS.forEach(k => { if (disk[k] !== undefined) state[k] = disk[k]; });
     }
   } catch (e) { /* 디스크 파싱 실패 시엔 기존 동작(전체 저장) 유지 */ }
-  localStorage.setItem(KEY, JSON.stringify(state));
+  // v29.24 fix — 이 줄이 그동안 아무 보호 없이 그냥 던져지고 있었음. 브라우저 저장공간이
+  // 가득 찬 상태(QuotaExceededError)에서는 이 예외가 hydrateUsersAndEnter() 안의 save() 호출을
+  // 그대로 뚫고 나가 handleAuthChange()의 catch로 떨어지고, 거기서 showLogin()이 실행되어
+  // "로그인 정보 읽어오다가 다시 로그인 화면으로 튕기는" 심각한 사고로 이어짐(실사용 중 발견 —
+  // ITP Builder/QA Doc Generator 쪽 대용량 로컬 캐시가 저장공간을 채운 게 근본 원인).
+  // 로컬 캐시 저장은 실패해도 로그인 등 앱 동작 자체는 끊기지 않아야 하므로 여기서 막는다.
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('[SJ FLOW 로컬 저장 실패]', e);
+  }
 }
 // 특정 키 하나만 갱신하는 부분 저장 — 부모의 onSnapshot 핸들러가 사용 (다른 키 불간섭).
 function savePartial(key, value) {
