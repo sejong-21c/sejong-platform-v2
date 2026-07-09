@@ -164,6 +164,12 @@ input[type=file]{display:none}
 .crop-handle.bl{bottom:-11px;left:-11px;cursor:sw-resize}
 .crop-handle.br{bottom:-11px;right:-11px;cursor:se-resize}
 .crop-ft{background:#1a1a18;padding:12px 16px;flex-shrink:0;text-align:center;font-size:12px;color:#888}
+/* v29.30 fix: PC 반응형(.wrap이 2~3단 그리드로 바뀜)에서 등록이력 화면의
+   종합판정 박스·아이템 드롭다운·체크리스트·목록이 "새 등록" 화면의 입력
+   섹션처럼 그리드 칸에 각각 나뉘어 배치돼 옆으로 흩어져 보이던 문제 —
+   등록이력은 순서대로 나열되는 목록형 화면이라 항상 한 줄(전체 폭)로
+   쌓이게 강제한다. grid가 아닌 모바일 폭에서는 이 속성이 무시되어 안전함. */
+#hist-screen .wrap>*{grid-column:1 / -1}
 /* ===== PC 반응형 (768px 이상) — 모바일은 기존 480px 유지 ===== */
 @media(min-width:768px){
   .tab-bar{max-width:900px}
@@ -283,7 +289,6 @@ input[type=file]{display:none}
 
 <div id="hist-screen" style="display:none">
 <div class="wrap">
-  <div id="material-status-summary"></div>
   <select id="hist-item-filter" onchange="renderHist()" style="margin-bottom:2px">
     <option value="">전체 아이템</option>
   </select>
@@ -568,31 +573,47 @@ function trimPhotoCacheForStorage(records){
 // 쌓인 계정은 트리밍을 해도 여전히 용량 초과가 나서 "5건만 한 번 정리하고
 // 실패하면 포기"하던 기존 방식으로는 해결이 안 됐다. 성공할 때까지(또는 더
 // 지울 기록이 없을 때까지) 오래된 것부터 5건씩 반복 백업+삭제하도록 수정.
+// v29.31 fix: 용량 초과가 나면 곧바로 "오래된 기록 백업 다운로드+삭제"로
+// 넘어가서, Firestore에 이미 안전하게 올라가 있는(chunkId 있는) 최근 기록까지
+// 매번 파일로 다운로드되고 alert 팝업까지 떠서 등록할 때마다 방해가 됐다.
+// chunkId가 있는 사진은 로컬 캐시일 뿐이고 상세보기를 열면 다시 받아오므로,
+// 그런 기록은 다운로드/알림 없이 캐시만 비워서 조용히 공간을 확보한다.
+// Firestore에 없는(예전 로컬 전용 레거시) 사진만 정말 마지막 수단으로 백업
+// 다운로드 후 삭제하고, 그때도 alert 대신 방해 안 되는 토스트로 안내한다.
 function saveResults(r){
   let working = trimPhotoCacheForStorage(r);
-  try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(working)); return true; }
-  catch(e) {
-    while (working.length > 0) {
-      const sorted = [...working].sort((a,b) => (a.date||'').localeCompare(b.date||''));
-      const batch = sorted.slice(0, Math.min(5, working.length));
-      try {
-        const blob = new Blob([JSON.stringify(batch, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `현장검사_백업_${new Date().toISOString().slice(0,10)}_${Date.now()}.json`; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 3000);
-      } catch(_) {}
-      const removeIds = new Set(batch.map(x => x.id));
-      working = working.filter(x => !removeIds.has(x.id));
-      try {
-        localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(working));
-        alert(`⚠️ 저장 공간이 부족해 오래된 검사 기록 ${batch.length}건을 JSON으로 백업 다운로드하고 로컬에서 지웠습니다(사진은 백업 파일에 남아있습니다). 새 기록은 정상 저장됐습니다.`);
-        return true;
-      } catch(_) { /* 아직도 부족하면 다음 5건 반복 */ }
+  const trySave = (arr) => { try { localStorage.setItem(INSP_RESULTS_KEY, JSON.stringify(arr)); return true; } catch(_) { return false; } };
+  if (trySave(working)) return true;
+
+  // 1단계: Firestore에 이미 있는 사진은 조용히 캐시만 비운다(다운로드/알림 없음).
+  const stripped = working.map(x => {
+    if (!(x.photos||[]).some(p=>p.dataUrl && p.chunkId)) return x;
+    return {...x, photos: x.photos.map(p => p.chunkId ? {...p, dataUrl:undefined} : p)};
+  });
+  if (trySave(stripped)) return true;
+  working = stripped;
+
+  // 2단계: 그래도 부족하면 Firestore에 없는 로컬 전용 레거시 사진이 원인 —
+  // 그때만 오래된 것부터 5건씩 백업 다운로드 + 삭제를 반복한다.
+  while (working.length > 0) {
+    const sorted = [...working].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    const batch = sorted.slice(0, Math.min(5, working.length));
+    try {
+      const blob = new Blob([JSON.stringify(batch, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `현장검사_백업_${new Date().toISOString().slice(0,10)}_${Date.now()}.json`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    } catch(_) {}
+    const removeIds = new Set(batch.map(x => x.id));
+    working = working.filter(x => !removeIds.has(x.id));
+    if (trySave(working)) {
+      showToast(`⚠️ 저장 공간 부족으로 오래된 로컬 전용 기록 ${batch.length}건을 백업 후 정리했습니다`);
+      return true;
     }
-    showToast('저장 공간 부족 — 사진 크기를 줄이거나 이전 기록을 정리하세요.');
-    return false;
   }
+  showToast('저장 공간 부족 — 사진 크기를 줄이거나 이전 기록을 정리하세요.');
+  return false;
 }
 function getStorageUsagePercent(){
   try {
@@ -2014,20 +2035,6 @@ function statusBadgeHtml(status){
   if(status==='진행중') return '🟡 진행중';
   return status ? '⚪ '+escapeHtml(status) : '⚪ 미실시';
 }
-function renderMaterialStatusSummary(){
-  const wrap=document.getElementById('material-status-summary');
-  if(!wrap) return;
-  const statuses=getMaterialAggregateStatuses(MI_PID);
-  if(!statuses.length){ wrap.innerHTML=''; return; }
-  wrap.innerHTML = `<div style="background:#f8f7f4;border:1px solid #e5e2da;border-radius:10px;padding:10px 12px;margin-bottom:8px">
-    <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:600">📋 자재검사 종합판정 (여러 등록 누적)</div>
-    ${statuses.map(s=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #efece5;font-size:12px">
-        <span>${escapeHtml(s.item)} · ${escapeHtml(s.itpName||'')}</span>
-        <span style="font-weight:600;white-space:nowrap">${statusBadgeHtml(s.status)} <span style="color:#999;font-weight:400">(${s.judgedCount}/${s.totalCount} 완료${s.failCount?`, 불합격 ${s.failCount}건`:''})</span></span>
-      </div>`).join('')}
-  </div>`;
-}
 // v29.27 — 등록이력에서 아이템을 하나 고르면, 그 아이템의 ITP 체크리스트
 // (01~11단계) 전체를 상태와 함께 보여준다. 아이템 라벨("태그 / 이름")로는
 // ITP Builder의 아이템 id를 바로 알 수 없어, 같은 라벨을 만드는 아이템을
@@ -2082,47 +2089,58 @@ function renderItpChecklistForItem(item){
     </div>`;
   }).join('');
 }
+// v29.32 fix: renderHist 안에서 예기치 못한 오류(잘못된 형식의 기록 등)가
+// 나면 목록이 지워진(el.innerHTML='') 상태로 멈춰버려 새로고침 전까지
+// "등록이력 전체가 안 보이는" 것처럼 보이는 사고가 있었다. 전체를 try/catch로
+// 감싸서, 오류가 나도 빈 화면 대신 안내 문구+토스트를 띄우고 콘솔 접근이
+// 막힌 환경에서도 원인을 알 수 있게 한다.
 function renderHist(){
-  const records=loadResults();
-  renderHistItemFilter(records);
-  const filterVal=document.getElementById('hist-item-filter').value;
-  const checklistWrap=document.getElementById('hist-checklist');
-  const summaryWrap=document.getElementById('material-status-summary');
-  if(filterVal){
-    summaryWrap.innerHTML='';
-    checklistWrap.style.display='block';
-    renderItpChecklistForItem(filterVal);
-    document.getElementById('hist-list').innerHTML='';
-    document.getElementById('hist-list').style.display='none';
-    document.getElementById('hist-empty').style.display='none';
-    return;
+  try{
+    const records=loadResults();
+    renderHistItemFilter(records);
+    const filterVal=document.getElementById('hist-item-filter').value;
+    const checklistWrap=document.getElementById('hist-checklist');
+    if(filterVal){
+      checklistWrap.style.display='block';
+      renderItpChecklistForItem(filterVal);
+      document.getElementById('hist-list').innerHTML='';
+      document.getElementById('hist-list').style.display='none';
+      document.getElementById('hist-empty').style.display='none';
+      return;
+    }
+    checklistWrap.style.display='none';
+    checklistWrap.innerHTML='';
+    const el=document.getElementById('hist-list');
+    const empty=document.getElementById('hist-empty');
+    el.innerHTML='';
+    if(!records.length){
+      empty.querySelector('p').textContent='아직 등록된 사진이 없습니다';
+      empty.style.display='block';el.style.display='none';return;
+    }
+    empty.style.display='none';el.style.display='flex';
+    records.forEach(r=>{
+      const thumb=r.photos[0]?.dataUrl||'';
+      const d=document.createElement('div');
+      d.className='hist-item';
+      d.onclick=()=>openDetail(r.id);
+      d.innerHTML=`
+        ${thumb?`<img class="hist-thumb" src="${thumb}" alt="썸네일">`:`<div class="hist-thumb" style="border-radius:7px;background:#e0ddd6"></div>`}
+        <div class="hist-info">
+          <div class="hi-proj">${r.proj}</div>
+          <div class="hi-meta">${r.item||''} · ${r.stage} · ${r.date.replace('T',' ')}</div>
+          ${r.note?`<div class="hi-meta" style="color:#aaa">${r.note}</div>`:''}
+        </div>
+        <div class="hist-cnt">${r.photos.length}장 <i class="ti ti-chevron-right" style="font-size:14px;vertical-align:-2px"></i></div>`;
+      el.appendChild(d);
+    });
+  }catch(e){
+    console.error('[등록이력 렌더링]', e);
+    showToast('⚠️ 등록이력을 불러오는 중 오류가 발생했습니다 — 새로고침해 주세요');
+    const el=document.getElementById('hist-list');
+    const empty=document.getElementById('hist-empty');
+    if(el) el.style.display='none';
+    if(empty){ empty.querySelector('p').textContent='목록을 불러오지 못했습니다 — 새로고침해 주세요'; empty.style.display='block'; }
   }
-  checklistWrap.style.display='none';
-  checklistWrap.innerHTML='';
-  renderMaterialStatusSummary();
-  const el=document.getElementById('hist-list');
-  const empty=document.getElementById('hist-empty');
-  el.innerHTML='';
-  if(!records.length){
-    empty.querySelector('p').textContent='아직 등록된 사진이 없습니다';
-    empty.style.display='block';el.style.display='none';return;
-  }
-  empty.style.display='none';el.style.display='flex';
-  records.forEach(r=>{
-    const thumb=r.photos[0]?.dataUrl||'';
-    const d=document.createElement('div');
-    d.className='hist-item';
-    d.onclick=()=>openDetail(r.id);
-    d.innerHTML=`
-      ${thumb?`<img class="hist-thumb" src="${thumb}" alt="썸네일">`:`<div class="hist-thumb" style="border-radius:7px;background:#e0ddd6"></div>`}
-      <div class="hist-info">
-        <div class="hi-proj">${r.proj}</div>
-        <div class="hi-meta">${r.item||''} · ${r.stage} · ${r.date.replace('T',' ')}</div>
-        ${r.note?`<div class="hi-meta" style="color:#aaa">${r.note}</div>`:''}
-      </div>
-      <div class="hist-cnt">${r.photos.length}장 <i class="ti ti-chevron-right" style="font-size:14px;vertical-align:-2px"></i></div>`;
-    el.appendChild(d);
-  });
 }
 
 let currentRecId=null,delTargetIdx=null;
