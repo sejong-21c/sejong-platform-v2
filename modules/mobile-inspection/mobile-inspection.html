@@ -2682,13 +2682,20 @@ function backToSelect(){
 }
 
 // 설명 입력은 바로바로 저장해서, 나중에 사진대지를 다시 열어도 유지되게 한다.
+// v29.39 fix: 캡션을 입력할 때마다 localStorage를 새로 읽어(loadResults)
+// sheetRec을 그걸로 덮어썼는데, 그 사이 백그라운드 동기화가 이 기록의
+// 사진을 다시 트리밍(용량 절약)해서 dataUrl이 비어있는 버전으로 읽힐 수
+// 있었다 — 그래서 사진대지에서 캡션을 고치면 그 사진이 안 보이게 되던
+// 사고. 화면에 쓰는 sheetRec은 그대로 메모리에서 고치고, 저장은 그
+// (사진 다 채워진) sheetRec 기준으로 한다.
 function onCaptionInput(idx,val){
+  if(!sheetRec) return;
+  sheetRec.photos[idx].caption=val;
   const results=loadResults();
   const ri=results.findIndex(r=>r.id===currentRecId);
   if(ri===-1)return;
-  results[ri].photos[idx].caption=val;
+  results[ri]=sheetRec;
   saveResults(results);
-  sheetRec=results[ri];
 }
 
 const A4W=794,A4H=1123;
