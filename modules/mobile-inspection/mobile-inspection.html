@@ -1404,10 +1404,31 @@ function buildMaterialList(def){
 // QA Doc Generator BOM에 등록된 자재 수만큼 자재검사 행을 미리 만들어 둔다.
 // 자재 파트는 해당 BOM 항목으로 미리 선택해 두고, 판정(rowResult)만 하면
 // 되게 한다 — BOM이 비어 있으면 아무 행도 만들지 않고 "자재 추가"로 시작한다.
+// v29.35: 자재 파트별 "가장 최근 판정"만 뽑는 헬퍼 — 종합판정 계산
+// (getMaterialAggregateStatuses)과 다음 등록에서 이미 합격한 자재를 목록에서
+// 빼는 기능(autoPopulateMaterialRows)이 공유한다.
+function getLatestMaterialJudgments(pid, item, itpId){
+  const records = loadResults().filter(r => r.pid===pid && r.item===item && String(r.itpId)===String(itpId) && r.fieldsKey==='02' && Array.isArray(r.inspData && r.inspData.materials));
+  const sorted = [...records].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const latestByPart = new Map();
+  sorted.forEach(r=>{
+    r.inspData.materials.forEach(m=>{
+      if(m.partName) latestByPart.set(m.partName, m.rowResult||'보류');
+    });
+  });
+  return latestByPart;
+}
+// v29.35: 이미 합격 판정이 난 자재는 다음 등록에서 또 보여줄 필요가 없어
+// 목록에서 뺀다 — 불합격/보류(아직 미판정)는 재검사·재작업 대상이라 계속
+// 보여준다.
 function autoPopulateMaterialRows(){
+  const item = document.getElementById('item').value;
+  const itpId = document.getElementById('itp').value;
+  const latestJudgments = getLatestMaterialJudgments(MI_PID, item, itpId);
   const bomRows=getBOMForItem(MI_PID,currentQagItemId)
     .map((r,i)=>({partNo:i+1, name:(r.name||'').trim(), heat:(r.heat||'').trim()}))
-    .filter(r=>r.name);
+    .filter(r=>r.name)
+    .filter(r=>latestJudgments.get(`${r.partNo}. ${r.name}`)!=='합격');
   bomRows.forEach(r=>addMaterialRow(`${r.partNo}. ${r.name}`, r.heat));
 }
 // v29.23: 자재 파트를 (자동 생성이 아니라) 화면에서 직접 고를 때도 QA Doc
@@ -1465,10 +1486,17 @@ function removeMaterialRow(btn){
 // 자재 행들의 개별 판정을 모아 전체 합부 판정을 자동으로 계산한다.
 // 행이 하나도 없거나 "보류"가 하나라도 남아있으면 "진행중", 모두 정리됐을
 // 때만 합격/불합격을 자동 선택한다(이후 사용자가 직접 바꿀 수도 있다).
+// v29.34 fix: 자재를 나눠서 등록할 때, 아직 손 안 댄(BOM에서 자동으로
+// 채워졌지만 Heat No.를 안 적은) 자재까지 계산에 넣으면 매번 "진행중"으로만
+// 나와서 이번 등록에서 실제로 무엇을 기록했는지 알 수 없었다. Heat No.가
+// 채워진 행만 "이번에 실제로 기록한 자재"로 보고 판정을 계산한다 — 아이템
+// 전체(여러 등록 누적) 종합판정은 getMaterialAggregateStatuses가 별도로
+// 계산하므로, 이번 등록 하나가 전체 BOM을 다 채울 필요는 없다.
 function updateMaterialOverallResult(){
   const rows=[...document.querySelectorAll('#insp-fields .material-entry')];
-  if(!rows.length){ selectResult('진행중'); return; }
-  const results=rows.map(r=>r.querySelector('input[data-mode-input="1"][data-key$=".rowResult"]')?.value||'');
+  const touchedRows=rows.filter(r=>(r.querySelector('.insp-field[data-key$=".heatNo"]')?.value||'').trim());
+  if(!touchedRows.length){ selectResult('진행중'); return; }
+  const results=touchedRows.map(r=>r.querySelector('input[data-mode-input="1"][data-key$=".rowResult"]')?.value||'');
   if(results.some(v=>v!=='합격'&&v!=='불합격')){ selectResult('진행중'); return; }
   selectResult(results.some(v=>v==='불합격') ? '불합격' : '합격');
 }
@@ -1518,6 +1546,12 @@ function bindFieldEvents(itpId){
         }
       }
     });
+  });
+  // 4) 자재 Heat No. 입력 시 전체 합부 판정 재계산 — Heat No. 채움 여부로
+  // "이번 등록에서 실제로 다룬 자재"를 판단하므로, 입력할 때마다 다시
+  // 계산해야 판정 버튼이 실시간으로 맞게 갱신된다.
+  document.querySelectorAll('#insp-fields .material-entry .insp-field[data-key$=".heatNo"]').forEach(inp=>{
+    inp.addEventListener('input', updateMaterialOverallResult);
   });
   // 초기 showIf 적용
   applyShowIf();
@@ -1741,11 +1775,16 @@ function collectInspData(){
       data.joints.push(joint);
     });
   }
-  // material-list 별도 수집
+  // material-list 별도 수집 — v29.34 fix: Heat No.를 안 적은(BOM 자동 생성만
+  // 되고 이번에 손 안 댄) 행은 저장 자체를 하지 않는다. 이렇게 해야 등록이력
+  // 상세보기에도 실제로 기록한 자재만 남고, 여러 번 나눠 등록해도 이전
+  // 등록에서 이미 처리한 자재가 매번 "보류"로 다시 저장되는 일이 없다.
   const materialEntries = document.querySelectorAll('#insp-fields .material-entry');
   if(materialEntries.length){
     data.materials = [];
     materialEntries.forEach(entry=>{
+      const heatNoInput = entry.querySelector('.insp-field[data-key$=".heatNo"]');
+      if(!(heatNoInput?.value||'').trim()) return; // 손 안 댄 행은 건너뜀
       const mat = {};
       entry.querySelectorAll('.insp-field').forEach(el=>{
         const parts = el.dataset.key.split('.');
@@ -1995,6 +2034,9 @@ async function submitUpload(){
   if(!date){showToast('⚠️ 검사 일시를 입력해 주세요');return;}
   if(!pendingFiles.length){showToast('⚠️ 사진을 1장 이상 선택해 주세요');return;}
   if(fieldsKey==='02' && !document.querySelectorAll('#insp-fields .material-entry').length){showToast('⚠️ 자재를 1건 이상 추가해 주세요');return;}
+  // v29.34: Heat No.를 하나도 안 적으면(BOM 자동 생성 행만 있고 손 안 댄
+  // 상태) collectInspData가 전부 걸러내 빈 등록이 되므로, 제출 전에 막는다.
+  if(fieldsKey==='02' && ![...document.querySelectorAll('#insp-fields .material-entry .insp-field[data-key$=".heatNo"]')].some(el=>el.value.trim())){showToast('⚠️ 최소 1개 자재에 Heat No.를 입력해 주세요');return;}
   if(fieldsKey==='08' && !document.querySelectorAll('#insp-fields .hydro-entry').length){showToast('⚠️ 가압부를 1건 이상 추가해 주세요');return;}
 
   const btn=document.getElementById('submit-btn');
@@ -2097,13 +2139,7 @@ function getMaterialAggregateStatuses(pid){
   });
   const out=[];
   groups.forEach(g=>{
-    const sorted=[...g.recs].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-    const latestByPart=new Map();
-    sorted.forEach(r=>{
-      r.inspData.materials.forEach(m=>{
-        if(m.partName) latestByPart.set(m.partName, m.rowResult||'보류');
-      });
-    });
+    const latestByPart=getLatestMaterialJudgments(pid, g.item, g.itpId);
     // 현재 BOM 전체 자재 수를 알아야 "아직 등록 안 된 자재가 남았는지" 판단
     // 가능 — 아이템 라벨("태그 / 이름")에서 태그를 뽑아 QA Doc Generator
     // 아이템 id로 재해석한다. 못 찾으면 지금까지 등록된 자재 수만으로 판단.
