@@ -449,6 +449,34 @@ setInterval(() => {
   if (!window.WELDER_LIST) { const v = loadMasterList(MASTER_WELDER_KEY); if (v) window.WELDER_LIST = v; }
   if (!window.INSPECTOR_LIST) { const v = loadMasterList(MASTER_INSPECTOR_KEY); if (v) window.INSPECTOR_LIST = v; }
 }, 1000);
+// v4.5 — 로컬 저장소(localStorage) 매칭에만 의존하지 않고, ITP Builder가 이미 클라우드
+// (Firestore t_itpBuilderDocs/{pid})에 올려두는 wpsList/welderList/inspectorList를 직접
+// 가져온다. 이 창의 로컬 캐시 상태와 무관하게 항상 최신값을 받을 수 있음(국도화학 T-8405
+// 실사용 중 로컬 값만으로는 반영이 계속 안 되는 문제가 있어 추가 — proj/items는 이미 같은
+// 방식으로 클라우드에서 정상적으로 받아오고 있었음).
+async function pullMasterListsFromItpBuilderCloud() {
+  if (!window.fb || !fb.db) { setTimeout(pullMasterListsFromItpBuilderCloud, 300); return; }
+  if (!fb.auth?.currentUser) { setTimeout(pullMasterListsFromItpBuilderCloud, 400); return; }
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, "t_itpBuilderDocs", QAG_PID));
+    if (!snap.exists()) return;
+    const d = snap.data();
+    if (Array.isArray(d.wpsList) && d.wpsList.length) {
+      window.WPS_LIST = d.wpsList;
+      try { localStorage.setItem(MASTER_WPS_KEY, JSON.stringify(d.wpsList)); } catch(e) {}
+    }
+    if (Array.isArray(d.welderList) && d.welderList.length) {
+      window.WELDER_LIST = d.welderList;
+      try { localStorage.setItem(MASTER_WELDER_KEY, JSON.stringify(d.welderList)); } catch(e) {}
+    }
+    if (Array.isArray(d.inspectorList) && d.inspectorList.length) {
+      window.INSPECTOR_LIST = d.inspectorList;
+      try { localStorage.setItem(MASTER_INSPECTOR_KEY, JSON.stringify(d.inspectorList)); } catch(e) {}
+    }
+  } catch(e) { console.error("[QA Doc Generator] WPS/Welder/검사자 List 클라우드 조회 실패", e); }
+}
+pullMasterListsFromItpBuilderCloud();
+setInterval(pullMasterListsFromItpBuilderCloud, 5000);
 
 const getWPS = () => window.WPS_LIST || WPS_SEED;
 const generateDocNo = (projNo, type, seq) => {

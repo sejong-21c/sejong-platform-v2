@@ -1702,11 +1702,22 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   };
   // Step 2 "QA Doc Generator로 바로 전송" — 1초 자동저장을 기다리지 않고 지금 즉시 localStorage에
   // 쓴다. QA Doc Generator를 그 뒤에 열거나 "🔄 ITP 최신정보 새로고침"을 누르면 바로 반영된다.
-  const sendToQADoc = () => {
-    const ok = saveLS({proj, items: stripDwgForLocalStorage(items), specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt: Date.now()});
+  // v2.8 — WPS/Welder/검사자 List가 이 창의 로컬 저장소에만 있으면 QA Doc Generator가 다른
+  // 기기/브라우저 상태에 따라 못 받아가는 경우가 있었음(국도화학 T-8405 실사용 중 발견). 이제
+  // "전송" 버튼을 누르면 클라우드(Firestore)에도 즉시 올려서, QA Doc Generator가 그쪽에서
+  // 직접 받아가게 한다(1초 자동저장을 기다리지 않고 지금 바로).
+  const sendToQADoc = async () => {
+    const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList};
+    const ok = saveLS({...payload, items: stripDwgForLocalStorage(items), savedAt: Date.now()});
     if (!ok) warnLocalSaveFailed();
     const bridged = pushToHost();
-    showMsg(`✓ QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 6000);
+    showMsg("☁ QA Doc Generator로 전송 중... (WPS/Welder/검사자 List 포함)", 15000);
+    try {
+      await writeItpDocToFirestore({...payload, savedAt: Date.now()});
+      showMsg(`✓ QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — WPS ${wpsList.length}개 / Welder ${welderList.length}명 / 검사자 ${inspectorList.length}명 포함. QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 8000);
+    } catch (e) {
+      showMsg(`⚠ 클라우드 전송 실패: ${e.message||e} — 로컬 전송은 완료됐으니 같은 브라우저라면 QA Doc Generator에서 확인 가능합니다.`, 8000);
+    }
   };
   // v2.1 — 자동저장(1초 디바운스)과 동일한 함수를 즉시 실행. 이 기능 도입 이전부터 로컬에만
   // 저장돼있던 기존 프로젝트도 이 버튼 한 번으로 클라우드에 올라가 다른 계정에서 보이게 된다.
