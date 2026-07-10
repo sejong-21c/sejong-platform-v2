@@ -176,8 +176,8 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
       <p class="mod-sub">PC · 노트북 · 소프트웨어 라이선스 통합 관리 · 자동 채번(SJPC-XX) · Firestore 실시간</p>
     </div>
     <div class="mod-head-actions">
-      <button class="btn" id="btnExcel" title="Excel 내보내기 (준비중)" disabled>📥 Excel</button>
-      <button class="btn" id="btnPdf" title="PDF 인쇄용 (준비중)" disabled>📄 PDF</button>
+      <button class="btn" id="btnExcel" title="현재 화면(탭·필터 반영)을 Excel로 저장" onclick="exportExcel()">📥 Excel</button>
+      <button class="btn" id="btnPdf" title="현재 화면을 PDF로 인쇄" onclick="exportPdf()">📄 PDF</button>
       <button class="btn btn-primary" id="btnNew" onclick="openDeviceModal()">+ 신규 자산</button>
     </div>
   </div>
@@ -846,6 +846,129 @@ async function importSeed() {
   }
 }
 window.importSeed = importSeed;
+
+// ─────────────────────── Excel 내보내기 (SheetJS lazy-load) ───────────────────────
+async function loadXLSX() {
+  if (window.XLSX) return window.XLSX;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = res;
+    s.onerror = () => rej(new Error('SheetJS 로드 실패'));
+    document.head.appendChild(s);
+  });
+  return window.XLSX;
+}
+async function exportExcel() {
+  try {
+    toast('Excel 라이브러리 로드 중...');
+    const XLSX = await loadXLSX();
+    const wb = XLSX.utils.book_new();
+
+    // 시트 1: PC/노트북
+    const dev = filteredDevices().map(d => ({
+      '관리번호': d.code || '',
+      '유형': typeName(d.type),
+      '구매년도': d.purchaseYear || '',
+      '비품명': d.itemName || '',
+      '모델명': d.model || '',
+      '규격/형식': d.spec || '',
+      '구입처': d.vendor || '',
+      '사용부서': d.useDept || '',
+      '사용자': d.userName || '',
+      '위치': d.location || '',
+      '상태': statusName(d.status),
+      'WINDOWS': d.softwareInstalled?.windows || '',
+      'CAD': d.softwareInstalled?.cad || '',
+      'SOLID EDGE': d.softwareInstalled?.solidEdge || '',
+      'MS OFFICE': d.softwareInstalled?.msOffice || '',
+      '한글': d.softwareInstalled?.hangul || '',
+      'PDF': d.softwareInstalled?.pdf || '',
+      '비고': d.note || '',
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(dev);
+    ws1['!cols'] = [{wch:10},{wch:9},{wch:8},{wch:9},{wch:20},{wch:10},{wch:10},{wch:10},{wch:12},{wch:10},{wch:8},{wch:14},{wch:12},{wch:10},{wch:14},{wch:14},{wch:14},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, ws1, '자산 대장');
+
+    // 시트 2: 라이선스 (full access only)
+    if (fullAccess && state.licenses.length) {
+      const lic = state.licenses.map(l => ({
+        '구분': l.category || '',
+        '프로그램': l.programName || '',
+        '취득년도': l.acquiredYear || '',
+        '유지기간': l.maintenance || '',
+        '구입처': l.vendor || '',
+        '사용PC': l.assignedDeviceCode || '',
+        '사용자': l.assignedUser || '',
+        'Serial 라벨': l.serialLabel || '',
+        'Serial/제품키': l.serialNumber || '',
+        '비고': l.note || '',
+      }));
+      const ws2 = XLSX.utils.json_to_sheet(lic);
+      ws2['!cols'] = [{wch:10},{wch:16},{wch:9},{wch:9},{wch:10},{wch:10},{wch:12},{wch:14},{wch:36},{wch:18}];
+      XLSX.utils.book_append_sheet(wb, ws2, '라이선스');
+    }
+
+    // 시트 3: 통계
+    const active = state.devices.filter(d => d.status !== 'retired');
+    const byDept = tally(active, d => d.useDept || '─');
+    const byYear = tally(active, d => d.purchaseYear || '─');
+    const byType = tally(active, d => typeName(d.type));
+    const byLoc = tally(active, d => d.location || '─');
+    const stats = [];
+    const addRows = (title, obj) => {
+      stats.push({ '구분': title, '항목': '', '수량': '' });
+      Object.entries(obj).sort((a,b) => b[1] - a[1]).forEach(([k,v]) => stats.push({ '구분': '', '항목': k, '수량': v }));
+      stats.push({ '구분': '', '항목': '', '수량': '' });
+    };
+    addRows('부서별', byDept);
+    addRows('구매년도별', byYear);
+    addRows('유형별', byType);
+    addRows('위치별', byLoc);
+    const ws3 = XLSX.utils.json_to_sheet(stats);
+    ws3['!cols'] = [{wch:14},{wch:22},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws3, '통계');
+
+    const today = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `세종기술_자산관리대장_${today}.xlsx`);
+    toast('✅ Excel 저장됨');
+  } catch (err) {
+    console.error(err);
+    toast('Excel 내보내기 실패: ' + err.message, true);
+  }
+}
+window.exportExcel = exportExcel;
+
+// ─────────────────────── PDF 인쇄 ───────────────────────
+function exportPdf() {
+  // 인쇄 최적화 CSS 주입 (모달·필터·버튼 등 숨김)
+  const styleId = 'pdfPrintStyle';
+  if (!document.getElementById(styleId)) {
+    const st = document.createElement('style');
+    st.id = styleId;
+    st.textContent = `
+      @media print {
+        body { padding: 8mm !important; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .mod-head-actions, .filter-bar, .close-btn, .modal-mask, .toast, .section-note, .perm-note { display: none !important; }
+        .tab:not(.on) { display: none !important; }
+        .tabs { border-bottom: 2px solid #000; }
+        .kpi-row { grid-template-columns: repeat(6, 1fr) !important; gap: 4px !important; }
+        .kpi { padding: 6px 8px !important; }
+        .kpi .v { font-size: 14px !important; }
+        .kpi .sub { font-size: 9px !important; }
+        table { font-size: 9.5px !important; page-break-inside: auto; }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
+        th, td { padding: 3px 5px !important; }
+        .sw-tag { font-size: 8px !important; padding: 1px 3px !important; }
+        .pill { font-size: 8.5px !important; padding: 1px 5px !important; }
+      }
+    `;
+    document.head.appendChild(st);
+  }
+  setTimeout(() => window.print(), 100);
+}
+window.exportPdf = exportPdf;
 </script>
 
 </body>
