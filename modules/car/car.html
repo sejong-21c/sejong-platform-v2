@@ -683,8 +683,8 @@ function openCARMgr(carId) {
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
       <span class="b-pill ${st[0]}">${st[1]}</span>
       <span style="font-size:12px;color:var(--text-light);">${projName} · 발행일: ${c.issuedAt||'-'}</span>
-      ${c.ncrId ? `<span style="font-size:12px;color:var(--primary);">연계: ${c.ncrId}</span>` : ''}
     </div>
+    <div class="fg"><label class="fl">연계 NCR No. <span style="font-size:11px;color:var(--text-light);">(단독 발행이면 비워두세요)</span></label><input class="fi" id="mgr-ncrId" value="${c.ncrId||''}" placeholder="예: SJ-NCR-2026-01"></div>
     <div class="fg" style="display:flex;gap:8px;">
       <div style="flex:1;"><label class="fl">고객명</label><input class="fi" id="mgr-client" value="${c.meta?.client||''}"></div>
       <div style="flex:1;"><label class="fl">발행일자</label><input class="fi" type="date" id="mgr-issuedAt" value="${c.issuedAt||''}"></div>
@@ -742,6 +742,7 @@ function openCARMgr(carId) {
     // 배열을 통째로 새로 갈아끼우는 경우가 있어(mergeServerSnapshot), 모달을 열
     // 때 붙잡아둔 c 참조가 그 사이 배열에서 떨어져 나가(stale) 수정 내용이
     // 조용히 저장 안 되던(특히 파일) 버그가 있었음.
+    const ncrIdVal     = document.getElementById('mgr-ncrId').value.trim();
     const actionVal    = document.getElementById('mgr-action').value.trim();
     const reqContentVal= document.getElementById('mgr-reqContent').value.trim();
     const causeDetailVal=document.getElementById('mgr-causeDetail').value.trim();
@@ -771,6 +772,28 @@ function openCARMgr(carId) {
 
     const current = (state.cars||[]).find(x => x.id === carId);
     if (!current) { window._mgrCARUploadPromise = null; window._mgrCARFileName = null; closeModal(); render(); return; }
+    // v29.44: 연계 NCR No.를 등록 후에도 고칠 수 있게 함(문서 파싱 오인식으로
+    // 잘못된 번호가 연결된 채 저장되면 이전엔 수정할 방법이 없었음). NCR 쪽
+    // carId 역참조도 함께 갱신 — car.html의 state.ncrs는 읽기 전용 참조라
+    // save()가 안 건드리므로, closeCAR()와 동일하게 Firestore에 직접 반영한다.
+    if (ncrIdVal !== (current.ncrId||'')) {
+      const ncrWrites = [];
+      if (current.ncrId) {
+        const oldN = (state.ncrs||[]).find(x => x.id === current.ncrId);
+        if (oldN && oldN.carId === current.id) { oldN.carId = null; ncrWrites.push([oldN.id, { carId: null }]); }
+      }
+      current.ncrId = ncrIdVal || null;
+      if (current.ncrId) {
+        const newN = (state.ncrs||[]).find(x => x.id === current.ncrId);
+        if (newN && !newN.carId) { newN.carId = current.id; ncrWrites.push([newN.id, { carId: current.id }]); }
+      }
+      if (window.fb && fb.db) {
+        for (const [ncrDocId, patch] of ncrWrites) {
+          try { await fb.setDoc(fb.doc(fb.db, 't_ncrs', ncrDocId), patch, { merge: true }); }
+          catch (e) { console.error('[연계 NCR 역참조 반영 실패]', e); }
+        }
+      }
+    }
     current.action    = actionVal || current.action;
     current.reqContent  = reqContentVal;
     current.causeDetail = causeDetailVal;
