@@ -94,9 +94,11 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
 .pill.type-lap  { background: var(--goal-tint); color: var(--goal); }
 .pill.type-tab  { background: #FCE7F3; color: #9D174D; }
 .pill.type-mini { background: #FEF3C7; color: #92400E; }
-.pill.stat-active  { background: var(--healthy-tint); color: var(--healthy); }
-.pill.stat-retired { background: #E2E8F0; color: #475569; }
-.pill.stat-aged    { background: var(--warning-tint); color: var(--warning); }
+.pill.stat-active    { background: var(--healthy-tint); color: var(--healthy); }
+.pill.stat-retired   { background: #E2E8F0; color: #475569; }
+.pill.stat-aged      { background: var(--warning-tint); color: var(--warning); }
+.pill.stat-retireRec { background: var(--critical-tint); color: var(--critical); }
+.pill.stat-lost      { background: var(--critical-tint); color: var(--critical); }
 .pill.cat-CAD      { background: var(--goal-tint); color: var(--goal); }
 .pill.cat-한글     { background: var(--accent-tint); color: var(--accent); }
 .pill.cat-MSOFFICE { background: var(--healthy-tint); color: var(--healthy); }
@@ -195,7 +197,7 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
       <select id="fType" onchange="applyFilter()"><option value="">전체 유형</option><option value="desktop">Desktop</option><option value="laptop">Laptop</option><option value="tablet">Tablet</option><option value="mini">Mini PC</option></select>
       <select id="fDept" onchange="applyFilter()"><option value="">전체 부서</option></select>
       <select id="fLoc" onchange="applyFilter()"><option value="">전체 위치</option><option value="사무실">사무실</option><option value="현장">현장</option><option value="인도네시아">인도네시아</option></select>
-      <select id="fStatus" onchange="applyFilter()"><option value="">전체 상태</option><option value="active">사용중</option><option value="aged">노후</option><option value="retired">폐기</option></select>
+      <select id="fStatus" onchange="applyFilter()"><option value="">전체 상태</option><option value="active">사용중</option><option value="aged">노후 (7년+)</option><option value="retireRec">폐기 추천 (10년+)</option><option value="retired">폐기</option><option value="lost">유실</option></select>
     </div>
     <div class="table-wrap" id="deviceTableWrap"></div>
     <div class="section-note" id="permNote" style="display:none;">
@@ -244,7 +246,7 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
         <div class="fg"><label>사용부서</label><input id="dfDept" list="deptList" /></div>
         <datalist id="deptList"><option>임원</option><option>관리</option><option>재무</option><option>총무부</option><option>기술부</option><option>영업부</option><option>품질관리부</option><option>구매부</option><option>생산부</option><option>안전관리부</option><option>현장시공</option><option>원자력사업부</option><option>해외사업부</option><option>현장</option></datalist>
         <div class="fg"><label>위치</label><select id="dfLoc"><option>사무실</option><option>현장</option><option>인도네시아</option></select></div>
-        <div class="fg"><label>상태</label><select id="dfStatus"><option value="active">사용중</option><option value="aged">노후</option><option value="retired">폐기</option><option value="lost">유실</option></select></div>
+        <div class="fg"><label>상태 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3);">(사용중·노후·폐기추천은 구매년도로 자동 판정)</span></label><select id="dfStatus"><option value="active">자동 (구매년도 기준)</option><option value="retired">폐기 (수동)</option><option value="lost">유실 (수동)</option></select></div>
         <div class="fg full"><label>비고</label><textarea id="dfNote"></textarea></div>
       </div>
       <div class="form-grid" style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);">
@@ -335,8 +337,19 @@ function toast(msg, err=false) {
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function typeName(t) { return {desktop:'Desktop', laptop:'Laptop', tablet:'Tablet', mini:'Mini PC'}[t] || t; }
 function typeClass(t) { return {desktop:'type-desk', laptop:'type-lap', tablet:'type-tab', mini:'type-mini'}[t] || 'type-desk'; }
-function statusName(s) { return {active:'사용중', aged:'노후', retired:'폐기', lost:'유실'}[s] || s; }
+function statusName(s) { return {active:'사용중', aged:'노후', retireRec:'폐기 추천', retired:'폐기', lost:'유실'}[s] || s; }
 function statusClass(s) { return `stat-${s || 'active'}`; }
+// 구매년도 기준 자동 상태 산정 — 부장 요청: 7년+ 노후, 10년+ 폐기 추천.
+// 저장된 상태가 retired/lost면 우선. 아니면 나이에서 계산.
+function effectiveStatus(d) {
+  if (d.status === 'retired' || d.status === 'lost') return d.status;
+  const py = parseInt(d.purchaseYear, 10);
+  if (!py) return d.status || 'active';
+  const age = new Date().getFullYear() - py;
+  if (age >= 10) return 'retireRec';
+  if (age >= 7)  return 'aged';
+  return 'active';
+}
 
 // SW 태그: 정품/비정품/뷰어/X 판정
 function swTag(label, value) {
@@ -397,7 +410,7 @@ boot();
 
 // ─────────────────────── 렌더 ───────────────────────
 function render() {
-  document.getElementById('cntDevices').textContent = state.devices.filter(d => d.status !== 'retired').length;
+  document.getElementById('cntDevices').textContent = state.devices.filter(d => effectiveStatus(d) !== 'retired').length;
   document.getElementById('cntLicenses').textContent = state.licenses.length;
   populateDeptFilter();
   renderKpi();
@@ -415,17 +428,21 @@ function populateDeptFilter() {
 }
 
 function renderKpi() {
-  const active = state.devices.filter(d => d.status === 'active').length;
-  const aged = state.devices.filter(d => d.status === 'aged').length;
-  const retired = state.devices.filter(d => d.status === 'retired').length;
-  const remote = state.devices.filter(d => d.location === '현장' || d.location === '인도네시아').length;
-  const desk = state.devices.filter(d => d.type === 'desktop').length;
-  const lap = state.devices.filter(d => d.type === 'laptop').length;
-  const total = state.devices.filter(d => d.status !== 'retired').length;
+  const eff = d => effectiveStatus(d);
+  const active     = state.devices.filter(d => eff(d) === 'active').length;
+  const aged       = state.devices.filter(d => eff(d) === 'aged').length;
+  const retireRec  = state.devices.filter(d => eff(d) === 'retireRec').length;
+  const retired    = state.devices.filter(d => d.status === 'retired' || d.status === 'lost').length;
+  const remote     = state.devices.filter(d => d.location === '현장' || d.location === '인도네시아').length;
+  const desk       = state.devices.filter(d => d.type === 'desktop').length;
+  const lap        = state.devices.filter(d => d.type === 'laptop').length;
+  const total      = state.devices.filter(d => eff(d) !== 'retired' && eff(d) !== 'lost').length;
+  const curYear    = new Date().getFullYear();
   const html = `
     <div class="kpi"><div class="k">전체 자산</div><div class="v">${total}</div><div class="sub">Desktop ${desk} · Laptop ${lap}</div></div>
-    <div class="kpi"><div class="k">사용 중</div><div class="v">${active}</div><div class="sub">활성 · 정상</div></div>
-    <div class="kpi"><div class="k">노후 (5년+)</div><div class="v" style="color:var(--warning);">${aged}</div><div class="sub">2020년 이전 구매</div></div>
+    <div class="kpi"><div class="k">사용 중</div><div class="v">${active}</div><div class="sub">7년 미만</div></div>
+    <div class="kpi"><div class="k">노후 (7년+)</div><div class="v" style="color:var(--warning);">${aged}</div><div class="sub">${curYear-9}~${curYear-7}년 구매</div></div>
+    <div class="kpi"><div class="k">폐기 추천 (10년+)</div><div class="v" style="color:var(--critical);">${retireRec}</div><div class="sub">${curYear-10}년 이전 구매</div></div>
     <div class="kpi"><div class="k">현장·인도네시아</div><div class="v">${remote}</div><div class="sub">외부 위치</div></div>
     <div class="kpi"><div class="k">폐기·유실</div><div class="v" style="color:var(--ink-3);">${retired}</div><div class="sub">이력 보존</div></div>
     ${fullAccess ? `<div class="kpi"><div class="k">라이선스</div><div class="v">${state.licenses.length}</div><div class="sub">CAD·한글·MSO·WIN·PDF</div></div>` : ''}
@@ -454,7 +471,8 @@ function renderDevices() {
     return;
   }
   const rows = filtered.map(d => {
-    const isRet = d.status === 'retired';
+    const eff = effectiveStatus(d);
+    const isRet = eff === 'retired' || eff === 'lost';
     const codeStyle = isRet ? 'color:var(--ink-3);text-decoration:line-through;' : '';
     const rowStyle = isRet ? 'color:var(--ink-3);' : '';
     return `<tr onclick="openDeviceModal('${d.id}')" style="${rowStyle}">
@@ -466,7 +484,7 @@ function renderDevices() {
       <td>${esc(d.useDept || '')}</td>
       <td>${esc(d.location || '')}</td>
       <td class="sw">${swSummaryCell(d.softwareInstalled)}</td>
-      <td><span class="pill ${statusClass(d.status)}">${statusName(d.status)}</span></td>
+      <td><span class="pill ${statusClass(eff)}">${statusName(eff)}</span></td>
     </tr>`;
   }).join('');
   wrap.innerHTML = `<table>
@@ -492,7 +510,7 @@ function filteredDevices() {
     if (f.type && d.type !== f.type) return false;
     if (f.dept && d.useDept !== f.dept) return false;
     if (f.loc && d.location !== f.loc) return false;
-    if (f.status && d.status !== f.status) return false;
+    if (f.status && effectiveStatus(d) !== f.status) return false;
     if (q) {
       const hay = [d.code, d.model, d.userName, d.useDept, d.vendor, d.note, d.serialNumber].filter(Boolean).join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
@@ -563,7 +581,7 @@ function renderLicenses() {
 // ─────────────────────── 통계 ───────────────────────
 function renderStats() {
   const box = document.getElementById('statGrid');
-  const activeD = state.devices.filter(d => d.status !== 'retired');
+  const activeD = state.devices.filter(d => { const e = effectiveStatus(d); return e !== 'retired' && e !== 'lost'; });
   const byDept = tally(activeD, d => d.useDept || '─');
   const byYear = tally(activeD, d => d.purchaseYear || '─');
   const byType = tally(activeD, d => typeName(d.type));
@@ -622,7 +640,8 @@ async function openDeviceModal(id) {
   document.getElementById('dfUser').value = d?.userName || '';
   document.getElementById('dfDept').value = d?.useDept || '';
   document.getElementById('dfLoc').value = d?.location || '사무실';
-  document.getElementById('dfStatus').value = d?.status || 'active';
+  // 저장된 status가 retired/lost면 그대로, 나머지는 'active'(=자동)으로 표시
+  document.getElementById('dfStatus').value = (d?.status === 'retired' || d?.status === 'lost') ? d.status : 'active';
   document.getElementById('dfNote').value = d?.note || '';
   const sw = d?.softwareInstalled || {};
   document.getElementById('dfSwWin').value = sw.windows || '';
@@ -877,7 +896,7 @@ async function exportExcel() {
       '사용부서': d.useDept || '',
       '사용자': d.userName || '',
       '위치': d.location || '',
-      '상태': statusName(d.status),
+      '상태': statusName(effectiveStatus(d)),
       'WINDOWS': d.softwareInstalled?.windows || '',
       'CAD': d.softwareInstalled?.cad || '',
       'SOLID EDGE': d.softwareInstalled?.solidEdge || '',
