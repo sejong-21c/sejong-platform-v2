@@ -99,7 +99,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .ntr-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
 .ntr-section { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
 .ntr-section h4 { font-size: 13px; font-weight: 700; color: #7c3aed; margin: 0 0 14px; }
-.ntr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.ntr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .ntr-chart-wrap { background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow: hidden; }
 .ntr-chart-title { font-size: 12px; font-weight: 700; color: var(--text-light); margin-bottom: 10px; }
 .ntr-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
@@ -1432,9 +1432,9 @@ function printNCRTrend() {
       <div class="kpi"><div class="v" style="color:#059669;">${ncrs.filter(n=>n.status==='closed').length}</div><div class="l">종결</div></div>
       <div class="kpi"><div class="v">${ncrs.filter(n=>n.grade==='major').length}</div><div class="l">중대 등급</div></div>
     </div>
-    <div class="card"><div class="card-title">📈 월별 발생 추이</div>${_lineSvg(byMonth, 90, 'height:80px;')}</div>
     <div class="section-title">📊 항목별 분포</div>
     <div class="grid3">
+      <div class="ch"><div class="ch-title">📈 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
       <div class="ch"><div class="ch-title">프로젝트별</div>${_barSvg(projEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">발생장소별</div>${_barSvg(locEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">불량원인별</div>${_barSvg(causeEntries,COLORS)}</div>

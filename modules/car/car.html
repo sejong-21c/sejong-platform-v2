@@ -91,7 +91,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .ctr-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
 .ctr-section { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
 .ctr-section h4 { font-size: 13px; font-weight: 700; color: var(--car); margin: 0 0 14px; }
-.ctr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.ctr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .ctr-chart-wrap { background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow: hidden; }
 .ctr-chart-title { font-size: 12px; font-weight: 700; color: var(--text-light); margin-bottom: 10px; }
 .ctr-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
@@ -1214,10 +1214,9 @@ function printCARTrend() {
     .kpi{background:#f0f9ff;border-radius:5px;padding:5px 8px;text-align:center;}
     .kpi .v{font-size:16px;font-weight:800;color:#0369a1;line-height:1.2;}
     .kpi .l{font-size:8px;color:#888;}
-    .top{display:grid;grid-template-columns:1fr 2.8fr;gap:6px;margin-bottom:6px;}
-    .card{border:1px solid #e0e0e0;border-radius:5px;padding:6px;}
+    .card{border:1px solid #e0e0e0;border-radius:5px;padding:6px;margin-bottom:6px;}
     .card-title{font-size:9px;font-weight:700;color:#0369a1;margin:0 0 4px;}
-    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
+    .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
     .ch-title{font-size:8.5px;font-weight:700;color:#888;margin-bottom:3px;}
     .ch{border:1px solid #eee;border-radius:4px;padding:5px;overflow:hidden;}
     table{width:100%;border-collapse:collapse;font-size:8.5px;}
@@ -1239,15 +1238,13 @@ function printCARTrend() {
       <div class="kpi"><div class="v" style="color:#1976D2;">${cars.filter(c=>c.status==='replied').length}</div><div class="l">회신완료</div></div>
       <div class="kpi"><div class="v" style="color:#059669;">${cars.filter(c=>c.status==='closed').length}</div><div class="l">완료</div></div>
     </div>
-    <div class="top">
-      <div class="card"><div class="card-title">📈 월별 발생 추이</div>${_lineSvg(byMonth, 90, 'height:80px;')}</div>
-      <div class="card"><div class="card-title">📊 항목별 분포</div>
-        <div class="grid4">
-          <div class="ch"><div class="ch-title">품질요건별</div>${_barSvg(qualEntries,COLORS)}</div>
-          <div class="ch"><div class="ch-title">발생분야별</div>${_barSvg(fieldEntries,COLORS)}</div>
-          <div class="ch"><div class="ch-title">원인별</div>${_donutSvg(causeEntries,COLORS)}</div>
-          <div class="ch"><div class="ch-title">상태별</div>${_donutSvg(statusEntries,COLORS)}</div>
-        </div>
+    <div class="card"><div class="card-title">📊 항목별 분포</div>
+      <div class="grid5">
+        <div class="ch"><div class="ch-title">📈 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
+        <div class="ch"><div class="ch-title">품질요건별</div>${_barSvg(qualEntries,COLORS)}</div>
+        <div class="ch"><div class="ch-title">발생분야별</div>${_barSvg(fieldEntries,COLORS)}</div>
+        <div class="ch"><div class="ch-title">원인별</div>${_donutSvg(causeEntries,COLORS)}</div>
+        <div class="ch"><div class="ch-title">상태별</div>${_donutSvg(statusEntries,COLORS)}</div>
       </div>
     </div>
     <div class="card pagebreak"><div class="card-title">📋 상세 목록</div>
