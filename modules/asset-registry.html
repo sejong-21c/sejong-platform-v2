@@ -1088,7 +1088,7 @@ function exportPdf() {
         body += `<div class="sheet-break"></div>` + pdfTable(c.title, LIC_COLS, rows, true);
       }
     }
-    w.document.write(`<!DOCTYPE html><html lang="ko"><head>${pdfHead()}</head><body><div class="meta">${meta}</div>${body}<script>window.onload=()=>setTimeout(()=>{window.focus();window.print();},300);</script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html lang="ko"><head>${pdfHead()}</head><body><div class="meta">${meta}</div>${body}<script>window.onload=()=>setTimeout(()=>{window.focus();window.print();},300);<\/script></body></html>`);
     w.document.close();
   } catch (err) {
     console.error(err);
