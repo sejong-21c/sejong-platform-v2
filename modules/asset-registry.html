@@ -866,91 +866,166 @@ async function importSeed() {
 }
 window.importSeed = importSeed;
 
-// ─────────────────────── Excel 내보내기 (SheetJS lazy-load) ───────────────────────
+// ─────────────────────── Excel 내보내기 (xlsx-js-style : 스타일 지원 포크) ───────────────────────
 async function loadXLSX() {
   if (window.XLSX) return window.XLSX;
   await new Promise((res, rej) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
     s.onload = res;
     s.onerror = () => rej(new Error('SheetJS 로드 실패'));
     document.head.appendChild(s);
   });
   return window.XLSX;
 }
+
+// 원본 엑셀 컬럼 순서
+const DEV_COLS = ['No','관리 번호','구매년도','비품명','모델명','규격/형식','구입처','사용부서','관리책임자','WINDOWS','CAD','SOLID EDGE','MS OFFICE','한글과 컴퓨터','PDF','위치','비고'];
+const DEV_WIDTHS = [{wch:4},{wch:10},{wch:8},{wch:10},{wch:22},{wch:12},{wch:10},{wch:10},{wch:14},{wch:18},{wch:14},{wch:12},{wch:20},{wch:20},{wch:20},{wch:11},{wch:16}];
+const LIC_COLS = ['No','취득일자','프로그램 명','유지기간','구입처','사용PC','관리책임자','비고','Serial No.'];
+const LIC_WIDTHS = [{wch:4},{wch:10},{wch:20},{wch:10},{wch:12},{wch:10},{wch:14},{wch:20},{wch:44}];
+
+function deviceRow(d, idx) {
+  const sw = d.softwareInstalled || {};
+  return [
+    idx + 1,
+    d.code || '',
+    d.purchaseYear || '',
+    d.itemName || '',
+    d.model || '',
+    d.spec || '',
+    d.vendor || '',
+    d.useDept || '',
+    d.userName || '',
+    sw.windows || '',
+    sw.cad || '',
+    sw.solidEdge || '',
+    sw.msOffice || '',
+    sw.hangul || '',
+    sw.pdf || '',
+    d.location || '',
+    d.note || '',
+  ];
+}
+function licenseRow(l, idx) {
+  return [
+    idx + 1,
+    l.acquiredYear || '',
+    l.programName || '',
+    l.maintenance || '',
+    l.vendor || '',
+    l.assignedDeviceCode || '',
+    l.assignedUser || '',
+    l.note || '',
+    l.serialNumber || l.serialLabel || '',
+  ];
+}
+
+// SheetJS 셀 스타일 (xlsx-js-style)
+const STYLE_HEADER = {
+  font: { name: '맑은 고딕', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+  fill: { patternType: 'solid', fgColor: { rgb: '1F4E78' } },
+  alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+  border: {
+    top: { style: 'thin', color: { rgb: '000000' } },
+    bottom: { style: 'thin', color: { rgb: '000000' } },
+    left: { style: 'thin', color: { rgb: '000000' } },
+    right: { style: 'thin', color: { rgb: '000000' } },
+  },
+};
+const STYLE_BODY = {
+  font: { name: '맑은 고딕', sz: 10 },
+  alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+  border: {
+    top: { style: 'thin', color: { rgb: 'BFBFBF' } },
+    bottom: { style: 'thin', color: { rgb: 'BFBFBF' } },
+    left: { style: 'thin', color: { rgb: 'BFBFBF' } },
+    right: { style: 'thin', color: { rgb: 'BFBFBF' } },
+  },
+};
+const STYLE_TITLE = {
+  font: { name: '맑은 고딕', sz: 16, bold: true, color: { rgb: '1F4E78' } },
+  alignment: { horizontal: 'center', vertical: 'center' },
+};
+
+function buildSheet(XLSX, title, cols, rows, widths) {
+  // 상단 2행: 제목 (병합) + 빈줄, 그다음 헤더 + 데이터
+  const aoa = [
+    [title, ...Array(cols.length - 1).fill('')],
+    Array(cols.length).fill(''),
+    cols,
+    ...rows,
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = widths;
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: cols.length - 1 } }];
+  ws['!rows'] = [{ hpt: 26 }, { hpt: 8 }, { hpt: 30 }];
+
+  // 스타일 적용
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = range.s.r; R <= range.e.r; R++) {
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const addr = XLSX.utils.encode_cell({ r: R, c: C });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      if (R === 0) ws[addr].s = STYLE_TITLE;
+      else if (R === 2) ws[addr].s = STYLE_HEADER;
+      else if (R >= 3) ws[addr].s = STYLE_BODY;
+    }
+  }
+  return ws;
+}
+
 async function exportExcel() {
   try {
     toast('Excel 라이브러리 로드 중...');
     const XLSX = await loadXLSX();
     const wb = XLSX.utils.book_new();
+    wb.Props = {
+      Title: '세종기술 자산 관리 대장',
+      Subject: 'PC · 노트북 · 소프트웨어 라이선스',
+      Author: '세종기술',
+      CreatedDate: new Date(),
+    };
 
-    // 시트 1: PC/노트북
-    const dev = filteredDevices().map(d => ({
-      '관리번호': d.code || '',
-      '유형': typeName(d.type),
-      '구매년도': d.purchaseYear || '',
-      '비품명': d.itemName || '',
-      '모델명': d.model || '',
-      '규격/형식': d.spec || '',
-      '구입처': d.vendor || '',
-      '사용부서': d.useDept || '',
-      '사용자': d.userName || '',
-      '위치': d.location || '',
-      '상태': statusName(effectiveStatus(d)),
-      'WINDOWS': d.softwareInstalled?.windows || '',
-      'CAD': d.softwareInstalled?.cad || '',
-      'SOLID EDGE': d.softwareInstalled?.solidEdge || '',
-      'MS OFFICE': d.softwareInstalled?.msOffice || '',
-      '한글': d.softwareInstalled?.hangul || '',
-      'PDF': d.softwareInstalled?.pdf || '',
-      '비고': d.note || '',
-    }));
-    const ws1 = XLSX.utils.json_to_sheet(dev);
-    ws1['!cols'] = [{wch:10},{wch:9},{wch:8},{wch:9},{wch:20},{wch:10},{wch:10},{wch:10},{wch:12},{wch:10},{wch:8},{wch:14},{wch:12},{wch:10},{wch:14},{wch:14},{wch:14},{wch:20}];
-    XLSX.utils.book_append_sheet(wb, ws1, '자산 대장');
+    // 정렬: 관리번호 오름차순
+    const sorted = [...state.devices].sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+    const desktops = sorted.filter(d => d.type === 'desktop' || d.type === 'mini');
+    const laptops = sorted.filter(d => d.type === 'laptop' || d.type === 'tablet');
 
-    // 시트 2: 라이선스 (full access only)
-    if (fullAccess && state.licenses.length) {
-      const lic = state.licenses.map(l => ({
-        '구분': l.category || '',
-        '프로그램': l.programName || '',
-        '취득년도': l.acquiredYear || '',
-        '유지기간': l.maintenance || '',
-        '구입처': l.vendor || '',
-        '사용PC': l.assignedDeviceCode || '',
-        '사용자': l.assignedUser || '',
-        'Serial 라벨': l.serialLabel || '',
-        'Serial/제품키': l.serialNumber || '',
-        '비고': l.note || '',
-      }));
-      const ws2 = XLSX.utils.json_to_sheet(lic);
-      ws2['!cols'] = [{wch:10},{wch:16},{wch:9},{wch:9},{wch:10},{wch:10},{wch:12},{wch:14},{wch:36},{wch:18}];
-      XLSX.utils.book_append_sheet(wb, ws2, '라이선스');
+    // 시트 1: 컴퓨터 전체 관리
+    XLSX.utils.book_append_sheet(wb,
+      buildSheet(XLSX, '컴퓨터 전체 관리', DEV_COLS, sorted.map(deviceRow), DEV_WIDTHS),
+      '컴퓨터 전체 관리');
+
+    // 시트 2: 컴퓨터 관리대장 (Desktop + Mini PC)
+    XLSX.utils.book_append_sheet(wb,
+      buildSheet(XLSX, '컴퓨터 관리대장', DEV_COLS, desktops.map(deviceRow), DEV_WIDTHS),
+      '컴퓨터 관리대장');
+
+    // 시트 3: 노트북 관리 대장 (Laptop + Tablet)
+    XLSX.utils.book_append_sheet(wb,
+      buildSheet(XLSX, '노트북 관리 대장', DEV_COLS, laptops.map(deviceRow), DEV_WIDTHS),
+      '노트북 관리 대장');
+
+    // 시트 4~8: 라이선스 (full access only)
+    if (fullAccess) {
+      const lics = state.licenses;
+      const cats = [
+        { key: 'CAD',      title: '프로그램 관리 대장(CAD)' },
+        { key: '한글',     title: '프로그램 관리 대장(한글)' },
+        { key: 'MSOFFICE', title: '프로그램 관리 대장(MSOFFICE)' },
+        { key: 'WINDOWS',  title: '프로그램 관리 대장(WINDOWS)' },
+        { key: 'EZPDF',    title: '프로그램 관리 대장(EZPDF)' },
+      ];
+      for (const c of cats) {
+        const rows = lics.filter(l => l.category === c.key).sort((a,b) => (a.no||0)-(b.no||0)).map(licenseRow);
+        XLSX.utils.book_append_sheet(wb, buildSheet(XLSX, c.title, LIC_COLS, rows, LIC_WIDTHS), c.title);
+      }
     }
 
-    // 시트 3: 통계
-    const active = state.devices.filter(d => d.status !== 'retired');
-    const byDept = tally(active, d => d.useDept || '─');
-    const byYear = tally(active, d => d.purchaseYear || '─');
-    const byType = tally(active, d => typeName(d.type));
-    const byLoc = tally(active, d => d.location || '─');
-    const stats = [];
-    const addRows = (title, obj) => {
-      stats.push({ '구분': title, '항목': '', '수량': '' });
-      Object.entries(obj).sort((a,b) => b[1] - a[1]).forEach(([k,v]) => stats.push({ '구분': '', '항목': k, '수량': v }));
-      stats.push({ '구분': '', '항목': '', '수량': '' });
-    };
-    addRows('부서별', byDept);
-    addRows('구매년도별', byYear);
-    addRows('유형별', byType);
-    addRows('위치별', byLoc);
-    const ws3 = XLSX.utils.json_to_sheet(stats);
-    ws3['!cols'] = [{wch:14},{wch:22},{wch:10}];
-    XLSX.utils.book_append_sheet(wb, ws3, '통계');
-
     const today = new Date().toISOString().slice(0,10);
-    XLSX.writeFile(wb, `세종기술_자산관리대장_${today}.xlsx`);
-    toast('✅ Excel 저장됨');
+    XLSX.writeFile(wb, `PC,노트북,프로그램 관리 대장_${today}.xlsx`);
+    toast('✅ Excel 저장됨 (' + (fullAccess ? '8시트' : '3시트') + ')');
   } catch (err) {
     console.error(err);
     toast('Excel 내보내기 실패: ' + err.message, true);
@@ -958,34 +1033,67 @@ async function exportExcel() {
 }
 window.exportExcel = exportExcel;
 
-// ─────────────────────── PDF 인쇄 ───────────────────────
+// ─────────────────────── PDF 인쇄 (별도 창에 원본 양식 렌더링) ───────────────────────
+function pdfHead() {
+  return `
+    <meta charset="UTF-8" />
+    <title>PC,노트북,프로그램 관리 대장</title>
+    <style>
+      @page { size: A4 landscape; margin: 8mm; }
+      body { font-family: '맑은 고딕','Malgun Gothic',-apple-system,sans-serif; font-size: 10px; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      h2 { font-size: 15px; text-align: center; color: #1F4E78; margin: 8px 0 6px; }
+      .meta { text-align: right; font-size: 9px; color: #666; margin-bottom: 4px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 14px; page-break-inside: auto; table-layout: fixed; }
+      thead th { background: #1F4E78; color: #fff; font-weight: 700; font-size: 10px; padding: 5px 3px; border: 1px solid #000; text-align: center; vertical-align: middle; }
+      tbody td { border: 1px solid #BFBFBF; padding: 3px 4px; font-size: 9.5px; text-align: center; vertical-align: middle; word-break: break-word; }
+      tbody tr:nth-child(even) td { background: #F8FAFC; }
+      thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+      .sheet-break { page-break-before: always; }
+      .lic-serial { font-family: 'Consolas','SF Mono',monospace; font-size: 8.5px; }
+    </style>
+  `;
+}
+function pdfTable(title, cols, rows, isLic) {
+  const th = cols.map(c => `<th>${esc(c)}</th>`).join('');
+  const tr = rows.length ? rows.map(r => `<tr>${r.map((v, i) => {
+    const cls = isLic && i === cols.length - 1 ? ' class="lic-serial"' : '';
+    return `<td${cls}>${esc(v)}</td>`;
+  }).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length}" style="color:#999;padding:12px;">데이터 없음</td></tr>`;
+  return `<h2>${esc(title)}</h2>
+    <table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+}
 function exportPdf() {
-  // 인쇄 최적화 CSS 주입 (모달·필터·버튼 등 숨김)
-  const styleId = 'pdfPrintStyle';
-  if (!document.getElementById(styleId)) {
-    const st = document.createElement('style');
-    st.id = styleId;
-    st.textContent = `
-      @media print {
-        body { padding: 8mm !important; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .mod-head-actions, .filter-bar, .close-btn, .modal-mask, .toast, .section-note, .perm-note { display: none !important; }
-        .tab:not(.on) { display: none !important; }
-        .tabs { border-bottom: 2px solid #000; }
-        .kpi-row { grid-template-columns: repeat(6, 1fr) !important; gap: 4px !important; }
-        .kpi { padding: 6px 8px !important; }
-        .kpi .v { font-size: 14px !important; }
-        .kpi .sub { font-size: 9px !important; }
-        table { font-size: 9.5px !important; page-break-inside: auto; }
-        thead { display: table-header-group; }
-        tr { page-break-inside: avoid; }
-        th, td { padding: 3px 5px !important; }
-        .sw-tag { font-size: 8px !important; padding: 1px 3px !important; }
-        .pill { font-size: 8.5px !important; padding: 1px 5px !important; }
+  try {
+    const w = window.open('', '_blank', 'width=1200,height=850');
+    if (!w) { toast('팝업 차단됨 - 팝업 허용 필요', true); return; }
+    const sorted = [...state.devices].sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+    const desktops = sorted.filter(d => d.type === 'desktop' || d.type === 'mini');
+    const laptops = sorted.filter(d => d.type === 'laptop' || d.type === 'tablet');
+    const meta = `발행: ${new Date().toISOString().slice(0,10)} · 세종기술 총무부`;
+
+    let body = pdfTable('컴퓨터 전체 관리', DEV_COLS, sorted.map(deviceRow), false);
+    body += `<div class="sheet-break"></div>` + pdfTable('컴퓨터 관리대장', DEV_COLS, desktops.map(deviceRow), false);
+    body += `<div class="sheet-break"></div>` + pdfTable('노트북 관리 대장', DEV_COLS, laptops.map(deviceRow), false);
+    if (fullAccess) {
+      const cats = [
+        { key: 'CAD',      title: '프로그램 관리 대장(CAD)' },
+        { key: '한글',     title: '프로그램 관리 대장(한글)' },
+        { key: 'MSOFFICE', title: '프로그램 관리 대장(MSOFFICE)' },
+        { key: 'WINDOWS',  title: '프로그램 관리 대장(WINDOWS)' },
+        { key: 'EZPDF',    title: '프로그램 관리 대장(EZPDF)' },
+      ];
+      for (const c of cats) {
+        const rows = state.licenses.filter(l => l.category === c.key).sort((a,b) => (a.no||0)-(b.no||0)).map(licenseRow);
+        body += `<div class="sheet-break"></div>` + pdfTable(c.title, LIC_COLS, rows, true);
       }
-    `;
-    document.head.appendChild(st);
+    }
+    w.document.write(`<!DOCTYPE html><html lang="ko"><head>${pdfHead()}</head><body><div class="meta">${meta}</div>${body}<script>window.onload=()=>setTimeout(()=>{window.focus();window.print();},300);</script></body></html>`);
+    w.document.close();
+  } catch (err) {
+    console.error(err);
+    toast('PDF 실패: ' + err.message, true);
   }
-  setTimeout(() => window.print(), 100);
 }
 window.exportPdf = exportPdf;
 </script>
