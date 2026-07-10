@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>자산 관리 대장 · 세종기술</title>
+<style>
+:root {
+  --bg: #F5F7FA;
+  --card: #FFFFFF;
+  --card-soft: #F8FAFC;
+  --border: #E5E8EE;
+  --border-strong: #D0D5DD;
+  --ink-1: #0B1220;
+  --ink-2: #475569;
+  --ink-3: #94A3B8;
+  --accent: #1E4E8C;
+  --accent-tint: #E9EEF7;
+  --critical: #DC2626;
+  --critical-tint: #FEE2E2;
+  --warning: #EA580C;
+  --warning-tint: #FFEDD5;
+  --healthy: #16A34A;
+  --healthy-tint: #DCFCE7;
+  --goal: #7C3AED;
+  --goal-tint: #EDE9FE;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Pretendard Variable', 'Pretendard', 'Malgun Gothic', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  padding: 20px;
+  overflow-y: auto;
+}
+.wrap { max-width: 1280px; margin: 0 auto; }
+
+.mod-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding-bottom: 14px; border-bottom: 1px solid var(--border);
+  margin-bottom: 16px; gap: 20px; flex-wrap: wrap;
+}
+.mod-head .eyebrow {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 4px;
+}
+.mod-head .mod-title { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+.mod-head .mod-sub { font-size: 12px; color: var(--ink-2); margin: 3px 0 0; }
+.mod-head-actions { display: flex; gap: 6px; align-items: center; }
+.btn {
+  font-size: 12.5px; font-weight: 600;
+  padding: 7px 14px; border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  background: var(--card); color: var(--ink-1);
+  cursor: pointer;
+}
+.btn:hover { background: var(--accent-tint); border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: #163B6E; }
+
+.tabs {
+  display: flex; gap: 4px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  padding: 10px 16px; font-size: 13px; font-weight: 600;
+  color: var(--ink-2); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab:hover { color: var(--ink-1); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+.tab .cnt { font-size: 10.5px; color: var(--ink-3); font-weight: 600; margin-left: 4px; }
+.tab.on .cnt { color: var(--accent); }
+.tab .lock-lbl {
+  font-size: 9.5px; color: var(--ink-3); font-weight: 600;
+  margin-left: 4px; border: 1px solid var(--border);
+  padding: 1px 5px; border-radius: 3px;
+}
+
+.kpi-row {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px; margin-bottom: 14px;
+}
+.kpi {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px;
+}
+.kpi .k {
+  font-size: 10.5px; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  font-weight: 700; margin-bottom: 6px;
+}
+.kpi .v {
+  font-size: 22px; font-weight: 700; color: var(--ink-1);
+  letter-spacing: -0.02em; line-height: 1.1;
+}
+.kpi .sub { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
+
+.filter-bar {
+  display: flex; gap: 10px; align-items: center;
+  padding: 12px 14px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 8px;
+  margin-bottom: 12px; flex-wrap: wrap;
+}
+.filter-bar input.search {
+  flex: 1; min-width: 220px;
+  padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: 5px; background: var(--card-soft);
+  color: var(--ink-1); font-size: 13px;
+}
+.filter-bar select {
+  padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 5px; background: var(--card-soft);
+  color: var(--ink-1); font-size: 12.5px;
+  min-width: 110px;
+}
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; font-weight: 600; padding: 4px 10px;
+  border: 1px solid var(--border); border-radius: 20px;
+  background: var(--card-soft); color: var(--ink-2); cursor: pointer;
+}
+.filter-chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filter-chip .n { font-size: 10.5px; opacity: 0.8; }
+
+.table-wrap {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead { background: var(--card-soft); }
+th, td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+th {
+  text-align: left; color: var(--ink-3);
+  font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+tbody tr { cursor: pointer; transition: background .1s; }
+tbody tr:hover { background: var(--card-soft); }
+tbody tr:last-child td { border-bottom: none; }
+td.code { font-weight: 700; color: var(--accent); font-family: 'SF Mono', Consolas, monospace; font-size: 12px; white-space: nowrap; }
+td.b { font-weight: 600; }
+td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200px; }
+
+.pill {
+  display: inline-block; padding: 2px 8px;
+  border-radius: 10px; font-size: 10.5px;
+  font-weight: 700; letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.pill.type-desk { background: var(--accent-tint); color: var(--accent); }
+.pill.type-lap  { background: var(--goal-tint); color: var(--goal); }
+.pill.type-tab  { background: #FCE7F3; color: #9D174D; }
+.pill.type-mini { background: #FEF3C7; color: #92400E; }
+.pill.stat-active  { background: var(--healthy-tint); color: var(--healthy); }
+.pill.stat-retired { background: #E2E8F0; color: #475569; }
+.pill.stat-aged    { background: var(--warning-tint); color: var(--warning); }
+
+.sw-list { display: flex; flex-wrap: wrap; gap: 3px; }
+.sw-tag {
+  font-size: 9.5px; font-weight: 700;
+  padding: 2px 6px; border-radius: 3px;
+  background: var(--card-soft); border: 1px solid var(--border);
+  color: var(--ink-2);
+}
+.sw-tag.ok { background: var(--healthy-tint); color: var(--healthy); border-color: transparent; }
+.sw-tag.view { background: #EFF6FF; color: #1E40AF; border-color: transparent; }
+.sw-tag.no { background: #FEF2F2; color: #DC2626; border-color: transparent; opacity: 0.6; }
+
+.section-note {
+  font-size: 11.5px; color: var(--ink-3);
+  padding: 10px 12px; background: var(--card-soft);
+  border: 1px dashed var(--border); border-radius: 6px;
+  margin-top: 12px;
+}
+.section-note b { color: var(--accent); }
+
+.perm-note {
+  font-size: 11.5px; color: var(--warning);
+  padding: 8px 12px; background: var(--warning-tint);
+  border-radius: 6px; margin-top: 10px;
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  td.sw { max-width: 120px; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="mod-head">
+    <div>
+      <div class="eyebrow">총무부 · Asset Registry</div>
+      <h1 class="mod-title">🖥️ 자산 관리 대장 <span style="font-size:13px;color:var(--ink-3);font-weight:400;">v1.0 · 초안</span></h1>
+      <p class="mod-sub">PC · 노트북 · 소프트웨어 라이선스 통합 관리 · 자동 채번(SJPC-XX) · 사용자·부서·구매년도 조회</p>
+    </div>
+    <div class="mod-head-actions">
+      <button class="btn" title="Excel 내보내기 (예정)">📥 Excel</button>
+      <button class="btn" title="PDF 인쇄용 (예정)">📄 PDF</button>
+      <button class="btn btn-primary" title="Firestore 연동 시 활성">+ 신규 자산</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab on">🖥️ PC / 노트북 <span class="cnt">64</span></div>
+    <div class="tab" data-license-only>🔑 라이선스 <span class="cnt">174</span> <span class="lock-lbl">🔒 총무부·슈퍼</span></div>
+    <div class="tab">📊 통계</div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="k">전체 자산</div><div class="v">64</div><div class="sub">Desktop 38 · Laptop 26</div></div>
+    <div class="kpi"><div class="k">사용 중</div><div class="v">58</div><div class="sub">활성 · 정상</div></div>
+    <div class="kpi"><div class="k">노후 (5년+)</div><div class="v" style="color:var(--warning);">12</div><div class="sub">2020년 이전 구매</div></div>
+    <div class="kpi"><div class="k">현장·인도네시아</div><div class="v">14</div><div class="sub">외부 위치</div></div>
+    <div class="kpi"><div class="k">폐기·유실</div><div class="v" style="color:var(--ink-3);">6</div><div class="sub">이력 보존</div></div>
+    <div class="kpi" data-license-only><div class="k">라이선스</div><div class="v">174</div><div class="sub">CAD·한글·MSO·WIN·PDF</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <input class="search" type="text" placeholder="🔍 관리번호 · 모델명 · 사용자 · 부서 · 시리얼 검색..." />
+    <select><option>전체 유형</option><option>Desktop</option><option>Laptop</option><option>Tablet</option><option>Mini PC</option></select>
+    <select><option>전체 부서</option><option>임원</option><option>관리</option><option>재무</option><option>기술부</option><option>영업부</option><option>품질관리부</option><option>현장</option></select>
+    <select><option>전체 위치</option><option>사무실</option><option>현장</option><option>인도네시아</option></select>
+    <select><option>전체 상태</option><option>사용중</option><option>노후</option><option>폐기</option><option>유실</option></select>
+    <span class="filter-chip on">전체 <span class="n">64</span></span>
+    <span class="filter-chip">고정 <span class="n">50</span></span>
+    <span class="filter-chip">Field 출장 <span class="n">6</span></span>
+    <span class="filter-chip">인도네시아 <span class="n">8</span></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:96px;white-space:nowrap;">번호</th>
+          <th style="width:82px;">유형</th>
+          <th style="width:60px;">구매</th>
+          <th>모델</th>
+          <th>사용자</th>
+          <th style="width:84px;">부서</th>
+          <th style="width:80px;">위치</th>
+          <th>설치 소프트웨어</th>
+          <th style="width:66px;">상태</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="code">SJPC-01</td><td><span class="pill type-desk">Desktop</span></td><td>2015</td>
+          <td class="b">조립품</td><td>고영현 대표</td><td>임원</td><td>사무실</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN 정품</span><span class="sw-tag view">CAD 뷰어</span><span class="sw-tag ok">MSO 2013</span><span class="sw-tag ok">한글 2014</span><span class="sw-tag ok">EZ PDF</span>
+          </div></td>
+          <td><span class="pill stat-aged">노후</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-02</td><td><span class="pill type-desk">Desktop</span></td><td>2015</td>
+          <td class="b">조립품</td><td>양병원 이사</td><td>관리</td><td>사무실</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN 정품</span><span class="sw-tag view">CAD 뷰어</span><span class="sw-tag ok">MSO 2013</span><span class="sw-tag ok">한글</span><span class="sw-tag ok">EZ PDF</span>
+          </div></td>
+          <td><span class="pill stat-aged">노후</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-06</td><td><span class="pill type-desk">Desktop</span></td><td>2017</td>
+          <td class="b">Dell Inspiron 3268</td><td>신윤진 주임</td><td>재무</td><td>사무실</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN 정품</span><span class="sw-tag no">CAD X</span><span class="sw-tag ok">MSO 2013</span><span class="sw-tag ok">한글</span><span class="sw-tag ok">EZ PDF</span>
+          </div></td>
+          <td><span class="pill stat-active">사용중</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-23</td><td><span class="pill type-desk">Desktop</span></td><td>2014</td>
+          <td class="b">조립품 (연구소)</td><td>김철우 부장</td><td>품질관리부</td><td>사무실</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN 정품</span><span class="sw-tag ok">ZWCAD 2024</span><span class="sw-tag ok">MSO 2013</span><span class="sw-tag ok">한글</span><span class="sw-tag ok">EZ PDF</span>
+          </div></td>
+          <td><span class="pill stat-active">사용중</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-30</td><td><span class="pill type-desk">Desktop</span></td><td>2024</td>
+          <td class="b">조립품 (연구소 컴퓨터)</td><td>김철우 부장</td><td>품질관리부</td><td>사무실</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN 정품</span><span class="sw-tag ok">ZWCAD 2024</span><span class="sw-tag ok">MSO 2013</span><span class="sw-tag ok">한글</span><span class="sw-tag ok">EZ PDF</span>
+          </div></td>
+          <td><span class="pill stat-active">사용중</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-33</td><td><span class="pill type-lap">Laptop</span></td><td>2018</td>
+          <td class="b">SAMSUNG NT900X5N</td><td>정덕석 부사장</td><td>임원</td><td>사무실</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN SAMSUNG</span><span class="sw-tag view">CAD 뷰어</span><span class="sw-tag ok">MSO 2013</span><span class="sw-tag no">한글 비정품</span><span class="sw-tag ok">EZ PDF</span>
+          </div></td>
+          <td><span class="pill stat-active">사용중</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-34</td><td><span class="pill type-lap">Laptop</span></td><td>2014</td>
+          <td class="b">SAMSUNG NT500</td><td>서석현 대리</td><td>현장</td><td>현장</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN SAMSUNG</span><span class="sw-tag no">CAD X</span><span class="sw-tag no">MSO 비정품</span><span class="sw-tag no">한글 비정품</span><span class="sw-tag no">EZ PDF 비정품</span>
+          </div></td>
+          <td><span class="pill stat-aged">노후</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-36</td><td><span class="pill type-lap">Laptop</span></td><td>2016</td>
+          <td class="b">Dell Precision</td><td>박광택 과장</td><td>현장</td><td>현장</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN Dell</span><span class="sw-tag no">CAD X</span><span class="sw-tag no">MSO 비정품</span><span class="sw-tag no">한글</span><span class="sw-tag no">EZ PDF</span>
+          </div></td>
+          <td><span class="pill stat-aged">노후</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-48</td><td><span class="pill type-mini">Mini PC</span></td><td>2023</td>
+          <td class="b">Intel NUC 12</td><td>공용 (회의실 A)</td><td>총무부</td><td>사무실</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN 11 정품</span><span class="sw-tag ok">MSO 365</span><span class="sw-tag no">한글 X</span><span class="sw-tag ok">EZ PDF</span>
+          </div></td>
+          <td><span class="pill stat-active">사용중</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-52</td><td><span class="pill type-tab">Tablet</span></td><td>2024</td>
+          <td class="b">Galaxy Tab S9 FE+</td><td>박광택 과장</td><td>현장</td><td>인도네시아</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">Android 14</span>
+          </div></td>
+          <td><span class="pill stat-active">사용중</span></td>
+        </tr>
+        <tr>
+          <td class="code">SJPC-57</td><td><span class="pill type-desk">Desktop</span></td><td>2019</td>
+          <td class="b">HP EliteDesk 800 G5</td><td>─ (예비)</td><td>총무부</td><td>사무실</td>
+          <td class="sw"><div class="sw-list">
+            <span class="sw-tag ok">WIN 10 정품</span><span class="sw-tag no">CAD X</span><span class="sw-tag ok">MSO 2019</span>
+          </div></td>
+          <td><span class="pill stat-active">사용중</span></td>
+        </tr>
+        <tr>
+          <td class="code" style="color:var(--ink-3);text-decoration:line-through;">SJPC-11</td>
+          <td><span class="pill type-desk">Desktop</span></td><td>2013</td>
+          <td class="b" style="color:var(--ink-3);">조립품</td>
+          <td style="color:var(--ink-3);">─ (폐기)</td>
+          <td style="color:var(--ink-3);">기술부</td><td>사무실</td>
+          <td class="sw" style="color:var(--ink-3);">2024.09 폐기 · 감사 이력 유지</td>
+          <td><span class="pill stat-retired">폐기</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-note">
+    💡 <b>현재 초안 데이터입니다.</b> 실제 배포 시 <code>t_devices</code> · <code>t_licenses</code> 컬렉션에서 실시간 조회.
+    행 클릭 → 상세 편집 모달 (관리번호 자동채번 · 사용자·부서 변경 시 이관 이력 자동 기록 · 폐기는 삭제 대신 상태 변경).
+  </div>
+
+  <div class="perm-note" id="permNote">
+    🔒 <b>라이선스 정보는 총무부·슈퍼관리자만 조회 가능</b>합니다. 소프트웨어 목록만 표시되며 Serial/제품키는 접근 불가.
+  </div>
+
+</div>
+
+<script>
+// URL param 'full=1'일 때만 라이선스 관련 요소 표시
+const params = new URLSearchParams(location.search);
+const fullAccess = params.get('full') === '1';
+if (!fullAccess) {
+  document.querySelectorAll('[data-license-only]').forEach(el => el.style.display = 'none');
+  const note = document.getElementById('permNote');
+  if (note) note.style.display = 'block';
+}
+</script>
+
+</body>
+</html>
