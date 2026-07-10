@@ -559,13 +559,14 @@ const TOOLS = {
   'manday':    { name: 'Manday Tracker',    icon: '⏱',  desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
   'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
   'deptsch':   { name: '부서 스케줄',       icon: '📅', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
+  'mtools':    { name: '측정기구 반입출',   icon: '🔬', desc: 'QR 스캔 반출·반입 · 검교정 관리', status: 'live', ver: 'v1.0' },
 };
 const DEPTS = [
   { id: 'sales',        icon: '💼', name: '영업부',     tools: ['deptsch'] },
   { id: 'design',       icon: '📐', name: '기술부',     tools: ['deptsch'] },
   { id: 'purchase',     icon: '🛒', name: '구매부',     tools: ['deptsch'] },
   { id: 'production',   icon: '🏭', name: '생산부',     tools: ['deptsch'] },
-  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'qa', 'ncr', 'car', 'qadash', 'mobile'] },
+  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'qa', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
   { id: 'construction', icon: '🏗️', name: '현장시공',   tools: ['deptsch'] },
   { id: 'safety',       icon: '🦺', name: '안전관리부', tools: ['deptsch'] },
   { id: 'general',      icon: '👔', name: '총무부',     tools: ['deptsch'] },
@@ -648,6 +649,12 @@ const PERM_MODULES = {
     label: 'Mobile Inspection', icon: '📱', baseDept: '품질관리부',
     actions: {
       use: { label: '현장 검사 등록', defaultGrant: 'dept' },
+    },
+  },
+  mtools: {
+    label: '측정기구 반입출', icon: '🔬', baseDept: '품질관리부',
+    actions: {
+      register: { label: '기구 등록/수정/삭제·검교정 관리', defaultGrant: 'dept' },
     },
   },
 };
@@ -943,6 +950,7 @@ const QADASH_BUILD = 'b6';
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
 const ITPBUILDER_BUILD = 'c1';
 const QADOC_BUILD = 'c0';
+const MTOOLS_BUILD = 'b1';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -2157,6 +2165,7 @@ function iframeViewKey() {
   if (v.selectedTool === 'ncr') return 'ncr';
   if (v.selectedTool === 'car') return 'car';
   if (v.selectedTool === 'qadash') return 'qadash';
+  if (v.selectedTool === 'mtools') return 'mtools';
   if (v.cur === 'manday') return 'manday';
   if (v.cur === 'messenger') return 'messenger';
   if (v.travProj && !v.selectedTraveller) return 'travtag:' + v.travProj;
@@ -2229,6 +2238,7 @@ function render() {
   if (view.selectedTool === 'ncr') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html?v=${NCR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'car') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html?v=${CAR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'qadash') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/quality/qa-dashboard.html?v=${QADASH_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="품질종합분석표"></iframe></div>`; return; }
+  if (view.selectedTool === 'mtools') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/measurement-tools/measurement-tools.html?v=${MTOOLS_BUILD}" allow="camera" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="측정기구 반입출 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'deptsch') {
     // 부서 스케줄 2단계: 프로젝트/자체업무 미선택 → 카드 / 선택됨 → WBS iframe
     if (!view.deptSchedProj) { content.innerHTML = `<div class="content-pad">${renderDeptSchedProjects()}</div>`; return; }
