@@ -952,7 +952,7 @@ const QADASH_BUILD = 'b6';
 const ITPBUILDER_BUILD = 'c1';
 const QADOC_BUILD = 'c0';
 const MTOOLS_BUILD = 'b1';
-const ASSET_BUILD = 'a1';
+const ASSET_BUILD = 'a2';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
