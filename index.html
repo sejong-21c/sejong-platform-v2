@@ -1998,8 +1998,8 @@ function getNotifications(includeAll) {
   if (b && b.urgentList) b.urgentList.forEach(function(m) { notifs.push({ type: 'urgent', icon: '🔴', title: m.subject, sub: m.from, proj: m.proj, mail: true }); });
   if (b && b.keyActions) b.keyActions.filter(function(a) { return a.priority === 'high'; }).forEach(function(a) { notifs.push({ type: 'action', icon: '⚡', title: a.text, sub: 'Cowork AI 브리핑', proj: a.proj, mail: false }); });
   if (b && b.nuclear && b.nuclear.items) b.nuclear.items.filter(function(it) { return it.priority === 'high'; }).forEach(function(it) { notifs.push({ type: 'nuclear', icon: '☢️', title: it.text, sub: it.category || '원자력', proj: it.proj, mail: true }); });
-  var pendA = (state.approvals || []).filter(function(a) { return (a.status === 'pending' || a.status === 'review') && (a.approver === state.currentUser || a.to === state.currentUser); });
-  pendA.forEach(function(a) { notifs.push({ type: 'approval', icon: '📝', title: a.title || '결재 요청', sub: (getU(a.from) || {}).name || '', proj: '', mail: false }); });
+  var pendA = (state.approvals || []).filter(function(a) { return apIsMyTurn(a, state.currentUser); });
+  pendA.forEach(function(a) { notifs.push({ type: 'approval', icon: '📝', title: a.title || '결재 요청', sub: (getU(a.author) || getU(a.from) || {}).name || '', proj: '', mail: false }); });
   // 채널별 안읽음 메시지 집계 — 메시지 건별이 아니라 채널당 1개 알림으로 묶어 알림 패널 도배 방지
   var visibleChannels = (state.channels || []).filter(function(c) {
     if (c.type === 'group' || c.type === 'dm') return (c.members || []).indexOf(state.currentUser) !== -1;
@@ -6024,27 +6024,138 @@ async function hardDeleteUser(uid) {
 // v29.11: 3구획 결재 관리 화면 — 내가 결재할 것 / 내가 요청한 것 / 완료된 결재
 // 지원 유형: 'schedule-change' (WBS 변경 요청), 'okr-change' (부서 목표 변경),
 // 기존 기안 유형 '출장'/'구매'/'경비'/'품의'/'기타'도 그대로 표시.
+// v30: 결재선 템플릿 + 다단계 순차 결재. approvalLine[] 배열로 각 단계 관리.
+// 기존 단일 approver/to 문서와 하위호환(레거시는 1단계 결재선처럼 취급).
 const APPROVAL_STATUS_META = {
-  pending:  { pill:'yellow', label:'대기' },
+  pending:  { pill:'yellow', label:'진행중' },
   review:   { pill:'blue',   label:'검토' },
-  approved: { pill:'green',  label:'승인' },
+  approved: { pill:'green',  label:'승인완료' },
   rejected: { pill:'red',    label:'반려' },
 };
+const APPROVAL_TEMPLATES = {
+  iso:      { label:'ISO 업무 (report·도면·절차서)', icon:'📄', roles:['작성','검토','승인'],           amount:false },
+  purchase: { label:'품의·기안 (금액)',               icon:'💰', roles:['작성','검토','부서장','대표이사'], amount:true  },
+  project:  { label:'프로젝트 (스케줄·WBS 변경)',       icon:'📊', roles:['작성','승인(PM)'],              amount:false },
+};
+const ROLE_OPTIONS = ['작성','검토','부서장','승인','합의','대표이사','승인(PM)'];
 function _approvalTypeLabel(t) {
-  if (t === 'schedule-change') return '📊 WBS 변경';
+  if (APPROVAL_TEMPLATES[t]) return APPROVAL_TEMPLATES[t].icon + ' ' + APPROVAL_TEMPLATES[t].label.split(' (')[0];
+  if (t === 'schedule-change' || t === 'wbs-shadow') return '📊 WBS 변경';
   if (t === 'okr-change') return '🎯 목표 변경';
   return t || '기타';
+}
+
+// ── 결재선 유틸 (레거시 호환) ──
+function apLine(a) { return (Array.isArray(a.approvalLine) && a.approvalLine.length) ? a.approvalLine : null; }
+function apPendingStep(a) {
+  const line = apLine(a); if (!line) return null;
+  return line.find(s => s.status === 'pending') || null;
+}
+function apCurrentApprover(a) {
+  const step = apPendingStep(a);
+  if (step) return step.uid;
+  return a.approver || a.to || null;  // 레거시
+}
+function apIsMyTurn(a, uid) {
+  if (a.status !== 'pending' && a.status !== 'review') return false;
+  return apCurrentApprover(a) === uid;
+}
+
+// ── 결재자 자동 추천 (같은 부서 직급 기준) ──
+function _deptUsers(dept) { return (state.users || []).filter(u => u.dept === dept); }
+function _pickReviewer(dept, exclude) {
+  const pool = _deptUsers(dept).filter(u => u.id !== exclude);
+  for (const t of ['차장','과장','대리']) { const u = pool.find(x => x.title === t); if (u) return u.id; }
+  return '';
+}
+function _pickDeptHead(dept, exclude) {
+  const pool = _deptUsers(dept).filter(u => u.id !== exclude);
+  return (pool.find(u => u.title === '부장') || pool.find(u => u.grade === 'manager') || pool.find(u => u.grade === 'super') || {}).id || '';
+}
+function _pickCEO(exclude) {
+  const pool = (state.users || []).filter(u => u.id !== exclude);
+  return (pool.find(u => u.title === '대표이사') || pool.find(u => u.grade === 'exec') || {}).id || '';
+}
+function _autoFillLine(tplKey, me) {
+  const tpl = APPROVAL_TEMPLATES[tplKey] || APPROVAL_TEMPLATES.iso;
+  return tpl.roles.map(role => {
+    let uid = '';
+    if (role === '작성') uid = me.id;
+    else if (role === '검토' || role === '합의') uid = _pickReviewer(me.dept, me.id);
+    else if (role === '부서장' || role === '승인') uid = _pickDeptHead(me.dept, me.id);
+    else if (role === '대표이사') uid = _pickCEO(me.id);
+    return { role, uid };
+  });
+}
+
+// ── 결재선 기억 (t_approvalLinePrefs — Firestore 규칙상 t_* 는 이미 허용) ──
+let _apLinePrefs = {};
+async function _loadApLinePrefs() {
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, 't_approvalLinePrefs', state.currentUser));
+    _apLinePrefs = snap.exists() ? (snap.data().byTemplate || {}) : {};
+  } catch (e) { _apLinePrefs = {}; }
+}
+async function _saveApLinePref(tplKey, line) {
+  _apLinePrefs[tplKey] = line.map(s => ({ role: s.role, uid: s.uid }));
+  try { await fb.setDoc(fb.doc(fb.db, 't_approvalLinePrefs', state.currentUser), { byTemplate: _apLinePrefs }, { merge: true }); } catch (e) {}
+}
+
+// ── 결재란(도장칸) 렌더 ──
+function _renderStampBox(line) {
+  if (!line) return '';
+  const cells = line.map(s => {
+    const u = getU(s.uid) || {};
+    let stamp;
+    if (s.status === 'approved')      stamp = `<div style="border:1.5px solid var(--success);color:var(--success);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
+    else if (s.status === 'rejected') stamp = `<div style="border:1.5px solid var(--danger);color:var(--danger);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">반려</div>`;
+    else if (s.status === 'pending')  stamp = `<div style="color:var(--warning);font-size:11px;padding:12px 0;">대기중</div>`;
+    else                              stamp = `<div style="color:var(--text-lighter);font-size:11px;padding:12px 0;">예정</div>`;
+    const dt = s.decidedAt ? new Date(s.decidedAt).toLocaleDateString('ko-KR',{month:'2-digit',day:'2-digit'}) : '';
+    return { role:s.role, name:(u.name||'-'), stamp, dt };
+  });
+  const bd = 'border:0.5px solid var(--border);';
+  return `<table style="border-collapse:collapse;font-size:11px;text-align:center;">
+    <tr><td rowspan="4" style="${bd}padding:4px;color:var(--text-light);background:var(--bg);writing-mode:vertical-rl;">결재</td>
+      ${cells.map(c=>`<td style="${bd}padding:2px 8px;color:var(--text-light);">${c.role}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}padding:2px 8px;">${c.name}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}height:40px;width:56px;">${c.stamp}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}font-size:10px;color:var(--text-lighter);padding:2px;">${c.dt||'-'}</td>`).join('')}</tr>
+  </table>`;
+}
+// ── 결재선 흐름(칩) 렌더 ──
+function _renderLineFlow(line) {
+  if (!line) return '';
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">` + line.map((s,i) => {
+    const u = getU(s.uid) || {};
+    let bg='var(--white)', col='var(--text)', bd='1px solid var(--border)', ic='●';
+    if (s.status==='approved'){ bg='#dcfce7'; col='#166534'; bd='none'; ic='✓'; }
+    else if (s.status==='rejected'){ bg='#fee2e2'; col='#991b1b'; bd='none'; ic='✕'; }
+    else if (s.status==='pending'){ bg='#fef3c7'; col='#92400e'; bd='none'; ic='⏳'; }
+    else { col='var(--text-lighter)'; ic='…'; }
+    const arrow = i>0 ? `<span style="color:var(--text-lighter);">→</span>` : '';
+    return `${arrow}<span style="background:${bg};color:${col};border:${bd};border-radius:20px;padding:4px 10px;font-size:12px;">${ic} ${s.role} · ${u.name||'-'}</span>`;
+  }).join('') + `</div>`;
 }
 function _renderApprovalRow(a) {
   const s = APPROVAL_STATUS_META[a.status] || APPROVAL_STATUS_META.pending;
   const auth = getU(a.author) || {};
-  const appr = getU(a.approver || a.to) || {};
   const amt = a.amount ? '₩'+Number(a.amount).toLocaleString('ko-KR') : '';
+  const line = apLine(a);
+  let progress;
+  if (line) {
+    const done = line.filter(x => x.status === 'approved').length;
+    const cur = apPendingStep(a);
+    progress = `<span style="color:var(--text-light);">${done}/${line.length}</span>`
+      + (cur ? ` · <b>${(getU(cur.uid)||{}).name||''}</b> 차례` : (a.status==='approved'?' · 완결':''));
+  } else {
+    progress = (getU(a.approver || a.to) || {}).name || '-';
+  }
   return `<tr onclick="openApprovalDetail('${a.id}')" style="cursor:pointer;" onmouseover="this.style.background='var(--primary-lighter)'" onmouseout="this.style.background=''">
     <td style="font-weight:600;">${a.title||'(제목 없음)'}</td>
     <td><span class="b-pill gray" style="font-size:10px;">${_approvalTypeLabel(a.type)}</span></td>
     <td>${auth.name||'-'}</td>
-    <td>${appr.name||'-'}</td>
+    <td style="font-size:12px;">${progress}</td>
     <td style="text-align:right;">${amt || '-'}</td>
     <td><span class="b-pill ${s.pill}">${s.label}</span></td>
     <td style="color:var(--text-light);">${a.date||''}</td>
@@ -6053,11 +6164,11 @@ function _renderApprovalRow(a) {
 function approval() {
   const uid = state.currentUser;
   const all = (state.approvals || []).slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-  const toReview = all.filter(a => (a.approver === uid || a.to === uid) && a.status === 'pending');
+  const toReview = all.filter(a => apIsMyTurn(a, uid));
   const mine     = all.filter(a => a.author === uid && (a.status === 'pending' || a.status === 'review'));
   const done     = all.filter(a => a.status === 'approved' || a.status === 'rejected');
   const cnt = k => all.filter(a => a.status === k).length;
-  const tblHead = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재자</th><th>금액</th><th>상태</th><th>기안일</th></tr></thead>`;
+  const tblHead = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재선 진행</th><th>금액</th><th>상태</th><th>기안일</th></tr></thead>`;
   return `
     <div class="mod-head">
       <div><div class="mod-title">📝 결재 관리</div><div class="mod-sub">WBS 변경 · 목표 변경 · 출장 · 구매 · 경비 · 품의 (문서 클릭 시 상세)</div></div>
@@ -6095,31 +6206,36 @@ function openApprovalDetail(aid) {
   const a = (state.approvals || []).find(x => x.id === aid);
   if (!a) return alert('결재 문서를 찾을 수 없습니다.');
   const uid = state.currentUser;
-  const canDecide = (a.approver === uid || a.to === uid) && a.status === 'pending';
+  const canDecide = apIsMyTurn(a, uid);
   const authName = (getU(a.author) || {}).name || '-';
-  const apprName = (getU(a.approver || a.to) || {}).name || '-';
+  const line = apLine(a);
   const meta = APPROVAL_STATUS_META[a.status] || APPROVAL_STATUS_META.pending;
   const typeLabel = _approvalTypeLabel(a.type);
   const decisionInfo = (a.status === 'approved' || a.status === 'rejected')
     ? `<div style="padding:10px;background:${a.status==='approved'?'#dcfce7':'#fee2e2'};border-radius:4px;font-size:12px;">
-         <b>${meta.label}됨</b> · ${(getU(a.decidedBy)||{}).name||'-'} · ${a.decidedAt?new Date(a.decidedAt).toLocaleString('ko-KR'):''}
+         <b>${a.status==='approved'?'최종 승인 완결':'반려됨'}</b> · ${(getU(a.decidedBy)||{}).name||'-'} · ${a.decidedAt?new Date(a.decidedAt).toLocaleString('ko-KR'):''}
          ${a.decisionNote?`<div style="margin-top:6px;color:var(--text);">${a.decisionNote}</div>`:''}
        </div>`
     : '';
   const body = `
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:6px;">
-      <span class="b-pill gray">${typeLabel}</span>
-      <span class="b-pill ${meta.pill}" style="margin-left:4px;">${meta.label}</span>
-      ${a.projCode?`<span style="margin-left:6px;">${a.projCode}${a.projName?' · '+a.projName:''}</span>`:''}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:12px;border-bottom:2px solid var(--text);padding-bottom:12px;">
+      <div>
+        <div style="font-size:12px;color:var(--text-light);margin-bottom:6px;">
+          <span class="b-pill gray">${typeLabel}</span>
+          <span class="b-pill ${meta.pill}" style="margin-left:4px;">${meta.label}</span>
+        </div>
+        <div style="font-size:16px;font-weight:700;">${a.title||'(제목 없음)'}</div>
+        ${a.projCode?`<div style="font-size:12px;color:var(--text-light);margin-top:4px;">${a.projCode}${a.projName?' · '+a.projName:''}</div>`:''}
+      </div>
+      ${_renderStampBox(line)}
     </div>
-    <div style="font-size:15px;font-weight:700;margin-bottom:12px;">${a.title||'(제목 없음)'}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px;">
       <div><span style="color:var(--text-light);">기안자:</span> <b>${authName}</b></div>
-      <div><span style="color:var(--text-light);">결재자:</span> <b>${apprName}</b></div>
       <div><span style="color:var(--text-light);">기안일:</span> ${a.date||''}</div>
-      ${a.amount?`<div><span style="color:var(--text-light);">금액:</span> ₩${Number(a.amount).toLocaleString('ko-KR')}</div>`:''}
+      ${a.amount?`<div><span style="color:var(--text-light);">금액:</span> <b style="color:var(--primary);">₩${Number(a.amount).toLocaleString('ko-KR')}</b></div>`:''}
       ${a.baseRev!=null?`<div><span style="color:var(--text-light);">기준 Rev.</span> ${a.baseRev}</div>`:''}
     </div>
+    ${line?`<div style="margin-bottom:10px;">${_renderLineFlow(line)}</div>`:''}
     ${a.description?`<div style="padding:10px;background:var(--bg);border-radius:4px;white-space:pre-wrap;font-size:13px;line-height:1.5;margin-bottom:10px;">${a.description}</div>`:''}
     ${decisionInfo}
     ${canDecide?`
@@ -6130,28 +6246,51 @@ function openApprovalDetail(aid) {
       </div>
     `:''}
   `;
-  // openModal은 확인/취소 버튼이 필수라서 여기선 직접 렌더
-  const m = document.getElementById('modal');
-  m.querySelector('.modal').style.maxWidth = '640px';
-  m.querySelector('#modalTitle').textContent = '결재 상세';
-  m.querySelector('#modalBody').innerHTML = body;
-  m.querySelector('#modalConfirm').style.display = 'none';
-  m.querySelector('#modalCancel').textContent = '닫기';
-  m.classList.add('open');
+  // 확인 버튼 없는 상세 뷰 (승인/반려 버튼은 body 내부에 있음)
+  openModal('결재 상세', body, null);
+  const inner = document.querySelector('#modal .modal');
+  if (inner) inner.style.maxWidth = '760px';
 }
 async function decideApproval(aid, decision) {
   const a = (state.approvals || []).find(x => x.id === aid);
   if (!a) return;
   const uid = state.currentUser;
-  if (!(a.approver === uid || a.to === uid)) return alert('결재 권한이 없습니다.');
-  if (a.status !== 'pending') return alert('이미 처리된 결재입니다.');
-  const note = (document.getElementById('apDecNote') || {}).value || '';
-  const patch = {
-    status: decision, decidedBy: uid, decidedAt: Date.now(), decisionNote: note.trim(),
-  };
-  // v29.12: type='wbs-shadow' + approved 이면 shadow doc을 master wbsData에 자동 반영 후 shadow 삭제.
+  if (!apIsMyTurn(a, uid)) return alert('지금은 회원님의 결재 차례가 아닙니다.');
+  const note = ((document.getElementById('apDecNote') || {}).value || '').trim();
+  // ── 다단계 결재선: 현재 단계 처리 후 다음 단계로 진행 (또는 최종 확정) ──
+  const line = apLine(a);
+  const patch = { decidedBy: uid, decidedAt: Date.now(), decisionNote: note };
+  // finalApproved: 이 결정으로 문서가 '최종 승인'되는가? (wbs-shadow 자동반영 트리거)
+  let finalApproved;
+  if (line) {
+    const idx = line.findIndex(s => s.status === 'pending');
+    if (idx < 0) return alert('진행 중인 결재 단계가 없습니다.');
+    const newLine = line.map(s => ({ ...s }));
+    newLine[idx].status = decision;
+    newLine[idx].decidedAt = Date.now();
+    newLine[idx].note = note;
+    let nextUid = null;
+    if (decision === 'rejected') {
+      patch.status = 'rejected';
+      finalApproved = false;
+    } else {
+      const next = newLine.find((s, i) => i > idx && s.status === 'waiting');
+      if (next) { next.status = 'pending'; nextUid = next.uid; patch.status = 'pending'; finalApproved = false; }
+      else { patch.status = 'approved'; finalApproved = true; }
+    }
+    patch.approvalLine = newLine;
+    // 레거시 참조(approver/to)를 현재 차례로 계속 동기화
+    patch.approver = nextUid || newLine[idx].uid;
+    patch.to = patch.approver;
+  } else {
+    // 레거시 단일 결재 문서
+    if (a.status !== 'pending' && a.status !== 'review') return alert('이미 처리된 결재입니다.');
+    patch.status = decision;
+    finalApproved = (decision === 'approved');
+  }
+  // v29.12: type='wbs-shadow' 최종 승인 시 shadow doc을 master wbsData에 자동 반영 후 shadow 삭제.
   let autoApplied = false;
-  if (a.type === 'wbs-shadow' && decision === 'approved' && a.projId && a.shadowUid) {
+  if (a.type === 'wbs-shadow' && finalApproved && a.projId && a.shadowUid) {
     try {
       const pendId = a.projId + "_" + a.shadowUid;
       const psnap = await fb.getDoc(fb.doc(fb.db, 'wbsPending', pendId));
@@ -6187,47 +6326,95 @@ async function decideApproval(aid, decision) {
   }
   try {
     await fb.setDoc(fb.doc(fb.db, 'approvals', aid), patch, { merge: true });
-    if (a.type === 'wbs-shadow' && decision === 'approved' && autoApplied) {
-      alert(`✅ 승인 완료 · 마스터 WBS에 자동 반영 (Rev. ${patch.appliedRev}).`);
-    } else if (a.type === 'schedule-change' && decision === 'approved') {
-      alert('✅ 승인 완료.\n텍스트 요청은 자동 반영되지 않으니, 프로젝트 관리에서 실제 WBS를 수정해주세요.');
+    if (decision === 'rejected') {
+      alert('반려 처리되었습니다. 기안자에게 표시됩니다.');
+    } else if (a.type === 'wbs-shadow' && finalApproved && autoApplied) {
+      alert(`✅ 최종 승인 완료 · 마스터 WBS에 자동 반영 (Rev. ${patch.appliedRev}).`);
+    } else if (!finalApproved) {
+      const nextNm = (getU(patch.approver) || {}).name || '다음 결재자';
+      alert(`✅ 승인 완료 · ${nextNm}님에게 결재가 넘어갔습니다.`);
+    } else if (a.type === 'schedule-change') {
+      alert('✅ 최종 승인 완료.\n텍스트 요청은 자동 반영되지 않으니, 프로젝트 관리에서 실제 WBS를 수정해주세요.');
     } else {
-      alert(`✅ ${decision==='approved'?'승인':'반려'} 처리 완료.`);
+      alert('✅ 최종 승인 완료 · 결재가 완결되었습니다.');
     }
     closeModal();
-    document.querySelector('#modal .modal').style.maxWidth = '';
-    document.getElementById('modalConfirm').style.display = '';
-    document.getElementById('modalCancel').textContent = '취소';
   } catch (e) { alert('처리 중 오류: ' + (e.message || e)); }
 }
-function openApproval() {
+// ── 신규 기안 결재선 편집기 (모달 동안 유지되는 임시 상태) ──
+let _draftLine = [];
+let _draftTpl = 'iso';
+function _lineUserOpts(sel) {
+  return (state.users || []).map(u => `<option value="${u.id}" ${u.id===sel?'selected':''}>${u.name} ${u.title||''} · ${u.dept||''}</option>`).join('');
+}
+function _renderLineEditor() {
+  const box = document.getElementById('apLineBox');
+  if (!box) return;
+  box.innerHTML = _draftLine.map((s, i) => `
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+      <select class="fs" style="width:104px;flex:0 0 auto;" ${i===0?'disabled':''} onchange="_setDraftRole(${i},this.value)">
+        ${ROLE_OPTIONS.map(r=>`<option ${r===s.role?'selected':''}>${r}</option>`).join('')}
+      </select>
+      <select class="fs" style="flex:1;" ${i===0?'disabled':''} onchange="_setDraftUid(${i},this.value)">
+        <option value="">(선택)</option>${_lineUserOpts(s.uid)}
+      </select>
+      ${i===0
+        ? '<span style="font-size:11px;color:var(--text-lighter);flex:0 0 auto;width:70px;text-align:center;">기안자 본인</span>'
+        : `<button class="btn btn-sm" onclick="_draftLineMove(${i},-1)" ${i<=1?'disabled':''}>▲</button>
+           <button class="btn btn-sm" onclick="_draftLineMove(${i},1)" ${i>=_draftLine.length-1?'disabled':''}>▼</button>
+           <button class="btn btn-sm" style="color:var(--danger);" onclick="_draftLineRemove(${i})">✕</button>`}
+    </div>`).join('')
+    + `<button class="btn btn-sm" style="margin-top:2px;" onclick="_draftLineAdd()">+ 결재 단계 추가</button>`;
+}
+function _setDraftRole(i, v) { if(_draftLine[i]) _draftLine[i].role = v; }
+function _setDraftUid(i, v) { if(_draftLine[i]) _draftLine[i].uid = v; }
+function _draftLineMove(i, d) { const j=i+d; if(j<1||j>=_draftLine.length) return; const t=_draftLine[i]; _draftLine[i]=_draftLine[j]; _draftLine[j]=t; _renderLineEditor(); }
+function _draftLineRemove(i) { if(i===0) return; _draftLine.splice(i,1); _renderLineEditor(); }
+function _draftLineAdd() { _draftLine.push({ role:'검토', uid:'' }); _renderLineEditor(); }
+function _onTplChange(v) {
+  _draftTpl = v;
   const me = getU(state.currentUser);
-  // 결재자 후보: 내 부서장(같은 부서 · manager 등급) + 임원 + 슈퍼
-  const candidates = (state.users || []).filter(u => u.id !== state.currentUser && (
-    (u.dept === (me && me.dept) && u.grade === 'manager') || u.grade === 'exec' || u.grade === 'super'
-  ));
-  const apprOpts = candidates.map(u => `<option value="${u.id}">${u.name} ${u.title||''} (${u.dept||''})</option>`).join('');
+  _draftLine = (_apLinePrefs[v] && _apLinePrefs[v].length) ? _apLinePrefs[v].map(s=>({...s})) : _autoFillLine(v, me);
+  if (!_draftLine.length || _draftLine[0].role !== '작성') _draftLine.unshift({ role:'작성', uid: me.id });
+  _draftLine[0] = { role:'작성', uid: me.id };
+  const amtRow = document.getElementById('apAmtRow');
+  if (amtRow) amtRow.style.display = (APPROVAL_TEMPLATES[v] && APPROVAL_TEMPLATES[v].amount) ? '' : 'none';
+  _renderLineEditor();
+}
+async function openApproval() {
+  const me = getU(state.currentUser);
+  await _loadApLinePrefs();
+  const tplOpts = Object.entries(APPROVAL_TEMPLATES).map(([k,t]) => `<option value="${k}">${t.icon} ${t.label}</option>`).join('');
   openModal('신규 기안', `
-    <div class="fg"><label class="fl">제목</label><input class="fi" id="apT" placeholder="예: 6월 출장 신청"></div>
-    <div class="fg"><label class="fl">유형</label><select class="fs" id="apTy"><option>출장</option><option>구매</option><option>경비</option><option>품의</option><option>기타</option></select></div>
-    <div class="fg"><label class="fl">결재자</label><select class="fs" id="apAppr">${apprOpts||'<option value="">지정 가능한 결재자가 없습니다</option>'}</select></div>
-    <div class="fg"><label class="fl">금액 (원)</label><input class="fi" type="number" id="apA" placeholder="0"></div>
-    <div class="fg"><label class="fl">상세 내용</label><input class="fi" id="apDesc" placeholder="결재자에게 전달할 내용"></div>
+    <div class="fg"><label class="fl">문서 유형 (결재선 템플릿)</label><select class="fs" id="apTy" onchange="_onTplChange(this.value)">${tplOpts}</select></div>
+    <div class="fg"><label class="fl">제목</label><input class="fi" id="apT" placeholder="예: 디지털 캘리퍼 3EA 구매 요청"></div>
+    <div class="fg" id="apAmtRow" style="display:none;"><label class="fl">금액 (원)</label><input class="fi" type="number" id="apA" placeholder="0"></div>
+    <div class="fg"><label class="fl">상세 내용</label><textarea class="fi" id="apDesc" rows="3" placeholder="결재자에게 전달할 내용" style="resize:vertical;"></textarea></div>
+    <div class="fg"><label class="fl">결재선 <span style="font-weight:400;color:var(--text-lighter);">· 부서 직급 기준 자동 추천됨, 필요시 수정 (작성자=본인 고정)</span></label><div id="apLineBox"></div></div>
   `, async () => {
     const t = document.getElementById('apT').value.trim();
     if (!t) return alert('제목은 필수입니다.');
-    const appr = document.getElementById('apAppr').value;
-    if (!appr) return alert('결재자를 선택해주세요.');
-    const ty = document.getElementById('apTy').value;
-    const amount = parseInt(document.getElementById('apA').value) || 0;
+    const approvers = _draftLine.slice(1);
+    if (!approvers.length) return alert('결재자를 최소 1명 지정해주세요.');
+    if (approvers.some(s => !s.uid)) return alert('결재선에 비어있는 단계가 있습니다. 각 단계의 결재자를 선택해주세요.');
+    const amount = parseInt((document.getElementById('apA')||{}).value) || 0;
     const desc = document.getElementById('apDesc').value.trim();
     const today = new Date().toISOString().slice(0,10);
     const id = 'app_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-    const doc = { id, title:t, type:ty, author: state.currentUser, approver: appr, to: appr,
-                  status:'pending', date: today, amount, description: desc, createdAt: Date.now() };
-    try { await fb.setDoc(fb.doc(fb.db, 'approvals', id), doc); closeModal(); }
-    catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
+    // 결재선 상태: 작성=자동 승인, 첫 결재자=pending, 나머지=waiting
+    const line = _draftLine.map((s, i) => (i === 0)
+      ? { role:'작성', uid: me.id, status:'approved', decidedAt: Date.now(), note:'' }
+      : { role: s.role, uid: s.uid, status: (i === 1 ? 'pending' : 'waiting'), decidedAt: null, note:'' });
+    const doc = { id, title:t, type:_draftTpl, author: state.currentUser,
+                  approver: line[1].uid, to: line[1].uid,
+                  approvalLine: line, status:'pending', date: today, amount, description: desc, createdAt: Date.now() };
+    try {
+      await fb.setDoc(fb.doc(fb.db, 'approvals', id), doc);
+      await _saveApLinePref(_draftTpl, _draftLine);
+      closeModal();
+    } catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
   });
+  _onTplChange('iso');
 }
 
 /* ═════════════ 🎬 초기화 ═════════════ */
