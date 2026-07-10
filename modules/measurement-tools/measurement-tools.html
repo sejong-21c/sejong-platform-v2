@@ -24,6 +24,8 @@
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <!-- qrcode.js: 관리번호 → QR 이미지 생성 (라벨 인쇄) -->
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<!-- xlsx-js-style: 엑셀 대장 출력 (WBS 모듈과 동일 버전) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
 :root {
   --primary: #1976D2; --primary-hover: #1565C0; --primary-light: #E3F2FD; --primary-lighter: #F0F7FF;
@@ -86,6 +88,9 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .mt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .mt-table thead th { background: var(--bg); padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-light); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1; }
 .mt-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.mt-table td.nowrap, .mt-table th.nowrap { white-space: nowrap; }
+.mt-table td.actions { white-space: nowrap; }
+.mt-table td.actions .ico-btn { display: inline-block; }
 .mt-table tr.row-warn td { background: #FFFDE7; }
 .mt-table tr.row-danger td { background: #FFEBEE; }
 .mt-table tr:hover td { background: var(--primary-lighter); }
@@ -407,6 +412,29 @@ function calStatus(nextCal) {
   if (d < CAL_DANGER_DAYS) return { level: 'danger', label: `만기 ${Math.abs(d)}일 경과`, klass: 'red', days: d };
   if (d <= CAL_WARN_DAYS) return { level: 'warn', label: `${d}일 남음`, klass: 'orange', days: d };
   return { level: 'ok', label: `${d}일 남음`, klass: 'green', days: d };
+}
+
+/* 유효기한(개월) → "1 year" / "N years" / "N months" 표기 (양식 컨벤션) */
+function validityText(months) {
+  const m = Number(months || 0);
+  if (!m) return '';
+  if (m === 12) return '1 year';
+  if (m % 12 === 0) return `${m/12} years`;
+  return `${m} months`;
+}
+/* 교정 계획일 = 교정 만료일 - 14일 (양식 관례) */
+function plannedCalDate(nextCal) {
+  if (!nextCal) return '';
+  const d = new Date(nextCal); if (isNaN(d)) return '';
+  d.setDate(d.getDate() - 14);
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+/* 제조사 + 모델 → 양식의 "Manuf' & Model" 한 필드 병기 */
+function manufAndModel(t) {
+  const m = t.maker || '', mo = t.model || '';
+  if (m && mo) return `${m}\n(${mo})`;
+  return m || mo || '';
 }
 
 function findByCode(code) {
@@ -863,8 +891,10 @@ function renderMaster() {
         <option value="none"   ${view.filterCal==='none'  ?'selected':''}>미설정</option>
       </select>
       <div style="flex:1;"></div>
+      <button class="btn" onclick="exportExcel()" title="측정 및 시험 장비 종합관리대장 (SJ-EGMR-001) 양식으로 엑셀 다운로드">📊 엑셀 대장</button>
+      <button class="btn" onclick="exportPDF()" title="A4 가로 인쇄 · 브라우저에서 'PDF로 저장' 선택">🖨 PDF 대장</button>
       ${qa ? `
-        <button class="btn" onclick="openPrintAll()">🖨 QR 라벨 인쇄</button>
+        <button class="btn" onclick="openPrintAll()">🏷 QR 라벨</button>
         <button class="btn btn-primary" onclick="openTool('')">➕ 신규 등록</button>
       ` : ''}
     </div>
@@ -873,14 +903,15 @@ function renderMaster() {
       <table class="mt-table">
         <thead><tr>
           <th style="width:56px;"></th>
-          <th style="width:120px;">관리번호</th>
-          <th>기구명</th>
-          <th style="width:130px;">제조사/모델</th>
-          <th style="width:110px;">규격</th>
-          <th style="width:90px;">상태</th>
-          <th style="width:110px;">보관장소</th>
-          <th style="width:130px;">다음 검교정</th>
-          <th style="width:150px;">액션</th>
+          <th style="width:100px;">관리번호<br><span style="font-weight:400;color:var(--text-lighter);">ID No.</span></th>
+          <th style="width:100px;">기기번호<br><span style="font-weight:400;color:var(--text-lighter);">Serial No.</span></th>
+          <th>품명<br><span style="font-weight:400;color:var(--text-lighter);">Description</span></th>
+          <th style="width:120px;">제조사/모델</th>
+          <th style="width:90px;">허용공차<br><span style="font-weight:400;color:var(--text-lighter);">Tolerance</span></th>
+          <th style="width:110px;">범위<br><span style="font-weight:400;color:var(--text-lighter);">Range</span></th>
+          <th style="width:85px;">상태</th>
+          <th style="width:130px;">교정 만료일<br><span style="font-weight:400;color:var(--text-lighter);">Expiry</span></th>
+          <th style="width:200px;">액션</th>
         </tr></thead>
         <tbody>
         ${filtered.map(t => {
@@ -889,17 +920,18 @@ function renderMaster() {
           return `
             <tr class="${rowClass}">
               <td>${t.photo?`<img src="${esc(t.photo)}" class="photo-thumb">`:`<div class="photo-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--text-lighter);">📷</div>`}</td>
-              <td><strong>${esc(t.code)}</strong></td>
+              <td class="nowrap"><strong>${esc(t.code)}</strong></td>
+              <td class="nowrap" style="font-family:monospace;font-size:12px;">${esc(t.serialNo||'-')}</td>
               <td>${esc(t.name)}</td>
               <td style="font-size:12px;color:var(--text-light);">${esc(t.maker||'-')}${t.model?'<br>'+esc(t.model):''}</td>
-              <td>${esc(t.spec||'-')}</td>
+              <td class="nowrap" style="font-size:12px;">${esc(t.tolerance||'-')}</td>
+              <td class="nowrap">${esc(t.spec||'-')}</td>
               <td>${statusPill(t)}</td>
-              <td>${isCheckedOut(t)?`<span class="status-pill status-out">반출중</span>`:esc(t.location||'-')}</td>
-              <td class="${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">
+              <td class="nowrap ${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">
                 ${fmtDate(t.nextCalibration)}
                 <div style="font-size:11px;font-weight:400;">${st.label}</div>
               </td>
-              <td>
+              <td class="actions">
                 <button class="ico-btn" onclick="openDetail('${t.id}')">상세</button>
                 ${qa ? `
                   <button class="ico-btn" onclick="openTool('${t.id}')">수정</button>
@@ -993,24 +1025,32 @@ function toolFormHTML(t) {
   return `
     <div class="form-grid">
       <div class="fg">
-        <label class="fl">관리번호 <span style="color:var(--danger);">*</span></label>
-        <input class="fi" id="tm-code" value="${esc(v.code||'')}" placeholder="예: MT-2025-001">
+        <label class="fl">관리번호 (ID No.) <span style="color:var(--danger);">*</span></label>
+        <input class="fi" id="tm-code" value="${esc(v.code||'')}" placeholder="예: SJ-M-1, SJ-P-1">
       </div>
       <div class="fg">
-        <label class="fl">기구명 <span style="color:var(--danger);">*</span></label>
-        <input class="fi" id="tm-name" value="${esc(v.name||'')}" placeholder="예: 디지털 캘리퍼">
+        <label class="fl">기기번호 (Serial No.)</label>
+        <input class="fi" id="tm-serial" value="${esc(v.serialNo||'')}" placeholder="예: 14288232">
       </div>
       <div class="fg">
-        <label class="fl">제조사</label>
-        <input class="fi" id="tm-maker" value="${esc(v.maker||'')}">
+        <label class="fl">품명 (Description) <span style="color:var(--danger);">*</span></label>
+        <input class="fi" id="tm-name" value="${esc(v.name||'')}" placeholder="예: Vernier caliper">
       </div>
       <div class="fg">
-        <label class="fl">모델</label>
+        <label class="fl">제조사 (Manuf')</label>
+        <input class="fi" id="tm-maker" value="${esc(v.maker||'')}" placeholder="예: Mitutoyo">
+      </div>
+      <div class="fg">
+        <label class="fl">모델 (Model)</label>
         <input class="fi" id="tm-model" value="${esc(v.model||'')}">
       </div>
       <div class="fg">
-        <label class="fl">규격</label>
-        <input class="fi" id="tm-spec" value="${esc(v.spec||'')}" placeholder="예: 0-150mm ± 0.02mm">
+        <label class="fl">허용공차 (Tolerance)</label>
+        <input class="fi" id="tm-tolerance" value="${esc(v.tolerance||'')}" placeholder="예: ±0.05mm">
+      </div>
+      <div class="fg">
+        <label class="fl">범위 (Range)</label>
+        <input class="fi" id="tm-spec" value="${esc(v.spec||'')}" placeholder="예: 0~150mm 0.05mm">
       </div>
       <div class="fg">
         <label class="fl">상태</label>
@@ -1126,8 +1166,10 @@ function saveTool() {
   const payload = {
     code,
     name,
+    serialNo: document.getElementById('tm-serial').value.trim(),
     maker:    document.getElementById('tm-maker').value.trim(),
     model:    document.getElementById('tm-model').value.trim(),
+    tolerance:document.getElementById('tm-tolerance').value.trim(),
     spec:     document.getElementById('tm-spec').value.trim(),
     status:   document.getElementById('tm-status').value,
     location: document.getElementById('tm-location').value.trim(),
@@ -1186,14 +1228,17 @@ function openDetail(id) {
       </div>
       <div>
         <table style="width:100%;font-size:13px;">
-          <tr><td style="padding:5px 8px;color:var(--text-light);width:100px;">상태</td><td>${statusPill(t)}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);width:110px;">상태</td><td>${statusPill(t)}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">기기번호 <span style="color:var(--text-lighter);font-size:11px;">(Serial No.)</span></td><td>${esc(t.serialNo||'-')}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">제조사/모델</td><td>${esc(t.maker||'-')} / ${esc(t.model||'-')}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">규격</td><td>${esc(t.spec||'-')}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">허용공차 <span style="color:var(--text-lighter);font-size:11px;">(Tolerance)</span></td><td>${esc(t.tolerance||'-')}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">범위 <span style="color:var(--text-lighter);font-size:11px;">(Range)</span></td><td>${esc(t.spec||'-')}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">보관장소</td><td>${esc(t.location||'-')}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">소유부서</td><td>${esc(t.ownerDept||'-')}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">최근 검교정</td><td>${fmtDate(t.lastCalibration)}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">주기</td><td>${t.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH}개월</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">다음 검교정</td><td class="${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">${fmtDate(t.nextCalibration)} · ${st.label}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">최근 검교정 <span style="color:var(--text-lighter);font-size:11px;">(Cal. Date)</span></td><td>${fmtDate(t.lastCalibration)}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">유효기한 <span style="color:var(--text-lighter);font-size:11px;">(Validity)</span></td><td>${validityText(t.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH)} (${t.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH}개월)</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">교정 만료일 <span style="color:var(--text-lighter);font-size:11px;">(Expiry)</span></td><td class="${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">${fmtDate(t.nextCalibration)} · ${st.label}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">교정 계획일 <span style="color:var(--text-lighter);font-size:11px;">(Planned)</span></td><td>${fmtDate(plannedCalDate(t.nextCalibration))}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">검교정기관</td><td>${esc(t.calibrationOrg||'-')}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">성적서</td><td>${t.certificateUrl?`<a href="${esc(t.certificateUrl)}" target="_blank">📄 열기</a>`:'-'}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">구매</td><td>${fmtDate(t.purchaseDate)} ${t.purchasePrice?' · '+Number(t.purchasePrice).toLocaleString()+'원':''}</td></tr>
@@ -1353,6 +1398,316 @@ function buildPrintGrid(list) {
   window.addEventListener('afterprint', onAfter);
 }
 
+/* ══════════ 엑셀 대장 출력 (SJ-EGMR-001_rev.4 양식) ══════════ */
+function exportExcel() {
+  if (typeof XLSX === 'undefined') { alert('Excel 라이브러리 로딩 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  const list = tools
+    .filter(t => t.status !== 'scrap')
+    .sort((a,b) => (a.code||'').localeCompare(b.code||'', undefined, { numeric: true }));
+
+  // 헤더 2단 (양식 그대로): 큰 그룹 + 세부 컬럼
+  const rows = [];
+  // R1: 문서번호 + 제목 오른쪽
+  rows.push(['측정 및 시험 장비 종합관리대장','','','','','','','','','','문서번호 : SJ-EGMR-001_rev.4']);
+  rows.push(['Measuring & Test Equipment General Management Register']);
+  rows.push([]);
+  // 서명란 헤더
+  rows.push(['','','','','','','','작성 (Prepared)','검토 (Checked)','승인 (approved)','']);
+  rows.push(['','','','','','','','','','','']);
+  rows.push([]);
+  // 그룹 헤더 (행 인덱스 6)
+  rows.push([
+    'ID No.\n(관리번호)',
+    'Serial No.\n(기기번호)',
+    'Equipment Management (측정장비 관리)', '', '', '',
+    'Calibration Management (교정 관리)', '', '', '',
+    'Remark\n(비고)'
+  ]);
+  // 세부 컬럼 헤더 (행 인덱스 7)
+  rows.push([
+    '',
+    '',
+    "Description\n(품 명)",
+    "Manuf' & Model\n(제작회사 및 형식)",
+    'Acceptance\nTolerance Range\n(허용공차)',
+    'Range\n(범위)',
+    'Calibration Date\n(교정 일자)',
+    'Calibration Validity\n(유효 기한)',
+    'Calibration Expiry\n(교정 만료일)',
+    'Planned Calibration\n(교정 계획일)',
+    ''
+  ]);
+
+  // 데이터
+  list.forEach(t => {
+    rows.push([
+      t.code || '',
+      t.serialNo || '',
+      t.name || '',
+      manufAndModel(t),
+      t.tolerance || '',
+      t.spec || '',
+      t.lastCalibration || '',
+      validityText(t.calibrationCycle || DEFAULT_CAL_CYCLE_MONTH),
+      t.nextCalibration || '',
+      plannedCalDate(t.nextCalibration),
+      t.note || ''
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // 셀 병합
+  ws['!merges'] = [
+    { s:{r:0,c:0}, e:{r:0,c:9} },     // 제목 (한글)
+    { s:{r:1,c:0}, e:{r:1,c:9} },     // 제목 (영문)
+    { s:{r:0,c:10}, e:{r:1,c:10} },   // 문서번호
+    { s:{r:3,c:7}, e:{r:4,c:7} },     // 작성
+    { s:{r:3,c:8}, e:{r:4,c:8} },     // 검토
+    { s:{r:3,c:9}, e:{r:4,c:9} },     // 승인
+    { s:{r:6,c:0}, e:{r:7,c:0} },     // ID No 세로 병합
+    { s:{r:6,c:1}, e:{r:7,c:1} },     // Serial No 세로 병합
+    { s:{r:6,c:2}, e:{r:6,c:5} },     // Equipment Management 가로
+    { s:{r:6,c:6}, e:{r:6,c:9} },     // Calibration Management 가로
+    { s:{r:6,c:10}, e:{r:7,c:10} },   // Remark 세로 병합
+  ];
+
+  // 컬럼 폭
+  ws['!cols'] = [
+    { wch: 12 },  // ID No.
+    { wch: 14 },  // Serial No.
+    { wch: 28 },  // Description
+    { wch: 20 },  // Manuf & Model
+    { wch: 18 },  // Tolerance
+    { wch: 22 },  // Range
+    { wch: 13 },  // Cal Date
+    { wch: 12 },  // Validity
+    { wch: 13 },  // Expiry
+    { wch: 13 },  // Planned
+    { wch: 16 },  // Remark
+  ];
+
+  // 행 높이
+  ws['!rows'] = [
+    { hpt: 24 }, { hpt: 18 }, { hpt: 6 },
+    { hpt: 14 }, { hpt: 22 }, { hpt: 6 },
+    { hpt: 30 }, { hpt: 42 }
+  ];
+  for (let i = 8; i < rows.length; i++) ws['!rows'][i] = { hpt: 22 };
+
+  // 스타일
+  const fontKR = (extra) => ({ name: '맑은 고딕', sz: 10, ...extra });
+  const border = { style: 'thin', color: { rgb: '444444' } };
+  const boxBorder = { top: border, bottom: border, left: border, right: border };
+  const hdrStyle = {
+    font: fontKR({ bold: true, sz: 10 }),
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    fill: { patternType: 'solid', fgColor: { rgb: 'EEEEEE' } },
+    border: boxBorder
+  };
+  const cellStyle = {
+    font: fontKR(),
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: boxBorder
+  };
+  const titleStyle = {
+    font: fontKR({ bold: true, sz: 14 }),
+    alignment: { horizontal: 'center', vertical: 'center' }
+  };
+  const titleEnStyle = {
+    font: fontKR({ bold: true, sz: 10, italic: true }),
+    alignment: { horizontal: 'center', vertical: 'center' }
+  };
+  const docNoStyle = {
+    font: fontKR({ bold: true, sz: 10 }),
+    alignment: { horizontal: 'right', vertical: 'center' }
+  };
+  const signStyle = {
+    font: fontKR({ bold: true, sz: 10 }),
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: boxBorder
+  };
+
+  // 스타일 적용
+  ws[XLSX.utils.encode_cell({r:0,c:0})] = { v: rows[0][0], s: titleStyle };
+  ws[XLSX.utils.encode_cell({r:1,c:0})] = { v: rows[1][0], s: titleEnStyle };
+  ws[XLSX.utils.encode_cell({r:0,c:10})] = { v: rows[0][10], s: docNoStyle };
+  // 서명란
+  [7,8,9].forEach(c => {
+    const label = c===7 ? '작성 (Prepared)' : (c===8 ? '검토 (Checked)' : '승인 (approved)');
+    ws[XLSX.utils.encode_cell({r:3,c})] = { v: label, s: signStyle };
+  });
+
+  // 헤더 셀 (r=6,7)
+  for (let c = 0; c < 11; c++) {
+    ['6','7'].forEach(r => {
+      const addr = XLSX.utils.encode_cell({r:parseInt(r),c});
+      if (ws[addr]) ws[addr].s = hdrStyle;
+      else ws[addr] = { v: '', s: hdrStyle };
+    });
+  }
+
+  // 데이터 셀
+  for (let r = 8; r < rows.length; r++) {
+    for (let c = 0; c < 11; c++) {
+      const addr = XLSX.utils.encode_cell({r,c});
+      if (!ws[addr]) ws[addr] = { v: '' };
+      ws[addr].s = { ...cellStyle };
+      // 비고에 "사용금지" 있으면 빨간 볼드
+      if (c === 10 && String(rows[r][c]||'').includes('사용금지')) {
+        ws[addr].s.font = fontKR({ bold: true, sz: 10, color: { rgb: 'C62828' } });
+      }
+    }
+  }
+
+  // 인쇄 설정 (A4 가로)
+  ws['!pageSetup'] = { orientation: 'landscape', paperSize: 9, fitToWidth: 1, fitToHeight: 0 };
+  ws['!margins'] = { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 };
+
+  // ref 재계산
+  ws['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:rows.length-1,c:10} });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '측정장비 관리대장');
+
+  const ymd = today().replace(/-/g,'');
+  XLSX.writeFile(wb, `측정_및_시험_장비_종합관리대장_${ymd}.xlsx`);
+}
+
+/* ══════════ PDF 대장 출력 (브라우저 인쇄 → PDF 저장) ══════════ */
+function exportPDF() {
+  const list = tools
+    .filter(t => t.status !== 'scrap')
+    .sort((a,b) => (a.code||'').localeCompare(b.code||'', undefined, { numeric: true }));
+  if (list.length === 0) { alert('출력할 측정기구가 없습니다.'); return; }
+
+  const PER_PAGE = 16;
+  const totalPages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  let pagesHtml = '';
+  for (let p = 0; p < totalPages; p++) {
+    const chunk = list.slice(p * PER_PAGE, (p+1) * PER_PAGE);
+    pagesHtml += `
+      <div class="ledger-page">
+        <div class="ledger-top">
+          <div class="ledger-sign">
+            <table class="sign-tbl">
+              <tr><th>작성<br>(Prepared)</th><th>검토<br>(Checked)</th><th>승인<br>(approved)</th></tr>
+              <tr><td></td><td></td><td></td></tr>
+            </table>
+          </div>
+          <div class="ledger-title">
+            <div class="tt-ko">측정 및 시험 장비 종합관리대장</div>
+            <div class="tt-en">Measuring &amp; Test Equipment General Management Register</div>
+          </div>
+          <div class="ledger-docno">
+            문서번호 : SJ-EGMR-001_rev.4<br>
+            Page ( ${p+1} / ${totalPages} )
+          </div>
+        </div>
+        <table class="ledger-tbl">
+          <thead>
+            <tr>
+              <th rowspan="2" style="width:8%;">ID No.<br><span class="ko">(관리번호)</span></th>
+              <th rowspan="2" style="width:10%;">Serial No.<br><span class="ko">(기기번호)</span></th>
+              <th colspan="4">Equipment Management <span class="ko">(측정장비 관리)</span></th>
+              <th colspan="4">Calibration Management <span class="ko">(교정 관리)</span></th>
+              <th rowspan="2" style="width:9%;">Remark<br><span class="ko">(비고)</span></th>
+            </tr>
+            <tr>
+              <th style="width:15%;">Description<br><span class="ko">(품 명)</span></th>
+              <th style="width:13%;">Manuf' &amp; Model<br><span class="ko">(제작회사 및 형식)</span></th>
+              <th style="width:11%;">Acceptance Tolerance Range<br><span class="ko">(허용공차)</span></th>
+              <th style="width:11%;">Range<br><span class="ko">(범위)</span></th>
+              <th style="width:8%;">Calibration Date<br><span class="ko">(교정 일자)</span></th>
+              <th style="width:6%;">Validity<br><span class="ko">(유효 기한)</span></th>
+              <th style="width:8%;">Expiry<br><span class="ko">(교정 만료일)</span></th>
+              <th style="width:8%;">Planned<br><span class="ko">(교정 계획일)</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${chunk.map(t => {
+              const isBanned = String(t.note||'').includes('사용금지');
+              return `
+              <tr class="${isBanned?'banned':''}">
+                <td>${esc(t.code||'')}</td>
+                <td>${esc(t.serialNo||'')}</td>
+                <td class="al">${esc(t.name||'')}</td>
+                <td>${esc(t.maker||'')}${t.model?`<br>(${esc(t.model)})`:''}</td>
+                <td>${esc(t.tolerance||'')}</td>
+                <td>${esc(t.spec||'')}</td>
+                <td>${esc(t.lastCalibration||'')}</td>
+                <td>${esc(validityText(t.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH))}</td>
+                <td>${esc(t.nextCalibration||'')}</td>
+                <td>${esc(plannedCalDate(t.nextCalibration))}</td>
+                <td class="rmk">${esc(t.note||'')}</td>
+              </tr>`;
+            }).join('')}
+            ${Array.from({ length: Math.max(0, PER_PAGE - chunk.length) }).map(() => `
+              <tr class="empty-row">
+                ${Array.from({length:11}).map(()=>'<td>&nbsp;</td>').join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="ledger-foot">
+          <div>SC-C02-03</div>
+          <div>(주)세종기술 SEJONG TECHNOLOGY Co., Ltd.</div>
+          <div>A4(210x297)mm</div>
+        </div>
+      </div>
+    `;
+  }
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>측정 및 시험 장비 종합관리대장</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: "맑은 고딕", "Malgun Gothic", -apple-system, sans-serif; color: #000; background: #fff; }
+  .ledger-page { width: 100%; padding: 4mm 0; page-break-after: always; }
+  .ledger-page:last-child { page-break-after: auto; }
+  .ledger-top { display: flex; align-items: stretch; justify-content: space-between; margin-bottom: 6px; gap: 8px; }
+  .ledger-sign { flex: 0 0 auto; }
+  .sign-tbl { border-collapse: collapse; font-size: 8pt; }
+  .sign-tbl th { border: 1px solid #333; padding: 3px 6px; background: #f0f0f0; font-weight: 700; width: 60px; }
+  .sign-tbl td { border: 1px solid #333; height: 26px; }
+  .ledger-title { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+  .tt-ko { font-size: 14pt; font-weight: 700; margin-bottom: 2px; }
+  .tt-en { font-size: 9pt; font-style: italic; color: #333; }
+  .ledger-docno { flex: 0 0 auto; text-align: right; font-size: 8pt; align-self: flex-start; margin-top: 4px; }
+  .ledger-tbl { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+  .ledger-tbl th { border: 1px solid #333; background: #EEE; padding: 3px 2px; text-align: center; font-weight: 700; }
+  .ledger-tbl td { border: 1px solid #333; padding: 3px 2px; text-align: center; vertical-align: middle; line-height: 1.25; }
+  .ledger-tbl td.al { text-align: left; padding-left: 4px; }
+  .ledger-tbl td.rmk { color: #333; font-size: 7pt; }
+  .ledger-tbl tr.banned td { color: #C62828; font-weight: 700; }
+  .ledger-tbl tr.banned td.rmk { color: #C62828; }
+  .ledger-tbl tr.empty-row td { color: transparent; }
+  .ko { font-weight: 400; font-size: 7pt; color: #555; }
+  .ledger-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 8pt; color: #333; border-top: 1px solid #666; padding-top: 3px; }
+  @media screen {
+    body { padding: 20px; background: #ddd; }
+    .ledger-page { background: #fff; box-shadow: 0 0 8px rgba(0,0,0,.2); margin: 0 auto 20px; padding: 15mm; max-width: 290mm; }
+  }
+  .no-print-bar { position: fixed; top: 10px; right: 10px; background: #1976D2; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; border: none; z-index: 100; }
+  @media print { .no-print-bar { display: none; } }
+</style>
+</head>
+<body>
+  <button class="no-print-bar" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+  ${pagesHtml}
+  <script>
+    window.addEventListener('load', () => setTimeout(() => window.print(), 400));
+  </` + `script>
+</body>
+</html>`);
+  w.document.close();
+}
+
 /* ══════════ 카메라 스캔 ══════════ */
 let _camStream = null, _camAnim = null, _camScanning = false;
 async function openCameraScan() {
@@ -1437,6 +1792,8 @@ window.openCameraScan = openCameraScan;
 window.closeCameraScan = closeCameraScan;
 window.printOne = printOne;
 window.openPrintAll = openPrintAll;
+window.exportExcel = exportExcel;
+window.exportPDF = exportPDF;
 window.view = view;
 
 /* ══════════ 부팅 ══════════ */
