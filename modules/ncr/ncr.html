@@ -103,6 +103,10 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .ntr-chart-wrap { background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow: hidden; }
 .ntr-chart-title { font-size: 12px; font-weight: 700; color: var(--text-light); margin-bottom: 10px; }
 .ntr-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.ntr-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ntr-filter-chip { display: inline-flex; align-items: center; gap: 4px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.ntr-filter-chip:hover { background: #ddd6fe; }
+.ntr-filter-clear { font-size: 12px; color: var(--text-light); text-decoration: underline; cursor: pointer; margin-left: 4px; }
 .ntr-kpi { background: #f5f3ff; border-radius: 8px; padding: 14px; text-align: center; }
 .ntr-kpi .val { font-size: 28px; font-weight: 800; color: #7c3aed; }
 .ntr-kpi .lbl { font-size: 11px; color: var(--text-light); margin-top: 2px; }
@@ -1153,6 +1157,7 @@ async function viewNCRFile(ncrId) {
 /* ═══ 경향분석 ═══ */
 function openNCRTrend() {
   loadState();
+  ntrDrill = {};
   const ncrs = state.ncrs || [];
   const years = [...new Set(ncrs.map(n => (n.issuedAt||'').slice(0,4)).filter(Boolean))].sort();
   const yrSel = document.getElementById('ntr-year');
@@ -1185,6 +1190,16 @@ function _ntrFiltered() {
       if (pj.startsWith('__direct__::')) { if (!(n.proj==='__direct__' && (n.meta?.projDirect||'')===pj.slice('__direct__::'.length))) return false; }
       else if (n.proj !== pj) return false;
     }
+    // 차트 클릭으로 선택한 드릴다운 필터(여러 개 동시 적용, AND 조건)
+    if (ntrDrill.ym && !d.startsWith(ntrDrill.ym)) return false;
+    if (ntrDrill.projLabel) {
+      const lbl = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (getP(n.proj)?.code||'미지정');
+      if (lbl !== ntrDrill.projLabel) return false;
+    }
+    if (ntrDrill.location && n.location !== ntrDrill.location) return false;
+    if (ntrDrill.cause && n.cause !== ntrDrill.cause) return false;
+    if (ntrDrill.causeDetail && n.causeDetail !== ntrDrill.causeDetail) return false;
+    if (ntrDrill.disposition && n.disposition !== ntrDrill.disposition) return false;
     return true;
   });
 }
@@ -1193,7 +1208,37 @@ function _count(arr, key) {
   return arr.reduce((acc, n) => { acc[n[key]] = (acc[n[key]]||0)+1; return acc; }, {});
 }
 
-function _barSvg(entries, colors) {
+// v29.43: 경향분석 차트를 클릭하면 그 값으로 상세목록을 필터링(드릴다운).
+// 여러 차트에서 동시에 선택 가능 — 예: 발생장소=사내 이면서 처리방안=수리.
+// 같은 값을 다시 클릭하면 해제. 클릭 값은 onclick 속성 문자열에 그대로 들어가므로
+// (프로젝트명 등 사용자 입력값 포함) HTML/JS 이스케이프를 거쳐야 안전하다.
+let ntrDrill = {};
+function _drillEsc(s) {
+  return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+}
+// v29.43: 차트 라벨(프로젝트 직접입력명 등 자유 텍스트 포함)이 innerHTML로
+// 그대로 삽입되므로, 표시용 텍스트도 이스케이프해 저장형 XSS를 막는다.
+function _htmlEsc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function toggleNtrDrill(field, val) {
+  if (ntrDrill[field] === val) delete ntrDrill[field];
+  else ntrDrill[field] = val;
+  renderNCRTrend();
+}
+function clearNtrDrill() { ntrDrill = {}; renderNCRTrend(); }
+function _ntrDrillChips() {
+  const LABELS = { location:'발생장소', cause:'불량원인', causeDetail:'불량원인 상세', disposition:'처리방안', projLabel:'프로젝트', ym:'월' };
+  const keys = Object.keys(ntrDrill);
+  if (!keys.length) return '';
+  const chips = keys.map(k => {
+    const val = k==='ym' ? (()=>{ const [y,m]=ntrDrill[k].split('-'); return `${y}년 ${parseInt(m)}월`; })() : _htmlEsc(ntrDrill[k]);
+    return `<span class="ntr-filter-chip" onclick="toggleNtrDrill('${k}','${_drillEsc(ntrDrill[k])}')">${LABELS[k]||k}: ${val} ✕</span>`;
+  }).join('');
+  return `<div class="ntr-filter-row">${chips}<span class="ntr-filter-clear" onclick="clearNtrDrill()">전체 해제</span></div>`;
+}
+
+function _barSvg(entries, colors, onClickField) {
   if (!entries.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
   const max = Math.max(...entries.map(e=>e[1]), 1);
   const n = entries.length;
@@ -1209,11 +1254,15 @@ function _barSvg(entries, colors) {
     const by = PT + iH - bH;
     const valY = by - 6;   // always above bar; SVG overflow:visible handles if near top
     const lblY = H - PB + (rotate ? 4 : 14);
-    const lbl = label.length > 7 ? label.slice(0, 6) + '…' : label;
+    const lbl = _htmlEsc(label.length > 7 ? label.slice(0, 6) + '…' : label);
     const anchor = rotate ? 'end' : 'middle';
-    return `<rect x="${cx - bW/2}" y="${by}" width="${bW}" height="${bH}" rx="3" fill="${colors[i % colors.length]}"/>
+    const selected = onClickField && ntrDrill[onClickField] === label;
+    const gAttrs = onClickField ? ` style="cursor:pointer;" onclick="toggleNtrDrill('${onClickField}','${_drillEsc(label)}')"` : '';
+    return `<g${gAttrs}>
+      <rect x="${cx - bW/2}" y="${by}" width="${bW}" height="${bH}" rx="3" fill="${colors[i % colors.length]}"${selected?' stroke="#111" stroke-width="2.5"':''}/>
       <text x="${cx}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${val}</text>
-      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="#666"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${lbl}</text>`;
+      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="${selected?'#111':'#666'}" font-weight="${selected?'700':'400'}"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${lbl}</text>
+    </g>`;
   }).join('');
   return `<svg viewBox="-2 -4 ${W+4} ${H+8}" style="width:100%;display:block;overflow:visible;">
     <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
@@ -1222,7 +1271,7 @@ function _barSvg(entries, colors) {
   </svg>`;
 }
 
-function _donutSvg(entries, colors) {
+function _donutSvg(entries, colors, onClickField) {
   if (!entries.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
   const total = entries.reduce((s,[,v])=>s+v,0);
   if (!total) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
@@ -1241,14 +1290,18 @@ function _donutSvg(entries, colors) {
     const tx = cx + mid_r * Math.cos(midA);
     const ty = cy + mid_r * Math.sin(midA);
     const pct = Math.round(val/total*100);
-    return `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${cx},${cy} Z" fill="${colors[i%colors.length]}"/>
-    ${a > 0.4 ? `<text x="${tx.toFixed(1)}" y="${(ty+3.5).toFixed(1)}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">${pct}%</text>` : ''}`;
+    const selected = onClickField && ntrDrill[onClickField] === label;
+    const gAttrs = onClickField ? ` style="cursor:pointer;" onclick="toggleNtrDrill('${onClickField}','${_drillEsc(label)}')"` : '';
+    return `<g${gAttrs}><path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${cx},${cy} Z" fill="${colors[i%colors.length]}"${selected?' stroke="#111" stroke-width="2"':''}/>
+    ${a > 0.4 ? `<text x="${tx.toFixed(1)}" y="${(ty+3.5).toFixed(1)}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">${pct}%</text>` : ''}</g>`;
   });
   const legend = entries.map(([label,val],i) => {
-    const lbl = label.length > 8 ? label.slice(0,7)+'…' : label;
-    return `<g transform="translate(${LX},${(H-entries.length*rowH)/2+i*rowH})">
-      <rect width="10" height="10" rx="2" fill="${colors[i%colors.length]}"/>
-      <text x="15" y="9" font-size="11" fill="#444">${lbl} (${val})</text>
+    const lbl = _htmlEsc(label.length > 8 ? label.slice(0,7)+'…' : label);
+    const selected = onClickField && ntrDrill[onClickField] === label;
+    const gAttrs = onClickField ? ` style="cursor:pointer;" onclick="toggleNtrDrill('${onClickField}','${_drillEsc(label)}')"` : '';
+    return `<g transform="translate(${LX},${(H-entries.length*rowH)/2+i*rowH})"${gAttrs}>
+      <rect width="10" height="10" rx="2" fill="${colors[i%colors.length]}"${selected?' stroke="#111" stroke-width="1.5"':''}/>
+      <text x="15" y="9" font-size="11" fill="${selected?'#111':'#444'}" font-weight="${selected?'700':'400'}">${lbl} (${val})</text>
     </g>`;
   });
   return `<svg viewBox="0 0 280 ${H}" style="width:100%;display:block;overflow:visible;">
@@ -1278,7 +1331,7 @@ function _fillMonths(raw, yr) {
   return out;
 }
 
-function _lineSvg(monthData, H=160, extraStyle='') {
+function _lineSvg(monthData, H=160, extraStyle='', onClickField) {
   const keys = Object.keys(monthData).sort();
   if (!keys.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
   const vals = keys.map(k => monthData[k]);
@@ -1295,9 +1348,15 @@ function _lineSvg(monthData, H=160, extraStyle='') {
   const pts = xs.map((x,i) => {
     const lbl = sameYr ? (parseInt(keys[i].slice(5))+'월') : keys[i].slice(2);
     const v = vals[i];
-    return `<circle cx="${x}" cy="${ys[i]}" r="3.5" fill="#7c3aed"/>
-    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="#888">${lbl}</text>
-    <text x="${x}" y="${BASE+27}" text-anchor="middle" font-size="9" font-weight="${v>0?'700':'400'}" fill="${v>0?'#7c3aed':'#bbb'}">(${v})</text>`;
+    const selected = onClickField && ntrDrill[onClickField] === keys[i];
+    const clickable = onClickField && v > 0;
+    const gAttrs = clickable ? ` style="cursor:pointer;" onclick="toggleNtrDrill('${onClickField}','${_drillEsc(keys[i])}')"` : '';
+    return `<g${gAttrs}>
+    ${clickable ? `<circle cx="${x}" cy="${ys[i]}" r="10" fill="transparent"/>` : ''}
+    <circle cx="${x}" cy="${ys[i]}" r="${selected?5:3.5}" fill="#7c3aed"${selected?' stroke="#111" stroke-width="1.5"':''}/>
+    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="${selected?'#111':'#888'}" font-weight="${selected?'700':'400'}">${lbl}</text>
+    <text x="${x}" y="${BASE+27}" text-anchor="middle" font-size="9" font-weight="${v>0?'700':'400'}" fill="${v>0?'#7c3aed':'#bbb'}">(${v})</text>
+    </g>`;
   }).join('');
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;${extraStyle}">
     <path d="${area}" fill="#7c3aed" opacity="0.08"/>
@@ -1339,9 +1398,10 @@ function renderNCRTrend() {
       <div class="ntr-kpi"><div class="val" style="color:var(--success);">${ncrs.filter(n=>n.status==='closed').length}</div><div class="lbl">종결</div></div>
       <div class="ntr-kpi"><div class="val">${ncrs.filter(n=>n.grade==='major').length}</div><div class="lbl">중대 등급</div></div>
     </div>
+    ${_ntrDrillChips()}
 
     <div class="ntr-grid">
-      <div class="ntr-chart-wrap"><div class="ntr-chart-title">월별 발생 추이</div>${_lineSvg(byMonth)}</div>
+      <div class="ntr-chart-wrap"><div class="ntr-chart-title">월별 발생 추이</div>${_lineSvg(byMonth, 160, '', 'ym')}</div>
       <div class="ntr-chart-wrap"><div class="ntr-chart-title">프로젝트별</div>${_barSvg((()=>{
         const m={};
         ncrs.forEach(n=>{
@@ -1349,11 +1409,11 @@ function renderNCRTrend() {
           m[label]=(m[label]||0)+1;
         });
         return Object.entries(m).sort((a,b)=>b[1]-a[1]);
-      })(), COLORS)}</div>
-      <div class="ntr-chart-wrap"><div class="ntr-chart-title">발생장소별</div>${_barSvg(Object.entries(_count(ncrs,'location')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-      <div class="ntr-chart-wrap"><div class="ntr-chart-title">불량원인별</div>${_barSvg(Object.entries(_count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-      <div class="ntr-chart-wrap"><div class="ntr-chart-title">불량원인 상세별</div>${_barSvg(Object.entries(_count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-      <div class="ntr-chart-wrap"><div class="ntr-chart-title">처리방안별</div>${_donutSvg(Object.entries(_count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
+      })(), COLORS, 'projLabel')}</div>
+      <div class="ntr-chart-wrap"><div class="ntr-chart-title">발생장소별</div>${_barSvg(Object.entries(_count(ncrs,'location')).sort((a,b)=>b[1]-a[1]), COLORS, 'location')}</div>
+      <div class="ntr-chart-wrap"><div class="ntr-chart-title">불량원인별</div>${_barSvg(Object.entries(_count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]), COLORS, 'cause')}</div>
+      <div class="ntr-chart-wrap"><div class="ntr-chart-title">불량원인 상세별</div>${_barSvg(Object.entries(_count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]), COLORS, 'causeDetail')}</div>
+      <div class="ntr-chart-wrap"><div class="ntr-chart-title">처리방안별</div>${_donutSvg(Object.entries(_count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]), COLORS, 'disposition')}</div>
     </div>
 
     <div class="ntr-section">
@@ -1373,6 +1433,13 @@ function printNCRTrend() {
   const mo   = document.getElementById('ntr-month')?.value || '전체';
   const proj = document.getElementById('ntr-proj')?.options[document.getElementById('ntr-proj').selectedIndex]?.text || '전체';
   const today = new Date().toLocaleDateString('ko-KR');
+  // 화면에서 차트를 클릭해 선택한 드릴다운 필터도 그대로 보고서에 반영되므로,
+  // 어떤 조건이 걸려있는지 상단 메타 정보에 같이 표기한다.
+  const DRILL_LABELS = { location:'발생장소', cause:'불량원인', causeDetail:'불량원인상세', disposition:'처리방안', projLabel:'프로젝트', ym:'월' };
+  const drillDesc = Object.keys(ntrDrill).map(k => {
+    const val = k==='ym' ? (()=>{ const [y,m]=ntrDrill[k].split('-'); return `${y}년 ${parseInt(m)}월`; })() : _htmlEsc(ntrDrill[k]);
+    return `${DRILL_LABELS[k]||k}=${val}`;
+  }).join(', ');
   const ncrs = _ntrFiltered();
   const COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
 
@@ -1425,7 +1492,7 @@ function printNCRTrend() {
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
     <div class="hdr"><h1>📊 NCR 품질 경향분석 보고서</h1>
-      <span class="meta">작성일: ${today} &nbsp;|&nbsp; 기간: ${yr}년 ${mo}월 &nbsp;|&nbsp; 프로젝트: ${proj} &nbsp;|&nbsp; 세종기술 품질관리부</span></div>
+      <span class="meta">작성일: ${today} &nbsp;|&nbsp; 기간: ${yr}년 ${mo}월 &nbsp;|&nbsp; 프로젝트: ${proj}${drillDesc ? ` &nbsp;|&nbsp; 선택 필터: ${drillDesc}` : ''} &nbsp;|&nbsp; 세종기술 품질관리부</span></div>
     <div class="kpi-row">
       <div class="kpi"><div class="v">${ncrs.length}</div><div class="l">전체 건수</div></div>
       <div class="kpi"><div class="v" style="color:#dc2626;">${ncrs.filter(n=>n.status!=='closed').length}</div><div class="l">진행 중</div></div>
