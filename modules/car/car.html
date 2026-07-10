@@ -60,7 +60,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .fl { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 5px; font-weight: 600; }
 .fi, .fs { width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff; }
 .fi:focus, .fs:focus { outline: none; border-color: var(--primary); }
-.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
 .kpi { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
 .kpi-label { font-size: 11px; color: var(--text-light); margin-bottom: 4px; }
 .kpi-value { font-size: 24px; font-weight: 800; }
@@ -94,7 +94,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .ctr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .ctr-chart-wrap { background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow: hidden; }
 .ctr-chart-title { font-size: 12px; font-weight: 700; color: var(--text-light); margin-bottom: 10px; }
-.ctr-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.ctr-kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 .ntr-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .ntr-filter-chip { display: inline-flex; align-items: center; gap: 4px; background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .ntr-filter-chip:hover { background: #bae6fd; }
@@ -213,7 +213,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 
 <script>
 const KEY = 'SJ_FLOW_V04';
-const CAR_STATUS = { 'in-progress':['orange','조치중'], 'replied':['blue','회신완료'], 'closed':['green','완료'] };
+const CAR_STATUS = { 'in-progress':['orange','조치중'], 'closed':['green','완료'] };
 const CAR_QUAL_REQ = [
   '1장. 품질보증 조직','2장. 품질보증 프로그램','3장. 설계관리',
   '4장. 조달관리','5장. 지시, 절차서 및 도면','6장. 문서관리',
@@ -479,7 +479,6 @@ function render() {
   const deleteReqs = (state.carDeleteReqs||[]).filter(r => r.status === 'pending');
 
   const inProg  = cars.filter(c => c.status === 'in-progress').length;
-  const replied = cars.filter(c => c.status === 'replied').length;
   const done    = cars.filter(c => c.status === 'closed').length;
 
   const usedProjs = new Set(cars.map(c => c.proj));
@@ -506,7 +505,6 @@ function render() {
 
     <div class="kpi-grid">
       <div class="kpi"><div class="kpi-label">조치 중</div><div class="kpi-value" style="color:var(--warning);">${inProg}</div><div class="kpi-trend">진행</div></div>
-      <div class="kpi"><div class="kpi-label">회신 완료</div><div class="kpi-value" style="color:var(--primary);">${replied}</div><div class="kpi-trend">검토 중</div></div>
       <div class="kpi"><div class="kpi-label">완료</div><div class="kpi-value" style="color:var(--success);">${done}</div><div class="kpi-trend">종결</div></div>
       <div class="kpi"><div class="kpi-label">전체</div><div class="kpi-value">${cars.length}</div><div class="kpi-trend">누적</div></div>
     </div>
@@ -537,7 +535,6 @@ function render() {
       <select onchange="filterState.status=this.value;render()">
         <option value="">전체 상태</option>
         <option value="in-progress" ${filterState.status==='in-progress'?'selected':''}>조치중</option>
-        <option value="replied"     ${filterState.status==='replied'    ?'selected':''}>회신완료</option>
         <option value="closed"      ${filterState.status==='closed'     ?'selected':''}>완료</option>
       </select>
       <input id="car-search-input" placeholder="🔍 검색 (No./내용/담당자/고객)" value="${filterState.search}"
@@ -705,7 +702,6 @@ function openCARMgr(carId) {
       <label class="fl">상태</label>
       <select class="fs" id="mgr-status">
         <option value="in-progress" ${c.status==='in-progress'?'selected':''}>조치중</option>
-        <option value="replied"     ${c.status==='replied'    ?'selected':''}>회신완료</option>
         <option value="closed"      ${c.status==='closed'     ?'selected':''}>완료</option>
       </select>
     </div>
@@ -1200,7 +1196,6 @@ function renderCARTrend() {
     <div class="ctr-kpi-row">
       <div class="ctr-kpi"><div class="val">${cars.length}</div><div class="lbl">전체 건수</div></div>
       <div class="ctr-kpi"><div class="val" style="color:var(--warning);">${cars.filter(c=>c.status==='in-progress').length}</div><div class="lbl">조치 중</div></div>
-      <div class="ctr-kpi"><div class="val" style="color:var(--primary);">${cars.filter(c=>c.status==='replied').length}</div><div class="lbl">회신완료</div></div>
       <div class="ctr-kpi"><div class="val" style="color:var(--success);">${cars.filter(c=>c.status==='closed').length}</div><div class="lbl">완료</div></div>
     </div>
     ${_ctrDrillChips()}
@@ -1266,7 +1261,7 @@ function printCARTrend() {
     .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;border-bottom:2px solid #0369a1;padding-bottom:4px;}
     h1{font-size:14px;margin:0;color:#0369a1;}
     .meta{font-size:8.5px;color:#888;}
-    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;}
+    .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px;}
     .kpi{background:#f0f9ff;border-radius:5px;padding:5px 8px;text-align:center;}
     .kpi .v{font-size:16px;font-weight:800;color:#0369a1;line-height:1.2;}
     .kpi .l{font-size:8px;color:#888;}
@@ -1291,7 +1286,6 @@ function printCARTrend() {
     <div class="kpi-row">
       <div class="kpi"><div class="v">${cars.length}</div><div class="l">전체 건수</div></div>
       <div class="kpi"><div class="v" style="color:#d97706;">${cars.filter(c=>c.status==='in-progress').length}</div><div class="l">조치 중</div></div>
-      <div class="kpi"><div class="v" style="color:#1976D2;">${cars.filter(c=>c.status==='replied').length}</div><div class="l">회신완료</div></div>
       <div class="kpi"><div class="v" style="color:#059669;">${cars.filter(c=>c.status==='closed').length}</div><div class="l">완료</div></div>
     </div>
     <div class="card"><div class="card-title">📊 항목별 분포</div>
@@ -1534,7 +1528,6 @@ function showCARParseModal(p) {
     <div class="cpm-field"><label>상태</label>
       <select id="cp-status" style="${inpStyle}">
         <option value="in-progress">조치중</option>
-        <option value="replied">회신완료</option>
         <option value="closed">완료</option>
       </select>
     </div>

@@ -102,7 +102,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .ntr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .ntr-chart-wrap { background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow: hidden; }
 .ntr-chart-title { font-size: 12px; font-weight: 700; color: var(--text-light); margin-bottom: 10px; }
-.ntr-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.ntr-kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 .ntr-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .ntr-filter-chip { display: inline-flex; align-items: center; gap: 4px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .ntr-filter-chip:hover { background: #ddd6fe; }
@@ -221,7 +221,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 /* ═══ 상수 ═══ */
 const KEY = 'SJ_FLOW_V04';
 const NCR_GRADE  = { major:['red','중대'], minor:['orange','일반'], obs:['gray','경미'] };
-const NCR_STATUS = { open:['red','진행중'], closed:['green','종결'], pending:['orange','조치대기'] };
+const NCR_STATUS = { open:['red','진행중'], closed:['green','종결'] };
 const NCR_SOURCE = { manual:'✍️ 직접발행', mail:'📧 메일접수', traveller:'🔧 검사부적합' };
 const NCR_DISP   = { '현상태사용':['blue','현상태사용'], '재작업':['orange','재작업'], '수리':['orange','수리'], '폐기':['red','폐기'], '반송':['gray','반송'] };
 const NCR_LOCATION_DEF = ['사내','협력사','설치현장'];
@@ -627,7 +627,6 @@ function render() {
       <select onchange="filterState.status=this.value;render()">
         <option value="">전체 상태</option>
         <option value="open"    ${filterState.status==='open'   ?'selected':''}>진행중</option>
-        <option value="pending" ${filterState.status==='pending'?'selected':''}>조치대기</option>
         <option value="closed"  ${filterState.status==='closed' ?'selected':''}>종결</option>
       </select>
       <input id="ncr-search-input" placeholder="🔍 검색 (No./내용/프로젝트)" value="${filterState.search}"
@@ -1396,7 +1395,6 @@ function renderNCRTrend() {
       <div class="ntr-kpi"><div class="val">${ncrs.length}</div><div class="lbl">전체 건수</div></div>
       <div class="ntr-kpi"><div class="val" style="color:var(--danger);">${ncrs.filter(n=>n.status!=='closed').length}</div><div class="lbl">진행 중</div></div>
       <div class="ntr-kpi"><div class="val" style="color:var(--success);">${ncrs.filter(n=>n.status==='closed').length}</div><div class="lbl">종결</div></div>
-      <div class="ntr-kpi"><div class="val">${ncrs.filter(n=>n.grade==='major').length}</div><div class="lbl">중대 등급</div></div>
     </div>
     ${_ntrDrillChips()}
 
@@ -1471,7 +1469,7 @@ function printNCRTrend() {
     .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;border-bottom:2px solid #7c3aed;padding-bottom:6px;}
     h1{font-size:16px;margin:0;color:#7c3aed;}
     .meta{font-size:9.5px;color:#888;}
-    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px;}
+    .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px;}
     .kpi{background:#f5f3ff;border-radius:6px;padding:5px 10px;text-align:center;}
     .kpi .v{font-size:17px;font-weight:800;color:#7c3aed;line-height:1.2;}
     .kpi .l{font-size:9px;color:#888;}
@@ -1497,7 +1495,6 @@ function printNCRTrend() {
       <div class="kpi"><div class="v">${ncrs.length}</div><div class="l">전체 건수</div></div>
       <div class="kpi"><div class="v" style="color:#dc2626;">${ncrs.filter(n=>n.status!=='closed').length}</div><div class="l">진행 중</div></div>
       <div class="kpi"><div class="v" style="color:#059669;">${ncrs.filter(n=>n.status==='closed').length}</div><div class="l">종결</div></div>
-      <div class="kpi"><div class="v">${ncrs.filter(n=>n.grade==='major').length}</div><div class="l">중대 등급</div></div>
     </div>
     <div class="section-title">📊 항목별 분포</div>
     <div class="grid3">
@@ -1638,7 +1635,7 @@ function parseNCRText(text, filename) {
   const dispMatch = text.match(/☑\s*(현상태사용|재작업|수리|폐기|반송)/)?.[1]||'';
   const afterConfirm = text.split(/조치확인|Confirmtion\s*of\s*Action/i)[1]||'';
   const hasAction = afterConfirm.replace(/[\s□\-|]+/g,'').length > 20;
-  const status = hasAction ? 'closed' : (dispMatch ? 'pending' : 'open');
+  const status = hasAction ? 'closed' : 'open';
   const grade = text.match(/경미|obs/i)?'obs': text.match(/일반|minor/i)?'minor':'major';
   return { ncrNo, issuedAt, projTitle, client, partName, dwgNo, wrNo, desc, dispMatch, status, grade };
 }
@@ -1652,7 +1649,7 @@ function showNCRParseModal(p) {
     return `<option value="${pr.id}" ${isMatch?'selected':''}>${pr.code} ${pr.name}</option>`;
   }).join('');
   const gradeOpts  = [['major','중대'],['minor','일반'],['obs','경미']].map(([v,l])=>`<option value="${v}" ${p.grade===v?'selected':''}>${l}</option>`).join('');
-  const statusOpts = [['open','진행중'],['pending','조치대기'],['closed','종결']].map(([v,l])=>`<option value="${v}" ${p.status===v?'selected':''}>${l}</option>`).join('');
+  const statusOpts = [['open','진행중'],['closed','종결']].map(([v,l])=>`<option value="${v}" ${p.status===v?'selected':''}>${l}</option>`).join('');
   const mkOpts = (arr, sel='') => ['', ...arr].map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const locOpts  = mkOpts(state.ncrLists?.location||NCR_LOCATION_DEF);
   const causeOpts= mkOpts(state.ncrLists?.cause   ||NCR_CAUSE_DEF);
