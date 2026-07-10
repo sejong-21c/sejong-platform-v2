@@ -324,10 +324,23 @@ async function migrateLegacyCollection(oldColl, newColl) {
     console.error(`[마이그레이션 실패] ${oldColl} → ${newColl}`, e);
   }
 }
-async function startCarFirestoreSync() {
-  if (!window.fb || !fb.db) { setTimeout(startCarFirestoreSync, 300); return; }
+// v29.44: 로그인 확인 대기가 끝나지 않으면 구독 자체가 안 걸려 onSnapshot 에러
+// 콜백도 호출될 일이 없어 콘솔/화면 어디에도 아무 흔적이 안 남는다 — 일정 시간
+// 이상 계속 대기 중이면 한 번은 명확히 경고를 남긴다 (ncr.html과 동일 패턴).
+let _carSyncWarned = false;
+async function startCarFirestoreSync(_retryCount) {
+  const retryCount = _retryCount || 0;
+  if (!window.fb || !fb.db) { setTimeout(()=>startCarFirestoreSync(retryCount+1), 300); return; }
   // v29.9.1: 인증 복원 전 구독 → permission-denied → 리스너 영구 종료 방지 (ncr.html과 동일)
-  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startCarFirestoreSync, 400); return; }
+  if (!fb.auth || !fb.auth.currentUser) {
+    if (retryCount >= 12 && !_carSyncWarned) {
+      _carSyncWarned = true;
+      console.warn(`[CAR Firestore 동기화] 로그인 확인이 ${(retryCount*400/1000).toFixed(1)}초째 지연 중 — fb.auth 존재: ${!!fb.auth}, fb.auth.currentUser: ${fb.auth ? fb.auth.currentUser : 'N/A'}`);
+      notifySyncError('CAR 데이터 로딩 지연 — 로그인 세션 확인 중입니다. 계속되면 새로고침해보세요.');
+    }
+    setTimeout(()=>startCarFirestoreSync(retryCount+1), 400);
+    return;
+  }
   await Promise.all([
     migrateLegacyCollection('cars', 't_cars'),
     migrateLegacyCollection('carDeleteReqs', 't_carDeleteReqs'),

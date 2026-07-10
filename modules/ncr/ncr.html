@@ -358,12 +358,26 @@ async function migrateLegacyCollection(oldColl, newColl) {
     console.error(`[마이그레이션 실패] ${oldColl} → ${newColl}`, e);
   }
 }
-async function startNcrFirestoreSync() {
-  if (!window.fb || !fb.db) { setTimeout(startNcrFirestoreSync, 300); return; }
+// v29.44: 로그인 확인 대기 루프가 아예 끝나지 않는 경우(계정별 인증 세션 문제 등)
+// 콘솔에도 화면에도 아무 에러가 안 남아 원인 파악이 불가능했던 사고가 있었음
+// (구독 자체가 안 걸리니 onSnapshot 에러 콜백도 호출될 일이 없음). 일정 시간 이상
+// 계속 대기 중이면 한 번은 명확히 경고를 남겨 "그냥 안 보임"과 구분되게 한다.
+let _ncrSyncWarned = false;
+async function startNcrFirestoreSync(_retryCount) {
+  const retryCount = _retryCount || 0;
+  if (!window.fb || !fb.db) { setTimeout(()=>startNcrFirestoreSync(retryCount+1), 300); return; }
   // v29.9.1: 인증 세션 복원 전에 구독을 걸면 permission-denied로 리스너가 영구 종료되어
   // 이후 실시간 동기화가 조용히 죽음 → 로그인 사용자 확인될 때까지 대기 후 구독.
   // (로컬 테스트 모드처럼 Firebase 로그인이 없으면 구독하지 않음 — 오류 스팸 방지)
-  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startNcrFirestoreSync, 400); return; }
+  if (!fb.auth || !fb.auth.currentUser) {
+    if (retryCount >= 12 && !_ncrSyncWarned) {
+      _ncrSyncWarned = true;
+      console.warn(`[NCR Firestore 동기화] 로그인 확인이 ${(retryCount*400/1000).toFixed(1)}초째 지연 중 — fb.auth 존재: ${!!fb.auth}, fb.auth.currentUser: ${fb.auth ? fb.auth.currentUser : 'N/A'}`);
+      notifySyncError('NCR 데이터 로딩 지연 — 로그인 세션 확인 중입니다. 계속되면 새로고침해보세요.');
+    }
+    setTimeout(()=>startNcrFirestoreSync(retryCount+1), 400);
+    return;
+  }
   await Promise.all([
     migrateLegacyCollection('ncrs', 't_ncrs'),
     migrateLegacyCollection('ncrDeleteReqs', 't_ncrDeleteReqs'),
