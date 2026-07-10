@@ -26,6 +26,8 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <!-- xlsx-js-style: 엑셀 대장 출력 (WBS 모듈과 동일 버전) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<!-- SJ-EGMR-001 대장 seed 데이터 (86건) — "대장 일괄 임포트" 버튼이 사용 -->
+<script src="./seed-sj-egmr-001.js"></script>
 <style>
 :root {
   --primary: #1976D2; --primary-hover: #1565C0; --primary-light: #E3F2FD; --primary-lighter: #F0F7FF;
@@ -895,6 +897,7 @@ function renderMaster() {
       <button class="btn" onclick="exportPDF()" title="A4 가로 인쇄 · 브라우저에서 'PDF로 저장' 선택">🖨 PDF 대장</button>
       ${qa ? `
         <button class="btn" onclick="openPrintAll()">🏷 QR 라벨</button>
+        ${qa && seedPendingCount() > 0 ? `<button class="btn btn-warning" onclick="importSeedLedger()" title="SJ-EGMR-001_rev.4 종이 대장의 ${SEED_COUNT}건 중 아직 등록되지 않은 항목을 한번에 등록">📥 대장 일괄 임포트 (${seedPendingCount()}건)</button>` : ''}
         <button class="btn btn-primary" onclick="openTool('')">➕ 신규 등록</button>
       ` : ''}
     </div>
@@ -1707,6 +1710,66 @@ function exportPDF() {
 </html>`);
   w.document.close();
 }
+
+/* ══════════ 대장 seed 일괄 임포트 (SJ-EGMR-001_rev.4) ══════════ */
+const SEED_COUNT = (window.MTOOLS_SEED_SJ_EGMR_001 || []).length;
+function seedAvailable() { return SEED_COUNT > 0; }
+function seedPendingCount() {
+  const seed = window.MTOOLS_SEED_SJ_EGMR_001 || [];
+  const have = new Set(tools.map(t => (t.code||'').toUpperCase()));
+  return seed.filter(s => !have.has((s.code||'').toUpperCase())).length;
+}
+async function importSeedLedger() {
+  if (!isQADept()) { alert('품질관리부 권한이 필요합니다.'); return; }
+  const seed = window.MTOOLS_SEED_SJ_EGMR_001 || [];
+  if (seed.length === 0) { alert('임포트할 seed 데이터가 없습니다.'); return; }
+  const have = new Set(tools.map(t => (t.code||'').toUpperCase()));
+  const toAdd = seed.filter(s => !have.has((s.code||'').toUpperCase()));
+  if (toAdd.length === 0) { alert('이미 모든 관리번호가 등록되어 있습니다.'); return; }
+  const skipped = seed.length - toAdd.length;
+  const msg = `측정 및 시험 장비 종합관리대장 (SJ-EGMR-001_rev.4)\n\n`
+    + `• 대장 총 ${seed.length}건\n`
+    + `• 신규 등록 대상: ${toAdd.length}건\n`
+    + `• 이미 등록됨 (건너뜀): ${skipped}건\n\n`
+    + `Firestore에 일괄 등록합니다. 계속하시겠습니까?`;
+  if (!confirm(msg)) return;
+
+  const now = nowISO();
+  const actor = currentUserName() || '';
+  toAdd.forEach(s => {
+    tools.push({
+      id: uid(),
+      code: s.code,
+      name: s.name,
+      serialNo: s.serialNo || '',
+      maker: s.maker || '',
+      model: s.model || '',
+      tolerance: s.tolerance || '',
+      spec: s.spec || '',
+      status: 'normal',
+      location: s.location || '',
+      ownerDept: s.ownerDept || '품질관리부',
+      lastCalibration: s.lastCalibration || '',
+      calibrationCycle: s.calibrationCycle || DEFAULT_CAL_CYCLE_MONTH,
+      nextCalibration: s.nextCalibration || '',
+      calibrationOrg: s.calibrationOrg || '',
+      certificateUrl: '',
+      purchaseDate: '',
+      purchasePrice: 0,
+      note: s.note || '',
+      photo: '',
+      currentCheckout: null,
+      createdAt: now,
+      updatedAt: now,
+      importedFrom: 'SJ-EGMR-001_rev.4',
+      importedBy: actor,
+    });
+  });
+  save();
+  render();
+  alert(`✅ ${toAdd.length}건이 등록되었습니다.\n(건너뜀: ${skipped}건)`);
+}
+window.importSeedLedger = importSeedLedger;
 
 /* ══════════ 카메라 스캔 ══════════ */
 let _camStream = null, _camAnim = null, _camScanning = false;
