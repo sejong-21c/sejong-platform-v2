@@ -1719,6 +1719,66 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       showMsg(`⚠ 클라우드 전송 실패: ${e.message||e} — 로컬 전송은 완료됐으니 같은 브라우저라면 QA Doc Generator에서 확인 가능합니다.`, 8000);
     }
   };
+  // v3.2 — ITP를 결재선에 상신. 작성(본인) → [부서장 검토] → PM 승인.
+  // index.html의 다단계 결재(approvals/approvalLine)와 동일 스키마로 문서 생성.
+  const submitItpForApproval = async () => {
+    const cur = fb.auth && fb.auth.currentUser;
+    if (!cur) { showMsg("로그인 정보가 없습니다.", 5000); return; }
+    if (PID === "standalone") { showMsg("프로젝트로 열지 않아(standalone) 결재를 올릴 수 없습니다. EPC Control에서 프로젝트를 통해 열어주세요.", 7000); return; }
+    // PM 조회
+    let pmUid = null, projCode = proj.no || "", projName = proj.name || "";
+    try {
+      const psnap = await fb.getDoc(fb.doc(fb.db, "projects", PID));
+      if (psnap.exists()) { const pd = psnap.data(); pmUid = pd.pm || null; projCode = pd.code || projCode; projName = pd.name || projName; }
+    } catch (e) { console.warn("PM 조회 실패:", e.message); }
+    if (!pmUid) { showMsg("이 프로젝트의 PM이 지정되어 있지 않아 결재를 올릴 수 없습니다.", 6000); return; }
+    // 부서장 검토 포함 여부
+    const includeHead = confirm(
+      "ITP 결재를 올립니다.\n\n[확인] 부서장 검토를 거쳐 PM 승인\n[취소] 부서장 없이 PM 승인"
+    );
+    let headUid = null;
+    if (includeHead) {
+      try {
+        const meSnap = await fb.getDoc(fb.doc(fb.db, "users", cur.uid));
+        const myDept = meSnap.exists() ? meSnap.data().dept : null;
+        if (myDept) {
+          const us = await fb.getDocs(fb.collection(fb.db, "users"));
+          const pool = us.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.dept === myDept && u.id !== cur.uid);
+          const head = pool.find(u => u.title === "부장") || pool.find(u => u.grade === "manager") || pool.find(u => u.grade === "super");
+          headUid = head ? head.id : null;
+        }
+      } catch (e) { console.warn("부서장 조회 실패:", e.message); }
+      if (!headUid) showMsg("부서장을 찾지 못해 PM에게 바로 올립니다.", 4000);
+    }
+    const line = [{ role: "작성", uid: cur.uid, status: "approved", decidedAt: Date.now(), note: "" }];
+    if (headUid) {
+      line.push({ role: "검토", uid: headUid, status: "pending", decidedAt: null, note: "" });
+      line.push({ role: "승인(PM)", uid: pmUid, status: "waiting", decidedAt: null, note: "" });
+    } else {
+      line.push({ role: "승인(PM)", uid: pmUid, status: "pending", decidedAt: null, note: "" });
+    }
+    const firstPending = line.find(s => s.status === "pending");
+    const id = "app_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    const today = new Date().toISOString().slice(0, 10);
+    const docData = {
+      id, type: "itp",
+      title: `[${projCode || PID}] ITP 결재${proj.name ? " - " + proj.name : ""}`,
+      projId: PID, projCode, projName,
+      description: `ITP Builder에서 작성한 ITP 결재 요청입니다. (검사 아이템 ${items.length}종)`,
+      author: cur.uid, approvalLine: line,
+      approver: firstPending.uid, to: firstPending.uid,
+      status: "pending", date: today, createdAt: Date.now(),
+    };
+    showMsg("☁ ITP 저장 후 결재 상신 중...", 15000);
+    try {
+      // 결재자가 열어볼 수 있게 현재 ITP를 먼저 클라우드에 저장
+      await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
+      await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
+      showMsg(headUid
+        ? "✅ 부서장 검토 → PM 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)"
+        : "✅ PM에게 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)", 8000);
+    } catch (e) { showMsg("결재 상신 실패: " + (e.message || e), 6000); }
+  };
   // v2.1 — 자동저장(1초 디바운스)과 동일한 함수를 즉시 실행. 이 기능 도입 이전부터 로컬에만
   // 저장돼있던 기존 프로젝트도 이 버튼 한 번으로 클라우드에 올라가 다른 계정에서 보이게 된다.
   const handleManualCloudUpload = async () => {
@@ -2005,6 +2065,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>자동 저장</span>
         <div style={{flex:1}}/>
         <button onClick={sendToQADoc} className="btn-primary" title="파일 다운로드 없이, 지금 상태를 바로 QA Doc Generator에 전달합니다">🚀 QA Doc Generator로 바로 전송</button>
+        <button onClick={submitItpForApproval} className="btn-primary" style={{background:"#7c3aed", borderColor:"#7c3aed"}} title="이 ITP를 결재선(작성→[부서장 검토]→PM 승인)에 올립니다">📋 결재 상신</button>
         <button onClick={handleManualCloudUpload} className="btn-secondary" title="현재 화면의 내용을 지금 즉시 클라우드에 업로드합니다 (다른 계정에서도 볼 수 있게 됨)">☁ 지금 클라우드로 업로드</button>
         <button onClick={handleExport} className="btn-secondary">💾 QC Gen으로 Export</button>
       </div>
