@@ -974,7 +974,7 @@ function rWBS(){
     : `<div class="wbs-unified-wrap" style="position:relative;overflow:auto;background:#fff;border-radius:8px;border:1px solid #e4e7ec;flex:1;min-height:160px;max-height:none">
     ${unifiedTable}
   </div>`;
-  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span><button onclick="openWbsHistory()" style="font-size:11px;color:#7c3aed;background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:2px 8px;margin-left:4px;cursor:pointer" title="이전 Rev 이력 보기">📜 이력</button>${_viewRev?`<span style="font-size:11px;color:#b45309;font-weight:700;background:#fef3c7;padding:2px 8px;border-radius:10px;margin-left:6px">📖 이전 Rev.${_viewRev} 조회 중</span><button onclick="closeWbsHistoryView()" style="font-size:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer">← 현재로</button>`:''}</div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button>${(S.selproj?.no||'').toUpperCase()==='SJ435-26' && WBS.some(w=>(w.id||'').startsWith('w_sj435_')) ? `<button class="v28-eb" style="background:#dc2626;color:#fff" onclick="removeSJ435FabSchedule()" title="자동 추가된 제작 스케줄 48행을 이 WBS에서 제거">🗑 제작 스케줄 제거</button>` : ''}<button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다">📝 PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
+  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span><button onclick="openWbsHistory()" style="font-size:11px;color:#7c3aed;background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:2px 8px;margin-left:4px;cursor:pointer" title="이전 Rev 이력 보기">📜 이력</button>${_viewRev?`<span style="font-size:11px;color:#b45309;font-weight:700;background:#fef3c7;padding:2px 8px;border-radius:10px;margin-left:6px">📖 이전 Rev.${_viewRev} 조회 중</span><button onclick="closeWbsHistoryView()" style="font-size:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer">← 현재로</button>`:''}</div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button>${(S.selproj?.no||'').toUpperCase()==='SJ435-26' && WBS.some(w=>(w.id||'').startsWith('w_sj435_')) ? `<button class="v28-eb" style="background:#dc2626;color:#fff" onclick="removeSJ435FabSchedule()" title="자동 추가된 제작 스케줄 48행을 이 WBS에서 제거">🗑 제작 스케줄 제거</button>` : ''}${/SJ428-?25/i.test((S.selproj?.no||'')+'|'+(S.selproj?.code||'')+'|'+(S.selproj?.name||'')) && !WBS.some(w=>(w.id||'').startsWith('w_fab428_')) ? `<button class="v28-eb" style="background:#0ea5e9;color:#fff" onclick="importFabScheduleSJ428()" title="SJ428-25 Fabrication Schedule 7개 공정을 이설장비 제작 아래에 삽입">📥 Fab 스케줄 넣기</button>` : ''}<button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다">📝 PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
   <div class="fbar"><span style="font-size:10px;color:#9ca3af;margin-right:3px">필터:</span>${["전체","완료","진행중","미시작","지연"].map(f=>`<button class="fb${S.wf===f?" on":""}" data-a="setWF" data-f="${f}">${f}(${fCnt(f)})</button>`).join("")}</div>
   <div class="cont">${(S.wv!=="evms" && !_deptMode)?`<div style="margin-bottom:10px;border:1px solid #e4e7ec;border-radius:8px;background:#f8fafc;overflow:hidden;flex-shrink:0">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer" data-a="tgEvms"><span style="font-size:11px;font-weight:700;color:#1e40af">📈 EVMS 요약 (계획·실행·일정차이·SPI)</span><span style="font-size:11px;color:#6b7280">${S.evmsHide?'▶ 펼치기':'▼ 접기'}</span></div>
@@ -1619,6 +1619,54 @@ function removeSJ435FabSchedule() {
   alert(`✅ ${targets.length}행 제거 완료. 자동 저장 곧 발화.`);
 }
 window.removeSJ435FabSchedule = removeSJ435FabSchedule;
+
+// SJ428-25 HA KOREA MIXING TANK 이설 — Fabrication Schedule(SJ428-25-SCH-001)의 공정을
+// '이설장비 제작' 대단락 아래에 순차 하위행으로 삽입하는 일회성 임포터.
+// 계획=일정(s/e), 실적=진도율(pctManual). 도면출도·메인자재·후처리는 대장 바 실측,
+// 자재검사·밴딩/포밍·수압테스트는 범례에만 있고 바가 없어 제작 구간 내 순차 추정치(편집 가능).
+function importFabScheduleSJ428() {
+  if (document.body.classList.contains('sjp-readonly')) return alert('읽기 전용 모드에서는 추가할 수 없습니다.');
+  const pid = (typeof S!=='undefined' && S.selproj && S.selproj.id) || _wbsPid;
+  if (!pid) return alert('프로젝트를 먼저 선택하세요.');
+  if (WBS.some(w => (w.id||'').startsWith('w_fab428_'))) return alert('이미 이 프로젝트에 Fab 스케줄이 추가되어 있습니다.');
+  // [작업명, 시작(계획), 종료(계획), 진도율(실적, 2026-07-10 기준)]
+  const PH = [
+    ['도면출도',        '2026-05-15', '2026-06-02', 100],
+    ['메인자재 입고',    '2026-06-02', '2026-06-10', 100],
+    ['자재검사',        '2026-06-10', '2026-06-13', 100],
+    ['밴딩/포밍',       '2026-06-13', '2026-06-25', 100],
+    ['제작',           '2026-06-25', '2026-07-18', 70],
+    ['수압테스트',      '2026-07-18', '2026-07-26', 0],
+    ['후처리/출하준비',  '2026-07-26', '2026-07-30', 0],
+  ];
+  let seq = 0;
+  const mk = (nm, s, e, pct, lv) => ({
+    id: 'w_fab428_' + (++seq) + '_' + Date.now().toString(36),
+    code: '', name: nm, mgr: '최가람', s, e,
+    status: pct >= 100 ? '완료' : (pct > 0 ? '진행중' : '미시작'),
+    itpLink: null, lv, projId: pid, vendor: '', memo: '', dept: '생산부', pctManual: pct,
+  });
+  let parent = WBS.find(w => w.projId === pid && (w.lv||0) === 0 && /이설\s*장비|MIXING\s*TANK/i.test(w.name||''));
+  let insertAt, childLv;
+  if (parent) {
+    childLv = (parent.lv || 0) + 1;
+    let i = WBS.indexOf(parent) + 1;
+    while (i < WBS.length && WBS[i].projId === pid && (WBS[i].lv||0) > (parent.lv||0)) i++;
+    insertAt = i;
+  } else {
+    if (!confirm("'이설장비 제작' 대단락을 찾지 못했습니다.\n새 대단락으로 만들어 7개 작업을 추가할까요?")) return;
+    const par = mk('이설장비 제작', '2026-05-15', '2026-07-30', 0, 0);
+    delete par.pctManual; par.status = '진행중';
+    WBS.push(par);
+    parent = par; childLv = 1; insertAt = WBS.length;
+  }
+  const rows = PH.map(([nm, s, e, pct]) => mk(nm, s, e, pct, childLv));
+  WBS.splice(insertAt, 0, ...rows);
+  if (typeof v28RecalcRange === 'function') v28RecalcRange();
+  R();
+  alert('✅ Fab 스케줄 7개 작업을 "' + parent.name + '" 아래에 추가했습니다.\n잠시 후 자동 저장됩니다. (날짜·진도율은 각 행에서 수정 가능)');
+}
+window.importFabScheduleSJ428 = importFabScheduleSJ428;
 
 // v29.11: 비PM 사용자가 스케줄 변경을 PM에게 요청. 텍스트 기반 결재 요청(1차 MVP).
 // PM은 결재 메뉴에서 승인 후 직접 WBS를 편집. Firestore approvals 컬렉션에 저장.
