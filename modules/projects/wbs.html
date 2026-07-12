@@ -430,6 +430,7 @@ let _deptFilter=null, _deptMode=false;
 let _shadowUid=null;
 let _shadowRows=null; // 로컬 캐시 (shadow 활성 시 WBS를 이걸로 덮어씀)
 let _shadowItems=null;
+let _shadowLoadedSig=undefined; // 로드 직후 서명(baseline). 이후 값이 달라지면 실제 편집 → 자동 상신 트리거
 // v29.13: 이전 Rev 조회 모드. _viewRev이 설정되면 저장·구독 무시하고 그 스냅샷만 표시.
 let _viewRev=null;
 let _viewSnapshot=null;
@@ -1571,6 +1572,13 @@ function v28Save(){
     ).catch(e => console.warn("shadow save fail", e));
     // 상단 pending 배지 갱신
     updateShadowIndicator(true);
+    // 자동 결재 상신: 로드 직후(baseline) 상태는 제외하고, 실제 편집이 생기면 PM에게 자동 상신(1회).
+    // 이후 편집은 wbsPending으로 계속 반영되고, 결재 문서는 그 최신 내용을 가리킨다.
+    if (_shadowLoadedSig === undefined) {
+      _shadowLoadedSig = curSig;
+    } else if (curSig !== _shadowLoadedSig) {
+      _submitShadowApproval({ silent: true });
+    }
     return;
   }
   // v29.11: WBS 개정 번호(rev). 저장 때마다 +1 (증분 저장). PM이 승인한 각 변경 세트가 새 Rev.
@@ -2790,6 +2798,8 @@ function subscribeWbsData(pid){
     MITEM[pid] = d.items || [];
     // v29.13.1: 서버에서 로드한 상태를 마지막 저장 상태로 간주 → 즉시 재저장 방지.
     _lastSavedSig = _sig(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]);
+    // 자동 상신 baseline = 서버 로드 내용. (pending이 있으면 아래 pending 핸들러가 다시 덮어씀)
+    if (_shadowUid) _shadowLoadedSig = _lastSavedSig;
     v28RecalcRange();
     R();
   }, err => console.warn("[SJ FLOW] wbsData 구독 실패:", err.message));
@@ -2804,6 +2814,9 @@ function subscribeWbsData(pid){
         _shadowItems = d.items || [];
         WBS.length = 0; _shadowRows.forEach(w => WBS.push(w));
         MITEM[pid] = _shadowItems;
+        // 로드된 pending을 baseline으로 확정 → 편집 없이 열기만 했을 때 오(誤)자동상신 방지 + 재저장 no-op
+        _lastSavedSig = _sig(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]);
+        _shadowLoadedSig = _lastSavedSig;
         updateShadowIndicator(true);
       } else {
         // pending doc이 삭제됐음(승인 완료 또는 폐기) → master로 리셋되도록 다음 master 이벤트에 위임
@@ -2822,65 +2835,94 @@ function updateShadowIndicator(active) {
   if (!el) return;
   el.style.display = active ? "flex" : "none";
 }
+// 상신 중복 방지용 in-flight 가드
+let _shadowSubmitBusy = false;
+// 이 shadow에 대해 이미 대기중인 wbs-shadow 결재 문서들 조회
+async function _findPendingShadowApprovals() {
+  try {
+    const qs = await fb.getDocs(fb.query(fb.collection(fb.db, "approvals"), fb.where("shadowUid", "==", _shadowUid)));
+    return qs.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.status === "pending");
+  } catch (e) { console.warn("기존 결재 조회 실패:", e.message); return []; }
+}
+// 공용 상신 로직. silent=true(자동): 대기중 결재 있으면 스킵, 알림 없음.
+//                 silent=false(수동 버튼): 부서장 포함 여부 물어보고, 기존 대기건은 교체.
+async function _submitShadowApproval({ includeHead = false, silent = false } = {}) {
+  if (!_shadowUid || !_wbsPid || !window.fb) return;
+  if (_shadowSubmitBusy) return;
+  const cur = fb.auth && fb.auth.currentUser;
+  if (!cur) { if (!silent) alert("로그인 정보가 없습니다."); return; }
+  _shadowSubmitBusy = true;
+  try {
+    const existing = await _findPendingShadowApprovals();
+    if (existing.length && silent) return;  // 이미 상신됨 — 최신 내용은 wbsPending으로 계속 반영
+    let pmUid = null, projCode = "", projName = "";
+    try {
+      const psnap = await fb.getDoc(fb.doc(fb.db, "projects", _wbsPid));
+      if (psnap.exists()) { const pd = psnap.data(); pmUid = pd.pm || null; projCode = pd.code || ""; projName = pd.name || ""; }
+    } catch (e) { console.warn("PM 조회 실패:", e.message); }
+    if (!pmUid) { if (!silent) alert("이 프로젝트의 PM이 지정되어 있지 않아 결재를 올릴 수 없습니다."); return; }
+    let headUid = null;
+    if (includeHead) {
+      headUid = await _findDeptHeadForShadow(cur.uid);
+      if (!headUid && !silent) alert("담당자 부서의 부서장을 찾지 못해, 부서장 없이 PM에게 올립니다.");
+    }
+    const line = [{ role: "작성", uid: cur.uid, status: "approved", decidedAt: Date.now(), note: "" }];
+    if (headUid) {
+      line.push({ role: "검토", uid: headUid, status: "pending", decidedAt: null, note: "" });
+      line.push({ role: "승인(PM)", uid: pmUid, status: "waiting", decidedAt: null, note: "" });
+    } else {
+      line.push({ role: "승인(PM)", uid: pmUid, status: "pending", decidedAt: null, note: "" });
+    }
+    const firstPending = line.find(s => s.status === "pending");
+    // 수동 재상신이면 기존 대기건 삭제(중복 방지)
+    if (existing.length && !silent) {
+      for (const e of existing) { try { await fb.deleteDoc(fb.doc(fb.db, "approvals", e.id)); } catch (_) {} }
+    }
+    const id = "app_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    const today = new Date().toISOString().slice(0, 10);
+    const doc = {
+      id, type: "wbs-shadow",
+      title: `[${projCode || _wbsPid}] WBS 변경 제안 (자동 반영)`,
+      projId: _wbsPid, projCode, projName, shadowUid: _shadowUid,
+      description: `부서원의 WBS 편집이 저장됐습니다. 최종 승인 시 마스터에 자동 반영됩니다.`,
+      author: cur.uid, approvalLine: line,
+      approver: firstPending.uid, to: firstPending.uid,
+      status: "pending", date: today, createdAt: Date.now(), baseRev: _wbsRev,
+    };
+    await fb.setDoc(fb.doc(fb.db, "approvals", id), doc);
+    if (silent) _shadowToast("✅ PM에게 결재 자동 상신됨 · 이후 수정도 최신으로 반영됩니다");
+    else alert(headUid
+      ? "✅ 부서장 검토 → PM 승인 순서로 결재를 올렸습니다.\n최종 승인 시 마스터 WBS에 자동 반영됩니다."
+      : "✅ PM에게 결재를 올렸습니다.\n승인 시 마스터 WBS에 자동 반영됩니다.");
+  } catch (e) {
+    if (!silent) alert("전송 중 오류: " + (e.message || e));
+    else console.warn("자동 상신 실패:", e.message);
+  } finally {
+    _shadowSubmitBusy = false;
+  }
+}
+// 수동 버튼: 부서장 검토 포함 여부를 물어보고 상신(기존 대기건은 교체)
 async function submitShadowForApproval() {
   if (!_shadowUid || !_wbsPid || !window.fb) return;
   if (!_shadowRows) return alert("아직 저장된 변경 사항이 없습니다.");
-  const cur = fb.auth && fb.auth.currentUser;
-  if (!cur) return alert("로그인 정보가 없습니다.");
-  // 프로젝트 정보 조회
-  let pmUid = null, projCode = "", projName = "";
-  try {
-    const psnap = await fb.getDoc(fb.doc(fb.db, "projects", _wbsPid));
-    if (psnap.exists()) {
-      const pd = psnap.data();
-      pmUid = pd.pm || null; projCode = pd.code || ""; projName = pd.name || "";
-    }
-  } catch (e) { console.warn("PM 조회 실패:", e.message); }
-  if (!pmUid) return alert("이 프로젝트의 PM이 지정되어 있지 않아 결재 요청을 보낼 수 없습니다.");
-
-  // 부서장 검토 포함 여부 선택 (확인=부서장 검토 후 PM / 취소=PM 바로)
   const includeHead = confirm(
-    "PM에게 WBS 변경 결재를 올립니다.\n\n" +
-    "[확인] 부서장 검토를 거쳐 PM에게 올리기\n" +
-    "[취소] 부서장 없이 PM에게 바로 올리기"
+    "WBS 변경 결재를 다시 올립니다.\n\n[확인] 부서장 검토를 거쳐 PM에게\n[취소] 부서장 없이 PM에게 바로"
   );
-
-  // 결재선 구성: 작성(본인, 자동승인) → [부서장 검토] → PM 승인
-  const line = [{ role: "작성", uid: cur.uid, status: "approved", decidedAt: Date.now(), note: "" }];
-  let headUid = null;
-  if (includeHead) {
-    headUid = await _findDeptHeadForShadow(cur.uid);
-    if (!headUid) {
-      alert("담당자 부서의 부서장을 찾지 못해, 부서장 검토 없이 PM에게 바로 올립니다.");
-    }
+  await _submitShadowApproval({ includeHead, silent: false });
+}
+// 가벼운 토스트 (자동 상신 안내)
+function _shadowToast(msg) {
+  let t = document.getElementById("wbsShadowToast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "wbsShadowToast";
+    t.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.3);transition:opacity .3s;";
+    document.body.appendChild(t);
   }
-  if (headUid) {
-    line.push({ role: "검토", uid: headUid, status: "pending", decidedAt: null, note: "" });
-    line.push({ role: "승인(PM)", uid: pmUid, status: "waiting", decidedAt: null, note: "" });
-  } else {
-    line.push({ role: "승인(PM)", uid: pmUid, status: "pending", decidedAt: null, note: "" });
-  }
-  const firstPending = line.find(s => s.status === "pending");
-
-  const id = "app_" + Date.now() + "_" + Math.random().toString(36).slice(2,6);
-  const today = new Date().toISOString().slice(0,10);
-  const doc = {
-    id, type: "wbs-shadow",
-    title: `[${projCode||_wbsPid}] WBS 변경 제안 (자동 반영)`,
-    projId: _wbsPid, projCode, projName,
-    shadowUid: _shadowUid,
-    description: `부서원의 WBS 편집이 저장됐습니다. 최종 승인 시 마스터에 자동 반영됩니다.`,
-    author: cur.uid, approvalLine: line,
-    approver: firstPending.uid, to: firstPending.uid,
-    status: "pending", date: today, createdAt: Date.now(),
-    baseRev: _wbsRev,
-  };
-  try {
-    await fb.setDoc(fb.doc(fb.db, "approvals", id), doc);
-    alert(headUid
-      ? "✅ 부서장 검토 → PM 승인 순서로 결재를 올렸습니다.\n최종 승인되면 자동으로 마스터 WBS에 반영됩니다."
-      : "✅ PM에게 변경 제안을 제출했습니다.\n승인되면 자동으로 마스터 WBS에 반영됩니다.");
-  } catch (e) { alert("전송 중 오류: " + (e.message || e)); }
+  t.textContent = msg;
+  t.style.opacity = "1";
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(() => { t.style.opacity = "0"; }, 3500);
 }
 // 담당자(uid)의 부서를 조회해 같은 부서 부서장(부장·manager·super)을 찾는다.
 async function _findDeptHeadForShadow(uid) {
@@ -3073,10 +3115,10 @@ window.resetWbsRev = resetWbsRev;
       const bar = document.createElement("div");
       bar.id = "wbsShadowBar";
       bar.innerHTML =
-        '<span>🟡 <b>변경 제안 모드</b> — 저장한 변경사항은 PM 승인 후 마스터 WBS에 반영됩니다.</span>' +
+        '<span>🟡 <b>변경 제안 모드</b> — 수정하면 <b>자동으로 PM에게 결재 상신</b>됩니다. PM 승인 시 마스터 WBS에 반영돼요.</span>' +
         '<span class="grow"></span>' +
         '<button onclick="discardShadow()" title="변경사항을 폐기하고 마스터로 복귀">🗑 폐기</button>' +
-        '<button class="primary" onclick="submitShadowForApproval()" title="현재 저장된 변경사항으로 PM 결재 요청">📤 PM 결재 요청</button>';
+        '<button class="primary" onclick="submitShadowForApproval()" title="부서장 검토를 포함해 다시 상신하거나, 지금 즉시 상신">📤 부서장 검토 포함 상신</button>';
       document.body.insertBefore(bar, document.body.firstChild);
     }, 0);
   }
