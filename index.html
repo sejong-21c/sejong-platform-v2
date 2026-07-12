@@ -939,7 +939,7 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b25';
+const WBS_BUILD = 'b26';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b10';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -6034,6 +6034,7 @@ const APPROVAL_STATUS_META = {
 };
 const APPROVAL_TEMPLATES = {
   iso:      { label:'ISO 업무 (report·도면·절차서)', icon:'📄', roles:['작성','검토','승인'],           amount:false },
+  quality3: { label:'품질 3자검사 (대리·과장·부서장)', icon:'🔎', roles:['작성','검토','승인'],           amount:false, locked:true },
   purchase: { label:'품의·기안 (금액)',               icon:'💰', roles:['작성','검토','부서장','대표이사'], amount:true  },
   project:  { label:'프로젝트 (스케줄·WBS 변경)',       icon:'📊', roles:['작성','승인(PM)'],              amount:false },
 };
@@ -6041,6 +6042,7 @@ const ROLE_OPTIONS = ['작성','검토','부서장','승인','합의','대표이
 function _approvalTypeLabel(t) {
   if (APPROVAL_TEMPLATES[t]) return APPROVAL_TEMPLATES[t].icon + ' ' + APPROVAL_TEMPLATES[t].label.split(' (')[0];
   if (t === 'schedule-change' || t === 'wbs-shadow') return '📊 WBS 변경';
+  if (t === 'itp') return '📋 ITP 결재';
   if (t === 'okr-change') return '🎯 목표 변경';
   return t || '기타';
 }
@@ -6350,9 +6352,10 @@ function _lineUserOpts(sel) {
 function _renderLineEditor() {
   const box = document.getElementById('apLineBox');
   if (!box) return;
+  const locked = !!(APPROVAL_TEMPLATES[_draftTpl] && APPROVAL_TEMPLATES[_draftTpl].locked);
   box.innerHTML = _draftLine.map((s, i) => `
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-      <select class="fs" style="width:104px;flex:0 0 auto;" ${i===0?'disabled':''} onchange="_setDraftRole(${i},this.value)">
+      <select class="fs" style="width:104px;flex:0 0 auto;" ${(i===0||locked)?'disabled':''} onchange="_setDraftRole(${i},this.value)">
         ${ROLE_OPTIONS.map(r=>`<option ${r===s.role?'selected':''}>${r}</option>`).join('')}
       </select>
       <select class="fs" style="flex:1;" ${i===0?'disabled':''} onchange="_setDraftUid(${i},this.value)">
@@ -6360,11 +6363,15 @@ function _renderLineEditor() {
       </select>
       ${i===0
         ? '<span style="font-size:11px;color:var(--text-lighter);flex:0 0 auto;width:70px;text-align:center;">기안자 본인</span>'
-        : `<button class="btn btn-sm" onclick="_draftLineMove(${i},-1)" ${i<=1?'disabled':''}>▲</button>
-           <button class="btn btn-sm" onclick="_draftLineMove(${i},1)" ${i>=_draftLine.length-1?'disabled':''}>▼</button>
-           <button class="btn btn-sm" style="color:var(--danger);" onclick="_draftLineRemove(${i})">✕</button>`}
+        : (locked
+          ? '<span style="font-size:11px;color:var(--text-lighter);flex:0 0 auto;width:70px;text-align:center;">서명 필수</span>'
+          : `<button class="btn btn-sm" onclick="_draftLineMove(${i},-1)" ${i<=1?'disabled':''}>▲</button>
+             <button class="btn btn-sm" onclick="_draftLineMove(${i},1)" ${i>=_draftLine.length-1?'disabled':''}>▼</button>
+             <button class="btn btn-sm" style="color:var(--danger);" onclick="_draftLineRemove(${i})">✕</button>`)}
     </div>`).join('')
-    + `<button class="btn btn-sm" style="margin-top:2px;" onclick="_draftLineAdd()">+ 결재 단계 추가</button>`;
+    + (locked
+      ? `<div style="font-size:11px;color:var(--text-lighter);margin-top:2px;">🔒 품질 3자검사 — 3자 서명이 필수라 단계는 고정됩니다. 각 단계 담당자만 변경할 수 있어요.</div>`
+      : `<button class="btn btn-sm" style="margin-top:2px;" onclick="_draftLineAdd()">+ 결재 단계 추가</button>`);
 }
 function _setDraftRole(i, v) { if(_draftLine[i]) _draftLine[i].role = v; }
 function _setDraftUid(i, v) { if(_draftLine[i]) _draftLine[i].uid = v; }

@@ -2837,6 +2837,31 @@ async function submitShadowForApproval() {
     }
   } catch (e) { console.warn("PM 조회 실패:", e.message); }
   if (!pmUid) return alert("이 프로젝트의 PM이 지정되어 있지 않아 결재 요청을 보낼 수 없습니다.");
+
+  // 부서장 검토 포함 여부 선택 (확인=부서장 검토 후 PM / 취소=PM 바로)
+  const includeHead = confirm(
+    "PM에게 WBS 변경 결재를 올립니다.\n\n" +
+    "[확인] 부서장 검토를 거쳐 PM에게 올리기\n" +
+    "[취소] 부서장 없이 PM에게 바로 올리기"
+  );
+
+  // 결재선 구성: 작성(본인, 자동승인) → [부서장 검토] → PM 승인
+  const line = [{ role: "작성", uid: cur.uid, status: "approved", decidedAt: Date.now(), note: "" }];
+  let headUid = null;
+  if (includeHead) {
+    headUid = await _findDeptHeadForShadow(cur.uid);
+    if (!headUid) {
+      alert("담당자 부서의 부서장을 찾지 못해, 부서장 검토 없이 PM에게 바로 올립니다.");
+    }
+  }
+  if (headUid) {
+    line.push({ role: "검토", uid: headUid, status: "pending", decidedAt: null, note: "" });
+    line.push({ role: "승인(PM)", uid: pmUid, status: "waiting", decidedAt: null, note: "" });
+  } else {
+    line.push({ role: "승인(PM)", uid: pmUid, status: "pending", decidedAt: null, note: "" });
+  }
+  const firstPending = line.find(s => s.status === "pending");
+
   const id = "app_" + Date.now() + "_" + Math.random().toString(36).slice(2,6);
   const today = new Date().toISOString().slice(0,10);
   const doc = {
@@ -2844,15 +2869,31 @@ async function submitShadowForApproval() {
     title: `[${projCode||_wbsPid}] WBS 변경 제안 (자동 반영)`,
     projId: _wbsPid, projCode, projName,
     shadowUid: _shadowUid,
-    description: `부서원의 WBS 편집이 저장됐습니다. 승인 시 마스터에 자동 반영됩니다.`,
-    author: cur.uid, approver: pmUid, to: pmUid,
+    description: `부서원의 WBS 편집이 저장됐습니다. 최종 승인 시 마스터에 자동 반영됩니다.`,
+    author: cur.uid, approvalLine: line,
+    approver: firstPending.uid, to: firstPending.uid,
     status: "pending", date: today, createdAt: Date.now(),
     baseRev: _wbsRev,
   };
   try {
     await fb.setDoc(fb.doc(fb.db, "approvals", id), doc);
-    alert("✅ PM에게 변경 제안을 제출했습니다.\n승인되면 자동으로 마스터 WBS에 반영됩니다.");
+    alert(headUid
+      ? "✅ 부서장 검토 → PM 승인 순서로 결재를 올렸습니다.\n최종 승인되면 자동으로 마스터 WBS에 반영됩니다."
+      : "✅ PM에게 변경 제안을 제출했습니다.\n승인되면 자동으로 마스터 WBS에 반영됩니다.");
   } catch (e) { alert("전송 중 오류: " + (e.message || e)); }
+}
+// 담당자(uid)의 부서를 조회해 같은 부서 부서장(부장·manager·super)을 찾는다.
+async function _findDeptHeadForShadow(uid) {
+  try {
+    const meSnap = await fb.getDoc(fb.doc(fb.db, "users", uid));
+    if (!meSnap.exists()) return null;
+    const myDept = meSnap.data().dept;
+    if (!myDept) return null;
+    const qs = await fb.getDocs(fb.query(fb.collection(fb.db, "users"), fb.where("dept", "==", myDept)));
+    const pool = qs.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.id !== uid);
+    const head = pool.find(u => u.title === "부장") || pool.find(u => u.grade === "manager") || pool.find(u => u.grade === "super");
+    return head ? head.id : null;
+  } catch (e) { console.warn("부서장 조회 실패:", e.message); return null; }
 }
 async function discardShadow() {
   if (!_shadowUid || !_wbsPid || !window.fb) return;
