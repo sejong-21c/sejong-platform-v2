@@ -1,0 +1,207 @@
+<title>세종기술 아침 통합 브리핑 · 2026-07-10</title>
+<style>
+:root {
+  --navy: #0b2545; --blue: #13315c; --accent: #2563eb;
+  --line: #e2e8f0; --bg: #f4f6fb; --card: #ffffff;
+  --ink: #1e293b; --mut: #64748b;
+  --red: #dc2626; --amber: #d97706; --green: #16a34a;
+  --redbg: #fef2f2; --ambbg: #fffbeb; --grnbg: #f0fdf4; --grybg: #f1f5f9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --navy: #7ba0d6; --blue: #93b4dd; --accent: #60a5fa;
+    --line: #262c36; --bg: #0f1319; --card: #171b22;
+    --ink: #e7eaf0; --mut: #94a3b8;
+    --red: #f87171; --amber: #fbbf24; --green: #4ade80;
+    --redbg: rgba(248,113,113,0.12); --ambbg: rgba(251,191,36,0.12);
+    --grnbg: rgba(74,222,128,0.12); --grybg: rgba(148,163,184,0.10);
+  }
+}
+:root[data-theme="light"] {
+  --navy: #0b2545; --blue: #13315c; --accent: #2563eb;
+  --line: #e2e8f0; --bg: #f4f6fb; --card: #ffffff;
+  --ink: #1e293b; --mut: #64748b;
+  --red: #dc2626; --amber: #d97706; --green: #16a34a;
+  --redbg: #fef2f2; --ambbg: #fffbeb; --grnbg: #f0fdf4; --grybg: #f1f5f9;
+}
+:root[data-theme="dark"] {
+  --navy: #7ba0d6; --blue: #93b4dd; --accent: #60a5fa;
+  --line: #262c36; --bg: #0f1319; --card: #171b22;
+  --ink: #e7eaf0; --mut: #94a3b8;
+  --red: #f87171; --amber: #fbbf24; --green: #4ade80;
+  --redbg: rgba(248,113,113,0.12); --ambbg: rgba(251,191,36,0.12);
+  --grnbg: rgba(74,222,128,0.12); --grybg: rgba(148,163,184,0.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Pretendard', -apple-system, sans-serif;
+  background: var(--bg); color: var(--ink); line-height: 1.5; padding: 24px;
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 900px; margin: 0 auto; }
+header {
+  background: linear-gradient(135deg, var(--navy), var(--blue));
+  color: #fff; border-radius: 14px; padding: 22px 26px;
+  box-shadow: 0 6px 20px rgba(11, 37, 69, .18);
+}
+:root[data-theme="dark"] header, [data-theme="dark"] header { color: #0b2545; }
+@media (prefers-color-scheme: dark) { header { color: #0b2545; } }
+header .top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+header .sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+.badge-time { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+.kpi { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 11px 13px; }
+.kpi .n { font-size: 22px; font-weight: 800; }
+.kpi .n small { font-size: 13px; font-weight: 700; }
+.kpi .l { font-size: 11.5px; opacity: .82; margin-top: 2px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-top: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+h2 { font-size: 15px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+h2 .ico { font-size: 17px; }
+.secnote { font-size: 11px; color: var(--mut); font-weight: 400; margin-left: auto; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.p-red { background: var(--redbg); color: var(--red); border: 1px solid #fecaca; }
+.p-amb { background: var(--ambbg); color: var(--amber); border: 1px solid #fde68a; }
+.p-grn { background: var(--grnbg); color: var(--green); border: 1px solid #bbf7d0; }
+.p-gry { background: var(--grybg); color: var(--mut); border: 1px solid var(--line); }
+.cat { font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 6px; margin-left: 5px; vertical-align: middle; background: #e0e7ff; color: #3730a3; }
+.chip-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.chip { border: 1px solid var(--line); border-radius: 8px; padding: 11px 14px; background: var(--grybg); text-decoration: none; color: inherit; display: block; }
+.chip .k { font-size: 10.5px; color: var(--mut); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 6px; }
+.chip .v { display: flex; align-items: baseline; gap: 6px; }
+.chip .v .num { font-size: 22px; font-weight: 800; color: var(--ink); }
+.chip .v .unit { font-size: 12px; color: var(--mut); }
+.chip.tot .v .num { color: var(--accent); }
+.action-list { list-style: none; padding: 0; margin: 0; }
+.action-list li { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.action-list li:last-child { border-bottom: none; }
+.action-list .num { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--amber); color: #fff; font-size: 11px; font-weight: 800; }
+.action-list .low .num { background: var(--mut); }
+.action-list .desc { font-size: 13px; color: var(--ink); line-height: 1.45; }
+.action-list .tag { font-size: 10.5px; font-weight: 700; color: var(--accent); background: #dbeafe; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.mail-item { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); align-items: center; text-decoration: none; color: inherit; }
+.mail-item:last-child { border-bottom: none; }
+.mail-item .av { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent); background: #dbeafe; }
+.mail-item .body { min-width: 0; }
+.mail-item .subj { font-size: 12.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .from { font-size: 11px; color: var(--mut); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .stamp { font-size: 11px; color: var(--mut); font-weight: 600; }
+.note { font-size: 11.5px; color: var(--mut); margin-top: 10px; line-height: 1.6; }
+.note b { color: var(--ink); }
+footer { text-align: center; color: var(--mut); font-size: 11.5px; margin-top: 18px; padding-top: 12px; }
+@media (max-width: 700px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="top">
+      <div>
+        <h1>☀️ 세종기술 아침 통합 브리핑</h1>
+        <div class="sub">2026년 7월 10일 (금) · 김시원 대리 · ㈜세종기술 품질관리부</div>
+      </div>
+      <span class="badge-time">자동 생성 07:30 KST</span>
+    </div>
+    <div class="summary">
+      <div class="kpi"><div class="n">12<small>건</small></div><div class="l">최근 24시간 신규 메일 (전체 자동 분류됨)</div></div>
+      <div class="kpi"><div class="n">0<small>건</small></div><div class="l">긴급 답변 대기</div></div>
+      <div class="kpi"><div class="n">2<small>건</small></div><div class="l">오늘 확인할 핵심 액션</div></div>
+      <div class="kpi"><div class="n">0<small>건</small></div><div class="l">신규 Project 자동 감지</div></div>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="ico">🟡</span> 오늘 확인할 액션 아이템</h2>
+    <ol class="action-list">
+      <li>
+        <span class="num">1</span>
+        <div class="desc">
+          <b>BGF ECO Specialty ARRHENIUS PROJECT 용접사 RT 정보 확인</b>
+          <small style="display:block;color:var(--mut);font-size:11.5px;margin-top:2px;">신채완 과장이 강문환 소장(고려검사)께 용접사 RT 정보 전달 — "RT REPORT 수신되는 대로 WPQ 완료하여 전달드리겠습니다"라고 회신함. RT REPORT 도착 여부 확인 필요.</small>
+        </div>
+        <span class="tag">BGF ECO ARRHENIUS</span>
+      </li>
+      <li class="low">
+        <span class="num">2</span>
+        <div class="desc">
+          <b>CKS(SJ2026-040) 수정도면 회신 진행상황 확인</b>
+          <small style="display:block;color:var(--mut);font-size:11.5px;margin-top:2px;">황서윤 대리가 송기남 차장에게 수정도면 검토 회신 요청 — 참고용 CC.</small>
+        </div>
+        <span class="tag">SJ2026-040</span>
+      </li>
+    </ol>
+    <div class="note">오늘은 직접 회신이 필요한 긴급 메일은 없고, 대부분 참고(CC)용 프로젝트 진행 공유 메일입니다.</div>
+  </section>
+
+  <section>
+    <h2><span class="ico">📬</span> 메일 자동 분류 요약 <span class="secnote">최근 24시간 · 12건 전체 라벨링 완료</span></h2>
+    <div class="chip-strip">
+      <a class="chip tot" href="https://mail.google.com/mail/u/0/#search/newer_than%3A1d" target="_blank" rel="noopener"><div class="k">신규 메일 →</div><div class="v"><span class="num">12</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/label%3ASJ2026-040+OR+CKS" target="_blank" rel="noopener"><div class="k">SJ2026-040 CKS →</div><div class="v"><span class="num">4</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/BGF+ARRHENIUS+용접사" target="_blank" rel="noopener"><div class="k">BGF ARRHENIUS →</div><div class="v"><span class="num">5</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/newer_than%3A1d+주간+작업일보" target="_blank" rel="noopener"><div class="k">주간 작업일보(생산부) →</div><div class="v"><span class="num">6</span><span class="unit">건</span></div></a>
+    </div>
+    <div class="note">주간 작업일보(VDS·HA KOREA·진양화성·삼성전기 등)는 생산부 권오근 부장이 전체 배포하는 정기 보고로, 별도 회신 불필요.</div>
+  </section>
+
+  <section>
+    <h2><span class="ico">📮</span> 신규 메일 (참고용 12건)</h2>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/CKS+구매요청서" target="_blank" rel="noopener">
+      <div class="av">황</div>
+      <div class="body"><div class="subj">260710 [SJ2026-040] CKS 구매요청서 송부건</div><div class="from">황서윤 대리 · SJ2026-040</div></div>
+      <div class="stamp">07:11</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/CKS+수정도면" target="_blank" rel="noopener">
+      <div class="av">황</div>
+      <div class="body"><div class="subj">260710 [SJ2026-040] CKS 수정도면 송부건</div><div class="from">황서윤 대리 · SJ2026-040</div></div>
+      <div class="stamp">06:42</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/CKS+용접부위도" target="_blank" rel="noopener">
+      <div class="av">황</div>
+      <div class="body"><div class="subj">260710 [SJ2026-040] CKS 용접부위도 송부건</div><div class="from">황서윤 대리 · SJ2026-040</div></div>
+      <div class="stamp">05:48</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/스피터+전원선" target="_blank" rel="noopener">
+      <div class="av">신</div>
+      <div class="body"><div class="subj">[품질관리부] 스피터 전원선 송부건</div><div class="from">신채완 과장 · 내부 구매</div></div>
+      <div class="stamp">04:30</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/BGF+용접사+RT정보전달" target="_blank" rel="noopener">
+      <div class="av">신</div>
+      <div class="body"><div class="subj">[세종기술] BGF ARRHENIUS 용접사 RT정보전달건 (외 4건)</div><div class="from">신채완 과장 · 김영광 대리 · BGF ECO ARRHENIUS</div></div>
+      <div class="stamp">09:37</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/CKS+TK-1201+주간+작업일보" target="_blank" rel="noopener">
+      <div class="av">권</div>
+      <div class="body"><div class="subj">[생산관리부] (SJ2026-040) CKS 주간 작업일보</div><div class="from">권오근 부장 · SJ2026-040</div></div>
+      <div class="stamp">09:25</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/VDS+주간+작업일보" target="_blank" rel="noopener">
+      <div class="av">권</div>
+      <div class="body"><div class="subj">[생산관리부] VDS 파쇄기/ESTER 주간 작업일보 (외 1건)</div><div class="from">권오근 부장 · SJ2026-036 · SJ2026-030</div></div>
+      <div class="stamp">09:30</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/진양화성+주간+작업일보" target="_blank" rel="noopener">
+      <div class="av">권</div>
+      <div class="body"><div class="subj">[생산관리부] 진양화성 신규설비 증설공사 주간 작업일보</div><div class="from">권오근 부장 · SJ437-26</div></div>
+      <div class="stamp">09:27</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/HA+KOREA+주간+작업일보" target="_blank" rel="noopener">
+      <div class="av">권</div>
+      <div class="body"><div class="subj">[생산관리부] HA KOREA 밀양/3TON 주간 작업일보 (외 1건)</div><div class="from">권오근 부장 · SJ428-25 · SJ2026-029</div></div>
+      <div class="stamp">09:23</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/삼성전기+주간+작업일보" target="_blank" rel="noopener">
+      <div class="av">권</div>
+      <div class="body"><div class="subj">[생산관리부] 삼성전기 MLCC 배관 계장 엔지니어링 주간 작업일보</div><div class="from">권오근 부장 · SJ435-26</div></div>
+      <div class="stamp">09:20</div>
+    </a>
+  </section>
+
+  <footer>
+    ㈜세종기술 · 아침 통합 브리핑 (sejong-daily-briefing) · 2026-07-10 생성<br>
+    07:30 실행 · 데이터: Gmail<br>
+    ⓒ Designed by Quality Control Dept.
+  </footer>
+
+</div>

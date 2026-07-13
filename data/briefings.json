@@ -974,5 +974,29 @@
     ],
     "urgentList": [],
     "schedule": []
+  },
+  "swkim@sejong-21c.com": {
+    "generatedAt": "2026-07-10 07:30",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-07-10-morning.html",
+    "newMails": 12,
+    "processed": 12,
+    "urgentReplies": 0,
+    "ncr": 0,
+    "car": 0,
+    "newProjects": 0,
+    "keyActions": [
+      {
+        "text": "BGF ECO Specialty ARRHENIUS PROJECT 용접사 RT 정보 수신 확인 — 신채완 과장이 RT REPORT 수신되는 대로 WPQ 완료 예정이라고 회신함. RT REPORT 도착 여부 확인 필요",
+        "proj": "BGF ECO ARRHENIUS",
+        "priority": "mid"
+      },
+      {
+        "text": "CKS(SJ2026-040) 수정도면 회신 진행상황 확인 — 황서윤 대리가 송기남 차장에게 검토 회신 요청한 건",
+        "proj": "SJ2026-040",
+        "priority": "low"
+      }
+    ],
+    "urgentList": [],
+    "schedule": []
   }
 }
