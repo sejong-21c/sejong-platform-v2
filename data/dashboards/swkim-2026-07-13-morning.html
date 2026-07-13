@@ -1,0 +1,210 @@
+<title>세종기술 아침 통합 브리핑 · 2026-07-13</title>
+<style>
+:root {
+  --navy: #0b2545; --blue: #13315c; --accent: #2563eb;
+  --line: #e2e8f0; --bg: #f4f6fb; --card: #ffffff;
+  --ink: #1e293b; --mut: #64748b;
+  --red: #dc2626; --amber: #d97706; --green: #16a34a;
+  --redbg: #fef2f2; --ambbg: #fffbeb; --grnbg: #f0fdf4; --grybg: #f1f5f9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --navy: #7ba0d6; --blue: #93b4dd; --accent: #60a5fa;
+    --line: #262c36; --bg: #0f1319; --card: #171b22;
+    --ink: #e7eaf0; --mut: #94a3b8;
+    --red: #f87171; --amber: #fbbf24; --green: #4ade80;
+    --redbg: rgba(248,113,113,0.12); --ambbg: rgba(251,191,36,0.12);
+    --grnbg: rgba(74,222,128,0.12); --grybg: rgba(148,163,184,0.10);
+  }
+}
+:root[data-theme="light"] {
+  --navy: #0b2545; --blue: #13315c; --accent: #2563eb;
+  --line: #e2e8f0; --bg: #f4f6fb; --card: #ffffff;
+  --ink: #1e293b; --mut: #64748b;
+  --red: #dc2626; --amber: #d97706; --green: #16a34a;
+  --redbg: #fef2f2; --ambbg: #fffbeb; --grnbg: #f0fdf4; --grybg: #f1f5f9;
+}
+:root[data-theme="dark"] {
+  --navy: #7ba0d6; --blue: #93b4dd; --accent: #60a5fa;
+  --line: #262c36; --bg: #0f1319; --card: #171b22;
+  --ink: #e7eaf0; --mut: #94a3b8;
+  --red: #f87171; --amber: #fbbf24; --green: #4ade80;
+  --redbg: rgba(248,113,113,0.12); --ambbg: rgba(251,191,36,0.12);
+  --grnbg: rgba(74,222,128,0.12); --grybg: rgba(148,163,184,0.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Pretendard', -apple-system, sans-serif;
+  background: var(--bg); color: var(--ink); line-height: 1.5; padding: 24px;
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 900px; margin: 0 auto; }
+header {
+  background: linear-gradient(135deg, var(--navy), var(--blue));
+  color: #fff; border-radius: 14px; padding: 22px 26px;
+  box-shadow: 0 6px 20px rgba(11, 37, 69, .18);
+}
+:root[data-theme="dark"] header, [data-theme="dark"] header { color: #0b2545; }
+@media (prefers-color-scheme: dark) { header { color: #0b2545; } }
+header .top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+header .sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+.badge-time { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+.kpi { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 11px 13px; }
+.kpi .n { font-size: 22px; font-weight: 800; }
+.kpi .n small { font-size: 13px; font-weight: 700; }
+.kpi .l { font-size: 11.5px; opacity: .82; margin-top: 2px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-top: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+h2 { font-size: 15px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+h2 .ico { font-size: 17px; }
+.secnote { font-size: 11px; color: var(--mut); font-weight: 400; margin-left: auto; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.p-red { background: var(--redbg); color: var(--red); border: 1px solid #fecaca; }
+.p-amb { background: var(--ambbg); color: var(--amber); border: 1px solid #fde68a; }
+.p-grn { background: var(--grnbg); color: var(--green); border: 1px solid #bbf7d0; }
+.p-gry { background: var(--grybg); color: var(--mut); border: 1px solid var(--line); }
+.cat { font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 6px; margin-left: 5px; vertical-align: middle; background: #e0e7ff; color: #3730a3; }
+.chip-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.chip { border: 1px solid var(--line); border-radius: 8px; padding: 11px 14px; background: var(--grybg); text-decoration: none; color: inherit; display: block; }
+.chip .k { font-size: 10.5px; color: var(--mut); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 6px; }
+.chip .v { display: flex; align-items: baseline; gap: 6px; }
+.chip .v .num { font-size: 22px; font-weight: 800; color: var(--ink); }
+.chip .v .unit { font-size: 12px; color: var(--mut); }
+.chip.tot .v .num { color: var(--accent); }
+.action-list { list-style: none; padding: 0; margin: 0; }
+.action-list li { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.action-list li:last-child { border-bottom: none; }
+.action-list .num { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--red); color: #fff; font-size: 11px; font-weight: 800; }
+.action-list .mid .num { background: var(--amber); }
+.action-list .low .num { background: var(--mut); }
+.action-list .desc { font-size: 13px; color: var(--ink); line-height: 1.45; }
+.action-list .desc small { display: block; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
+.action-list .tag { font-size: 10.5px; font-weight: 700; color: var(--accent); background: #dbeafe; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.action-list .due { font-size: 11px; font-weight: 700; color: var(--red); white-space: nowrap; }
+.action-list .mid .due { color: var(--amber); }
+.mail-item { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); align-items: center; text-decoration: none; color: inherit; }
+.mail-item:last-child { border-bottom: none; }
+.mail-item .av { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent); background: #dbeafe; }
+.mail-item .body { min-width: 0; }
+.mail-item .subj { font-size: 12.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .from { font-size: 11px; color: var(--mut); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .stamp { font-size: 11px; color: var(--mut); font-weight: 600; }
+.note { font-size: 11.5px; color: var(--mut); margin-top: 10px; line-height: 1.6; }
+.note b { color: var(--ink); }
+.alertbox { border-left: 4px solid var(--red); background: var(--redbg); border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 12px; }
+.alertbox .h { font-weight: 700; color: var(--red); font-size: 12.5px; margin-bottom: 6px; }
+.alertbox ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+.alertbox li { margin: 3px 0; }
+.alertbox b { color: var(--navy); }
+footer { text-align: center; color: var(--mut); font-size: 11.5px; margin-top: 18px; padding-top: 12px; }
+@media (max-width: 700px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="top">
+      <div>
+        <h1>☀️ 세종기술 아침 통합 브리핑</h1>
+        <div class="sub">2026년 7월 13일 (월) · 김시원 대리 · ㈜세종기술 품질관리부</div>
+      </div>
+      <span class="badge-time">자동 생성 05:48 KST</span>
+    </div>
+    <div class="summary">
+      <div class="kpi"><div class="n">7<small>건</small></div><div class="l">최근 24시간 메일 (수신 6 · 발신 1스레드)</div></div>
+      <div class="kpi"><div class="n">1<small>건</small></div><div class="l">긴급 답변 대기</div></div>
+      <div class="kpi"><div class="n">3<small>건</small></div><div class="l">오늘 확인할 핵심 액션</div></div>
+      <div class="kpi"><div class="n">0<small>건</small></div><div class="l">신규 Project 자동 감지</div></div>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="ico">🔴</span> 오늘 확인할 액션 아이템</h2>
+    <div class="alertbox">
+      <div class="h">⚠️ 한수원 신규 입찰 — 품질관리부 서류 준비 (D-2)</div>
+      <ul>
+        <li><b>한수원 「Y26-0443-010/2」 입찰(한빛1발 SF사업팀 탱크 1품목)</b> — 김철우 부장 금일 공지, 품질관리부 담당: <b>품질인증서 사본 또는 유자격 공급업체 등록증 사본</b></li>
+        <li><b>7/15(수) 09:00까지 신채완 과장에게 회신</b> — 부장님 출장으로 취합 담당이 신채완 과장님</li>
+      </ul>
+    </div>
+    <ol class="action-list">
+      <li>
+        <span class="num">1</span>
+        <div class="desc">
+          <b>한수원 입찰 품질서류(품질인증서/유자격증 사본) 준비 지원</b>
+          <small>신채완 과장에게 회신 필요한 서류 — 필요 시 준비 협조</small>
+        </div>
+        <span class="tag">한수원 Y26-0443-010/2</span>
+        <span class="due">D-2</span>
+      </li>
+      <li class="mid">
+        <span class="num">2</span>
+        <div class="desc">
+          <b>SJE437-26 진양화성 Tube Sheet Heat No. 불일치 반품 요청 회신 대기</b>
+          <small>금일 본인이 발송 — 기존 제공 자재성적서와 실제 품목 Heat No. 상이 사유로 반품 요청, 김재현 대리 등 발생원인·조치방안 회신 필요</small>
+        </div>
+        <span class="tag">SJE437-26 · SJ-NCR-2026-16</span>
+      </li>
+      <li class="low">
+        <span class="num">3</span>
+        <div class="desc">
+          <b>SJ431-25 SDC / SJ435-26 삼성전기 도면 출도 참고</b>
+          <small>맨홀 발란서 제작도면, 펌프&밀 서포트 도면 — 생산부 앞 발주 지시, 참고용 CC</small>
+        </div>
+        <span class="tag">SJ431-25 · SJ435-26</span>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="ico">📬</span> 메일 자동 분류 요약 <span class="secnote">최근 24시간 · 수신 6건 + 발신 1스레드</span></h2>
+    <div class="chip-strip">
+      <a class="chip tot" href="https://mail.google.com/mail/u/0/#search/newer_than%3A1d" target="_blank" rel="noopener"><div class="k">신규 메일 →</div><div class="v"><span class="num">7</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/한수원+Y26-0443-010" target="_blank" rel="noopener"><div class="k">한수원 입찰 →</div><div class="v"><span class="num">1</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/SJE437-26+Tube+Sheet" target="_blank" rel="noopener"><div class="k">SJE437-26 반품요청 →</div><div class="v"><span class="num">1</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/도면+출도" target="_blank" rel="noopener"><div class="k">도면 출도(참고) →</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></a>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ico">📮</span> 신규 메일</h2>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/한수원+Y26-0443-010" target="_blank" rel="noopener">
+      <div class="av">김</div>
+      <div class="body"><div class="subj">한수원 - Y26-0443-010/2 입찰관련 요청 (+추가 안내)</div><div class="from">김철우 부장 · 한수원 Y26-0443-010/2</div></div>
+      <div class="stamp">13:05</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/SDC+맨홀+발란서" target="_blank" rel="noopener">
+      <div class="av">이</div>
+      <div class="body"><div class="subj">[(SJ431-25) SDC PROJECT] 맨홀 발란서 제작도면 출도 건</div><div class="from">이영주 대리 · SJ431-25</div></div>
+      <div class="stamp">14:43</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/펌프+밀+서포트+도면" target="_blank" rel="noopener">
+      <div class="av">이</div>
+      <div class="body"><div class="subj">[(SJ435-26) MLCC 배관 계장] 펌프 & 밀 서포트 도면 출도 건</div><div class="from">이영주 대리 · SJ435-26</div></div>
+      <div class="stamp">14:38</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#search/260713+CKS+구매요청서" target="_blank" rel="noopener">
+      <div class="av">황</div>
+      <div class="body"><div class="subj">260713 [SJ2026-040] CKS 구매요청서 송부건</div><div class="from">황서윤 대리 · SJ2026-040</div></div>
+      <div class="stamp">14:01</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#sent" target="_blank" rel="noopener">
+      <div class="av">나</div>
+      <div class="body"><div class="subj">(발신) SJE437-26 Tube Sheet 불일치보고서 및 반품 요청</div><div class="from">본인 발송 · SJE437-26 · SJ-NCR-2026-16</div></div>
+      <div class="stamp">12:51 / 14:23</div>
+    </a>
+    <a class="mail-item" href="https://mail.google.com/mail/u/0/#inbox" target="_blank" rel="noopener">
+      <div class="av">최</div>
+      <div class="body"><div class="subj">Fwd: 1243353262 (개인 전달메일 — 업무 무관 추정)</div><div class="from">최가람</div></div>
+      <div class="stamp">10:33</div>
+    </a>
+  </section>
+
+  <footer>
+    ㈜세종기술 · 아침 통합 브리핑 (sejong-daily-briefing) · 2026-07-13 생성<br>
+    05:48 실행 · 데이터: Gmail<br>
+    ⓒ Designed by Quality Control Dept.
+  </footer>
+
+</div>
