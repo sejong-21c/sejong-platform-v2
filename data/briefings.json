@@ -976,36 +976,36 @@
     "schedule": []
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-07-13 05:48",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-07-13-morning.html",
-    "newMails": 7,
-    "processed": 7,
+    "generatedAt": "2026-07-14 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-07-14-morning.html",
+    "newMails": 3,
+    "processed": 3,
     "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "한수원 「Y26-0443-010/2」 입찰(한빛1발 SF사업팀 탱크 1품목) 품질서류 준비 — 품질인증서 사본 또는 유자격 공급업체 등록증 사본, 7/15(수) 09:00까지 신채완 과장에게 회신 필요",
+        "text": "한수원 「Y26-0443-010/2」 입찰 품질서류(품질인증서 사본 또는 유자격 공급업체 등록증 사본) 최종 준비 — 내일 7/15(수) 09:00까지 신채완 과장에게 회신 필요 (D-1, Calendar 등록됨)",
         "proj": "한수원 Y26-0443-010/2",
         "priority": "high"
       },
       {
-        "text": "SJE437-26 진양화성 Tube Sheet Heat No. 불일치(SJ-NCR-2026-16) 반품 요청 — 본인이 금일 발송, 김재현 대리 등 발생원인·조치방안 회신 대기 중",
-        "proj": "SJE437-26",
+        "text": "SJ435-26 신안건업(외주) ITP 기준 품질보증기록 회신 대기 — 본인이 금일 회의록 공유 + 서명본 재송부, 회신 지연 시 가조립 철골 검사·해체 일정 영향. 상대 회신에 명확한 기한 없어 확인 필요(캘린더 자동 등록 안 함)",
+        "proj": "SJ435-26",
         "priority": "mid"
       },
       {
-        "text": "SJ431-25 SDC 맨홀 발란서 제작도면 출도 / SJ435-26 삼성전기 펌프&밀 서포트 도면 출도 — 생산부 참고용 CC",
-        "proj": "SJ431-25 · SJ435-26",
+        "text": "SJE437-26 진양화성 BROWAR SUPPORT 수정도면(1EA→2EA) — 생산부(송기남 차장) 앞 발송, 본인은 참고용 CC",
+        "proj": "SJE437-26",
         "priority": "low"
       }
     ],
     "urgentList": [
       {
-        "subject": "한수원 - Y26-0443-010/2 입찰관련 요청",
-        "from": "김철우 부장(cwkim@sejong-21c.com)",
-        "proj": "한수원 Y26-0443-010/2"
+        "subject": "[SJ435-26] 철골 제작 품질 확인 회의록 공유 및 긴급 요청(ITP 기준 품질보증기록)",
+        "from": "본인 발송 → 김시현 과장(신안건업, shinan9038@naver.com)",
+        "proj": "SJ435-26"
       }
     ],
     "schedule": [
