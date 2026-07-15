@@ -1,0 +1,867 @@
+<title>세종기술 아침 통합 브리핑 · 2026-07-16</title>
+<style>
+:root {
+  --navy: #0b2545;
+  --blue: #13315c;
+  --accent: #2563eb;
+  --line: #e2e8f0;
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --ink: #1e293b;
+  --mut: #64748b;
+  --red: #dc2626;
+  --amber: #d97706;
+  --green: #16a34a;
+  --redbg: #fef2f2;
+  --ambbg: #fffbeb;
+  --grnbg: #f0fdf4;
+  --grybg: #f1f5f9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --navy: #7ba0d6;
+    --blue: #93b4dd;
+    --accent: #60a5fa;
+    --line: #262c36;
+    --bg: #0f1319;
+    --card: #171b22;
+    --ink: #e7eaf0;
+    --mut: #94a3b8;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --green: #4ade80;
+    --redbg: rgba(248,113,113,0.12);
+    --ambbg: rgba(251,191,36,0.12);
+    --grnbg: rgba(74,222,128,0.12);
+    --grybg: rgba(148,163,184,0.10);
+  }
+}
+:root[data-theme="light"] {
+  --navy: #0b2545; --blue: #13315c; --accent: #2563eb;
+  --line: #e2e8f0; --bg: #f4f6fb; --card: #ffffff;
+  --ink: #1e293b; --mut: #64748b;
+  --red: #dc2626; --amber: #d97706; --green: #16a34a;
+  --redbg: #fef2f2; --ambbg: #fffbeb; --grnbg: #f0fdf4; --grybg: #f1f5f9;
+}
+:root[data-theme="dark"] {
+  --navy: #7ba0d6; --blue: #93b4dd; --accent: #60a5fa;
+  --line: #262c36; --bg: #0f1319; --card: #171b22;
+  --ink: #e7eaf0; --mut: #94a3b8;
+  --red: #f87171; --amber: #fbbf24; --green: #4ade80;
+  --redbg: rgba(248,113,113,0.12); --ambbg: rgba(251,191,36,0.12);
+  --grnbg: rgba(74,222,128,0.12); --grybg: rgba(148,163,184,0.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Pretendard', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+  padding: 24px;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; }
+
+/* Header */
+header {
+  background: linear-gradient(135deg, var(--navy), var(--blue));
+  color: #fff;
+  border-radius: 14px;
+  padding: 22px 26px;
+  box-shadow: 0 6px 20px rgba(11, 37, 69, .18);
+}
+:root[data-theme="dark"] header, [data-theme="dark"] header { color: #0b2545; }
+@media (prefers-color-scheme: dark) { header { color: #0b2545; } }
+header .top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  flex-wrap: wrap; gap: 8px;
+}
+header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+header .sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+.badge-time {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .3);
+  padding: 4px 11px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+}
+.time-pills {
+  display: inline-flex; gap: 3px; margin-left: 8px;
+}
+.time-pill {
+  padding: 3px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,.7);
+}
+.time-pill.on { background: rgba(255,255,255,.28); color: #fff; }
+.summary {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin-top: 16px;
+}
+.kpi {
+  background: rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 10px; padding: 11px 13px;
+}
+.kpi .n { font-size: 22px; font-weight: 800; }
+.kpi .n small { font-size: 13px; font-weight: 700; }
+.kpi .l { font-size: 11.5px; opacity: .82; margin-top: 2px; }
+
+/* Section */
+section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-top: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+}
+h2 {
+  font-size: 15px; font-weight: 700; color: var(--navy);
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--line);
+}
+h2 .ico { font-size: 17px; }
+.secnote { font-size: 11px; color: var(--mut); font-weight: 400; margin-left: auto; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { text-align: left; padding: 8px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--grybg); color: var(--mut); font-weight: 600; font-size: 11.5px; white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+
+/* Pills */
+.pill {
+  display: inline-block; padding: 2px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.p-red { background: var(--redbg); color: var(--red); border: 1px solid #fecaca; }
+.p-amb { background: var(--ambbg); color: var(--amber); border: 1px solid #fde68a; }
+.p-grn { background: var(--grnbg); color: var(--green); border: 1px solid #bbf7d0; }
+.p-gry { background: var(--grybg); color: var(--mut); border: 1px solid var(--line); }
+.p-blu { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.p-pur { background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+
+/* Alert */
+.alertbox {
+  border-left: 4px solid var(--amber);
+  background: var(--ambbg);
+  border-radius: 8px; padding: 12px 14px;
+  font-size: 13px; margin-bottom: 12px;
+}
+.alertbox.red { border-left-color: var(--red); background: var(--redbg); }
+.alertbox.grn { border-left-color: var(--green); background: var(--grnbg); }
+.alertbox b { color: var(--navy); }
+.alertbox .h { font-weight: 700; color: var(--red); font-size: 12.5px; margin-bottom: 6px; }
+.alertbox ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+.alertbox li { margin: 3px 0; }
+
+/* Category tags */
+.cat {
+  font-size: 10px; font-weight: 700; border-radius: 4px;
+  padding: 1px 6px; margin-left: 5px; vertical-align: middle;
+}
+.c-cert { background: #fef3c7; color: #92400e; }
+.c-bid { background: #dbeafe; color: #1e40af; }
+.c-fund { background: #dcfce7; color: #166534; }
+.c-task { background: #fae8ff; color: #86198f; }
+.c-event { background: #f1f5f9; color: #475569; }
+.c-proj { background: #e0e7ff; color: #3730a3; }
+.c-okr { background: #ede9fe; color: #6d28d9; }
+.c-mail { background: #fce7f3; color: #9d174d; }
+
+/* Chip strip */
+.chip-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 11px 14px;
+  background: var(--grybg);
+}
+.chip .k {
+  font-size: 10.5px; color: var(--mut);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  font-weight: 700; margin-bottom: 6px;
+}
+.chip .v { display: flex; align-items: baseline; gap: 6px; }
+.chip .v .num { font-size: 22px; font-weight: 800; color: var(--ink); }
+.chip .v .unit { font-size: 12px; color: var(--mut); }
+.chip.tot .v .num { color: var(--accent); }
+.chip.urgent .v .num { color: var(--red); }
+.chip.classify .v .num { color: var(--green); }
+
+/* Action list (reference: rm-now style adapted) */
+.action-list { list-style: none; padding: 0; margin: 0; }
+.action-list li {
+  display: grid;
+  grid-template-columns: 26px 1fr auto auto;
+  gap: 12px; align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.action-list li:last-child { border-bottom: none; }
+.action-list .num {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--red); color: #fff;
+  font-size: 11px; font-weight: 800;
+}
+.action-list .mid .num { background: var(--amber); }
+.action-list .low .num { background: var(--mut); }
+.action-list .desc { font-size: 13px; color: var(--ink); line-height: 1.45; }
+.action-list .desc small { display: block; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
+.action-list .tag {
+  font-size: 10.5px; font-weight: 700; color: var(--accent);
+  background: #dbeafe; padding: 3px 8px; border-radius: 4px; white-space: nowrap;
+}
+.action-list .due { font-size: 11px; font-weight: 700; color: var(--red); white-space: nowrap; }
+.action-list .mid .due { color: var(--amber); }
+
+/* ─── Gantt (reference file style) ─── */
+.gantt {
+  display: grid;
+  align-items: center;
+  row-gap: 7px;
+  margin-top: 8px;
+  font-size: 11px;
+  overflow-x: auto;
+}
+.gantt .gh {
+  font-size: 10px; color: var(--mut); font-weight: 600;
+  text-align: center; padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+}
+.gantt .gh.cur { color: var(--accent); font-weight: 800; }
+.gantt .gh b { color: var(--accent); }
+.gantt .gl {
+  font-size: 11px; font-weight: 600; color: var(--ink);
+  padding-right: 8px; grid-column: 1; line-height: 1.25;
+}
+.gantt .gl small { display: block; font-size: 10px; color: var(--mut); font-weight: 500; margin-top: 1px; }
+.gantt .bar {
+  height: 22px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 700; color: #fff;
+  padding: 0 6px; overflow: visible; white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+  border: 1px solid rgba(0, 0, 0, .22);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+}
+.b-pur { background: #7e22ce; }  /* R&D */
+.b-red { background: #dc2626; }  /* 긴급 */
+.b-amb { background: #c2620a; }  /* 보고·마감·교육·검토 */
+.b-grn { background: #15803d; }  /* 지원사업·자격 */
+.b-gry { background: #64748b; }
+.b-blu { background: #1d4ed8; }  /* 입찰·프로젝트 */
+.b-nav { background: #0b2545; }  /* 진행 프로젝트 (엔지니어링 네이비) */
+.b-tea { background: #0f766e; }  /* 마감 임박 프로젝트 (틸) */
+.b-canc { background: #94a3b8; text-decoration: line-through; opacity: .7; }
+.applycap {
+  background-image: repeating-linear-gradient(45deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 5px,
+    rgba(255, 255, 255, .20) 5px,
+    rgba(255, 255, 255, .20) 10px);
+}
+.glegend {
+  font-size: 10.5px; color: var(--mut);
+  margin-top: 9px;
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+.glegend span { display: inline-flex; align-items: center; gap: 4px; }
+.glegend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.note {
+  font-size: 11.5px; color: var(--mut);
+  margin-top: 10px; line-height: 1.6;
+}
+.note b { color: var(--ink); }
+
+/* KPI 2단 */
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.kpi-card {
+  background: var(--grybg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.kpi-card h3 {
+  font-size: 12.5px; font-weight: 700;
+  color: var(--navy); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.kpi-card .kpi-tag {
+  font-size: 10px; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 3px;
+}
+.kpi-card.nuc .kpi-tag { background: #fef3c7; color: #92400e; }
+.kpi-card.gen .kpi-tag { background: #dbeafe; color: #1e40af; }
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kpi-stat { display: flex; flex-direction: column; gap: 3px; }
+.kpi-stat .k { font-size: 10.5px; color: var(--mut); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.kpi-stat .v { font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+.kpi-stat .trend { font-size: 10.5px; color: var(--mut); }
+.kpi-stat .trend.up { color: var(--green); }
+.kpi-stat .trend.down { color: var(--red); }
+.kpi-stat .trend.watch { color: var(--amber); }
+
+/* Split lists */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.split section { margin-top: 0; }
+
+/* Mail list */
+.mail-item {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+.mail-item:last-child { border-bottom: none; }
+.mail-item .av {
+  width: 30px; height: 30px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: var(--accent); background: #dbeafe;
+}
+.mail-item .body { min-width: 0; }
+.mail-item .subj { font-size: 12.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .from { font-size: 11px; color: var(--mut); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .stamp { font-size: 11px; color: var(--mut); font-weight: 600; }
+.mail-item.unread .subj { color: var(--accent); }
+.mail-item.unread .av { color: #fff; background: var(--accent); }
+
+/* Bid list */
+.bid-item {
+  display: grid; grid-template-columns: 1fr auto;
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+  gap: 14px; align-items: start;
+}
+.bid-item:last-child { border-bottom: none; }
+.bid-item .title { font-size: 12.5px; color: var(--ink); font-weight: 600; line-height: 1.4; }
+.bid-item .meta { font-size: 11px; color: var(--mut); margin-top: 3px; }
+.bid-item .side { text-align: right; white-space: nowrap; }
+
+/* Portal links */
+.links {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.lk {
+  display: block; text-decoration: none;
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 13px; background: var(--card);
+  transition: .15s;
+}
+.lk:hover {
+  border-color: var(--accent);
+  box-shadow: 0 3px 10px rgba(37, 99, 235, .12);
+  transform: translateY(-1px);
+}
+.lk .t {
+  font-weight: 700; color: var(--navy);
+  font-size: 13px; display: flex; align-items: center; gap: 6px;
+}
+.lk .d { font-size: 11px; color: var(--mut); margin-top: 3px; }
+.lk .arrow { margin-left: auto; color: var(--accent); }
+
+footer {
+  text-align: center; color: var(--mut);
+  font-size: 11.5px; margin-top: 18px; padding-top: 12px;
+}
+
+/* v29.17: 클릭 가능한 항목 스타일 — 아이템 전체를 <a>로 감싸도 시각적으로 링크로 보이지 않게 */
+a.row-link {
+  text-decoration: none;
+  color: inherit;
+  display: contents;
+}
+.action-list li.clickable,
+.mail-item.clickable,
+.bid-item.clickable,
+tr.clickable {
+  cursor: pointer;
+  transition: background .1s;
+}
+.action-list li.clickable:hover,
+.mail-item.clickable:hover,
+.bid-item.clickable:hover,
+tr.clickable:hover {
+  background: var(--grybg);
+}
+.click-hint {
+  font-size: 10px; color: var(--mut); opacity: 0.6; margin-left: 4px;
+}
+a.row-link:hover .click-hint { opacity: 1; color: var(--accent); }
+
+
+@media (max-width: 900px) {
+  .summary { grid-template-columns: repeat(2, 1fr); }
+  .links { grid-template-columns: 1fr 1fr; }
+  .split { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: 1fr; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="top">
+      <div>
+        <h1>☀️ 세종기술 아침 통합 브리핑</h1>
+        <div class="sub">2026년 7월 16일 (목) · 김철우 부장 · ㈜세종기술 품질관리부</div>
+      </div>
+      <span class="badge-time">수동 생성 08:15 KST
+        <span class="time-pills"><span class="time-pill on">07:00</span><span class="time-pill">12:00</span><span class="time-pill">16:30</span></span>
+      </span>
+    </div>
+    <div class="summary">
+      <div class="kpi"><div class="n">15<small>건</small></div><div class="l">최근 24시간 신규 메일 (자동 분류 10 · 확인 필요 5)</div></div>
+      <div class="kpi"><div class="n">5<small>건</small></div><div class="l">오늘 처리 필요 (긴급 2 · 중 2 · 일반 1)</div></div>
+      <div class="kpi"><div class="n">3<small>+3</small></div><div class="l">원자력 KPI: 진행 과제 3 · 입찰·견적 3 (오늘 마감 1)</div></div>
+      <div class="kpi"><div class="n">16<small>건</small></div><div class="l">일반산업 진행 프로젝트 · 신규 NCR/CAR 0건</div></div>
+    </div>
+  </header>
+
+  <!-- 1. 오늘 처리할 액션 -->
+  <section>
+    <h2><span class="ico">🔴</span> 오늘 처리할 액션 아이템 <span class="secnote">우선순위 · 마감 임박 순</span></h2>
+    <div class="alertbox red">
+      <div class="h">이번 주 핵심 액션 (7/16~7/20)</div>
+      <ul>
+        <li><b>한울 3·4호기 주급수 승압펌프 전동기 이송대차 입찰서 제출 — 오늘 7/16 마감 (D-day)</b> <span class="cat c-bid">입찰</span> · 예가 3.08억 · 견적/서류 최종 확인 후 <b>금일 제출 필수</b></li>
+        <li><b>ASME U-Stamp 만료 1년 전 알림 개시 7/19 (D-3)</b> <span class="cat c-cert">인증</span> · 이번 주 갱신 일정(AI·Joint Review) 수립 착수</li>
+        <li><b>Weekly Project Report 작성·제출 — 7/20(월) 공정회의 (D-4)</b> <span class="cat c-fund">부서</span> · 김민준 차장 양식 배포(7/15) · 작성시한 준수</li>
+        <li><b>한수원 체코원전 M229C·N210B 예가 견적 7/21 (D-5)</b> <span class="cat c-bid">견적</span> · 영업부 작성 진행 · 부장 검토 예정</li>
+      </ul>
+    </div>
+    <ol class="action-list">
+      <li class="clickable">
+        <a class="row-link" href="https://ebiz.khnp.co.kr/login.do" target="_blank" rel="noopener" title="한수원 K-Pro 열기">
+          <span class="num">1</span>
+          <div class="desc">
+            한울 3·4호기 이송대차 <b>입찰서 제출 (오늘 마감)</b> <span class="click-hint">→ K-Pro</span>
+            <small>주급수 승압펌프 전동기 이송대차 · 예가 3.08억 · 견적/서류 최종 확인 후 제출</small>
+          </div>
+          <span class="tag">원자력</span>
+          <span class="due">D-day</span>
+        </a>
+      </li>
+      <li class="clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/자동밸브+검수일정+브이아이테크" target="_blank" rel="noopener" title="Gmail에서 관련 메일 검색">
+          <span class="num">2</span>
+          <div class="desc">
+            삼성전기 BT-6라인 자동밸브 <b>작동테스트 일정 회신</b> <span class="click-hint">→ Gmail 열기</span>
+            <small>브이아이테크 변길훈 · 7/27~29 중 택일 · 1일 약 5,000회 작동 테스트</small>
+          </div>
+          <span class="tag">SJ435-26</span>
+          <span class="due">D-1</span>
+        </a>
+      </li>
+      <li class="mid clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/Y-134-N210+기술자료" target="_blank" rel="noopener" title="Gmail에서 관련 메일 검색">
+          <span class="num">3</span>
+          <div class="desc">
+            한수원 Y-134-N210 입찰 <b>기술자료 확인·전체답장</b> <span class="click-hint">→ Gmail 열기</span>
+            <small>이영주 대리(7/15) · Y-585-M-TK01 / Y-596-M-TK01·02 서명본 · 영업 금액부 포함 확인</small>
+          </div>
+          <span class="tag">원자력</span>
+          <span class="due">D-1</span>
+        </a>
+      </li>
+      <li class="mid clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/Weekly+Project+Report" target="_blank" rel="noopener" title="Gmail에서 관련 메일 검색">
+          <span class="num">4</span>
+          <div class="desc">
+            Weekly Project Report <b>작성·제출</b> <span class="click-hint">→ Gmail 열기</span>
+            <small>7/20(월) 공정회의 · 김민준 차장 양식(7/15 배포) · 작성시한 준수</small>
+          </div>
+          <span class="tag">부서업무</span>
+          <span class="due">D-4</span>
+        </a>
+      </li>
+      <li class="low clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/유자격+심사결과+202600239" target="_blank" rel="noopener" title="Gmail에서 관련 메일 검색">
+          <span class="num">5</span>
+          <div class="desc">
+            KHNP 유자격 분야별(경영) <b>심사결과 확인·후속</b> <span class="click-hint">→ Gmail 열기</span>
+            <small>신청번호 202600239 · 보조기기 신규 · 심사결과 확인 후 후속 조치</small>
+          </div>
+          <span class="tag">원자력</span>
+          <span class="due">-</span>
+        </a>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 2. 메일 자동 분류 -->
+  <section>
+    <h2><span class="ico">📬</span> 메일 자동 분류 요약 <span class="secnote">자동 라벨링 10건 · 확인 필요 5건</span></h2>
+    <div class="chip-strip">
+      <a class="chip tot" href="https://mail.google.com/mail/u/0/#search/newer_than%3A1d" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">신규 메일 →</div><div class="v"><span class="num">15</span><span class="unit">건</span></div></a>
+      <a class="chip urgent" href="https://mail.google.com/mail/u/0/#search/is%3Aimportant+is%3Aunread" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">긴급 답변 →</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></a>
+      <a class="chip classify" href="https://mail.google.com/mail/u/0/#inbox" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">자동 분류 →</div><div class="v"><span class="num">10</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#label/원자력_파워플랜트_Part" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">원자력 Part →</div><div class="v"><span class="num">4</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/label%3ASJ435-26_삼성전기_BT+3라인증설" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">SJ435-26 삼성전기 →</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#label/부서업무" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">부서업무 →</div><div class="v"><span class="num">1</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/스마트제조+기술수요조사" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">지원사업·조사 →</div><div class="v"><span class="num">1</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://mail.google.com/mail/u/0/#search/label%3ANCR_CAR_부적합+보고+OR+부적합+OR+시정조치" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">NCR / CAR →</div><div class="v"><span class="num">0 / 0</span><span class="unit">건</span></div></a>
+      <a class="chip" href="https://sejong21c.com/#projects" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">신규 Project →</div><div class="v"><span class="num">0</span><span class="unit">건</span></div></a>
+    </div>
+    <div class="note">🏷️ 최근 24시간 15건 중 10건은 기존 라벨(원자력·프로젝트·부서업무) 매칭. 뉴스레터·자동알림 5건(Tasklet·기업마당·Google Cloud·보안알림·GitHub)은 확인만 필요. 신규 Project·NCR/CAR 발생 없음.</div>
+
+    <!-- NCR/CAR 요약 -->
+    <div style="margin-top:14px;">
+      <div style="font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;">
+        ⚠️ NCR / CAR 관련 메일 요약
+        <span class="secnote">Gmail Label_NCR·CAR + 제목 키워드 매칭</span>
+      </div>
+      <table style="margin-top:6px">
+        <thead><tr><th>수신</th><th>구분</th><th>제목·요약</th><th>대상 프로젝트</th><th>조치</th></tr></thead>
+        <tbody>
+          <tr>
+            <td colspan="5" style="text-align:center;color:var(--mut);padding:16px;">✅ 최근 3일간 신규 NCR / CAR 관련 메일 없음</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">📊 <b>이번 주 NCR/CAR 요약:</b> 신규 발생 0건 · 진행 중 0건. <b>sejong-platform 품질관리부 > NCR 관리</b>에서 실시간 조회 가능.</div>
+    </div>
+  </section>
+
+  <!-- 3. 과제별 로드맵 (원자력·R&D·지원사업·입찰) -->
+  <section>
+    <h2><span class="ico">📋</span> 과제별 로드맵 (간트) <span class="secnote">원자력·R&D·지원사업·입찰 통합 · 2026년 하반기</span></h2>
+    <div class="gantt" style="grid-template-columns:190px repeat(7,minmax(50px,1fr))">
+      <div class="gh" style="grid-row:1;grid-column:1"></div>
+      <div class="gh" style="grid-row:1;grid-column:2">6월</div>
+      <div class="gh cur" style="grid-row:1;grid-column:3">7월</div>
+      <div class="gh" style="grid-row:1;grid-column:4">8월</div>
+      <div class="gh" style="grid-row:1;grid-column:5">9월</div>
+      <div class="gh" style="grid-row:1;grid-column:6">10월</div>
+      <div class="gh" style="grid-row:1;grid-column:7">11월</div>
+      <div class="gh" style="grid-row:1;grid-column:8">12월</div>
+
+      <div class="gl" style="grid-row:2">R&D KHNP 파단기<small>추진확정</small></div>
+      <div class="bar b-pur" style="grid-row:2;grid-column:3/7">추진 확정·기업선정위 진행</div>
+
+      <div class="gl" style="grid-row:3">KHNP 유자격 등록<small>신규·적격</small></div>
+      <div class="bar b-grn" style="grid-row:3;grid-column:3/4">등록증 수령 대기</div>
+
+      <div class="gl" style="grid-row:4">R&D 유분제거설비<small>제안·검토</small></div>
+      <div class="bar b-pur" style="grid-row:4;grid-column:2/5">제안·도면·견적 검토</div>
+
+      <div class="gl" style="grid-row:5">한울3.4 이송대차 제작 입찰<small>오늘 마감</small></div>
+      <div class="bar b-red" style="grid-row:5;grid-column:3/4">제출 마감 오늘 7/16 D-day</div>
+
+      <div class="gl" style="grid-row:6">KAIF 품질보증과정<small>~7/10</small></div>
+      <div class="bar b-gry" style="grid-row:6;grid-column:3/4">모집 마감 종료 (7/10)</div>
+
+      <div class="gl" style="grid-row:7">KAIF 핵심기업 육성 지원<small>~7/17</small></div>
+      <div class="bar b-red" style="grid-row:7;grid-column:3/4">신청 ~7/17 D-1</div>
+
+      <div class="gl" style="grid-row:8">한전KPS 품질역량 2차<small>ISO·진단·교육</small></div>
+      <div class="bar b-grn" style="grid-row:8;grid-column:3/5">신청 검토(마감확인)</div>
+
+      <div class="gl" style="grid-row:9">[NEW] 한전KPS 납품대금 연동제<small>참여 검토</small></div>
+      <div class="bar b-grn" style="grid-row:9;grid-column:3/5">참여 검토</div>
+
+      <div class="gl" style="grid-row:10">원자력품질 QC교육<small>7/22</small></div>
+      <div class="bar b-amb" style="grid-row:10;grid-column:3/4">수강 7/22 D-6</div>
+
+      <div class="gl" style="grid-row:11">KAIF 원자력산업실태조사<small>~7/31</small></div>
+      <div class="bar b-amb" style="grid-row:11;grid-column:3/4">~7/31 D-15</div>
+
+      <div class="gl" style="grid-row:13">[NEW] 한수원 체코원전 견적<small>M229C·N210B ~7/21</small></div>
+      <div class="bar b-blu" style="grid-row:13;grid-column:3/4">예가 견적 ~7/21 D-5</div>
+
+      <div class="gl" style="grid-row:12">ASME U 갱신 착수<small>11/19</small></div>
+      <div class="bar b-amb" style="grid-row:12;grid-column:7/9">착수 준비</div>
+    </div>
+    <div class="glegend">
+      <span><i style="background:#7e22ce"></i>R&D</span>
+      <span><i style="background:#dc2626"></i>긴급(D-day·발표)</span>
+      <span><i style="background:#c2620a"></i>보고·마감·교육·검토</span>
+      <span><i style="background:#1d4ed8"></i>입찰</span>
+      <span><i style="background:#15803d"></i>지원사업·자격취득</span>
+      <span><i style="background:#94a3b8"></i>취소</span>
+    </div>
+    <div class="note">금일 간트 변동: <b>[NEW] 한수원 체코원전 M229C·N210B 예가 견적(~7/21 D-5)</b> 신규 행 추가. <b>한울3·4호기 이송대차 입찰이 오늘(7/16) 마감(D-day)</b>, <b>KAIF 핵심기업 육성 지원 신청 마감 내일(7/17 D-1)</b> — 2건 긴급(적색) 상태. KAIF 품질보증과정은 7/10 모집 종료.</div>
+  </section>
+
+  <!-- 4. 인증서 갱신 간트 (원자력+일반산업 통합) -->
+  <section>
+    <h2><span class="ico">📅</span> 인증서 갱신 간트차트 <span class="secnote">원자력·일반산업 통합 · 월 단위 · 막대 = 신청(만료 8개월 전) → 만료 구간</span></h2>
+    <div class="gantt" style="grid-template-columns:190px repeat(41,minmax(24px,1fr))">
+      <div class="gh" style="grid-row:1;grid-column:1"></div>
+      <div class="gh" style="grid-row:1;grid-column:2"><b>'26</b><br>6</div>
+      <div class="gh cur" style="grid-row:1;grid-column:3">7</div>
+      <div class="gh" style="grid-row:1;grid-column:4">8</div>
+      <div class="gh" style="grid-row:1;grid-column:5">9</div>
+      <div class="gh" style="grid-row:1;grid-column:6">10</div>
+      <div class="gh" style="grid-row:1;grid-column:7">11</div>
+      <div class="gh" style="grid-row:1;grid-column:8">12</div>
+      <div class="gh" style="grid-row:1;grid-column:9"><b>'27</b><br>1</div>
+      <div class="gh" style="grid-row:1;grid-column:10">2</div>
+      <div class="gh" style="grid-row:1;grid-column:11">3</div>
+      <div class="gh" style="grid-row:1;grid-column:12">4</div>
+      <div class="gh" style="grid-row:1;grid-column:13">5</div>
+      <div class="gh" style="grid-row:1;grid-column:14">6</div>
+      <div class="gh" style="grid-row:1;grid-column:15">7</div>
+      <div class="gh" style="grid-row:1;grid-column:16">8</div>
+      <div class="gh" style="grid-row:1;grid-column:17">9</div>
+      <div class="gh" style="grid-row:1;grid-column:18">10</div>
+      <div class="gh" style="grid-row:1;grid-column:19">11</div>
+      <div class="gh" style="grid-row:1;grid-column:20">12</div>
+      <div class="gh" style="grid-row:1;grid-column:21"><b>'28</b><br>1</div>
+      <div class="gh" style="grid-row:1;grid-column:22">2</div>
+      <div class="gh" style="grid-row:1;grid-column:23">3</div>
+      <div class="gh" style="grid-row:1;grid-column:24">4</div>
+      <div class="gh" style="grid-row:1;grid-column:25">5</div>
+      <div class="gh" style="grid-row:1;grid-column:26">6</div>
+      <div class="gh" style="grid-row:1;grid-column:27">7</div>
+      <div class="gh" style="grid-row:1;grid-column:28">8</div>
+      <div class="gh" style="grid-row:1;grid-column:29">9</div>
+      <div class="gh" style="grid-row:1;grid-column:30">10</div>
+      <div class="gh" style="grid-row:1;grid-column:31">11</div>
+      <div class="gh" style="grid-row:1;grid-column:32">12</div>
+      <div class="gh" style="grid-row:1;grid-column:33"><b>'29</b><br>1</div>
+      <div class="gh" style="grid-row:1;grid-column:34">2</div>
+      <div class="gh" style="grid-row:1;grid-column:35">3</div>
+      <div class="gh" style="grid-row:1;grid-column:36">4</div>
+      <div class="gh" style="grid-row:1;grid-column:37">5</div>
+      <div class="gh" style="grid-row:1;grid-column:38">6</div>
+      <div class="gh" style="grid-row:1;grid-column:39">7</div>
+      <div class="gh" style="grid-row:1;grid-column:40">8</div>
+      <div class="gh" style="grid-row:1;grid-column:41">9</div>
+      <div class="gh" style="grid-row:1;grid-column:42">10</div>
+
+      <div class="gl" style="grid-row:2">ASME U-Stamp<small>원자력</small></div>
+      <div class="bar b-amb applycap" style="grid-row:2;grid-column:7/16">신청 26.11 → 만료 27.07</div>
+
+      <div class="gl" style="grid-row:3">원전기업 인증(그린)<small>원자력</small></div>
+      <div class="bar b-amb applycap" style="grid-row:3;grid-column:9/18">신청 27.01 → 만료 27.09</div>
+
+      <div class="gl" style="grid-row:4">ISO 9001/19443<small>원자력·일반</small></div>
+      <div class="bar b-grn applycap" style="grid-row:4;grid-column:22/31">신청 28.02 → 만료 28.10</div>
+
+      <div class="gl" style="grid-row:5">한수원 유자격 S(M239)<small>원자력</small></div>
+      <div class="bar b-grn applycap" style="grid-row:5;grid-column:23/32">신청 28.03 → 만료 28.11</div>
+
+      <div class="gl" style="grid-row:6">한전KPS A #110-108<small>일반</small></div>
+      <div class="bar b-blu applycap" style="grid-row:6;grid-column:33/42">신청 29.01 → 만료 29.09</div>
+
+      <div class="gl" style="grid-row:7">한전KPS A #101-276<small>일반</small></div>
+      <div class="bar b-blu applycap" style="grid-row:7;grid-column:33/42">신청 29.01 → 만료 29.09</div>
+
+      <div class="gl" style="grid-row:8">한수원 유자격 A(N210·M229B)<small>확인 필요</small></div>
+      <div class="bar b-gry" style="grid-row:8;grid-column:2/43">만료일 미확인 — 원본 확인 필요</div>
+    </div>
+    <table style="margin-top:14px">
+      <thead><tr><th>인증서</th><th>신청 착수 (8개월 전)</th><th>만료일</th><th>D-day(신청)</th></tr></thead>
+      <tbody>
+        <tr><td><b>ASME U-Stamp</b></td><td><b>2026-11-19</b></td><td>2027-07-19</td><td><span class="pill p-amb">D-126</span></td></tr>
+        <tr><td>원전기업 인증(그린)</td><td>2027-01-10</td><td>2027-09-10</td><td><span class="pill p-grn">D-178</span></td></tr>
+        <tr><td>ISO 9001 / 19443</td><td>2028-02-20</td><td>2028-10-20</td><td><span class="pill p-grn">D-584</span></td></tr>
+        <tr><td>한수원 유자격 S(M239)</td><td>2028-03-12</td><td>2028-11-12</td><td><span class="pill p-grn">D-605</span></td></tr>
+        <tr><td>한전KPS A #110-108 / #101-276</td><td>2029-01-30</td><td>2029-09-30</td><td><span class="pill p-grn">D-929</span></td></tr>
+        <tr><td>한수원 유자격 A(N210·M229B)</td><td>미확인</td><td>미확인</td><td><span class="pill p-gry">원본확인</span></td></tr>
+      </tbody>
+    </table>
+    <div class="note">📌 가장 먼저 도래하는 신청 착수일은 <b>ASME U-Stamp 2026-11-19 (D-126)</b>입니다. 그 전에 <b>만료 1년 전 알림 개시일 2026-07-19 (D-3)</b>이 먼저 도래하므로, 이번 주부터 갱신 준비(Authorized Inspection·Joint Review) 일정을 잡으십시오. ※7/1 획득한 <b>KHNP 유자격 「적격」(M229C·N210B, Non-NI)</b>은 정식 등록증 수령 후 레지스트리에 신규 항목으로 추가 예정입니다.</div>
+  </section>
+
+  <!-- 5. 프로젝트 & OKR 요약 간트 -->
+  <section>
+    <h2><span class="ico">📊</span> 프로젝트 & 목표(OKR) 요약 간트 <span class="secnote">sejong-platform 실시간 데이터 · 2026년 하반기</span></h2>
+    <div class="gantt" style="grid-template-columns:200px repeat(12,minmax(38px,1fr))">
+      <div class="gh" style="grid-row:1;grid-column:1"></div>
+      <div class="gh" style="grid-row:1;grid-column:2"><b>'26</b><br>3</div>
+      <div class="gh" style="grid-row:1;grid-column:3">4</div>
+      <div class="gh" style="grid-row:1;grid-column:4">5</div>
+      <div class="gh" style="grid-row:1;grid-column:5">6</div>
+      <div class="gh cur" style="grid-row:1;grid-column:6">7</div>
+      <div class="gh" style="grid-row:1;grid-column:7">8</div>
+      <div class="gh" style="grid-row:1;grid-column:8">9</div>
+      <div class="gh" style="grid-row:1;grid-column:9">10</div>
+      <div class="gh" style="grid-row:1;grid-column:10">11</div>
+      <div class="gh" style="grid-row:1;grid-column:11">12</div>
+      <div class="gh" style="grid-row:1;grid-column:12"><b>'27</b><br>1</div>
+      <div class="gh" style="grid-row:1;grid-column:13">2</div>
+
+      <div class="gl" style="grid-row:2">SJ435-26 삼성전기 6라인<small>Project · 37%</small></div>
+      <div class="bar b-nav" style="grid-row:2;grid-column:2/8">배관·계장 엔지니어링 · 37%</div>
+
+      <div class="gl" style="grid-row:3">SJ2026-002 PPG R-C202<small>Project · 1%</small></div>
+      <div class="bar b-nav" style="grid-row:3;grid-column:6/12">Replacement 추가공사 · 1%</div>
+
+      <div class="gl" style="grid-row:4">SJ436-26 조광페인트<small>Project · 92% 마감 임박</small></div>
+      <div class="bar b-tea" style="grid-row:4;grid-column:2/7">PAA PROCESS 개선 · 92%</div>
+
+      <div class="gl" style="grid-row:5">SJ2026-014 국도화학 SCM-P<small>Project · 89%</small></div>
+      <div class="bar b-nav" style="grid-row:5;grid-column:3/7">열교환기(E-7171) 제작 · 89%</div>
+
+      <div class="gl" style="grid-row:6">SJ2026-020 국도화학 PSL2-P<small>Project · 67%</small></div>
+      <div class="bar b-nav" style="grid-row:6;grid-column:4/10">폐수Tank(T-8405) · 67%</div>
+
+      <div class="gl" style="grid-row:7">품질 대시보드 v2 배포<small>OKR 개인 · 33%</small></div>
+      <div class="bar b-pur" style="grid-row:7;grid-column:5/9">요구사항→PoC→배포 · 33%</div>
+
+      <div class="gl" style="grid-row:8">NCR 발생 30% 감축<small>OKR 부서 · 33%</small></div>
+      <div class="bar b-pur" style="grid-row:8;grid-column:2/12">원인분석→SOP→4Q 유지 · 33%</div>
+    </div>
+    <div class="glegend">
+      <span><i style="background:#0b2545"></i>진행 중 프로젝트</span>
+      <span><i style="background:#0f766e"></i>마감 임박(90%+)</span>
+      <span><i style="background:#7e22ce"></i>OKR 목표</span>
+    </div>
+    <div class="note">인증서 갱신·과제 로드맵은 위 섹션에서 별도 관리. 이 간트는 <b>진행 중 프로젝트 5개</b>와 <b>OKR 목표 2개</b>만 요약(진행률 07-09 기준 · 다음 자동 실행 시 갱신). 마감 임박 <b>SJ436-26(조광페인트) 92%</b>는 이번 달 완료 예정.</div>
+  </section>
+
+  <!-- 6. KPI -->
+  <section>
+    <h2><span class="ico">📈</span> 실시간 KPI <span class="secnote">원자력 사업부 · 일반산업 통합 데이터 (sejong-platform)</span></h2>
+    <div class="kpi-grid">
+      <div class="kpi-card nuc">
+        <h3><span class="kpi-tag">원자력 사업부</span> 🏭</h3>
+        <div class="kpi-row">
+          <div class="kpi-stat"><div class="k">진행 과제</div><div class="v">3</div><div class="trend">건 · 활성</div></div>
+          <div class="kpi-stat"><div class="k">유효 인증서</div><div class="v">5</div><div class="trend watch">ASME 알림 개시 D-3</div></div>
+          <div class="kpi-stat"><div class="k">입찰·견적</div><div class="v">3</div><div class="trend down">1건 오늘 마감</div></div>
+          <div class="kpi-stat"><div class="k">지원사업</div><div class="v">8</div><div class="trend up">+1 검토중</div></div>
+        </div>
+      </div>
+      <div class="kpi-card gen">
+        <h3><span class="kpi-tag">일반 산업</span> 📊</h3>
+        <div class="kpi-row">
+          <div class="kpi-stat"><div class="k">진행 프로젝트</div><div class="v">16</div><div class="trend">변동 없음</div></div>
+          <div class="kpi-stat"><div class="k">평균 진행률</div><div class="v">45<small style="font-size:13px;color:var(--mut);">%</small></div><div class="trend">+2%p 전주 대비</div></div>
+          <div class="kpi-stat"><div class="k">이번 달 완료 예정</div><div class="v">3</div><div class="trend">건 · 정상 진행</div></div>
+          <div class="kpi-stat"><div class="k">NCR / CAR 미완</div><div class="v">0 / 0</div><div class="trend up">신규 발생 없음</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7+8. 입찰공고 + 신규 메일 (2단) -->
+  <div class="split">
+    <section>
+      <h2><span class="ico">📢</span> 원자력 입찰·견적 <span class="secnote">메일 감지 + 포털 확인 권장</span></h2>
+      <a class="bid-item clickable" href="https://ebiz.khnp.co.kr/login.do" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div>
+          <div class="title">한울 3·4호기 이송대차 제작 입찰 <span class="cat c-bid">입찰</span> <span class="click-hint">→ K-Pro</span></div>
+          <div class="meta">한수원 한울3발 · 예가 <b>3.08억</b> · <b>오늘 7/16 제출 마감</b></div>
+        </div>
+        <div class="side"><span class="pill p-red">D-day</span></div>
+      </a>
+      <a class="bid-item clickable" href="https://mail.google.com/mail/u/0/#search/체코+M229C+N210B+견적" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div>
+          <div class="title">한수원 체코원전 M229C·N210B 예가 견적 <span class="cat c-bid">견적</span> <span class="click-hint">→ Gmail</span></div>
+          <div class="meta">KHNP 체코원전사업처 이동민 대리 · 영업부 작성 중 · ~7/21</div>
+        </div>
+        <div class="side"><span class="pill p-amb">D-5</span></div>
+      </a>
+      <a class="bid-item clickable" href="https://mail.google.com/mail/u/0/#search/Y-134-N210+입찰" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div>
+          <div class="title">한수원 Y-134-N210 입찰 (기술자료 준비) <span class="cat c-bid">입찰</span> <span class="click-hint">→ Gmail</span></div>
+          <div class="meta">Y-585-M-TK01 / Y-596-M-TK01·02 · 이영주 대리 자료 전달 완료</div>
+        </div>
+        <div class="side"><span class="pill p-amb">진행</span></div>
+      </a>
+      <a class="bid-item clickable" href="https://www.kaif.or.kr/ko/" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div>
+          <div class="title">KAIF 핵심기업 육성 지원 신청 <span class="cat c-fund">지원</span> <span class="click-hint">→ KAIF</span></div>
+          <div class="meta">한국원자력산업협회 · 신청 마감 7/17</div>
+        </div>
+        <div class="side"><span class="pill p-red">D-1</span></div>
+      </a>
+      <a class="bid-item clickable" href="https://mail.google.com/mail/u/0/#search/스마트제조+기술수요조사" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div>
+          <div class="title">TIPA 스마트제조 전략기술로드맵 기술수요조사 <span class="cat c-fund">조사</span> <span class="click-hint">→ Gmail</span></div>
+          <div class="meta">중소기업기술정보진흥원 · 수요기업용 양식 첨부 (7/15 수신)</div>
+        </div>
+        <div class="side"><span class="pill p-gry">검토</span></div>
+      </a>
+      <div class="note">📡 금일 발주처 포털 스크래핑 미실시(수동 실행) — K-Pro·SRM·G2B 신규 공고는 포털에서 직접 확인 권장.</div>
+    </section>
+
+    <section>
+      <h2><span class="ico">📮</span> 신규 메일 <span class="secnote">최근 24시간 · 주요 6건</span></h2>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/자동밸브+검수일정" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">브</div>
+        <div class="body">
+          <div class="subj">RE: 삼성전기 BT-6LINE 자동밸브 — 검수일정 회신 (7/27~29)</div>
+          <div class="from">브이아이테크 변길훈 · SJ435-26 · 일정 확정 회신 필요</div>
+        </div>
+        <div class="stamp">13:10</div>
+      </a>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/Y-134-N210+기술자료" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">이</div>
+        <div class="body">
+          <div class="subj">[한수원 Y-134-N210 입찰 건] 기술자료 전달 — 전체답장 요망</div>
+          <div class="from">기술부 이영주 대리 · 원자력 · Y-585/596 서명본</div>
+        </div>
+        <div class="stamp">10:11</div>
+      </a>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/유자격+심사결과" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">한</div>
+        <div class="body">
+          <div class="subj">유자격 분야별 심사결과 알림 (신청 202600239 · 보조기기)</div>
+          <div class="from">KHNP 김재봉 · 원자력 · 결과 확인 필요</div>
+        </div>
+        <div class="stamp">13:22</div>
+      </a>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/Weekly+Project+Report" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">김</div>
+        <div class="body">
+          <div class="subj">[월요일공정회의] 7/20 Weekly Project Report 양식 송부</div>
+          <div class="from">영업부 김민준 차장 · 부서업무 · 작성시한 준수</div>
+        </div>
+        <div class="stamp">16:35</div>
+      </a>
+      <a class="mail-item clickable" href="https://mail.google.com/mail/u/0/#search/KTS40+내구성+테스트" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">스</div>
+        <div class="body">
+          <div class="subj">삼성전기 KTS40 내구성 테스트 자료 (370MB · ~7/22 다운로드)</div>
+          <div class="from">스프레이시스템코리아 김도현 · Bevel Bush IGUS</div>
+        </div>
+        <div class="stamp">13:43</div>
+      </a>
+      <a class="mail-item clickable" href="https://mail.google.com/mail/u/0/#search/Laptop+구매요청" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">양</div>
+        <div class="body">
+          <div class="subj">Re: Laptop 구매요청의 건 — 7/20 상황 파악 후 우선 조치 검토</div>
+          <div class="from">양병원 이사 · 부서업무 · 박해일 부장 PC 관련</div>
+        </div>
+        <div class="stamp">14:21</div>
+      </a>
+    </section>
+  </div>
+
+  <!-- 9. 포털 원클릭 -->
+  <section>
+    <h2><span class="ico">🔗</span> 포털 원클릭 바로가기</h2>
+    <div class="links">
+      <a class="lk" href="https://ebiz.khnp.co.kr/login.do" target="_blank"><div class="t">⚛️ 한수원 K-Pro <span class="arrow">→</span></div><div class="d">입찰공고 · 수의계약사전공고(열교환기) 확인</div></a>
+      <a class="lk" href="https://srm.kepco.net/index.do" target="_blank"><div class="t">⚡ 한전 SRM <span class="arrow">→</span></div><div class="d">정보공개 › 통합공고 · 제작구매 확인</div></a>
+      <a class="lk" href="https://www.g2b.go.kr" target="_blank"><div class="t">🏛️ 나라장터 G2B <span class="arrow">→</span></div><div class="d">물품·공사 공개 입찰공고</div></a>
+      <a class="lk" href="https://www.kaif.or.kr/ko/" target="_blank"><div class="t">🏢 한국원자력산업협회 <span class="arrow">→</span></div><div class="d">원전기업 인증·지원사업·공고</div></a>
+      <a class="lk" href="https://nisp.kr/?c=196" target="_blank"><div class="t">💰 원전생태계 지원사업 <span class="arrow">→</span></div><div class="d">공지사항·지원사업 시행공고</div></a>
+      <a class="lk" href="https://www.data.go.kr/data/15041777/fileData.do" target="_blank"><div class="t">📋 한수원 유자격공급자 현황 <span class="arrow">→</span></div><div class="d">유자격 등록 품목·등급 확인</div></a>
+    </div>
+  </section>
+
+  <footer>
+    ㈜세종기술 · 아침 통합 브리핑 (sejong-daily-briefing) · 2026-07-16 생성<br>
+    08:15 수동 실행 · 다음 자동 갱신 내일 07:00 · 데이터: Gmail · Firestore(sejong-platform)<br>
+    ⓒ Designed by Quality Control Dept.
+  </footer>
+
+</div>
