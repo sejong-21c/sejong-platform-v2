@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>일일 통합 브리핑 · 김철우 부장 · 2026-07-15</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--card2:#273449;--line:#334155;--txt:#e2e8f0;--sub:#94a3b8;--red:#ef4444;--org:#f59e0b;--grn:#22c55e;--blu:#3b82f6;--pur:#a78bfa;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:'Malgun Gothic','Segoe UI',sans-serif;line-height:1.55;padding:20px;max-width:1080px;margin:0 auto}
+  h1{font-size:22px;margin-bottom:4px}
+  .meta{color:var(--sub);font-size:13px;margin-bottom:18px}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 8px;text-align:center}
+  .kpi .n{font-size:26px;font-weight:700}
+  .kpi .l{font-size:11px;color:var(--sub);margin-top:2px}
+  .kpi.red .n{color:var(--red)} .kpi.org .n{color:var(--org)} .kpi.grn .n{color:var(--grn)} .kpi.blu .n{color:var(--blu)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+  section h2{font-size:15px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
+  .b-red{background:rgba(239,68,68,.18);color:#fca5a5}
+  .b-org{background:rgba(245,158,11,.18);color:#fcd34d}
+  .b-grn{background:rgba(34,197,94,.18);color:#86efac}
+  .b-blu{background:rgba(59,130,246,.18);color:#93c5fd}
+  .b-pur{background:rgba(167,139,250,.18);color:#c4b5fd}
+  .summary{font-size:14px;color:#cbd5e1}
+  .summary b{color:#fff}
+  ul.acts{list-style:none} ul.acts li{padding:9px 0;border-bottom:1px dashed var(--line);display:flex;gap:10px;align-items:flex-start;font-size:13.5px}
+  ul.acts li:last-child{border-bottom:none}
+  .pri{flex:0 0 auto;width:44px;text-align:center;font-size:10px;font-weight:700;padding:3px 0;border-radius:6px}
+  .p-high{background:var(--red);color:#fff} .p-mid{background:var(--org);color:#111} .p-low{background:var(--line);color:var(--sub)}
+  .proj{color:var(--sub);font-size:11px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--sub);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  td .t{color:var(--txt)} td .f{color:var(--sub);font-size:11px}
+  .tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px;background:var(--card2);color:var(--sub);margin:1px}
+  .sched{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .sched:last-child{border-bottom:none}
+  .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .d-red{background:var(--red)} .d-org{background:var(--org)} .d-grn{background:var(--grn)} .d-blu{background:var(--blu)}
+  .date{flex:0 0 auto;width:120px;color:var(--sub);font-size:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .nuke{border-color:#7c5e12;background:linear-gradient(180deg,#231d0e,#1e293b)}
+  .nuke h2{color:#fcd34d}
+  .foot{color:var(--sub);font-size:11px;text-align:center;margin-top:8px}
+  @media(max-width:720px){.kpis{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}.date{width:92px}}
+</style>
+</head>
+<body>
+  <h1>📋 일일 통합 브리핑 — 김철우 부장 (품질관리부)</h1>
+  <div class="meta">㈜세종기술 · 생성: 2026-07-15 23:03 (오전 자동 · Asia/Seoul) · 검색범위 newer_than:1d (inbox+sent)</div>
+
+  <div class="kpis">
+    <div class="kpi blu"><div class="n">22</div><div class="l">신규 메일</div></div>
+    <div class="kpi grn"><div class="n">9</div><div class="l">자동 분류</div></div>
+    <div class="kpi org"><div class="n">3</div><div class="l">긴급 답변</div></div>
+    <div class="kpi red"><div class="n">0</div><div class="l">신규 NCR</div></div>
+    <div class="kpi red"><div class="n">0</div><div class="l">신규 CAR</div></div>
+    <div class="kpi"><div class="n">0</div><div class="l">신규 PJT</div></div>
+  </div>
+
+  <section>
+    <h2>🎯 Executive Summary</h2>
+    <p class="summary">
+      금일 신규 메일 <b>22건</b> 중 프로젝트/원자력 관련 <b>9건 자동 분류</b>, NCR/CAR <b>0건</b>.
+      <b>최우선</b>은 내일(<b>7/16</b>) 마감인 <b>한울 3·4호기 주급수 승압펌프 전동기 이송대차 입찰서 제출</b>(예가 3.08억, 원자력 L3 결재).
+      원자력 신규 이슈로 <b>한수원 체코원전사업처 견적요청 2건(N210B·M229C)</b>이 접수되어 영업부에 작성 요청 완료(7/21 마감), <b>유자격 경영분야 심사결과(신청번호 202600239)</b> 알림 수신.
+      검사 일정: <b>삼성전기 BT-6라인 자동밸브 작동테스트 7/27~29</b>(브이아이테크, 편한 날짜 회신 필요).
+      <b>7/20 월요일 공정회의용 Weekly Project Report</b> 작성·제출 요청 도착. 국도화학 T-6702/7191/E-7171 TDB 송부 및 현장검수 준비서류 취합 진행 중.
+    </p>
+  </section>
+
+  <section>
+    <h2>🔥 긴급 답변 · 핵심 액션 TOP</h2>
+    <ul class="acts">
+      <li><span class="pri p-high">긴급</span><div><b>한울 3·4호기 주급수 승압펌프 전동기 이송대차 입찰서 제출</b> — <span class="proj">내일 7/16 마감 · 예가 308,000,000원 · 원자력 L3 결재. 견적/서류 최종 확인 후 제출</span></div></li>
+      <li><span class="pri p-high">긴급</span><div><b>삼성전기 BT-6라인 자동밸브 작동테스트 일정 회신</b> — <span class="proj">SJ435-26 · 브이아이테크 변길훈. 7/27~29 중 편한 날짜 회신 필요(1일 약 5,000회 작동)</span></div></li>
+      <li><span class="pri p-high">긴급</span><div><b>Weekly Project Report 작성·제출</b> — <span class="proj">부서업무 · 7/20(월) 공정회의 · 영업부 김민준 차장 양식 배포. 작성시한 준수</span></div></li>
+      <li><span class="pri p-mid">중요</span><div><b>한수원 체코원전 M229C·N210B 견적서(예가) 작성</b> — <span class="proj">원자력 · 영업부 김민준 차장 작성 → 7/21(화) 회신(부장 검토·ceo 참조 Fwd 완료)</span></div></li>
+      <li><span class="pri p-mid">중요</span><div><b>국도화학 현장검수 준비서류 취합·송부</b> — <span class="proj">SJ2026-014/016/017 · 자재증빙/Technical Report/검수내역/하도급 견적. 신채완 과장 진행, 공사계약팀 cct@kukdo.com</span></div></li>
+      <li><span class="pri p-mid">중요</span><div><b>한수원 Y-134-N210 입찰 기술자료 준비</b> — <span class="proj">원자력 · 이영주 대리. Y-585-M-TK01 / Y-596-M-TK01·02 기술자료 서명본(금액부 포함) 확인</span></div></li>
+      <li><span class="pri p-mid">중요</span><div><b>유자격 분야별(경영) 심사결과 확인 및 후속</b> — <span class="proj">원자력 · KHNP 신청번호 202600239(보조기기·신규). 결과 확인 후 후속 조치</span></div></li>
+      <li><span class="pri p-mid">중요</span><div><b>삼성전기 KTS40 노즐 내구성 테스트 자료 검토</b> — <span class="proj">스프레이시스템코리아 김도현(370MB, ~7/22 다운로드). Bevel Bush IGUS 관련</span></div></li>
+      <li><span class="pri p-low">참고</span><div><b>수정도면/보고서 접수(FYI)</b> — <span class="proj">진양화성 HOPPER(SJE437-26)·HA KOREA(SJ2026-029)·CKS HOLD(SJ2026-040)·IG103 임펠라(SJ432-25)·D&K 수압시험보고서(SJ2026-009)</span></div></li>
+      <li><span class="pri p-low">참고</span><div><b>박해일 부장 노트북 구매/지원 검토</b> — <span class="proj">부서업무 · 양병원 이사. 충원 지연 시 7/20 상황 보고 데스크탑만 우선 조치 검토</span></div></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>📥 오늘 메일 분류 결과 <span class="badge b-blu">9건 라벨링</span></h2>
+    <table>
+      <thead><tr><th>발신</th><th>제목</th><th>라벨/Project</th><th>조치</th></tr></thead>
+      <tbody>
+        <tr><td><div class="t">이동민 대리</div><div class="f">KHNP 체코원전</div></td><td>N210B / M229C 품목 견적 요청 (2건)</td><td><span class="tag">원자력 Part</span></td><td>영업부 Fwd·7/21</td></tr>
+        <tr><td><div class="t">KimJaeBong</div><div class="f">KHNP</div></td><td>유자격 분야별(경영) 심사결과 알림 (202600239)</td><td><span class="tag">원자력 Part</span></td><td>결과 확인</td></tr>
+        <tr><td><div class="t">이영주 대리</div><div class="f">기술부</div></td><td>[한수원 Y-134-N210 입찰] 기술자료 전달</td><td><span class="tag">원자력 Part</span></td><td>서명본 준비</td></tr>
+        <tr><td><div class="t">신채완 과장</div><div class="f">품질관리부</div></td><td>한수원 입찰 자료 전달건 / T-7191·6702·E-7171 TDB 송부</td><td><span class="tag">국도화학</span></td><td>검토·송부</td></tr>
+        <tr><td><div class="t">변길훈</div><div class="f">브이아이테크</div></td><td>삼성전기 BT-6라인 자동밸브 검수일정 (7/27~29)</td><td><span class="tag">SJ435-26</span></td><td>날짜 회신</td></tr>
+        <tr><td><div class="t">김시원 대리</div><div class="f">품질관리부</div></td><td>삼성전기 원료3동 6라인 철골제작 회의록/도료 사양</td><td><span class="tag">SJ435-26</span></td><td>이동(분류)</td></tr>
+        <tr><td><div class="t">황서윤 대리</div><div class="f">기술부</div></td><td>진양화성 HOPPER 수정도면 송부</td><td><span class="tag">SJE437-26</span></td><td>이동(FYI)</td></tr>
+        <tr><td><div class="t">황서윤 대리</div><div class="f">기술부</div></td><td>HA KOREA 수정도면 / CKS HOLD 도면 송부</td><td><span class="tag">SJ2026-029</span><span class="tag">SJ2026-040</span></td><td>이동(FYI)</td></tr>
+        <tr><td><div class="t">김시원 대리</div><div class="f">품질관리부</div></td><td>D&amp;K 켐텍 PENTANE라인 수압시험보고서 공유</td><td><span class="tag">SJ2026-009</span></td><td>이동(FYI)</td></tr>
+        <tr><td><div class="t">이영주 대리</div><div class="f">기술부</div></td><td>IG103 R-310/320/330 임펠라 수정도면</td><td><span class="tag">SJ432-25</span></td><td>이동(FYI)</td></tr>
+        <tr><td><div class="t">김민준 차장</div><div class="f">영업부</div></td><td>Weekly Project Report 기준자료 송부 (7/20 회의)</td><td><span class="tag">부서업무</span></td><td>작성 대기</td></tr>
+        <tr><td><div class="t">김도현</div><div class="f">스프레이시스템</div></td><td>삼성전기 KTS40 노즐 내구성 테스트 자료(370MB)</td><td><span class="tag">삼성전기</span></td><td>검토</td></tr>
+      </tbody>
+    </table>
+    <p class="foot">그 외 뉴스레터·시스템 알림 6건(GitHub·TIPA·기업마당·Google Cloud·보안알림 등)은 정보성으로 미분류 처리.</p>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>⚠️ NCR / CAR 추적</h2>
+      <p class="summary">금일 신규 NCR/CAR <b>0건</b>. 부적합/불일치 키워드 감지 메일 없음.<br><span class="proj">진행중 팔로업: SJ2026-040 CKS Welder Qualification Renew 자료 제출(7/28 마감), SJ438 BGF WPQ(RT Report 대기).</span></p>
+    </section>
+    <section>
+      <h2>📅 Calendar 자동 등록</h2>
+      <p class="summary"><span class="badge b-org">신규 1건</span> 한수원 체코 M229C·N210B 견적서 제출 마감 <b>7/21</b> 등록.<br>
+      <span class="proj">중복 방지 — 기등록: 한울 입찰(7/16)·주간회의(7/20)·원자력 QC교육(7/22~24)·원자력산업실태조사(7/31). 삼성전기 자동밸브 검수(7/27~29)는 날짜 미확정으로 미등록(확인 필요).</span></p>
+    </section>
+  </div>
+
+  <section class="nuke">
+    <h2>☢️ 원자력 파워플랜트 Part</h2>
+    <p class="summary" style="margin-bottom:12px">
+      <b>내일 7/16 한울 3·4호기 입찰서 제출 마감</b>이 최우선. 한수원 체코원전사업처(이동민 대리)로부터 <b>N210B·M229C 예가 견적요청 2건</b> 신규 접수 → 영업부 작성 요청(7/21). <b>Y-134-N210 입찰</b> 기술자료(Y-585/596) 준비 진행. KHNP <b>유자격 경영분야 심사결과(202600239)</b> 알림 수신 — 결과 확인 필요. 한수원 보안 뉴스레터(2026.07) 참고 수신.
+    </p>
+    <div class="sched"><span class="dot d-red"></span><span class="date">2026-07-16</span><span>한울 3·4호기 주급수 승압펌프 전동기 이송대차 입찰서 제출 마감 (예가 3.08억, L3)</span></div>
+    <div class="sched"><span class="dot d-org"></span><span class="date">2026-07-21</span><span>한수원 체코원전 M229C·N210B 견적서 제출 (영업부 작성)</span></div>
+    <div class="sched"><span class="dot d-org"></span><span class="date">2026-07-22~24</span><span>27기 원자력품질 검사자과정(QC) 교육 (한국원자력기자재진흥협회)</span></div>
+    <div class="sched"><span class="dot d-red"></span><span class="date">2026-07-31</span><span>2025년도(31회) 원자력산업실태조사 제출 마감</span></div>
+  </section>
+
+  <section>
+    <h2>🗓️ 다가오는 일정</h2>
+    <div class="sched"><span class="dot d-red"></span><span class="date">7/16 (목)</span><span>한울 3·4호기 이송대차 입찰서 제출 마감 <span class="tag">원자력</span></span></div>
+    <div class="sched"><span class="dot d-blu"></span><span class="date">7/20 (월) 08:15</span><span>주간(월요일) 공정회의 · Weekly Project Report 제출 <span class="tag">부서업무</span></span></div>
+    <div class="sched"><span class="dot d-org"></span><span class="date">7/21 (화)</span><span>한수원 체코 M229C·N210B 견적서 제출 <span class="tag">원자력</span></span></div>
+    <div class="sched"><span class="dot d-org"></span><span class="date">7/22~24 (수~금)</span><span>27기 원자력품질 검사자과정(QC) 교육 <span class="tag">원자력</span></span></div>
+    <div class="sched"><span class="dot d-org"></span><span class="date">7/27~29 (월~수)</span><span>삼성전기 BT-6라인 자동밸브 작동테스트(예정·날짜 확인) <span class="tag">SJ435-26</span></span></div>
+    <div class="sched"><span class="dot d-grn"></span><span class="date">7/28 (화)</span><span>SJ2026-040 CKS Welder Qualification Renew 자료 제출 마감 <span class="tag">부서업무</span></span></div>
+    <div class="sched"><span class="dot d-grn"></span><span class="date">7/30 (목)</span><span>한전KPS 제'26차 협력회사 등록 신청 마감 <span class="tag">부서업무</span></span></div>
+    <div class="sched"><span class="dot d-red"></span><span class="date">7/31 (금)</span><span>원자력산업실태조사 제출 마감 <span class="tag">원자력</span></span></div>
+  </section>
+
+  <p class="foot">ⓒ Designed by Quality Control Dept. · Daily Mail Morning Routine · 자동 생성 대시보드</p>
+</body>
+</html>
