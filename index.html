@@ -1158,7 +1158,9 @@ function selectableUsers() {
   const pend = (state.pendingUsers || [])
     .filter(p => !p.promotedTo)
     .map(p => ({ id: 'pu_' + p.id, name: p.name || p.email, title: p.title || '', dept: p.dept || '', grade: p.grade || 'member', pending: true }));
-  return [...(state.users || []), ...pend];
+  // v29.19: 정렬 규칙 — 활성 사용자 먼저, 대기 계정 뒤로. 각 그룹 안에서 이름 가나다순.
+  const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'ko');
+  return [...(state.users || [])].sort(byName).concat(pend.sort(byName));
 }
 // 선택 옵션 라벨 — 대기 계정은 '· 대기' 표시
 function userOptLabel(u) { return `${u.name} ${u.title || ''}${u.pending ? ' · 대기' : ''}`; }
