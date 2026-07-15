@@ -180,6 +180,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .cal-event.green { background: var(--success); }
 .cal-event.orange { background: var(--warning); }
 .cal-event.red { background: var(--danger); }
+.cal-event.purple { background: #8b5cf6; }
 
 .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
 .kb-col { background: var(--bg); border-radius: var(--radius); padding: 12px; min-height: 200px; }
@@ -1176,7 +1177,7 @@ function visibleManualEvents() {
     return e.createdBy === state.currentUser || e.dept === myDept;
   });
 }
-function allEvents() { return [...visibleManualEvents(), ...getBriefingScheduleEvents(), ...gcalEventsCache, ...getTaskCalendarEvents(), ...getOkrCalendarEvents()]; }
+function allEvents() { return [...visibleManualEvents(), ...getBriefingScheduleEvents(), ...gcalEventsCache, ...gcalHolidayEventsCache, ...getTaskCalendarEvents(), ...getOkrCalendarEvents()]; }
 /* 특정 부서(DEPTS id) 관련 briefing schedule 이벤트 반환 — 부서 스케줄에 자동 포함 */
 function getDeptBriefingEvents(deptId) {
   const events = [];
@@ -3355,6 +3356,7 @@ function calendar() {
         <span><span style="display:inline-block;width:10px;height:10px;background:#FF9800;border-radius:50%;vertical-align:middle;"></span> 검사</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#F44336;border-radius:50%;vertical-align:middle;"></span> 마감</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#4CAF50;border-radius:50%;vertical-align:middle;"></span> 교육</span>
+        ${gcalConnected ? `<span><span style="display:inline-block;width:10px;height:10px;background:#8b5cf6;border-radius:50%;vertical-align:middle;"></span> 공휴일</span>` : ''}
       </div>
     </div>
     <div class="cal-grid">
@@ -3397,6 +3399,8 @@ let gcalAccessToken = null;
 let gcalTokenExpiry = 0;
 let gcalPendingResolve = null;
 let gcalEventsCache = [];   // 구글에서 읽어온 이벤트 (표시용)
+let gcalHolidayEventsCache = []; // 구글 "대한민국의 휴일" 공개 캘린더에서 읽어온 명절/공휴일 (표시 전용, 삭제 불가)
+const KR_HOLIDAY_CALENDAR_ID = 'ko.south_korea#holiday@group.v.calendar.google.com';
 let gcalLoadedMonthKey = null;
 let gcalConnected = false;  // Firestore 사용자 프로필의 gcalConnected 미러 (연동 버튼 표시용)
 
@@ -3726,7 +3730,7 @@ async function connectGoogleCalendar() {
 }
 function disconnectGoogleCalendar() {
   if (!confirm('구글 캘린더 연동을 해제하시겠습니까? (구글 캘린더에 이미 등록된 일정은 그대로 남습니다)')) return;
-  gcalAccessToken = null; gcalTokenExpiry = 0; gcalConnected = false; gcalEventsCache = []; gcalLoadedMonthKey = null;
+  gcalAccessToken = null; gcalTokenExpiry = 0; gcalConnected = false; gcalEventsCache = []; gcalHolidayEventsCache = []; gcalLoadedMonthKey = null;
   if (window.fb && state.currentUser) {
     fb.setDoc(fb.doc(fb.db, 'users', state.currentUser), { gcalConnected: false }, { merge: true }).catch(() => {});
   }
@@ -3761,6 +3765,23 @@ async function loadGCalEvents() {
     });
     render();
   } catch (e) { console.warn('[GCal] 이벤트 조회 실패:', e); gcalLoadedMonthKey = null; }
+  // 공개 "대한민국의 휴일" 캘린더 — 별도 동의 없이 같은 토큰으로 조회 가능(공개 캘린더).
+  // 실패해도(권한/네트워크) 본인 일정 표시에는 영향 없도록 별도 try로 분리.
+  try {
+    const hres = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(KR_HOLIDAY_CALENDAR_ID)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=50`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (hres.ok) {
+      const hdata = await hres.json();
+      gcalHolidayEventsCache = (hdata.items || []).filter(ev => ev.status !== 'cancelled').map(ev => ({
+        id: 'holiday_' + ev.id,
+        title: ev.summary || '(공휴일)',
+        date: ((ev.start && (ev.start.date || ev.start.dateTime)) || '').slice(0, 10),
+        time: '', color: 'purple', source: 'holiday',
+      }));
+      render();
+    }
+  } catch (e) { console.warn('[GCal] 공휴일 조회 실패:', e); }
 }
 async function pushEventToGCal(ev) {
   const token = await gcalGetToken();
@@ -3828,8 +3849,8 @@ function showDate(ds) {
   // 일정은 외부 자동화가 관리하는 데이터라 여기서 지우면 다음 동기화 때 다시 나타나므로 제외)
   openModal(`${ds} 일정`, `
     ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-      <div><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}${e.source==='google'?' · 🔗 구글':''}</div></div>
-      ${e.source!=='briefing' ? `<button class="btn btn-sm" style="color:#dc2626;flex-shrink:0;" onclick="deleteEvent('${e.id}')">삭제</button>` : ''}
+      <div><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}${e.source==='google'?' · 🔗 구글':''}${e.source==='holiday'?' · 🎌 공휴일':''}</div></div>
+      ${(e.source!=='briefing' && e.source!=='holiday') ? `<button class="btn btn-sm" style="color:#dc2626;flex-shrink:0;" onclick="deleteEvent('${e.id}')">삭제</button>` : ''}
     </div>`).join('')}
     <button class="btn btn-primary btn-sm" onclick="closeModal();openEvent('${ds}')">+ 이 날에 일정 추가</button>`);
 }
