@@ -764,7 +764,7 @@ function openProjectMembers(pid) {
   const currentMembers = (p.members && typeof p.members === 'object') ? p.members : {};
   // 부서별 사용자 그룹
   const usersByDept = {};
-  (state.users || []).forEach(u => {
+  selectableUsers().forEach(u => {
     if (!u.dept) return;
     if (!usersByDept[u.dept]) usersByDept[u.dept] = [];
     usersByDept[u.dept].push(u);
@@ -782,7 +782,7 @@ function openProjectMembers(pid) {
           ${list.map(u => `
             <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:2px 4px;">
               <input type="checkbox" data-mdept="${d.id}" data-muid="${u.id}" ${assigned.has(u.id)?'checked':''}>
-              <span>${u.name} <span style="color:var(--text-lighter);">${u.title||''}</span></span>
+              <span>${u.name} <span style="color:var(--text-lighter);">${u.title||''}</span>${u.pending?' <span style="font-size:10px;color:var(--warning,#d97706);font-weight:600;">대기</span>':''}</span>
             </label>
           `).join('')}
         </div>
@@ -1142,7 +1142,26 @@ setInterval(checkSessionTimeout, 30 * 1000);           // 30초마다 유휴 여
   document.addEventListener(ev, touchSession, { passive: true });
 });
 
-function getU(id) { return state.users.find(u => u.id === id) || {}; }
+function getU(id) {
+  const u = state.users.find(u => u.id === id);
+  if (u) return u;
+  // v29.18: 사전 등록 대기 계정도 PM/담당자 지정 가능 — 'pu_<pendingDocId>' 형태 가상 id로 조회
+  if (typeof id === 'string' && id.startsWith('pu_')) {
+    const p = (state.pendingUsers || []).find(x => 'pu_' + x.id === id);
+    if (p) return { id, name: p.name || p.email, title: p.title || '', dept: p.dept || '', grade: p.grade || 'member', email: p.email, pending: true };
+  }
+  return {};
+}
+// v29.18: 담당자 선택 UI 공용 목록 — 활성 사용자 + 사전 등록 대기 계정(승격 전).
+// 대기 계정은 id 'pu_<docId>' 로 지정되며, 첫 로그인 시 promotePendingUser()가 실제 UID로 자동 치환.
+function selectableUsers() {
+  const pend = (state.pendingUsers || [])
+    .filter(p => !p.promotedTo)
+    .map(p => ({ id: 'pu_' + p.id, name: p.name || p.email, title: p.title || '', dept: p.dept || '', grade: p.grade || 'member', pending: true }));
+  return [...(state.users || []), ...pend];
+}
+// 선택 옵션 라벨 — 대기 계정은 '· 대기' 표시
+function userOptLabel(u) { return `${u.name} ${u.title || ''}${u.pending ? ' · 대기' : ''}`; }
 function getP(id) { return state.projects.find(p => p.id === id) || {}; }
 // v29.2: 프로젝트 상태 배지 — active(진행중)/done(완료)/pre-close(마감예정) 3종 공통 처리
 const PROJ_STATUS_META = {
@@ -1813,6 +1832,8 @@ function startFirestoreSync() {
   // v29.9: 사전 등록 대기 계정 목록 (슈퍼관리자만 조직/권한 화면에서 관리)
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'pendingUsers'), snap => {
     state.pendingUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // v29.18: 승계 미완 pending 문서가 있으면 슈퍼관리자 세션이 마저 정리
+    reconcilePendingPromotions().catch(() => {});
     render();
   }, err => console.error('[Firestore] pendingUsers 동기화 오류:', err)));
   // v29.9: 캘린더 이벤트 (직접 만든 일정)를 Firestore에 실시간 동기화.
@@ -1971,9 +1992,89 @@ async function promotePendingUser(fu) {
   if (Array.isArray(p.extraPerms) && p.extraPerms.length) userDoc.extraPerms = p.extraPerms;
   if (p.modulePerms && Object.keys(p.modulePerms).length) userDoc.modulePerms = p.modulePerms;
   await fb.setDoc(fb.doc(fb.db, 'users', fu.uid), userDoc);
-  try { await fb.deleteDoc(fb.doc(fb.db, 'pendingUsers', doc.id)); } catch (e) { console.warn('pending 삭제 실패(무시)', e); }
+  // v29.18: 대기 상태에서 PM/담당자로 지정된 내역('pu_<docId>')을 실제 UID로 승계.
+  // 일부 문서 권한 부족으로 실패할 수 있으므로, 전부 성공한 경우에만 pending 문서 삭제.
+  // 실패 시 promotedTo 마킹만 해두면 슈퍼관리자 세션이 reconcilePendingPromotions()로 마저 처리.
+  const migrated = await migratePendingRefs('pu_' + doc.id, fu.uid);
+  if (migrated) {
+    try { await fb.deleteDoc(fb.doc(fb.db, 'pendingUsers', doc.id)); } catch (e) { console.warn('pending 삭제 실패(무시)', e); }
+  } else {
+    try { await fb.updateDoc(fb.doc(fb.db, 'pendingUsers', doc.id), { promotedTo: fu.uid, promotedAt: Date.now() }); } catch (e) { console.warn('promotedTo 마킹 실패(무시)', e); }
+  }
   try { ensureDeptChannel(userDoc.dept); } catch(e) {}
   return true;
+}
+
+// v29.18: 'pu_<pendingDocId>' 가상 id로 저장된 지정 내역을 실제 UID로 전부 치환.
+// 대상: projects(pm·members) · okrs(assigneeId·milestones[].assigneeId) · tasks(assignee)
+// 반환: 전부 성공하면 true, 하나라도 실패(권한 등)하면 false.
+async function migratePendingRefs(puId, uid) {
+  let allOk = true;
+  const swap = v => v === puId ? uid : v;
+  try {
+    const projSnap = await fb.getDocs(fb.collection(fb.db, 'projects'));
+    for (const d of projSnap.docs) {
+      const data = d.data();
+      const upd = {};
+      if (data.pm === puId) upd.pm = uid;
+      if (data.members && typeof data.members === 'object') {
+        let changed = false;
+        const m = {};
+        Object.entries(data.members).forEach(([k, list]) => {
+          m[k] = Array.isArray(list) ? list.map(swap) : list;
+          if (Array.isArray(list) && list.includes(puId)) changed = true;
+        });
+        if (changed) upd.members = m;
+      }
+      if (Object.keys(upd).length) {
+        try { await fb.updateDoc(fb.doc(fb.db, 'projects', d.id), upd); }
+        catch (e) { console.warn('[승계] projects/' + d.id + ' 실패:', e.message); allOk = false; }
+      }
+    }
+  } catch (e) { console.warn('[승계] projects 조회 실패:', e.message); allOk = false; }
+  try {
+    const okrSnap = await fb.getDocs(fb.collection(fb.db, 'okrs'));
+    for (const d of okrSnap.docs) {
+      const o = d.data();
+      const upd = {};
+      if (o.assigneeId === puId) upd.assigneeId = uid;
+      if (Array.isArray(o.milestones) && o.milestones.some(m => m && m.assigneeId === puId)) {
+        upd.milestones = o.milestones.map(m => m && m.assigneeId === puId ? { ...m, assigneeId: uid } : m);
+      }
+      if (Object.keys(upd).length) {
+        try { await fb.updateDoc(fb.doc(fb.db, 'okrs', d.id), upd); }
+        catch (e) { console.warn('[승계] okrs/' + d.id + ' 실패:', e.message); allOk = false; }
+      }
+    }
+  } catch (e) { console.warn('[승계] okrs 조회 실패:', e.message); allOk = false; }
+  try {
+    const taskSnap = await fb.getDocs(fb.collection(fb.db, 'tasks'));
+    for (const d of taskSnap.docs) {
+      if (d.data().assignee === puId) {
+        try { await fb.updateDoc(fb.doc(fb.db, 'tasks', d.id), { assignee: uid }); }
+        catch (e) { console.warn('[승계] tasks/' + d.id + ' 실패:', e.message); allOk = false; }
+      }
+    }
+  } catch (e) { console.warn('[승계] tasks 조회 실패:', e.message); allOk = false; }
+  return allOk;
+}
+
+// v29.18: 승계가 덜 끝난 pending 문서(promotedTo 마킹)를 슈퍼관리자 세션이 마저 처리.
+let _pendingReconciled = false;
+async function reconcilePendingPromotions() {
+  if (_pendingReconciled) return;
+  const me = getU(state.currentUser);
+  if (!me || me.grade !== 'super') return;
+  const leftovers = (state.pendingUsers || []).filter(p => p.promotedTo);
+  if (!leftovers.length) return;
+  _pendingReconciled = true;
+  for (const p of leftovers) {
+    const ok = await migratePendingRefs('pu_' + p.id, p.promotedTo);
+    if (ok) {
+      try { await fb.deleteDoc(fb.doc(fb.db, 'pendingUsers', p.id)); } catch (e) {}
+      console.log('[승계] ' + (p.name || p.email) + ' 지정 내역 정리 완료');
+    }
+  }
 }
 
 function doLogout() {
@@ -4130,7 +4231,7 @@ function openEditProject(pid) {
       <div style="flex:1;"><label class="fl">시작일</label><input class="fi" type="date" id="epStart" value="${p.start||''}"></div>
       <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="epEnd" value="${p.end||''}"></div>
     </div>
-    <div class="fg"><label class="fl">PM</label><select class="fs" id="epPm">${state.users.map(u=>`<option value="${u.id}" ${u.id===p.pm?'selected':''}>${u.name} ${u.title}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">PM</label><select class="fs" id="epPm">${selectableUsers().map(u=>`<option value="${u.id}" ${u.id===p.pm?'selected':''}>${userOptLabel(u)}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">상태</label><select class="fs" id="epStatus"><option value="active" ${p.status==='active'||!p.status?'selected':''}>진행중</option><option value="done" ${p.status==='done'?'selected':''}>완료</option><option value="pre-close" ${p.status==='pre-close'?'selected':''}>마감예정</option></select></div>
   `, async () => {
     const code = document.getElementById('epCode').value.trim();
@@ -4281,7 +4382,7 @@ function openAssignPM(pid) {
     <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">${p.name}</div>
     <div class="fg"><label class="fl">프로젝트 매니저 (PM)</label>
       <select class="fs" id="pmSelect">
-        ${state.users.map(u=>`<option value="${u.id}"${u.id===p.pm?' selected':''}>${u.name} ${u.title} (${u.dept})</option>`).join('')}
+        ${selectableUsers().map(u=>`<option value="${u.id}"${u.id===p.pm?' selected':''}>${u.name} ${u.title||''} (${u.dept||'-'})${u.pending?' · 대기':''}</option>`).join('')}
       </select>
     </div>
   `, async () => {
@@ -4302,7 +4403,7 @@ function openNewProject() {
       <div style="flex:1;"><label class="fl">시작일</label><input class="fi" type="date" id="npStart"></div>
       <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="npEnd"></div>
     </div>
-    <div class="fg"><label class="fl">PM</label><select class="fs" id="npPm">${state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">PM</label><select class="fs" id="npPm">${selectableUsers().map(u=>`<option value="${u.id}">${userOptLabel(u)}</option>`).join('')}</select></div>
   `, async () => {
     const code = document.getElementById('npCode').value.trim();
     const name = document.getElementById('npName').value.trim();
@@ -4715,7 +4816,7 @@ function openTask() {
   openModal('업무 추가', `
     <div class="fg"><label class="fl">업무명</label><input class="fi" id="tkT" placeholder="예: PV-101 후판 입고 검사"></div>
     <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="tkP">${state.projects.map(p=>`<option value="${p.id}">${p.code} - ${p.name}</option>`).join('')}</select></div>
-    <div class="fg"><label class="fl">담당자</label><select class="fs" id="tkA">${state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">담당자</label><select class="fs" id="tkA">${selectableUsers().map(u=>`<option value="${u.id}">${userOptLabel(u)}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="tkD"></div>
     <div class="fg"><label class="fl">우선순위</label><select class="fs" id="tkPr"><option value="high">높음</option><option value="mid" selected>보통</option><option value="low">낮음</option></select></div>
   `, async () => {
@@ -5117,7 +5218,7 @@ function renderTravellerDetail() {
 function openSignModal(itemId, stageId) {
   const stage = ITP_BASE.find(b => b.id === stageId);
   const current = (state.travellers[itemId] && state.travellers[itemId][stageId]) || { status:'pending', worker:'', qc:'', witness:'', date:'', memo:'' };
-  const userOpts = state.users.map(u => `<option value="${u.id}">${u.name} ${u.title}</option>`).join('');
+  const userOpts = selectableUsers().map(u => `<option value="${u.id}">${userOptLabel(u)}</option>`).join('');
   const today = new Date().toISOString().slice(0,10);
   
   openModal(`✍ 검사 사인 — ${stage.id}. ${stage.item}`, `
@@ -5210,7 +5311,7 @@ function openQuote() {
     <div class="fg"><label class="fl">고객사</label><input class="fi" id="qC" placeholder="예: 국도화학"></div>
     <div class="fg"><label class="fl">건명</label><input class="fi" id="qS" placeholder="예: 압력용기 추가 견적"></div>
     <div class="fg"><label class="fl">금액 (원)</label><input class="fi" type="number" id="qA" placeholder="50000000"></div>
-    <div class="fg"><label class="fl">담당자</label><select class="fs" id="qO">${state.users.map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">담당자</label><select class="fs" id="qO">${selectableUsers().map(u=>`<option value="${u.id}">${userOptLabel(u)}</option>`).join('')}</select></div>
   `, () => {
     const c=document.getElementById('qC').value.trim();
     const s=document.getElementById('qS').value.trim();
@@ -5751,7 +5852,8 @@ function org() {
   };
 
   // v29.9: 사전 등록 대기 계정 (아직 Google 로그인 안 한 미리 등록된 계정들)
-  const pending = state.pendingUsers || [];
+  // v29.18: promotedTo 마킹된 항목은 이미 실계정 승격 완료(지정 승계만 남음) → 목록에서 제외
+  const pending = (state.pendingUsers || []).filter(p => !p.promotedTo);
   const pendingHtml = (isSuper && pending.length) ? `
     <div class="card" style="margin-bottom:14px;border-left:3px solid var(--warning);padding:14px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
