@@ -3201,11 +3201,19 @@ window.resetWbsRev = resetWbsRev;
       if (snap.exists()) {
         const d = snap.data();
         // d.pm은 Firebase UID라 화면/PDF/Excel에 그대로 찍으면 알아볼 수 없는 문자열이 나옴 — users 컬렉션에서 실제 이름으로 변환
+        // v29.21: 사전 등록 대기 계정(PM 지정 시 'pu_<pendingDocId>' 형태)은 users에 없으므로
+        //         pendingUsers 컬렉션에서 이름을 찾아 '홍길동(대기)'로 표기.
         let pmName = d.pm || "";
         if (pmName) {
           try {
-            const uSnap = await fb.getDoc(fb.doc(fb.db, "users", pmName));
-            if (uSnap.exists() && uSnap.data().name) pmName = uSnap.data().name;
+            if (String(pmName).startsWith("pu_")) {
+              const pSnap = await fb.getDoc(fb.doc(fb.db, "pendingUsers", String(pmName).slice(3)));
+              if (pSnap.exists()) { const pd = pSnap.data(); pmName = (pd.name || pd.email || "미지정") + "(대기)"; }
+              else pmName = "미지정";
+            } else {
+              const uSnap = await fb.getDoc(fb.doc(fb.db, "users", pmName));
+              if (uSnap.exists() && uSnap.data().name) pmName = uSnap.data().name;
+            }
           } catch(e) { console.warn("[SJ FLOW] PM 이름 조회 실패:", e.message); }
         }
         targetProj = { id: pid, no: d.code, name: d.name, client: d.client||"", po: d.po||"", pm: pmName };
