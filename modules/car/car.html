@@ -366,6 +366,21 @@ async function startCarFirestoreSync() {
   subscribeCarsColl();
   subscribeNcrsRefColl();
   subscribeCarDeleteReqsColl();
+  setTimeout(checkQdHandoff, 500);
+}
+// v29.20: 품질종합분석표 차트 클릭 핸드오프 수신 (ncr.html과 동일)
+function checkQdHandoff() {
+  try {
+    const raw = localStorage.getItem('QD_TREND_HANDOFF');
+    if (!raw) return;
+    const h = JSON.parse(raw);
+    if (h.tool !== 'car') return;
+    localStorage.removeItem('QD_TREND_HANDOFF');
+    if (Date.now() - (h.ts||0) > 30000) return;
+    openCARTrend();
+    ctrDrill = h.drill || {};
+    renderCARTrend();
+  } catch(e) { console.warn('[QD 핸드오프]', e); }
 }
 // v29.17 fix: 인증 확인 후에도 토큰 리프레시 타이밍 등으로 아주 드물게
 // permission-denied가 한 번 나면 그 뒤론 재구독 없이 리스너가 영구히 죽어
@@ -1239,8 +1254,8 @@ function renderCARTrend() {
 
   const tableRows=cars.map(c=>{
     const st=CAR_STATUS[c.status]||CAR_STATUS['in-progress'];
-    return `<tr>
-      <td style="font-weight:700;">${c.id}</td>
+    return `<tr style="cursor:pointer;" onclick="closeCARTrend();openCARMgr('${_drillEsc(c.id)}')" title="클릭하면 이 CAR 보고서를 엽니다">
+      <td style="font-weight:700;color:var(--primary);">${c.id} ↗</td>
       <td>${_fmtDept(c.reqDept)}</td>
       <td>${c.qualReq||'-'}</td>
       <td>${c.field||'-'}</td>

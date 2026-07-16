@@ -192,8 +192,26 @@ function filteredCars() {
   });
 }
 
+/* v29.20: 차트 클릭 → NCR/CAR 모듈로 이동해 해당 필터로 경향분석을 연다.
+   localStorage 핸드오프(QD_TREND_HANDOFF)에 {tool, drill, ts}를 남기고
+   부모(index.html)의 openTool을 호출 — 모듈 iframe이 부팅하면서 수신·적용. */
+function _qdEsc(v) {
+  return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+}
+function goQdTool(tool, field, val) {
+  try {
+    localStorage.setItem('QD_TREND_HANDOFF', JSON.stringify({ tool, drill: field ? { [field]: val } : {}, ts: Date.now() }));
+  } catch(e) {}
+  try { window.parent.openTool(tool, '품질관리부'); }
+  catch(e) { alert(tool.toUpperCase() + ' 관리 화면으로 이동할 수 없습니다: ' + (e.message||e)); }
+}
+function _qdClickAttr(clickSpec, val) {
+  if (!clickSpec || val == null || val === '(미입력)') return '';
+  return ` style="cursor:pointer;" onclick="goQdTool('${clickSpec.tool}','${clickSpec.field}','${_qdEsc(val)}')"`;
+}
+
 /* ═══ SVG 차트 (NCR 모듈과 동일한 방식 — 외부 라이브러리 없이 순수 SVG) ═══ */
-function barSvg(entries, colors) {
+function barSvg(entries, colors, clickSpec) {
   if (!entries.length) return '<div class="empty-note">데이터 없음</div>';
   const max = Math.max(...entries.map(e=>e[1]), 1);
   const n = entries.length;
@@ -211,9 +229,10 @@ function barSvg(entries, colors) {
     const lblY = H - PB + (rotate ? 4 : 14);
     const lbl = String(label).length > 8 ? String(label).slice(0, 7) + '…' : label;
     const anchor = rotate ? 'end' : 'middle';
-    return `<rect x="${cx - bW/2}" y="${by}" width="${bW}" height="${bH}" rx="3" fill="${colors[i % colors.length]}"/>
+    const clickAttr = _qdClickAttr(clickSpec, entries[i][2] !== undefined ? entries[i][2] : label);
+    return `<g${clickAttr}><rect x="${cx - bW/2}" y="${by}" width="${bW}" height="${bH}" rx="3" fill="${colors[i % colors.length]}"/>
       <text x="${cx}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${val}</text>
-      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="#666"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${lbl}</text>`;
+      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="#666"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${lbl}</text></g>`;
   }).join('');
   return `<svg viewBox="-2 -4 ${W+4} ${H+8}" style="width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible;">
     <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
@@ -221,7 +240,7 @@ function barSvg(entries, colors) {
     ${bars}
   </svg>`;
 }
-function donutSvg(entries, colors) {
+function donutSvg(entries, colors, clickSpec) {
   if (!entries.length) return '<div class="empty-note">데이터 없음</div>';
   const total = entries.reduce((s,[,v])=>s+v,0);
   if (!total) return '<div class="empty-note">데이터 없음</div>';
@@ -240,12 +259,14 @@ function donutSvg(entries, colors) {
     const tx = cx + mid_r * Math.cos(midA);
     const ty = cy + mid_r * Math.sin(midA);
     const pct = Math.round(val/total*100);
-    return `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${cx},${cy} Z" fill="${colors[i%colors.length]}"/>
-    ${a > 0.4 ? `<text x="${tx.toFixed(1)}" y="${(ty+3.5).toFixed(1)}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">${pct}%</text>` : ''}`;
+    const clickAttr = _qdClickAttr(clickSpec, entries[i][2] !== undefined ? entries[i][2] : label);
+    return `<g${clickAttr}><path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${cx},${cy} Z" fill="${colors[i%colors.length]}"/>
+    ${a > 0.4 ? `<text x="${tx.toFixed(1)}" y="${(ty+3.5).toFixed(1)}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">${pct}%</text>` : ''}</g>`;
   });
   const legend = entries.map(([label,val],i) => {
     const lbl = String(label).length > 9 ? String(label).slice(0,8)+'…' : label;
-    return `<g transform="translate(${LX},${(H-entries.length*rowH)/2+i*rowH})">
+    const clickAttr = _qdClickAttr(clickSpec, entries[i][2] !== undefined ? entries[i][2] : label);
+    return `<g transform="translate(${LX},${(H-entries.length*rowH)/2+i*rowH})"${clickAttr}>
       <rect width="10" height="10" rx="2" fill="${colors[i%colors.length]}"/>
       <text x="15" y="9" font-size="11" fill="#444">${lbl} (${val})</text>
     </g>`;
@@ -422,8 +443,8 @@ function render() {
       <table class="org-table">
         <thead><tr><th>프로젝트</th><th>NCR 전체</th><th>중대</th><th>일반</th><th>경미</th><th>진행중</th><th>종결</th><th>CAR</th><th>CAR 진행중</th><th>최근 발생일</th></tr></thead>
         <tbody>
-          ${projRows.length ? projRows.map(r => `<tr>
-            <td style="font-weight:700;">${projFullLabel({proj:r.proj, meta:(state.ncrs||[]).find(n=>n.proj===r.proj)?.meta})}</td>
+          ${projRows.length ? projRows.map(r => `<tr style="cursor:pointer;" onclick="goQdTool('ncr','projLabel','${_qdEsc(r.proj==='__direct__' ? ((state.ncrs||[]).find(n=>n.proj==='__direct__')?.meta?.projDirect||'직접입력') : ((state.projects||[]).find(p=>p.id===r.proj)?.code||'미지정'))}')" title="클릭하면 이 프로젝트의 NCR 경향분석으로 이동">
+            <td style="font-weight:700;color:var(--primary);">${projFullLabel({proj:r.proj, meta:(state.ncrs||[]).find(n=>n.proj===r.proj)?.meta})} ↗</td>
             <td>${r.total}</td>
             <td style="color:var(--danger);">${r.major||0}</td>
             <td style="color:var(--warning);">${r.minor||0}</td>
@@ -439,30 +460,31 @@ function render() {
       </div>
     </div>
 
+    <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">💡 차트 막대·조각·프로젝트 행을 클릭하면 NCR/CAR 관리의 경향분석으로 이동해 해당 조건의 상세 목록을 보여줍니다.</div>
     <div class="qd-grid">
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">발생장소별</div>
-        ${barSvg(Object.entries(count(ncrs,'location')).sort((a,b)=>b[1]-a[1]), COLORS)}
+        ${barSvg(Object.entries(count(ncrs,'location')).sort((a,b)=>b[1]-a[1]), COLORS, {tool:'ncr',field:'location'})}
       </div>
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">불량원인별</div>
-        ${barSvg(Object.entries(count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]), COLORS)}
+        ${barSvg(Object.entries(count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]), COLORS, {tool:'ncr',field:'cause'})}
       </div>
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">불량원인 상세별</div>
-        ${barSvg(Object.entries(count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]), COLORS)}
+        ${barSvg(Object.entries(count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]), COLORS, {tool:'ncr',field:'causeDetail'})}
       </div>
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">처리방안별</div>
-        ${donutSvg(Object.entries(count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]), COLORS)}
+        ${donutSvg(Object.entries(count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]), COLORS, {tool:'ncr',field:'disposition'})}
       </div>
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">등급별<span class="hint">중대/일반/경미</span></div>
-        ${donutSvg(Object.entries(count(ncrs,'grade')).map(([k,v])=>[NCR_GRADE[k]?.[1]||k, v]).sort((a,b)=>b[1]-a[1]), COLORS)}
+        ${donutSvg(Object.entries(count(ncrs,'grade')).map(([k,v])=>[NCR_GRADE[k]?.[1]||k, v, k]).sort((a,b)=>b[1]-a[1]), COLORS, {tool:'ncr',field:'grade'})}
       </div>
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">CAR 상태별</div>
-        ${donutSvg(Object.entries(count(cars,'status')).map(([k,v])=>[CAR_STATUS[k]?.[1]||k, v]).sort((a,b)=>b[1]-a[1]), COLORS)}
+        ${donutSvg(Object.entries(count(cars,'status')).map(([k,v])=>[CAR_STATUS[k]?.[1]||k, v, k]).sort((a,b)=>b[1]-a[1]), COLORS, {tool:'car',field:'status'})}
       </div>
     </div>
 
