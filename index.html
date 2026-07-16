@@ -561,8 +561,11 @@ const TOOLS = {
   'qadash':    { name: '품질종합분석표',    icon: '📊', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석 (전 부서 조회)', status: 'live', ver: 'v1.0', crossDept: true },
   'manday':    { name: 'Manday Tracker',    icon: '⏱',  desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
   'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
+  // 아래 mtools는 원본이 품질관리부 tools 배열에 있음. crossDept로 타부서에도 노출.
+  //   - 반출·반입 스캔: 전 부서 사용 가능 (모듈 내부 게이팅 없음)
+  //   - 측정기구 등록/수정/검교정: 품질관리부만 (모듈 내부 isQADept로 제어)
   'deptsch':   { name: '부서 스케줄',       icon: '📅', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
-  'mtools':    { name: '측정기구 반입출',   icon: '🔬', desc: 'QR 스캔 반출·반입 · 검교정 관리', status: 'live', ver: 'v1.0' },
+  'mtools':    { name: '측정기구 반입출',   icon: '🔬', desc: 'QR 스캔 반출·반입 (전 부서) · 등록/검교정은 품질관리부만', status: 'live', ver: 'v1.0', crossDept: true },
   'asset':     { name: '자산 관리 대장',    icon: '🖥️', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
 };
 const DEPTS = [
