@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오후 마감 점검 · 품질관리부 · 2026-07-16</title>
+<style>
+  :root{
+    --bg:#0f1620; --card:#17212e; --card2:#1d2937; --line:#2a3a4d;
+    --txt:#e8eef5; --sub:#9fb2c6; --accent:#4a86e8;
+    --red:#fb4c2f; --orange:#ffad47; --green:#16a766; --blue:#4a86e8; --purple:#8e63ce;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;line-height:1.55;font-size:14px}
+  .wrap{max-width:1120px;margin:0 auto;padding:20px 16px 60px}
+  header{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;border-bottom:2px solid var(--line);padding-bottom:14px;margin-bottom:18px}
+  header h1{font-size:20px;margin:0}
+  header .tag{background:var(--accent);color:#fff;border-radius:5px;padding:2px 9px;font-size:12px;font-weight:700}
+  header .meta{color:var(--sub);font-size:12px;margin-left:auto}
+  h2{font-size:15px;margin:26px 0 10px;padding-left:9px;border-left:4px solid var(--accent)}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+  @media(max-width:720px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px;text-align:center}
+  .kpi .n{font-size:24px;font-weight:800}
+  .kpi .l{font-size:11px;color:var(--sub);margin-top:3px}
+  .kpi.red .n{color:var(--red)} .kpi.orange .n{color:var(--orange)}
+  .kpi.green .n{color:var(--green)} .kpi.blue .n{color:var(--blue)}
+  .summary{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13.5px}
+  .summary b{color:#fff}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}
+  th{background:var(--card2);color:var(--sub);font-weight:700;font-size:12px}
+  tr:last-child td{border-bottom:none}
+  .pri{display:inline-block;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+  .pri.high{background:var(--red)} .pri.mid{background:var(--orange)} .pri.low{background:var(--green)}
+  .done td{color:var(--sub)}
+  .done .chk{color:var(--green);font-weight:800}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h3{margin:0 0 8px;font-size:13.5px;color:#fff}
+  ul{margin:6px 0;padding-left:18px} li{margin:4px 0}
+  .muted{color:var(--sub)}
+  .pill{display:inline-block;background:var(--card2);border:1px solid var(--line);border-radius:20px;padding:2px 10px;font-size:11px;margin:2px 4px 2px 0;color:var(--sub)}
+  .foot{margin-top:34px;text-align:center;color:var(--sub);font-size:11px}
+  .badge-nuc{background:#fcda83;color:#000;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>오후 마감 점검</h1>
+    <span class="tag">품질관리부</span>
+    <span class="muted">김철우 부장 · cwkim@sejong-21c.com</span>
+    <span class="meta">생성: 2026-07-16 07:32 (Asia/Seoul) · daily-mail v1.0</span>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi blue"><div class="n">11</div><div class="l">오늘 도착 메일</div></div>
+    <div class="kpi green"><div class="n">2</div><div class="l">처리 완료</div></div>
+    <div class="kpi red"><div class="n">2</div><div class="l">미처리·긴급</div></div>
+    <div class="kpi orange"><div class="n">7</div><div class="l">내일로 이월</div></div>
+    <div class="kpi"><div class="n">0</div><div class="l">NCR/CAR</div></div>
+    <div class="kpi"><div class="n">0</div><div class="l">신규 Project</div></div>
+  </section>
+
+  <h2>Executive Summary</h2>
+  <div class="summary">
+    금일 오전 두 건 <b>처리 완료</b>: ① 아시아경제(최호경 기자) 이노비즈 투어 서면 인터뷰 답변서 작성·회신 → 양병원 이사가 기자에게 전달(대표이사 참조) 마감, ② 삼성전기 BT-6라인 자동밸브 작동테스트 일정 회신(브이아이테크 변길훈) — 7/27~29은 품질 인원 조율 곤란, <b>7/20 주간 또는 그 다음 주로 재조율 요청</b> 발신.<br>
+    <b>오늘 마감 최우선</b>은 「한울 3·4호기 주급수 승압펌프 전동기 이송대차 입찰서 제출」(예가 3.08억, 원자력 L3, 오늘 18:00 마감 — 캘린더 등록됨). 제출 여부·서류 최종 확인 필요.<br>
+    <b>내일로 이월</b>: Weekly Project Report 작성(07-20 월 공정회의), 삼성전기 밸브 테스트 확정일 회신 대기, 탑엔지니어링 삼성전기 견적서 재검토(곽노한 이사 주관·부장 참조), 국도화학 현장검수 서류 취합(신채완 과장). <b>NCR/CAR 신규 없음.</b>
+  </div>
+
+  <h2>① 미처리 · 긴급 답변 대기 (2)</h2>
+  <table>
+    <tr><th style="width:56px">우선</th><th>건명</th><th style="width:130px">Project</th><th style="width:120px">마감/후속</th></tr>
+    <tr><td><span class="pri high">HIGH</span></td>
+      <td>한울 3·4호기 이송대차 입찰서 제출 — 예가 308,000,000원, 원자력 L3 결재. 견적·서류 최종 확인 후 제출</td>
+      <td><span class="badge-nuc">원자력</span></td><td><b>오늘 18:00 마감</b></td></tr>
+    <tr><td><span class="pri high">HIGH</span></td>
+      <td>Weekly Project Report 작성·제출 — 영업부 김민준 차장 양식 배포, 월요일 공정회의용</td>
+      <td>부서업무</td><td>07-20(월) 08:15</td></tr>
+  </table>
+
+  <h2>② 오늘 처리 완료 (2)</h2>
+  <table>
+    <tr><th style="width:40px">✓</th><th>건명</th><th style="width:200px">결과</th></tr>
+    <tr class="done"><td class="chk">✓</td>
+      <td>아시아경제 이노비즈 투어 서면 인터뷰(최호경 기자) 답변</td>
+      <td>답변서 작성·양병원 이사 회신 → 기자 전달(대표이사 참조) 완료</td></tr>
+    <tr class="done"><td class="chk">✓</td>
+      <td>삼성전기 BT-6라인 자동밸브 작동테스트 일정 회신(브이아이테크)</td>
+      <td>7/27~29 곤란, 7/20 주간/다음 주 재조율 요청 발신 (01:12)</td></tr>
+  </table>
+
+  <h2>③ 내일로 넘어가는 액션 아이템 (7)</h2>
+  <table>
+    <tr><th style="width:56px">우선</th><th>액션</th><th style="width:130px">Project</th></tr>
+    <tr><td><span class="pri mid">MID</span></td><td>삼성전기 밸브 테스트 <b>확정일 회신 대기</b> — 브이아이테크 변길훈 재회신 확인</td><td>SJ435-26</td></tr>
+    <tr><td><span class="pri mid">MID</span></td><td>부산 삼성전기 견적서(탑엔지니어링 구교천 대표) 재검토 — 인건비·자재비 재반영. 곽노한 이사 주관, 부장 참조</td><td>SJ435-26</td></tr>
+    <tr><td><span class="pri mid">MID</span></td><td>국도화학 현장검수 준비서류 취합·송부 — 자재증빙/Tech Report/검수내역. 신채완 과장</td><td>SJ2026-014/016/017</td></tr>
+    <tr><td><span class="pri low">LOW</span></td><td>SJ428-25 밀양공장 EPC M-001 이설탱크 BOLT SET 구매요청서 접수 — 구매부 김재현 대리 처리(부장 참조)</td><td>SJ428-25</td></tr>
+    <tr><td><span class="pri low">LOW</span></td><td>주간회의 자료 접수(곽노한 이사) — 07-20 공정회의 대비 검토</td><td>부서업무</td></tr>
+    <tr><td><span class="pri low">LOW</span></td><td>지원사업 참여 검토 — 스마트공장 우수사례 컨소시엄(~07/24), TIPA R&D 우수성과 50선</td><td>부서업무</td></tr>
+    <tr><td><span class="pri low">LOW</span></td><td>GitHub 조직(sejong-21c) 개인 액세스 토큰(PAT) 승인 요청 검토</td><td>부서업무</td></tr>
+  </table>
+
+  <div class="cols" style="margin-top:24px">
+    <div class="card">
+      <h3>④ NCR / CAR 추적</h3>
+      <p class="muted">오늘 신규 NCR/CAR 메일 <b>없음</b> (Label_33 신규 부착 0건).</p>
+      <p class="muted">진행 중(참고): SJE437-26 진양화성 Tube Sheet 불일치(SJ-NCR-2026-16) — Heat No. 불일치 반품처리, 발생원인·조치방안 회신 진행(김시원/신채완).</p>
+    </div>
+    <div class="card">
+      <h3>⑤ <span class="badge-nuc">원자력</span> 파트 요약</h3>
+      <ul>
+        <li><b>[오늘 마감]</b> 한울 3·4호기 이송대차 입찰서 제출 (예가 3.08억, L3)</li>
+        <li>한수원 체코원전 M229C·N210B 견적서 — 영업부 작성, 07-21 회신</li>
+        <li>한수원 Y-134-N210 입찰 기술자료(Y-585/596 서명본) 준비 — 이영주 대리</li>
+        <li>KHNP 유자격 심사결과(신청 202600239) 확인 · 원자력산업실태조사(~07/31)</li>
+        <li class="muted">한수원 보안 뉴스레터(2026.07) 접수 — 참고</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>⑥ 내일(07-17) 일정 미리보기</h2>
+  <div class="card">
+    <p class="muted">07-17(금) 캘린더 확정 일정 <b>없음</b>. 이월 액션 위주로 진행.</p>
+    <div>
+      <span class="pill">07-16(오늘) 18:00 · 한울 이송대차 입찰 마감</span>
+      <span class="pill">07-20(월) 08:15 · 주간 공정회의 + Weekly Report 제출</span>
+      <span class="pill">07-21 · 체코원전 견적서 제출</span>
+      <span class="pill">07-22~24 · 27기 원자력품질 검사자과정(QC)</span>
+      <span class="pill">07-24 · 스마트공장 우수사례 컨소시엄 마감</span>
+      <span class="pill">07-31 · 원자력산업실태조사 마감</span>
+    </div>
+  </div>
+
+  <h2>⑦ Manday</h2>
+  <div class="card"><p>금일 예상 공수 <b>8.0 H</b> — 인터뷰 답변서(2.0), 밸브일정 조율(1.0), 입찰서류 검토(2.5), 견적/문서 검토(1.5), 일반 행정(1.0)</p></div>
+
+  <div class="foot">ⓒ Daily Mail Skill v1.0 — 오후 마감 점검 · 품질관리부 · 자동 생성 (스케줄 실행)</div>
+</div>
+</body>
+</html>
