@@ -1913,7 +1913,13 @@ async function runSJ435ScheduleImport() {
     return;
   }
   try {
-    await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { rows, items: oldItems }, { merge: false });
+    // wbs.html의 저장 형식과 동일하게 맞춤 — rev·updatedAt 포함, merge:true
+    // (규칙이 create vs update 구분해 거부하는 경우가 있어 merge:false는 피함)
+    const savedAt = Date.now();
+    const nextRev = (state.wbsRev && state.wbsRev[pid] ? (state.wbsRev[pid] + 1) : 1);
+    await fb.setDoc(fb.doc(fb.db, 'wbsData', pid),
+      { rows, items: oldItems, rev: nextRev, updatedAt: savedAt },
+      { merge: true });
     console.log('%c[SJ435 임포트] ✅ 저장 완료', 'color:#059669;font-weight:700;');
     alert('✅ SJ435-26 계층형 공정 스케줄 ' + rows.length + '행 저장 완료.\n\n생산부 > SJ435-26 스케줄에서 확인해주세요.\n(주소창의 #import-sj435-schedule 지우고 접속하시면 다음부턴 안 뜹니다)');
     history.replaceState(null, '', location.pathname);
