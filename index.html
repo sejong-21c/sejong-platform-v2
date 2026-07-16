@@ -1861,28 +1861,36 @@ async function runSJ435ScheduleImport() {
     { name:'제작',              s:'2026-04-15', e:'2026-07-31' },
     { name:'후처리·출하준비',   s:'2026-08-01', e:'2026-08-30', note:'일정 미정' },
   ];
+  // wbs.html 계층 관례: lv 0 = 대단락(그룹), lv 1 = 아이템, lv 2 = 공정.
+  // 프로젝트 총합은 wbs.html이 자동 계산하므로 별도 헤더 행은 넣지 않음.
+  // renumberWBS가 code(1, 1.1 등)를 자동 부여하므로 code 필드도 생략.
+  // 필수 필드: id, projId, lv, name, s, e (+ 선택: pctManual, status, remark).
   const rows = [];
   let rid = 1;
   const mkId = () => 'w_sj435_' + Date.now().toString(36) + '_' + (rid++).toString(36);
-  rows.push({ id: mkId(), lv: 0,
-    name: CODE + ' · 삼성전기 MLCC 원료3동 6라인 (계층형 공정 스케줄)',
-    s:'2026-02-01', e:'2026-08-30', pctManual:'' });
   GROUPS.forEach(grp => {
-    rows.push({ id: mkId(), lv:1, name: grp.name, s:'2026-02-01', e:'2026-08-30' });
+    // lv 0 — 대단락(그룹)
+    rows.push({ id: mkId(), projId: pid, lv: 0,
+      name: grp.name, s:'2026-02-01', e:'2026-08-30' });
     grp.items.forEach(it => {
-      rows.push({ id: mkId(), lv:2, name: it.code + ' · ' + it.name,
-        s:'2026-02-01', e:'2026-08-30', pctManual:'',
+      // lv 1 — 아이템 (TA-6102A 등)
+      rows.push({ id: mkId(), projId: pid, lv: 1,
+        name: it.code + ' · ' + it.name,
+        s:'2026-02-01', e:'2026-08-30',
+        pctManual: '',
         status: it.status || '진행중' });
       const phases = it.sparse ? SPARSE_PHASES : PHASES;
       phases.forEach(ph => {
+        // lv 2 — 공정
         let pct = 0;
         if (ph.name === '자재 입고') pct = 100;
         else if (ph.name === '자재검사') pct = 100;
         else if (ph.name === '밴딩·포밍') pct = 100;
         else if (ph.name === '제작') pct = it.pct;
         else pct = 0;
-        rows.push({ id: mkId(), lv:3, name: ph.name,
-          s: ph.s, e: ph.e, pctManual: String(pct),
+        rows.push({ id: mkId(), projId: pid, lv: 2,
+          name: ph.name, s: ph.s, e: ph.e,
+          pctManual: String(pct),
           status: pct === 100 ? '완료' : (pct === 0 ? (it.status || '미시작') : '진행중'),
           remark: ph.note || '' });
       });
