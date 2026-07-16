@@ -989,66 +989,33 @@
     "runAt": "08:15"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-07-13 16:05 (오후 정리 자동 실행)",
-    "newMails": 9,
-    "processed": 7,
-    "urgentReplies": 2,
-    "ncr": 1,
+    "generatedAt": "2026-07-16 16:33 (오후 정리 자동 실행)",
+    "newMails": 4,
+    "processed": 2,
+    "urgentReplies": 0,
+    "ncr": 0,
     "car": 0,
-    "newProjects": 1,
+    "newProjects": 0,
     "keyActions": [
       {
-        "text": "한수원 Y26-0443-010/2 원자력 아이템 입찰 서류 준비 - 부서별 서류 취합 필요 (7/15 09:00 내부 완료, 11:00 제출 마감)",
-        "proj": "미확정(신규입찰)",
-        "priority": "high"
-      },
-      {
-        "text": "SJE437-26 진양화성 Tube Sheet NCR(SJ-NCR-2026-16) - Heat No. 불일치로 반품처리 진행 중, 발생원인/조치방안 회신 필요",
-        "proj": "SJE437-26",
-        "priority": "high"
-      },
-      {
-        "text": "SJ428-25 밀양공장 EPC LOAD CELL SUPPORT 출도 도면 - 생산부(송기남 차장) 제작 반영 필요 (신규 Project 라벨 생성)",
+        "text": "M-001 이설탱크 BOLT SET 구매요청서 검토",
         "proj": "SJ428-25",
         "priority": "mid"
       },
       {
-        "text": "SJ2026-040 CKS 구매요청서 - 첨부 확인 후 발주 필요",
-        "proj": "SJ2026-040",
+        "text": "삼성전기 BT-6LINE 밸브 검수일정 재조율 확인 (7/20 주 or 익주)",
+        "proj": "SJ435-26",
         "priority": "mid"
-      },
-      {
-        "text": "AI활용 발표자료 공유 - 답변 초안 작성 완료, 의견 회신 필요",
-        "proj": "일반사무",
-        "priority": "low"
       }
     ],
-    "urgentList": [
-      {
-        "subject": "한수원 - Y26-0443-010/2 입찰관련 요청",
-        "from": "김철우(cwkim@sejong-21c.com)",
-        "proj": "미확정(신규입찰)"
-      },
-      {
-        "subject": "[불일치보고서] SJE437-26 진양화성 Tube Sheet (SJ-NCR-2026-16)",
-        "from": "김시원(품질관리부)",
-        "proj": "SJE437-26"
-      }
-    ],
+    "urgentList": [],
     "schedule": [
       {
-        "title": "[한수원 Y26-0443-010/2] 부서별 입찰서류 내부 완료 마감",
-        "date": "2026-07-15",
-        "time": "09:00",
-        "proj": "미확정(신규입찰)",
-        "color": "red"
-      },
-      {
-        "title": "[한수원 Y26-0443-010/2] 원자력 아이템 입찰 서류 제출 마감",
-        "date": "2026-07-15",
-        "time": "11:00",
-        "proj": "미확정(신규입찰)",
-        "color": "red"
+        "title": "국도화학 복지관 방문 (TDB 확인)",
+        "date": "2026-07-16",
+        "time": "13:00",
+        "proj": "SJ2026-014,16,17+국도화학",
+        "color": "blue"
       }
     ]
   },
