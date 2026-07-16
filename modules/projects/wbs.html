@@ -980,7 +980,7 @@ function rWBS(){
     : `<div class="wbs-unified-wrap" style="position:relative;overflow:auto;background:#fff;border-radius:8px;border:1px solid #e4e7ec;flex:1;min-height:160px;max-height:none">
     ${unifiedTable}
   </div>`;
-  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span><button onclick="openWbsHistory()" style="font-size:11px;color:#7c3aed;background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:2px 8px;margin-left:4px;cursor:pointer" title="이전 Rev 이력 보기">📜 이력</button>${_viewRev?`<span style="font-size:11px;color:#b45309;font-weight:700;background:#fef3c7;padding:2px 8px;border-radius:10px;margin-left:6px">📖 이전 Rev.${_viewRev} 조회 중</span><button onclick="closeWbsHistoryView()" style="font-size:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer">← 현재로</button>`:''}</div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button>${(S.selproj?.no||'').toUpperCase()==='SJ435-26' && WBS.some(w=>(w.id||'').startsWith('w_sj435_')) ? `<button class="v28-eb" style="background:#dc2626;color:#fff" onclick="removeSJ435FabSchedule()" title="자동 추가된 제작 스케줄 48행을 이 WBS에서 제거">🗑 제작 스케줄 제거</button>` : ''}${/SJ428-?25/i.test((S.selproj?.no||'')+'|'+(S.selproj?.code||'')+'|'+(S.selproj?.name||'')) && !WBS.some(w=>(w.id||'').startsWith('w_fab428_')) ? `<button class="v28-eb" style="background:#0ea5e9;color:#fff" onclick="importFabScheduleSJ428()" title="SJ428-25 Fabrication Schedule 7개 공정을 이설장비 제작 아래에 삽입">📥 Fab 스케줄 넣기</button>` : ''}<button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다">📝 PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
+  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span><button onclick="openWbsHistory()" style="font-size:11px;color:#7c3aed;background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:2px 8px;margin-left:4px;cursor:pointer" title="이전 Rev 이력 보기">📜 이력</button>${_viewRev?`<span style="font-size:11px;color:#b45309;font-weight:700;background:#fef3c7;padding:2px 8px;border-radius:10px;margin-left:6px">📖 이전 Rev.${_viewRev} 조회 중</span><button onclick="closeWbsHistoryView()" style="font-size:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer">← 현재로</button>${new URLSearchParams(window.location.search).get("canEdit")!=="0"?`<button onclick="restoreWbsRev(${_viewRev})" style="font-size:11px;background:#059669;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer" title="지금 보고 있는 이 Rev의 내용으로 현재 WBS를 되돌립니다 (새 Rev로 저장되어 이력 보존)">↩ 이 Rev로 복원</button>`:''}`:''}</div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button>${(S.selproj?.no||'').toUpperCase()==='SJ435-26' && WBS.some(w=>(w.id||'').startsWith('w_sj435_')) ? `<button class="v28-eb" style="background:#dc2626;color:#fff" onclick="removeSJ435FabSchedule()" title="자동 추가된 제작 스케줄 48행을 이 WBS에서 제거">🗑 제작 스케줄 제거</button>` : ''}${/SJ428-?25/i.test((S.selproj?.no||'')+'|'+(S.selproj?.code||'')+'|'+(S.selproj?.name||'')) && !WBS.some(w=>(w.id||'').startsWith('w_fab428_')) ? `<button class="v28-eb" style="background:#0ea5e9;color:#fff" onclick="importFabScheduleSJ428()" title="SJ428-25 Fabrication Schedule 7개 공정을 이설장비 제작 아래에 삽입">📥 Fab 스케줄 넣기</button>` : ''}<button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다">📝 PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
   <div class="fbar"><span style="font-size:10px;color:#9ca3af;margin-right:3px">필터:</span>${["전체","완료","진행중","미시작","지연"].map(f=>`<button class="fb${S.wf===f?" on":""}" data-a="setWF" data-f="${f}">${f}(${fCnt(f)})</button>`).join("")}</div>
   <div class="cont">${(S.wv!=="evms" && !_deptMode)?`<div style="margin-bottom:10px;border:1px solid #e4e7ec;border-radius:8px;background:#f8fafc;overflow:hidden;flex-shrink:0">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer" data-a="tgEvms"><span style="font-size:11px;font-weight:700;color:#1e40af">📈 EVMS 요약 (계획·실행·일정차이·SPI)</span><span style="font-size:11px;color:#6b7280">${S.evmsHide?'▶ 펼치기':'▼ 접기'}</span></div>
@@ -3034,9 +3034,13 @@ async function openWbsHistory() {
   ov.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;";
   const inner = document.createElement("div");
   inner.style.cssText = "background:#fff;border-radius:8px;max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,.2);";
+  // v29.34: 복원 버튼은 편집 권한이 있을 때만 (shadow/조회 전용 진입 시 숨김)
+  const _canRestore = new URLSearchParams(window.location.search).get("canEdit") !== "0";
   const rowsHtml = list.map(h => {
     const dateStr = h.at ? new Date(h.at).toLocaleString("ko-KR") : "";
-    const src = h.source === "shadow-approve" ? "🔵 결재 승인 반영" : "🟣 PM 직접 저장";
+    const src = h.source === "shadow-approve" ? "🔵 결재 승인 반영"
+              : (h.source||"").startsWith("restore") ? "↩ Rev 복원"
+              : "🟣 PM 직접 저장";
     return `<div style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-bottom:1px solid #eee;cursor:pointer;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''" onclick="loadWbsHistory(${h.rev})">
       <span style="font-size:13px;font-weight:700;color:#7c3aed;background:#f5f3ff;padding:3px 10px;border-radius:12px;min-width:70px;text-align:center;">Rev. ${h.rev}</span>
       <div style="flex:1;">
@@ -3044,6 +3048,7 @@ async function openWbsHistory() {
         <div style="font-size:10px;color:#9ca3af;">${src} · rows ${((h.rows||[]).length)} · items ${((h.items||[]).length)}</div>
       </div>
       <button style="font-size:11px;padding:4px 10px;background:#7c3aed;color:#fff;border:none;border-radius:4px;cursor:pointer;">👁 조회</button>
+      ${_canRestore ? `<button onclick="event.stopPropagation();restoreWbsRev(${h.rev})" style="font-size:11px;padding:4px 10px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="이 Rev의 내용으로 현재 WBS를 되돌립니다 (새 Rev로 저장되어 이력은 보존됨)">↩ 복원</button>` : ''}
     </div>`;
   }).join("");
   inner.innerHTML =
@@ -3084,9 +3089,40 @@ function closeWbsHistoryView() {
   // 현재 상태 새로고침 (마스터 재구독)
   location.reload();
 }
+// v29.34: 이전 Rev로 복원 — 스냅샷의 rows/items를 현재 마스터에 덮어쓰되,
+// 새 Rev로 저장하므로 복원 직전 상태까지 이력에 그대로 남는다 (파괴적이지 않음).
+// 되돌리고 싶으면 그 이후 Rev을 다시 복원하면 됨.
+async function restoreWbsRev(rev) {
+  if (!window.fb || !_wbsPid) return;
+  const qs = new URLSearchParams(window.location.search);
+  if (qs.get("canEdit") === "0") { alert("이 화면은 조회 전용이라 복원할 수 없습니다."); return; }
+  if (!confirm(
+    `Rev. ${rev}의 내용으로 현재 WBS를 되돌립니다.\n\n` +
+    `· 현재 상태(Rev. ${_wbsRev||0})는 이력에 그대로 보존됩니다\n` +
+    `· 복원본은 새 Rev. ${(Number(_wbsRev)||0)+1}(으)로 저장됩니다\n\n계속할까요?`
+  )) return;
+  const revStr = String(rev).padStart(4, "0");
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, "wbsHistory", _wbsPid + "_" + revStr));
+    if (!snap.exists()) { alert("해당 Rev 스냅샷을 찾을 수 없습니다."); return; }
+    const d = snap.data();
+    const rows = d.rows || [], items = d.items || [];
+    const newRev = (Number(_wbsRev) || 0) + 1;
+    const savedAt = Date.now();
+    const cur = fb.auth && fb.auth.currentUser;
+    await fb.setDoc(fb.doc(fb.db, "wbsData", _wbsPid),
+      { rows, items, rev: newRev, updatedAt: savedAt }, { merge: true });
+    // 복원 자체도 이력에 남김 (source에 원본 rev 기록)
+    await fb.setDoc(fb.doc(fb.db, "wbsHistory", _wbsPid + "_" + String(newRev).padStart(4, "0")),
+      { pid: _wbsPid, rev: newRev, rows, items, at: savedAt, byUid: cur ? cur.uid : null, source: "restore-from-rev-" + rev });
+    alert(`✅ Rev. ${rev} 내용으로 복원 완료 — 새 Rev. ${newRev}(으)로 저장됐습니다.`);
+    location.reload();   // 마스터 재구독 + 화면 초기화
+  } catch (e) { alert("복원 중 오류: " + (e.message || e)); }
+}
 window.openWbsHistory = openWbsHistory;
 window.loadWbsHistory = loadWbsHistory;
 window.closeWbsHistoryView = closeWbsHistoryView;
+window.restoreWbsRev = restoreWbsRev;
 
 // v29.13.2: 이력 중복 정리 — 연속된 rev 중 rows/items가 이전과 동일한 것을 삭제.
 // 각 "변경 지점"의 최초 rev만 남김. 예: 1(X) 2(X) 3(X) 4(Y) 5(Y) → 1, 4 만 남기고 나머지 삭제.
