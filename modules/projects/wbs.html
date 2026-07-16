@@ -708,7 +708,7 @@ function rDetailPanel(){
     </div>
     <div class="dpnl-fields">
       ${field("담당 부서",w.dept?`<span style="font-size:11px;color:#7c3aed;font-weight:700">${w.dept}</span>`:`<span style="font-size:10px;color:#9ca3af">— 미지정 —</span>`,`<select data-draft="wedit" data-k="dept" class="dpnl-select"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${w.dept===d?" selected":""}>${d}</option>`).join("")}</select>`)}
-      ${field("담당자",w.mgr,`<input data-draft="wedit" data-k="mgr" value="${w.mgr.replace(/"/g,"&quot;")}" class="dpnl-input" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`)}
+      ${field("담당자",w.mgr,`<input data-draft="wedit" data-k="mgr" value="${(w.mgr||"").replace(/"/g,"&quot;")}" class="dpnl-input" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`)}
       ${field("시작일",w.s,`<input type="date" data-draft="wedit" data-k="s" value="${w.s}" class="dpnl-input"/>`)}
       ${field("완료일",w.e,`<input type="date" data-draft="wedit" data-k="e" value="${w.e}" class="dpnl-input"/>`)}
       ${field("진도율",`<span style="font-weight:700;color:#4a7fc1">${pd}</span> <span style="font-size:9px;color:${pctSrcColor};font-weight:600">(${pctSrc})</span>`,`<div><input type="number" min="0" max="100" data-draft="wedit" data-k="pctManual" value="${_manual?w.pctManual:''}" placeholder="비우면 자동" class="dpnl-input" style="width:120px"/> <span style="font-size:9px;color:#9ca3af">% · 입력 시 ITP/일정 자동집계 무시</span></div>`)}
