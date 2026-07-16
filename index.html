@@ -1822,117 +1822,43 @@ async function runSJ435ScheduleImport() {
   console.log('[SJ435 임포트] 백업 (필요 시 복원용) ↓');
   console.log(JSON.stringify({ rows: oldRows, items: oldItems }, null, 2));
 
-  const GROUPS = [
-    { name:'1층 1순위 (Circulation Tank)', items:[
-      {code:'TA-6102A', name:'Circulation Tank', pct:86},
-      {code:'TA-6102B', name:'Circulation Tank', pct:86},
-      {code:'TA-6102C', name:'Circulation Tank', pct:81},
-      {code:'TA-6102D', name:'Circulation Tank', pct:86},
+  // v29.30: SJT-WO-435-26 수주통보서 파싱 결과(briefings.json pendingProjects)에서 온
+  //   마스터 스케줄 — 7개 EPC 단계(대단락) + '설비 및 장치류 구매' 아래 장비 10종(BOM).
+  //   공사기간 2026-01-28 ~ 2027-01-15.
+  const SCOPES = [
+    { name:'설계도면 검토 및 승인',                s:'2026-01-28', e:'2026-05-31' },
+    { name:'설비 및 장치류 구매요청',              s:'2026-02-15', e:'2026-03-31' },
+    { name:'설비 및 장치류 구매',                  s:'2026-03-01', e:'2026-09-30', items:[
+      {name:'Weighing Tank 4.2m³',        qty:'4',   unit:'EA'},
+      {name:'Circulation Tank 4.2m³',     qty:'16',  unit:'EA'},
+      {name:'Mixing Tank 8.4m³',          qty:'4',   unit:'EA'},
+      {name:'Mixing Tank 25m³',           qty:'4',   unit:'EA'},
+      {name:'Agitator',                   qty:'30',  unit:'EA'},
+      {name:'Transfer Pump',              qty:'38',  unit:'EA'},
+      {name:'Pneumatic Valve',            qty:'397', unit:'SETS'},
+      {name:'Flowmeter',                  qty:'52',  unit:'EA'},
+      {name:'Temperature Sensor',         qty:'52',  unit:'EA'},
+      {name:'Load Cell & Bracket Cover',  qty:'28',  unit:'SETS'},
     ]},
-    { name:'1층 2순위 (Circulation Tank)', items:[
-      {code:'TA-6103A', name:'Circulation Tank', pct:86},
-      {code:'TA-6103B', name:'Circulation Tank', pct:86},
-      {code:'TA-6103C', name:'Circulation Tank', pct:86},
-      {code:'TA-6103D', name:'Circulation Tank', pct:86},
-    ]},
-    { name:'1층 3순위 (Weighing Tank)', items:[
-      {code:'TA-6101A', name:'Weighing Tank', pct:86},
-      {code:'TA-6101B', name:'Weighing Tank', pct:86},
-    ]},
-    { name:'1층 4순위 (Mixing Tank)', items:[
-      {code:'TA-6104A', name:'Mixing Tank', pct:40},
-      {code:'TA-6104B', name:'Mixing Tank', pct:49},
-      {code:'TA-6104C', name:'Mixing Tank', pct:47},
-      {code:'TA-6104D', name:'Mixing Tank', pct:50},
-    ]},
-    { name:'1층 5순위 (Cleaning · Waste Water Tank)', items:[
-      {code:'TC-6111', name:'Cleaning Tank',    pct:15},
-      {code:'TC-6112', name:'Waste Water Tank', pct:15},
-    ]},
-    { name:'6층 1순위 (Circulation Tank)', items:[
-      {code:'TA-6602A', name:'Circulation Tank', pct:86},
-      {code:'TA-6602B', name:'Circulation Tank', pct:86},
-      {code:'TA-6602C', name:'Circulation Tank', pct:85},
-      {code:'TA-6602D', name:'Circulation Tank', pct:86},
-    ]},
-    { name:'6층 2순위 (Circulation Tank)', items:[
-      {code:'TA-6603A', name:'Circulation Tank', pct:86},
-      {code:'TA-6603B', name:'Circulation Tank', pct:82},
-      {code:'TA-6603C', name:'Circulation Tank', pct:84},
-      {code:'TA-6603D', name:'Circulation Tank', pct:82},
-    ]},
-    { name:'6층 3순위 (Weighing Tank)', items:[
-      {code:'TA-6601A', name:'Weighing Tank', pct:86},
-      {code:'TA-6601B', name:'Weighing Tank', pct:86},
-    ]},
-    { name:'6층 4순위 (Mixing Tank)', items:[
-      {code:'TA-6604A', name:'Mixing Tank', pct:56},
-      {code:'TA-6604B', name:'Mixing Tank', pct:57},
-      {code:'TA-6604C', name:'Mixing Tank', pct:53},
-      {code:'TA-6604D', name:'Mixing Tank', pct:45},
-    ]},
-    { name:'6층 5순위 (Cleaning · Waste Water Tank)', items:[
-      {code:'TC-6611', name:'Cleaning Tank',    pct:15},
-      {code:'TC-6612', name:'Waste Water Tank', pct:15},
-    ]},
-    { name:'기타 제작품', items:[
-      {code:'ZZ-6XXX',      name:'맥동방지기',              pct:20, sparse:true},
-      {code:'LINE-COOLER',  name:'라인쿨러',                pct:15, sparse:true},
-      {code:'PUMP-SUPPORT', name:'펌프 서포트',              pct:0,  sparse:true, status:'미시작'},
-      {code:'MILL-SUPPORT', name:'밀 서포트',                pct:0,  sparse:true, status:'미시작'},
-      {code:'UTILITY',      name:'세척통·물받이통·방유턱',    pct:0,  sparse:true, status:'미시작'},
-    ]},
+    { name:'철골공사',                             s:'2026-08-01', e:'2026-08-31' },
+    { name:'설비 및 장치류 설치공사',              s:'2026-08-01', e:'2026-09-30' },
+    { name:'배관공사 / 전기계장공사 / 보온공사',    s:'2026-09-01', e:'2026-12-31' },
+    { name:'시운전 및 Punch Clear',                s:'2026-12-01', e:'2027-01-15' },
   ];
-  const PHASES = [
-    { name:'자재 입고',      s:'2026-02-01', e:'2026-02-28' },
-    { name:'자재검사',        s:'2026-03-01', e:'2026-03-31' },
-    { name:'밴딩·포밍',       s:'2026-04-01', e:'2026-04-30' },
-    { name:'제작',            s:'2026-05-01', e:'2026-06-30' },
-    { name:'수압테스트',      s:'2026-07-01', e:'2026-07-31' },
-    { name:'후처리·출하준비', s:'2026-08-01', e:'2026-08-30' },
-  ];
-  const SPARSE_PHASES = [
-    { name:'자재 입고',        s:'2026-02-01', e:'2026-03-15' },
-    { name:'자재검사',          s:'2026-03-15', e:'2026-04-15', note:'일정 미정' },
-    { name:'제작',              s:'2026-04-15', e:'2026-07-31' },
-    { name:'후처리·출하준비',   s:'2026-08-01', e:'2026-08-30', note:'일정 미정' },
-  ];
-  // wbs.html 계층 관례: lv 0 = 대단락(그룹), lv 1 = 아이템, lv 2 = 공정.
-  // 프로젝트 총합은 wbs.html이 자동 계산하므로 별도 헤더 행은 넣지 않음.
-  // renumberWBS가 code(1, 1.1 등)를 자동 부여하므로 code 필드도 생략.
-  // 필수 필드: id, projId, lv, name, s, e (+ 선택: pctManual, status, remark).
+  // wbs.html 계층: lv 0 = 대단락(EPC 단계), lv 1 = 구매 BOM 아이템.
+  //   진행률은 pctManual 없이 두어 wbs.html이 s/e 경과율로 자동 계산.
   const rows = [];
   let rid = 1;
   const mkId = () => 'w_sj435_' + Date.now().toString(36) + '_' + (rid++).toString(36);
-  GROUPS.forEach(grp => {
-    // lv 0 — 대단락(그룹)
-    rows.push({ id: mkId(), projId: pid, lv: 0,
-      name: grp.name, s:'2026-02-01', e:'2026-08-30' });
-    grp.items.forEach(it => {
-      // lv 1 — 아이템 (TA-6102A 등)
+  SCOPES.forEach(sc => {
+    rows.push({ id: mkId(), projId: pid, lv: 0, name: sc.name, s: sc.s, e: sc.e });
+    (sc.items || []).forEach(it => {
       rows.push({ id: mkId(), projId: pid, lv: 1,
-        name: it.code + ' · ' + it.name,
-        s:'2026-02-01', e:'2026-08-30',
-        pctManual: '',
-        status: it.status || '진행중' });
-      const phases = it.sparse ? SPARSE_PHASES : PHASES;
-      phases.forEach(ph => {
-        // lv 2 — 공정
-        let pct = 0;
-        if (ph.name === '자재 입고') pct = 100;
-        else if (ph.name === '자재검사') pct = 100;
-        else if (ph.name === '밴딩·포밍') pct = 100;
-        else if (ph.name === '제작') pct = it.pct;
-        else pct = 0;
-        rows.push({ id: mkId(), projId: pid, lv: 2,
-          name: ph.name, s: ph.s, e: ph.e,
-          pctManual: String(pct),
-          status: pct === 100 ? '완료' : (pct === 0 ? (it.status || '미시작') : '진행중'),
-          remark: ph.note || '' });
-      });
+        name: `${it.name} (${it.qty} ${it.unit})`,
+        s: sc.s, e: sc.e });
     });
   });
-  console.log('[SJ435 임포트] 생성된 rows:', rows.length, '개');
+  console.log('[SJ435 임포트] 생성된 rows:', rows.length, '개 (마스터 스케줄)');
 
   const summary = [
     '프로젝트: ' + CODE + ' — ' + (proj.name || ''),
@@ -1957,7 +1883,7 @@ async function runSJ435ScheduleImport() {
       { rows, items: oldItems, rev: nextRev, updatedAt: savedAt },
       { merge: true });
     console.log('%c[SJ435 임포트] ✅ 저장 완료', 'color:#059669;font-weight:700;');
-    alert('✅ SJ435-26 계층형 공정 스케줄 ' + rows.length + '행 저장 완료.\n\n생산부 > SJ435-26 스케줄에서 확인해주세요.\n(주소창의 #import-sj435-schedule 지우고 접속하시면 다음부턴 안 뜹니다)');
+    alert('✅ SJ435-26 마스터 스케줄 ' + rows.length + '행 저장 완료.\n\n수주통보서(SJT-WO-435-26) 파싱 기준 · 7개 EPC 단계 + 장비 10종\n\n생산부 > SJ435-26 스케줄에서 확인해주세요.\n(주소창의 #import-sj435-schedule 지우고 접속하시면 다음부턴 안 뜹니다)');
     history.replaceState(null, '', location.pathname);
   } catch (e) {
     console.error('[SJ435 임포트] 저장 실패', e);
