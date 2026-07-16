@@ -556,9 +556,9 @@ const TOOLS = {
   'itpview':   { name: 'ITP 조회',           icon: '📚', desc: '생성된 ITP를 프로젝트·아이템별로 조회 (전 부서 공유)',   status: 'live', ver: 'v1.0', parentTool: 'itp', crossDept: true },
   'qa':        { name: 'QA Doc Generator',  icon: '📄', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
   'qaview':    { name: 'QA Doc 조회',         icon: '📚', desc: '생성된 QA/QC 문서를 프로젝트·아이템별로 조회 (전 부서 공유)', status: 'live', ver: 'v1.0', parentTool: 'qa', crossDept: true },
-  'ncr':       { name: 'NCR 관리',          icon: '⚠️', desc: '부적합 보고서 발행·추적·종결', status: 'live', ver: 'v1.0' },
-  'car':       { name: 'CAR 관리',          icon: '🔧', desc: '시정조치 요청·회신·완료',     status: 'live', ver: 'v1.0' },
-  'qadash':    { name: '품질종합분석표',    icon: '📊', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석', status: 'live', ver: 'v1.0' },
+  'ncr':       { name: 'NCR 관리',          icon: '⚠️', desc: '부적합 보고서 발행·추적·종결 (전 부서 조회, 발행·삭제는 품질관리부만)', status: 'live', ver: 'v1.0', crossDept: true },
+  'car':       { name: 'CAR 관리',          icon: '🔧', desc: '시정조치 요청·회신·완료 (전 부서 조회, 발행·삭제는 품질관리부만)',     status: 'live', ver: 'v1.0', crossDept: true },
+  'qadash':    { name: '품질종합분석표',    icon: '📊', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석 (전 부서 조회)', status: 'live', ver: 'v1.0', crossDept: true },
   'manday':    { name: 'Manday Tracker',    icon: '⏱',  desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
   'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
   'deptsch':   { name: '부서 스케줄',       icon: '📅', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
@@ -1433,21 +1433,26 @@ function renderNav() {
     </div>`);
   });
   html.push('<div class="dept-group"><div class="sb-section-title">부서 도구함</div>');
-  // v29.25: crossDept 툴은 모든 부서 도구함에 자동 합류 — DEPTS 데이터는 그대로 두고 렌더 시점에만 병합.
-  //   부모 툴 뒤에 하위(parentTool)가 붙게 순서 정렬. 이미 그 부서에 정의돼 있으면 중복 없이 스킵.
-  const crossDeptTools = Object.keys(TOOLS).filter(k => TOOLS[k].crossDept);
+  // v29.26: 부서 노출 규칙 재정리 —
+  //   ① 자기 부서 · super/exec은 그 부서의 모든 툴 렌더 (기존과 동일)
+  //   ② 다른 부서라도 그 부서에 crossDept 툴이 하나라도 있으면 부서 자체를 노출.
+  //      해당 사용자에겐 crossDept 툴만 표시(예: 영업부 사용자가 품질관리부 아래서
+  //      NCR·CAR·품질종합분석표·ITP 조회·QA Doc 조회만 볼 수 있음).
+  const me = getU(state.currentUser);
   DEPTS.forEach(d => {
-    if (!canSeeDept(d.name)) return;   // 자기 부서 + 슈퍼만
+    const isMyDept = canSeeDept(d.name);   // 자기 부서 또는 super/exec
+    const crossToolsHere = d.tools.filter(k => TOOLS[k]?.crossDept);
+    if (!isMyDept && !crossToolsHere.length) return;   // 볼 이유 없음
     const expanded = view.expandedDepts[d.id];
-    // 원래 부서 툴 뒤에 crossDept 툴 자동 합류 (같은 부서에 이미 있으면 스킵)
-    const mergedTools = [...d.tools, ...crossDeptTools.filter(k => !d.tools.includes(k))];
+    const visibleTools = isMyDept ? d.tools : crossToolsHere;
+    const readOnlyMark = !isMyDept ? ' <span style="font-size:9px;color:var(--text-lighter);font-weight:500;">· 조회</span>' : '';
     html.push(`<div class="dept-head" onclick="toggleDept('${d.id}')">
       <span class="dept-caret${expanded?' open':''}">▶</span>
-      <span class="nav-icon">${d.icon}</span><span>${d.name}</span>
+      <span class="nav-icon">${d.icon}</span><span>${d.name}${readOnlyMark}</span>
     </div>`);
-    if (expanded && mergedTools.length > 0) {
+    if (expanded && visibleTools.length > 0) {
       html.push('<div class="dept-tools">');
-      mergedTools.forEach(tid => {
+      visibleTools.forEach(tid => {
         const t = TOOLS[tid];
         if (!t) return;
         // v29: 부서 스케줄은 부서마다 같은 tid('deptsch')를 쓰므로, 지금 열린 부서와도 일치해야 하이라이트한다.
@@ -1467,7 +1472,7 @@ function renderNav() {
         </div>`);
       });
       html.push('</div>');
-    } else if (expanded && mergedTools.length === 0) {
+    } else if (expanded && visibleTools.length === 0) {
       html.push('<div style="padding:6px 16px 6px 32px;font-size:11px;color:var(--text-lighter);font-style:italic;">준비 중</div>');
     }
   });
