@@ -9,7 +9,7 @@
   // 이 대시보드는 읽기 전용(never writes ncrs/cars) — 실시간 구독만 한다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, onSnapshot, doc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -20,7 +20,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, getDoc, getDocs };
 </script>
 <style>
 :root {
@@ -192,22 +192,35 @@ function filteredCars() {
   });
 }
 
-/* v29.20: 차트 클릭 → NCR/CAR 모듈로 이동해 해당 필터로 경향분석을 연다.
-   localStorage 핸드오프(QD_TREND_HANDOFF)에 {tool, drill, ts}를 남기고
-   부모(index.html)의 openTool을 호출 — 모듈 iframe이 부팅하면서 수신·적용. */
+/* v29.22: 차트 클릭 → 이 화면 안에서 자체 드릴다운 처리 (모듈 이동 없음).
+   qdDrill = { ncr: {location:'사내'}, car: {status:'closed'} } 형태로 여러 필터 동시 적용,
+   같은 값을 다시 클릭하면 해제. 필터가 걸리면 하단에 상세 목록 섹션이 표시되고
+   행 클릭 시 등록된 보고서 파일을 새 탭으로 연다. */
 function _qdEsc(v) {
   return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/"/g,'&quot;');
 }
-function goQdTool(tool, field, val) {
-  try {
-    localStorage.setItem('QD_TREND_HANDOFF', JSON.stringify({ tool, drill: field ? { [field]: val } : {}, ts: Date.now() }));
-  } catch(e) {}
-  try { window.parent.openTool(tool, '품질관리부'); }
-  catch(e) { alert(tool.toUpperCase() + ' 관리 화면으로 이동할 수 없습니다: ' + (e.message||e)); }
+function _qdHtmlEsc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+let qdDrill = { ncr: {}, car: {} };
+function qdDrillToggle(tool, field, val) {
+  if (!qdDrill[tool]) qdDrill[tool] = {};
+  if (qdDrill[tool][field] === val) delete qdDrill[tool][field];
+  else qdDrill[tool][field] = val;
+  render();
+  // 드릴 결과 섹션으로 부드럽게 스크롤 (있을 때만)
+  setTimeout(() => { const el = document.getElementById('qd-drill-section'); if (el) el.scrollIntoView({ behavior:'smooth', block:'start' }); }, 40);
+}
+function qdDrillClear(tool) {
+  if (tool) qdDrill[tool] = {};
+  else qdDrill = { ncr: {}, car: {} };
+  render();
 }
 function _qdClickAttr(clickSpec, val) {
   if (!clickSpec || val == null || val === '(미입력)') return '';
-  return ` style="cursor:pointer;" onclick="goQdTool('${clickSpec.tool}','${clickSpec.field}','${_qdEsc(val)}')"`;
+  const selected = qdDrill[clickSpec.tool] && qdDrill[clickSpec.tool][clickSpec.field] === val;
+  const extraStyle = selected ? 'outline:2px solid var(--primary);outline-offset:2px;' : '';
+  return ` style="cursor:pointer;${extraStyle}" onclick="qdDrillToggle('${clickSpec.tool}','${clickSpec.field}','${_qdEsc(val)}')"`;
 }
 
 /* ═══ SVG 차트 (NCR 모듈과 동일한 방식 — 외부 라이브러리 없이 순수 SVG) ═══ */
@@ -443,8 +456,11 @@ function render() {
       <table class="org-table">
         <thead><tr><th>프로젝트</th><th>NCR 전체</th><th>중대</th><th>일반</th><th>경미</th><th>진행중</th><th>종결</th><th>CAR</th><th>CAR 진행중</th><th>최근 발생일</th></tr></thead>
         <tbody>
-          ${projRows.length ? projRows.map(r => `<tr style="cursor:pointer;" onclick="goQdTool('ncr','projLabel','${_qdEsc(r.proj==='__direct__' ? ((state.ncrs||[]).find(n=>n.proj==='__direct__')?.meta?.projDirect||'직접입력') : ((state.projects||[]).find(p=>p.id===r.proj)?.code||'미지정'))}')" title="클릭하면 이 프로젝트의 NCR 경향분석으로 이동">
-            <td style="font-weight:700;color:var(--primary);">${projFullLabel({proj:r.proj, meta:(state.ncrs||[]).find(n=>n.proj===r.proj)?.meta})} ↗</td>
+          ${projRows.length ? projRows.map(r => {
+            const projLabel = r.proj==='__direct__' ? ((state.ncrs||[]).find(n=>n.proj==='__direct__')?.meta?.projDirect||'직접입력') : ((state.projects||[]).find(p=>p.id===r.proj)?.code||'미지정');
+            const isSel = qdDrill.ncr && qdDrill.ncr.projLabel === projLabel;
+            return `<tr style="cursor:pointer;${isSel?'background:#F0F7FF;outline:2px solid var(--primary);outline-offset:-2px;':''}" onclick="qdDrillToggle('ncr','projLabel','${_qdEsc(projLabel)}')" title="클릭하면 이 프로젝트의 NCR 상세 목록이 아래에 표시됩니다">
+            <td style="font-weight:700;color:var(--primary);">${projFullLabel({proj:r.proj, meta:(state.ncrs||[]).find(n=>n.proj===r.proj)?.meta})} ${isSel?'●':'↓'}</td>
             <td>${r.total}</td>
             <td style="color:var(--danger);">${r.major||0}</td>
             <td style="color:var(--warning);">${r.minor||0}</td>
@@ -454,13 +470,14 @@ function render() {
             <td>${r.carCount}</td>
             <td style="color:${r.carOpen?'var(--warning)':'var(--text-lighter)'};">${r.carOpen}</td>
             <td>${r.latest||'-'}</td>
-          </tr>`).join('') : `<tr><td colspan="10" class="empty-note">해당 조건의 데이터가 없습니다</td></tr>`}
+          </tr>`;
+          }).join('') : `<tr><td colspan="10" class="empty-note">해당 조건의 데이터가 없습니다</td></tr>`}
         </tbody>
       </table>
       </div>
     </div>
 
-    <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">💡 차트 막대·조각·프로젝트 행을 클릭하면 NCR/CAR 관리의 경향분석으로 이동해 해당 조건의 상세 목록을 보여줍니다.</div>
+    <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">💡 차트 막대·조각·프로젝트 행을 클릭하면 이 화면 하단에 해당 조건의 <b>상세 목록</b>이 표시됩니다 (다시 클릭하면 해제).</div>
     <div class="qd-grid">
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">발생장소별</div>
@@ -524,7 +541,149 @@ function render() {
         </table></div>`;
       })()}
     </div>
+
+    ${qdRenderDrillSection(ncrs, cars)}
   `;
+}
+
+// v29.22: 차트에서 클릭한 드릴 필터가 걸린 NCR/CAR 상세 목록 섹션.
+// 필터가 하나도 없으면 렌더하지 않음. 필터 값과 무관하게 전체 목록에서 다시 필터링
+// (섹션 상단 필터 - 연도/분기/프로젝트 - 는 이미 ncrs/cars에 적용된 상태로 넘어옴).
+const QD_DRILL_LABELS = {
+  location:'발생장소', cause:'불량원인', causeDetail:'불량원인 상세',
+  disposition:'처리방안', grade:'등급', status:'상태', projLabel:'프로젝트'
+};
+function _qdFilterNcrs(ncrs) {
+  const d = qdDrill.ncr || {};
+  return ncrs.filter(n => {
+    if (d.location && n.location !== d.location) return false;
+    if (d.cause && n.cause !== d.cause) return false;
+    if (d.causeDetail && n.causeDetail !== d.causeDetail) return false;
+    if (d.disposition && n.disposition !== d.disposition) return false;
+    if (d.grade && n.grade !== d.grade) return false;
+    if (d.projLabel) {
+      const lbl = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (getP(n.proj)?.code||'미지정');
+      if (lbl !== d.projLabel) return false;
+    }
+    return true;
+  });
+}
+function _qdFilterCars(cars) {
+  const d = qdDrill.car || {};
+  return cars.filter(c => {
+    if (d.status && c.status !== d.status) return false;
+    return true;
+  });
+}
+function _qdDrillChips() {
+  const chips = [];
+  ['ncr','car'].forEach(tool => {
+    Object.entries(qdDrill[tool] || {}).forEach(([field, val]) => {
+      chips.push(`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-light);color:var(--primary-hover);border-radius:14px;padding:4px 10px 4px 12px;font-size:11px;font-weight:600;cursor:pointer;" onclick="qdDrillToggle('${tool}','${field}','${_qdEsc(val)}')" title="클릭하면 이 필터를 해제합니다"><span style="opacity:.7;font-size:10px;">[${tool.toUpperCase()}]</span> ${QD_DRILL_LABELS[field]||field}: <b>${_qdHtmlEsc(val)}</b> <span style="opacity:.65;">✕</span></span>`);
+    });
+  });
+  return chips.join(' ');
+}
+function qdRenderDrillSection(ncrs, cars) {
+  const hasNcrDrill = Object.keys(qdDrill.ncr||{}).length > 0;
+  const hasCarDrill = Object.keys(qdDrill.car||{}).length > 0;
+  if (!hasNcrDrill && !hasCarDrill) return '';
+  const filteredN = hasNcrDrill ? _qdFilterNcrs(ncrs) : [];
+  const filteredC = hasCarDrill ? _qdFilterCars(cars) : [];
+  const ncrRows = filteredN.map(n => {
+    const p = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (getP(n.proj)?.code||'-');
+    const hasFile = !!(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl);
+    return `<tr style="cursor:pointer;" onclick="qdOpenReport('ncr','${_qdEsc(n.id)}')" title="${hasFile?'클릭하면 등록된 보고서를 새 탭으로 엽니다':'첨부 보고서가 없습니다'}">
+      <td style="font-weight:700;color:var(--primary);">${_qdHtmlEsc(n.id)} ${hasFile?'📄':'—'}</td>
+      <td>${_qdHtmlEsc(p)}</td>
+      <td>${_qdHtmlEsc(n.item||'-')}</td>
+      <td>${_qdHtmlEsc(n.location||'-')}</td>
+      <td>${_qdHtmlEsc(n.cause||'-')}</td>
+      <td>${_qdHtmlEsc(n.causeDetail||'-')}</td>
+      <td>${_qdHtmlEsc(n.disposition||'-')}</td>
+      <td>${n.issuedAt||'-'}</td>
+      <td>${n.closedAt||'-'}</td>
+      <td><span class="b-pill ${n.status==='closed'?'green':'red'}">${n.status==='closed'?'종결':'진행중'}</span></td>
+    </tr>`;
+  }).join('');
+  const carRows = filteredC.map(c => {
+    const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
+    const hasFile = !!(c.meta?.fileChunkId || c.meta?.fileUrl || c.meta?.fileDataUrl);
+    return `<tr style="cursor:pointer;" onclick="qdOpenReport('car','${_qdEsc(c.id)}')" title="${hasFile?'클릭하면 등록된 보고서를 새 탭으로 엽니다':'첨부 보고서가 없습니다'}">
+      <td style="font-weight:700;color:var(--primary);">${_qdHtmlEsc(c.id)} ${hasFile?'📄':'—'}</td>
+      <td>${_qdHtmlEsc(c.ncrId||'단독')}</td>
+      <td>${_qdHtmlEsc(c.reqDept||'-')}</td>
+      <td>${_qdHtmlEsc(c.field||'-')}</td>
+      <td>${_qdHtmlEsc(c.cause||'-')}</td>
+      <td>${c.issuedAt||'-'}</td>
+      <td>${c.replyDue||'-'}</td>
+      <td>${c.closedAt||'-'}</td>
+      <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
+    </tr>`;
+  }).join('');
+  return `<div id="qd-drill-section" class="qd-section" style="border-left:3px solid var(--primary);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <h4 style="margin:0;">🔎 드릴다운 상세 목록 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 아래 필터 조건에 해당하는 NCR/CAR입니다. 행을 클릭하면 등록된 보고서가 새 탭으로 열립니다.</span></h4>
+      <button class="btn" onclick="qdDrillClear()" style="font-size:11px;padding:4px 10px;">✕ 전체 필터 해제</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">${_qdDrillChips()}</div>
+    ${hasNcrDrill ? `
+      <div style="font-size:12px;font-weight:700;margin:8px 0;color:var(--text-light);">📋 NCR (${filteredN.length}건)</div>
+      <div style="overflow-x:auto;"><table class="org-table">
+        <thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
+        <tbody>${ncrRows || '<tr><td colspan="10" class="empty-note">해당 조건의 NCR이 없습니다</td></tr>'}</tbody>
+      </table></div>
+    ` : ''}
+    ${hasCarDrill ? `
+      <div style="font-size:12px;font-weight:700;margin:14px 0 8px;color:var(--text-light);">📋 CAR (${filteredC.length}건)</div>
+      <div style="overflow-x:auto;"><table class="org-table">
+        <thead><tr><th>CAR No.</th><th>연계 NCR</th><th>시정조치요구부서</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>종결일</th><th>상태</th></tr></thead>
+        <tbody>${carRows || '<tr><td colspan="9" class="empty-note">해당 조건의 CAR이 없습니다</td></tr>'}</tbody>
+      </table></div>
+    ` : ''}
+  </div>`;
+}
+
+// v29.22: NCR/CAR에 등록된 첨부 보고서를 새 탭으로 오픈.
+// Firestore 첨부 chunk 방식(v29.12+) · 구버전 fileUrl · fileDataUrl 모두 지원.
+async function qdOpenReport(tool, id) {
+  const arr = tool === 'ncr' ? (state.ncrs||[]) : (state.cars||[]);
+  const rec = arr.find(x => x.id === id);
+  if (!rec) return alert('항목을 찾을 수 없습니다.');
+  if (rec.meta?.fileChunkId) {
+    try {
+      const dataUrl = await qdLoadAttachment(tool === 'ncr' ? 't_ncrs' : 't_cars', rec.meta.fileChunkId, rec.meta.fileChunks || 0);
+      if (!dataUrl) { alert('보고서 파일을 불러오지 못했습니다.'); return; }
+      window.open(_qdToBlobUrl(dataUrl), '_blank');
+    } catch (e) { alert('보고서 파일을 여는 중 오류: ' + (e.message || e)); }
+    return;
+  }
+  if (rec.meta?.fileUrl) { window.open(rec.meta.fileUrl, '_blank'); return; }
+  if (rec.meta?.fileDataUrl) { window.open(_qdToBlobUrl(rec.meta.fileDataUrl), '_blank'); return; }
+  alert('이 ' + tool.toUpperCase() + '에는 등록된 보고서 파일이 없습니다.');
+}
+// chunk 문서 병합 (ncr.html의 loadAttachmentDataUrl 이식). 컬렉션에 chunk__<id>__<i> 형식으로 저장됨.
+async function qdLoadAttachment(coll, chunkId, totalChunks) {
+  const jobs = [];
+  for (let i = 0; i < totalChunks; i++) {
+    jobs.push(fb.getDoc(fb.doc(fb.db, coll, `${chunkId}__${i}`)));
+  }
+  const snaps = await Promise.all(jobs);
+  const pieces = [];
+  for (const s of snaps) { if (!s.exists()) return null; pieces.push(s.data().data || ''); }
+  return pieces.join('');
+}
+// dataURL을 blob URL로 변환(브라우저 탭 오픈 시 base64 파싱 부담 완화 + 큰 파일 지원)
+function _qdToBlobUrl(dataUrl) {
+  try {
+    const m = /^data:([^;]+);base64,(.*)$/.exec(dataUrl);
+    if (!m) return dataUrl;
+    const mime = m[1];
+    const bin = atob(m[2]);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([buf], { type: mime }));
+  } catch(e) { return dataUrl; }
 }
 
 loadState();
