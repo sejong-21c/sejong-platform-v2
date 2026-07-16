@@ -1767,7 +1767,43 @@ async function hydrateUsersAndEnter(uid) {
   if (location.hash === '#import-sj435-schedule') {
     setTimeout(() => runSJ435ScheduleImport().catch(e => console.error('[SJ435 임시훅]', e)), 2000);
   }
+  // v29.29-임시: SJ435-26 WBS 스케줄 전체 삭제 — sejong21c.com/#clear-sj435-schedule
+  if (location.hash === '#clear-sj435-schedule') {
+    setTimeout(() => runSJ435ScheduleClear().catch(e => console.error('[SJ435 삭제훅]', e)), 2000);
+  }
   finishLogin();
+}
+
+// v29.29-임시: SJ435-26 WBS 스케줄 전체 삭제 (URL 훅에서 호출됨).
+async function runSJ435ScheduleClear() {
+  const CODE = 'SJ435-26';
+  const proj = (state.projects || []).find(p =>
+    (p.code || '').toUpperCase() === CODE || (p.no || '').toUpperCase() === CODE
+  );
+  if (!proj) { alert('❌ ' + CODE + ' 프로젝트를 찾지 못했습니다.'); return; }
+  const pid = proj.id;
+  const oldRows = (state.wbs && state.wbs[pid]) ? JSON.parse(JSON.stringify(state.wbs[pid])) : [];
+  const oldItems = (state.items && state.items[pid]) ? JSON.parse(JSON.stringify(state.items[pid])) : [];
+  console.log('[SJ435 삭제] 삭제 전 백업 (rows ' + oldRows.length + ' · items ' + oldItems.length + ') ↓');
+  console.log(JSON.stringify({ rows: oldRows, items: oldItems }, null, 2));
+
+  if (!confirm('SJ435-26 WBS 스케줄을 전부 삭제합니다.\n\n현재 rows: ' + oldRows.length + '개 → 0개\n(items ' + oldItems.length + '개는 유지)\n\n백업은 F12 콘솔에 JSON으로 출력됐습니다.\n\n삭제하시겠습니까?')) {
+    console.log('[SJ435 삭제] 취소됨.');
+    history.replaceState(null, '', location.pathname);
+    return;
+  }
+  try {
+    const savedAt = Date.now();
+    // rows만 비우고 items·rev는 유지 (wbs.html 저장 형식과 동일하게 merge)
+    await fb.setDoc(fb.doc(fb.db, 'wbsData', pid),
+      { rows: [], updatedAt: savedAt }, { merge: true });
+    console.log('%c[SJ435 삭제] ✅ 완료', 'color:#dc2626;font-weight:700;');
+    alert('✅ SJ435-26 WBS 스케줄 ' + oldRows.length + '행 전부 삭제 완료.\n\n(주소창의 #clear-sj435-schedule 지우고 접속하시면 다음부턴 안 뜹니다)');
+    history.replaceState(null, '', location.pathname);
+  } catch (e) {
+    console.error('[SJ435 삭제] 실패', e);
+    alert('❌ 삭제 실패: ' + (e.message || e) + '\n\n콘솔의 백업 JSON은 안전하게 남아있습니다.');
+  }
 }
 
 // v29.28-임시: SJ435-26 계층형 공정 스케줄 일괄 입력 (URL 훅에서 호출됨).
