@@ -686,6 +686,12 @@ function sel(dk,fk,opts,cur){return`<select data-draft="${dk}" data-k="${fk}" cl
 function gV(dk,k){return document.querySelector(`[data-draft="${dk}"][data-k="${k}"]`)?.value||"";}
 function rDetailPanel(){
   if(!S.wsel)return"";
+  // v29.33: 선택된 행이 삭제/원격 저장으로 WBS에서 사라졌으면(stale 참조) 선택을 조용히 해제.
+  //   이전엔 wCS→hasC가 undefined.lv를 읽다 TypeError로 R() 전체가 죽어 화면이 마비됐음.
+  //   최신 객체로 재해석(id 매칭)해야 다른 사용자의 수정 내용도 패널에 반영됨.
+  const _live=WBS.find(x=>x.id===S.wsel.id);
+  if(!_live){S.wsel=null;S.wedit=false;return"";}
+  S.wsel=_live;
   const w=S.wsel;const{pct,status,ncr}=wCS(w);const sc=SS[status]||{bg:"#f3f4f6",c:"#6b7280"};
   const em=S.wedit;const pd=pct!==null?`${pct}%`:"—";
   const _manual=(w.pctManual!=null&&w.pctManual!=="");
