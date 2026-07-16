@@ -1,0 +1,285 @@
+<title>세종기술 정오 업데이트 · 2026-07-16</title>
+<style>
+:root {
+  --navy:#0b2545; --blue:#13315c; --accent:#2563eb; --line:#e2e8f0; --bg:#f4f6fb; --card:#fff;
+  --ink:#1e293b; --mut:#64748b; --red:#dc2626; --amber:#d97706; --green:#16a34a;
+  --redbg:#fef2f2; --ambbg:#fffbeb; --grnbg:#f0fdf4; --grybg:#f1f5f9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --navy:#7ba0d6; --blue:#93b4dd; --accent:#60a5fa; --line:#262c36; --bg:#0f1319; --card:#171b22;
+    --ink:#e7eaf0; --mut:#94a3b8; --red:#f87171; --amber:#fbbf24; --green:#4ade80;
+    --redbg:rgba(248,113,113,.12); --ambbg:rgba(251,191,36,.12); --grnbg:rgba(74,222,128,.12); --grybg:rgba(148,163,184,.10);
+  }
+}
+:root[data-theme="light"]{--navy:#0b2545;--blue:#13315c;--accent:#2563eb;--line:#e2e8f0;--bg:#f4f6fb;--card:#fff;--ink:#1e293b;--mut:#64748b;--red:#dc2626;--amber:#d97706;--green:#16a34a;--redbg:#fef2f2;--ambbg:#fffbeb;--grnbg:#f0fdf4;--grybg:#f1f5f9;}
+:root[data-theme="dark"]{--navy:#7ba0d6;--blue:#93b4dd;--accent:#60a5fa;--line:#262c36;--bg:#0f1319;--card:#171b22;--ink:#e7eaf0;--mut:#94a3b8;--red:#f87171;--amber:#fbbf24;--green:#4ade80;--redbg:rgba(248,113,113,.12);--ambbg:rgba(251,191,36,.12);--grnbg:rgba(74,222,128,.12);--grybg:rgba(148,163,184,.10);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo','Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:24px;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;}
+header{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;border-radius:14px;padding:22px 26px;box-shadow:0 6px 20px rgba(11,37,69,.18);}
+:root[data-theme="dark"] header,[data-theme="dark"] header{color:#0b2545;}
+@media (prefers-color-scheme:dark){header{color:#0b2545;}}
+header .top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;}
+header h1{font-size:22px;font-weight:700;letter-spacing:-.3px;}
+header .sub{font-size:13px;opacity:.85;margin-top:4px;}
+.badge-time{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);padding:4px 11px;border-radius:20px;font-size:12px;font-weight:600;}
+.time-pills{display:inline-flex;gap:3px;margin-left:8px;}
+.time-pill{padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600;color:rgba(255,255,255,.7);}
+.time-pill.on{background:rgba(255,255,255,.28);color:#fff;}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;}
+.kpi{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:11px 13px;}
+.kpi .n{font-size:22px;font-weight:800;}
+.kpi .n small{font-size:13px;font-weight:700;}
+.kpi .l{font-size:11.5px;opacity:.82;margin-top:2px;}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+h2{font-size:15px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--line);}
+h2 .ico{font-size:17px;}
+.secnote{font-size:11px;color:var(--mut);font-weight:400;margin-left:auto;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);vertical-align:top;}
+th{background:var(--grybg);color:var(--mut);font-weight:600;font-size:11.5px;white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.p-red{background:var(--redbg);color:var(--red);border:1px solid #fecaca;}
+.p-amb{background:var(--ambbg);color:var(--amber);border:1px solid #fde68a;}
+.p-grn{background:var(--grnbg);color:var(--green);border:1px solid #bbf7d0;}
+.p-gry{background:var(--grybg);color:var(--mut);border:1px solid var(--line);}
+.alertbox{border-left:4px solid var(--red);background:var(--redbg);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:12px;}
+.alertbox.grn{border-left-color:var(--green);background:var(--grnbg);}
+.alertbox b{color:var(--navy);}
+.alertbox .h{font-weight:700;color:var(--red);font-size:12.5px;margin-bottom:6px;}
+.alertbox ul{margin:0;padding-left:18px;font-size:12.5px;}
+.alertbox li{margin:3px 0;}
+.cat{font-size:10px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:5px;vertical-align:middle;}
+.c-bid{background:#dbeafe;color:#1e40af;}
+.c-fund{background:#dcfce7;color:#166534;}
+.c-proj{background:#e0e7ff;color:#3730a3;}
+.chip-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.chip{border:1px solid var(--line);border-radius:8px;padding:11px 14px;background:var(--grybg);}
+.chip .k{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:6px;}
+.chip .v{display:flex;align-items:baseline;gap:6px;}
+.chip .v .num{font-size:22px;font-weight:800;color:var(--ink);}
+.chip .v .unit{font-size:12px;color:var(--mut);}
+.chip.tot .v .num{color:var(--accent);}
+.chip.urgent .v .num{color:var(--red);}
+.chip.classify .v .num{color:var(--green);}
+.action-list{list-style:none;padding:0;margin:0;}
+.action-list li{display:grid;grid-template-columns:26px 1fr auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);}
+.action-list li:last-child{border-bottom:none;}
+.action-list .num{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--red);color:#fff;font-size:11px;font-weight:800;}
+.action-list .mid .num{background:var(--amber);}
+.action-list .low .num{background:var(--mut);}
+.action-list .desc{font-size:13px;color:var(--ink);line-height:1.45;}
+.action-list .desc small{display:block;color:var(--mut);font-size:11.5px;margin-top:2px;}
+.action-list .tag{font-size:10.5px;font-weight:700;color:var(--accent);background:#dbeafe;padding:3px 8px;border-radius:4px;white-space:nowrap;}
+.action-list .due{font-size:11px;font-weight:700;color:var(--red);white-space:nowrap;}
+.action-list .mid .due{color:var(--amber);}
+.action-list .low .due{color:var(--mut);}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.split section{margin-top:0;}
+.mail-item{display:grid;grid-template-columns:32px 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);align-items:center;}
+.mail-item:last-child{border-bottom:none;}
+.mail-item .av{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);background:#dbeafe;}
+.mail-item .body{min-width:0;}
+.mail-item .subj{font-size:12.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mail-item .from{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mail-item .stamp{font-size:11px;color:var(--mut);font-weight:600;}
+.mail-item.unread .subj{color:var(--accent);}
+.mail-item.unread .av{color:#fff;background:var(--accent);}
+.links{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.lk{display:block;text-decoration:none;border:1px solid var(--line);border-radius:10px;padding:12px 13px;background:var(--card);transition:.15s;}
+.lk:hover{border-color:var(--accent);box-shadow:0 3px 10px rgba(37,99,235,.12);transform:translateY(-1px);}
+.lk .t{font-weight:700;color:var(--navy);font-size:13px;display:flex;align-items:center;gap:6px;}
+.lk .d{font-size:11px;color:var(--mut);margin-top:3px;}
+.lk .arrow{margin-left:auto;color:var(--accent);}
+.note{font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.6;}
+.note b{color:var(--ink);}
+footer{text-align:center;color:var(--mut);font-size:11.5px;margin-top:18px;padding-top:12px;}
+.clickable{cursor:pointer;transition:background .1s;}
+.action-list li.clickable:hover,.mail-item.clickable:hover,tr.clickable:hover{background:var(--grybg);}
+.click-hint{font-size:10px;color:var(--mut);opacity:.6;margin-left:4px;}
+a.row-link{text-decoration:none;color:inherit;display:contents;}
+a.row-link:hover .click-hint{opacity:1;color:var(--accent);}
+@media (max-width:900px){.summary{grid-template-columns:repeat(2,1fr);}.links{grid-template-columns:1fr 1fr;}.split{grid-template-columns:1fr;}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="top">
+      <div>
+        <h1>🕛 세종기술 정오 업데이트</h1>
+        <div class="sub">2026년 7월 16일 (목) · 김철우 부장 · ㈜세종기술 품질관리부</div>
+      </div>
+      <span class="badge-time">자동 생성 12:00 KST
+        <span class="time-pills"><span class="time-pill">07:00</span><span class="time-pill on">12:00</span><span class="time-pill">16:30</span></span>
+      </span>
+    </div>
+    <div class="summary">
+      <div class="kpi"><div class="n">5<small>건</small></div><div class="l">오전 브리핑(08:15) 이후 신규 메일</div></div>
+      <div class="kpi"><div class="n">2<small>건</small></div><div class="l">긴급 답변 대기 (오늘 마감 1 · 일정회신 1)</div></div>
+      <div class="kpi"><div class="n">0 / 0</div><div class="l">신규 NCR / CAR (오전 이후 없음)</div></div>
+      <div class="kpi"><div class="n">1<small>건</small></div><div class="l">오늘 마감 — 한울3·4 이송대차 입찰서</div></div>
+    </div>
+  </header>
+
+  <!-- 1. 오늘 남은 액션 -->
+  <section>
+    <h2><span class="ico">🔴</span> 오후 처리할 액션 아이템 <span class="secnote">오전 이후 재정렬 · 마감 임박 순</span></h2>
+    <div class="alertbox">
+      <div class="h">⏰ 오늘(7/16) 마감 — 즉시 처리</div>
+      <ul>
+        <li><b>한울 3·4호기 주급수 승압펌프 전동기 이송대차 입찰서 제출</b> — 예가 <b>308,000,000원</b>, 원자력 L3 결재. 견적·서류 최종 확인 후 <b>금일 마감 전 제출</b>.</li>
+      </ul>
+    </div>
+    <ol class="action-list">
+      <li class="clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/%ED%95%9C%EC%9A%B8+%EC%9D%B4%EC%86%A1%EB%8C%80%EC%B0%A8+%EC%9E%85%EC%B0%B0" target="_blank" rel="noopener" title="Gmail 관련 메일 검색">
+          <span class="num">1</span>
+          <div class="desc">한울 3·4호기 이송대차 <b>입찰서 제출</b> (예가 3.08억, L3) <span class="click-hint">→ Gmail</span>
+            <small>오늘 마감 · 견적/첨부서류 최종 확인 후 제출 (내부 발신 msikkim)</small></div>
+          <span class="tag">원자력</span><span class="due">오늘 마감</span>
+        </a>
+      </li>
+      <li class="clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/BT-6%EB%9D%BC%EC%9D%B8+%EC%9E%91%EB%8F%99%ED%85%8C%EC%8A%A4%ED%8A%B8+%EB%B3%80%EA%B8%B8%ED%9B%88" target="_blank" rel="noopener" title="Gmail 관련 메일 검색">
+          <span class="num">2</span>
+          <div class="desc">삼성전기 BT-6라인 자동밸브 <b>작동테스트 일정 회신</b> <span class="click-hint">→ Gmail</span>
+            <small>브이아이테크 변길훈 · 07/27~29 중 편한 날짜 회신 필요 (1일 약 5,000회)</small></div>
+          <span class="tag">SJ435-26</span><span class="due">회신 요망</span>
+        </a>
+      </li>
+      <li class="clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/Weekly+Project+Report+20260720" target="_blank" rel="noopener" title="Gmail 관련 메일 검색">
+          <span class="num">3</span>
+          <div class="desc">Weekly Project Report <b>작성·제출</b> <span class="click-hint">→ Gmail</span>
+            <small>영업부 김민준 차장 양식 배포 · 07/20 월요일 공정회의용, 작성시한 준수</small></div>
+          <span class="tag">부서업무</span><span class="due">~7/20</span>
+        </a>
+      </li>
+      <li class="mid clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/%EC%B2%B4%EC%BD%94%EC%9B%90%EC%A0%84+M229C+N210B+%EA%B2%AC%EC%A0%81" target="_blank" rel="noopener" title="Gmail 관련 메일 검색">
+          <span class="num">4</span>
+          <div class="desc">한수원 체코원전 M229C·N210B <b>견적서(예가) 검토</b> <span class="click-hint">→ Gmail</span>
+            <small>영업부 김민준 차장 작성 · 부장 검토 · CEO 참조 Fwd 완료</small></div>
+          <span class="tag">원자력</span><span class="due">~7/21</span>
+        </a>
+      </li>
+      <li class="mid clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/%EA%B5%AD%EB%8F%84%ED%99%94%ED%95%99+%ED%98%84%EC%9E%A5%EA%B2%80%EC%88%98+%EC%A4%80%EB%B9%84%EC%84%9C%EB%A5%98" target="_blank" rel="noopener" title="Gmail 관련 메일 검색">
+          <span class="num">5</span>
+          <div class="desc">국도화학 현장검수 <b>준비서류 취합·송부</b> <span class="click-hint">→ Gmail</span>
+            <small>SJ2026-014/016/017 · 자재증빙/Technical Report/검수내역/하도급 견적 (신채완 과장)</small></div>
+          <span class="tag">SJ2026-016</span><span class="due">진행</span>
+        </a>
+      </li>
+      <li class="mid clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/%EC%9C%A0%EC%9E%90%EA%B2%A9+%EC%8B%AC%EC%82%AC%EA%B2%B0%EA%B3%BC+202600239" target="_blank" rel="noopener" title="Gmail 관련 메일 검색">
+          <span class="num">6</span>
+          <div class="desc">KHNP 유자격 분야별(경영) <b>심사결과 확인</b> <span class="click-hint">→ Gmail</span>
+            <small>신청번호 202600239 · 보조기기·신규 (KimJaeBong@khnp) · 결과 확인 후 후속</small></div>
+          <span class="tag">원자력</span><span class="due">확인</span>
+        </a>
+      </li>
+      <li class="low clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/SJ428-25+%EB%B0%80%EC%96%91%EA%B3%B5%EC%9E%A5+%EA%B5%AC%EB%A7%A4%EC%9A%94%EC%B2%AD%EC%84%9C" target="_blank" rel="noopener" title="Gmail 관련 메일 검색">
+          <span class="num">7</span>
+          <div class="desc">[신규] SJ428-25 밀양공장 EPC M-001 이설탱크 <b>BOLT SET 구매요청 접수</b> <span class="click-hint">→ Gmail</span>
+            <small>기술부 강재상 사원 → 구매부 김재현 대리 (부장 CC) · 발주 진행 확인</small></div>
+          <span class="tag">SJ428-25</span><span class="due">참조</span>
+        </a>
+      </li>
+      <li class="low clickable">
+        <a class="row-link" href="https://mail.google.com/mail/u/0/#search/KTS40+%EB%82%B4%EA%B5%AC%EC%84%B1+%ED%85%8C%EC%8A%A4%ED%8A%B8+%EC%8A%A4%ED%94%84%EB%A0%88%EC%9D%B4" target="_blank" rel="noopener" title="Gmail 관련 메일 검색">
+          <span class="num">8</span>
+          <div class="desc">삼성전기 KTS40 내구성 테스트 자료 <b>다운로드</b> (370MB, ~07/22) <span class="click-hint">→ Gmail</span>
+            <small>스프레이시스템코리아 김도현 · Bevel Bush IGUS 관련</small></div>
+          <span class="tag">삼성전기</span><span class="due">~7/22</span>
+        </a>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 2+8. 신규메일 분류 + 리스트 (2단) -->
+  <div class="split">
+    <section>
+      <h2><span class="ico">📬</span> 오전 이후 메일 분류 <span class="secnote">08:15 이후 신규</span></h2>
+      <div class="chip-strip">
+        <a class="chip tot" href="https://mail.google.com/mail/u/0/#search/newer_than%3A1d" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">신규 메일 →</div><div class="v"><span class="num">5</span><span class="unit">건</span></div></a>
+        <a class="chip urgent" href="https://mail.google.com/mail/u/0/#search/is%3Aimportant+is%3Aunread" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">긴급 답변 →</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></a>
+        <a class="chip classify" href="https://mail.google.com/mail/u/0/#inbox" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">자동 분류 →</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></a>
+        <a class="chip" href="https://mail.google.com/mail/u/0/#label/SJ428-25_HA%20KOREA_%EB%B0%80%EC%96%91%EA%B3%B5%EC%9E%A5%20%EA%B1%B4%EC%84%A4%EA%B3%B5%EC%82%AC" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">SJ428-25 밀양 →</div><div class="v"><span class="num">1</span><span class="unit">건</span></div></a>
+        <a class="chip" href="https://mail.google.com/mail/u/0/#label/%EC%9B%90%EC%9E%90%EB%A0%A5_%ED%8C%8C%EC%9B%8C%ED%94%8C%EB%9E%9C%ED%8A%B8_Part" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">원자력(보안) →</div><div class="v"><span class="num">1</span><span class="unit">건</span></div></a>
+        <a class="chip" href="https://mail.google.com/mail/u/0/#search/%EC%A7%80%EC%9B%90%EC%82%AC%EC%97%85+OR+%EC%8A%A4%EB%A7%88%ED%8A%B8%EA%B3%B5%EC%9E%A5+OR+TIPA" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><div class="k">지원사업·뉴스 →</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></a>
+      </div>
+      <div class="note">🏷️ 오전 이후 신규 5건 중 <b>긴급/NCR·CAR·워크오더 없음</b>. SJ428-25 구매요청·한수원 보안 뉴스레터는 자동 라벨링 완료. 스마트공장 우수사례(~7/24)·TIPA R&D 50선은 <b>선택 지원사업/뉴스레터</b>로 정보성 분류(캘린더 미등록).</div>
+    </section>
+
+    <section>
+      <h2><span class="ico">📮</span> 신규 메일 <span class="secnote">오전 08:15 이후 도착</span></h2>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/%ED%95%9C%EC%88%98%EC%9B%90+%EB%B3%B4%EC%95%88+%EB%89%B4%EC%8A%A4%EB%A0%88%ED%84%B0" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">양</div>
+        <div class="body"><div class="subj">Fwd: [한수원] 보안 인식제고 「보안 뉴스레터(2026.07)」</div><div class="from">양병원 이사(sjchem) · 참고 전달 · 원자력</div></div>
+        <div class="stamp">11:01</div>
+      </a>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/%EC%8A%A4%EB%A7%88%ED%8A%B8%EA%B3%B5%EC%9E%A5+%EC%9A%B0%EC%88%98%EC%82%AC%EB%A1%80+%EC%BB%A8%EC%86%8C%EC%8B%9C%EC%97%84" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">중</div>
+        <div class="body"><div class="subj">2026 스마트공장 지원사업 우수사례 컨소시엄(~7/24)</div><div class="from">중소기업기술정보진흥원 · 지원사업(선택)</div></div>
+        <div class="stamp">10:50</div>
+      </a>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/SJ428-25+%EB%B0%80%EC%96%91%EA%B3%B5%EC%9E%A5+%EA%B5%AC%EB%A7%A4%EC%9A%94%EC%B2%AD%EC%84%9C" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">기</div>
+        <div class="body"><div class="subj">[SJ428-25 밀양공장 EPC] 구매요청서 송부건 (BOLT SET)</div><div class="from">기술부 강재상 → 구매부 김재현 · 부장 CC · SJ428-25</div></div>
+        <div class="stamp">10:40</div>
+      </a>
+      <a class="mail-item unread clickable" href="https://mail.google.com/mail/u/0/#search/TIPA+R%26D+%EC%9A%B0%EC%88%98%EC%84%B1%EA%B3%BC+50%EC%84%A0" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">T</div>
+        <div class="body"><div class="subj">[TIPA] 2026 중소기업 R&D 우수성과 50선 모집</div><div class="from">중소기업기술정보진흥원 · 뉴스레터</div></div>
+        <div class="stamp">10:18</div>
+      </a>
+      <a class="mail-item clickable" href="https://mail.google.com/mail/u/0/#search/github+personal+access+token" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="av">G</div>
+        <div class="body"><div class="subj">[GitHub] sejong-21c PAT 승인 요청</div><div class="from">noreply@github.com · 조직 관리(선택 처리)</div></div>
+        <div class="stamp">06:23</div>
+      </a>
+    </section>
+  </div>
+
+  <!-- 오늘·이번주 일정 -->
+  <section>
+    <h2><span class="ico">📅</span> 다가오는 일정 <span class="secnote">오전 브리핑 유지 · 마감 임박 순</span></h2>
+    <table>
+      <thead><tr><th>일자</th><th>일정</th><th>구분</th><th>상태</th></tr></thead>
+      <tbody>
+        <tr class="clickable" onclick="window.open('https://mail.google.com/mail/u/0/#search/%ED%95%9C%EC%9A%B8+%EC%9D%B4%EC%86%A1%EB%8C%80%EC%B0%A8','_blank')"><td><b>7/16 (오늘)</b></td><td>한울 3·4호기 이송대차 입찰서 제출 마감</td><td>원자력·입찰</td><td><span class="pill p-red">오늘 마감</span></td></tr>
+        <tr><td>7/20 (월) 08:15</td><td>주간 공정회의 · Weekly Project Report 제출</td><td>부서업무</td><td><span class="pill p-amb">D-4</span></td></tr>
+        <tr><td>7/21 (화)</td><td>한수원 체코 M229C·N210B 견적서 제출(영업부 작성)</td><td>원자력·견적</td><td><span class="pill p-amb">D-5</span></td></tr>
+        <tr><td>7/22 (수)~24</td><td>27기 원자력품질 검사자과정(QC) 교육 (3일)</td><td>원자력·교육</td><td><span class="pill p-amb">D-6</span></td></tr>
+        <tr><td>7/27 (월)~29</td><td>삼성전기 BT-6라인 자동밸브 작동테스트 (날짜 회신 필요)</td><td>SJ435-26</td><td><span class="pill p-gry">조율중</span></td></tr>
+        <tr><td>7/28 (화)</td><td>SJ2026-040 CKS Welder Qualification Renew 자료 제출</td><td>부서업무</td><td><span class="pill p-grn">D-12</span></td></tr>
+        <tr><td>7/30 (목)</td><td>한전KPS 제'26차 협력회사 등록 신청 마감</td><td>부서업무</td><td><span class="pill p-grn">D-14</span></td></tr>
+        <tr><td>7/31 (금)</td><td>2025년도(31회) 원자력산업실태조사 제출 마감</td><td>원자력·규제</td><td><span class="pill p-red">D-15</span></td></tr>
+      </tbody>
+    </table>
+    <div class="note">📌 오전 브리핑 이후 <b>확정 신규 일정 없음</b> → 캘린더 자동 등록 항목 없음. 스마트공장 우수사례(~7/24)는 선택 참여 성격으로 등록 보류.</div>
+  </section>
+
+  <!-- 포털 원클릭 -->
+  <section>
+    <h2><span class="ico">🔗</span> 포털 원클릭 바로가기</h2>
+    <div class="links">
+      <a class="lk" href="https://ebiz.khnp.co.kr/login.do" target="_blank"><div class="t">⚛️ 한수원 K-Pro <span class="arrow">→</span></div><div class="d">이송대차 입찰서 제출 · 입찰공고</div></a>
+      <a class="lk" href="https://srm.kepco.net/index.do" target="_blank"><div class="t">⚡ 한전 SRM <span class="arrow">→</span></div><div class="d">통합공고 · 제작구매 확인</div></a>
+      <a class="lk" href="https://www.g2b.go.kr" target="_blank"><div class="t">🏛️ 나라장터 G2B <span class="arrow">→</span></div><div class="d">물품·공사 공개 입찰공고</div></a>
+      <a class="lk" href="https://sejong21c.com/#approval" target="_blank"><div class="t">📝 SJ FLOW 결재 <span class="arrow">→</span></div><div class="d">이송대차 입찰 L3 결재 · 결재 대기</div></a>
+      <a class="lk" href="https://sejong21c.com/#projects" target="_blank"><div class="t">📂 SJ FLOW 프로젝트 <span class="arrow">→</span></div><div class="d">진행 프로젝트·WBS 현황</div></a>
+      <a class="lk" href="https://www.kaif.or.kr/ko/" target="_blank"><div class="t">🏢 한국원자력산업협회 <span class="arrow">→</span></div><div class="d">원자력산업실태조사·공고</div></a>
+    </div>
+  </section>
+
+  <footer>
+    ㈜세종기술 · 정오 업데이트 (sejong-daily-briefing) · 2026-07-16 12:00 생성<br>
+    07:00 아침 브리핑 이후 갱신 · 다음 갱신 16:30 · 데이터: Gmail · SJ FLOW(sejong-platform)<br>
+    ⓒ Designed by Quality Control Dept.
+  </footer>
+</div>
