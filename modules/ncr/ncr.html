@@ -1443,8 +1443,13 @@ function renderNCRTrend() {
 
   const tableRows = ncrs.map(n => {
     const p = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (getP(n.proj)?.code||'-');
-    return `<tr style="cursor:pointer;" onclick="closeNCRTrend();openNCRMgr('${_drillEsc(n.id)}')" title="클릭하면 이 NCR 보고서를 엽니다">
-      <td style="font-weight:700;color:var(--primary);">${n.id} ↗</td>
+    // v29.22: 행 클릭 = 등록된 보고서 파일을 새 탭으로. 첨부 없으면 상세 화면 폴백.
+    const hasFile = !!(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl);
+    const clickAttr = hasFile
+      ? `onclick="viewNCRFile('${_drillEsc(n.id)}')" title="클릭하면 등록된 보고서를 새 탭으로 엽니다"`
+      : `onclick="closeNCRTrend();openNCRMgr('${_drillEsc(n.id)}')" title="첨부 보고서가 없어 상세 화면을 엽니다"`;
+    return `<tr style="cursor:pointer;" ${clickAttr}>
+      <td style="font-weight:700;color:var(--primary);">${n.id} ${hasFile?'📄':'↗'}</td>
       <td>${p}</td><td>${n.item||'-'}</td>
       <td>${n.location||'-'}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
       <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
