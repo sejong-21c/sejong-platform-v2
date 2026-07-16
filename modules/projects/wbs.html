@@ -1246,6 +1246,9 @@ function act(a,d){
         :`"${w.code} ${w.name}" 항목을 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?`;
       if(!confirm(msg))break;
       WBS=WBS.filter(x=>!delIds.has(x.id));
+      // v29.33: 삭제 후 코드 재부여 — 대단락 4를 지우면 기존 5·6·7이 4·5·6으로 당겨져야 함
+      // (이전엔 renumberWBS 호출이 빠져 삭제된 번호가 결번으로 남았음)
+      renumberWBS();
       addLog(`🗑 삭제: ${w.code} ${w.name}${childCount?' (하위 '+childCount+'개 포함)':''}`,"warn");
       us({wsel:null,wedit:false});
       break;}
