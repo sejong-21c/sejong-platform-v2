@@ -553,9 +553,9 @@ const NAV = [
 ];
 const TOOLS = {
   'itp':       { name: 'ITP Builder',       icon: '📋', desc: 'ASME·TEMA ITP 자동 생성',   status: 'live', ver: 'v1.4'  },
-  'itpview':   { name: 'ITP 조회',           icon: '📚', desc: '생성된 ITP를 프로젝트·아이템별로 조회',   status: 'live', ver: 'v1.0', parentTool: 'itp' },
+  'itpview':   { name: 'ITP 조회',           icon: '📚', desc: '생성된 ITP를 프로젝트·아이템별로 조회 (전 부서 공유)',   status: 'live', ver: 'v1.0', parentTool: 'itp', crossDept: true },
   'qa':        { name: 'QA Doc Generator',  icon: '📄', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
-  'qaview':    { name: 'QA Doc 조회',         icon: '📚', desc: '생성된 QA/QC 문서를 프로젝트·아이템별로 조회', status: 'live', ver: 'v1.0', parentTool: 'qa' },
+  'qaview':    { name: 'QA Doc 조회',         icon: '📚', desc: '생성된 QA/QC 문서를 프로젝트·아이템별로 조회 (전 부서 공유)', status: 'live', ver: 'v1.0', parentTool: 'qa', crossDept: true },
   'ncr':       { name: 'NCR 관리',          icon: '⚠️', desc: '부적합 보고서 발행·추적·종결', status: 'live', ver: 'v1.0' },
   'car':       { name: 'CAR 관리',          icon: '🔧', desc: '시정조치 요청·회신·완료',     status: 'live', ver: 'v1.0' },
   'qadash':    { name: '품질종합분석표',    icon: '📊', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석', status: 'live', ver: 'v1.0' },
@@ -1433,16 +1433,21 @@ function renderNav() {
     </div>`);
   });
   html.push('<div class="dept-group"><div class="sb-section-title">부서 도구함</div>');
+  // v29.25: crossDept 툴은 모든 부서 도구함에 자동 합류 — DEPTS 데이터는 그대로 두고 렌더 시점에만 병합.
+  //   부모 툴 뒤에 하위(parentTool)가 붙게 순서 정렬. 이미 그 부서에 정의돼 있으면 중복 없이 스킵.
+  const crossDeptTools = Object.keys(TOOLS).filter(k => TOOLS[k].crossDept);
   DEPTS.forEach(d => {
     if (!canSeeDept(d.name)) return;   // 자기 부서 + 슈퍼만
     const expanded = view.expandedDepts[d.id];
+    // 원래 부서 툴 뒤에 crossDept 툴 자동 합류 (같은 부서에 이미 있으면 스킵)
+    const mergedTools = [...d.tools, ...crossDeptTools.filter(k => !d.tools.includes(k))];
     html.push(`<div class="dept-head" onclick="toggleDept('${d.id}')">
       <span class="dept-caret${expanded?' open':''}">▶</span>
       <span class="nav-icon">${d.icon}</span><span>${d.name}</span>
     </div>`);
-    if (expanded && d.tools.length > 0) {
+    if (expanded && mergedTools.length > 0) {
       html.push('<div class="dept-tools">');
-      d.tools.forEach(tid => {
+      mergedTools.forEach(tid => {
         const t = TOOLS[tid];
         if (!t) return;
         // v29: 부서 스케줄은 부서마다 같은 tid('deptsch')를 쓰므로, 지금 열린 부서와도 일치해야 하이라이트한다.
@@ -1462,7 +1467,7 @@ function renderNav() {
         </div>`);
       });
       html.push('</div>');
-    } else if (expanded && d.tools.length === 0) {
+    } else if (expanded && mergedTools.length === 0) {
       html.push('<div style="padding:6px 16px 6px 32px;font-size:11px;color:var(--text-lighter);font-style:italic;">준비 중</div>');
     }
   });
