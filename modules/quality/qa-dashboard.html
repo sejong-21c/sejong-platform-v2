@@ -424,12 +424,12 @@ function render() {
     </div>
 
     <div class="kpi-grid">
-      <div class="kpi"><div class="kpi-label">NCR 전체</div><div class="kpi-value">${ncrs.length}</div><div class="kpi-note">건</div></div>
-      <div class="kpi"><div class="kpi-label">NCR 진행중</div><div class="kpi-value" style="color:var(--danger);">${openNcr}</div><div class="kpi-note">미종결</div></div>
-      <div class="kpi"><div class="kpi-label">중대 등급</div><div class="kpi-value" style="color:var(--danger);">${majorNcr}</div><div class="kpi-note">Major</div></div>
-      <div class="kpi"><div class="kpi-label">CAR 전체</div><div class="kpi-value">${cars.length}</div><div class="kpi-note">건</div></div>
-      <div class="kpi"><div class="kpi-label">CAR 진행중</div><div class="kpi-value" style="color:var(--warning);">${openCar}</div><div class="kpi-note">미완료</div></div>
-      <div class="kpi"><div class="kpi-label">평균 CAR 처리일</div><div class="kpi-value">${avgCarDays!=null?avgCarDays:'-'}</div><div class="kpi-note">완료건 기준(일)</div></div>
+      ${_qdKpiCard('ncr','all',    'NCR 전체',        ncrs.length,                  '',                '건')}
+      ${_qdKpiCard('ncr','open',   'NCR 진행중',      openNcr,                      'var(--danger)',    '미종결')}
+      ${_qdKpiCard('ncr','major',  '중대 등급',       majorNcr,                     'var(--danger)',    'Major')}
+      ${_qdKpiCard('car','all',    'CAR 전체',        cars.length,                  '',                '건')}
+      ${_qdKpiCard('car','open',   'CAR 진행중',      openCar,                      'var(--warning)',   '미완료')}
+      ${_qdKpiCard('car','closed', '평균 CAR 처리일', avgCarDays!=null?avgCarDays:'-', '',              '완료건 기준(일)')}
     </div>
 
     <div class="qd-section" style="border-left:3px solid var(--primary);">
@@ -477,7 +477,7 @@ function render() {
       </div>
     </div>
 
-    <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">💡 차트 막대·조각·프로젝트 행을 클릭하면 이 화면 하단에 해당 조건의 <b>상세 목록</b>이 표시됩니다 (다시 클릭하면 해제).</div>
+    <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">💡 상단 <b>KPI 카드</b>·차트 막대·조각·프로젝트 행을 클릭하면 이 화면 하단에 해당 조건의 <b>상세 목록</b>이 표시됩니다 (다시 클릭하면 해제).</div>
     <div class="qd-grid">
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">발생장소별</div>
@@ -551,8 +551,25 @@ function render() {
 // (섹션 상단 필터 - 연도/분기/프로젝트 - 는 이미 ncrs/cars에 적용된 상태로 넘어옴).
 const QD_DRILL_LABELS = {
   location:'발생장소', cause:'불량원인', causeDetail:'불량원인 상세',
-  disposition:'처리방안', grade:'등급', status:'상태', projLabel:'프로젝트'
+  disposition:'처리방안', grade:'등급', status:'상태', projLabel:'프로젝트', quick:'구분'
 };
+// v29.23: KPI 카드 → quick 필터로 매핑. 값은 사람이 읽는 라벨(칩에 그대로 노출됨).
+const QD_QUICK_LABELS = {
+  ncr: { all:'전체 NCR', open:'진행중 NCR', major:'중대 등급 NCR' },
+  car: { all:'전체 CAR', open:'진행중 CAR', closed:'완료 CAR' }
+};
+function _qdKpiCard(tool, quick, label, value, valColor, note) {
+  const cur = qdDrill[tool] && qdDrill[tool].quick;
+  const active = cur === QD_QUICK_LABELS[tool][quick];
+  const style = `cursor:pointer;transition:transform .1s,box-shadow .1s;${active?'outline:2px solid var(--primary);background:var(--primary-lighter);':''}`;
+  const onclick = `onclick="qdDrillToggle('${tool}','quick','${_qdEsc(QD_QUICK_LABELS[tool][quick])}')"`;
+  const onhover = `onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 3px 8px rgba(0,0,0,.08)';" onmouseout="this.style.transform='';this.style.boxShadow='';"`;
+  return `<div class="kpi" style="${style}" ${onclick} ${onhover} title="클릭하면 하단에 이 조건의 상세 목록이 표시됩니다">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value"${valColor?` style="color:${valColor};"`:''}>${value}</div>
+    <div class="kpi-note">${note}</div>
+  </div>`;
+}
 function _qdFilterNcrs(ncrs) {
   const d = qdDrill.ncr || {};
   return ncrs.filter(n => {
@@ -565,6 +582,10 @@ function _qdFilterNcrs(ncrs) {
       const lbl = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (getP(n.proj)?.code||'미지정');
       if (lbl !== d.projLabel) return false;
     }
+    // v29.23: KPI 카드에서 온 quick 필터 (전체/진행중/중대)
+    if (d.quick === QD_QUICK_LABELS.ncr.open  && n.status === 'closed') return false;
+    if (d.quick === QD_QUICK_LABELS.ncr.major && n.grade  !== 'major')  return false;
+    // 'all'은 필터 없음 (모든 NCR 노출)
     return true;
   });
 }
@@ -572,6 +593,10 @@ function _qdFilterCars(cars) {
   const d = qdDrill.car || {};
   return cars.filter(c => {
     if (d.status && c.status !== d.status) return false;
+    // v29.23: KPI 카드에서 온 quick 필터
+    if (d.quick === QD_QUICK_LABELS.car.open   && c.status === 'closed') return false;
+    if (d.quick === QD_QUICK_LABELS.car.closed && c.status !== 'closed') return false;
+    // 'all'은 필터 없음
     return true;
   });
 }
