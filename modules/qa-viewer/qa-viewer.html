@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QA Doc 조회</title>
+<script type="module">
+  // QA Doc Generator(v4.0+)가 저장한 두 컬렉션을 읽기 전용으로 조회:
+  //   t_qaGenDocs         — 프로젝트별 최신 작업 스냅샷(자동 저장)
+  //   t_qaGenProjIndex    — 명시적으로 이름 붙여 저장한 인덱스 문서(수동 스냅샷, 여러 개 가능)
+  // 두 컬렉션 모두 payload = {proj, items, docData, activeDoc, ...} 스키마.
+  // docData[itemId][docKey] 형태로 7가지 QA/QC 문서 데이터를 포함한다.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot };
+</script>
+<style>
+:root {
+  --primary:#0891b2; --primary-light:#ecfeff; --primary-lighter:#f0fdff;
+  --bg:#F5F7FA; --white:#fff; --border:#E0E0E0; --border-light:#F0F0F0;
+  --text:#333; --text-light:#666; --text-lighter:#999; --danger:#dc2626;
+  --success:#059669; --radius:8px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:-apple-system,"Malgun Gothic","맑은 고딕",sans-serif; background:var(--bg); color:var(--text); font-size:13px; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+#app { flex:1; overflow-y:auto; padding:20px 24px 40px; }
+.hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+.hd h1 { font-size:16px; font-weight:700; }
+.hd .sub { font-size:11px; color:var(--text-light); margin-top:2px; }
+.btn { padding:6px 12px; border:1px solid var(--border); border-radius:6px; background:var(--white); cursor:pointer; font-size:12px; font-family:inherit; display:inline-flex; align-items:center; gap:5px; }
+.btn:hover { background:var(--bg); }
+.btn-primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+.btn-primary:hover { background:#0e7490; }
+.filter-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; margin-bottom:14px; }
+.filter-bar input, .filter-bar select { padding:6px 10px; border:1.5px solid var(--border); border-radius:6px; font-size:12px; font-family:inherit; background:#fff; }
+.filter-bar .cnt { margin-left:auto; font-size:11px; color:var(--text-light); }
+
+.proj-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+.proj-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; cursor:pointer; transition:transform .1s, box-shadow .1s, border-color .1s; }
+.proj-card:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(8,145,178,.10); border-color:var(--primary); }
+.proj-card .code { font-size:11px; color:var(--primary); font-weight:700; letter-spacing:.5px; }
+.proj-card .name { font-size:14px; font-weight:700; margin-top:4px; color:var(--text); }
+.proj-card .client { font-size:11px; color:var(--text-light); margin-top:6px; }
+.proj-card .meta { display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border-light); }
+.proj-card .item-cnt { font-size:12px; color:var(--text); }
+.proj-card .item-cnt b { color:var(--primary); font-size:15px; }
+.proj-card .stamp { font-size:10px; color:var(--text-lighter); }
+.proj-card .src-tag { display:inline-block; font-size:9px; padding:1px 6px; border-radius:8px; margin-left:4px; font-weight:700; }
+.proj-card .src-tag.live { background:#dcfce7; color:#166534; }
+.proj-card .src-tag.snap { background:#fef3c7; color:#92400e; }
+
+.section { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-bottom:14px; }
+.section h3 { font-size:14px; margin-bottom:10px; }
+
+.item-list { display:flex; flex-direction:column; gap:8px; }
+.item-row { display:flex; align-items:center; gap:12px; padding:11px 14px; border:1px solid var(--border-light); border-radius:6px; cursor:pointer; background:#fff; transition:background .1s, border-color .1s; }
+.item-row:hover { background:var(--primary-lighter); border-color:var(--primary); }
+.item-row .no { font-size:12px; font-weight:700; color:var(--primary); min-width:70px; }
+.item-row .nm { font-size:13px; font-weight:600; color:var(--text); flex:1; }
+.item-row .badges { display:flex; gap:6px; flex-wrap:wrap; max-width:60%; justify-content:flex-end; }
+.badge { font-size:10px; padding:2px 8px; border-radius:10px; background:var(--primary-light); color:var(--primary); font-weight:600; white-space:nowrap; }
+.badge.gray { background:var(--border-light); color:var(--text-light); }
+.item-row .arrow { color:var(--text-lighter); font-size:14px; }
+
+.doc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.doc-card { background:#fff; border:1px solid var(--border); border-left:4px solid var(--dcolor,var(--primary)); border-radius:6px; padding:12px 14px; cursor:pointer; transition:transform .1s, box-shadow .1s; }
+.doc-card:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,.06); }
+.doc-card.empty { opacity:.45; cursor:default; }
+.doc-card.empty:hover { transform:none; box-shadow:none; }
+.doc-card .k { font-size:11px; font-weight:800; color:var(--dcolor,var(--primary)); letter-spacing:.5px; }
+.doc-card .l { font-size:13px; font-weight:700; color:var(--text); margin-top:2px; }
+.doc-card .s { font-size:10.5px; color:var(--text-light); margin-top:6px; }
+
+.kv-list { display:grid; grid-template-columns:180px 1fr; gap:4px 12px; font-size:12px; }
+.kv-list dt { font-weight:600; color:var(--text-light); padding:6px 0; border-bottom:1px solid var(--border-light); }
+.kv-list dd { padding:6px 0; border-bottom:1px solid var(--border-light); color:var(--text); word-break:break-all; }
+
+.breadcrumb { font-size:12px; color:var(--text-light); margin-bottom:12px; }
+.breadcrumb a { color:var(--primary); text-decoration:none; cursor:pointer; }
+.breadcrumb a:hover { text-decoration:underline; }
+.breadcrumb span.sep { margin:0 6px; color:var(--text-lighter); }
+
+.empty { text-align:center; padding:40px; color:var(--text-lighter); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
+</style>
+</head>
+<body>
+<div id="app">불러오는 중...</div>
+
+<script>
+const DOC_TYPES = [
+  {key:"BOM",     label:"Bill of Materials",         color:"#1d9e75"},
+  {key:"BENDING", label:"Bending Inspection Report", color:"#ba7517"},
+  {key:"FITUP",   label:"Fit-up & Welding IR",       color:"#534ab7"},
+  {key:"DIM",     label:"Dimensional IR",            color:"#993c1d"},
+  {key:"NOZZLE",  label:"Nozzle Orientation IR",     color:"#0f6e56"},
+  {key:"HYDRO",   label:"Hydrostatic Test Report",   color:"#a32d2d"},
+  {key:"FINAL",   label:"Final Visual IR",           color:"#3c3489"}
+];
+
+const state = {
+  liveDocs: [],   // t_qaGenDocs (프로젝트 진행 스냅샷)
+  snapDocs: [],   // t_qaGenProjIndex (수동 저장 인덱스)
+  projects: [],   // Firestore projects (프로젝트명 보강)
+  selectedId: null, selectedSrc: null,   // 'live' | 'snap'
+  selectedItem: null, selectedDoc: null,
+  filter: '',
+};
+
+function startSync() {
+  if (!window.fb || !fb.db) { setTimeout(startSync, 300); return; }
+  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startSync, 400); return; }
+  fb.onSnapshot(fb.collection(fb.db, 't_qaGenDocs'), snap => {
+    state.liveDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => ({ pid: d.id, _src:'live', ...d.data() }));
+    render();
+  }, e => { document.getElementById('app').innerHTML = `<div class="empty">불러오기 실패: ${e.message||e}<br><small>페이지를 새로고침해 주세요.</small></div>`; });
+  fb.onSnapshot(fb.collection(fb.db, 't_qaGenProjIndex'), snap => {
+    state.snapDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => ({ pid: d.id, _src:'snap', ...d.data() }));
+    render();
+  }, e => console.warn('[qaGenProjIndex]', e));
+  fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
+    state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, e => console.warn('[projects]', e));
+}
+
+function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function projInfo(doc) {
+  const p = state.projects.find(x => x.id === doc.pid);
+  const proj = doc.proj || {};
+  return {
+    code: doc.projNo || proj.no || p?.code || '-',
+    name: doc.name || proj.name || p?.name || doc.pid,
+    client: proj.client || p?.client || ''
+  };
+}
+function currentDoc() {
+  if (!state.selectedId) return null;
+  const arr = state.selectedSrc === 'snap' ? state.snapDocs : state.liveDocs;
+  return arr.find(d => d.pid === state.selectedId) || null;
+}
+function goProj(pid, src) { state.selectedId = pid; state.selectedSrc = src; state.selectedItem = null; state.selectedDoc = null; render(); scrollTop(); }
+function goItem(itemId) { state.selectedItem = itemId; state.selectedDoc = null; render(); scrollTop(); }
+function goDoc(docKey) { state.selectedDoc = docKey; render(); scrollTop(); }
+function goBack() {
+  if (state.selectedDoc) { state.selectedDoc = null; render(); }
+  else if (state.selectedItem) { state.selectedItem = null; render(); }
+  else if (state.selectedId) { state.selectedId = null; state.selectedSrc = null; render(); }
+  scrollTop();
+}
+function scrollTop() { document.getElementById('app').scrollTop = 0; }
+
+function openGenerator(pid) {
+  window.open('../qa-doc-generator/qa-doc-generator.html?pid=' + encodeURIComponent(pid), '_blank', 'noopener');
+}
+
+function renderList() {
+  const filter = state.filter.trim().toLowerCase();
+  // live + snap 병합, 아이템 없는 문서는 숨김
+  const merged = [...state.liveDocs, ...state.snapDocs]
+    .filter(d => (d.items||[]).length > 0)
+    .map(d => ({ ...d, ...projInfo(d) }))
+    .filter(d => !filter || d.code.toLowerCase().includes(filter) || d.name.toLowerCase().includes(filter) || d.client.toLowerCase().includes(filter))
+    .sort((a,b) => (a.code||'').localeCompare(b.code||''));
+
+  const cards = merged.map(d => {
+    const items = d.items || [];
+    const savedAt = (d.updatedAt || d.savedAt || d.createdAt) ? new Date(d.updatedAt || d.savedAt || d.createdAt).toISOString().slice(0,10) : '';
+    return `<div class="proj-card" onclick="goProj('${esc(d.pid)}','${d._src}')">
+      <div class="code">${esc(d.code)} <span class="src-tag ${d._src==='live'?'live':'snap'}">${d._src==='live'?'LIVE':'스냅샷'}</span></div>
+      <div class="name">${esc(d.name)}</div>
+      ${d.client ? `<div class="client">${esc(d.client)}</div>` : ''}
+      <div class="meta">
+        <div class="item-cnt">아이템 <b>${items.length}</b>개</div>
+        <div class="stamp">${savedAt}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="hd">
+      <div>
+        <h1>📚 QA Doc 조회</h1>
+        <div class="sub">QA Doc Generator로 생성한 문서를 프로젝트·아이템·문서 유형별로 조회합니다 (읽기 전용)</div>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <input type="text" placeholder="프로젝트 코드·이름·발주처로 검색" value="${esc(state.filter)}"
+             oninput="state.filter=this.value;render()" style="flex:1;min-width:220px;">
+      <span class="cnt">${merged.length}개 · <span style="color:#166534;">LIVE ${state.liveDocs.filter(d=>(d.items||[]).length>0).length}</span> · <span style="color:#92400e;">스냅샷 ${state.snapDocs.filter(d=>(d.items||[]).length>0).length}</span></span>
+    </div>
+    ${merged.length ? `<div class="proj-grid">${cards}</div>`
+                    : `<div class="empty">${state.filter ? '검색 조건에 해당하는 QA 문서가 없습니다.' : '아직 저장된 QA 문서가 없습니다.<br>QA Doc Generator에서 생성해주세요.'}</div>`}
+  `;
+}
+
+function renderProj() {
+  const doc = currentDoc();
+  if (!doc) return renderList();
+  const lbl = projInfo(doc);
+  const items = doc.items || [];
+  const docData = doc.docData || {};
+  const savedAt = (doc.updatedAt || doc.savedAt) ? new Date(doc.updatedAt || doc.savedAt).toISOString().replace('T',' ').slice(0,16) : '';
+
+  const rows = items.map(it => {
+    const perItem = docData[it.id] || {};
+    const filled = DOC_TYPES.filter(dt => perItem[dt.key] && Object.keys(perItem[dt.key]).length > 0);
+    const badges = filled.length ? filled.map(dt => `<span class="badge" style="background:${dt.color}18;color:${dt.color};">${dt.key}</span>`).join('')
+                                 : `<span class="badge gray">문서 없음</span>`;
+    return `<div class="item-row" onclick="goItem('${esc(it.id)}')">
+      <div class="no">${esc(it.tag || it.id)}</div>
+      <div class="nm">${esc(it.name || '(이름 없음)')}</div>
+      <div class="badges">${badges}</div>
+      <div class="arrow">›</div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="breadcrumb"><a onclick="goBack()">📚 QA Doc 조회</a><span class="sep">›</span><b>${esc(lbl.code)} ${esc(lbl.name)}</b></div>
+    <div class="hd">
+      <div>
+        <h1>${esc(lbl.code)} · ${esc(lbl.name)} <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">[${doc._src==='live'?'LIVE':'스냅샷'}]</span></h1>
+        <div class="sub">${lbl.client ? esc(lbl.client) + ' · ' : ''}${savedAt ? '최근 저장 ' + savedAt : ''}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="goBack()">← 목록</button>
+        <button class="btn btn-primary" onclick="openGenerator('${esc(doc.pid)}')">📄 Generator 열기</button>
+      </div>
+    </div>
+    <div class="section">
+      <h3>📦 아이템 (${items.length}개)</h3>
+      ${items.length ? `<div class="item-list">${rows}</div>` : '<div class="empty">이 프로젝트에는 등록된 아이템이 없습니다.</div>'}
+    </div>
+  `;
+}
+
+function renderItem() {
+  const doc = currentDoc();
+  if (!doc) return renderList();
+  const items = doc.items || [];
+  const it = items.find(x => x.id === state.selectedItem);
+  if (!it) return renderProj();
+  const lbl = projInfo(doc);
+  const perItem = (doc.docData || {})[it.id] || {};
+
+  const docCards = DOC_TYPES.map(dt => {
+    const d = perItem[dt.key];
+    const has = d && Object.keys(d).length > 0;
+    const rowCount = has && Array.isArray(d.rows) ? d.rows.length : (has ? Object.keys(d).length : 0);
+    return `<div class="doc-card ${has?'':'empty'}" style="--dcolor:${dt.color};" ${has?`onclick="goDoc('${dt.key}')"`:''}>
+      <div class="k">${dt.key}</div>
+      <div class="l">${esc(dt.label)}</div>
+      <div class="s">${has ? `데이터 ${rowCount}개 · 클릭하여 조회` : '아직 데이터 없음'}</div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="breadcrumb">
+      <a onclick="state.selectedId=null;state.selectedSrc=null;state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">📚 QA Doc 조회</a><span class="sep">›</span>
+      <a onclick="state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">${esc(lbl.code)}</a><span class="sep">›</span>
+      <b>${esc(it.tag || it.id)} · ${esc(it.name || '')}</b>
+    </div>
+    <div class="hd">
+      <div>
+        <h1>${esc(it.tag || it.id)} <span style="font-size:13px;font-weight:400;color:var(--text-light);">${esc(it.name || '')}</span></h1>
+        <div class="sub">문서 유형을 클릭하면 저장된 데이터를 조회합니다</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="goBack()">← 아이템 목록</button>
+        <button class="btn btn-primary" onclick="openGenerator('${esc(doc.pid)}')">📄 Generator 편집</button>
+      </div>
+    </div>
+    <div class="section">
+      <h3>📄 QA/QC 문서 (${DOC_TYPES.length}종)</h3>
+      <div class="doc-grid">${docCards}</div>
+    </div>
+  `;
+}
+
+function renderDoc() {
+  const doc = currentDoc();
+  if (!doc) return renderList();
+  const it = (doc.items || []).find(x => x.id === state.selectedItem);
+  if (!it) return renderProj();
+  const dt = DOC_TYPES.find(x => x.key === state.selectedDoc);
+  const data = ((doc.docData || {})[it.id] || {})[state.selectedDoc] || {};
+  const lbl = projInfo(doc);
+
+  // 데이터가 rows 배열을 갖는지 여부에 따라 표 또는 key-value로 렌더
+  let body;
+  if (Array.isArray(data.rows) && data.rows.length) {
+    const cols = [...new Set(data.rows.flatMap(r => Object.keys(r || {})))];
+    body = `<div style="overflow-x:auto;"><table class="itp-table" style="width:100%;border-collapse:collapse;font-size:11.5px;">
+      <thead><tr>${cols.map(c => `<th style="background:${dt.color}15;color:${dt.color};padding:8px 10px;text-align:left;font-size:10.5px;font-weight:700;border-bottom:1px solid ${dt.color}30;position:sticky;top:0;">${esc(c)}</th>`).join('')}</tr></thead>
+      <tbody>${data.rows.map(r => `<tr>${cols.map(c => `<td style="padding:7px 10px;border-bottom:1px solid var(--border-light);">${esc(r[c] || '')}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`;
+  } else {
+    const entries = Object.entries(data).filter(([k,v]) => k !== 'rows' && v != null && (typeof v !== 'object' || (Array.isArray(v) && v.length===0)));
+    if (!entries.length) body = '<div class="empty">이 문서에는 아직 저장된 세부 항목이 없습니다.<br>QA Doc Generator에서 데이터를 입력해주세요.</div>';
+    else body = `<dl class="kv-list">${entries.map(([k,v]) => `<dt>${esc(k)}</dt><dd>${typeof v==='object' ? esc(JSON.stringify(v)) : esc(v)}</dd>`).join('')}</dl>`;
+  }
+
+  return `
+    <div class="breadcrumb">
+      <a onclick="state.selectedId=null;state.selectedSrc=null;state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">📚 QA Doc 조회</a><span class="sep">›</span>
+      <a onclick="state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">${esc(lbl.code)}</a><span class="sep">›</span>
+      <a onclick="state.selectedDoc=null;render();scrollTop()">${esc(it.tag || it.id)}</a><span class="sep">›</span>
+      <b>${esc(dt?.label || state.selectedDoc)}</b>
+    </div>
+    <div class="hd">
+      <div>
+        <h1 style="color:${dt?.color||'var(--primary)'};">${esc(dt?.key || '')} <span style="font-size:13px;font-weight:400;color:var(--text-light);">· ${esc(dt?.label || '')}</span></h1>
+        <div class="sub">${esc(it.tag || it.id)} · ${esc(it.name || '')}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="goBack()">← 문서 목록</button>
+        <button class="btn btn-primary" style="background:${dt?.color||'var(--primary)'};border-color:${dt?.color||'var(--primary)'};" onclick="openGenerator('${esc(doc.pid)}')">📄 Generator에서 편집</button>
+      </div>
+    </div>
+    <div class="section">${body}</div>
+  `;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  if (state.selectedId && state.selectedItem && state.selectedDoc) app.innerHTML = renderDoc();
+  else if (state.selectedId && state.selectedItem) app.innerHTML = renderItem();
+  else if (state.selectedId) app.innerHTML = renderProj();
+  else app.innerHTML = renderList();
+}
+
+window.goProj = goProj; window.goItem = goItem; window.goDoc = goDoc; window.goBack = goBack;
+window.openGenerator = openGenerator; window.state = state; window.render = render; window.scrollTop = scrollTop;
+
+startSync();
+</script>
+</body>
+</html>

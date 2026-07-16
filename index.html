@@ -553,7 +553,9 @@ const NAV = [
 ];
 const TOOLS = {
   'itp':       { name: 'ITP Builder',       icon: '📋', desc: 'ASME·TEMA ITP 자동 생성',   status: 'live', ver: 'v1.4'  },
+  'itpview':   { name: 'ITP 조회',           icon: '📚', desc: '생성된 ITP를 프로젝트·아이템별로 조회',   status: 'live', ver: 'v1.0', parentTool: 'itp' },
   'qa':        { name: 'QA Doc Generator',  icon: '📄', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
+  'qaview':    { name: 'QA Doc 조회',         icon: '📚', desc: '생성된 QA/QC 문서를 프로젝트·아이템별로 조회', status: 'live', ver: 'v1.0', parentTool: 'qa' },
   'ncr':       { name: 'NCR 관리',          icon: '⚠️', desc: '부적합 보고서 발행·추적·종결', status: 'live', ver: 'v1.0' },
   'car':       { name: 'CAR 관리',          icon: '🔧', desc: '시정조치 요청·회신·완료',     status: 'live', ver: 'v1.0' },
   'qadash':    { name: '품질종합분석표',    icon: '📊', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석', status: 'live', ver: 'v1.0' },
@@ -568,7 +570,7 @@ const DEPTS = [
   { id: 'design',       icon: '📐', name: '기술부',     tools: ['deptsch'] },
   { id: 'purchase',     icon: '🛒', name: '구매부',     tools: ['deptsch'] },
   { id: 'production',   icon: '🏭', name: '생산부',     tools: ['deptsch'] },
-  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'qa', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
+  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
   { id: 'construction', icon: '🏗️', name: '현장시공',   tools: ['deptsch'] },
   { id: 'safety',       icon: '🦺', name: '안전관리부', tools: ['deptsch'] },
   { id: 'general',      icon: '👔', name: '총무부',     tools: ['deptsch', 'asset'] },
@@ -954,6 +956,9 @@ const ITPBUILDER_BUILD = 'c2';
 const QADOC_BUILD = 'c0';
 const MTOOLS_BUILD = 'b3';
 const ASSET_BUILD = 'a6';
+// v29.24: ITP/QA 조회 뷰어 (신규)
+const ITPVIEW_BUILD = 'a1';
+const QAVIEW_BUILD = 'a1';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -1444,9 +1449,13 @@ function renderNav() {
         // 안 그러면 품질부에서 부서스케줄 열었는데 사이드바 모든 부서의 '부서 스케줄'이 파랗게 강조되는 버그.
         const isActive = view.selectedTool === tid && (tid !== 'deptsch' || view.deptSchedDept === d.name);
         const isPending = t.status === 'soon';
+        // v29.24: parentTool이 있으면 하위 항목처럼 좌측 인덴트 + 계층 표시(└ 커넥터)
+        const isSub = !!t.parentTool;
         html.push(`<div class="tool-item${isActive?' active':''}${isPending?' pending':''}"
+            style="${isSub?'padding-left:44px;font-size:11.5px;':''}"
             ${isPending ? '' : `onclick="openTool('${tid}','${d.name}')"`}
             title="${t.desc}">
+          ${isSub?`<span style="color:var(--text-lighter);font-size:10px;margin-right:-2px;">└</span>`:''}
           <span class="nav-icon">${t.icon}</span>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">${t.name}</span>
           <span class="tool-pill ${isPending?'soon':'live'}">${isPending?'Soon':t.ver}</span>
@@ -2271,6 +2280,8 @@ function iframeViewKey() {
   if (v.selectedTool === 'ncr') return 'ncr';
   if (v.selectedTool === 'car') return 'car';
   if (v.selectedTool === 'qadash') return 'qadash';
+  if (v.selectedTool === 'itpview') return 'itpview';
+  if (v.selectedTool === 'qaview') return 'qaview';
   if (v.selectedTool === 'mtools') return 'mtools';
   if (v.selectedTool === 'asset') return 'asset';
   if (v.cur === 'manday') return 'manday';
@@ -2345,6 +2356,8 @@ function render() {
   if (view.selectedTool === 'ncr') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html?v=${NCR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'car') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html?v=${CAR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'qadash') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/quality/qa-dashboard.html?v=${QADASH_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="품질종합분석표"></iframe></div>`; return; }
+  if (view.selectedTool === 'itpview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/itp-viewer/itp-viewer.html?v=${ITPVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="ITP 조회"></iframe></div>`; return; }
+  if (view.selectedTool === 'qaview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/qa-viewer/qa-viewer.html?v=${QAVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="QA Doc 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'mtools') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/measurement-tools/measurement-tools.html?v=${MTOOLS_BUILD}" allow="camera" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="측정기구 반입출 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'asset') {
     // 자산 관리 대장: 라이선스 정보는 총무부·슈퍼·임원만 조회 (full=1 URL 파라미터로 iframe에 전달)
