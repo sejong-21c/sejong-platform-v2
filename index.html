@@ -440,7 +440,8 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .ft { min-height: 70px; resize: vertical; }
 
 /* AI 비서 위젯 */
-.ai-fab { position: fixed; right: 24px; bottom: 24px; width: 56px; height: 56px; border-radius: 50%; border: none; background: var(--primary); color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.25); z-index: 1700; display: flex; align-items: center; justify-content: center; }
+.ai-fab { position: fixed; right: 24px; bottom: 24px; width: 56px; height: 56px; border-radius: 50%; border: none; background: var(--primary); color: #fff; font-size: 24px; cursor: grab; box-shadow: 0 6px 18px rgba(0,0,0,.25); z-index: 1700; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.ai-fab.dragging { cursor: grabbing; opacity: .85; }
 .ai-fab:hover { background: var(--primary-hover); }
 .ai-panel { position: fixed; right: 24px; bottom: 92px; width: 360px; max-width: 92vw; height: 480px; max-height: 70vh; background: var(--white); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.22); display: none; flex-direction: column; overflow: hidden; z-index: 1700; }
 .ai-panel.open { display: flex; }
@@ -524,7 +525,94 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   </div>
 </div>
 
-<button class="ai-fab" id="aiFab" title="AI 비서" onclick="toggleAiPanel()">🤖</button>
+<button class="ai-fab" id="aiFab" title="AI 비서 (드래그해서 위치 이동)" onclick="toggleAiPanel()">🤖</button>
+<script>
+/* v29.35: AI 봇(FAB) 드래그 이동 — 화면 어디든 옮기고 위치를 localStorage에 저장.
+   클릭(패널 토글)과 드래그를 구분: 이동 거리 6px 미만이면 클릭으로 간주. */
+(function(){
+  const KEY_POS = 'SJ_AIFAB_POS';
+  function applyPos(fab, x, y){
+    // 뷰포트 밖으로 안 나가게 clamp
+    const w = fab.offsetWidth||56, h = fab.offsetHeight||56;
+    x = Math.max(4, Math.min(window.innerWidth  - w - 4, x));
+    y = Math.max(4, Math.min(window.innerHeight - h - 4, y));
+    fab.style.left = x+'px'; fab.style.top = y+'px';
+    fab.style.right = 'auto'; fab.style.bottom = 'auto';
+  }
+  function positionPanel(){
+    // 패널을 FAB 근처로 (FAB가 옮겨졌으면 그 위/왼쪽에 붙임)
+    const fab = document.getElementById('aiFab'), panel = document.getElementById('aiPanel');
+    if(!fab||!panel) return;
+    const r = fab.getBoundingClientRect();
+    const pw = panel.offsetWidth||360, ph = panel.offsetHeight||480;
+    let top = r.top - ph - 10;  if(top < 8) top = Math.min(r.bottom + 10, window.innerHeight - ph - 8);
+    let left = r.right - pw;    if(left < 8) left = 8;
+    if(left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+    panel.style.left = left+'px'; panel.style.top = Math.max(8,top)+'px';
+    panel.style.right = 'auto'; panel.style.bottom = 'auto';
+  }
+  window._positionAiPanel = positionPanel;
+  function init(){
+    const fab = document.getElementById('aiFab');
+    if(!fab) { setTimeout(init, 300); return; }
+    // 저장된 위치 복원
+    try { const p = JSON.parse(localStorage.getItem(KEY_POS)||'null'); if(p) applyPos(fab, p.x, p.y); } catch(e){}
+    let dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0;
+    fab.addEventListener('pointerdown', e=>{
+      dragging=true; moved=false;
+      const r = fab.getBoundingClientRect();
+      sx=e.clientX; sy=e.clientY; ox=r.left; oy=r.top;
+      fab.setPointerCapture(e.pointerId);
+    });
+    fab.addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const dx=e.clientX-sx, dy=e.clientY-sy;
+      if(!moved && Math.hypot(dx,dy) < 6) return;   // 6px 미만은 아직 클릭 후보
+      moved=true; fab.classList.add('dragging');
+      applyPos(fab, ox+dx, oy+dy);
+    });
+    fab.addEventListener('pointerup', e=>{
+      if(!dragging) return; dragging=false; fab.classList.remove('dragging');
+      try{ fab.releasePointerCapture(e.pointerId); }catch(_){}
+      if(moved){
+        const r = fab.getBoundingClientRect();
+        try{ localStorage.setItem(KEY_POS, JSON.stringify({x:r.left,y:r.top})); }catch(_){}
+        // 드래그였으면 클릭(패널 토글) 취소
+        const kill = ev=>{ ev.stopPropagation(); ev.preventDefault(); fab.removeEventListener('click', kill, true); };
+        fab.addEventListener('click', kill, true);
+      }
+    });
+    // 창 크기 바뀌면 화면 안으로 다시 clamp
+    window.addEventListener('resize', ()=>{ const r=fab.getBoundingClientRect(); applyPos(fab, r.left, r.top); });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+  /* v29.35: AI 패널 기본 동작 스텁 — 실제 AI 응답(무료 API 게이트웨이)은 추후 구현.
+     지금은 봇을 열고 닫고, FAB 위치를 따라 패널이 붙게만 함. 이미 정의돼 있으면 건드리지 않음. */
+  if(typeof window.toggleAiPanel !== 'function'){
+    window.toggleAiPanel = function(){
+      const p = document.getElementById('aiPanel'); if(!p) return;
+      const opening = !p.classList.contains('open');
+      p.classList.toggle('open');
+      if(opening && window._positionAiPanel) window._positionAiPanel();
+    };
+  }
+  if(typeof window.openAiKeyModal !== 'function'){
+    window.openAiKeyModal = function(){
+      alert('AI 비서는 준비 중입니다.\n무료 API 게이트웨이(여러 무료 키 자동 전환) 구축 후 활성화됩니다.');
+    };
+  }
+  if(typeof window.sendAiMessage !== 'function'){
+    window.sendAiMessage = function(){
+      const inp = document.getElementById('aiInput'); const box = document.getElementById('aiMessages');
+      if(!inp || !box) return; const q = inp.value.trim(); if(!q) return;
+      const u = document.createElement('div'); u.style.cssText='text-align:right;margin:6px 0;font-size:13px'; u.innerHTML='<span style="background:var(--primary);color:#fff;padding:6px 10px;border-radius:10px;display:inline-block;max-width:80%">'+q.replace(/</g,'&lt;')+'</span>'; box.appendChild(u);
+      const a = document.createElement('div'); a.style.cssText='text-align:left;margin:6px 0;font-size:13px;color:var(--text-light)'; a.innerHTML='<span style="background:#f1f5f9;padding:6px 10px;border-radius:10px;display:inline-block;max-width:80%">AI 비서는 준비 중입니다. 무료 API 게이트웨이 구축 후 답변이 활성화됩니다.</span>'; box.appendChild(a);
+      inp.value=''; box.scrollTop = box.scrollHeight;
+    };
+  }
+})();
+</script>
 <div class="ai-panel" id="aiPanel">
   <div class="ai-panel-head">
     <div><span class="dot"></span>AI 비서</div>
