@@ -438,6 +438,8 @@ let _viewRev=null;
 let _viewSnapshot=null;
 let S={
   mv:"wbs",wp:"wbs",
+  // v28.4.45: EVMS 요약은 기본 접힘 — 스케줄 본문이 먼저 보이고, 보고 싶을 때만 펼치기 (부장님 요청)
+  evmsHide:true,
   wv:"split",wf:"전체",wexp:{w1:true,w2:true,w3:true,w4:true},
   wsel:null,wedit:false,wmod:false,
   wform:{code:"",name:"",mgr:"",s:"",e:"",status:"미시작",itpLink:"",vendor:"",memo:""},
@@ -957,6 +959,17 @@ function rWBS(){
   // → 단차 원천 차단 (HTML이 자동으로 행 높이 같게 보장)
   // ═══════════════════════════════════════════════════════════
   const ms=v28Months();
+  // v28.4.45: 간트 본문 월 구분 세로선 — 막대/오늘선과 같은 dp() 좌표계로 정렬.
+  const _mGridStyle=(()=>{
+    const imgs=[],pos=[];
+    ms.forEach((mo,i)=>{
+      if(i===0)return;   // 첫 달 시작(왼쪽 끝)은 생략
+      const x=dp(`${mo.y}-${String(mo.m+1).padStart(2,"0")}-01`);
+      imgs.push("linear-gradient(#e2e8f0,#e2e8f0)");
+      pos.push(x.toFixed(2)+"% 0");
+    });
+    return imgs.length?`<style>.wbs-unified-tbl tbody td.col-gantt{background-image:${imgs.join(",")};background-position:${pos.join(",")};background-size:1px 100%;background-repeat:no-repeat}</style>`:"";
+  })();
   // 월 헤더 cells (간트 영역 전용)
   const monthHdrCells=ms.map((mo,i)=>{
     const yChange=i===0||ms[i-1].y!==mo.y;
@@ -996,6 +1009,7 @@ function rWBS(){
     </tr>`;
   // 통합 table HTML (모든 컬럼 포함)
   const unifiedTable=`
+    ${_mGridStyle}
     <table class="wbs-unified-tbl wbs-view-${S.wv}" id="v284-wbs-unified" style="border-collapse:collapse;border-spacing:0;table-layout:fixed;width:100%;min-width:${tableMinW+600}px">
       <colgroup>
         <col class="col-code" style="width:${_colW.code}px"/>
