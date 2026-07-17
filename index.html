@@ -1039,7 +1039,7 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b48';
+const WBS_BUILD = 'b49';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b10';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -1147,6 +1147,13 @@ async function loadBriefings() {
 }
 // ══════════ pendingProjects 자동 등록 ══════════
 // briefings.json에 pendingProjects 배열이 있으면 Firestore에 프로젝트+WBS 자동 생성
+// v29.36: ★ 등록 여부 판정을 localStorage → Firestore(woRegistry)로 이관 ★
+// localStorage는 브라우저(기기)별이라, 새 PC·새 브라우저·시크릿창에서 접속하면 같은 WO가
+// "미등록"으로 보였고, 아래 existing 분기가 wbsData를 시드 대단락으로 통째로 덮어써
+// 팀이 편집한 마스터 WBS(하위 레벨·상태·Rev)가 소리 없이 사라지는 사고가 있었다.
+// (NCR 초기의 localStorage 단독 저장 문제와 동일 패턴 — 부장님 집 노트북 접속으로 발견)
+// 이제 서버의 woRegistry/{no} 문서가 유일한 진실이고, localStorage는 조회 절약용 캐시다.
+function _woRegId(no) { return String(no).replace(/\//g, '_'); }
 async function autoRegisterPendingProjects() {
   if (!state.currentUser || !window.fb || !fb.db) return;
   const b = state.briefings[state.currentUser];
@@ -1154,8 +1161,24 @@ async function autoRegisterPendingProjects() {
 
   const regKey = 'sjflow_registered_v3';
   const registered = JSON.parse(localStorage.getItem(regKey) || '[]');
-  const toRegister = b.pendingProjects.filter(p => p.no && !registered.includes(p.no));
-  if (!toRegister.length) return;
+  const candidates = b.pendingProjects.filter(p => p.no && !registered.includes(p.no));
+  if (!candidates.length) return;
+
+  // 서버 레지스트리 확인 — 있으면 이 기기에서도 "등록됨"으로 캐시하고 건너뜀.
+  // 조회가 실패한 WO는 등록을 강행하지 않는다(덮어쓰기 사고 방지, 다음 로드에서 재시도).
+  const toRegister = [];
+  for (const p of candidates) {
+    try {
+      const regSnap = await fb.getDoc(fb.doc(fb.db, 'woRegistry', _woRegId(p.no)));
+      if (regSnap.exists()) { registered.push(p.no); continue; }
+      toRegister.push(p);
+    } catch (e) { console.warn('[SJ FLOW] woRegistry 조회 실패 — 등록 보류:', p.no, e.message); }
+  }
+  if (!toRegister.length) {
+    localStorage.setItem(regKey, JSON.stringify(registered));
+    updateNotifBadge();
+    return;
+  }
 
   let count = 0;
   for (const data of toRegister) {
@@ -1178,8 +1201,9 @@ async function autoRegisterPendingProjects() {
       const nm = isObj ? sc.name : sc;
       const rs = (isObj && sc.s) ? sc.s : new Date(sd.getTime() + seg * i).toISOString().slice(0,10);
       const re = (isObj && sc.e) ? sc.e : new Date(sd.getTime() + seg * (i+1)).toISOString().slice(0,10);
+      // v29.36: 상태를 wbs.html 어휘('미시작'/'진행중'/'완료'/'지연')로 — 'todo'는 상태 필터·칩이 인식 못 함
       return { id: `w_${pid}_${i+1}`, code: String(i+1), name: nm, mgr: '',
-        s: rs, e: re, status: 'todo', itpLink: null, lv: 0, projId: pid, vendor: '㈜세종기술', memo: '' };
+        s: rs, e: re, status: '미시작', itpLink: null, lv: 0, projId: pid, vendor: '㈜세종기술', memo: '' };
     });
     const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
       id: `i_${pid}_${i}`, tagNo: it.no || ('ITEM-'+(i+1)), name: it.name || '',
@@ -1188,8 +1212,17 @@ async function autoRegisterPendingProjects() {
     try {
       if (existing) {
         if (data.s) await fb.setDoc(fb.doc(fb.db, 'projects', pid), { start: data.s, end: data.e }, { merge: true });
-        await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { rows, items, updatedAt: Date.now() });
-        console.info('[SJ FLOW] WO WBS 갱신:', data.no, rows.length + '개 대단락');
+        // v29.36: ★ 기존 프로젝트의 wbsData는 절대 통째로 덮어쓰지 않는다 ★
+        // 시드는 WBS가 아직 비어있을 때만 넣고, 행이 하나라도 있으면 팀 작업분을 보존.
+        // merge:true로 저장해 기존 rev 필드도 지우지 않는다(이력 Rev 연속성 유지).
+        const wsnap = await fb.getDoc(fb.doc(fb.db, 'wbsData', pid));
+        const hasRows = wsnap.exists() && Array.isArray(wsnap.data().rows) && wsnap.data().rows.length > 0;
+        if (hasRows) {
+          console.info('[SJ FLOW] WO 기존 WBS 보존 — 시드 건너뜀:', data.no);
+        } else {
+          await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { rows, items, updatedAt: Date.now() }, { merge: true });
+          console.info('[SJ FLOW] WO WBS 시드 생성:', data.no, rows.length + '개 대단락');
+        }
       } else {
         await fb.setDoc(fb.doc(fb.db, 'projects', pid), {
           code: data.no, name: data.name, client: data.client,
@@ -1201,6 +1234,10 @@ async function autoRegisterPendingProjects() {
         ensureProjectChannel(pid, data.name).catch(() => {});
         console.info('[SJ FLOW] WO 자동등록:', data.no, data.name);
       }
+      // v29.36: 서버 레지스트리에 등록 마커 — 다른 기기·다른 사용자의 재등록(=덮어쓰기) 차단
+      await fb.setDoc(fb.doc(fb.db, 'woRegistry', _woRegId(data.no)), {
+        no: data.no, pid, at: Date.now(), byUid: state.currentUser,
+      });
       registered.push(data.no);
       count++;
     } catch (e) { console.error('[SJ FLOW] WO 자동등록 실패:', data.no, e); }
@@ -4644,6 +4681,8 @@ function openWorkOrderModal() {
     const total = ed - sd;
     const seg = total / scopes.length;
     const newId = 'p' + Date.now();
+    // v29.36: 행 형태를 wbs.html 표준으로 통일 — 날짜는 s/e 키(기존 start/end는 WBS가 못 읽음),
+    // 상태는 '미시작'(기존 'todo'는 상태 칩·필터가 인식 못 함), projId 누락 보완.
     const rows = scopes.map((s, i) => {
       const wsd = new Date(sd.getTime() + seg * i);
       const wed = new Date(sd.getTime() + seg * (i + 1));
@@ -4652,10 +4691,10 @@ function openWorkOrderModal() {
         code: String(i+1),
         name: s,
         mgr: '',
-        start: wsd.toISOString().slice(0,10),
-        end: wed.toISOString().slice(0,10),
-        status: 'todo', pct: 0, lv: 0,
-        vendor: '㈜세종기술', memo: '',
+        s: wsd.toISOString().slice(0,10),
+        e: wed.toISOString().slice(0,10),
+        status: '미시작', pct: 0, lv: 0, projId: newId,
+        itpLink: null, vendor: '㈜세종기술', memo: '',
       };
     });
     try {
@@ -4666,6 +4705,10 @@ function openWorkOrderModal() {
         createdBy: '워크오더 자동등록',
       });
       await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows, items: [], updatedAt: Date.now() });
+      // v29.36: 수동 등록도 서버 레지스트리에 마커 — briefings 자동등록이 같은 WO를 재등록하지 않도록
+      await fb.setDoc(fb.doc(fb.db, 'woRegistry', _woRegId(code)), {
+        no: code, pid: newId, at: Date.now(), byUid: state.currentUser,
+      }).catch(e => console.warn('[SJ FLOW] woRegistry 마커 실패:', e.message));
       ensureProjectChannel(newId, name).catch(() => {});
       closeModal();
       alert(`✅ 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
@@ -4751,7 +4794,7 @@ function openCoworkImportModal() {
       const re = (isObj && sc.e) ? sc.e : wed.toISOString().slice(0,10);
       return {
         id: `w_${newId}_${i+1}`, code: String(i+1), name: nm, mgr: '',
-        s: rs, e: re, status: 'todo', itpLink: null, lv: 0, projId: newId, vendor: '㈜세종기술', memo: '',
+        s: rs, e: re, status: '미시작', itpLink: null, lv: 0, projId: newId, vendor: '㈜세종기술', memo: '',
       };
     });
     const items = Array.isArray(data.items) ? data.items.map((it, i) => ({
@@ -4766,6 +4809,10 @@ function openCoworkImportModal() {
         remark: data.remark || '', createdBy: 'Cowork 자동등록',
       });
       await fb.setDoc(fb.doc(fb.db, 'wbsData', newId), { rows, items, updatedAt: Date.now() });
+      // v29.36: 서버 레지스트리 마커 — briefings 자동등록이 같은 WO를 다시 만들지 않도록
+      await fb.setDoc(fb.doc(fb.db, 'woRegistry', _woRegId(data.no)), {
+        no: data.no, pid: newId, at: Date.now(), byUid: state.currentUser,
+      }).catch(e => console.warn('[SJ FLOW] woRegistry 마커 실패:', e.message));
       ensureProjectChannel(newId, data.name).catch(() => {});
       closeModal();
       alert(`✅ Cowork 자동등록 완료\n• 프로젝트: ${data.no} ${data.name}\n• WBS 대단락: ${scopes.length}개 생성`);

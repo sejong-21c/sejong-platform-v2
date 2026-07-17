@@ -3136,6 +3136,24 @@ setTimeout(()=>{
 // 같은 오리진이라 index.html에서 로그인한 Firebase Auth 세션이 이 iframe에도 자동으로 이어짐.
 let _wbsPid = null;
 let _wbsRev = 0;
+// v29.36: 마스터의 rev 필드가 유실됐을 때(과거 WO 자동등록이 merge 없이 덮어쓴 사고 등)
+// 이력(wbsHistory)의 최대 Rev로 _wbsRev를 복구 — 안 하면 다음 저장이 Rev 1부터 다시 시작해
+// 같은 문서 ID(pid_0001…)의 기존 이력 스냅샷을 덮어쓴다. 문서에 rev가 없을 때 1회만 실행.
+let _revRecoverTried = false;
+async function _recoverRevFromHistory(pid) {
+  if (_revRecoverTried) return; _revRecoverTried = true;
+  try {
+    const hq = await fb.getDocs(fb.query(fb.collection(fb.db, "wbsHistory"), fb.where("pid", "==", pid)));
+    let maxRev = 0;
+    hq.docs.forEach(h => { const r = Number(h.data().rev) || 0; if (r > maxRev) maxRev = r; });
+    if (maxRev > (Number(_wbsRev) || 0)) {
+      _wbsRev = maxRev;
+      const revEl = document.getElementById("wbsRevBadge");
+      if (revEl) revEl.textContent = "Rev. " + _wbsRev;
+      console.info("[SJ FLOW] 마스터 rev 유실 감지 — 이력 기준 Rev " + maxRev + "(으)로 복구");
+    }
+  } catch (e) { console.warn("rev 복구 실패:", e.message); }
+}
 function subscribeWbsData(pid){
   // 마스터 wbsData 구독. shadow 활성 시엔 화면엔 shadow가 우선 보이지만, 마스터도 백그라운드로 최신 유지.
   fb.onSnapshot(fb.doc(fb.db, "wbsData", pid), snap => {
@@ -3143,6 +3161,7 @@ function subscribeWbsData(pid){
     if (!snap.exists()) return;
     const d = snap.data();
     const incomingRev = Number(d.rev) || 0;
+    if (!incomingRev) _recoverRevFromHistory(pid);
     // v28.4.36: ★ lost-update 방지 ★ — 편집 직후 400ms 디바운스 저장을 기다리는 사이에
     // "직전 저장의 서버 echo"(hasPendingWrites=false로 도착)가 이 핸들러에 들어와
     // WBS 전체를 과거 상태로 되돌려, 방금 한 편집(예: 상태→완료)이 소리 없이 사라지던
@@ -3410,10 +3429,18 @@ async function restoreWbsRev(rev) {
   if (!window.fb || !_wbsPid) return;
   const qs = new URLSearchParams(window.location.search);
   if (qs.get("canEdit") === "0") { alert("이 화면은 조회 전용이라 복원할 수 없습니다."); return; }
+  // v29.36: 새 Rev 번호를 "이력의 최대 Rev" 기준으로 계산.
+  // 마스터의 rev 필드가 유실된 상태(WO 자동등록의 시드 덮어쓰기 사고 등)에서 복원하면
+  // _wbsRev가 0이라 Rev 1부터 다시 시작해 기존 이력 스냅샷(같은 문서 ID)을 덮어쓰던 문제 방지.
+  let _maxRev = Number(_wbsRev) || 0;
+  try {
+    const hq = await fb.getDocs(fb.query(fb.collection(fb.db, "wbsHistory"), fb.where("pid", "==", _wbsPid)));
+    hq.docs.forEach(h => { const r = Number(h.data().rev) || 0; if (r > _maxRev) _maxRev = r; });
+  } catch (e) { console.warn("이력 최대 Rev 조회 실패:", e.message); }
   if (!confirm(
     `Rev. ${rev}의 내용으로 현재 WBS를 되돌립니다.\n\n` +
     `· 현재 상태(Rev. ${_wbsRev||0})는 이력에 그대로 보존됩니다\n` +
-    `· 복원본은 새 Rev. ${(Number(_wbsRev)||0)+1}(으)로 저장됩니다\n\n계속할까요?`
+    `· 복원본은 새 Rev. ${_maxRev+1}(으)로 저장됩니다\n\n계속할까요?`
   )) return;
   const revStr = String(rev).padStart(4, "0");
   try {
@@ -3421,7 +3448,7 @@ async function restoreWbsRev(rev) {
     if (!snap.exists()) { alert("해당 Rev 스냅샷을 찾을 수 없습니다."); return; }
     const d = snap.data();
     const rows = d.rows || [], items = d.items || [];
-    const newRev = (Number(_wbsRev) || 0) + 1;
+    const newRev = _maxRev + 1;
     const savedAt = Date.now();
     const cur = fb.auth && fb.auth.currentUser;
     await fb.setDoc(fb.doc(fb.db, "wbsData", _wbsPid),
