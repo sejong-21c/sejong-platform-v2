@@ -44,7 +44,7 @@ table{width:100%;border-collapse:collapse}
 th{padding:7px 8px;font-size:10px;font-weight:700;color:#6b7280;text-align:left;border-bottom:1px solid #e4e7ec;background:#f8fafc;white-space:nowrap;position:sticky;top:0;z-index:5}
 td{padding:0 6px;border-bottom:1px solid #f0f4f8;font-size:11px;height:30px}
 tr:hover td{background:#f9fafb}
-tr.sel td{background:#eef3fb}
+tr.sel td{background:#dbeafe!important;box-shadow:inset 0 -1px 0 #93c5fd,inset 0 1px 0 #93c5fd}tr.sel td:first-child{box-shadow:inset 4px 0 0 #2563eb,inset 0 -1px 0 #93c5fd,inset 0 1px 0 #93c5fd}tr.sel td .cell-inner{font-weight:700}
 .crd{background:#fff;border-radius:8px;padding:14px;margin-bottom:8px;border:1px solid #e4e7ec;cursor:pointer;transition:box-shadow .12s}
 .crd:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .bdg{display:inline-flex;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700}
@@ -57,7 +57,7 @@ tr.sel td{background:#eef3fb}
 .itp-L{width:340px;flex-shrink:0;background:#fff;border-radius:8px 0 0 8px;border:1px solid #e4e7ec;border-right:none;overflow-y:auto}
 .itp-R{flex:1;background:#fff;border-radius:0 8px 8px 0;border:1px solid #e4e7ec;overflow-y:auto;padding:14px}
 .ir{padding:7px 11px;border-bottom:1px solid #f0f4f8;cursor:pointer;border-left:3px solid transparent}
-.ir:hover{background:#f9fafb}.ir.sel{background:#eef3fb;border-left-color:#4a7fc1}
+.ir:hover{background:#f9fafb}.ir.sel{background:#dbeafe;border-left-color:#2563eb;border-left-width:4px;font-weight:700}
 .split-w{display:flex;flex:1;overflow:hidden}
 /* v29.9: 옛 3분할 뷰 클래스 (.tpn/.gpn/.spn) 는 어디에서도 사용 안 됨 — 통합 테이블로 대체됨. 제거. */
 .mrow{display:flex;background:#f8fafc;border-bottom:1px solid #e4e7ec;position:sticky;top:0;z-index:5}
@@ -124,7 +124,7 @@ tr.sel td{background:#eef3fb}
 .wbs-unified-tbl thead th.col-gantt{padding:0;overflow:visible;position:relative}
 .wbs-unified-tbl thead th.col-gantt>div>div{flex:1;padding:0 4px;font-size:9px;color:#6b7280;display:flex;align-items:center;justify-content:center;height:30px;border-left:1px solid #eef0f3;box-sizing:border-box;white-space:nowrap}
 .wbs-unified-tbl tbody tr{cursor:pointer;height:31px;box-sizing:border-box}
-.wbs-unified-tbl tbody tr.sel{background:#eef3fb!important}
+.wbs-unified-tbl tbody tr.sel{background:#dbeafe!important;outline:2px solid #60a5fa;outline-offset:-2px}
 .wbs-unified-tbl tbody tr:hover:not(.sel){background:#f9fafb}
 .wbs-unified-tbl tbody td{height:31px;padding:0;border-bottom:1px solid #f0f4f8;font-size:11px;box-sizing:border-box;vertical-align:middle;overflow:hidden}
 .wbs-unified-tbl tbody td .cell-inner{padding:0 8px;height:31px;display:flex;align-items:center;line-height:1.2;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-sizing:border-box}
