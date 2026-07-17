@@ -1,0 +1,85 @@
+// Firestore 보안 규칙 — Firebase 콘솔과 반드시 동기화할 것.
+// ⚠️ 이 파일을 수정하면 Firebase 콘솔(Firestore → 규칙)에도 붙여넣고 "게시"해야 적용된다.
+//    콘솔에만 고치고 여기 반영 안 하면(또는 반대) 코드-규칙 불일치로 조용한 쓰기 실패가 생긴다
+//    — 2026-07-17 wbsHistory 이력 0건 사건의 직접 원인이 이 불일치였음.
+// 새 컬렉션을 코드에 도입할 때는 같은 커밋에서 이 파일에 규칙을 추가할 것.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isCompanyUser() {
+      return request.auth != null && request.auth.token.email.matches('.*@sejong-21c[.]com$');
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId
+                    && request.auth.token.email.matches('.*@sejong-21c[.]com$');
+      allow update: if request.auth != null && (
+        request.auth.uid == userId ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade == 'super'
+      );
+      allow delete: if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade == 'super';
+    }
+    match /userState/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid
+                        && request.auth.token.email.matches('.*@sejong-21c[.]com$');
+    }
+    match /pendingUsers/{docId} {
+      allow read, write: if isCompanyUser();
+    }
+
+    match /channels/{channelId} {
+      allow read, create, update: if isCompanyUser();
+      allow delete: if false;
+    }
+    match /messages/{messageId} {
+      allow read: if isCompanyUser();
+      // 일반 사용자 발송: author = 본인 uid
+      // 시스템 알림: author = 'SYSTEM' + system: true + 지정된 시스템 채널로만 (검교정 임박 알림 등)
+      allow create: if isCompanyUser() && (
+        request.resource.data.author == request.auth.uid
+        ||
+        (request.resource.data.author == 'SYSTEM'
+         && request.resource.data.system == true
+         && request.resource.data.channel in ['qa-calibration-alert'])
+      );
+      allow update, delete: if false;
+    }
+    match /channelReads/{readId} {
+      allow read: if isCompanyUser();
+      allow write: if isCompanyUser() && request.resource.data.uid == request.auth.uid;
+    }
+
+    match /projects/{pid}                { allow read, write: if isCompanyUser(); }
+    match /wbsData/{pid}                 { allow read, write: if isCompanyUser(); }
+    match /wbsPending/{docId}            { allow read, write: if isCompanyUser(); }
+    match /wbsHistory/{docId}            { allow read, write: if isCompanyUser(); }
+    // v29.36: 워크오더 자동등록 마커 — localStorage 대신 서버가 "등록됨"의 진실 (WBS 덮어쓰기 사고 재발 방지)
+    match /woRegistry/{docId}            { allow read, write: if isCompanyUser(); }
+    // v29.37: Traveller 검사 실적(REC) 서버 저장 — wbsRec/{pid}_{itemId}
+    match /wbsRec/{docId}                { allow read, write: if isCompanyUser(); }
+
+    // v28.4.48: WBS 조회 전용 공유 — 링크를 아는 사람은 로그인 없이 read 가능(외부 공유용).
+    // 쓰기(공유 생성·갱신)는 사내 계정만. 스냅샷 복사본이라 원본 wbsData는 계속 보호됨.
+    match /wbsShares/{shareId} {
+      allow read: if true;
+      allow write: if isCompanyUser();
+    }
+
+    match /tasks/{tid}                   { allow read, write: if isCompanyUser(); }
+    match /events/{docId}                { allow read, write: if isCompanyUser(); }
+    match /okrs/{docId}                  { allow read, write: if isCompanyUser(); }
+    match /approvals/{docId}             { allow read, write: if isCompanyUser(); }
+    match /ncrs/{docId}                  { allow read, write: if isCompanyUser(); }
+    match /ncrDeleteReqs/{docId}         { allow read, write: if isCompanyUser(); }
+    match /cars/{docId}                  { allow read, write: if isCompanyUser(); }
+    match /carDeleteReqs/{docId}         { allow read, write: if isCompanyUser(); }
+    match /measurementTools/{toolId}     { allow read, write: if isCompanyUser(); }
+    match /measurementCheckouts/{coId}   { allow read, write: if isCompanyUser(); }
+
+    match /{col}/{docId} {
+      allow read, write: if isCompanyUser() && col.matches('^t_.*');
+    }
+  }
+}
