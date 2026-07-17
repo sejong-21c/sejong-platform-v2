@@ -1283,11 +1283,23 @@ function act(a,d){
       // 삽입 위치 = 서브트리 끝 바로 다음
       const insAt=wi+block.length;
       const stamp=Date.now();
+      // v28.4.38: 진행 상태(진도율·상태)도 같이 복사할지 선택 — 같은 장비를 여러 대 만들 때
+      // 진행 상황이 거의 같으면 그대로 복사하는 편이 훨씬 빠름 (부장님 요청).
+      // ITP 연동(itpLink)은 어느 쪽이든 해제 — 검사기록·NCR을 원본과 공유하면 안 되므로.
+      const keepProgress=confirm(
+        `진행 상태(진도율·상태)도 함께 복사할까요?\n\n`+
+        `· [확인] = 원본의 진도율·상태 그대로 복사 (진행된 스케줄 복사)\n`+
+        `· [취소] = 미시작 0%로 초기화해서 복사\n\n`+
+        `※ 제작공정(ITP) 연동·검사기록은 어느 쪽이든 복사되지 않습니다.`
+      );
       const copies=block.map((w0,k)=>({
         ...w0,
         id:"w"+stamp+"_"+k,
         name:k===0?`${w0.name} (복사)`:w0.name,   // 최상위만 (복사) 표시, 하위는 이름 그대로
-        status:"미시작", pct:0, pctManual:null,    // 진척·상태 초기화
+        ...(keepProgress?{}:{status:"미시작",pct:0,pctManual:null}),   // 선택에 따라 진척·상태 초기화
+        // ITP 연동 행은 진도율이 검사기록에서 오는데 복사본은 연동이 끊기므로,
+        // 진행 상태 유지 복사면 현재 계산된 %를 수동값으로 굳혀서 그대로 보이게 한다.
+        ...(keepProgress&&w0.itpLink&&(w0.pctManual==null||w0.pctManual==="")?{pctManual:wCS(w0).pct}:{}),
         itpLink:null                                // 제작공정/검사기록 연동 해제 (원본과 공유 금지)
       }));
       WBS.splice(insAt,0,...copies);
@@ -1789,7 +1801,12 @@ function v28Export(){
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
-  a.href=url;a.download=`EPC_Control_v28_${new Date().toISOString().slice(0,10)}.json`;
+  // v28.4.38: 파일명을 프로젝트 코드+이름으로 — 'SJ435-26 삼성전기 원료3동 6라인 증설공사_2026-07-16.json'
+  //   여러 프로젝트 JSON을 백업해둘 때 어느 프로젝트인지 파일명만으로 구분 가능.
+  //   파일명에 못 쓰는 문자(\/:*?"<>|)는 공백으로 치환. 프로젝트 미선택 시 기존 이름 유지.
+  const _p=S.selproj;
+  const _base=_p?`${_p.no||_p.code||""} ${_p.name||""}`.trim().replace(/[\\/:*?"<>|]/g," ").replace(/\s+/g," "):"";
+  a.href=url;a.download=`${_base||"EPC_Control_v28"}_${new Date().toISOString().slice(0,10)}.json`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
   addLog("📥 JSON Export 완료","ok");
