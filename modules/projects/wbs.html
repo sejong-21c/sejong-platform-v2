@@ -703,6 +703,7 @@ function rDetailPanel(){
       </div>
       <div class="dpnl-actions">
         ${em?`<button class="save-btn" data-a="svWEdit">💾 저장</button><button data-a="clWEdit" style="padding:4px 10px;background:#f3f4f6;border:none;border-radius:5px;font-size:11px;cursor:pointer;color:#6b7280">취소</button>`:`<button class="edit-btn" data-a="stWEdit">✏ 수정</button>`}
+        ${em?"":`<button data-a="dupW" data-id="${w.id}" style="padding:4px 10px;background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600" title="이 항목(하위 포함)을 같은 일정으로 바로 아래에 복사">📋 복사</button>`}
         <button data-a="delW" data-id="${w.id}" style="padding:4px 10px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600" title="이 항목 삭제">🗑 삭제</button>
         <button class="close-btn" data-a="clrW">✕</button>
       </div>
@@ -1252,6 +1253,36 @@ function act(a,d){
       renumberWBS();
       addLog(`🗑 삭제: ${w.code} ${w.name}${childCount?' (하위 '+childCount+'개 포함)':''}`,"warn");
       us({wsel:null,wedit:false});
+      break;}
+    case"dupW":{
+      // v28.4.35: WBS 행 복사 — 선택 행과 그 하위 서브트리 전체를 같은 일정·속성으로 복제해
+      // 바로 아래에 삽입. 이름은 "(복사)" 접미를 붙여 구분(사용자가 곧바로 수정). 진척·검사기록
+      // 연동(itpLink)·NCR은 새 행이 물려받으면 안 되므로 초기화(미시작·pct 0·itpLink 없음).
+      const wid=d.id;const wi=WBS.findIndex(x=>x.id===wid);if(wi<0)break;
+      const src=WBS[wi];
+      // 서브트리 범위(자신 + 더 깊은 레벨 연속) 수집
+      const block=[src];
+      for(let j=wi+1;j<WBS.length;j++){
+        if(WBS[j].projId!==src.projId)break;
+        if(WBS[j].lv<=src.lv)break;
+        block.push(WBS[j]);
+      }
+      // 삽입 위치 = 서브트리 끝 바로 다음
+      const insAt=wi+block.length;
+      const stamp=Date.now();
+      const copies=block.map((w0,k)=>({
+        ...w0,
+        id:"w"+stamp+"_"+k,
+        name:k===0?`${w0.name} (복사)`:w0.name,   // 최상위만 (복사) 표시, 하위는 이름 그대로
+        status:"미시작", pct:0, pctManual:null,    // 진척·상태 초기화
+        itpLink:null                                // 제작공정/검사기록 연동 해제 (원본과 공유 금지)
+      }));
+      WBS.splice(insAt,0,...copies);
+      renumberWBS();
+      const newTop=WBS.find(x=>x.id===copies[0].id);
+      addLog(`📋 복사: ${src.code} ${src.name}${block.length>1?' (하위 '+(block.length-1)+'개 포함)':''} → ${newTop?newTop.code:''}`,"ok");
+      // 복사된 최상위 행을 자동 선택 + 바로 수정 모드로 열어 이름·항목을 곧장 고칠 수 있게
+      us({wsel:newTop,wedit:true});
       break;}
     case"stWEdit":us({wedit:true});break;case"clWEdit":us({wedit:false});break;
     case"svWEdit":{const id=S.wsel?.id;if(!id)return;const name=document.querySelector('[data-draft="wedit"][data-k="name"]')?.value??S.wsel.name;const mgr=document.querySelector('[data-draft="wedit"][data-k="mgr"]')?.value??S.wsel.mgr;const s=document.querySelector('[data-draft="wedit"][data-k="s"]')?.value??S.wsel.s;const e=document.querySelector('[data-draft="wedit"][data-k="e"]')?.value??S.wsel.e;const status=document.querySelector('[data-draft="wedit"][data-k="status"]')?.value??S.wsel.status;const vendor=document.querySelector('[data-draft="wedit"][data-k="vendor"]')?.value??S.wsel.vendor??"";const memo=document.querySelector('[data-draft="wedit"][data-k="memo"]')?.value??S.wsel.memo??"";
