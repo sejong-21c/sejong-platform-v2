@@ -1305,16 +1305,24 @@ function act(a,d){
         `· [취소] = 미시작 0%로 초기화해서 복사\n\n`+
         `※ 제작공정(ITP) 연동·검사기록은 어느 쪽이든 복사되지 않습니다.`
       );
-      const copies=block.map((w0,k)=>({
-        ...w0,
-        id:"w"+stamp+"_"+k,
-        name:k===0?`${w0.name} (복사)`:w0.name,   // 최상위만 (복사) 표시, 하위는 이름 그대로
-        ...(keepProgress?{}:{status:"미시작",pct:0,pctManual:null}),   // 선택에 따라 진척·상태 초기화
-        // ITP 연동 행은 진도율이 검사기록에서 오는데 복사본은 연동이 끊기므로,
-        // 진행 상태 유지 복사면 현재 계산된 %를 수동값으로 굳혀서 그대로 보이게 한다.
-        ...(keepProgress&&w0.itpLink&&(w0.pctManual==null||w0.pctManual==="")?{pctManual:wCS(w0).pct}:{}),
-        itpLink:null                                // 제작공정/검사기록 연동 해제 (원본과 공유 금지)
-      }));
+      const copies=block.map((w0,k)=>{
+        // v28.4.41: pctManual 고정은 "자식 없는 말단 행"에만 — 부모 행에 고정하면 이후
+        // 자식들의 실제 진행을 바꿔도 부모 막대가 복사 시점 %에 영원히 붙박이가 되는 버그
+        // (복사한 탱크 전부가 82%로 보이던 원인). 부모는 자식 롤업으로 자동 계산돼야 한다.
+        const isLeaf=!(block[k+1]&&(block[k+1].lv||0)>(w0.lv||0));
+        return {
+          ...w0,
+          id:"w"+stamp+"_"+k,
+          name:k===0?`${w0.name} (복사)`:w0.name,   // 최상위만 (복사) 표시, 하위는 이름 그대로
+          ...(keepProgress?{}:{status:"미시작",pct:0,pctManual:null}),   // 선택에 따라 진척·상태 초기화
+          // ITP 연동 말단 행은 진도율이 검사기록에서 오는데 복사본은 연동이 끊기므로,
+          // 진행 상태 유지 복사면 현재 계산된 %를 수동값으로 굳혀서 그대로 보이게 한다.
+          ...(keepProgress&&isLeaf&&w0.itpLink&&(w0.pctManual==null||w0.pctManual==="")?{pctManual:wCS(w0).pct}:{}),
+          // 부모 행에 이미 있던 수동 고정값도 복사본에는 물려주지 않는다 (자식 롤업이 진실)
+          ...(!isLeaf?{pctManual:null}:{}),
+          itpLink:null                                // 제작공정/검사기록 연동 해제 (원본과 공유 금지)
+        };
+      });
       WBS.splice(insAt,0,...copies);
       renumberWBS();
       const newTop=WBS.find(x=>x.id===copies[0].id);
