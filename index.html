@@ -1146,9 +1146,30 @@ function checkSessionTimeout() {
   }
 }
 setInterval(checkSessionTimeout, 30 * 1000);           // 30초마다 유휴 여부 확인
-['mousemove','mousedown','keydown','scroll','touchstart'].forEach(function(ev){
+const _ACTIVITY_EVENTS = ['mousemove','mousedown','keydown','scroll','touchstart'];
+_ACTIVITY_EVENTS.forEach(function(ev){
   document.addEventListener(ev, touchSession, { passive: true });
 });
+// v29.28: 실제 작업 도구(NCR·CAR·ITP·QA·측정기구·WBS 등)는 전부 iframe 안에서 동작한다.
+// iframe 안에서 마우스·키보드를 써도 그 이벤트는 iframe 자신의 document에서 발생하므로
+// 부모의 touchSession이 호출되지 않아, 도구를 열심히 쓰는 중에도 부모는 "무활동"으로 판단해
+// 10분 뒤 로그아웃시켜 버리는 버그가 있었다(사용 중 갑자기 로그아웃되는 원인).
+// 모든 모듈이 같은 오리진(sejong21c.com)이므로 iframe.contentDocument에 접근 가능 →
+// 각 iframe document에도 동일한 활동 리스너를 붙여 부모 세션 타이머를 리셋한다.
+// iframe이 재로드되면 document가 새로 생기므로 WeakSet으로 중복 없이 주기적으로 재부착.
+const _wiredIframeDocs = new WeakSet();
+function wireIframeActivity() {
+  document.querySelectorAll('iframe').forEach(function(fr){
+    let doc;
+    try { doc = fr.contentDocument; } catch(e) { return; }   // 혹시 모를 cross-origin이면 스킵
+    if (!doc || _wiredIframeDocs.has(doc)) return;
+    _wiredIframeDocs.add(doc);
+    _ACTIVITY_EVENTS.forEach(function(ev){
+      doc.addEventListener(ev, touchSession, { passive: true });
+    });
+  });
+}
+setInterval(wireIframeActivity, 4000);   // 새로 뜬/재로드된 iframe도 몇 초 내 자동 연결
 
 function getU(id) {
   const u = state.users.find(u => u.id === id);
