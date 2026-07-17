@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- v29.30: index.html은 항상 서버에서 최신본을 재검증하도록 강제.
+     이게 없으면 브라우저가 옛 index.html을 캐시해, 배포된 수정(예: 유휴 로그아웃
+     시간 변경)이 하드 새로고침 전까지 반영 안 돼 '고쳤는데 그대로'인 현상이 생김.
+     no-cache = 캐시는 허용하되 매번 ETag로 재검증(변경 없으면 304, 있으면 즉시 최신). -->
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>SJ FLOW v1.0 - 세종기술 통합 협업 플랫폼</title>
 <script type="module">
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
