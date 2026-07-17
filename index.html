@@ -1139,16 +1139,45 @@ window.SJP.loadBriefings = loadBriefings;
 // 근무 중에는 절대 로그아웃되지 않도록 한다. (완전 방치 시에만 보안상 정리)
 // 활동이 있을 때마다 타이머가 리셋되며, 아래 iframe 활동 감지로 도구 내부 조작도 포함된다.
 const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000; // 8시간 무활동 (근무일 기준)
+// v29.31: ★ 다중 탭 로그아웃 사고 근본 수정 ★
+// lastActive가 탭별 메모리에만 있어서, SJ FLOW 탭을 2개 이상 열어두면 활동이 없는
+// 백그라운드 탭이 혼자 '유휴'로 판단해 fb.signOut()을 호출했고, Firebase 로그아웃은
+// 같은 도메인의 모든 탭에 전파되므로 → 다른 탭에서 스케줄을 열심히 작성 중이어도
+// 통째로 로그인 화면으로 튕겼다 (사용 중 갑자기 로그아웃되던 진짜 원인).
+// 수정 1: 활동 시각을 localStorage 공유 키에 기록 — 어느 탭의 활동이든 전체가 인정.
+// 수정 2: 만료 판정은 항상 공유 키의 최신값 기준.
+// 수정 3: 숨겨진(백그라운드) 탭은 절대 로그아웃을 주도하지 않음.
+const LAST_ACTIVE_KEY = KEY + '__lastActive';
 let _lastSave = 0;
+let _lastActivePersist = 0;
 function touchSession() {
   if (!state.currentUser) return;
   state.lastActive = Date.now();
-  if (state.lastActive - _lastSave > 20000) { _lastSave = state.lastActive; save(); } // 저장은 20초마다만
+  if (state.lastActive - _lastActivePersist > 5000) {   // 공유 키는 5초에 한 번만 기록 (가벼움)
+    _lastActivePersist = state.lastActive;
+    try { localStorage.setItem(LAST_ACTIVE_KEY, String(state.lastActive)); } catch(e) {}
+  }
+  if (state.lastActive - _lastSave > 20000) { _lastSave = state.lastActive; save(); } // 전체 저장은 20초마다만
 }
-function sessionExpired() { return !!state.currentUser && !!state.lastActive && (Date.now() - state.lastActive > SESSION_TIMEOUT_MS); }
+// 모든 탭을 통틀어 가장 최근 활동 시각 (localStorage 공유값과 이 탭 메모리값 중 최신)
+function _sharedLastActive() {
+  let disk = 0;
+  try { disk = Number(localStorage.getItem(LAST_ACTIVE_KEY)) || 0; } catch(e) {}
+  return Math.max(disk, state.lastActive || 0);
+}
+function sessionExpired() {
+  if (!state.currentUser) return false;
+  const la = _sharedLastActive();
+  if (!la) return false;
+  return Date.now() - la > SESSION_TIMEOUT_MS;
+}
 function checkSessionTimeout() {
+  // 백그라운드 탭은 로그아웃을 주도하지 않는다 — 보이는 탭만 판단.
+  // (숨겨진 탭이 signOut하면 작업 중인 다른 탭까지 전부 로그아웃되는 사고 방지)
+  if (document.hidden) return;
   if (state.currentUser && sessionExpired()) {
     state.currentUser = null; state.lastActive = null; save();
+    try { localStorage.removeItem(LAST_ACTIVE_KEY); } catch(e) {}
     stopFirestoreSync();
     if (window.fb) fb.signOut(fb.auth).catch(()=>{});
     showLogin();
