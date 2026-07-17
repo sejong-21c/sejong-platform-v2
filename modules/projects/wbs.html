@@ -725,7 +725,7 @@ function rDetailPanel(){
         const disp=w.itpLink
           ?`<span style="font-size:11px;color:#4a7fc1;font-weight:700">${_iTag}</span>${itpBtn}`
           :`<span style="font-size:10px;color:#9ca3af">— 연동 없음 —</span>`;
-        const opts=`<option value="">없음 (연동 해제)</option>`+allI().map(i=>{
+        const opts=`<option value="">없음 (연동 해제)</option><option value="__new__">★ 새 제작공정(Trv.) 아이템 자동 생성</option>`+allI().map(i=>{
           const takenByOther=i.wbsLink&&i.wbsLink!==w.id;
           return `<option value="${i.id}"${i.id===w.itpLink?" selected":""}>${i.tagNo}${takenByOther?" ⚠ 다른 행에 연동됨":""}</option>`;
         }).join("");
@@ -1307,7 +1307,16 @@ function act(a,d){
       // v28.4.36: 제작공정(ITP) 연동 설정/변경/해제 — 아이템의 wbsLink도 양방향으로 정리
       let itpLink=S.wsel.itpLink??null;
       const _itpSel=document.querySelector('[data-draft="wedit"][data-k="itpLink"]');
-      if(_itpSel){
+      if(_itpSel&&_itpSel.value==="__new__"){
+        // v28.4.37: ★ 새 제작공정(Trv.) 아이템 자동 생성 후 이 행에 연동 (추가 모달의 __new__와 동일 동작)
+        Object.keys(MITEM).forEach(pid=>{MITEM[pid]=(MITEM[pid]||[]).map(it=>it.wbsLink===id?{...it,wbsLink:null}:it);});   // 기존 연동 해제
+        const apid=S.selproj?.id||_wbsPid;
+        if(!MITEM[apid])MITEM[apid]=[];
+        const aid="i"+Date.now();
+        MITEM[apid].push({id:aid,tagNo:name,type:"장비",spec:"",maker:"",wbsLink:id});
+        addLog("MM 아이템 자동 생성: "+name,"ok");
+        itpLink=aid;
+      }else if(_itpSel){
         const nv=_itpSel.value||null;
         if(nv!==itpLink){
           // 이 WBS 행을 가리키던 기존 아이템 연결 해제
