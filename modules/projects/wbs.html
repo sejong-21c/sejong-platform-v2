@@ -1930,8 +1930,11 @@ act=function(a,d){
 async function v284GenerateExcel(){
   if(!S.selproj){alert("프로젝트가 선택되지 않았습니다.");return;}
   const proj=S.selproj;
-  const projWBS=WBS.filter(w=>w.projId===proj.id);
-  if(projWBS.length===0){alert("이 프로젝트에 WBS 항목이 없습니다.");return;}
+  // v28.4.42: 부서 스케줄(부서 도구함)에서 열었으면 그 부서 행만 출력 — 화면과 동일 기준.
+  //   프로젝트(EPC Control)에서 열면 _deptFilter=null → 전체 부서 출력.
+  const projWBS=WBS.filter(w=>w.projId===proj.id&&(!_deptFilter||w.dept===_deptFilter));
+  if(projWBS.length===0){alert(_deptFilter?`이 프로젝트에 ${_deptFilter} 담당 WBS 항목이 없습니다.
+(항목의 '담당 부서'가 지정돼 있어야 부서별 출력에 포함됩니다)`:"이 프로젝트에 WBS 항목이 없습니다.");return;}
   if(typeof XLSX==="undefined"){alert("Excel 라이브러리 로딩 중입니다.");return;}
   
   addLog(`📊 Excel 생성 시작: ${proj.no}`,"info");
@@ -2008,7 +2011,7 @@ async function v284GenerateExcel(){
     const merges=[];
     
     // R1: 타이틀 — v28.4.29 ★ 1+2행 통째 병합 시 좌상단(A1)에 텍스트 + A1 스타일 적용
-    const r1=[];r1[0]="MASTER SCHEDULE";
+    const r1=[];r1[0]="MASTER SCHEDULE"+(_deptFilter?` (${_deptFilter})`:"");
     aoa.push(r1);
     styles["A1"]={font:fontKR({sz:24,bold:true,color:{rgb:"1A1A1A"}}),alignment:center};
     
@@ -2352,7 +2355,7 @@ async function v284GenerateExcel(){
     });
     
     const todayStrFile=new Date().toISOString().slice(0,10).replace(/-/g,'');
-    const fileName=`${proj.no}_MASTER_SCHEDULE_${todayStrFile}.xlsx`;
+    const fileName=`${proj.no}_${_deptFilter?_deptFilter+"_":""}MASTER_SCHEDULE_${todayStrFile}.xlsx`;
 
     // v28.4.31: 오늘 날짜를 셀 테두리가 아닌 실제 도형(가는 세로선)으로 정확히 그리기 위해
     // xlsx(zip) 파일을 직접 후처리해 DrawingML(xdr:sp) 도형을 삽입.
@@ -2580,8 +2583,10 @@ async function v284GeneratePDF(){
   if(!S.selproj){alert("프로젝트가 선택되지 않았습니다.");return;}
   
   const proj=S.selproj;
-  const projWBS=WBS.filter(w=>w.projId===proj.id);
-  if(projWBS.length===0){alert("이 프로젝트에 WBS 항목이 없습니다.");return;}
+  // v28.4.42: 부서 스케줄에서 열었으면 그 부서 행만 출력 (Excel과 동일)
+  const projWBS=WBS.filter(w=>w.projId===proj.id&&(!_deptFilter||w.dept===_deptFilter));
+  if(projWBS.length===0){alert(_deptFilter?`이 프로젝트에 ${_deptFilter} 담당 WBS 항목이 없습니다.
+(항목의 '담당 부서'가 지정돼 있어야 부서별 출력에 포함됩니다)`:"이 프로젝트에 WBS 항목이 없습니다.");return;}
   
   if(typeof window.jspdf==="undefined"||typeof window.html2canvas==="undefined"){
     alert("PDF 라이브러리 로딩 중입니다. 잠시 후 다시 시도해주세요.\n(인터넷 연결을 확인하세요)");
@@ -2742,7 +2747,7 @@ async function v284GeneratePDF(){
             <div style="font-size:9pt;color:#444;margin-top:2px">작성 : ${proj.pm||'김철우 부장'}</div>
           </td>
           <td style="vertical-align:top;text-align:center;width:36%">
-            <div style="font-size:24pt;font-weight:900;color:#1a1a1a;letter-spacing:2px;font-family:Arial,sans-serif">MASTER SCHEDULE</div>
+            <div style="font-size:24pt;font-weight:900;color:#1a1a1a;letter-spacing:2px;font-family:Arial,sans-serif">MASTER SCHEDULE${_deptFilter?` — ${_deptFilter}`:""}</div>
             <div style="height:2px;background:#1a1a1a;margin:2px 60px 0"></div>
           </td>
           <td style="vertical-align:top;text-align:right;width:32%;font-size:10pt;color:#1a1a1a;line-height:1.5">
@@ -2913,7 +2918,7 @@ async function v284GeneratePDF(){
     }
     
     const todayStrFile=new Date().toISOString().slice(0,10).replace(/-/g,'');
-    const fileName=`${proj.no}_MASTER_SCHEDULE_${todayStrFile}.pdf`;
+    const fileName=`${proj.no}_${_deptFilter?_deptFilter+"_":""}MASTER_SCHEDULE_${todayStrFile}.pdf`;
     pdf.save(fileName);
     
     addLog(`✅ PDF 생성 완료: ${fileName}`,"ok");
