@@ -620,26 +620,21 @@ function wVis(){
 }
 // ── 대단락 "N", 하위 "N.M" ──
 function renumberWBS(){
-  // v28.4.1: projId별로 독립적으로 번호 매김
-  // 각 프로젝트별로 lv0=1,2,3... / lv1=N.1, N.2... 시작
+  // v28.4.34: projId별로 독립적으로 다단계 번호 매김 (3레벨 이상 지원).
+  //   lv0 → 1, 2, 3 …   lv1 → N.1, N.2 …   lv2 → N.M.1, N.M.2 …   (레벨 제한 없음)
+  //   각 항목은 배열 순서 + lv로 계층이 결정되므로, 레벨별 카운터를 유지하면서
+  //   더 얕은 레벨을 만날 때마다 그보다 깊은 카운터를 리셋한다.
   const projIds=new Set(WBS.filter(w=>w.projId).map(w=>w.projId));
-  // projId 없는 WBS도 처리 (옛 데이터 호환용 — 그룹 "null"로)
-  projIds.add(undefined);
+  projIds.add(undefined);   // projId 없는 옛 데이터 호환
   projIds.forEach(curPid=>{
-    let n=0;
+    const counters=[];   // counters[lv] = 해당 레벨의 현재 번호
     for(let i=0;i<WBS.length;i++){
       if(WBS[i].projId!==curPid)continue;
-      if(WBS[i].lv===0){
-        n++;
-        WBS[i]={...WBS[i],code:`${n}`};
-        // 같은 projId의 하위 lv>0 항목들에 N.M 번호
-        let c=0;
-        for(let j=i+1;j<WBS.length;j++){
-          if(WBS[j].projId!==curPid)continue;
-          if(WBS[j].lv===0)break;
-          if(WBS[j].lv>0){c++;WBS[j]={...WBS[j],code:`${n}.${c}`};}
-        }
-      }
+      const lv=WBS[i].lv||0;
+      counters[lv]=(counters[lv]||0)+1;
+      counters.length=lv+1;              // 더 깊은 레벨 카운터 초기화
+      const code=counters.map(x=>x||0).join(".");
+      WBS[i]={...WBS[i],code};
     }
   });
 }
@@ -1073,7 +1068,7 @@ function setIO(el){if(!REC[el.dataset.iid])REC[el.dataset.iid]=iR();REC[el.datas
 function rModals(){
   let h="";
   if(S.wmod){const f=DRAFT.wform;h+=`<div class="ov"><div class="mdl"><div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1a2332">WBS 항목 추가</div>
-      <div style="margin-bottom:7px"><div class="fl">상위 그룹 (추가 위치)</div><select data-draft="wform" data-k="parentId" class="fi"><option value="">— 대단락으로 추가 —</option>${WBS.filter(w=>w.lv===0&&w.projId===S.selproj?.id).map(w=>`<option value="${w.id}">${w.code} ${w.name}</option>`).join("")}</select></div>
+      <div style="margin-bottom:7px"><div class="fl">상위 그룹 (추가 위치)</div><select data-draft="wform" data-k="parentId" class="fi"><option value="">— 대단락으로 추가 —</option>${WBS.filter(w=>(w.lv===0||w.lv===1)&&w.projId===S.selproj?.id).map(w=>`<option value="${w.id}"${DRAFT.wform.parentId===w.id?" selected":""}>${w.lv===1?"　└ ":""}${w.code} ${w.name}${w.lv===1?" 아래 (소단락)":""}</option>`).join("")}</select></div>
       <div style="margin-bottom:7px"><div class="fl">담당 부서 <span style="font-size:9px;color:#9ca3af">— 부서 스케줄 필터·권한 기준</span></div><select data-draft="wform" data-k="dept" class="fi"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${(f.dept||_deptFilter||"")===d?" selected":""}>${d}</option>`).join("")}</select></div>
       <div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:.4"><div class="fl">작업코드</div>${inp("wform","code","placeholder='자동'",f.code)}</div><div style="flex:1"><div class="fl">작업명</div>${inp("wform","name","",f.name)}</div></div><div style="margin-bottom:7px"><div class="fl">담당자</div>${inp("wform","mgr","",f.mgr)}</div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">시작일</div>${inp("wform","s","type='date'",f.s)}</div><div style="flex:1"><div class="fl">완료일</div>${inp("wform","e","type='date'",f.e)}</div></div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">상태</div>${sel("wform","status",["미시작","진행중","완료","지연"],f.status||"미시작")}</div><div style="flex:1"><div class="fl">제작공정 연동</div><select data-draft="wform" data-k="itpLink" class="fi"><option value="">없음</option><option value="__new__">★ 새 제작공정(Trv.) 아이템 자동 생성</option>${allI().map(i=>`<option value="${i.id}">${i.tagNo}</option>`).join("")}</select></div></div><!-- v28.4.8: 담당 업체 + 메모 (MS Project Notes 스타일) --><div style="margin-bottom:7px"><div class="fl">담당 업체 <span style="font-size:9px;color:#9ca3af">— REMARK 컬럼 표시</span></div>${inp("wform","vendor","placeholder='㈜세종기술 / 동원전기 등'",f.vendor||"")}</div><div style="margin-bottom:10px"><div class="fl">메모 / 이벤트 <span style="font-size:9px;color:#9ca3af">— PDF 막대 옆 콜아웃</span></div><textarea data-draft="wform" data-k="memo" class="fi" rows="2" placeholder="작업 핵심 이벤트 메모 (예: 8/10 PSM 서류 결과 수령)" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box">${f.memo||""}</textarea></div><div style="display:flex;gap:6px;justify-content:flex-end"><button data-a="clWM" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button><button data-a="svW" style="padding:5px 11px;background:#4a7fc1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">저장</button></div></div></div>`;}
   // v28.4.17: NOTE 편집 모달
@@ -1286,15 +1281,19 @@ function act(a,d){
       const dp=document.querySelector('[data-draft="wform"][data-k="dept"]')?.value||_deptFilter||"";
       const wid="w"+Date.now();
       const curPid=S.selproj?.id||_wbsPid;
-      WBS.push({id:wid,code:c2||"?",name:n,mgr:m2,s:sd,e:ed,status:st,itpLink:null,lv:pg?1:0,projId:curPid,vendor:vd,memo:mm,dept:dp});
-      if(pg){
+      // v28.4.34: 다단계(3레벨 이상) 지원 — 상위 그룹으로 lv0(대단락)뿐 아니라 lv1(소단락)도
+      // 선택 가능. 새 항목 레벨 = 부모 레벨 + 1. 부모가 없으면 대단락(lv0).
+      const parentRow = pg ? WBS.find(w=>w.id===pg) : null;
+      const newLv = parentRow ? (parentRow.lv||0)+1 : 0;
+      const newRow = {id:wid,code:c2||"?",name:n,mgr:m2,s:sd,e:ed,status:st,itpLink:null,lv:newLv,projId:curPid,vendor:vd,memo:mm,dept:dp};
+      if(parentRow){
         const pi2=WBS.findIndex(w=>w.id===pg);
-        if(pi2>=0){
-          const ni2=WBS.findIndex((w,i)=>i>pi2&&w.lv===0);
-          const ins=ni2>=0?ni2:WBS.length-1;
-          const item2=WBS.pop();
-          WBS.splice(ins,0,item2);
-        }
+        // 부모의 서브트리 끝(부모보다 얕거나 같은 레벨이 처음 나오는 위치) 바로 앞에 삽입
+        let j=pi2+1;
+        while(j<WBS.length && (WBS[j].lv||0) > (parentRow.lv||0)) j++;
+        WBS.splice(j,0,newRow);
+      }else{
+        WBS.push(newRow);
       }
       renumberWBS();
       if(il&&il!=="__new__"){
