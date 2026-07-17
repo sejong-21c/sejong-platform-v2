@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>WBS 스케줄 공유 — 세종기술</title>
 <script type="module">
-  // v28.4.48: 외부 공유용 읽기 전용 WBS 뷰어.
+  // v28.4.49: 외부 공유용 읽기 전용 WBS 뷰어 (접기/펼치기 지원).
   // 공유하기 버튼이 wbsShares/{pid}에 저장한 스냅샷을 로그인 없이 읽는다
   // (Firestore 규칙에서 wbsShares 컬렉션만 공개 read 허용 — 쓰기는 사내 계정만).
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -32,12 +33,19 @@ header { background:linear-gradient(135deg,#0b2545,#13315c); color:#fff; border-
 header h1 { font-size:17px; font-weight:800; }
 header .sub { font-size:11.5px; opacity:.85; margin-top:4px; }
 .ro-badge { display:inline-block; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35); border-radius:12px; padding:2px 10px; font-size:10px; font-weight:700; margin-left:8px; vertical-align:middle; }
+.toolbar { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; align-items:center; }
+.toolbar .hint { font-size:10.5px; color:var(--mut); margin-left:4px; }
+.tb-btn { padding:6px 13px; background:#fff; border:1px solid var(--line); border-radius:6px; font-size:11px; font-weight:600; color:#374151; cursor:pointer; font-family:inherit; }
+.tb-btn:hover { background:#eef3fb; border-color:var(--blue); color:#1e40af; }
 .card { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:auto; }
 table { border-collapse:collapse; width:100%; min-width:1100px; table-layout:fixed; }
 thead th { position:sticky; top:0; background:#f8fafc; font-size:10px; font-weight:700; color:var(--mut); padding:8px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; z-index:2; }
 tbody td { padding:0 8px; height:30px; border-bottom:1px solid #f0f4f8; font-size:11px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 tbody tr:hover { background:#f9fafb; }
 .lv0 td.nm { font-weight:800; color:#1e40af; }
+.tgl { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:3px; background:#e4e7ec; border:none; cursor:pointer; font-size:8px; color:#374151; margin-right:4px; vertical-align:middle; flex-shrink:0; }
+.tgl:hover { background:#c7d7f0; }
+.tgl-ph { display:inline-block; width:19px; }
 .pill { display:inline-block; padding:1px 8px; border-radius:9px; font-size:9.5px; font-weight:700; }
 .p-done { background:#dcfce7; color:#166534; } .p-run { background:#fef3c7; color:#92400e; }
 .p-wait { background:#f3f4f6; color:#6b7280; } .p-late { background:#fee2e2; color:#b91c1c; }
@@ -48,7 +56,7 @@ tbody tr:hover { background:#f9fafb; }
 .today { position:absolute; top:0; bottom:0; width:2px; background:#ef4444; opacity:.75; z-index:1; }
 footer { text-align:center; font-size:10.5px; color:#9ca3af; margin-top:18px; line-height:1.7; }
 .err { text-align:center; padding:70px 20px; color:var(--mut); font-size:14px; }
-@media print { header{-webkit-print-color-adjust:exact} .card{border:none} }
+@media print { header{-webkit-print-color-adjust:exact} .card{border:none} .toolbar{display:none} }
 </style>
 </head>
 <body>
@@ -61,7 +69,7 @@ function boot(){
   if (!sid) { app.innerHTML = '<div class="err">잘못된 공유 링크입니다.</div>'; return; }
   fb.getDoc(fb.doc(fb.db, "wbsShares", sid)).then(snap => {
     if (!snap.exists()) { app.innerHTML = '<div class="err">공유가 만료됐거나 존재하지 않는 링크입니다.<br><small>공유한 담당자에게 새 링크를 요청해주세요.</small></div>'; return; }
-    render(snap.data());
+    init(snap.data());
   }).catch(e => {
     app.innerHTML = '<div class="err">불러오기 실패: ' + (e.message||e) + '</div>';
   });
@@ -69,18 +77,22 @@ function boot(){
 
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-function render(d){
-  const rows = d.rows || [];
-  // ── 진도율: pctManual → 자식 롤업 → 상태 → 일정 경과 (EPC Control wCS 간이판)
+let ROWS = [], META = {}, collapsed = new Set();
+let GS, GE, months = [], todayX = 0;
+const hasKids = i => i < ROWS.length-1 && (ROWS[i+1].lv||0) > (ROWS[i].lv||0);
+
+function init(d){
+  META = d;
+  ROWS = d.rows || [];
+  // 진도율 계산 (pctManual → 자식 롤업 → 상태 → 일정 경과)
   const memo = {};
   function calcPct(i){
     if (memo[i] != null) return memo[i];
-    const w = rows[i];
-    let v;
+    const w = ROWS[i]; let v;
     if (w.pctManual != null && w.pctManual !== "") v = Math.max(0, Math.min(100, Math.round(Number(w.pctManual))||0));
     else {
       const kids = [];
-      for (let j = i+1; j < rows.length; j++) { if ((rows[j].lv||0) <= (w.lv||0)) break; if ((rows[j].lv||0) === (w.lv||0)+1) kids.push(j); }
+      for (let j = i+1; j < ROWS.length; j++) { if ((ROWS[j].lv||0) <= (w.lv||0)) break; if ((ROWS[j].lv||0) === (w.lv||0)+1) kids.push(j); }
       if (kids.length) v = Math.round(kids.reduce((a,j)=>a+calcPct(j),0)/kids.length);
       else if (w.status === "완료") v = 100;
       else if (w.status === "미시작") v = 0;
@@ -92,64 +104,114 @@ function render(d){
     }
     memo[i] = v; return v;
   }
-  // ── 간트 범위: 월 경계로 패딩
-  const dated = rows.filter(w=>w.s&&w.e);
-  let GS = new Date(), GE = new Date();
-  if (dated.length) {
-    GS = new Date(dated.map(w=>w.s).sort()[0]); GS = new Date(GS.getFullYear(), GS.getMonth(), 1);
-    GE = new Date(dated.map(w=>w.e).sort().slice(-1)[0]); GE = new Date(GE.getFullYear(), GE.getMonth()+1, 0);
-  }
-  const dp = ds => { if(!ds) return 0; return Math.max(0, Math.min(100, (new Date(ds)-GS)/(GE-GS)*100)); };
-  // 월 헤더
-  const months = [];
-  { let d0 = new Date(GS.getFullYear(), GS.getMonth(), 1);
-    while (d0 <= GE) { months.push({ y:d0.getFullYear(), m:d0.getMonth(), x:dp(d0.toISOString().slice(0,10)) }); d0 = new Date(d0.getFullYear(), d0.getMonth()+1, 1); } }
-  const monthLines = months.slice(1).map(mo=>`<div style="position:absolute;left:${mo.x.toFixed(2)}%;top:0;bottom:0;width:1px;background:#e2e8f0"></div>`).join("");
-  const monthLabels = months.map(mo=>`<span style="position:absolute;left:${mo.x.toFixed(2)}%;padding-left:4px;font-size:9px;color:#6b7280">${(mo.y%100)}년 ${mo.m+1}월</span>`).join("");
-  const todayX = dp(new Date().toISOString().slice(0,10));
-
-  const SS = { "완료":"p-done", "진행중":"p-run", "미시작":"p-wait", "지연":"p-late" };
-  const body = rows.map((w,i)=>{
-    const pct = calcPct(i);
-    const st = w.status==="지연"?"지연":(pct>=100?"완료":pct>0?"진행중":"미시작");
-    const lv = w.lv||0;
-    // 부모 막대는 후손 범위
+  ROWS.forEach((w,i)=>{ w._pct = calcPct(i); });
+  // 부모 막대 범위 (후손 min~max)
+  ROWS.forEach((w,i)=>{
     let bs=w.s, be=w.e;
     if (!bs || !be) {
       const ss=[],ee=[];
-      for(let j=i+1;j<rows.length;j++){ if((rows[j].lv||0)<=lv)break; if(rows[j].s)ss.push(rows[j].s); if(rows[j].e)ee.push(rows[j].e); }
+      for(let j=i+1;j<ROWS.length;j++){ if((ROWS[j].lv||0)<=(w.lv||0))break; if(ROWS[j].s)ss.push(ROWS[j].s); if(ROWS[j].e)ee.push(ROWS[j].e); }
       if(ss.length){bs=ss.sort()[0];be=ee.sort().slice(-1)[0];}
     }
-    const l=dp(bs), wd=Math.max(dp(be)-l,.5);
-    return `<tr class="lv${lv}">
-      <td style="color:#4a7fc1;font-weight:700;padding-left:${8+lv*4}px">${esc(w.code)}</td>
+    w._bs=bs; w._be=be;
+  });
+  // 간트 범위 (월 경계 패딩)
+  const dated = ROWS.filter(w=>w._bs&&w._be);
+  GS = new Date(); GE = new Date();
+  if (dated.length) {
+    GS = new Date(dated.map(w=>w._bs).sort()[0]); GS = new Date(GS.getFullYear(), GS.getMonth(), 1);
+    GE = new Date(dated.map(w=>w._be).sort().slice(-1)[0]); GE = new Date(GE.getFullYear(), GE.getMonth()+1, 0);
+  }
+  const dp = ds => { if(!ds) return 0; return Math.max(0, Math.min(100, (new Date(ds)-GS)/(GE-GS)*100)); };
+  window._dp = dp;
+  months = [];
+  { let d0 = new Date(GS.getFullYear(), GS.getMonth(), 1);
+    while (d0 <= GE) { months.push({ y:d0.getFullYear(), m:d0.getMonth(), x:dp(d0.toISOString().slice(0,10)) }); d0 = new Date(d0.getFullYear(), d0.getMonth()+1, 1); } }
+  todayX = dp(new Date().toISOString().slice(0,10));
+  // 기본: 모든 부모 접힘 → 대단락(Level 1)만 표시
+  collapsed = new Set(ROWS.filter((w,i)=>hasKids(i)).map(w=>w.id));
+  paintShell();
+  paintBody();
+}
+
+function setFold(mode){
+  // all-open / lv1(대단락만) / lv2(중단락까지)
+  collapsed = new Set();
+  ROWS.forEach((w,i)=>{
+    if (!hasKids(i)) return;
+    const lv = w.lv||0;
+    if (mode === "lv1") collapsed.add(w.id);                 // 대단락만 보임
+    else if (mode === "lv2" && lv >= 1) collapsed.add(w.id); // 중단락까지 보임
+    // all-open: 아무것도 안 접음
+  });
+  paintBody();
+}
+function tg(id){
+  if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+  paintBody();
+}
+window.tg = tg; window.setFold = setFold;
+
+function paintShell(){
+  const d = META;
+  const at = d.at ? new Date(d.at).toLocaleString("ko-KR") : "";
+  const monthLabels = months.map(mo=>`<span style="position:absolute;left:${mo.x.toFixed(2)}%;padding-left:4px;font-size:9px;color:#6b7280">${(mo.y%100)}년 ${mo.m+1}월</span>`).join("");
+  document.getElementById("app").innerHTML = `
+    <header>
+      <h1>📊 ${esc(d.no)} ${esc(d.name)} — MASTER SCHEDULE <span class="ro-badge">조회 전용</span></h1>
+      <div class="sub">${d.client?esc(d.client)+" · ":""}PM ${esc(d.pm||"-")} · Rev. ${d.rev||0}${d.dept?" · "+esc(d.dept)+" 범위":""} · 공유 시점: ${at} · ㈜세종기술</div>
+    </header>
+    <div class="toolbar">
+      <button class="tb-btn" onclick="setFold('lv1')">▣ 대단락만</button>
+      <button class="tb-btn" onclick="setFold('lv2')">▤ 중단락까지</button>
+      <button class="tb-btn" onclick="setFold('all')">☰ 전체 펼치기</button>
+      <span class="hint">▶ 를 눌러 개별 항목을 펼치거나 접을 수 있습니다</span>
+    </div>
+    <div class="card">
+      <table>
+        <colgroup><col style="width:74px"><col style="width:260px"><col style="width:55px"><col style="width:64px"><col style="width:88px"><col style="width:88px"><col></colgroup>
+        <thead><tr><th>코드</th><th>작업명</th><th style="text-align:right">진도율</th><th>상태</th><th>시작일</th><th>완료일</th>
+          <th style="padding:0"><div style="position:relative;height:26px">${monthLabels}</div></th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <footer>이 페이지는 ㈜세종기술 SJ FLOW에서 생성된 읽기 전용 스케줄 공유본입니다.<br>공유 시점 이후의 변경 사항은 반영되지 않을 수 있습니다 · ⓒ Sejong Technology Co., Ltd.</footer>
+  `;
+}
+
+function paintBody(){
+  const dp = window._dp;
+  const monthLines = months.slice(1).map(mo=>`<div style="position:absolute;left:${mo.x.toFixed(2)}%;top:0;bottom:0;width:1px;background:#e2e8f0"></div>`).join("");
+  const SS = { "완료":"p-done", "진행중":"p-run", "미시작":"p-wait", "지연":"p-late" };
+  const html = [];
+  // 조상 접힘 상태 추적: 스택에 (lv, 접힘여부)
+  const stack = [];
+  for (let i = 0; i < ROWS.length; i++) {
+    const w = ROWS[i]; const lv = w.lv||0;
+    while (stack.length && stack[stack.length-1].lv >= lv) stack.pop();
+    const hidden = stack.some(s => s.folded);
+    stack.push({ lv, folded: collapsed.has(w.id) });
+    if (hidden) continue;
+    const pct = w._pct;
+    const st = w.status==="지연"?"지연":(pct>=100?"완료":pct>0?"진행중":"미시작");
+    const l = dp(w._bs), wd = Math.max(dp(w._be)-l, .5);
+    const kids = hasKids(i);
+    const tglBtn = kids
+      ? `<button class="tgl" onclick="tg('${esc(w.id)}')">${collapsed.has(w.id)?"▶":"▼"}</button>`
+      : `<span class="tgl-ph"></span>`;
+    html.push(`<tr class="lv${lv}">
+      <td style="color:#4a7fc1;font-weight:700;padding-left:${8+lv*4}px">${tglBtn}${esc(w.code)}</td>
       <td class="nm" style="padding-left:${8+lv*14}px">${esc(w.name)}</td>
       <td style="text-align:right;font-weight:700;color:#374151">${pct}%</td>
       <td><span class="pill ${SS[st]}">${st}</span></td>
       <td style="font-size:10px;color:#6b7280">${esc(w.s||"")}</td>
       <td style="font-size:10px;color:#6b7280">${esc(w.e||"")}</td>
       <td style="padding:0"><div class="gwrap">${monthLines}<div class="today" style="left:${todayX.toFixed(2)}%"></div>
-        ${bs?`<div class="gbar" style="left:${l.toFixed(2)}%;width:${wd.toFixed(2)}%"><div class="gfill" style="width:${pct}%"></div></div><div class="glabel" style="left:${l.toFixed(2)}%;width:${wd.toFixed(2)}%">${pct}%</div>`:""}
+        ${w._bs?`<div class="gbar" style="left:${l.toFixed(2)}%;width:${wd.toFixed(2)}%"><div class="gfill" style="width:${pct}%"></div></div><div class="glabel" style="left:${l.toFixed(2)}%;width:${wd.toFixed(2)}%">${pct}%</div>`:""}
       </div></td>
-    </tr>`;
-  }).join("");
-
-  const at = d.at ? new Date(d.at).toLocaleString("ko-KR") : "";
-  document.getElementById("app").innerHTML = `
-    <header>
-      <h1>📊 ${esc(d.no)} ${esc(d.name)} — MASTER SCHEDULE <span class="ro-badge">조회 전용</span></h1>
-      <div class="sub">${d.client?esc(d.client)+" · ":""}PM ${esc(d.pm||"-")} · Rev. ${d.rev||0}${d.dept?" · "+esc(d.dept)+" 범위":""} · 공유 시점: ${at} · ㈜세종기술</div>
-    </header>
-    <div class="card">
-      <table>
-        <colgroup><col style="width:70px"><col style="width:250px"><col style="width:55px"><col style="width:64px"><col style="width:88px"><col style="width:88px"><col></colgroup>
-        <thead><tr><th>코드</th><th>작업명</th><th style="text-align:right">진도율</th><th>상태</th><th>시작일</th><th>완료일</th>
-          <th style="padding:0"><div style="position:relative;height:26px">${monthLabels}</div></th></tr></thead>
-        <tbody>${body}</tbody>
-      </table>
-    </div>
-    <footer>이 페이지는 ㈜세종기술 SJ FLOW에서 생성된 읽기 전용 스케줄 공유본입니다.<br>공유 시점 이후의 변경 사항은 반영되지 않을 수 있습니다 · ⓒ Sejong Technology Co., Ltd.</footer>
-  `;
+    </tr>`);
+  }
+  document.getElementById("tb").innerHTML = html.join("");
 }
 
 if (window.fb) boot(); else window.addEventListener("fb-ready", boot);
