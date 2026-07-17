@@ -510,6 +510,26 @@ const lvName=lv=>LV_NAMES[lv]||("하위 "+(lv+1)+"단계");
 // v28.4.46: PDF/Excel 생성 진행 표시 — html2canvas가 대형 스케줄에서 수십 초 걸리는데
 // 아무 피드백이 없어 "안 눌린 줄 알고 두 번 클릭"하게 되던 문제. 클릭 즉시 오버레이를
 // 띄우고, _genBusy 가드로 생성 중 중복 실행을 차단한다.
+// v28.4.47: WBS 항목 추가 모달의 상위 그룹 선택 — 항목이 수백 개면 평면 select는
+// 스크롤 지옥이라, 기본은 대단락만 보이고 ▶로 펼쳐 내려가는 트리 선택기로 교체.
+// 모달 재렌더 없이 순수 DOM 조작이라 입력 중인 작업명 등이 지워지지 않는다.
+window.wpToggle=function(id,ev){
+  if(ev)ev.stopPropagation();
+  const box=document.getElementById("wp-ch-"+id);const ar=document.getElementById("wp-ar-"+id);
+  if(!box)return;
+  const open=box.style.display!=="none";
+  box.style.display=open?"none":"block";
+  if(ar)ar.textContent=open?"▶":"▼";
+};
+window.wpPick=function(id,label){
+  const v=document.querySelector('[data-draft="wform"][data-k="parentId"]');if(v)v.value=id;
+  const b=document.getElementById("wpParentBtn");if(b)b.textContent=label;
+  const t=document.getElementById("wpTree");if(t)t.style.display="none";
+};
+window.wpOpenTree=function(){
+  const t=document.getElementById("wpTree");if(!t)return;
+  t.style.display=t.style.display==="none"?"block":"none";
+};
 let _genBusy=false;
 function showGenOverlay(msg){
   let el=document.getElementById("gen-ovl");
@@ -1172,7 +1192,28 @@ function rModals(){
       <div style="display:flex;justify-content:flex-end;margin-top:4px"><button data-a="clExport" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button></div>
     </div></div>`;}
   if(S.wmod){const f=DRAFT.wform;h+=`<div class="ov"><div class="mdl"><div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1a2332">WBS 항목 추가</div>
-      <div style="margin-bottom:7px"><div class="fl">상위 그룹 (추가 위치)</div><select data-draft="wform" data-k="parentId" class="fi"><option value="">— 대단락(Level 1)으로 추가 —</option>${WBS.filter(w=>(w.lv||0)<=2&&w.projId===S.selproj?.id).map(w=>{const l=w.lv||0;return `<option value="${w.id}"${DRAFT.wform.parentId===w.id?" selected":""}>${"　".repeat(l)}${l>0?"└ ":""}${w.code} ${w.name} — 아래에 ${lvName(l+1)}(Level ${l+2}) 추가</option>`;}).join("")}</select></div>
+      <div style="margin-bottom:7px"><div class="fl">상위 그룹 (추가 위치)</div>
+        <input type="hidden" data-draft="wform" data-k="parentId" value="${DRAFT.wform.parentId||""}">
+        <button type="button" id="wpParentBtn" onclick="wpOpenTree()" class="fi" style="text-align:left;cursor:pointer;background:#fff;display:flex;justify-content:space-between;align-items:center"><span>— 대단락(Level 1)으로 추가 —</span><span style="font-size:9px;color:#9ca3af">▼ 클릭해서 위치 선택</span></button>
+        <div id="wpTree" style="display:none;border:1.5px solid #c3d6f0;border-radius:6px;max-height:250px;overflow-y:auto;margin-top:4px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.08)">
+          <div style="padding:7px 10px;border-bottom:1px solid #e4e7ec;cursor:pointer;font-size:11px;font-weight:700;color:#1e40af;background:#f8fafc" onclick="wpPick('','— 대단락(Level 1)으로 추가 —')" onmouseover="this.style.background='#eef3fb'" onmouseout="this.style.background='#f8fafc'">— 대단락(Level 1)으로 추가 —</div>
+          ${(()=>{
+            // 트리 렌더: 기본은 대단락만 노출, ▶ 클릭 시 그 아래 중단락/소단락 펼침 (DOM 토글, 재렌더 없음)
+            const _pid=S.selproj?.id;
+            const _escJs=t=>String(t).replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+            const _row=(w,depth)=>{
+              const l=w.lv||0;
+              const kids=childW(w.id).filter(k=>(k.lv||0)<=2);
+              const pickLabel=_escJs(`${w.code} ${w.name} 아래 — ${lvName(l+1)}(Level ${l+2}) 추가`);
+              return `<div style="display:flex;align-items:center;gap:5px;padding:6px 8px 6px ${10+depth*18}px;border-bottom:1px solid #f3f4f6">
+                ${kids.length?`<span id="wp-ar-${w.id}" onclick="wpToggle('${w.id}',event)" style="cursor:pointer;width:15px;font-size:9px;color:#6b7280;flex-shrink:0;text-align:center;background:#f3f4f6;border-radius:3px;padding:1px 0">▶</span>`:`<span style="width:15px;flex-shrink:0"></span>`}
+                <span onclick="wpPick('${w.id}','${pickLabel}')" style="cursor:pointer;font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color=''"><b style="color:#4a7fc1">${w.code}</b> ${String(w.name).replace(/</g,"&lt;")} <span style="font-size:9px;color:#9ca3af">— ${lvName(l+1)} 추가</span></span>
+              </div>${kids.length?`<div id="wp-ch-${w.id}" style="display:none">${kids.map(k=>_row(k,depth+1)).join("")}</div>`:""}`;
+            };
+            return WBS.filter(w=>w.projId===_pid&&(w.lv||0)===0).map(t=>_row(t,0)).join("");
+          })()}
+        </div>
+      </div>
       <div style="margin-bottom:7px"><div class="fl">담당 부서 <span style="font-size:9px;color:#9ca3af">— 부서 스케줄 필터·권한 기준</span></div><select data-draft="wform" data-k="dept" class="fi"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${(f.dept||_deptFilter||"")===d?" selected":""}>${d}</option>`).join("")}</select></div>
       <div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:.4"><div class="fl">작업코드</div>${inp("wform","code","placeholder='자동'",f.code)}</div><div style="flex:1"><div class="fl">작업명</div>${inp("wform","name","",f.name)}</div></div><div style="margin-bottom:7px"><div class="fl">담당자</div>${inp("wform","mgr","",f.mgr)}</div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">시작일</div>${inp("wform","s","type='date'",f.s)}</div><div style="flex:1"><div class="fl">완료일</div>${inp("wform","e","type='date'",f.e)}</div></div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">상태</div>${sel("wform","status",["미시작","진행중","완료","지연"],f.status||"미시작")}</div><div style="flex:1"><div class="fl">제작공정 연동</div><select data-draft="wform" data-k="itpLink" class="fi"><option value="">없음</option><option value="__new__">★ 새 제작공정(Trv.) 아이템 자동 생성</option>${allI().map(i=>`<option value="${i.id}">${i.tagNo}</option>`).join("")}</select></div></div><!-- v28.4.8: 담당 업체 + 메모 (MS Project Notes 스타일) --><div style="margin-bottom:7px"><div class="fl">담당 업체 <span style="font-size:9px;color:#9ca3af">— REMARK 컬럼 표시</span></div>${inp("wform","vendor","placeholder='㈜세종기술 / 동원전기 등'",f.vendor||"")}</div><div style="margin-bottom:10px"><div class="fl">메모 / 이벤트 <span style="font-size:9px;color:#9ca3af">— PDF 막대 옆 콜아웃</span></div><textarea data-draft="wform" data-k="memo" class="fi" rows="2" placeholder="작업 핵심 이벤트 메모 (예: 8/10 PSM 서류 결과 수령)" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box">${f.memo||""}</textarea></div><div style="display:flex;gap:6px;justify-content:flex-end"><button data-a="clWM" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button><button data-a="svW" style="padding:5px 11px;background:#4a7fc1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">저장</button></div></div></div>`;}
   // v28.4.17: NOTE 편집 모달
