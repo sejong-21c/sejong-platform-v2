@@ -717,7 +717,20 @@ function rDetailPanel(){
       ${field("상태",`<span class="bdg" style="background:${sc.bg};color:${sc.c}">${status}</span>`,`<select data-draft="wedit" data-k="status" class="dpnl-select">${["미시작","진행중","완료","지연"].map(o=>`<option${o===w.status?" selected":""}>${o}</option>`).join("")}</select>`)}
       ${field("담당 업체",w.vendor?`<span style="font-size:11px;color:#1e40af;font-weight:700">🏢 ${w.vendor}</span>`:`<span style="font-size:10px;color:#9ca3af">—</span>`,`<input data-draft="wedit" data-k="vendor" value="${(w.vendor||"").replace(/"/g,"&quot;")}" placeholder="㈜세종기술 / 동원전기 등" class="dpnl-input"/>`)}
       ${field("📝 메모 / 이벤트",w.memo?`<div style="font-size:11px;color:#1e40af;background:#eff6ff;border:1px solid #93c5fd;border-radius:3px;padding:4px 8px;white-space:pre-wrap;line-height:1.4">${w.memo}</div>`:`<span style="font-size:10px;color:#9ca3af">— PDF 막대 옆 콜아웃에 표시됨 —</span>`,`<textarea data-draft="wedit" data-k="memo" placeholder="예: 8/10 PSM 서류 결과 수령" class="dpnl-input" rows="2" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box;line-height:1.4">${w.memo||""}</textarea>`)}
-      ${w.itpLink?field("제작공정 연동",`<span style="font-size:11px;color:#4a7fc1;font-weight:700">${w.itpLink}</span>${itpBtn}`,`<span style="font-size:11px;color:#4a7fc1;font-weight:700">${w.itpLink}</span>`):""}
+      ${(()=>{
+        // v28.4.36: 제작공정(ITP) 연동을 상세 패널에서 직접 설정/변경/해제.
+        //   - 연동 없는 행(복사본 등): 조회 시 '— 연동 없음 —', 수정 모드에서 아이템 선택으로 새로 연동
+        //   - 연동 있는 행: 조회 시 태그 + ITP 이동 버튼, 수정 모드에서 다른 아이템으로 변경 또는 '없음'으로 해제
+        const _iTag=w.itpLink?(fI(w.itpLink)?.tagNo||w.itpLink):null;
+        const disp=w.itpLink
+          ?`<span style="font-size:11px;color:#4a7fc1;font-weight:700">${_iTag}</span>${itpBtn}`
+          :`<span style="font-size:10px;color:#9ca3af">— 연동 없음 —</span>`;
+        const opts=`<option value="">없음 (연동 해제)</option>`+allI().map(i=>{
+          const takenByOther=i.wbsLink&&i.wbsLink!==w.id;
+          return `<option value="${i.id}"${i.id===w.itpLink?" selected":""}>${i.tagNo}${takenByOther?" ⚠ 다른 행에 연동됨":""}</option>`;
+        }).join("");
+        return field("제작공정 연동",disp,`<div><select data-draft="wedit" data-k="itpLink" class="dpnl-select">${opts}</select><div style="font-size:9px;color:#9ca3af;margin-top:2px">변경 시 기존 연동은 자동 해제 · ⚠ 표시 아이템 선택 시 그쪽 행의 연동을 가져옴</div></div>`);
+      })()}
     </div>
   </div>`;
 }
@@ -1291,7 +1304,24 @@ function act(a,d){
       const pctManual=(_pmRaw==null||_pmRaw.trim()==="")?null:Math.max(0,Math.min(100,Math.round(Number(_pmRaw))||0));
       // v29: 담당 부서
       const dept=document.querySelector('[data-draft="wedit"][data-k="dept"]')?.value??S.wsel.dept??"";
-      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
+      // v28.4.36: 제작공정(ITP) 연동 설정/변경/해제 — 아이템의 wbsLink도 양방향으로 정리
+      let itpLink=S.wsel.itpLink??null;
+      const _itpSel=document.querySelector('[data-draft="wedit"][data-k="itpLink"]');
+      if(_itpSel){
+        const nv=_itpSel.value||null;
+        if(nv!==itpLink){
+          // 이 WBS 행을 가리키던 기존 아이템 연결 해제
+          Object.keys(MITEM).forEach(pid=>{MITEM[pid]=(MITEM[pid]||[]).map(it=>it.wbsLink===id?{...it,wbsLink:null}:it);});
+          if(nv){
+            // 새 아이템이 다른 WBS 행에 물려있었다면 그 행의 itpLink 해제 (한 아이템 = 한 행)
+            WBS=WBS.map(x=>x.itpLink===nv&&x.id!==id?{...x,itpLink:null}:x);
+            Object.keys(MITEM).forEach(pid=>{const xi=(MITEM[pid]||[]).findIndex(i=>i.id===nv);if(xi>=0)MITEM[pid][xi]={...MITEM[pid][xi],wbsLink:id};});
+          }
+          addLog(nv?`🔗 제작공정 연동 ${itpLink?'변경':'설정'}: ${fI(nv)?.tagNo||nv}`:`✂ 제작공정 연동 해제`,"info");
+          itpLink=nv;
+        }
+      }
+      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept,itpLink}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
     case"mvW":moveWBS(d.id,d.dir==="up"?-1:1);break;
     case"opWM":{DRAFT.wform={code:"",name:"",mgr:"",s:"",e:"",status:"미시작",itpLink:"",parentId:"",dept:_deptFilter||""};us({wmod:true});}break;
     case"clWM":us({wmod:false});break;
@@ -2870,7 +2900,18 @@ function subscribeWbsData(pid){
     if (snap.metadata.hasPendingWrites) return;
     if (!snap.exists()) return;
     const d = snap.data();
-    _wbsRev = Number(d.rev) || 0;
+    const incomingRev = Number(d.rev) || 0;
+    // v28.4.36: ★ lost-update 방지 ★ — 편집 직후 400ms 디바운스 저장을 기다리는 사이에
+    // "직전 저장의 서버 echo"(hasPendingWrites=false로 도착)가 이 핸들러에 들어와
+    // WBS 전체를 과거 상태로 되돌려, 방금 한 편집(예: 상태→완료)이 소리 없이 사라지던
+    // race가 있었다 (연속으로 빠르게 편집할수록 잘 재현).
+    // (1) 이미 알고 있는 rev보다 과거의 스냅샷(지연 echo)은 무시.
+    if (incomingRev && _wbsRev && incomingRev < _wbsRev) return;
+    // (2) 아직 저장 안 된 로컬 편집이 있으면 서버 스냅샷으로 덮어쓰지 않는다.
+    //     400ms 뒤 로컬본이 저장되어 서버에 반영되므로 로컬이 진실.
+    const _curSig = _sig(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]);
+    const _dirty = _lastSavedSig !== null && _curSig !== _lastSavedSig;
+    _wbsRev = incomingRev;
     const revEl = document.getElementById("wbsRevBadge");
     if (revEl) revEl.textContent = "Rev. " + _wbsRev;
     // v29.13: 이전 Rev 조회 중이면 master 갱신을 화면에 반영하지 않는다(스냅샷 유지).
@@ -2881,6 +2922,7 @@ function subscribeWbsData(pid){
       R();
       return;
     }
+    if (_dirty) { R(); return; }   // 편집 보호 — 디바운스 저장이 곧 이 내용을 서버에 반영
     WBS.length = 0; (d.rows||[]).forEach(w => WBS.push(w));
     MITEM[pid] = d.items || [];
     // v29.13.1: 서버에서 로드한 상태를 마지막 저장 상태로 간주 → 즉시 재저장 방지.
