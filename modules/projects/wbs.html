@@ -497,6 +497,11 @@ const topP=()=>PROJS.filter(p=>!p.par).slice().sort((a,b)=>{
 });
 const childP=pid=>PROJS.filter(p=>p.par===pid);
 const getI=pid=>MITEM[pid]||[];
+// v28.4.43: WBS 레벨 명칭 체계 (부장님 확정) — Project 총 스케줄은 레벨로 치지 않음.
+//   Level 1 = 대단락(lv0, 코드 N) · Level 2 = 중단락(lv1, N.M) · Level 3 = 소단락(lv2, N.M.K)
+//   Level 4 = 세부단락(lv3, N.M.K.L) · 그 이하 = 하위 N단계
+const LV_NAMES=["대단락","중단락","소단락","세부단락"];
+const lvName=lv=>LV_NAMES[lv]||("하위 "+(lv+1)+"단계");
 const allI=()=>Object.values(MITEM).flat();
 const fI=id=>allI().find(i=>i.id===id);
 const fW=id=>WBS.find(w=>w.id===id);
@@ -711,6 +716,7 @@ function rDetailPanel(){
     <div class="dpnl-hdr">
       <div style="display:flex;align-items:center">
         <span class="dpnl-code">${w.code}</span>
+        <span style="font-size:9px;font-weight:700;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:1px 7px;margin-right:6px;white-space:nowrap">${lvName(w.lv||0)} · Level ${(w.lv||0)+1}</span>
         ${em?`<input data-draft="wedit" data-k="name" value="${w.name.replace(/"/g,"&quot;")}" style="font-size:14px;font-weight:700;color:#1a2332;border:1px solid #c3d6f0;border-radius:5px;padding:2px 8px;outline:none;min-width:200px" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`:`<span class="dpnl-name">${w.name}</span>`}
         ${!em&&ncr>0?`<span class="bdg" style="background:#fee2e2;color:#dc2626;margin-left:8px">NCR ${ncr}건</span>`:""}
       </div>
@@ -1095,7 +1101,7 @@ function setIO(el){if(!REC[el.dataset.iid])REC[el.dataset.iid]=iR();REC[el.datas
 function rModals(){
   let h="";
   if(S.wmod){const f=DRAFT.wform;h+=`<div class="ov"><div class="mdl"><div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1a2332">WBS 항목 추가</div>
-      <div style="margin-bottom:7px"><div class="fl">상위 그룹 (추가 위치)</div><select data-draft="wform" data-k="parentId" class="fi"><option value="">— 대단락으로 추가 —</option>${WBS.filter(w=>(w.lv===0||w.lv===1)&&w.projId===S.selproj?.id).map(w=>`<option value="${w.id}"${DRAFT.wform.parentId===w.id?" selected":""}>${w.lv===1?"　└ ":""}${w.code} ${w.name}${w.lv===1?" 아래 (소단락)":""}</option>`).join("")}</select></div>
+      <div style="margin-bottom:7px"><div class="fl">상위 그룹 (추가 위치)</div><select data-draft="wform" data-k="parentId" class="fi"><option value="">— 대단락(Level 1)으로 추가 —</option>${WBS.filter(w=>(w.lv||0)<=2&&w.projId===S.selproj?.id).map(w=>{const l=w.lv||0;return `<option value="${w.id}"${DRAFT.wform.parentId===w.id?" selected":""}>${"　".repeat(l)}${l>0?"└ ":""}${w.code} ${w.name} — 아래에 ${lvName(l+1)}(Level ${l+2}) 추가</option>`;}).join("")}</select></div>
       <div style="margin-bottom:7px"><div class="fl">담당 부서 <span style="font-size:9px;color:#9ca3af">— 부서 스케줄 필터·권한 기준</span></div><select data-draft="wform" data-k="dept" class="fi"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${(f.dept||_deptFilter||"")===d?" selected":""}>${d}</option>`).join("")}</select></div>
       <div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:.4"><div class="fl">작업코드</div>${inp("wform","code","placeholder='자동'",f.code)}</div><div style="flex:1"><div class="fl">작업명</div>${inp("wform","name","",f.name)}</div></div><div style="margin-bottom:7px"><div class="fl">담당자</div>${inp("wform","mgr","",f.mgr)}</div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">시작일</div>${inp("wform","s","type='date'",f.s)}</div><div style="flex:1"><div class="fl">완료일</div>${inp("wform","e","type='date'",f.e)}</div></div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">상태</div>${sel("wform","status",["미시작","진행중","완료","지연"],f.status||"미시작")}</div><div style="flex:1"><div class="fl">제작공정 연동</div><select data-draft="wform" data-k="itpLink" class="fi"><option value="">없음</option><option value="__new__">★ 새 제작공정(Trv.) 아이템 자동 생성</option>${allI().map(i=>`<option value="${i.id}">${i.tagNo}</option>`).join("")}</select></div></div><!-- v28.4.8: 담당 업체 + 메모 (MS Project Notes 스타일) --><div style="margin-bottom:7px"><div class="fl">담당 업체 <span style="font-size:9px;color:#9ca3af">— REMARK 컬럼 표시</span></div>${inp("wform","vendor","placeholder='㈜세종기술 / 동원전기 등'",f.vendor||"")}</div><div style="margin-bottom:10px"><div class="fl">메모 / 이벤트 <span style="font-size:9px;color:#9ca3af">— PDF 막대 옆 콜아웃</span></div><textarea data-draft="wform" data-k="memo" class="fi" rows="2" placeholder="작업 핵심 이벤트 메모 (예: 8/10 PSM 서류 결과 수령)" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box">${f.memo||""}</textarea></div><div style="display:flex;gap:6px;justify-content:flex-end"><button data-a="clWM" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button><button data-a="svW" style="padding:5px 11px;background:#4a7fc1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">저장</button></div></div></div>`;}
   // v28.4.17: NOTE 편집 모달
