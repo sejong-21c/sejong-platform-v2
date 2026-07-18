@@ -1724,6 +1724,7 @@ function act(a,d){
       // v29.37: 서버의 검사 실적 문서(wbsRec)도 삭제 — 남기면 다음 로드 때 유령 기록으로 되살아남.
       // shadow 모드에선 삭제가 아직 '제안' 단계라 마스터 wbsRec은 건드리지 않는다.
       delete _lastRecSigs[iid];
+      _recOnServer.delete(iid);
       if(window.fb&&pid&&!_shadowUid)fb.deleteDoc(fb.doc(fb.db,"wbsRec",pid+"_"+iid)).catch(e=>console.warn("wbsRec delete fail",e));
       addLog("🗑 아이템 삭제","warn");
       us({});
@@ -1805,12 +1806,40 @@ function _sig(rows, items) {
 // (요약 status만 items로 저장, 영속 경로는 JSON Export뿐). wbsData/{pid} 문서에 같이 넣으면
 // 아이템당 약 4~8KB × 수십~수백 아이템으로 1MB 문서 한도를 위협하므로,
 // 아이템별 문서 wbsRec/{pid}_{itemId}로 분리 저장. 서명 비교로 변경된 아이템 문서만 쓴다.
+let _histSaveErrLogged = false;   // wbsHistory 저장 실패 경고는 세션당 1회만
 let _lastRecSigs = {};      // itemId → 마지막 저장/로드 서명 (변경 감지 + 구독 echo 무시)
 let _recLoaded = false;     // 초기 wbsRec 스냅샷 수신 전엔 저장 금지 — 로드 전에 생성된
                             // 기본 REC(iR())가 서버의 실제 검사 기록을 덮어쓰는 사고 방지
 let _recSaveErrLogged = false;
+let _recOnServer = new Set();   // 서버에 wbsRec 문서가 있는 아이템 — 내용을 다 지워도 저장해야 "지움"이 서버에 반영됨
+// v29.37.1: 커스텀 템플릿 정규화 — getTPL()은 렌더 중 호출만 돼도 기본 템플릿(TPL) 복사본을
+// ITEM_TPL[iid]에 만들어 둔다(부작용). 그 복사본을 그대로 저장하면 열람만 한 아이템도 문서가
+// 생기고, 그 시점 템플릿이 서버에 고착된다. "기본 템플릿과 달라진 경우"만 커스텀으로 취급.
+function _tplOf(iid) {
+  const t = ITEM_TPL[iid];
+  if (!t) return null;
+  try { return JSON.stringify(t) === JSON.stringify(TPL) ? null : t; } catch (e) { return t; }
+}
 function _recSig(iid) {
-  try { return JSON.stringify({ r: REC[iid]||null, p: PIM[iid]||null, t: ITEM_TPL[iid]||null }); } catch (e) { return null; }
+  try { return JSON.stringify({ r: REC[iid]||null, p: PIM[iid]||null, t: _tplOf(iid) }); } catch (e) { return null; }
+}
+// v29.37.1: "실제 검사 입력이 있는가" 판정. ITP 화면은 열기만 해도 기본값 REC(iR())가 생기므로
+// REC 존재 여부로 판단하면 열람만 한 아이템도 문서가 저장돼 junk가 쌓이고, 그 시점의 criteria가
+// 서버에 고착돼 이후 기본 템플릿을 바꿔도 옛 기준값이 계속 보이는 문제가 있었다.
+function _recHasContent(iid) {
+  if (_tplOf(iid)) return true;   // 커스텀 템플릿(기본과 다른 것)을 적용한 것 자체가 의미 있는 입력
+  const p = PIM[iid];
+  if (p && Object.values(p).some(v => v && ((v.date||"") !== "" || (v.insp||"") !== ""))) return true;
+  const r = REC[iid];
+  if (!r) return false;
+  const base = {};   // 검사항목별 기본 criteria — 템플릿값과 다르면 사용자가 편집한 것
+  (ITEM_TPL[iid] || TPL).forEach(t => { base[t.id] = t.crit || ""; });
+  return Object.entries(r).some(([tid, v]) => {
+    if (!v) return false;
+    if ((v.result || "-") !== "-") return true;
+    if ((v.actual || "") !== "" || (v.obs || "") !== "") return true;
+    return base[tid] !== undefined && (v.criteria || "") !== base[tid];
+  });
 }
 function v28SaveRec() {
   if (!_recLoaded) return;
@@ -1818,12 +1847,13 @@ function v28SaveRec() {
     const iid = it.id;
     const sig = _recSig(iid);
     if (sig === null || sig === _lastRecSigs[iid]) return;   // 변경 없음
-    // 검사 기록이 아예 없는 아이템은 빈 문서를 만들지 않는다
-    if (!REC[iid] && !PIM[iid] && !ITEM_TPL[iid]) { _lastRecSigs[iid] = sig; return; }
+    // v29.37.1: 실제 입력이 없는 아이템은 저장하지 않는다. 단 서버에 이미 문서가 있으면
+    // "모든 입력을 지운" 상태도 반영해야 하므로 저장한다.
+    if (!_recHasContent(iid) && !_recOnServer.has(iid)) { _lastRecSigs[iid] = sig; return; }
     _lastRecSigs[iid] = sig;
     fb.setDoc(fb.doc(fb.db, "wbsRec", _wbsPid + "_" + iid),
-      { pid: _wbsPid, itemId: iid, rec: REC[iid]||null, pim: PIM[iid]||null, tpl: ITEM_TPL[iid]||null, updatedAt: Date.now() }
-    ).catch(e => {
+      { pid: _wbsPid, itemId: iid, rec: REC[iid]||null, pim: PIM[iid]||null, tpl: _tplOf(iid), updatedAt: Date.now() }
+    ).then(() => _recOnServer.add(iid)).catch(e => {
       console.warn("wbsRec save fail", iid, e);
       delete _lastRecSigs[iid];   // 다음 디바운스 저장 때 재시도
       // 규칙 미설정 등으로 조용히 유실되지 않도록 1회 로그 노출 (wbsHistory 0건 사건 계열 방지)
@@ -1879,7 +1909,29 @@ function v28Save(){
   const revStr = String(_wbsRev).padStart(4, '0');
   fb.setDoc(fb.doc(fb.db,"wbsHistory", _wbsPid + "_" + revStr),
     { pid: _wbsPid, rev: _wbsRev, rows, items, at: savedAt, byUid: byUid, source: "master-save" }
-  ).catch(e => console.warn("history save fail", e));
+  ).catch(e => {
+    // v29.37.1: 이력 저장 실패를 조용히 삼키지 않는다 — 2026-07-17 SJ435 wbsHistory 0건
+    // 사건이 정확히 이 catch에 묻혀서 열흘간 아무도 몰랐다. 1회 로그 + Rev 배지 옆 경고 표시.
+    console.warn("history save fail", e);
+    if (_histSaveErrLogged) return;
+    _histSaveErrLogged = true;
+    addLog("⚠️ WBS 이력(wbsHistory) 저장 실패 — Firestore 규칙 확인 필요: " + (e.message || e), "err");
+    const revB = document.getElementById("wbsRevBadge");
+    if (revB && !document.getElementById("wbsHistWarn")) {
+      const w = document.createElement("span");
+      w.id = "wbsHistWarn";
+      w.textContent = "⚠ 이력 저장 실패";
+      w.title = "Rev 스냅샷이 wbsHistory에 저장되지 않았습니다: " + (e.code || e.message || e);
+      w.style.cssText = "margin-left:6px;font-size:11px;color:#991b1b;background:#fee2e2;padding:2px 8px;border-radius:10px;cursor:pointer;vertical-align:middle;";
+      w.onclick = () => alert(
+        "WBS 이력 저장이 실패하고 있습니다.\n\n오류: " + (e.code || e.message || e) +
+        "\n\n· WBS 내용(wbsData) 자체는 정상 저장되고 있습니다" +
+        "\n· 단, '이전 Rev 보기/복원'용 스냅샷이 남지 않고 있습니다" +
+        "\n· Firebase 콘솔 → Firestore → 규칙에서 wbsHistory 쓰기 허용을 확인해주세요" +
+        "\n· 저장소의 firestore.rules 파일과 콘솔 게시본이 같은지도 확인해주세요");
+      revB.after(w);
+    }
+  });
   // Rev 표시가 있으면 즉시 반영
   const revEl = document.getElementById("wbsRevBadge");
   if (revEl) revEl.textContent = "Rev. " + _wbsRev;
@@ -3248,14 +3300,21 @@ function subscribeWbsData(pid){
       if (ch.type === "removed") {
         // 다른 브라우저에서 아이템 삭제 → 로컬 검사 기록도 정리
         delete REC[iid]; delete PIM[iid]; delete ITEM_TPL[iid]; delete _lastRecSigs[iid];
+        _recOnServer.delete(iid);
         changed = true; return;
       }
+      _recOnServer.add(iid);
       // 아직 저장 안 된 로컬 편집이 있으면 서버 스냅샷(지연 echo 포함)으로 덮어쓰지 않는다
       // — wbsData의 lost-update 가드(v28.4.36)와 같은 계열. 디바운스 저장이 곧 로컬본을 반영.
       if (_lastRecSigs[iid] !== undefined && _recSig(iid) !== _lastRecSigs[iid]) return;
-      if (d.rec) REC[iid] = d.rec;
-      if (d.pim) PIM[iid] = d.pim;
-      if (d.tpl) ITEM_TPL[iid] = d.tpl;
+      // v29.37.1: 첫 스냅샷이 오기 전에 입력을 시작한 경우(_lastRecSigs 미기록)도 로컬이 진실.
+      // 실제 입력이 있으면 서버본으로 덮지 않는다 — 디바운스 저장이 곧 로컬본을 서버에 반영한다.
+      if (_lastRecSigs[iid] === undefined && _recHasContent(iid)) return;
+      // v29.37.1: 서버가 null인 필드는 로컬도 지운다 — 안 지우면 다른 브라우저에서 지운
+      // 검사일/템플릿이 이 화면에는 계속 남아 보이는 어긋남이 생긴다.
+      if (d.rec) REC[iid] = d.rec; else delete REC[iid];
+      if (d.pim) PIM[iid] = d.pim; else delete PIM[iid];
+      if (d.tpl) ITEM_TPL[iid] = d.tpl; else delete ITEM_TPL[iid];
       _lastRecSigs[iid] = _recSig(iid);
       changed = true;
     });

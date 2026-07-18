@@ -1039,7 +1039,7 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b49';
+const WBS_BUILD = 'b51';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b10';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -6662,7 +6662,11 @@ async function decideApproval(aid, decision) {
         await fb.setDoc(fb.doc(fb.db, 'wbsHistory', a.projId + "_" + revStr),
           { pid: a.projId, rev: newRev, rows: pd.rows || [], items: pd.items || [],
             at: appliedAt, byUid: a.author || null, approvedBy: uid, source: "shadow-approve" });
-      } catch (e) { console.warn('history 저장 실패:', e.message); }
+      } catch (e) {
+        // v29.37.1: 조용히 삼키지 않는다 — 승인 반영 자체는 성공했으니 진행하되, 이력 누락은 알린다.
+        console.warn('history 저장 실패:', e.message);
+        alert('⚠️ 승인 반영은 완료됐지만 WBS 이력(wbsHistory) 스냅샷 저장에 실패했습니다.\n\n오류: ' + (e.message || e) + '\n\nFirebase 콘솔 → Firestore → 규칙에서 wbsHistory 쓰기 허용을 확인해주세요.');
+      }
       await fb.deleteDoc(fb.doc(fb.db, 'wbsPending', pendId));
       patch.appliedAt = appliedAt;
       patch.appliedRev = newRev;
