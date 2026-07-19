@@ -1,9 +1,11 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
- * v29.38: 무료 API 게이트웨이 — Gemini → Groq → OpenRouter → Claude 순서로 키가 있는
- * 회사를 자동 시도하고, 한도 초과(429)·키 오류·서버 오류·시간 초과면 다음 회사로 넘어간다.
- * Groq/OpenRouter는 OpenAI 호환 형식(tool_calls)으로 붙어서 함수호출(조회/등록)도 그대로 동작.
+ * v29.38: 무료 API 게이트웨이 — 키가 있는 회사를 순서대로 자동 시도하고,
+ * 한도 초과(429)·키 오류·서버 오류·시간 초과면 다음 회사로 넘어간다.
+ * v29.39: 회사당 키 여러 개(여러 계정) 등록 + 키 자동 교대. Cerebras·Mistral 추가.
+ * 우선순위: Gemini → Groq → Cerebras → OpenRouter → Mistral → Claude(유료).
+ * Groq/Cerebras/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
  * 일반 <script src="...">로 로드된다. 같은 전역(비-모듈) 스코프를 공유하므로 이 파일에서
@@ -15,14 +17,17 @@
  *  채팅창 안 인라인 확인 카드에서 사람이 "전송"을 눌러야 실행된다.)
  */
 (function () {
-  // ── 0. AI 제공사 설정 — v29.38: 무료 3사 자동 전환 게이트웨이 ─────
+  // ── 0. AI 제공사 설정 — v29.38: 무료 자동 전환 게이트웨이 ─────
   // 단일 provider 선택 방식 → "키가 있는 회사를 순서대로 시도, 실패하면 자동으로 다음 회사"로 변경.
-  // 우선순위: Gemini(무료 1,500회/일) → Groq(무료 1,000회/일) → OpenRouter(무료 50회/일) → Claude(유료, 최후순위).
+  // v29.39: 회사당 키 여러 개(여러 계정) 지원 — 한도 초과된 키는 자동으로 다음 키로 교대.
+  //         Cerebras·Mistral 추가. 우선순위: Gemini → Groq → Cerebras → OpenRouter → Mistral → Claude(유료).
   // itp-builder.html의 API_KEY_LS 패턴과 동일하게, 키를 소스에 박지 않고
   // 각자 브라우저의 localStorage에 저장한다 — git 히스토리/배포 소스에 키가 남지 않음.
   var GEMINI_KEY_LS = 'sjp_gemini_api_key';
   var GROQ_KEY_LS = 'sjp_groq_api_key';
+  var CEREBRAS_KEY_LS = 'sjp_cerebras_api_key';
   var OPENROUTER_KEY_LS = 'sjp_openrouter_api_key';
+  var MISTRAL_KEY_LS = 'sjp_mistral_api_key';
   // Claude 키 — itp-builder.html과 동일한 localStorage 키를 그대로 재사용한다.
   var CLAUDE_KEY_LS = 'sjp_claude_api_key';
   function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
@@ -33,15 +38,38 @@
   // Gemini 최신 모델 확인: https://ai.google.dev/gemini-api/docs/models
   var CLAUDE_MODEL = 'claude-sonnet-4-20250514';
   var PROVIDER_CHAIN = [
-    { id: 'gemini', label: 'Gemini', ls: GEMINI_KEY_LS,
+    { id: 'gemini', label: 'Gemini', ls: GEMINI_KEY_LS, signup: 'https://aistudio.google.com/apikey',
+      note: '1순위 · Gemini — 키 1개당 하루 1,500회',
       models: ['gemini-flash-latest', 'gemini-2.5-flash'] },
-    { id: 'groq', label: 'Groq', ls: GROQ_KEY_LS,
+    { id: 'groq', label: 'Groq', ls: GROQ_KEY_LS, signup: 'https://console.groq.com/keys',
+      note: '2순위 · Groq — 키 1개당 하루 1,000회',
       models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'] },
-    { id: 'openrouter', label: 'OpenRouter', ls: OPENROUTER_KEY_LS,
+    { id: 'cerebras', label: 'Cerebras', ls: CEREBRAS_KEY_LS, signup: 'https://cloud.cerebras.ai',
+      note: '3순위 · Cerebras — 키 1개당 하루 100만 토큰 (분당 5회)',
+      models: ['gpt-oss-120b', 'zai-glm-4.7'] },
+    { id: 'openrouter', label: 'OpenRouter', ls: OPENROUTER_KEY_LS, signup: 'https://openrouter.ai/settings/keys',
+      note: '4순위 · OpenRouter — 키 1개당 하루 50회',
       models: ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-3-27b-it:free', 'mistralai/mistral-small-3.1-24b-instruct:free', 'deepseek/deepseek-chat-v3-0324:free'] },
-    { id: 'claude', label: 'Claude', ls: CLAUDE_KEY_LS, models: [CLAUDE_MODEL] }
+    { id: 'mistral', label: 'Mistral', ls: MISTRAL_KEY_LS, signup: 'https://console.mistral.ai/api-keys',
+      note: '5순위 · Mistral — 월 10억 토큰, 분당 2회 (선택)',
+      models: ['mistral-small-latest', 'mistral-large-latest'] },
+    { id: 'claude', label: 'Claude', ls: CLAUDE_KEY_LS, signup: 'https://console.anthropic.com',
+      note: '6순위 · Claude — 유료 (ITP Builder와 공용, 선택)',
+      models: [CLAUDE_MODEL] }
   ];
-  function hasAnyKey() { return PROVIDER_CHAIN.some(function (p) { return lsGet(p.ls); }); }
+  // v29.39: 한 회사에 키 여러 개(여러 계정) 등록 가능 — 줄바꿈·쉼표·공백으로 구분
+  function keysOf(p) { return lsGet(p.ls).split(/[\s,;]+/).filter(Boolean); }
+  function hasAnyKey() { return PROVIDER_CHAIN.some(function (p) { return keysOf(p).length; }); }
+  // 마지막으로 성공한 키 번호를 기억해 다음 요청은 그 키부터 시작
+  // (한도가 소진된 키를 매 질문마다 다시 두드려 느려지는 것을 방지)
+  var KEY_CURSOR_LS = 'sjp_ai_key_cursor';
+  function getCursor(id) { try { return (JSON.parse(lsGet(KEY_CURSOR_LS) || '{}') || {})[id] || 0; } catch (e) { return 0; } }
+  function setCursor(id, idx) {
+    try {
+      var c = {}; try { c = JSON.parse(lsGet(KEY_CURSOR_LS) || '{}') || {}; } catch (e2) {}
+      c[id] = idx; localStorage.setItem(KEY_CURSOR_LS, JSON.stringify(c));
+    } catch (e) {}
+  }
   // 패널 상단 초록 점 = 키 있음, 회색 점 = 키 없음
   function updateDot() {
     var d = document.querySelector('#aiPanel .ai-panel-head span.dot');
@@ -405,33 +433,46 @@
   // ── 게이트웨이 체인: 키가 있는 회사를 순서대로, 실패하면 자동으로 다음 회사 ──
   var lastProviderLabel = '';   // 마지막으로 실제 응답한 회사 (답변 밑에 표시)
 
-  async function tryProvider(p, key, h) {
+  async function callOneModel(p, key, model, h, signal) {
+    if (p.id === 'gemini') return callGeminiOnce(key, model, h, signal);
+    if (p.id === 'claude') return callClaudeOnce(key, model, h, signal);
+    if (p.id === 'groq') return callOpenAiCompatOnce('Groq', 'https://api.groq.com/openai/v1/chat/completions', key, model, h, signal);
+    if (p.id === 'cerebras') return callOpenAiCompatOnce('Cerebras', 'https://api.cerebras.ai/v1/chat/completions', key, model, h, signal);
+    if (p.id === 'mistral') return callOpenAiCompatOnce('Mistral', 'https://api.mistral.ai/v1/chat/completions', key, model, h, signal);
+    return callOpenAiCompatOnce('OpenRouter', 'https://openrouter.ai/api/v1/chat/completions', key, model, h, signal, { 'X-Title': 'Sejong Platform' });
+  }
+
+  // 한 회사 안에서: 마지막 성공 키부터 시작해 키를 교대하고, 키마다 모델 목록을 시도한다.
+  async function tryProvider(p, h) {
+    var keys = keysOf(p);
+    var start = getCursor(p.id) % keys.length;
     var lastErr = null;
-    for (var mi = 0; mi < p.models.length; mi++) {
-      var model = p.models[mi];
-      const ctl = new AbortController();
-      const timer = setTimeout(function () { ctl.abort(); }, 45000);
-      try {
-        var r;
-        if (p.id === 'gemini') r = await callGeminiOnce(key, model, h, ctl.signal);
-        else if (p.id === 'claude') r = await callClaudeOnce(key, model, h, ctl.signal);
-        else if (p.id === 'groq') r = await callOpenAiCompatOnce('Groq', 'https://api.groq.com/openai/v1/chat/completions', key, model, h, ctl.signal);
-        else r = await callOpenAiCompatOnce('OpenRouter', 'https://openrouter.ai/api/v1/chat/completions', key, model, h, ctl.signal, { 'X-Title': 'Sejong Platform' });
-        clearTimeout(timer);
-        return r;
-      } catch (e) {
-        clearTimeout(timer);
-        lastErr = e;
-        // 모델이 없어졌거나 요청을 거부(400/404)한 경우만 같은 회사의 다음 모델 시도.
-        if (e.status === 400 || e.status === 404) continue;
-        throw e; // 키 오류·한도 초과·서버 오류·시간 초과는 바로 다음 회사로
+    for (var ki = 0; ki < keys.length; ki++) {
+      var idx = (start + ki) % keys.length;
+      var key = keys[idx];
+      for (var mi = 0; mi < p.models.length; mi++) {
+        const ctl = new AbortController();
+        const timer = setTimeout(function () { ctl.abort(); }, 45000);
+        try {
+          var r = await callOneModel(p, key, p.models[mi], h, ctl.signal);
+          clearTimeout(timer);
+          setCursor(p.id, idx); // 이 키가 살아있음 — 다음 질문도 이 키부터
+          return r;
+        } catch (e) {
+          clearTimeout(timer);
+          lastErr = e;
+          if (e.status === 400 || e.status === 404) continue; // 모델 문제(또는 Gemini 불량 키의 400) → 다음 모델
+          if (e.status === 429 || e.status === 401 || e.status === 403) break; // 이 키 한도 소진/불량 → 다음 키
+          throw e; // 서버 오류·시간 초과·연결 실패 → 회사 자체를 포기하고 다음 회사로
+        }
       }
+      // 이 키로 모든 모델이 실패 → 다음 키 시도
     }
-    throw lastErr || new Error('사용 가능한 모델이 없습니다');
+    throw lastErr || new Error('사용 가능한 키/모델이 없습니다');
   }
 
   async function callProviderOnce(h, onStatus) {
-    var avail = PROVIDER_CHAIN.filter(function (p) { return lsGet(p.ls); });
+    var avail = PROVIDER_CHAIN.filter(function (p) { return keysOf(p).length; });
     if (!avail.length) {
       throw new Error('아직 API 키가 없습니다 — 우측 상단 🔑 버튼을 눌러 무료 API 키를 등록해주세요.');
     }
@@ -440,7 +481,7 @@
       var p = avail[i];
       if (onStatus) onStatus(p.label + ' 응답 대기 중…');
       try {
-        var r = await tryProvider(p, lsGet(p.ls), h);
+        var r = await tryProvider(p, h);
         lastProviderLabel = p.label;
         return r;
       } catch (e) {
@@ -518,14 +559,6 @@
     box.scrollTop = box.scrollHeight;
   }
 
-  // 키 입력 필드 정보 (모달 생성용)
-  var KEY_FIELDS = [
-    { ls: GEMINI_KEY_LS, inputId: 'aiGeminiKeyInput', label: '1순위 · Gemini — 무료 하루 1,500회', link: 'https://aistudio.google.com/apikey', ph: 'AIza...' },
-    { ls: GROQ_KEY_LS, inputId: 'aiGroqKeyInput', label: '2순위 · Groq — 무료 하루 1,000회', link: 'https://console.groq.com/keys', ph: 'gsk_...' },
-    { ls: OPENROUTER_KEY_LS, inputId: 'aiOpenrouterKeyInput', label: '3순위 · OpenRouter — 무료 하루 50회', link: 'https://openrouter.ai/settings/keys', ph: 'sk-or-...' },
-    { ls: CLAUDE_KEY_LS, inputId: 'aiClaudeKeyInput', label: '4순위 · Claude — 유료 (ITP Builder와 공용, 선택)', link: 'https://console.anthropic.com', ph: 'sk-ant-...' }
-  ];
-
   window.openAiKeyModal = function () {
     // 공용 모달(z1000)이 AI 패널(z1700) 뒤에 깔리지 않게 잠시 올렸다가, 닫힐 때 원복
     var m = document.getElementById('modal');
@@ -533,18 +566,28 @@
     var origClose = window.closeModal;
     window.closeModal = function () { if (m) m.style.zIndex = ''; window.closeModal = origClose; origClose(); };
 
-    var fieldsHtml = KEY_FIELDS.map(function (f) {
+    var fieldsHtml = PROVIDER_CHAIN.map(function (p) {
+      var n = keysOf(p).length;
       return '<div class="fg">' +
-        '<label class="fl">' + f.label + ' — <a href="' + f.link + '" target="_blank" rel="noopener">키 발급 ↗</a></label>' +
-        '<input class="fi" type="password" autocomplete="off" id="' + f.inputId + '" placeholder="' + f.ph + '" value="' + lsGet(f.ls).replace(/"/g, '&quot;') + '">' +
+        '<label class="fl">' + p.note +
+        (n ? ' <b style="color:var(--success);">✓ ' + n + '개 등록됨</b>' : '') +
+        ' — <a href="' + p.signup + '" target="_blank" rel="noopener">키 발급 ↗</a></label>' +
+        '<textarea class="fi" rows="2" id="aiKeys_' + p.id + '" spellcheck="false" autocomplete="off"' +
+        ' placeholder="한 줄에 키 1개 — 여러 개 넣으면 한도 초과 시 자동 교대"' +
+        ' style="resize:vertical;font-size:11px;-webkit-text-security:disc;">' +
+        lsGet(p.ls).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</textarea>' +
         '</div>';
     }).join('');
     openModal('🔑 AI 비서 — API 키 설정', '' +
-      '<div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">위에서부터 순서대로 자동 사용하고, 한도 초과·오류 시 다음 회사로 자동 전환됩니다.<br>하나만 등록해도 동작합니다 (무료 3개 모두 등록 권장).</div>' +
+      '<div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">위에서부터 순서대로 자동 사용하고, 한도 초과·오류 시 다음으로 자동 전환됩니다.<br><b>계정을 여러 개 만들어 받은 키는 한 칸에 줄바꿈으로 전부 붙여넣으세요</b> — 키 단위로도 자동 교대되어 무료 한도가 키 수만큼 늘어납니다.</div>' +
       fieldsHtml +
       '<div style="font-size:11px;color:var(--text-lighter);line-height:1.6;">키는 각각 이 브라우저의 localStorage에만 저장되고, 해당 AI 회사 서버로만 직접 전송됩니다 — 저장소(git)나 세종플랫폼 서버로는 전송/저장되지 않습니다. 필드를 비운 채 저장하면 해당 키가 삭제됩니다.</div>',
       function () {
-        KEY_FIELDS.forEach(function (f) { lsSet(f.ls, $id(f.inputId).value.trim()); });
+        PROVIDER_CHAIN.forEach(function (p) {
+          var el = $id('aiKeys_' + p.id);
+          lsSet(p.ls, el ? el.value.split(/[\s,;]+/).filter(Boolean).join('\n') : '');
+        });
+        try { localStorage.removeItem(KEY_CURSOR_LS); } catch (e) {} // 키가 바뀌었으니 교대 위치 초기화
         updateDot();
         window.closeModal();
         appendMsg('system', hasAnyKey()
