@@ -445,6 +445,10 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .ai-fab:hover { background: var(--primary-hover); }
 .ai-panel { position: fixed; right: 24px; bottom: 92px; width: 360px; height: 480px; min-width: 300px; min-height: 340px; max-width: 96vw; max-height: 92vh; resize: both; background: var(--white); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.22); display: none; flex-direction: column; overflow: hidden; z-index: 1700; }
 .ai-panel.open { display: flex; }
+/* v29.40.1: 좌상단 모서리 리사이즈 핸들 — 패널이 화면 우하단에 붙어 있어 좌상단으로 끌어야 커진다 */
+.ai-panel-resizer { position: absolute; left: 0; top: 0; width: 20px; height: 20px; cursor: nwse-resize; z-index: 2; touch-action: none; }
+.ai-panel-resizer::after { content: ''; position: absolute; left: 5px; top: 5px; width: 9px; height: 9px; border-left: 2px solid #cbd5e1; border-top: 2px solid #cbd5e1; border-radius: 3px 0 0 0; }
+.ai-panel-resizer:hover::after { border-color: var(--primary); }
 .ai-panel-head { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13px; }
 .ai-panel-head span.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 6px; }
 .ai-panel-body { flex: 1; overflow-y: auto; padding: 12px 14px; font-size: 13px; }
@@ -611,6 +615,39 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
       };
       panel.addEventListener('pointerup', saveSize);
       window.addEventListener('beforeunload', saveSize);
+
+      // v29.40.1: 좌상단 모서리 핸들 드래그로 크기 조절 — 우하단 모서리를 고정점으로,
+      // 좌상단을 바깥으로 끌면 커지고 안쪽으로 끌면 작아진다.
+      // (패널이 화면 우하단에 붙어 있어 CSS 기본 resize 그립(우하단)은 늘릴 공간이 없음)
+      const rz = document.getElementById('aiPanelResizer');
+      if(rz){
+        let rs = null;   // 드래그 시작 시점의 고정점(우하단 좌표)
+        rz.addEventListener('pointerdown', e=>{
+          const r = panel.getBoundingClientRect();
+          rs = { right: r.right, bottom: r.bottom };
+          try{ rz.setPointerCapture(e.pointerId); }catch(_){}
+          e.preventDefault();
+        });
+        rz.addEventListener('pointermove', e=>{
+          if(!rs) return;
+          let w = Math.round(rs.right - e.clientX);
+          let h = Math.round(rs.bottom - e.clientY);
+          w = Math.max(300, Math.min(window.innerWidth  - 16, w));
+          h = Math.max(340, Math.min(window.innerHeight - 16, h));
+          panel.style.width  = w + 'px';
+          panel.style.height = h + 'px';
+          panel.style.left = (rs.right  - w) + 'px';
+          panel.style.top  = (rs.bottom - h) + 'px';
+          panel.style.right = 'auto'; panel.style.bottom = 'auto';
+        });
+        const rzEnd = e=>{
+          if(!rs) return; rs = null;
+          try{ rz.releasePointerCapture(e.pointerId); }catch(_){}
+          saveSize();
+        };
+        rz.addEventListener('pointerup', rzEnd);
+        rz.addEventListener('pointercancel', rzEnd);
+      }
     }
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
@@ -641,6 +678,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 })();
 </script>
 <div class="ai-panel" id="aiPanel">
+  <div class="ai-panel-resizer" id="aiPanelResizer" title="드래그해서 크기 조절"></div>
   <div class="ai-panel-head">
     <div><span class="dot"></span>AI 비서</div>
     <div>
