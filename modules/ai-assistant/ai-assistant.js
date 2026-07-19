@@ -4,8 +4,10 @@
  * v29.38: 무료 API 게이트웨이 — 키가 있는 회사를 순서대로 자동 시도하고,
  * 한도 초과(429)·키 오류·서버 오류·시간 초과면 다음 회사로 넘어간다.
  * v29.39: 회사당 키 여러 개(여러 계정) 등록 + 키 자동 교대. Cerebras·Mistral 추가.
- * 우선순위: Gemini → Groq → Cerebras → OpenRouter → Mistral → Claude(유료).
- * Groq/Cerebras/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
+ * v29.41: 회사 게이트웨이(Cloudflare Worker, gateway/ 폴더) 연동 — 설정되면 서버에 보관된
+ * 회사 공용 키를 먼저 쓰고(개인 키 불필요), 실패 시 개인 키로 폴백. NVIDIA는 게이트웨이 전용.
+ * 우선순위: Gemini → Groq → Cerebras → NVIDIA → OpenRouter → Mistral → Claude(유료).
+ * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
  * 일반 <script src="...">로 로드된다. 같은 전역(비-모듈) 스코프를 공유하므로 이 파일에서
@@ -33,33 +35,47 @@
   function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
 
+  // v29.41: 회사 게이트웨이(Cloudflare Worker) 주소 — 설정되면 서버 보관 공용 키를 우선 사용.
+  // 워커 배포 후 DEFAULT_GATEWAY_URL에 주소를 넣으면 전 직원이 아무 설정 없이 적용된다.
+  var GATEWAY_URL_LS = 'sjp_ai_gateway_url';
+  var DEFAULT_GATEWAY_URL = '';
+  function getGatewayUrl() {
+    var u = (lsGet(GATEWAY_URL_LS) || DEFAULT_GATEWAY_URL).trim();
+    return u ? u.replace(/\/+$/, '') : '';
+  }
+
   // 모델명은 각 회사에서 계속 갱신되므로 배열 앞에서부터 시도하고,
   // 없어진 모델(404/400)이면 자동으로 다음 모델을 시도한다.
   // Gemini 최신 모델 확인: https://ai.google.dev/gemini-api/docs/models
   var CLAUDE_MODEL = 'claude-sonnet-4-20250514';
   var PROVIDER_CHAIN = [
     { id: 'gemini', label: 'Gemini', ls: GEMINI_KEY_LS, signup: 'https://aistudio.google.com/apikey',
-      note: '1순위 · Gemini — 키 1개당 하루 1,500회',
+      note: 'Gemini — 키 1개당 하루 1,500회',
       models: ['gemini-flash-latest', 'gemini-2.5-flash'] },
     { id: 'groq', label: 'Groq', ls: GROQ_KEY_LS, signup: 'https://console.groq.com/keys',
-      note: '2순위 · Groq — 키 1개당 하루 1,000회',
+      note: 'Groq — 키 1개당 하루 1,000회',
       models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'] },
     { id: 'cerebras', label: 'Cerebras', ls: CEREBRAS_KEY_LS, signup: 'https://cloud.cerebras.ai',
-      note: '3순위 · Cerebras — 키 1개당 하루 100만 토큰 (분당 5회)',
+      note: 'Cerebras — 키 1개당 하루 100만 토큰 (분당 5회)',
       models: ['gpt-oss-120b', 'zai-glm-4.7'] },
+    // NVIDIA는 브라우저 직접 호출이 차단(CORS)돼 회사 게이트웨이를 통해서만 동작 — 키 입력칸 없음
+    { id: 'nvidia', label: 'NVIDIA', ls: null, gatewayOnly: true,
+      note: 'NVIDIA — 회사 게이트웨이 전용 (분당 40회)',
+      models: ['meta/llama-3.3-70b-instruct', 'meta/llama-3.1-70b-instruct'] },
     { id: 'openrouter', label: 'OpenRouter', ls: OPENROUTER_KEY_LS, signup: 'https://openrouter.ai/settings/keys',
-      note: '4순위 · OpenRouter — 키 1개당 하루 50회',
+      note: 'OpenRouter — 키 1개당 하루 50회',
       models: ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-3-27b-it:free', 'mistralai/mistral-small-3.1-24b-instruct:free', 'deepseek/deepseek-chat-v3-0324:free'] },
     { id: 'mistral', label: 'Mistral', ls: MISTRAL_KEY_LS, signup: 'https://console.mistral.ai/api-keys',
-      note: '5순위 · Mistral — 월 10억 토큰, 분당 2회 (선택)',
+      note: 'Mistral — 월 10억 토큰, 분당 2회 (선택)',
       models: ['mistral-small-latest', 'mistral-large-latest'] },
     { id: 'claude', label: 'Claude', ls: CLAUDE_KEY_LS, signup: 'https://console.anthropic.com',
-      note: '6순위 · Claude — 유료 (ITP Builder와 공용, 선택)',
+      note: 'Claude — 유료 (ITP Builder와 공용, 선택)',
       models: [CLAUDE_MODEL] }
   ];
   // v29.39: 한 회사에 키 여러 개(여러 계정) 등록 가능 — 줄바꿈·쉼표·공백으로 구분
-  function keysOf(p) { return lsGet(p.ls).split(/[\s,;]+/).filter(Boolean); }
-  function hasAnyKey() { return PROVIDER_CHAIN.some(function (p) { return keysOf(p).length; }); }
+  function keysOf(p) { return p.ls ? lsGet(p.ls).split(/[\s,;]+/).filter(Boolean) : []; }
+  // 게이트웨이 주소가 있으면 개인 키가 없어도 사용 가능
+  function hasAnyKey() { return !!getGatewayUrl() || PROVIDER_CHAIN.some(function (p) { return keysOf(p).length; }); }
   // 마지막으로 성공한 키 번호를 기억해 다음 요청은 그 키부터 시작
   // (한도가 소진된 키를 매 질문마다 다시 두드려 느려지는 것을 방지)
   var KEY_CURSOR_LS = 'sjp_ai_key_cursor';
@@ -336,11 +352,14 @@
     return e;
   }
 
-  async function callGeminiOnce(key, model, h, signal) {
-    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+  // key가 null이면 회사 게이트웨이 호출(인증 헤더 없이 — 키는 서버가 붙임), base는 게이트웨이 주소
+  async function callGeminiOnce(key, model, h, signal, base) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (key) headers['x-goog-api-key'] = key;
+    var res = await fetch((base || 'https://generativelanguage.googleapis.com/v1beta') + '/models/' + model + ':generateContent', {
       method: 'POST',
       signal: signal,
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      headers: headers,
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
         contents: geminiContentsFromHistory(h),
@@ -369,16 +388,13 @@
     });
   }
 
-  async function callClaudeOnce(key, model, h, signal) {
-    var res = await fetch('https://api.anthropic.com/v1/messages', {
+  async function callClaudeOnce(key, model, h, signal, base) {
+    var headers = { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' };
+    if (key) { headers['x-api-key'] = key; headers['anthropic-dangerous-direct-browser-access'] = 'true'; }
+    var res = await fetch((base || 'https://api.anthropic.com/v1') + '/messages', {
       method: 'POST',
       signal: signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: headers,
       body: JSON.stringify({
         model: model,
         max_tokens: 1024,
@@ -435,7 +451,7 @@
     var res = await fetch(url, {
       method: 'POST',
       signal: signal,
-      headers: Object.assign({ 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key }, extraHeaders || {}),
+      headers: Object.assign({ 'Content-Type': 'application/json' }, key ? { 'Authorization': 'Bearer ' + key } : {}, extraHeaders || {}),
       body: JSON.stringify({ model: model, max_tokens: 1024, messages: openAiMessagesFromHistory(h), tools: buildOpenAiTools() })
     });
     if (!res.ok) {
@@ -457,46 +473,55 @@
   // ── 게이트웨이 체인: 키가 있는 회사를 순서대로, 실패하면 자동으로 다음 회사 ──
   var lastProviderLabel = '';   // 마지막으로 실제 응답한 회사 (답변 밑에 표시)
 
-  async function callOneModel(p, key, model, h, signal) {
-    if (p.id === 'gemini') return callGeminiOnce(key, model, h, signal);
-    if (p.id === 'claude') return callClaudeOnce(key, model, h, signal);
-    if (p.id === 'groq') return callOpenAiCompatOnce('Groq', 'https://api.groq.com/openai/v1/chat/completions', key, model, h, signal);
-    if (p.id === 'cerebras') return callOpenAiCompatOnce('Cerebras', 'https://api.cerebras.ai/v1/chat/completions', key, model, h, signal);
-    if (p.id === 'mistral') return callOpenAiCompatOnce('Mistral', 'https://api.mistral.ai/v1/chat/completions', key, model, h, signal);
-    return callOpenAiCompatOnce('OpenRouter', 'https://openrouter.ai/api/v1/chat/completions', key, model, h, signal, { 'X-Title': 'Sejong Platform' });
+  function callOneModel(p, key, model, h, signal) {
+    // key === null 이면 회사 게이트웨이 경유 (키는 서버가 보관·주입)
+    var gw = key === null ? getGatewayUrl() + '/v1/' + p.id : null;
+    if (p.id === 'gemini') return callGeminiOnce(key, model, h, signal, gw);
+    if (p.id === 'claude') return callClaudeOnce(key, model, h, signal, gw);
+    if (p.id === 'groq') return callOpenAiCompatOnce('Groq', (gw || 'https://api.groq.com/openai/v1') + '/chat/completions', key, model, h, signal);
+    if (p.id === 'cerebras') return callOpenAiCompatOnce('Cerebras', (gw || 'https://api.cerebras.ai/v1') + '/chat/completions', key, model, h, signal);
+    if (p.id === 'nvidia') return callOpenAiCompatOnce('NVIDIA', (gw || 'https://integrate.api.nvidia.com/v1') + '/chat/completions', key, model, h, signal);
+    if (p.id === 'mistral') return callOpenAiCompatOnce('Mistral', (gw || 'https://api.mistral.ai/v1') + '/chat/completions', key, model, h, signal);
+    return callOpenAiCompatOnce('OpenRouter', (gw || 'https://openrouter.ai/api/v1') + '/chat/completions', key, model, h, signal, { 'X-Title': 'Sejong Platform' });
   }
 
-  // 한 회사 안에서: 마지막 성공 키부터 시작해 키를 교대하고, 키마다 모델 목록을 시도한다.
+  // 한 회사 안에서: 소스(회사 게이트웨이 → 내 키들)를 교대하고, 소스마다 모델 목록을 시도한다.
   async function tryProvider(p, h) {
-    var keys = keysOf(p);
-    var start = getCursor(p.id) % keys.length;
+    var sources = [];                                   // null = 회사 게이트웨이, 문자열 = 내 키
+    if (getGatewayUrl()) sources.push(null);
+    if (!p.gatewayOnly) keysOf(p).forEach(function (k) { sources.push(k); });
+    var start = getCursor(p.id) % sources.length;
     var lastErr = null;
-    for (var ki = 0; ki < keys.length; ki++) {
-      var idx = (start + ki) % keys.length;
-      var key = keys[idx];
+    for (var si = 0; si < sources.length; si++) {
+      var idx = (start + si) % sources.length;
+      var src = sources[idx];
       for (var mi = 0; mi < p.models.length; mi++) {
         const ctl = new AbortController();
         const timer = setTimeout(function () { ctl.abort(); }, 45000);
         try {
-          var r = await callOneModel(p, key, p.models[mi], h, ctl.signal);
+          var r = await callOneModel(p, src, p.models[mi], h, ctl.signal);
           clearTimeout(timer);
-          setCursor(p.id, idx); // 이 키가 살아있음 — 다음 질문도 이 키부터
-          return r;
+          setCursor(p.id, idx); // 이 소스가 살아있음 — 다음 질문도 여기부터
+          return { result: r, viaGateway: src === null };
         } catch (e) {
           clearTimeout(timer);
           lastErr = e;
-          if (e.status === 400 || e.status === 404) continue; // 모델 문제(또는 Gemini 불량 키의 400) → 다음 모델
-          if (e.status === 429 || e.status === 401 || e.status === 403) break; // 이 키 한도 소진/불량 → 다음 키
-          throw e; // 서버 오류·시간 초과·연결 실패 → 회사 자체를 포기하고 다음 회사로
+          if (e.status === 400 || e.status === 404) continue;      // 모델 문제(또는 Gemini 불량 키의 400) → 다음 모델
+          if (e.status === 429 || e.status === 401 || e.status === 403 || e.status === 501) break; // 이 소스 소진/불량/게이트웨이 미설정 → 다음 소스
+          if (src === null && !e.status && e.name !== 'AbortError') break; // 게이트웨이 연결 실패 → 내 키로 폴백
+          throw e; // 서버 오류·시간 초과·직접 연결 실패 → 회사 자체를 포기하고 다음 회사로
         }
       }
-      // 이 키로 모든 모델이 실패 → 다음 키 시도
+      // 이 소스로 모든 모델이 실패 → 다음 소스 시도
     }
     throw lastErr || new Error('사용 가능한 키/모델이 없습니다');
   }
 
   async function callProviderOnce(h, onStatus) {
-    var avail = PROVIDER_CHAIN.filter(function (p) { return keysOf(p).length; });
+    var gw = getGatewayUrl();
+    var avail = PROVIDER_CHAIN.filter(function (p) {
+      return gw ? true : (!p.gatewayOnly && keysOf(p).length);
+    });
     if (!avail.length) {
       throw new Error('아직 API 키가 없습니다 — 우측 상단 🔑 버튼을 눌러 무료 API 키를 등록해주세요.');
     }
@@ -506,12 +531,13 @@
       if (onStatus) onStatus(p.label + ' 응답 대기 중…');
       try {
         var r = await tryProvider(p, h);
-        lastProviderLabel = p.label;
-        return r;
+        lastProviderLabel = p.label + (r.viaGateway ? ' · 회사공용' : '');
+        return r.result;
       } catch (e) {
         // Gemini는 잘못된 키를 401이 아니라 400("API key not valid")으로 돌려주므로 본문도 확인
         var why = (e.status === 401 || e.status === 403 || /api[ _]?key/i.test(e.message || '')) ? '키 오류'
           : e.status === 429 ? '무료 한도 초과'
+          : e.status === 501 ? '게이트웨이에 키 미등록'
           : e.name === 'AbortError' ? '시간 초과'
           : e.status ? ('오류 ' + e.status) : '연결 실패';
         fails.push(p.label + '(' + why + ')');
@@ -590,10 +616,17 @@
     var origClose = window.closeModal;
     window.closeModal = function () { if (m) m.style.zIndex = ''; window.closeModal = origClose; origClose(); };
 
-    var fieldsHtml = PROVIDER_CHAIN.map(function (p) {
+    var gwHtml = '<div class="fg" style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">' +
+      '<label class="fl">🏢 회사 게이트웨이 주소 — 입력하면 <b>개인 키 없이</b> 회사 공용 키로 동작 (설치법: gateway/README.md)</label>' +
+      '<input class="fi" id="aiGatewayUrlInput" spellcheck="false" autocomplete="off"' +
+      ' placeholder="https://sejong-ai-gateway.____.workers.dev"' +
+      ' value="' + lsGet(GATEWAY_URL_LS).replace(/"/g, '&quot;') + '">' +
+      '</div>';
+    var keyProviders = PROVIDER_CHAIN.filter(function (p) { return p.ls; });
+    var fieldsHtml = keyProviders.map(function (p, i) {
       var n = keysOf(p).length;
       return '<div class="fg">' +
-        '<label class="fl">' + p.note +
+        '<label class="fl">' + (i + 1) + '순위 · ' + p.note +
         (n ? ' <b style="color:var(--success);">✓ ' + n + '개 등록됨</b>' : '') +
         ' — <a href="' + p.signup + '" target="_blank" rel="noopener">키 발급 ↗</a></label>' +
         '<textarea class="fi" rows="2" id="aiKeys_' + p.id + '" spellcheck="false" autocomplete="off"' +
@@ -603,11 +636,14 @@
         '</div>';
     }).join('');
     openModal('🔑 AI 비서 — API 키 설정', '' +
-      '<div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">위에서부터 순서대로 자동 사용하고, 한도 초과·오류 시 다음으로 자동 전환됩니다.<br><b>계정을 여러 개 만들어 받은 키는 한 칸에 줄바꿈으로 전부 붙여넣으세요</b> — 키 단위로도 자동 교대되어 무료 한도가 키 수만큼 늘어납니다.</div>' +
+      gwHtml +
+      '<div style="font-size:12px;color:var(--text-light);margin:10px 0;line-height:1.6;">개인 키 사용 시: 위에서부터 순서대로 자동 사용하고, 한도 초과·오류 시 다음으로 자동 전환됩니다.<br><b>계정을 여러 개 만들어 받은 키는 한 칸에 줄바꿈으로 전부 붙여넣으세요</b> — 키 단위로도 자동 교대되어 무료 한도가 키 수만큼 늘어납니다.</div>' +
       fieldsHtml +
       '<div style="font-size:11px;color:var(--text-lighter);line-height:1.6;">키는 각각 이 브라우저의 localStorage에만 저장되고, 해당 AI 회사 서버로만 직접 전송됩니다 — 저장소(git)나 세종플랫폼 서버로는 전송/저장되지 않습니다. 필드를 비운 채 저장하면 해당 키가 삭제됩니다.</div>',
       function () {
-        PROVIDER_CHAIN.forEach(function (p) {
+        var gwEl = $id('aiGatewayUrlInput');
+        lsSet(GATEWAY_URL_LS, gwEl ? gwEl.value.trim() : '');
+        keyProviders.forEach(function (p) {
           var el = $id('aiKeys_' + p.id);
           lsSet(p.ls, el ? el.value.split(/[\s,;]+/).filter(Boolean).join('\n') : '');
         });
@@ -615,8 +651,8 @@
         updateDot();
         window.closeModal();
         appendMsg('system', hasAnyKey()
-          ? '✓ API 키 저장 완료 — 질문을 입력해보세요!'
-          : 'API 키가 모두 비어 있습니다. 키를 등록해야 답변할 수 있어요.');
+          ? '✓ 설정 저장 완료 — 질문을 입력해보세요!'
+          : '게이트웨이 주소도, API 키도 비어 있습니다. 하나는 있어야 답변할 수 있어요.');
       }
     );
   };
