@@ -709,7 +709,8 @@ const NAV = [
   { id: 'okr',       icon: '🎯', label: '목표(OKR)' },
   { id: 'manday',    icon: '⏱', label: 'Manday Tracker', superOnly: true },
   { id: 'org',       icon: '👥', label: '조직/권한', superOnly: true },
-  { id: 'aiusage',   icon: '🤖', label: 'AI 사용량', superOnly: true },
+  // v29.44: 관리 탭 — superOnly와 달리 임원(exec)도 자동 노출되지 않음. super + 지정 사용자만.
+  { id: 'admin',     icon: '🛡️', label: '관리', adminOnly: true },
   { id: 'approval',  icon: '📝', label: '결재' },
 ];
 const TOOLS = {
@@ -988,6 +989,10 @@ function canEditDeptSchedule(dept) {
 function canSeeNav(item) {
   const u = getU(state.currentUser);
   if (!u) return false;
+  // v29.44: 관리 탭은 super + '접근 권한'에서 지정된 사람만 (임원도 지정해야 보임)
+  if (item.adminOnly) {
+    return u.grade === 'super' || (((state.adminAccess || {}).uids) || []).includes(u.id);
+  }
   if (isSuperOrExec(u)) return true;              // super/exec 은 모든 메뉴
   if (item.superOnly) return false;               // 조직/권한 = super/exec 만
   if (item.deptOnly) {
@@ -2008,6 +2013,8 @@ async function hydrateUsersAndEnter(uid) {
   gcalConnected = !!getU(uid).gcalConnected; // 이전에 구글 캘린더 연동한 적 있으면 상태 표시 + 조용한 토큰 갱신 시도
   save();
   startFirestoreSync();
+  loadAdminAccess();   // v29.44: 관리 탭 접근 지정자 목록 (메뉴 노출 판단용)
+  logAccess(uid);      // v29.44: 접속 기록 — 세션당 1회
   // v29.9: 슈퍼관리자 세션 진입 후 잔재 프로젝트가 있으면 조용히 정리 (한 번만).
   //   startFirestoreSync가 projects onSnapshot을 걸어 state.projects를 채운 뒤 실행되어야 하므로
   //   짧게 지연을 두고 호출. 이후엔 재발할 여지가 없어 세션당 1회만 시도.
@@ -2659,7 +2666,7 @@ function render() {
     content.innerHTML = renderMessengerFrame();
     return;
   }
-  const renderers = { dashboard, calendar, projects, tasks, quotes, okr, org, approval, aiusage };
+  const renderers = { dashboard, calendar, projects, tasks, quotes, okr, org, approval, admin };
   content.innerHTML = `<div class="content-pad">${renderers[view.cur]()}</div>`;
 }
 
@@ -6096,20 +6103,221 @@ function getOkrCalendarEvents() {
   }));
 }
 
-/* ═════════════ 🤖 AI 사용량 (v29.43, super/exec 전용) ═════════════
-   AI 비서가 질문 1건마다 aiUsage 컬렉션에 남긴 기록을 최근 30일 범위로 읽어 집계.
-   기록을 남기는 쪽은 modules/ai-assistant/ai-assistant.js의 logAiUsage(). */
-function aiusage() {
-  setTimeout(loadAiUsage, 0);
+/* ═════════════ 🛡️ 관리 탭 (v29.44) — super + '접근 권한' 지정 사용자만 ═════════════
+   하위 탭: AI 사용량 · 시스템 오류 · 접속 기록 · 작업 활동 · 접근 권한.
+   기록 수집: AI 사용은 ai-assistant.js(logAiUsage), 나머지는 아래 수집기들이 담당. */
+
+// 공용 헬퍼
+const _admEsc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const _admDay = ts => { const d = new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const _admTime = ts => { const d = new Date(ts); return _admDay(ts).slice(5) + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+async function _admFetch30d(colName) {
+  const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const snap = await fb.getDocs(fb.query(fb.collection(fb.db, colName), fb.where('at', '>=', since)));
+  const rows = []; snap.forEach(d => rows.push(d.data()));
+  rows.sort((a, b) => (b.at||0) - (a.at||0));
+  return rows;
+}
+
+// ── 접근 지정자 목록 로드 (로그인 직후 + 저장 후 호출) ──
+async function loadAdminAccess() {
+  try {
+    const s = await fb.getDoc(fb.doc(fb.db, 'adminAccess', 'config'));
+    state.adminAccess = (s && s.exists && s.exists()) ? s.data() : { uids: [] };
+  } catch (e) { state.adminAccess = state.adminAccess || { uids: [] }; }
+  try { renderNav(); } catch (e) {}
+}
+
+// ── 접속 기록 — 로그인 세션(브라우저 탭)당 1회 ──
+function logAccess(uid) {
+  try {
+    if (sessionStorage.getItem('SJ_ACCESS_LOGGED')) return;
+    sessionStorage.setItem('SJ_ACCESS_LOGGED', '1');
+    const u = getU(uid) || {};
+    fb.setDoc(fb.doc(fb.collection(fb.db, 'accessLog')), {
+      uid: uid, user: u.name || '(미확인)', dept: u.dept || '',
+      at: Date.now(), day: _admDay(Date.now()),
+      ua: (navigator.userAgent || '').slice(0, 90)
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+// ── 코드 오류 수집 — 화면 JS 오류를 errorLog에 기록 (세션당 최대 5건, 같은 메시지 1회) ──
+(function () {
+  const seen = new Set(); let count = 0;
+  function report(msg, src) {
+    try {
+      msg = String(msg || '');
+      if (!msg || count >= 5 || seen.has(msg)) return;
+      if (!window.fb || !fb.auth || !fb.auth.currentUser) return; // 로그인 전·로컬테스트는 기록 안 함
+      seen.add(msg); count++;
+      const u = getU(state.currentUser) || {};
+      fb.setDoc(fb.doc(fb.collection(fb.db, 'errorLog')), {
+        at: Date.now(), day: _admDay(Date.now()),
+        uid: state.currentUser || '', user: u.name || '',
+        msg: msg.slice(0, 300), src: String(src || '').slice(0, 200),
+        page: (view && view.cur) || ''
+      }).catch(() => {});
+    } catch (e) {}
+  }
+  window.addEventListener('error', e => report(e.message, (e.filename || '') + ':' + (e.lineno || '')));
+  window.addEventListener('unhandledrejection', e => report((e.reason && (e.reason.message || e.reason)) || 'unhandled rejection', 'promise'));
+})();
+
+// ── 작업 활동 수집 — index.html이 Firestore에 쓰는 순간을 자동 기록 ──
+//    (로그성·개인상태 컬렉션은 제외. WBS 편집 등 iframe 모듈 내부 작업은 각 모듈 이력이 담당)
+(function () {
+  const SKIP = ['aiUsage', 'errorLog', 'accessLog', 'activityLog', 'adminAccess', 'userState', 'channelReads', 'woRegistry', 'wbsHistory'];
+  const COL_LABEL = { projects:'프로젝트', wbsData:'WBS', wbsPending:'WBS 승인대기', wbsShares:'WBS 공유', wbsRec:'검사실적',
+    tasks:'업무', events:'일정', okrs:'OKR', approvals:'결재', quotes:'견적', messages:'메시지', channels:'채널',
+    users:'사용자', pendingUsers:'가입대기', ncrs:'NCR', cars:'CAR', measurementTools:'측정기구', measurementCheckouts:'측정기구 반출입' };
+  const _oSet = fb.setDoc, _oUpd = fb.updateDoc, _oDel = fb.deleteDoc;
+  function logWrite(action, ref) {
+    try {
+      const path = (ref && ref.path) || '';
+      const col = path.split('/')[0];
+      if (!col || SKIP.indexOf(col) !== -1) return;
+      if (!fb.auth || !fb.auth.currentUser) return;
+      const u = getU(state.currentUser) || {};
+      _oSet(fb.doc(fb.collection(fb.db, 'activityLog')), {
+        at: Date.now(), day: _admDay(Date.now()),
+        uid: state.currentUser || '', user: u.name || '', dept: u.dept || '',
+        action: action, col: col, colLabel: COL_LABEL[col] || col,
+        docId: path.split('/').slice(1).join('/').slice(0, 80)
+      }).catch(() => {});
+    } catch (e) {}
+  }
+  fb.setDoc    = function (ref) { logWrite('저장', ref); return _oSet.apply(null, arguments); };
+  fb.updateDoc = function (ref) { logWrite('수정', ref); return _oUpd.apply(null, arguments); };
+  fb.deleteDoc = function (ref) { logWrite('삭제', ref); return _oDel.apply(null, arguments); };
+})();
+
+// ── 관리 페이지 ──
+function admin() {
+  if (!view.adminTab) view.adminTab = 'ai';
+  setTimeout(loadAdminTab, 0);
+  const tabs = [['ai','🤖 AI 사용량'], ['err','🐞 시스템 오류'], ['acc','🚪 접속 기록'], ['act','🛠 작업 활동'], ['perm','🔐 접근 권한']];
   return `<div class="mod-head">
-      <div><div class="mod-title">🤖 AI 사용량</div>
-        <div class="mod-sub">AI 비서 요청 기록 (최근 30일) — 회사공용 게이트웨이·개인 키 사용 모두 집계</div></div>
-      <button class="back-btn" onclick="loadAiUsage()">↺ 새로고침</button>
+      <div><div class="mod-title">🛡️ 관리</div>
+        <div class="mod-sub">AI 사용량 · 시스템 오류 · 접속/작업 기록 (최근 30일)</div></div>
+      <button class="back-btn" onclick="loadAdminTab()">↺ 새로고침</button>
     </div>
-    <div id="aiUsageBody"><div class="card" style="padding:30px;text-align:center;color:var(--text-light);">불러오는 중…</div></div>`;
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      ${tabs.map(([id, label]) => `<button class="btn ${view.adminTab === id ? 'btn-primary' : ''}" onclick="view.adminTab='${id}';render()">${label}</button>`).join('')}
+    </div>
+    <div id="adminBody"><div class="card" style="padding:30px;text-align:center;color:var(--text-light);">불러오는 중…</div></div>`;
+}
+function loadAdminTab() {
+  const t = view.adminTab || 'ai';
+  if (t === 'ai')  return loadAiUsage();
+  if (t === 'err') return loadErrorLog();
+  if (t === 'acc') return loadAccessLog();
+  if (t === 'act') return loadActivityLog();
+  return renderAdminPerm();
+}
+const _admLoadFail = (box, e) => { box.innerHTML = `<div class="card" style="padding:24px;color:#991b1b;">기록을 불러오지 못했습니다: ${_admEsc(e.message||e)}<br><span style="font-size:12px;color:var(--text-light);">Firebase 콘솔에 firestore.rules 최신본이 게시됐는지 확인하세요.</span></div>`; };
+
+// 🐞 시스템 오류
+async function loadErrorLog() {
+  const box = document.getElementById('adminBody'); if (!box) return;
+  let rows; try { rows = await _admFetch30d('errorLog'); } catch (e) { return _admLoadFail(box, e); }
+  const trs = rows.slice(0, 100).map(r => `
+    <tr style="border-top:1px solid var(--border);">
+      <td style="padding:6px 8px;white-space:nowrap;color:var(--text-light);">${_admTime(r.at)}</td>
+      <td style="padding:6px 8px;white-space:nowrap;">${_admEsc(r.user)}</td>
+      <td style="padding:6px 8px;white-space:nowrap;color:var(--text-light);">${_admEsc(r.page)}</td>
+      <td style="padding:6px 8px;color:#991b1b;font-size:11px;">${_admEsc(r.msg)}<div style="color:var(--text-lighter);">${_admEsc(r.src)}</div></td>
+    </tr>`).join('');
+  box.innerHTML = `<div class="card" style="padding:16px;">
+    <h4 style="margin-bottom:10px;">🐞 시스템 오류 — 최근 30일 ${rows.length}건 ${rows.length ? '' : '(오류 없음 👍)'}</h4>
+    ${trs ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:6px 8px;">시각</th><th style="padding:6px 8px;">사용자</th><th style="padding:6px 8px;">화면</th><th style="padding:6px 8px;">오류 내용</th></tr></thead><tbody>${trs}</tbody></table></div>` : ''}
+  </div>`;
+}
+
+// 🚪 접속 기록
+async function loadAccessLog() {
+  const box = document.getElementById('adminBody'); if (!box) return;
+  let rows; try { rows = await _admFetch30d('accessLog'); } catch (e) { return _admLoadFail(box, e); }
+  const today = _admDay(Date.now());
+  const todayUsers = [...new Set(rows.filter(r => r.day === today).map(r => r.user))];
+  const trs = rows.slice(0, 100).map(r => `
+    <tr style="border-top:1px solid var(--border);">
+      <td style="padding:6px 8px;white-space:nowrap;color:var(--text-light);">${_admTime(r.at)}</td>
+      <td style="padding:6px 8px;white-space:nowrap;">${_admEsc(r.user)}</td>
+      <td style="padding:6px 8px;white-space:nowrap;">${_admEsc(r.dept)}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--text-lighter);">${_admEsc(r.ua)}</td>
+    </tr>`).join('');
+  box.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;">
+      <div class="kpi"><div class="kpi-label">📅 오늘 접속</div><div class="kpi-value">${todayUsers.length}명</div><div class="kpi-trend">${_admEsc(todayUsers.slice(0,5).join(', '))}${todayUsers.length>5?' 외':''}</div></div>
+      <div class="kpi"><div class="kpi-label">📊 최근 30일</div><div class="kpi-value">${rows.length}회</div><div class="kpi-trend">접속(세션) 수</div></div>
+    </div>
+    <div class="card" style="padding:16px;">
+      <h4 style="margin-bottom:10px;">🚪 접속 기록 (최근 100건)</h4>
+      ${trs ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:6px 8px;">시각</th><th style="padding:6px 8px;">이름</th><th style="padding:6px 8px;">부서</th><th style="padding:6px 8px;">기기</th></tr></thead><tbody>${trs}</tbody></table></div>` : '<div style="color:var(--text-light);font-size:12px;">기록 없음 — 규칙 게시 이후의 접속부터 쌓입니다</div>'}
+    </div>`;
+}
+
+// 🛠 작업 활동
+async function loadActivityLog() {
+  const box = document.getElementById('adminBody'); if (!box) return;
+  let rows; try { rows = await _admFetch30d('activityLog'); } catch (e) { return _admLoadFail(box, e); }
+  const byUser = {};
+  rows.forEach(r => { const k = r.user || '(미확인)'; byUser[k] = (byUser[k]||0)+1; });
+  const top = Object.entries(byUser).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const trs = rows.slice(0, 150).map(r => `
+    <tr style="border-top:1px solid var(--border);">
+      <td style="padding:6px 8px;white-space:nowrap;color:var(--text-light);">${_admTime(r.at)}</td>
+      <td style="padding:6px 8px;white-space:nowrap;">${_admEsc(r.user)}</td>
+      <td style="padding:6px 8px;white-space:nowrap;">${_admEsc(r.action)} · ${_admEsc(r.colLabel)}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--text-lighter);">${_admEsc(r.docId)}</td>
+    </tr>`).join('');
+  box.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;">
+      <div class="kpi"><div class="kpi-label">📊 최근 30일 작업</div><div class="kpi-value">${rows.length}건</div><div class="kpi-trend">저장·수정·삭제</div></div>
+      <div class="kpi"><div class="kpi-label">👤 활동 TOP</div><div class="kpi-value" style="font-size:15px;">${_admEsc(top.map(t=>t[0]+' '+t[1]).join(' · ') || '-')}</div><div class="kpi-trend">최근 30일</div></div>
+    </div>
+    <div class="card" style="padding:16px;">
+      <h4 style="margin-bottom:10px;">🛠 작업 활동 (최근 150건)</h4>
+      <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">업무·프로젝트·일정·결재 등 이 화면에서 이뤄지는 작업이 기록됩니다. WBS 상세 편집 이력은 각 프로젝트의 "이전 Rev 보기"에서 확인하세요.</div>
+      ${trs ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:6px 8px;">시각</th><th style="padding:6px 8px;">이름</th><th style="padding:6px 8px;">작업</th><th style="padding:6px 8px;">대상</th></tr></thead><tbody>${trs}</tbody></table></div>` : '<div style="color:var(--text-light);font-size:12px;">기록 없음 — 규칙 게시 이후의 작업부터 쌓입니다</div>'}
+    </div>`;
+}
+
+// 🔐 접근 권한 — 관리 탭을 볼 수 있는 사람 지정 (저장은 super만 가능, 규칙에서도 차단)
+function renderAdminPerm() {
+  const box = document.getElementById('adminBody'); if (!box) return;
+  const me = getU(state.currentUser);
+  const isSuper = me && me.grade === 'super';
+  const uids = ((state.adminAccess || {}).uids) || [];
+  const rows = (state.users || []).filter(u => u.grade !== 'super').map(u => `
+    <label style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-top:1px solid var(--border);font-size:13px;cursor:${isSuper?'pointer':'default'};">
+      <input type="checkbox" class="admPermChk" value="${_admEsc(u.id)}" ${uids.includes(u.id) ? 'checked' : ''} ${isSuper ? '' : 'disabled'}>
+      <b>${_admEsc(u.name)}</b><span style="color:var(--text-light);">${_admEsc(u.dept || '')} ${_admEsc(u.title || '')}</span>
+    </label>`).join('');
+  box.innerHTML = `<div class="card" style="padding:16px;max-width:560px;">
+    <h4 style="margin-bottom:6px;">🔐 관리 탭 접근 권한</h4>
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;">체크된 사람만 이 관리 탭을 볼 수 있습니다. (대표님은 항상 볼 수 있어 목록에 없음)</div>
+    ${rows || '<div style="color:var(--text-light);font-size:12px;">직원 목록이 없습니다</div>'}
+    <div style="margin-top:12px;">
+      ${isSuper ? '<button class="btn btn-primary" onclick="saveAdminPerm()">저장</button>' : '<span style="font-size:12px;color:var(--text-lighter);">지정 변경은 대표(super)만 가능합니다</span>'}
+      <span id="admPermMsg" style="font-size:12px;color:var(--success);margin-left:8px;"></span>
+    </div>
+  </div>`;
+}
+async function saveAdminPerm() {
+  const uids = Array.from(document.querySelectorAll('.admPermChk:checked')).map(c => c.value);
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'adminAccess', 'config'), { uids, at: Date.now(), byUid: state.currentUser });
+    state.adminAccess = { uids };
+    renderNav();
+    const m = document.getElementById('admPermMsg'); if (m) m.textContent = '✓ 저장됨 (' + uids.length + '명)';
+  } catch (e) {
+    alert('저장 실패: ' + (e.message || e) + '\n(대표 계정만 저장할 수 있습니다)');
+  }
 }
 async function loadAiUsage() {
-  const box = document.getElementById('aiUsageBody');
+  const box = document.getElementById('adminBody');
   if (!box) return;
   const escA = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
   let rows = [];

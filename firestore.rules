@@ -79,6 +79,16 @@ service cloud.firestore {
     match /measurementCheckouts/{coId}   { allow read, write: if isCompanyUser(); }
     // v29.43: AI 비서 사용 기록 — 질문 1건당 1문서(로그). 생성만 허용, 수정·삭제 불가(감사 로그 성격)
     match /aiUsage/{docId}               { allow read, create: if isCompanyUser(); allow update, delete: if false; }
+    // v29.44: 관리 탭 기록들 — 오류·접속·작업 로그. 생성만 허용, 수정·삭제 불가
+    match /errorLog/{docId}              { allow read, create: if isCompanyUser(); allow update, delete: if false; }
+    match /accessLog/{docId}             { allow read, create: if isCompanyUser(); allow update, delete: if false; }
+    match /activityLog/{docId}           { allow read, create: if isCompanyUser(); allow update, delete: if false; }
+    // v29.44: 관리 탭 접근 지정자 명단 — 읽기는 사내 전체(메뉴 노출 판단용), 쓰기는 대표(super)만
+    match /adminAccess/{docId} {
+      allow read: if isCompanyUser();
+      allow write: if isCompanyUser()
+                   && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade == 'super';
+    }
 
     match /{col}/{docId} {
       allow read, write: if isCompanyUser() && col.matches('^t_.*');
