@@ -587,28 +587,14 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-  /* v29.35: AI 패널 기본 동작 스텁 — 실제 AI 응답(무료 API 게이트웨이)은 추후 구현.
-     지금은 봇을 열고 닫고, FAB 위치를 따라 패널이 붙게만 함. 이미 정의돼 있으면 건드리지 않음. */
+  /* v29.38: 진짜 toggleAiPanel/openAiKeyModal/sendAiMessage는 modules/ai-assistant/ai-assistant.js가
+     정의한다(파일 맨 아래에서 로드되며 아래 스텁을 덮어씀). 여기 스텁은 모듈 로드 실패 시 최소 동작용. */
   if(typeof window.toggleAiPanel !== 'function'){
     window.toggleAiPanel = function(){
       const p = document.getElementById('aiPanel'); if(!p) return;
       const opening = !p.classList.contains('open');
       p.classList.toggle('open');
       if(opening && window._positionAiPanel) window._positionAiPanel();
-    };
-  }
-  if(typeof window.openAiKeyModal !== 'function'){
-    window.openAiKeyModal = function(){
-      alert('AI 비서는 준비 중입니다.\n무료 API 게이트웨이(여러 무료 키 자동 전환) 구축 후 활성화됩니다.');
-    };
-  }
-  if(typeof window.sendAiMessage !== 'function'){
-    window.sendAiMessage = function(){
-      const inp = document.getElementById('aiInput'); const box = document.getElementById('aiMessages');
-      if(!inp || !box) return; const q = inp.value.trim(); if(!q) return;
-      const u = document.createElement('div'); u.style.cssText='text-align:right;margin:6px 0;font-size:13px'; u.innerHTML='<span style="background:var(--primary);color:#fff;padding:6px 10px;border-radius:10px;display:inline-block;max-width:80%">'+q.replace(/</g,'&lt;')+'</span>'; box.appendChild(u);
-      const a = document.createElement('div'); a.style.cssText='text-align:left;margin:6px 0;font-size:13px;color:var(--text-light)'; a.innerHTML='<span style="background:#f1f5f9;padding:6px 10px;border-radius:10px;display:inline-block;max-width:80%">AI 비서는 준비 중입니다. 무료 API 게이트웨이 구축 후 답변이 활성화됩니다.</span>'; box.appendChild(a);
-      inp.value=''; box.scrollTop = box.scrollHeight;
     };
   }
 })();
@@ -622,11 +608,11 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
     </div>
   </div>
   <div class="ai-panel-body" id="aiMessages">
-    <div class="ai-hint">세종플랫폼 데이터 조회/등록을 대화로 처리합니다.<br>예) "지연된 업무 알려줘", "OO현장 배관설치 다음주 금요일까지 김철수한테 등록해줘"</div>
+    <div class="ai-hint">세종플랫폼 데이터 조회/등록을 대화로 처리합니다. 🔑에서 무료 API 키를 등록하면 바로 사용!<br>예) "지연된 업무 알려줘", "OO현장 배관설치 다음주 금요일까지 김철수한테 등록해줘"</div>
   </div>
   <div class="ai-panel-foot">
     <input type="text" id="aiInput" placeholder="질문이나 명령을 입력하세요" onkeydown="if(event.key==='Enter') sendAiMessage();">
-    <button class="btn btn-primary" onclick="sendAiMessage()">전송</button>
+    <button class="btn btn-primary" id="aiSendBtn" onclick="sendAiMessage()">전송</button>
   </div>
 </div>
 
@@ -6793,6 +6779,6 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.38"></script>
 </body>
 </html>
