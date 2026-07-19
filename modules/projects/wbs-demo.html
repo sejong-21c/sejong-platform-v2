@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>WBS 메모 콜아웃 데모 실행</title>
+</head>
+<body style="font-family:-apple-system,'Malgun Gothic',sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#eef1f5;color:#1a2332">
+<div style="text-align:center">
+  <div style="font-size:28px;margin-bottom:8px">🧪</div>
+  <div style="font-size:15px;font-weight:700">WBS 데모 모드로 이동 중…</div>
+  <div style="font-size:12px;color:#6b7280;margin-top:6px">자동으로 넘어가지 않으면 <a href="wbs.html?demo=1">여기를 클릭</a>하세요.</div>
+</div>
+<script>
+// 데모 플래그를 심고 wbs.html로 이동 — file://에서 쿼리스트링이 잘리는 환경도 커버
+try { localStorage.setItem("sjp_demo", "1"); } catch (e) {}
+location.replace("wbs.html?demo=1");
+</script>
+</body>
+</html>

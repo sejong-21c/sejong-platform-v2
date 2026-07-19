@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WBS 간트 · 메모 콜아웃 프로토타입</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","맑은 고딕",sans-serif;background:#eef1f5;color:#1a2332;padding:18px;font-size:13px}
+  .wrap{max-width:1500px;margin:0 auto}
+  .topbar{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .topbar h1{font-size:17px;font-weight:800;color:#1a2332;letter-spacing:-.3px}
+  .topbar .sub{font-size:11px;color:#6b7280}
+  .badge{background:#f5f3ff;color:#7c3aed;font-weight:700;font-size:11px;padding:3px 9px;border-radius:10px}
+  .hint{margin-left:auto;font-size:11px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 11px;display:flex;align-items:center;gap:6px}
+  .toolbar{display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
+  .toolbar button{font-size:11px;padding:5px 11px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;color:#374151;font-weight:600}
+  .toolbar button:hover{background:#f9fafb}
+  .toolbar .info{font-size:11px;color:#6b7280;margin-left:auto}
+
+  /* ── 차트 ── */
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden}
+  .chart-scroll{overflow-x:auto;overflow-y:visible}
+  .chart{position:relative;min-width:1180px}
+  /* 헤더 */
+  .hdr{display:flex;border-bottom:2px solid #cbd5e1;background:#f8fafc;position:sticky;top:0;z-index:5}
+  .hdr .left{flex-shrink:0;display:flex}
+  .hdr .left .c{padding:8px 6px;font-size:10px;font-weight:700;color:#475569;border-right:1px solid #e5e7eb;display:flex;align-items:center}
+  .hdr .track{position:relative;flex:1;display:flex}
+  .hdr .track .mo{flex:1;text-align:center;font-size:10px;font-weight:700;color:#475569;border-left:1px solid #e5e7eb;padding:8px 0}
+  .hdr .track .mo .wk{display:flex;justify-content:space-around;font-size:8px;color:#94a3b8;font-weight:500;margin-top:3px}
+
+  /* 컬럼 폭 */
+  .col-no{width:34px;justify-content:center}
+  .col-name{width:210px}
+  .col-mgr{width:78px}
+  .col-date{width:56px;justify-content:center}
+  .col-pct{width:46px;justify-content:center}
+  .LEFTW{flex-shrink:0}
+
+  /* 행 */
+  .row{display:flex;border-bottom:1px solid #f1f5f9;min-height:32px;position:relative}
+  .row.grp{background:#eef3fb}
+  .row.grp .name{font-weight:800;color:#1e40af}
+  .row:hover{background:#fafcff}
+  .row .left{flex-shrink:0;display:flex}
+  .row .left .cell{padding:0 6px;display:flex;align-items:center;border-right:1px solid #f1f5f9;font-size:11px;color:#374151}
+  .row .left .name{gap:4px}
+  .row .left .name .dept-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .row .left .mgr,.row .left .date{font-size:10px;color:#6b7280;white-space:nowrap}
+  .memo-flag{font-size:9px;color:#dc2626;margin-left:2px}
+
+  /* 트랙 */
+  .track{position:relative;flex:1;overflow:visible}
+  .track .grid{position:absolute;inset:0;display:flex;pointer-events:none}
+  .track .grid .g{flex:1;border-left:1px solid #f1f5f9}
+  .track .grid .g.q{border-left:1px solid #e2e8f0}
+  /* 오늘선 */
+  .today{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;opacity:.55;z-index:2;pointer-events:none}
+
+  /* 막대 */
+  .bar{position:absolute;height:15px;top:50%;transform:translateY(-50%);border-radius:3px;cursor:default;z-index:3;box-shadow:0 1px 2px rgba(0,0,0,.12);transition:filter .12s,box-shadow .12s,outline .12s}
+  .bar .fill{height:100%;border-radius:3px 0 0 3px;opacity:.92}
+  .bar .lbl{position:absolute;left:5px;top:50%;transform:translateY(-50%);font-size:8.5px;font-weight:700;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35);white-space:nowrap}
+  .bar.grpbar{height:9px;border-radius:2px;background:#c7d7f0;border:1px solid #1e40af}
+  .bar.grpbar .fill{background:#1e40af;border-radius:2px 0 0 2px}
+  /* 메모 있는 막대 */
+  .bar.has-memo{cursor:pointer;outline:1.5px dashed rgba(220,38,38,.55);outline-offset:1px}
+  .bar.has-memo:hover{filter:brightness(1.08);box-shadow:0 2px 8px rgba(220,38,38,.35)}
+  .bar.has-memo.open{outline:2px solid #dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18)}
+  .bar .memo-dot{position:absolute;right:-6px;top:-6px;width:15px;height:15px;background:#dc2626;border:1.5px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.25),0 0 0 0 rgba(220,38,38,.4)}50%{box-shadow:0 1px 3px rgba(0,0,0,.25),0 0 0 5px rgba(220,38,38,0)}}
+
+  /* 오버레이 (연결선 + 콜아웃) */
+  .overlay{position:absolute;inset:0;pointer-events:none;z-index:20}
+  .overlay svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+
+  /* 콜아웃 */
+  .callout{position:absolute;pointer-events:auto;width:210px;background:#fff;border:1.5px solid #dc2626;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:21;animation:pop .16s ease-out}
+  @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+  .callout .co-hd{display:flex;align-items:center;gap:5px;padding:6px 8px;background:#fef2f2;border-bottom:1px solid #fecaca;border-radius:7px 7px 0 0}
+  .callout .co-hd .t{font-size:11px;font-weight:800;color:#b91c1c;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .callout .co-hd .x{width:16px;height:16px;border:none;background:#fee2e2;color:#dc2626;border-radius:4px;cursor:pointer;font-size:11px;line-height:1;flex-shrink:0}
+  .callout .co-hd .x:hover{background:#dc2626;color:#fff}
+  .callout .co-bd{padding:8px 10px;font-size:11px;color:#1f2937;line-height:1.55;white-space:pre-wrap}
+  .callout .co-bd .meta{font-size:9.5px;color:#9ca3af;margin-top:6px;border-top:1px dashed #e5e7eb;padding-top:5px}
+
+  .legend{display:flex;gap:14px;margin-top:10px;font-size:11px;color:#6b7280;flex-wrap:wrap;align-items:center}
+  .legend .it{display:flex;align-items:center;gap:5px}
+  .legend .sw{width:11px;height:11px;border-radius:3px}
+  .foot{margin-top:14px;font-size:10.5px;color:#9ca3af;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1>📊 YEONG-CHEON BUILD FACTORY — WBS</h1>
+    <span class="badge">프로토타입 · 메모 콜아웃</span>
+    <span class="sub">신규 반응설비 제작공사 · CONSTRUCTOR ㈜세종기술</span>
+    <span class="hint">💡 <b>빨간 점(📝)이 붙은 막대를 클릭</b>해 보세요 — 메모가 말풍선으로 나타납니다</span>
+  </div>
+
+  <div class="toolbar">
+    <button onclick="openAll()">📌 모든 메모 펼치기</button>
+    <button onclick="closeAll()">✕ 모두 닫기</button>
+    <span class="info">막대 클릭 = 메모 토글 · 빈 곳 클릭 = 콜아웃 유지</span>
+  </div>
+
+  <div class="card">
+    <div class="chart-scroll" id="scroll">
+      <div class="chart" id="chart">
+        <!-- header -->
+        <div class="hdr">
+          <div class="left LEFTW" id="hdrLeft">
+            <div class="c col-no">NO</div>
+            <div class="c col-name">DESCRIPTION</div>
+            <div class="c col-mgr">담당</div>
+            <div class="c col-date">시작</div>
+            <div class="c col-date">종료</div>
+            <div class="c col-pct">%</div>
+          </div>
+          <div class="track" id="hdrTrack"></div>
+        </div>
+        <!-- rows -->
+        <div id="rows"></div>
+        <!-- overlay -->
+        <div class="overlay" id="overlay">
+          <svg id="lines"><defs>
+            <marker id="dot" markerWidth="6" markerHeight="6" refX="3" refY="3"><circle cx="3" cy="3" r="2.5" fill="#dc2626"/></marker>
+          </defs></svg>
+          <div id="callouts"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="it"><span class="sw" style="background:#4a7fc1"></span>기술부</div>
+    <div class="it"><span class="sw" style="background:#0ea5e9"></span>생산부</div>
+    <div class="it"><span class="sw" style="background:#8b5cf6"></span>구매/영업부</div>
+    <div class="it"><span class="sw" style="background:#f59e0b"></span>설치(현장)</div>
+    <div class="it"><span style="font-size:12px">📝</span> 메모 있음 (클릭 가능)</div>
+    <div class="it"><span style="display:inline-block;width:2px;height:12px;background:#ef4444;opacity:.6"></span> 오늘 (7/19)</div>
+  </div>
+
+  <div class="foot">
+    ※ 프로토타입 데모 — 실제 데이터는 wbs.html의 <code>memo</code> 필드와 그대로 연동됩니다.<br>
+    현재는 hover 툴팁·PDF 콜아웃으로만 보이던 메모를, <b>간트 화면에서 막대 클릭 시 즉시 말풍선</b>으로 띄우는 방식입니다.
+  </div>
+</div>
+
+<script>
+// ── 타임라인 (2018-02-01 ~ 2018-11-30) ──
+const T0 = new Date(2018,1,1), T1 = new Date(2018,10,30);
+const SPAN = T1 - T0;
+const TODAY = new Date(2018,6,19); // 데모용 '오늘' = 7/19
+function d(s){const[y,m,day]=s.split('-').map(Number);return new Date(y,m-1,day);}
+function pct(dt){return Math.max(0,Math.min(100,(dt-T0)/SPAN*100));}
+
+// 부서 색
+const DEPT = {
+  '기술부':'#4a7fc1', '생산부':'#0ea5e9', '구매/영업부':'#8b5cf6', '설치':'#f59e0b'
+};
+
+// ── 데이터 (영천 마스터 스케줄) ──
+const DATA = [
+  {no:'1', name:'도면 제작 및 승인', dept:'기술부', mgr:'기술부', grp:true, s:'2018-02-01', e:'2018-10-31', p:70},
+  {name:'P&ID', dept:'기술부', mgr:'기술부', s:'2018-02-01', e:'2018-02-07', p:100},
+  {name:'PFD & M/B, UFD, E.Q LIST', dept:'기술부', mgr:'기술부', s:'2018-02-01', e:'2018-02-14', p:100},
+  {name:'LAY OUT, PLOT PLAN', dept:'기술부', mgr:'기술부', s:'2018-02-01', e:'2018-02-07', p:100},
+  {name:'건축구조물 설계', dept:'기술부', mgr:'기술부', s:'2018-02-01', e:'2018-02-10', p:100},
+  {name:'3D WORK', dept:'기술부', mgr:'기술부', s:'2018-02-08', e:'2018-03-31', p:100},
+  {name:'EQUIPMENT DWG', dept:'기술부', mgr:'기술부', s:'2018-02-01', e:'2018-02-14', p:100},
+  {name:'ENERGE INSPECTION', dept:'기술부', mgr:'기술부', s:'2018-03-20', e:'2018-05-05', p:100},
+  {name:'PSM', dept:'기술부', mgr:'기술부', s:'2018-01-02', e:'2018-03-28', p:100,
+     memo:'PSM 완성검사 (11/16~12/15) 예정.\n준비 및 작성 1/2~3/28 완료 후 제출.'},
+  {name:'위해관리 계획서', dept:'기술부', mgr:'기술부', s:'2018-04-01', e:'2018-04-30', p:100},
+  {name:'설치 검사', dept:'기술부', mgr:'기술부', s:'2018-05-02', e:'2018-10-31', p:55,
+     memo:'1. 검사 신청 접수 늦음\n2. 소방서 담당자 변경으로 검토 지연\n→ 현장심사 ~10/31 (영업허가 접수·현장확인 처리기간 ~10/16)'},
+  {name:'장외영향평가서', dept:'기술부', mgr:'기술부', s:'2018-01-02', e:'2018-03-28', p:100},
+
+  {no:'2', name:'기계 제작', dept:'생산부', mgr:'생산부', grp:true, s:'2018-01-04', e:'2018-06-30', p:60},
+  {name:'지하저장조 2종 11기', dept:'생산부', mgr:'생산부', s:'2018-01-04', e:'2018-03-02', p:100},
+  {name:'반응기 외 TANK류', dept:'생산부', mgr:'생산부', s:'2018-02-19', e:'2018-06-10', p:55,
+     memo:'1. 염석 세척조 미입고\n2. PE TANK 미입고\n3. T-103 미제작\n4. 유수분리조 미제작'},
+  {name:'스테치 외 제관물 제작', dept:'생산부', mgr:'생산부', s:'2018-04-01', e:'2018-06-30', p:70},
+
+  {no:'3', name:'구매품 발주 및 입고', dept:'구매/영업부', mgr:'구매/영업부', grp:true, s:'2018-03-02', e:'2018-05-31', p:65},
+  {name:'저장조 이송 펌프', dept:'구매/영업부', mgr:'구매/영업부', s:'2018-03-02', e:'2018-04-16', p:100},
+  {name:'기타 구매품', dept:'구매/영업부', mgr:'구매/영업부', s:'2018-03-02', e:'2018-05-31', p:50,
+     memo:'1. 감압변 미입고\n2. 공조설비 미입고\n3. 리프트 미입고\n4. 플래폼 스케일'},
+
+  {no:'4', name:'신규 기계 설치', dept:'설치', mgr:'곽노한 부장', grp:true, s:'2018-03-05', e:'2018-07-31', p:40},
+  {name:'지하저장조 설치', dept:'설치', mgr:'김철우 과장', s:'2018-03-05', e:'2018-04-28', p:100},
+  {name:'유틸리티 기계 설치', dept:'설치', mgr:'김철우 과장', s:'2018-04-01', e:'2018-05-20', p:80},
+  {name:'프로세스 기계 설치', dept:'설치', mgr:'김철우 과장', s:'2018-04-20', e:'2018-06-15', p:45,
+     memo:'1. TANK 미설치\n2. 공정 지연으로 인한 미설치'},
+  {name:'유틸리티 외부 배관', dept:'설치', mgr:'김철우 과장', s:'2018-05-01', e:'2018-06-20', p:50},
+  {name:'신규 스테이지 설치', dept:'설치', mgr:'김철우 과장', s:'2018-05-15', e:'2018-06-30', p:30},
+  {name:'신규 기기 설치', dept:'설치', mgr:'김철우 과장', s:'2018-05-20', e:'2018-07-20', p:25,
+     memo:'1. TANK 미설치\n2. NOTE .1 (미제작품으로 인한 설치 지연)'},
+  {name:'이설 기기 설치', dept:'설치', mgr:'김철우 과장', s:'2018-06-01', e:'2018-07-31', p:15},
+];
+
+// ── 월 헤더 ──
+const MONTHS = [];
+for(let m=1;m<=11;m++){ if(m>=2) MONTHS.push({y:2018,m}); }
+const hdrTrack = document.getElementById('hdrTrack');
+hdrTrack.innerHTML = MONTHS.map(mo=>`<div class="mo">2018.${String(mo.m).padStart(2,'0')}<div class="wk"><span>8</span><span>16</span><span>24</span></div></div>`).join('');
+
+// ── 그리드 (분기 강조) ──
+function gridHTML(){
+  return `<div class="grid">${MONTHS.map((mo,i)=>`<div class="g${(mo.m%3===0)?' q':''}"></div>`).join('')}</div>`;
+}
+
+// ── 행 렌더 ──
+const rowsEl = document.getElementById('rows');
+DATA.forEach((r,i)=>{
+  const color = DEPT[r.dept]||'#94a3b8';
+  const l = pct(d(r.s)), w = Math.max(pct(d(r.e))-l, .6);
+  const fp = r.p||0;
+  const hasMemo = !!r.memo;
+  const barCls = r.grp ? 'bar grpbar' : 'bar';
+  const bar = r.grp
+    ? `<div class="${barCls}" data-i="${i}" style="left:${l}%;width:${w}%"><div class="fill" style="width:${fp}%"></div></div>`
+    : `<div class="${barCls}${hasMemo?' has-memo':''}" data-i="${i}" style="left:${l}%;width:${w}%;background:${color}22;border:1px solid ${color}">
+         <div class="fill" style="width:${fp}%;background:${color}"></div>
+         <span class="lbl">${fp}%</span>
+         ${hasMemo?`<span class="memo-dot">📝</span>`:''}
+       </div>`;
+  rowsEl.insertAdjacentHTML('beforeend', `
+    <div class="row${r.grp?' grp':''}">
+      <div class="left LEFTW">
+        <div class="cell col-no">${r.no||''}</div>
+        <div class="cell col-name name">${r.grp?'':`<span class="dept-dot" style="background:${color}"></span>`}<span>${r.name}</span>${hasMemo?'<span class="memo-flag">📝</span>':''}</div>
+        <div class="cell col-mgr mgr">${r.mgr||''}</div>
+        <div class="cell col-date date">${r.s.slice(5).replace('-','/')}</div>
+        <div class="cell col-date date">${r.e.slice(5).replace('-','/')}</div>
+        <div class="cell col-pct">${fp}%</div>
+      </div>
+      <div class="track">${gridHTML()}${bar}</div>
+    </div>`);
+});
+
+// 오늘선
+const chart = document.getElementById('chart');
+const leftW = document.getElementById('hdrLeft').offsetWidth;
+(function(){
+  const t = document.createElement('div');
+  t.className='today';
+  // 오늘선은 트랙 영역에만: 트랙 시작(leftW) 기준 % 계산
+  const trackW = chart.offsetWidth - leftW;
+  t.style.left = (leftW + pct(TODAY)/100*trackW) + 'px';
+  chart.appendChild(t);
+})();
+
+// ── 콜아웃 로직 ──
+const overlay = document.getElementById('overlay');
+const linesSvg = document.getElementById('lines');
+const calloutsEl = document.getElementById('callouts');
+const open = new Map(); // i -> {el, bar}
+
+function barRect(bar){
+  const br = bar.getBoundingClientRect(), cr = chart.getBoundingClientRect();
+  return { x:br.left-cr.left, y:br.top-cr.top, w:br.width, h:br.height, r:br.right-cr.left, cy:br.top-cr.top+br.height/2 };
+}
+
+function toggle(i){
+  if(open.has(i)) return closeOne(i);
+  const bar = chart.querySelector(`.bar[data-i="${i}"]`);
+  const r = DATA[i]; if(!r.memo) return;
+  bar.classList.add('open');
+  const rc = barRect(bar);
+  // 콜아웃 위치: 막대 오른쪽 끝 + 여백, 세로는 아래로 살짝
+  const CW = 210;
+  let cx = rc.r + 26;
+  let cy = rc.y + rc.h + 14;
+  const maxX = chart.offsetWidth - CW - 8;
+  if(cx > maxX){ cx = Math.max(rc.x - CW - 26, 8); } // 오른쪽 넘치면 왼쪽으로
+  cy = Math.min(cy, chart.offsetHeight - 90);
+
+  const co = document.createElement('div');
+  co.className='callout';
+  co.style.left = cx+'px'; co.style.top = cy+'px';
+  co.innerHTML = `
+    <div class="co-hd"><span style="font-size:11px">📝</span><span class="t">${r.name}</span><button class="x" title="닫기">✕</button></div>
+    <div class="co-bd">${r.memo.replace(/</g,'&lt;')}<div class="meta">담당 ${r.mgr} · ${r.s.slice(5).replace('-','/')}~${r.e.slice(5).replace('-','/')} · 진척 ${r.p}%</div></div>`;
+  co.querySelector('.x').onclick = (e)=>{ e.stopPropagation(); closeOne(i); };
+  calloutsEl.appendChild(co);
+  open.set(i, {el:co, bar});
+  drawLines();
+}
+function closeOne(i){
+  const o = open.get(i); if(!o) return;
+  o.el.remove(); o.bar.classList.remove('open'); open.delete(i); drawLines();
+}
+function closeAll(){ [...open.keys()].forEach(closeOne); }
+function openAll(){ DATA.forEach((r,i)=>{ if(r.memo && !open.has(i)) toggle(i); }); }
+
+// 연결선(빨간 엘보) 그리기
+function drawLines(){
+  const ns='http://www.w3.org/2000/svg';
+  [...linesSvg.querySelectorAll('path,line')].forEach(n=>n.remove());
+  open.forEach((o)=>{
+    const rc = barRect(o.bar);
+    const cr = chart.getBoundingClientRect(), er = o.el.getBoundingClientRect();
+    const ex = er.left-cr.left, ey = er.top-cr.top;
+    // 시작: 막대 오른쪽 끝 중앙 / 끝: 콜아웃 좌상단
+    const x1 = rc.r, y1 = rc.cy;
+    const x2 = ex + 6, y2 = ey + 2;
+    const midx = (x1+x2)/2;
+    const path = document.createElementNS(ns,'path');
+    path.setAttribute('d', `M ${x1} ${y1} L ${midx} ${y1} L ${midx} ${y2} L ${x2} ${y2}`);
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke','#dc2626');
+    path.setAttribute('stroke-width','1.6');
+    path.setAttribute('marker-start','url(#dot)');
+    linesSvg.appendChild(path);
+  });
+}
+
+// 클릭 위임
+chart.addEventListener('click', (e)=>{
+  const bar = e.target.closest('.bar.has-memo');
+  if(bar) toggle(+bar.dataset.i);
+});
+// 스크롤/리사이즈 시 선 재계산
+document.getElementById('scroll').addEventListener('scroll', drawLines);
+window.addEventListener('resize', ()=>{
+  // 오늘선 재배치
+  const t=chart.querySelector('.today'); if(t){const lw=document.getElementById('hdrLeft').offsetWidth;const tw=chart.offsetWidth-lw;t.style.left=(lw+pct(TODAY)/100*tw)+'px';}
+  drawLines();
+});
+</script>
+</body>
+</html>

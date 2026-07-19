@@ -105,6 +105,22 @@ tr.sel td{background:#dbeafe!important;box-shadow:inset 0 -1px 0 #93c5fd,inset 0
 .v28-bar-outer{position:absolute;height:100%;background:#e5e7eb;border-radius:3px;overflow:hidden}
 .v28-bar-fill{height:100%;background:#16a34a;transition:width .4s}
 .v28-bar-label{position:absolute;left:0;right:0;text-align:center;font-size:9px;color:#1a2332;font-weight:700;white-space:nowrap;z-index:2;pointer-events:none;line-height:20px}
+/* v30: 간트 메모 콜아웃 — 막대 클릭 시 말풍선, 우클릭으로 작성 (PM·담당 부서) */
+.v28-bar-outer.has-memo{cursor:pointer}
+.v28-bar-outer.has-memo:hover{filter:brightness(1.07);box-shadow:0 0 0 2px rgba(220,38,38,.25)}
+.v28-memo-dot{position:absolute;top:-4px;width:13px;height:13px;background:#dc2626;border:1.5px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;color:#fff;z-index:6;box-shadow:0 1px 3px rgba(0,0,0,.25);transform:translateX(-50%);cursor:grab}
+.v28-memo-dot:hover{box-shadow:0 0 0 3px rgba(220,38,38,.25),0 1px 3px rgba(0,0,0,.25)}
+.v28-memo-dot:active{cursor:grabbing}
+.v28-memo-line{position:absolute;z-index:5;pointer-events:none;overflow:visible}
+.v28-memo-co{position:absolute;width:200px;background:#fff;border:1.5px solid #dc2626;border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:5;font-size:10.5px;cursor:default;animation:v28memopop .15s ease-out}
+@keyframes v28memopop{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}
+.v28-memo-co .co-hd{display:flex;align-items:center;gap:4px;padding:4px 7px;background:#fef2f2;border-bottom:1px solid #fecaca;border-radius:6px 6px 0 0;font-weight:800;color:#b91c1c;font-size:10px;cursor:move;user-select:none}
+.v28-memo-co.dragging{opacity:.85;box-shadow:0 10px 28px rgba(0,0,0,.35)}
+.v28-memo-co .co-hd .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v28-memo-co .co-hd button{border:none;background:#fee2e2;color:#dc2626;border-radius:3px;cursor:pointer;font-size:9px;padding:1px 5px;flex-shrink:0;line-height:1.4}
+.v28-memo-co .co-hd button:hover{background:#dc2626;color:#fff}
+.v28-memo-co .co-bd{padding:6px 8px;color:#1f2937;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+@media print{.v28-memo-co,.v28-memo-line,.v28-memo-dot{display:none!important}}
 .v28-wsum{flex-shrink:0;background:#fffdf5;border:1.5px solid #f6d76a;border-radius:10px;padding:10px 14px;margin-top:6px;margin-bottom:6px}
 .v28-wsum-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid #f0e5b8;padding-bottom:6px}
 .v28-wsum-title{font-size:12px;font-weight:700;color:#92732e;display:flex;align-items:center;gap:6px}
@@ -131,7 +147,7 @@ tr.sel td{background:#dbeafe!important;box-shadow:inset 0 -1px 0 #93c5fd,inset 0
 .wbs-unified-tbl tbody tr:hover:not(.sel){background:#f9fafb}
 .wbs-unified-tbl tbody td{height:31px;padding:0;border-bottom:1px solid #f0f4f8;font-size:11px;box-sizing:border-box;vertical-align:middle;overflow:hidden}
 .wbs-unified-tbl tbody td .cell-inner{padding:0 8px;height:31px;display:flex;align-items:center;line-height:1.2;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-sizing:border-box}
-.wbs-unified-tbl tbody td.col-gantt{padding:0;position:relative}
+.wbs-unified-tbl tbody td.col-gantt{padding:0;position:relative;overflow:visible} /* v30: 메모 콜아웃이 셀 밖으로 나올 수 있게 */
 .wbs-unified-tbl tbody td.col-gantt .cell-inner{position:relative;padding:0 3px;height:31px;overflow:visible}
 .wbs-unified-tbl tbody td.col-rem .cell-inner{padding:0;justify-content:center}
 /* 탭별 컬럼 보이기/숨기기 */
@@ -430,6 +446,10 @@ const SHOW_LIMIT=15;
 const DEPT_LIST=["영업부","기술부","구매부","생산부","품질관리부","현장시공","안전관리부","총무부","재무부"];
 // URL ?dept=<부서> 부서 필터 모드 / ?deptMode=1 부서 자체 업무 컨테이너 모드 / ?shadowUid=<uid> shadow 편집 모드
 let _deptFilter=null, _deptMode=false;
+// v30: 간트 메모 콜아웃 — 열린 메모 id 집합 + 내 프로필 캐시(작성 권한 판정용)
+let _memoOpen={}, _meProfile=null, _meProfileTried=false;
+// v30.1: 데모 모드 (?demo=1) — Firestore 없이 샘플 데이터로 체험, 저장 안 함
+let _demoMode=false;
 // v29.12: shadow 모드 — master(wbsData) 대신 개인 pending(wbsPending/{pid}_{uid})에 저장.
 // 이 uid의 pending doc이 존재하면 화면엔 그걸 보여주고, 없으면 master를 보여준다.
 let _shadowUid=null;
@@ -965,7 +985,24 @@ function rWBS(){
     const l=dp(barS),wd=Math.max(dp(barE)-l,.5);const fp=pct==null?0:pct;
     const _expPct=expectedPctByDate(barS,barE);
     const _fillBg=_expPct==null?"#16a34a":scheduleHealthGradient(fp-_expPct);
-    const ganttBar=`<div style="position:relative;height:20px;background:#f1f5f9;border-radius:2px;width:100%;margin-top:5px"><div class="v28-bar-outer" style="left:${l}%;width:${wd}%"><div class="v28-bar-fill" style="width:${fp}%;background:${_fillBg}"></div></div><span class="v28-bar-label" style="left:${l}%;width:${wd}%">${fp}%</span></div>`;
+    // v30: 메모 콜아웃 — 막대에 📝 점, 클릭 시 빨간 연결선 말풍선 (마스터 스케줄 콜아웃 스타일)
+    // v30.1: 헤더를 드래그하면 위치 이동 → memoDx/memoDy로 행에 저장(재렌더·저장에도 유지)
+    const _hasMemo=!!w.memo;
+    const _end=Math.min(l+wd,100);
+    const _esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
+    const _axo=w.memoAx||0; // v30.2: 연결점(빨간 점) 가로 오프셋 — 점 자체도 드래그로 이동 가능
+    const _memoDot=_hasMemo?`<span class="v28-memo-dot" data-dot="${w.id}" style="left:calc(${_end}% + ${_axo}px)" title="드래그: 연결점 이동 · 클릭: 메모 열기/닫기">📝</span>`:"";
+    let _memoCo="";
+    if(_hasMemo&&_memoOpen[w.id]){
+      const _bx=(_end>72?-232:22)+(w.memoDx||0); // 콜아웃 left(px, 막대 끝 기준) — 오른쪽 끝 막대는 기본 왼쪽 배치
+      const _by=16+(w.memoDy||0);                // 콜아웃 top(px)
+      const _ax=(_bx+200<0)?_bx+200:_bx;         // 연결선이 붙는 지점: 가까운 쪽 모서리
+      const _ay=_by-10+9;
+      _memoCo=`<svg class="v28-memo-line" data-line="${w.id}" style="left:${_end.toFixed(2)}%;top:10px;width:1px;height:1px"><line x1="${_axo}" y1="-7" x2="${_ax}" y2="${_ay}" stroke="#dc2626" stroke-width="1.6"/><circle cx="${_axo}" cy="-7" r="2.2" fill="#dc2626"/></svg>`
+        +`<div class="v28-memo-co" data-co="${w.id}" data-bx="${_bx}" data-by="${_by}" style="left:calc(${_end.toFixed(2)}% + ${_bx}px);top:${_by}px" onclick="if(!event.target.closest('[data-a]'))event.stopPropagation()">`
+        +`<div class="co-hd" data-codrag="${w.id}" title="드래그하면 위치를 옮길 수 있어요"><span>📝</span><span class="t">${_esc(w.name)}</span><button data-a="opMemoEd" data-id="${w.id}" title="메모 수정">✏</button><button data-a="tgMemoCo" data-id="${w.id}" title="닫기">✕</button></div><div class="co-bd">${_esc(w.memo)}</div></div>`;
+    }
+    const ganttBar=`<div style="position:relative;height:20px;background:#f1f5f9;border-radius:2px;width:100%;margin-top:5px"><div class="v28-bar-outer${_hasMemo?' has-memo':''}"${_hasMemo?` data-a="tgMemoCo" data-id="${w.id}" title="클릭: 메모 보기/닫기 · 우클릭: 메모 작성"`:""} style="left:${l}%;width:${wd}%"><div class="v28-bar-fill" style="width:${fp}%;background:${_fillBg}"></div></div><span class="v28-bar-label" style="left:${l}%;width:${wd}%">${fp}%</span>${_memoDot}${_memoCo}</div>`;
     // 모든 컬럼을 한 행에 넣고 class로 표시 제어
     return `<tr class="wbs-row ${selCls}" data-a="selW" data-id="${w.id}" data-id-row="${w.id}">
       <td class="col-code"><div class="cell-inner"><span style="display:inline-flex;align-items:center;gap:3px;padding-left:${ind}px;white-space:nowrap"><span style="flex-shrink:0">${eb}</span><span style="font-weight:${w.lv===0?700:400};font-size:11px;color:#4a7fc1;white-space:nowrap">${w.code}</span></span></div></td>
@@ -1391,6 +1428,9 @@ function act(a,d){
     case"opEvmsBac":{const cur=(S.evmsBac&&S.evmsBac[d.pid])||0;const v=prompt("계약금액(BAC)을 원 단위로 입력하세요 (예: 2000000000)",cur||"");if(v!==null){const n=Number(String(v).replace(/[^0-9.]/g,''))||0;us(s=>({...s,evmsBac:{...(s.evmsBac||{}),[d.pid]:n}}));}}break;
     case"tgExp":us(s=>({...s,wexp:{...s.wexp,[d.id]:!s.wexp[d.id]}}));break;
     case"selW":{const w=WBS.find(x=>x.id===d.id);us({wsel:S.wsel?.id===w?.id?null:w,wedit:false});break;}
+    // v30: 간트 막대 클릭 → 메모 콜아웃 토글 / 콜아웃 ✏ → 메모 편집
+    case"tgMemoCo":{if(_memoOpen[d.id])delete _memoOpen[d.id];else _memoOpen[d.id]=true;us({});break;} // us() 경유 — 스크롤 위치 유지
+    case"opMemoEd":{openMemoEditor(d.id);break;}
     case"clrW":us({wsel:null,wedit:false});break;
     case"delW":{
       const wid=d.id;const wi=WBS.findIndex(x=>x.id===wid);if(wi<0)break;
@@ -1732,6 +1772,136 @@ function act(a,d){
   }
 }
 document.addEventListener("click",e=>{const el=e.target.closest("[data-a]");if(!el)return;e.stopPropagation();act(el.dataset.a,el.dataset);});
+// ═══ v30.1: 메모 콜아웃 드래그 — 헤더를 잡고 이동, 놓으면 위치(memoDx/Dy)가 행에 저장 ═══
+let _coDrag=null;
+document.addEventListener("mousedown",e=>{
+  const hd=e.target.closest("[data-codrag]");
+  if(!hd||e.target.closest("button"))return;
+  const co=hd.closest(".v28-memo-co");
+  const line=co.parentElement.querySelector(`svg[data-line="${hd.dataset.codrag}"] line`);
+  _coDrag={id:hd.dataset.codrag,co,line,sx:e.clientX,sy:e.clientY,bx:+co.dataset.bx,by:+co.dataset.by,ddx:0,ddy:0};
+  co.classList.add("dragging");
+  e.preventDefault();
+});
+document.addEventListener("mousemove",e=>{
+  if(!_coDrag)return;
+  const d=_coDrag;
+  d.ddx=e.clientX-d.sx; d.ddy=e.clientY-d.sy;
+  d.co.style.transform=`translate(${d.ddx}px,${d.ddy}px)`;
+  if(d.line){
+    const nbx=d.bx+d.ddx, nby=d.by+d.ddy;
+    const ax=(nbx+200<0)?nbx+200:nbx;
+    d.line.setAttribute("x2",ax); d.line.setAttribute("y2",nby-10+9);
+  }
+});
+document.addEventListener("mouseup",()=>{
+  if(!_coDrag)return;
+  const d=_coDrag;_coDrag=null;
+  d.co.classList.remove("dragging");
+  if(Math.abs(d.ddx)<3&&Math.abs(d.ddy)<3){d.co.style.transform="";return;} // 클릭 수준이면 이동 취소
+  WBS=WBS.map(x=>x.id===d.id?{...x,memoDx:(x.memoDx||0)+d.ddx,memoDy:(x.memoDy||0)+d.ddy}:x);
+  us({}); // 재렌더 + 기존 저장 파이프라인으로 위치 영구 저장
+});
+// ═══ v30.2: 연결점(빨간 📝 점) 드래그 — 가로로 끌어 연결선 시작점 이동(memoAx 저장), 살짝 클릭은 메모 토글 ═══
+let _dotDrag=null;
+function _eatNextClick(){ // 드래그 직후 발생하는 click이 행 선택(selW)으로 번지지 않게 1회 차단
+  const f=ev=>{ev.stopPropagation();ev.preventDefault();};
+  document.addEventListener("click",f,true);
+  setTimeout(()=>document.removeEventListener("click",f,true),80);
+}
+document.addEventListener("mousedown",e=>{
+  const dot=e.target.closest("[data-dot]");
+  if(!dot)return;
+  const wrap=dot.parentElement;
+  const svg=wrap.querySelector(`svg[data-line="${dot.dataset.dot}"]`);
+  const w=WBS.find(x=>x.id===dot.dataset.dot);
+  _dotDrag={id:dot.dataset.dot,dot,line:svg?svg.querySelector("line"):null,circle:svg?svg.querySelector("circle"):null,base:(w&&w.memoAx)||0,sx:e.clientX,ddx:0};
+  e.preventDefault();e.stopPropagation();
+});
+document.addEventListener("mousemove",e=>{
+  if(!_dotDrag)return;
+  const d=_dotDrag;d.ddx=e.clientX-d.sx;
+  d.dot.style.transform=`translateX(calc(-50% + ${d.ddx}px))`;
+  const nx=d.base+d.ddx;
+  if(d.line)d.line.setAttribute("x1",nx);
+  if(d.circle)d.circle.setAttribute("cx",nx);
+});
+document.addEventListener("mouseup",()=>{
+  if(!_dotDrag)return;
+  const d=_dotDrag;_dotDrag=null;
+  _eatNextClick();
+  if(Math.abs(d.ddx)<3){d.dot.style.transform="";act("tgMemoCo",{id:d.id});return;} // 클릭 → 메모 토글
+  WBS=WBS.map(x=>x.id===d.id?{...x,memoAx:(x.memoAx||0)+d.ddx}:x);
+  us({});
+});
+// ═══ v30: 간트 메모 콜아웃 — 우클릭 작성 (PM·해당 부서 담당자만) ═══
+document.addEventListener("contextmenu",e=>{
+  const cell=e.target.closest("td.col-gantt");if(!cell)return;
+  const tr=e.target.closest("tr[data-id-row]");if(!tr)return;
+  e.preventDefault();
+  openMemoEditor(tr.getAttribute("data-id-row"));
+});
+// 내 프로필(부서·직급) 1회 조회 — 권한 판정용
+async function _ensureMeProfile(){
+  if(_meProfile||_meProfileTried)return _meProfile;
+  _meProfileTried=true;
+  try{
+    const cur=window.fb&&fb.auth&&fb.auth.currentUser;
+    if(!cur)return null;
+    const s=await fb.getDoc(fb.doc(fb.db,"users",cur.uid));
+    if(s.exists())_meProfile={uid:cur.uid,...s.data()};
+  }catch(e){console.warn("메모 권한용 프로필 조회 실패:",e.message);}
+  return _meProfile;
+}
+// 메모 작성 권한: PM / 관리자(super·manager·부장) / 작업의 담당 부서 / 지정 담당자
+async function _canWriteMemo(w){
+  if(document.body.classList.contains("sjp-readonly"))return{ok:false,why:"읽기 전용 모드에서는 메모를 작성할 수 없습니다."};
+  const cur=window.fb&&fb.auth&&fb.auth.currentUser;
+  if(!cur)return{ok:true}; // 로컬/데모 모드 — 제한 없음
+  if(S.selproj&&S.selproj.pm===cur.uid)return{ok:true};
+  const me=await _ensureMeProfile();
+  if(me&&(me.grade==="super"||me.grade==="manager"||me.title==="부장"))return{ok:true};
+  if(me&&me.dept&&w.dept&&me.dept===w.dept)return{ok:true};
+  if(me&&me.name&&w.mgr&&String(w.mgr).includes(me.name))return{ok:true};
+  return{ok:false,why:"메모 작성 권한이 없습니다.\nPM 또는 이 작업의 담당 부서("+(w.dept||"미지정")+") 담당자만 작성할 수 있습니다."};
+}
+// 메모 작성/수정 팝업 — 저장하면 기존 v28Save 파이프라인(Rev·shadow 결재)으로 자동 저장
+async function openMemoEditor(wid){
+  const w=WBS.find(x=>x.id===wid);if(!w)return;
+  const perm=await _canWriteMemo(w);
+  if(!perm.ok)return alert(perm.why);
+  document.getElementById("wbsMemoEd")?.remove();
+  const _e=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  const ov=document.createElement("div");
+  ov.id="wbsMemoEd";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="background:#fff;border-radius:10px;padding:16px;width:440px;max-width:92vw;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div style="font-size:13px;font-weight:800;color:#1a2332;margin-bottom:2px">📝 메모 / 이벤트 — ${_e(w.code)} ${_e(w.name)}</div>
+    <div style="font-size:10px;color:#6b7280;margin-bottom:8px">간트 막대 클릭 시 말풍선으로 표시되고, PDF 콜아웃에도 나갑니다.${w.dept?` · 담당 부서: <b>${_e(w.dept)}</b>`:""}</div>
+    <textarea id="wbsMemoTA" rows="5" style="width:100%;box-sizing:border-box;border:1px solid #c3d6f0;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;line-height:1.5;resize:vertical;outline:none" placeholder="예:&#10;1. 염석 세척조 미입고&#10;2. PE TANK 미입고&#10;3. T-103 미제작">${_e(w.memo)}</textarea>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      ${w.memo?`<button id="wbsMemoDel" style="padding:6px 12px;background:#fee2e2;color:#dc2626;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🗑 메모 삭제</button>`:""}
+      <span style="flex:1"></span>
+      <button id="wbsMemoCancel" style="padding:6px 12px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button>
+      <button id="wbsMemoSave" style="padding:6px 16px;background:#dc2626;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">💾 저장</button>
+    </div></div>`;
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+  const ta=document.getElementById("wbsMemoTA");ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
+  document.getElementById("wbsMemoCancel").onclick=()=>ov.remove();
+  const _apply=val=>{
+    const had=!!w.memo;
+    WBS=WBS.map(x=>x.id===wid?{...x,memo:val}:x);
+    if(val)_memoOpen[wid]=true;else delete _memoOpen[wid];
+    addLog(val?`📝 메모 ${had?"수정":"작성"}: ${w.code} ${w.name}`:`🗑 메모 삭제: ${w.code} ${w.name}`,val?"ok":"warn");
+    ov.remove();
+    us(S.wsel&&S.wsel.id===wid?{wsel:WBS.find(x=>x.id===wid)}:{});
+  };
+  document.getElementById("wbsMemoSave").onclick=()=>_apply(ta.value.trim());
+  const _del=document.getElementById("wbsMemoDel");
+  if(_del)_del.onclick=()=>{if(confirm("이 작업의 메모를 삭제할까요?"))_apply("");};
+}
+window.openMemoEditor=openMemoEditor;
 
 // ═══════════════════════════════════════════════════════════
 // v28.0 신규 모듈: 주간 자동 정리 + localStorage + JSON I/O
@@ -1864,6 +2034,7 @@ function v28SaveRec() {
 // 검사 실적 입력 핸들러(setIA·setIO·setPD 등)용 — R() 훅과 같은 타이머로 저장만 스케줄.
 function _schedRecSave() { clearTimeout(v28SaveTimer); v28SaveTimer = setTimeout(v28Save, 400); }
 function v28Save(){
+  if(_demoMode) return; // v30.1: 데모 모드는 Firestore에 쓰지 않음
   if(!window.fb || !_wbsPid) return;
   // v29.11: 편집 권한 없는 사용자(canEdit=0)가 실수로 저장 트리거를 걸어도 Firestore에 쓰지 않는다.
   // (subscribeWbsData의 metadata.hasPendingWrites 가드가 있지만 이중 방어)
@@ -3668,6 +3839,55 @@ window.resetWbsRev = resetWbsRev;
   const qs = new URLSearchParams(window.location.search);
   const view = qs.get("view");
   const pid = qs.get("pid");
+  // ═══ v30.1: 데모 모드 (?demo=1 / #demo / wbs-demo.html 런처) — 영천 마스터 스케줄 샘플로 메모 콜아웃 즉시 체험 ═══
+  let _demoFlag = false;
+  try { _demoFlag = localStorage.getItem("sjp_demo") === "1"; } catch (e) {}
+  if (qs.get("demo") === "1" || location.hash === "#demo" || _demoFlag) {
+    try { localStorage.removeItem("sjp_demo"); } catch (e) {} // 1회용 — 실사용에 영향 없게 바로 지움
+    _demoMode = true;
+    _wbsPid = "p_demo";
+    S.selproj = { id: "p_demo", no: "DEMO-18", name: "영천 BUILD FACTORY (데모)", pm: "곽노한 부장" };
+    const _D = (c,n,m,dp,s,e,p,st,memo,lv)=>({id:"wd_"+c.replace(/\./g,"_"),code:c,name:n,mgr:m,dept:dp,s,e,pctManual:p,status:st||(p>=100?"완료":p>0?"진행중":"미시작"),lv:lv==null?1:lv,projId:"p_demo",itpLink:null,vendor:"",memo:memo||""});
+    WBS = [
+      _D("1","도면 제작 및 승인","기술부","기술부","2026-02-01","2026-10-31",78,null,"",0),
+      _D("1.1","P&ID","기술부","기술부","2026-02-01","2026-02-07",100),
+      _D("1.2","PFD & M/B, UFD, E.Q LIST","기술부","기술부","2026-02-01","2026-02-14",100),
+      _D("1.3","LAY OUT, PLOT PLAN","기술부","기술부","2026-02-01","2026-02-07",100),
+      _D("1.4","건축구조물 설계","기술부","기술부","2026-02-01","2026-02-10",100),
+      _D("1.5","3D WORK","기술부","기술부","2026-02-08","2026-03-31",100),
+      _D("1.6","EQUIPMENT DWG","기술부","기술부","2026-02-01","2026-02-14",100),
+      _D("1.7","ENERGE INSPECTION","기술부","기술부","2026-03-20","2026-05-05",100),
+      _D("1.8","PSM","기술부","기술부","2026-01-02","2026-03-28",100,null,"PSM 완성검사 (11/16~12/15) 예정.\n준비 및 작성(1/2~3/28) 완료 후 제출."),
+      _D("1.9","위해관리 계획서","기술부","기술부","2026-04-01","2026-04-30",100),
+      _D("1.10","설치 검사","기술부","기술부","2026-05-02","2026-10-31",55,null,"1. 검사 신청 접수 늦음\n2. 소방서 담당자 변경으로 검토 지연\n→ 현장심사 ~10/31"),
+      _D("1.11","장외영향평가서","기술부","기술부","2026-01-02","2026-03-28",100),
+      _D("2","기계 제작","생산부","생산부","2026-01-04","2026-06-30",68,null,"",0),
+      _D("2.1","지하저장조 2종 11기","생산부","생산부","2026-01-04","2026-03-02",100),
+      _D("2.2","반응기 외 TANK류","생산부","생산부","2026-02-19","2026-06-10",55,"지연","1. 염석 세척조 미입고\n2. PE TANK 미입고\n3. T-103 미제작\n4. 유수분리조 미제작"),
+      _D("2.3","스테치 외 제관물 제작","생산부","생산부","2026-04-01","2026-06-30",70),
+      _D("3","구매품 발주 및 입고","구매/영업부","구매/영업부","2026-03-02","2026-05-31",70,null,"",0),
+      _D("3.1","저장조 이송 펌프","구매/영업부","구매/영업부","2026-03-02","2026-04-16",100),
+      _D("3.2","기타 구매품","구매/영업부","구매/영업부","2026-03-02","2026-05-31",50,"지연","1. 감압변 미입고\n2. 공조설비 미입고\n3. 리프트 미입고\n4. 플래폼 스케일"),
+      _D("4","신규 기계 설치","곽노한 부장","생산부","2026-03-05","2026-07-31",48,null,"",0),
+      _D("4.1","지하저장조 설치","김철우 과장","생산부","2026-03-05","2026-04-28",100),
+      _D("4.2","유틸리티 기계 설치","김철우 과장","생산부","2026-04-01","2026-05-20",80),
+      _D("4.3","프로세스 기계 설치","김철우 과장","생산부","2026-04-20","2026-06-15",45,"지연","1. TANK 미설치\n2. 공정 지연으로 인한 미설치"),
+      _D("4.4","유틸리티 외부 배관","김철우 과장","생산부","2026-05-01","2026-06-20",50),
+      _D("4.5","신규 스테이지 설치","김철우 과장","생산부","2026-05-15","2026-06-30",30),
+      _D("4.6","신규 기기 설치","김철우 과장","생산부","2026-05-20","2026-07-20",25,null,"1. TANK 미설치\n2. NOTE .1 — 미제작품으로 인한 설치 지연"),
+      _D("4.7","이설 기기 설치","김철우 과장","생산부","2026-06-01","2026-07-31",15),
+    ];
+    S.mv = "wbs"; S.wv = "gantt";
+    // 처음부터 메모 2개는 펼쳐서 보여주기
+    _memoOpen["wd_2_2"] = true; _memoOpen["wd_1_10"] = true;
+    const bar = document.createElement("div");
+    bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9998;background:#1e293b;color:#fff;font-size:12px;padding:8px 14px;display:flex;gap:16px;align-items:center;justify-content:center;flex-wrap:wrap;box-shadow:0 -2px 10px rgba(0,0,0,.2)";
+    bar.innerHTML = "🧪 <b>데모 모드</b> (저장 안 됨) &nbsp;·&nbsp; 📊 <b>막대 클릭</b> = 메모 보기/닫기 &nbsp;·&nbsp; 🖱 <b>막대 우클릭</b> = 메모 작성·수정 &nbsp;·&nbsp; ✋ <b>말풍선 빨간 머리 드래그</b> = 위치 이동 &nbsp;·&nbsp; 🔴 <b>빨간 점 드래그</b> = 연결점 이동";
+    document.body.appendChild(bar);
+    v28RecalcRange();
+    R();
+    return;
+  }
   // canEdit=0 이면 읽기전용 모드 (편집 버튼 숨김)
   if (qs.get("canEdit") === "0") document.body.classList.add("sjp-readonly");
   // v29: 부서 스케줄 진입 — ?dept=<부서> 필터, ?deptMode=1 부서 자체 업무 컨테이너
