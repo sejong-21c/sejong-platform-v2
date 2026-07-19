@@ -65,7 +65,8 @@
       models: ['meta/llama-3.3-70b-instruct', 'meta/llama-3.1-70b-instruct'] },
     { id: 'openrouter', label: 'OpenRouter', ls: OPENROUTER_KEY_LS, signup: 'https://openrouter.ai/settings/keys',
       note: 'OpenRouter — 키 1개당 하루 50회',
-      models: ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-3-27b-it:free', 'mistralai/mistral-small-3.1-24b-instruct:free', 'deepseek/deepseek-chat-v3-0324:free'] },
+      // 무료 모델 목록은 자주 바뀜 — 2026-07-19 openrouter.ai/api/v1/models 실측 기준 갱신
+      models: ['meta-llama/llama-3.3-70b-instruct:free', 'qwen/qwen3-next-80b-a3b-instruct:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'openai/gpt-oss-20b:free'] },
     { id: 'mistral', label: 'Mistral', ls: MISTRAL_KEY_LS, signup: 'https://console.mistral.ai/api-keys',
       note: 'Mistral — 월 10억 토큰, 분당 2회 (선택)',
       models: ['mistral-small-latest', 'mistral-large-latest'] },
