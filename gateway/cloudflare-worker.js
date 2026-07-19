@@ -134,8 +134,8 @@ export default {
         lastResp = json(502, { error: 'upstream fetch failed: ' + (e.message || e) }, cors);
         continue;
       }
-      if (resp.status === 429 || resp.status === 401 || resp.status === 403) {
-        lastResp = resp; // 이 키 소진/불량 → 다음 키
+      if (resp.status === 429 || resp.status === 401 || resp.status === 402 || resp.status === 403) {
+        lastResp = resp; // 이 키 소진/불량/플랜 미설정(402) → 다음 키
         continue;
       }
       keyCursor[m[1]] = idx; // 이 키가 살아있음

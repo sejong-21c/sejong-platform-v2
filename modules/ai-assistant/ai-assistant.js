@@ -508,7 +508,7 @@
           clearTimeout(timer);
           lastErr = e;
           if (e.status === 400 || e.status === 404) continue;      // 모델 문제(또는 Gemini 불량 키의 400) → 다음 모델
-          if (e.status === 429 || e.status === 401 || e.status === 403 || e.status === 501) break; // 이 소스 소진/불량/게이트웨이 미설정 → 다음 소스
+          if (e.status === 429 || e.status === 401 || e.status === 402 || e.status === 403 || e.status === 501) break; // 이 소스 소진/불량/플랜 미설정/게이트웨이 미설정 → 다음 소스
           if (src === null && !e.status && e.name !== 'AbortError') break; // 게이트웨이 연결 실패 → 내 키로 폴백
           throw e; // 서버 오류·시간 초과·직접 연결 실패 → 회사 자체를 포기하고 다음 회사로
         }
@@ -538,6 +538,7 @@
         // Gemini는 잘못된 키를 401이 아니라 400("API key not valid")으로 돌려주므로 본문도 확인
         var why = (e.status === 401 || e.status === 403 || /api[ _]?key/i.test(e.message || '')) ? '키 오류'
           : e.status === 429 ? '무료 한도 초과'
+          : e.status === 402 ? '해당 계정 무료 플랜 미설정'
           : e.status === 501 ? '게이트웨이에 키 미등록'
           : e.name === 'AbortError' ? '시간 초과'
           : e.status ? ('오류 ' + e.status) : '연결 실패';
