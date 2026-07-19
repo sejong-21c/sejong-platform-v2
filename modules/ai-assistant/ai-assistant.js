@@ -235,8 +235,29 @@
   // 데이터 종류별 전용 함수를 계속 늘리는 대신, 컬렉션 하나를 통째로 넘기고 모델이 스스로 요약/판단하게 함.
   var QUERYABLE = ['projects', 'tasks', 'users', 'channels', 'quotes', 'approvals', 'events', 'okrs'];
   var LOCAL_ONLY = ['quotes', 'approvals', 'events', 'okrs']; // 이 브라우저에만 저장(전사 공유 아님)
+
+  // v29.40: 조회 결과 속 사용자 ID(Firebase UID, pu_... 등)를 사람 이름으로 치환해서 모델에 넘긴다.
+  // — PM/구성원이 "RWqHYJnIdm..." 같은 코드 그대로 답변에 나오던 문제 수정.
+  function userNameMap() {
+    var m = {};
+    (state.users || []).forEach(function (u) { if (u && u.id && u.name) m[u.id] = u.name; });
+    return m;
+  }
+  function resolveUserIds(v, map, depth) {
+    if (depth > 12) return v;
+    if (typeof v === 'string') return map[v] || v;
+    if (Array.isArray(v)) return v.map(function (x) { return resolveUserIds(x, map, depth + 1); });
+    if (v && typeof v === 'object') {
+      var o = {};
+      Object.keys(v).forEach(function (k) { o[k] = resolveUserIds(v[k], map, depth + 1); });
+      return o;
+    }
+    return v;
+  }
+
   function queryState(collection) {
-    if (collection === 'wbsData') return state.wbs || {};
+    var map = userNameMap();
+    if (collection === 'wbsData') return resolveUserIds(state.wbs || {}, map, 0);
     if (QUERYABLE.indexOf(collection) === -1) {
       return { error: '"' + collection + '"은(는) 조회할 수 없습니다. 사용 가능: ' + QUERYABLE.join(', ') + ', wbsData' };
     }
@@ -244,6 +265,8 @@
     var out = Array.isArray(data) && data.length > 200
       ? { truncated: true, totalCount: data.length, sample: data.slice(0, 200) }
       : data;
+    // users 컬렉션은 이미 이름이 들어있고 id 필드를 이름으로 덮으면 오히려 혼란 — 치환 제외
+    if (collection !== 'users') out = resolveUserIds(out, map, 0);
     if (LOCAL_ONLY.indexOf(collection) !== -1) {
       return { note: '이 데이터는 현재 브라우저에만 저장되어 있어 다른 사람 화면과 다를 수 있습니다.', data: out };
     }
@@ -289,6 +312,7 @@
     '조회는 query_state 도구로 처리한다. 등록/생성 요청은 해당 액션 도구를 호출한다 — 네가 직접 저장하는 게 아니라, ',
     '실제 입력 폼을 열고 값을 미리 채워주는 것뿐이며 최종 저장은 사용자가 화면에서 직접 확인 버튼을 눌러야 한다는 것을 답변에 명시해라.',
     'ncrs/cars/quotes/approvals/events/okrs 데이터는 사용자 브라우저에만 저장되어 다른 직원 화면과 다를 수 있다 — 관련 질문에는 이 점을 알려줘라.',
+    '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
     'ITP Builder, QA 문서생성, 모바일 점검, NCR 관리, CAR 관리 관련 작업(도면/사진 업로드, 검사 문서 작성, 부적합/시정조치 등록·조회 등)은 아직 AI로 지원되지 않는다 — 그런 요청을 받으면 아직 지원되지 않는다고 명확히 답하고 해당 모듈을 직접 열어달라고 안내해라.',
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
   ].join(' ');
