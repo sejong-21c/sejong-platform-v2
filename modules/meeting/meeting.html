@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>회의실 예약 · 회의록 — Sejong Platform</title>
+<!-- ═══════════════════════════════════════════════════════════════
+  v1.0 회의 모듈 — 곽노한 부장 요청 (2026-07-20)
+  ① 회의실 예약: 5개 회의실 주간 예약표 (누가·언제·몇시부터 몇시까지)
+  ② 회의 녹음: Web Speech API 실시간 전사 (클로바 노트 스타일)
+  ③ AI 회의록: 회사 AI 게이트웨이로 요약 → 회사 공식 양식 초안 → 사람이 수정
+  ④ Excel: 회의록_양식.xlsx 원본에 값 채워 다운로드 (meeting-minutes 스킬 규칙 포팅)
+  데모: ?demo=1 (저장 안 함)
+═══════════════════════════════════════════════════════════════ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const app = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(app), db: getFirestore(app), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, onAuthStateChanged };
+  window.dispatchEvent(new Event("fb-ready"));
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;background:#f0f4f8;color:#1a2332;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.hdr{background:#fff;border-bottom:1px solid #e4e7ec;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.hdr h1{font-size:15px;font-weight:800;display:flex;align-items:center;gap:6px}
+.tabs{display:flex;gap:4px}
+.tabs button{padding:6px 14px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:#4b5563}
+.tabs button.on{background:#4a7fc1;color:#fff;border-color:#4a7fc1}
+.me{margin-left:auto;font-size:11px;color:#6b7280}
+.cont{flex:1;overflow:auto;padding:12px 16px}
+.card{background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:12px;margin-bottom:12px}
+button{font-family:inherit}
+.btn{padding:6px 12px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:#374151}
+.btn:hover{background:#f9fafb}
+.btn.pri{background:#4a7fc1;color:#fff;border-color:#4a7fc1}
+.btn.red{background:#dc2626;color:#fff;border-color:#dc2626}
+.btn.grn{background:#16a34a;color:#fff;border-color:#16a34a}
+.btn.pur{background:#7c3aed;color:#fff;border-color:#7c3aed}
+.btn:disabled{opacity:.5;cursor:default}
+/* ── 회의실 상태 카드 ── */
+.room-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:12px}
+.room-card{background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:10px 12px;cursor:pointer;border-top:3px solid var(--rc,#94a3b8)}
+.room-card.on{outline:2px solid var(--rc);outline-offset:-1px}
+.room-card .rn{font-weight:800;font-size:12.5px;display:flex;align-items:center;gap:5px}
+.room-card .st{font-size:11px;margin-top:5px;color:#6b7280;line-height:1.5}
+.room-card .st b.busy{color:#dc2626}
+.room-card .st b.free{color:#16a34a}
+/* ── 주간 그리드 ── */
+.wk-nav{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.wk-nav .ttl{font-size:14px;font-weight:800}
+.grid-wrap{background:#fff;border:1px solid #e4e7ec;border-radius:10px;overflow:auto}
+.wk-grid{display:grid;grid-template-columns:52px repeat(7,minmax(120px,1fr));min-width:900px}
+.wk-grid .gh{position:sticky;top:0;background:#f8fafc;border-bottom:2px solid #cbd5e1;padding:7px 4px;text-align:center;font-size:11px;font-weight:700;color:#475569;z-index:3;border-left:1px solid #eef0f3}
+.wk-grid .gh.today{background:#eff6ff;color:#1e40af}
+.wk-grid .gh .dd{font-size:14px}
+.timecol{border-left:none!important}
+.tlab{height:26px;font-size:9.5px;color:#94a3b8;text-align:right;padding-right:5px;border-top:1px solid #f1f5f9;line-height:1}
+.daycol{position:relative;border-left:1px solid #eef0f3}
+.slotbg{height:26px;border-top:1px solid #f1f5f9;cursor:pointer}
+.slotbg:nth-child(even){border-top-style:dashed}
+.slotbg:hover{background:#eff6ff}
+.rblk{position:absolute;border-radius:4px;font-size:9.5px;color:#fff;padding:2px 4px;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.15);line-height:1.25;z-index:2}
+.rblk:hover{filter:brightness(1.08);z-index:4}
+.rblk .bt{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rblk .bw{opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
+.nowline{position:absolute;left:0;right:0;height:2px;background:#ef4444;z-index:3;pointer-events:none}
+.nowline::before{content:'';position:absolute;left:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:#ef4444}
+/* ── 모달 ── */
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999;display:flex;align-items:center;justify-content:center}
+.mdl{background:#fff;border-radius:12px;padding:18px;width:460px;max-width:94vw;max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.mdl h3{font-size:14px;font-weight:800;margin-bottom:12px}
+.fl{font-size:10.5px;color:#6b7280;font-weight:600;margin-bottom:3px}
+.fi{width:100%;padding:7px 9px;border:1px solid #c3d6f0;border-radius:6px;font-size:12px;font-family:inherit;outline:none;background:#fff}
+.fi:focus{border-color:#4a7fc1}
+.frow{display:flex;gap:8px;margin-bottom:9px}
+.frow>div{flex:1}
+/* ── 회의록 탭 ── */
+.mm-wrap{display:flex;gap:12px;height:100%;min-height:0}
+.mm-list{width:300px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;overflow:auto}
+.mm-item{background:#fff;border:1px solid #e4e7ec;border-radius:9px;padding:9px 11px;cursor:pointer}
+.mm-item.on{border-color:#4a7fc1;outline:1.5px solid #4a7fc1;outline-offset:-1px}
+.mm-item .t{font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mm-item .m{font-size:10.5px;color:#6b7280;margin-top:3px}
+.mm-main{flex:1;min-width:0;overflow:auto}
+.bdg{display:inline-block;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:9px}
+.bdg.rec{background:#fee2e2;color:#dc2626}
+.bdg.draft{background:#fef3c7;color:#92400e}
+.bdg.done{background:#dcfce7;color:#166534}
+/* 녹음 화면 */
+.rec-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rec-dot{width:14px;height:14px;border-radius:50%;background:#dc2626;animation:blink 1.1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.rec-timer{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.tr-box{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px;height:340px;overflow-y:auto;font-size:13px;line-height:1.7;margin-top:10px}
+.tr-box .ts{color:#64748b;font-size:10px;margin-right:7px;font-variant-numeric:tabular-nums}
+.tr-box .interim{color:#94a3b8;font-style:italic}
+.tr-box .hint{color:#64748b;font-style:italic}
+/* 회의록 편집 폼 */
+.ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
+.ag-blk{border:1px solid #e4e7ec;border-radius:9px;padding:10px;margin-bottom:10px;background:#fafcff}
+.ag-blk .ag-t{display:flex;gap:6px;margin-bottom:7px}
+.it-row{display:flex;gap:5px;margin-bottom:5px;align-items:flex-start}
+.it-row textarea{flex:1;min-height:30px;resize:vertical}
+.it-row .sm{width:84px;flex-shrink:0}
+.it-row .xs{width:70px;flex-shrink:0}
+.att-row{display:flex;gap:5px;margin-bottom:5px}
+.demo-bar{position:fixed;left:0;right:0;bottom:0;z-index:998;background:#1e293b;color:#fff;font-size:11.5px;padding:7px 12px;text-align:center}
+.toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:9px 16px;border-radius:8px;font-size:12px;z-index:9999;transition:opacity .3s;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>🎙 회의실 예약 · 회의록</h1>
+  <div class="tabs">
+    <button data-a="tab" data-v="rooms" id="tabRooms" class="on">📅 회의실 예약</button>
+    <button data-a="tab" data-v="minutes" id="tabMinutes">📝 회의록</button>
+  </div>
+  <span class="me" id="meLabel"></span>
+</div>
+<div class="cont" id="app"></div>
+<div id="demoBar"></div>
+
+<script>
+// ═══════════════ 상수 ═══════════════
+const ROOMS=[
+  {id:'main', name:'대회의실',            icon:'🏛', color:'#4a7fc1'},
+  {id:'small',name:'소회의실',            icon:'👥', color:'#0ea5e9'},
+  {id:'guest',name:'접객실',              icon:'🤝', color:'#8b5cf6'},
+  {id:'svr',  name:'구동부 슈퍼바이저룸', icon:'⚙️', color:'#f59e0b'},
+  {id:'f3',   name:'3공장',               icon:'🏭', color:'#16a34a'},
+];
+const roomOf=id=>ROOMS.find(r=>r.id===id)||{id,name:id,icon:'📍',color:'#94a3b8'};
+const DAY_S=8*60, DAY_E=19*60, SLOT=30, PXMIN=26/30; // 08:00~19:00, 30분=26px
+const qs=new URLSearchParams(location.search);
+const DEMO=qs.get('demo')==='1'||location.hash==='#demo';
+
+// ═══════════════ 상태 ═══════════════
+let S={tab:'rooms', weekOff:0, room:'all', resv:[], mins:[], me:null, selMin:null, modal:null};
+let REC={on:false,paused:false,startAt:0,elapsed:0,lines:[],interim:'',recog:null,media:null,chunks:[],audioUrl:'',timer:null,meta:null};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const pad=n=>String(n).padStart(2,'0');
+const todayStr=()=>{const d=new Date();return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
+const m2t=m=>`${pad(Math.floor(m/60))}:${pad(m%60)}`;
+const t2m=t=>{const[a,b]=t.split(':').map(Number);return a*60+b;};
+const uid=()=> 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function toast(msg){let t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';document.body.appendChild(t);}t.textContent=msg;t.style.opacity='1';clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity='0',2800);}
+
+// ═══════════════ Firebase 연동 ═══════════════
+let fbReady=false;
+window.addEventListener('fb-ready',()=>{
+  fbReady=true;
+  if(DEMO){seedDemo();return;}
+  fb.onAuthStateChanged(fb.auth,async u=>{
+    if(u){
+      try{const s=await fb.getDoc(fb.doc(fb.db,'users',u.uid));if(s.exists()){const d=s.data();S.me={uid:u.uid,name:d.name||u.email,dept:d.dept||'',title:d.title||''};}else S.me={uid:u.uid,name:u.email,dept:'',title:''};}
+      catch(e){S.me={uid:u.uid,name:u.email||'사용자',dept:'',title:''};}
+      $('meLabel').textContent=`${S.me.name}${S.me.title?' '+S.me.title:''}${S.me.dept?' · '+S.me.dept:''}`;
+      R();
+    }
+  });
+  fb.onSnapshot(fb.collection(fb.db,'meetingReservations'),snap=>{
+    S.resv=[];snap.forEach(d=>S.resv.push(d.data()));R();
+  },e=>console.warn('resv sub fail',e.message));
+  fb.onSnapshot(fb.collection(fb.db,'meetingMinutes'),snap=>{
+    S.mins=[];snap.forEach(d=>S.mins.push(d.data()));
+    if(S.selMin){const f=S.mins.find(m=>m.id===S.selMin.id);if(f&&!EDITING)S.selMin=f;}
+    R();
+  },e=>console.warn('mins sub fail',e.message));
+});
+async function saveResv(r){ if(DEMO){const i=S.resv.findIndex(x=>x.id===r.id);if(i>=0)S.resv[i]=r;else S.resv.push(r);R();return;}
+  await fb.setDoc(fb.doc(fb.db,'meetingReservations',r.id),r);}
+async function delResv(id){ if(DEMO){S.resv=S.resv.filter(x=>x.id!==id);R();return;}
+  await fb.deleteDoc(fb.doc(fb.db,'meetingReservations',id));}
+async function saveMin(m){ if(DEMO){const i=S.mins.findIndex(x=>x.id===m.id);if(i>=0)S.mins[i]=m;else S.mins.push(m);return;}
+  await fb.setDoc(fb.doc(fb.db,'meetingMinutes',m.id),m);}
+async function delMin(id){ if(DEMO){S.mins=S.mins.filter(x=>x.id!==id);return;}
+  await fb.deleteDoc(fb.doc(fb.db,'meetingMinutes',id));}
+
+// ═══════════════ 데모 시드 ═══════════════
+function seedDemo(){
+  S.me={uid:'demo',name:'곽노한',dept:'생산부',title:'부장'};
+  $('meLabel').textContent='곽노한 부장 · 생산부 (데모)';
+  const td=todayStr();
+  const d=new Date();const wd=(d.getDay()+6)%7; // 월=0
+  const dstr=off=>{const x=new Date(d);x.setDate(d.getDate()-wd+off);return`${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`;};
+  S.resv=[
+    {id:'r1',room:'main', date:dstr(0),s:'09:00',e:'10:30',title:'주간 생산회의',       byUid:'u1',byName:'이재규 부장',dept:'생산부',createdAt:Date.now()-864e5},
+    {id:'r2',room:'main', date:td,     s:'14:00',e:'16:00',title:'SJ428-25 공정 점검', byUid:'demo',byName:'곽노한 부장',dept:'생산부',createdAt:Date.now()-36e5,note:'PSM 서류 검토 포함'},
+    {id:'r3',room:'small',date:td,     s:'10:00',e:'11:00',title:'품질 NCR 리뷰',      byUid:'u2',byName:'김우진 부장',dept:'품질관리부',createdAt:Date.now()-72e5},
+    {id:'r4',room:'guest',date:dstr(2),s:'13:00',e:'14:30',title:'삼원㈜ 고객 미팅',   byUid:'u3',byName:'박성민 차장',dept:'영업부',createdAt:Date.now()-1728e5},
+    {id:'r5',room:'svr',  date:dstr(3),s:'15:00',e:'16:00',title:'구동부 설계 검토',   byUid:'u4',byName:'이재기 부장',dept:'기술부',createdAt:Date.now()-864e5},
+    {id:'r6',room:'f3',   date:dstr(4),s:'09:30',e:'11:30',title:'3공장 안전 점검 회의',byUid:'u5',byName:'안전관리팀',dept:'안전관리부',createdAt:Date.now()-432e5},
+  ];
+  S.mins=[{id:'mm1',title:'주간 생산회의',room:'main',date:dstr(0),timeS:'09:00',timeE:'10:30',docNo:'MOM-2026-014',
+    topic:'주간 생산 현황 및 납기 점검',summary:'SJ428-25 제작 진척 점검, 자재 입고 지연 대응 방안 협의',
+    attendees:[{co:'세종기술',name:'이재규 부장'},{co:'세종기술',name:'곽노한 부장'},{co:'세종기술',name:'김철우 과장'}],
+    agendas:[{title:'SJ428-25 제작 진척',items:[
+      {content:'- 반응기 동체 용접 85% 완료, 계획 대비 2일 지연',owner:'',deadline:'',note:''},
+      {content:'- 지연 만회 위해 주말 특근 편성',owner:'곽노한',deadline:'금주',note:''}]},
+      {title:'자재 입고 지연',items:[{content:'- PE TANK 입고 지연 — 구매부 발주처 독촉 요청',owner:'구매부',deadline:'7/25',note:''}]}],
+    transcript:'(데모) 회의 전사 내용...',status:'done',byUid:'demo',byName:'곽노한 부장',dept:'생산부',createdAt:Date.now()-864e5,updatedAt:Date.now()-860e5}];
+  $('demoBar').innerHTML='<div class="demo-bar">🧪 <b>데모 모드</b> (저장 안 됨) — 빈 시간 클릭=예약 · 예약 블록 클릭=상세 · 회의록 탭에서 🎙 녹음 체험 (크롬 권장)</div>';
+  R();
+}
+
+// ═══════════════ 렌더 ═══════════════
+function R(){
+  $('tabRooms').className=S.tab==='rooms'?'on':'';
+  $('tabMinutes').className=S.tab==='minutes'?'on':'';
+  $('app').innerHTML = S.tab==='rooms'?rRooms():rMinutes();
+  if(S.tab==='minutes'&&REC.on)scrollTr();
+  renderModal();
+}
+
+// ── 주간 날짜 배열 (월 시작) ──
+function weekDays(){
+  const d=new Date();const wd=(d.getDay()+6)%7;
+  const mon=new Date(d);mon.setDate(d.getDate()-wd+S.weekOff*7);
+  return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);
+    return{date:`${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`,label:['월','화','수','목','금','토','일'][i],dd:x.getDate(),mm:x.getMonth()+1};});
+}
+function nowMin(){const d=new Date();return d.getHours()*60+d.getMinutes();}
+
+// ── 탭1: 회의실 예약 ──
+function rRooms(){
+  const days=weekDays();const td=todayStr();const nm=nowMin();
+  // 현재 사용중 카드
+  const cards=ROOMS.map(r=>{
+    const cur=S.resv.find(v=>v.room===r.id&&v.date===td&&t2m(v.s)<=nm&&nm<t2m(v.e));
+    const next=S.resv.filter(v=>v.room===r.id&&v.date===td&&t2m(v.s)>nm).sort((a,b)=>t2m(a.s)-t2m(b.s))[0];
+    const st=cur?`<b class="busy">● 사용중</b> ${esc(cur.byName)} · ~${cur.e}<br>${esc(cur.title)}`
+             :`<b class="free">○ 비어있음</b>${next?`<br>다음: ${next.s} ${esc(next.title)}`:''}`;
+    return`<div class="room-card${S.room===r.id?' on':''}" style="--rc:${r.color}" data-a="pickRoom" data-v="${r.id}"><div class="rn">${r.icon} ${r.name}</div><div class="st">${st}</div></div>`;
+  }).join('');
+  // 주간 그리드
+  const slots=[];for(let m=DAY_S;m<DAY_E;m+=SLOT)slots.push(m);
+  const timeCol=`<div class="daycol timecol">${slots.map(m=>`<div class="tlab">${m%60===0?m2t(m):''}</div>`).join('')}</div>`;
+  const heads=`<div class="gh timecol" style="border-left:none"></div>`+days.map(d=>`<div class="gh${d.date===td?' today':''}">${d.label}<div class="dd">${d.mm}/${d.dd}</div></div>`).join('');
+  const cols=days.map(d=>{
+    const dayResv=S.resv.filter(v=>v.date===d.date&&(S.room==='all'||v.room===S.room));
+    const bg=slots.map(m=>`<div class="slotbg" data-a="newResv" data-d="${d.date}" data-m="${m}"></div>`).join('');
+    const blocks=dayResv.map(v=>{
+      const r=roomOf(v.room);
+      const top=(t2m(v.s)-DAY_S)*PXMIN, h=Math.max((t2m(v.e)-t2m(v.s))*PXMIN-2,16);
+      let left='2px',width='calc(100% - 4px)';
+      if(S.room==='all'){const li=ROOMS.findIndex(x=>x.id===v.room);left=`calc(${li*20}% + 1px)`;width='calc(20% - 2px)';}
+      return`<div class="rblk" data-a="openResv" data-id="${v.id}" style="top:${top}px;height:${h}px;left:${left};width:${width};background:${r.color}" title="${esc(r.name)} · ${v.s}~${v.e} · ${esc(v.title)} · ${esc(v.byName)}"><div class="bt">${esc(v.title)}</div><div class="bw">${esc(v.byName)}</div></div>`;
+    }).join('');
+    const nowln=(d.date===td&&nm>=DAY_S&&nm<=DAY_E)?`<div class="nowline" style="top:${(nm-DAY_S)*PXMIN}px"></div>`:'';
+    return`<div class="daycol">${bg}${blocks}${nowln}</div>`;
+  }).join('');
+  const roomLegend=S.room==='all'?`<span style="font-size:10.5px;color:#6b7280">칸 안 세로줄 = 왼쪽부터 ${ROOMS.map(r=>`<span style="color:${r.color};font-weight:700">${r.name}</span>`).join(' · ')}</span>`:'';
+  return`
+  <div class="room-cards">
+    <div class="room-card${S.room==='all'?' on':''}" style="--rc:#334155" data-a="pickRoom" data-v="all"><div class="rn">🗂 전체 보기</div><div class="st">5개 회의실 통합 현황</div></div>
+    ${cards}
+  </div>
+  <div class="wk-nav">
+    <button class="btn" data-a="wk" data-v="-1">◀ 지난주</button>
+    <button class="btn" data-a="wk" data-v="0">이번주</button>
+    <button class="btn" data-a="wk" data-v="1">다음주 ▶</button>
+    <span class="ttl">${days[0].mm}/${days[0].dd} ~ ${days[6].mm}/${days[6].dd}${S.room!=='all'?` · ${roomOf(S.room).icon} ${roomOf(S.room).name}`:''}</span>
+    ${roomLegend}
+    <span style="margin-left:auto"></span>
+    <button class="btn pri" data-a="newResvBtn">+ 회의실 예약</button>
+  </div>
+  <div class="grid-wrap"><div class="wk-grid">${heads}${timeCol}${cols}</div></div>
+  <div style="font-size:10.5px;color:#9ca3af;margin-top:7px">빈 시간대를 클릭하면 바로 예약할 수 있어요 · 예약 블록 클릭 = 상세 보기(본인 예약은 수정·삭제 가능)</div>`;
+}
+
+// ── 탭2: 회의록 ──
+let EDITING=false;
+function rMinutes(){
+  const list=[...S.mins].sort((a,b)=>(b.date+(b.timeS||''))<(a.date+(a.timeS||''))?-1:1).reverse();
+  const items=list.sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:0)).map(m=>{
+    const r=roomOf(m.room);
+    const st=m.status==='rec'?'<span class="bdg rec">● 녹음중</span>':m.status==='draft'?'<span class="bdg draft">초안</span>':'<span class="bdg done">완료</span>';
+    return`<div class="mm-item${S.selMin?.id===m.id?' on':''}" data-a="selMin" data-id="${m.id}">
+      <div class="t">${esc(m.title||m.topic||'(제목 없음)')}</div>
+      <div class="m">${m.date} ${m.timeS||''}${m.timeE?'~'+m.timeE:''} · ${r.icon}${r.name} · ${esc(m.byName||'')} ${st}</div></div>`;
+  }).join('');
+  let main='';
+  if(REC.on)main=rRecording();
+  else if(S.selMin)main=rEditor(S.selMin);
+  else main=`<div class="card" style="text-align:center;padding:44px 20px;color:#6b7280">
+    <div style="font-size:34px;margin-bottom:10px">🎙</div>
+    <div style="font-size:14px;font-weight:700;color:#1a2332;margin-bottom:6px">회의를 녹음하면 실시간으로 글자가 올라오고,<br>끝나면 AI가 회사 양식 회의록 초안을 만들어 드립니다</div>
+    <div style="font-size:11.5px;margin-bottom:16px">크롬 브라우저에서 마이크 허용이 필요합니다 · 왼쪽 목록에서 기존 회의록을 열 수도 있어요</div>
+    <button class="btn red" data-a="setupRec" style="font-size:13px;padding:9px 20px">🎙 새 회의 녹음 시작</button>
+    <button class="btn" data-a="newBlank" style="margin-left:6px">✍ 녹음 없이 회의록 작성</button></div>`;
+  return`<div class="mm-wrap">
+    <div class="mm-list">
+      <button class="btn red" data-a="setupRec">🎙 새 회의 녹음</button>
+      <button class="btn" data-a="newBlank">✍ 빈 회의록 작성</button>
+      ${items||'<div style="font-size:11.5px;color:#9ca3af;text-align:center;padding:14px">저장된 회의록이 없습니다</div>'}
+    </div>
+    <div class="mm-main">${main}</div></div>`;
+}
+
+// ── 녹음 화면 ──
+function fmtEl(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60;return(h?pad(h)+':':'')+pad(m)+':'+pad(ss);}
+function rRecording(){
+  const meta=REC.meta||{};
+  const lines=REC.lines.map(l=>`<div><span class="ts">[${fmtEl(l.t)}]</span>${esc(l.txt)}</div>`).join('');
+  return`<div class="card">
+    <div class="rec-head">
+      ${REC.paused?'<span style="font-size:14px">⏸</span>':'<span class="rec-dot"></span>'}
+      <span class="rec-timer" id="recTimer">${fmtEl(REC.elapsed)}</span>
+      <span style="font-weight:700">${esc(meta.title||'회의 녹음')}</span>
+      <span style="font-size:11px;color:#6b7280">${roomOf(meta.room).icon} ${roomOf(meta.room).name} · ${meta.date||todayStr()}</span>
+      <span style="margin-left:auto"></span>
+      ${REC.paused?'<button class="btn grn" data-a="recResume">▶ 재개</button>':'<button class="btn" data-a="recPause">⏸ 일시정지</button>'}
+      <button class="btn red" data-a="recStop">⏹ 녹음 종료</button>
+    </div>
+    <div class="tr-box" id="trBox">
+      ${lines||''}
+      ${REC.interim?`<div class="interim">${esc(REC.interim)}</div>`:''}
+      ${(!lines&&!REC.interim)?'<div class="hint">🎤 말씀하시면 여기에 실시간으로 글자가 올라옵니다...</div>':''}
+    </div>
+    <div style="font-size:10.5px;color:#9ca3af;margin-top:7px">음성인식은 크롬 내장 기능(한국어)을 사용합니다 · 조용하면 자동으로 잠깐 멈췄다 다시 시작돼요</div>
+  </div>`;
+}
+function scrollTr(){const b=$('trBox');if(b)b.scrollTop=b.scrollHeight;}
+
+// ── 회의록 편집 폼 ──
+function rEditor(m){
+  const r=roomOf(m.room);
+  const atts=(m.attendees&&m.attendees.length?m.attendees:[{co:'세종기술',name:''}]).map((a,i)=>`
+    <div class="att-row"><input class="fi" style="width:110px" data-ed="att-co" data-i="${i}" value="${esc(a.co)}" placeholder="회사"/>
+    <input class="fi" data-ed="att-name" data-i="${i}" value="${esc(a.name)}" placeholder="이름 직책 (예: 김철우 과장)"/>
+    <button class="btn" data-a="delAtt" data-i="${i}">✕</button></div>`).join('');
+  const ags=(m.agendas&&m.agendas.length?m.agendas:[{title:'',items:[{content:'',owner:'',deadline:'',note:''}]}]).map((ag,gi)=>`
+    <div class="ag-blk">
+      <div class="ag-t"><span style="font-weight:800;flex-shrink:0;padding-top:7px">【안건 ${gi+1}】</span>
+        <input class="fi" data-ed="ag-title" data-g="${gi}" value="${esc(ag.title)}" placeholder="안건 제목"/>
+        <button class="btn" data-a="delAg" data-g="${gi}" title="안건 삭제">🗑</button></div>
+      ${ag.items.map((it,ii)=>`<div class="it-row">
+        <textarea class="fi" data-ed="it-content" data-g="${gi}" data-i="${ii}" placeholder="- 내용 / 결정사항 / Action Item">${esc(it.content)}</textarea>
+        <input class="fi sm" data-ed="it-owner" data-g="${gi}" data-i="${ii}" value="${esc(it.owner)}" placeholder="주체"/>
+        <input class="fi xs" data-ed="it-deadline" data-g="${gi}" data-i="${ii}" value="${esc(it.deadline)}" placeholder="기한"/>
+        <input class="fi xs" data-ed="it-note" data-g="${gi}" data-i="${ii}" value="${esc(it.note)}" placeholder="비고"/>
+        <button class="btn" data-a="delIt" data-g="${gi}" data-i="${ii}">✕</button></div>`).join('')}
+      <button class="btn" data-a="addIt" data-g="${gi}" style="font-size:11px">+ 항목</button>
+    </div>`).join('');
+  const tr=m.transcript?`<details style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:700;font-size:12px">📜 녹음 전문 보기 (${(m.transcript||'').length.toLocaleString()}자)</summary>
+    <textarea class="fi" data-ed="transcript" style="min-height:160px;margin-top:6px;font-size:11.5px;line-height:1.6">${esc(m.transcript)}</textarea></details>`:'';
+  return`<div class="card">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <span style="font-size:15px;font-weight:800">📝 회의록</span>
+      ${m.status==='draft'?'<span class="bdg draft">초안</span>':'<span class="bdg done">완료</span>'}
+      <span style="font-size:11px;color:#6b7280">작성 ${esc(m.byName||'')}</span>
+      <span style="margin-left:auto"></span>
+      ${m.transcript&&!m.aiDone?`<button class="btn pur" data-a="aiGen" data-id="${m.id}">🤖 AI 회의록 생성</button>`:''}
+      ${m.transcript&&m.aiDone?`<button class="btn" data-a="aiGen" data-id="${m.id}" title="전사본으로 다시 생성 (현재 내용 덮어씀)">🔄 AI 재생성</button>`:''}
+      <button class="btn grn" data-a="saveMin">💾 저장</button>
+      <button class="btn pri" data-a="xlsx">📥 Excel 다운로드</button>
+      <button class="btn" data-a="delMinBtn" data-id="${m.id}">🗑</button>
+      <button class="btn" data-a="closeMin">닫기</button>
+    </div>
+    ${m.audioUrl?`<div style="margin-bottom:10px"><audio controls src="${m.audioUrl}" style="width:100%;height:36px"></audio> <a href="${m.audioUrl}" download="회의녹음_${m.date}.webm" style="font-size:11px">💾 녹음 파일 저장</a></div>`:''}
+    ${tr}
+    <div class="ed-grid">
+      <div><div class="fl">회의 주제</div><input class="fi" data-ed="topic" value="${esc(m.topic||m.title||'')}"/></div>
+      <div><div class="fl">문서 번호</div><input class="fi" data-ed="docNo" value="${esc(m.docNo||'')}" placeholder="MOM-2026-001"/></div>
+    </div>
+    <div style="margin-bottom:9px"><div class="fl">회의 내용 (한 줄 요약)</div><input class="fi" data-ed="summary" value="${esc(m.summary||'')}"/></div>
+    <div class="ed-grid">
+      <div><div class="fl">회의 일시</div><div style="display:flex;gap:5px"><input class="fi" type="date" data-ed="date" value="${m.date||todayStr()}" style="flex:1.2"/><input class="fi" type="time" data-ed="timeS" value="${m.timeS||''}"/><input class="fi" type="time" data-ed="timeE" value="${m.timeE||''}"/></div></div>
+      <div><div class="fl">회의 장소</div><select class="fi" data-ed="room">${ROOMS.map(x=>`<option value="${x.id}"${m.room===x.id?' selected':''}>${x.icon} ${x.name}</option>`).join('')}<option value="etc"${m.room==='etc'?' selected':''}>기타</option></select></div>
+    </div>
+    <div style="margin-bottom:9px"><div class="fl">참석 인원 <button class="btn" data-a="addAtt" style="font-size:10px;padding:2px 8px">+ 추가</button></div>${atts}</div>
+    <div class="fl" style="margin-bottom:5px">회의 내용 (안건별) <button class="btn" data-a="addAg" style="font-size:10px;padding:2px 8px">+ 안건 추가</button></div>
+    ${ags}
+  </div>`;
+}
+
+// 편집 폼 → S.selMin 반영 (input 이벤트로 실시간 수집, 재렌더 없이)
+document.addEventListener('input',e=>{
+  const ed=e.target.dataset.ed;if(!ed||!S.selMin)return;EDITING=true;
+  const m=S.selMin;const g=+e.target.dataset.g,i=+e.target.dataset.i;
+  if(ed==='topic')m.topic=e.target.value; else if(ed==='docNo')m.docNo=e.target.value;
+  else if(ed==='summary')m.summary=e.target.value; else if(ed==='date')m.date=e.target.value;
+  else if(ed==='timeS')m.timeS=e.target.value; else if(ed==='timeE')m.timeE=e.target.value;
+  else if(ed==='room')m.room=e.target.value; else if(ed==='transcript')m.transcript=e.target.value;
+  else if(ed==='att-co')m.attendees[i].co=e.target.value; else if(ed==='att-name')m.attendees[i].name=e.target.value;
+  else if(ed==='ag-title')m.agendas[g].title=e.target.value;
+  else if(ed.startsWith('it-'))m.agendas[g].items[i][ed.slice(3)]=e.target.value;
+});
+
+// ═══════════════ 모달 (예약 등록/상세) ═══════════════
+function renderModal(){
+  let ov=$('mdOv');if(ov)ov.remove();
+  if(!S.modal)return;
+  ov=document.createElement('div');ov.id='mdOv';ov.className='ov';
+  ov.addEventListener('click',e=>{if(e.target===ov){S.modal=null;renderModal();}});
+  const M=S.modal;
+  if(M.type==='new'){
+    const opts=(sel)=>{let h='';for(let m=DAY_S;m<=DAY_E;m+=SLOT)h+=`<option${m===sel?' selected':''}>${m2t(m)}</option>`;return h;};
+    ov.innerHTML=`<div class="mdl"><h3>📅 회의실 예약</h3>
+      <div style="margin-bottom:9px"><div class="fl">회의 제목 *</div><input class="fi" id="mTitle" value="${esc(M.title||'')}" placeholder="예: 주간 생산회의"/></div>
+      <div class="frow">
+        <div><div class="fl">회의실 *</div><select class="fi" id="mRoom">${ROOMS.map(r=>`<option value="${r.id}"${M.room===r.id?' selected':''}>${r.icon} ${r.name}</option>`).join('')}</select></div>
+        <div><div class="fl">날짜 *</div><input class="fi" type="date" id="mDate" value="${M.date||todayStr()}"/></div>
+      </div>
+      <div class="frow">
+        <div><div class="fl">시작</div><select class="fi" id="mS">${opts(M.s??t2m('09:00'))}</select></div>
+        <div><div class="fl">종료</div><select class="fi" id="mE">${opts(M.e??(M.s!=null?Math.min(M.s+60,DAY_E):t2m('10:00')))}</select></div>
+      </div>
+      <div style="margin-bottom:12px"><div class="fl">목적 / 비고</div><input class="fi" id="mNote" value="${esc(M.note||'')}"/></div>
+      <div style="display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn" data-a="mdClose">취소</button>
+        <button class="btn pri" data-a="mdSave" data-eid="${M.editId||''}">${M.editId?'수정 저장':'예약하기'}</button></div></div>`;
+  }else if(M.type==='detail'){
+    const v=S.resv.find(x=>x.id===M.id);if(!v){S.modal=null;return;}
+    const r=roomOf(v.room);const mine=DEMO||(S.me&&v.byUid===S.me.uid);
+    ov.innerHTML=`<div class="mdl"><h3>${r.icon} ${r.name}</h3>
+      <div style="font-size:15px;font-weight:800;margin-bottom:8px">${esc(v.title)}</div>
+      <div style="font-size:12.5px;line-height:2;color:#374151">
+        🗓 <b>${v.date}</b> &nbsp; ⏰ <b>${v.s} ~ ${v.e}</b><br>
+        👤 예약자: <b>${esc(v.byName)}</b>${v.dept?` (${esc(v.dept)})`:''}<br>
+        ${v.note?`📌 ${esc(v.note)}<br>`:''}
+        <span style="font-size:10.5px;color:#9ca3af">등록: ${new Date(v.createdAt).toLocaleString('ko-KR')}</span></div>
+      <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
+        <button class="btn red" data-a="recFromResv" data-id="${v.id}">🎙 이 회의 녹음 시작</button>
+        <span style="flex:1"></span>
+        ${mine?`<button class="btn" data-a="editResv" data-id="${v.id}">✏ 수정</button><button class="btn" data-a="delResvBtn" data-id="${v.id}">🗑 삭제</button>`:''}
+        <button class="btn" data-a="mdClose">닫기</button></div></div>`;
+  }else if(M.type==='setup'){
+    const tdResv=S.resv.filter(v=>v.date===todayStr()).sort((a,b)=>t2m(a.s)-t2m(b.s));
+    ov.innerHTML=`<div class="mdl"><h3>🎙 회의 녹음 시작</h3>
+      ${tdResv.length?`<div style="margin-bottom:9px"><div class="fl">오늘 예약과 연결 (선택)</div><select class="fi" id="sResv"><option value="">— 연결 안 함 —</option>${tdResv.map(v=>`<option value="${v.id}"${M.resvId===v.id?' selected':''}>${v.s} ${roomOf(v.room).name} · ${esc(v.title)}</option>`).join('')}</select></div>`:''}
+      <div style="margin-bottom:9px"><div class="fl">회의 제목 *</div><input class="fi" id="sTitle" value="${esc(M.title||'')}" placeholder="예: SJ428-25 공정 점검 회의"/></div>
+      <div class="frow"><div><div class="fl">회의실</div><select class="fi" id="sRoom">${ROOMS.map(r=>`<option value="${r.id}"${M.room===r.id?' selected':''}>${r.icon} ${r.name}</option>`).join('')}<option value="etc">기타</option></select></div></div>
+      <div style="margin-bottom:12px"><div class="fl">참석자 (쉼표로 구분)</div><input class="fi" id="sAtt" value="${esc(M.att||'')}" placeholder="예: 곽노한 부장, 김철우 과장, 이재규 부장"/></div>
+      <div style="font-size:11px;color:#6b7280;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:8px 10px;margin-bottom:12px">🎤 시작을 누르면 브라우저가 <b>마이크 권한</b>을 요청합니다. 허용해 주세요.<br>말하는 내용이 실시간으로 화면에 올라옵니다 (크롬 권장).</div>
+      <div style="display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn" data-a="mdClose">취소</button>
+        <button class="btn red" data-a="recStart">🎙 녹음 시작</button></div></div>`;
+  }
+  document.body.appendChild(ov);
+}
+
+// ═══════════════ 액션 ═══════════════
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]');if(!el)return;
+  const a=el.dataset.a,d=el.dataset;
+  switch(a){
+    case'tab':S.tab=d.v;R();break;
+    case'pickRoom':S.room=d.v;R();break;
+    case'wk':S.weekOff=d.v==='0'?0:S.weekOff+Number(d.v);R();break;
+    case'newResvBtn':S.modal={type:'new',room:S.room!=='all'?S.room:'main'};renderModal();break;
+    case'newResv':S.modal={type:'new',room:S.room!=='all'?S.room:'main',date:d.d,s:+d.m,e:Math.min(+d.m+60,DAY_E)};renderModal();break;
+    case'openResv':S.modal={type:'detail',id:d.id};renderModal();break;
+    case'mdClose':S.modal=null;renderModal();break;
+    case'mdSave':doSaveResv(d.eid);break;
+    case'editResv':{const v=S.resv.find(x=>x.id===d.id);if(v)S.modal={type:'new',editId:v.id,title:v.title,room:v.room,date:v.date,s:t2m(v.s),e:t2m(v.e),note:v.note};renderModal();break;}
+    case'delResvBtn':{const v=S.resv.find(x=>x.id===d.id);if(v&&confirm(`"${v.title}" 예약을 삭제할까요?`)){delResv(v.id).then(()=>toast('예약이 삭제됐습니다'));S.modal=null;renderModal();}break;}
+    case'recFromResv':{const v=S.resv.find(x=>x.id===d.id);S.modal={type:'setup',resvId:v?.id,title:v?.title,room:v?.room,att:''};S.tab='minutes';R();break;}
+    case'setupRec':S.modal={type:'setup',room:'main'};renderModal();break;
+    case'recStart':startRec();break;
+    case'recPause':pauseRec();break;
+    case'recResume':resumeRec();break;
+    case'recStop':stopRec();break;
+    case'newBlank':newBlankMin();break;
+    case'selMin':{if(REC.on)return toast('녹음 중에는 다른 회의록을 열 수 없어요');const m=S.mins.find(x=>x.id===d.id);S.selMin=m?JSON.parse(JSON.stringify(m)):null;EDITING=false;R();break;}
+    case'closeMin':S.selMin=null;EDITING=false;R();break;
+    case'saveMin':doSaveMin();break;
+    case'delMinBtn':if(confirm('이 회의록을 삭제할까요?')){delMin(d.id).then(()=>toast('삭제됐습니다'));S.selMin=null;R();}break;
+    case'xlsx':exportXlsx(S.selMin);break;
+    case'aiGen':aiGenerate();break;
+    case'addAtt':S.selMin.attendees=S.selMin.attendees||[];S.selMin.attendees.push({co:'세종기술',name:''});R();break;
+    case'delAtt':S.selMin.attendees.splice(+d.i,1);R();break;
+    case'addAg':S.selMin.agendas=S.selMin.agendas||[];S.selMin.agendas.push({title:'',items:[{content:'',owner:'',deadline:'',note:''}]});R();break;
+    case'delAg':if(confirm('이 안건을 삭제할까요?')){S.selMin.agendas.splice(+d.g,1);R();}break;
+    case'addIt':S.selMin.agendas[+d.g].items.push({content:'',owner:'',deadline:'',note:''});R();break;
+    case'delIt':S.selMin.agendas[+d.g].items.splice(+d.i,1);R();break;
+  }
+});
+
+// 예약 저장 (충돌 검사)
+function doSaveResv(editId){
+  const title=$('mTitle').value.trim(),room=$('mRoom').value,date=$('mDate').value,s=$('mS').value,eT=$('mE').value,note=$('mNote').value.trim();
+  if(!title)return toast('회의 제목을 입력해 주세요');
+  if(!date)return toast('날짜를 선택해 주세요');
+  if(t2m(eT)<=t2m(s))return toast('종료 시간이 시작 시간보다 늦어야 해요');
+  const clash=S.resv.find(v=>v.room===room&&v.date===date&&v.id!==editId&&t2m(v.s)<t2m(eT)&&t2m(s)<t2m(v.e));
+  if(clash)return toast(`⛔ 겹치는 예약: ${clash.s}~${clash.e} ${clash.title} (${clash.byName})`);
+  if(!S.me&&!DEMO)return toast('로그인 정보가 없습니다');
+  const old=editId?S.resv.find(x=>x.id===editId):null;
+  const r={id:editId||uid(),room,date,s,e:eT,title,note,
+    byUid:old?old.byUid:(S.me?.uid||'demo'),byName:old?old.byName:(S.me?`${S.me.name}${S.me.title?' '+S.me.title:''}`:'데모'),
+    dept:old?old.dept:(S.me?.dept||''),createdAt:old?old.createdAt:Date.now(),updatedAt:Date.now()};
+  saveResv(r).then(()=>toast(editId?'✅ 수정됐습니다':'✅ 예약됐습니다'));
+  S.modal=null;renderModal();if(DEMO)R();
+}
+
+// ═══════════════ 녹음 + 실시간 STT ═══════════════
+async function startRec(){
+  const title=$('sTitle')?.value.trim();if(!title)return toast('회의 제목을 입력해 주세요');
+  const room=$('sRoom')?.value||'main';
+  const att=$('sAtt')?.value.trim()||'';
+  const resvId=$('sResv')?.value||'';
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return alert('이 브라우저는 음성인식을 지원하지 않습니다.\n크롬(Chrome)에서 열어주세요.');
+  // 마이크 (녹음 파일용) — 거부해도 STT는 별도로 시도
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    REC.media=new MediaRecorder(stream);REC.chunks=[];
+    REC.media.ondataavailable=ev=>{if(ev.data.size)REC.chunks.push(ev.data);};
+    REC.media.start(1000);
+  }catch(err){console.warn('mic',err);toast('⚠ 마이크 권한이 거부돼 음성 파일 저장은 건너뜁니다');}
+  REC.on=true;REC.paused=false;REC.startAt=Date.now();REC.elapsed=0;REC.lines=[];REC.interim='';REC.audioUrl='';
+  const now=new Date();
+  REC.meta={title,room,att,resvId,date:todayStr(),timeS:`${pad(now.getHours())}:${pad(now.getMinutes())}`};
+  startRecog(SR);
+  REC.timer=setInterval(()=>{if(!REC.paused){REC.elapsed=Math.floor((Date.now()-REC.startAt)/1000);const t=$('recTimer');if(t)t.textContent=fmtEl(REC.elapsed);}},500);
+  S.modal=null;S.selMin=null;S.tab='minutes';R();
+}
+function startRecog(SR){
+  const rg=new SR();REC.recog=rg;
+  rg.lang='ko-KR';rg.continuous=true;rg.interimResults=true;
+  rg.onresult=ev=>{
+    let interim='';
+    for(let i=ev.resultIndex;i<ev.results.length;i++){
+      const r=ev.results[i];
+      if(r.isFinal){const txt=r[0].transcript.trim();if(txt)REC.lines.push({t:REC.elapsed,txt});}
+      else interim+=r[0].transcript;
+    }
+    REC.interim=interim;
+    updateTrBox();
+  };
+  rg.onerror=ev=>{if(ev.error==='not-allowed'){toast('⛔ 마이크 권한이 거부됐습니다');stopRec();}};
+  rg.onend=()=>{if(REC.on&&!REC.paused){try{rg.start();}catch(e){}}}; // 침묵으로 끊기면 자동 재시작
+  try{rg.start();}catch(e){}
+}
+function updateTrBox(){
+  const b=$('trBox');if(!b)return;
+  b.innerHTML=REC.lines.map(l=>`<div><span class="ts">[${fmtEl(l.t)}]</span>${esc(l.txt)}</div>`).join('')
+    +(REC.interim?`<div class="interim">${esc(REC.interim)}</div>`:'')
+    +((!REC.lines.length&&!REC.interim)?'<div class="hint">🎤 말씀하시면 여기에 실시간으로 글자가 올라옵니다...</div>':'');
+  b.scrollTop=b.scrollHeight;
+}
+function pauseRec(){REC.paused=true;try{REC.recog?.stop();}catch(e){}try{REC.media?.pause();}catch(e){}R();}
+function resumeRec(){REC.paused=false;REC.startAt=Date.now()-REC.elapsed*1000;try{REC.recog?.start();}catch(e){}try{REC.media?.resume();}catch(e){}R();}
+async function stopRec(){
+  if(!REC.on)return;
+  REC.on=false;clearInterval(REC.timer);
+  try{REC.recog?.stop();}catch(e){}
+  let audioUrl='';
+  if(REC.media&&REC.media.state!=='inactive'){
+    await new Promise(res=>{REC.media.onstop=res;try{REC.media.stop();}catch(e){res();}});
+    try{REC.media.stream.getTracks().forEach(t=>t.stop());}catch(e){}
+    if(REC.chunks.length){audioUrl=URL.createObjectURL(new Blob(REC.chunks,{type:'audio/webm'}));}
+  }
+  const now=new Date();const meta=REC.meta||{};
+  const transcript=REC.lines.map(l=>`[${fmtEl(l.t)}] ${l.txt}`).join('\n');
+  const m={id:uid(),title:meta.title||'회의',room:meta.room||'main',date:meta.date||todayStr(),
+    timeS:meta.timeS||'',timeE:`${pad(now.getHours())}:${pad(now.getMinutes())}`,
+    docNo:`MOM-${now.getFullYear()}-${pad(S.mins.length+1)}${pad(now.getDate())}`,
+    topic:meta.title||'',summary:'',
+    attendees:(meta.att||'').split(',').map(s=>s.trim()).filter(Boolean).map(n=>({co:'세종기술',name:n})),
+    agendas:[],transcript,audioUrl,resvId:meta.resvId||'',aiDone:false,status:'draft',
+    byUid:S.me?.uid||'demo',byName:S.me?`${S.me.name}${S.me.title?' '+S.me.title:''}`:'데모',dept:S.me?.dept||'',
+    createdAt:Date.now(),updatedAt:Date.now()};
+  // audioUrl은 세션 메모리 전용 — Firestore에는 저장 안 함(용량)
+  const forDb={...m};delete forDb.audioUrl;
+  saveMin(forDb).catch(e=>console.warn('minute save fail',e.message));
+  S.selMin=m;EDITING=true;R();
+  toast(`⏹ 녹음 종료 — ${REC.lines.length}개 문장 인식됨. 🤖 AI 회의록 생성을 눌러보세요`);
+}
+function newBlankMin(){
+  const now=new Date();
+  S.selMin={id:uid(),title:'',room:'main',date:todayStr(),timeS:'',timeE:'',docNo:`MOM-${now.getFullYear()}-`,topic:'',summary:'',
+    attendees:[{co:'세종기술',name:S.me?`${S.me.name}${S.me.title?' '+S.me.title:''}`:''}],
+    agendas:[{title:'',items:[{content:'',owner:'',deadline:'',note:''}]}],transcript:'',aiDone:false,status:'draft',
+    byUid:S.me?.uid||'demo',byName:S.me?`${S.me.name}${S.me.title?' '+S.me.title:''}`:'데모',dept:S.me?.dept||'',createdAt:Date.now(),updatedAt:Date.now()};
+  EDITING=true;S.modal=null;S.tab='minutes';R();
+}
+function doSaveMin(){
+  const m=S.selMin;if(!m)return;
+  m.title=m.topic||m.title;m.status=m.agendas?.some(a=>a.title||a.items?.some(i=>i.content))?'done':'draft';m.updatedAt=Date.now();
+  const forDb={...m};delete forDb.audioUrl;
+  saveMin(forDb).then(()=>{EDITING=false;toast('💾 저장됐습니다');R();}).catch(e=>toast('저장 실패: '+e.message));
+}
+
+// ═══════════════ AI 게이트웨이 (회사 Cloudflare Worker — ai-assistant와 동일 관례) ═══════════════
+const GW=(localStorage.getItem('sjp_ai_gateway_url')||'https://sejong-ai-gateway.cwkim-65d.workers.dev').replace(/\/+$/,'');
+const AI_CHAIN=[
+  {id:'groq',models:['llama-3.3-70b-versatile','llama-3.1-8b-instant']},
+  {id:'cerebras',models:['gpt-oss-120b','zai-glm-4.7']},
+  {id:'nvidia',models:['meta/llama-3.3-70b-instruct','meta/llama-3.1-70b-instruct']},
+  {id:'openrouter',models:['meta-llama/llama-3.3-70b-instruct:free','qwen/qwen3-next-80b-a3b-instruct:free','openai/gpt-oss-20b:free']},
+];
+async function callAI(messages){
+  let lastErr=null;
+  for(const p of AI_CHAIN){
+    for(const model of p.models){
+      const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),60000);
+      try{
+        const res=await fetch(`${GW}/v1/${p.id}/chat/completions`,{method:'POST',signal:ctl.signal,
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({model,max_tokens:4000,temperature:0.3,messages})});
+        clearTimeout(tm);
+        if(!res.ok){lastErr=new Error(`${p.id} ${res.status}`);if(res.status===400||res.status===404)continue;break;}
+        const data=await res.json();
+        const txt=(((data.choices||[])[0]||{}).message||{}).content;
+        if(txt&&txt.trim())return{text:txt,via:`${p.id}/${model}`};
+        lastErr=new Error(p.id+' 빈 응답');
+      }catch(err){clearTimeout(tm);lastErr=err;break;}
+    }
+  }
+  throw lastErr||new Error('AI 게이트웨이 응답 없음');
+}
+async function aiGenerate(){
+  const m=S.selMin;if(!m||!m.transcript)return toast('전사본이 없습니다');
+  if(m.aiDone&&!confirm('AI가 다시 생성하면 현재 안건 내용을 덮어씁니다. 계속할까요?'))return;
+  toast('🤖 AI가 회의록을 작성 중입니다... (10~30초)');
+  const attStr=(m.attendees||[]).map(a=>a.name).filter(Boolean).join(', ')||'미상';
+  const sys=`당신은 (주)세종기술의 회의록 작성 전문가입니다. 회의 전사본(STT)을 분석해 회사 공식 회의록을 작성합니다.
+반드시 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트·설명·코드펜스 금지.
+{
+ "topic": "회의 주제 (한 줄)",
+ "summary": "회의 내용 핵심 요약 (한 줄)",
+ "agendas": [
+   {"title": "안건 제목",
+    "items": [
+      {"content": "- 논의 내용/현황/결정사항 (한 항목당 한 문장, '- '로 시작)", "owner": "실행 주체(사람/부서, 없으면 빈문자열)", "deadline": "기한(예 7/25, 없으면 빈문자열)", "note": "비고(없으면 빈문자열)"}
+    ]}
+ ]
+}
+규칙: 안건은 주제별로 2~5개로 묶기. Action Item(할 일)은 owner/deadline을 최대한 채우기. 전사 오류로 보이는 단어는 문맥으로 교정. 한국어로 작성.`;
+  const user=`회의 제목: ${m.title||m.topic}\n참석자: ${attStr}\n\n===== 회의 전사본 =====\n${m.transcript.slice(0,24000)}`;
+  try{
+    const{text,via}=await callAI([{role:'system',content:sys},{role:'user',content:user}]);
+    let raw=text.replace(/```json|```/g,'').trim();
+    const a=raw.indexOf('{'),b=raw.lastIndexOf('}');
+    if(a<0||b<0)throw new Error('JSON 파싱 실패');
+    const j=JSON.parse(raw.slice(a,b+1));
+    m.topic=j.topic||m.topic;m.summary=j.summary||m.summary;
+    m.agendas=(j.agendas||[]).map(ag=>({title:ag.title||'',items:(ag.items||[]).map(it=>({content:it.content||'',owner:it.owner||'',deadline:it.deadline||'',note:it.note||''}))}));
+    m.aiDone=true;m.updatedAt=Date.now();EDITING=true;
+    R();toast(`✅ AI 회의록 초안 완성 (${via}) — 내용을 확인·수정 후 저장하세요`);
+  }catch(err){console.warn(err);toast('❌ AI 생성 실패: '+(err.message||err)+' — 잠시 후 다시 시도해 주세요');}
+}
+
+// ═══════════════ Excel 다운로드 (회사 양식 원본에 값 채움 — meeting-minutes 스킬 규칙) ═══════════════
+let _exceljs=null;
+function loadExcelJS(){return _exceljs||( _exceljs=new Promise((res,rej)=>{const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.onload=res;s.onerror=()=>rej(new Error('ExcelJS 로드 실패'));document.head.appendChild(s);}));}
+function charW(t){let w=0;for(const c of t)w+=c.charCodeAt(0)>127?2:1;return w;}
+function splitWords(text,maxW=70){
+  const indent='  ';const words=String(text).split(' ');const lines=[];let cur='',curW=0;
+  for(const w of words){const ww=charW(w);const sp=cur?1:0;
+    if(cur&&curW+sp+ww>maxW){lines.push(cur);cur=indent+w;curW=charW(indent)+ww;}
+    else{cur=cur?cur+' '+w:w;curW+=sp+ww;}}
+  if(cur)lines.push(cur);return lines.length?lines:[String(text)];
+}
+async function exportXlsx(m){
+  if(!m)return;
+  try{
+    toast('📥 Excel 생성 중...');
+    await loadExcelJS();
+    const buf=await(await fetch('assets/회의록_양식.xlsx')).arrayBuffer();
+    const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);
+    const ws=wb.worksheets[0];
+    const setV=(addr,v)=>{ws.getCell(addr).value=v;};
+    // 헤더
+    setV('C2',m.topic||m.title||'');
+    setV('J2',m.docNo||'');
+    setV('C3',m.summary||'');
+    if(m.date){const[y,mo,dd]=m.date.split('-');setV('C4',`${y}년  ${mo}월  ${dd}일`);}
+    if(m.timeS)setV('C5',`(  ${m.timeS.replace(':','시  ')}분  ~  ${(m.timeE||'').replace(':','시  ')}분  )`);
+    setV('J4',m.room==='etc'?'기타':roomOf(m.room).name);
+    // 참석 인원 (행6 회사 / 행7 이름+직책, C열부터 최대 11명)
+    (m.attendees||[]).slice(0,11).forEach((p,i)=>{
+      ws.getRow(6).getCell(3+i).value=p.co||'세종기술';
+      ws.getRow(7).getCell(3+i).value=p.name||'';
+    });
+    // 본문 (행12~): 【안건】 앞만 빈 행, 70폭 자동 줄바꿈, 첫 줄에만 주체/기한/비고
+    const items=[];
+    (m.agendas||[]).forEach((ag,gi)=>{
+      if(ag.title)items.push([`【안건 ${gi+1}】 ${ag.title}`,'','','']);
+      (ag.items||[]).forEach(it=>{if(it.content)items.push([it.content,it.owner||'',it.deadline||'',it.note||'']);});
+    });
+    let row=12;
+    for(let idx=0;idx<items.length;idx++){
+      const[content,owner,deadline,note]=items[idx];
+      if(content.startsWith('【')&&idx>0)row+=1;
+      const subs=splitWords(content);
+      for(let i=0;i<subs.length;i++){
+        if(row>93)break;
+        const c=ws.getRow(row).getCell(1);c.value=subs[i];
+        c.alignment={horizontal:'left',vertical:'middle'};
+        c.font={name:'맑은 고딕',size:10};
+        if(i===0){[[10,owner],[11,deadline],[12,note]].forEach(([col,val])=>{const cc=ws.getRow(row).getCell(col);cc.value=val;cc.font={name:'맑은 고딕',size:10};cc.alignment={horizontal:'center',vertical:'middle'};});}
+        row++;
+      }
+    }
+    // '* 끝' 마커
+    const endC=ws.getRow(row).getCell(1);endC.value='* 끝';endC.font={name:'맑은 고딕',size:10,bold:true};endC.alignment={horizontal:'left',vertical:'middle'};
+    const out=await wb.xlsx.writeBuffer();
+    const blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const aEl=document.createElement('a');aEl.href=URL.createObjectURL(blob);
+    aEl.download=`회의록_${m.date||todayStr()}_${(m.topic||m.title||'회의').slice(0,20).replace(/[\\/:*?"<>|]/g,'')}.xlsx`;
+    aEl.click();setTimeout(()=>URL.revokeObjectURL(aEl.href),4000);
+    toast('✅ 회사 양식 Excel로 저장됐습니다');
+  }catch(err){console.warn(err);toast('❌ Excel 생성 실패: '+(err.message||err));}
+}
+
+// 데모 모드는 fb 없이도 바로 시작
+if(DEMO&&!fbReady){setTimeout(()=>{if(!S.me)seedDemo();},800);}
+window.addEventListener('beforeunload',e=>{if(REC.on){e.preventDefault();e.returnValue='녹음이 진행 중입니다. 나가면 녹음이 중단됩니다.';}});
+R();
+</script>
+</body>
+</html>

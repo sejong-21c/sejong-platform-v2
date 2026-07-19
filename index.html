@@ -729,6 +729,8 @@ const TOOLS = {
   'deptsch':   { name: '부서 스케줄',       icon: '📅', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
   'mtools':    { name: '측정기구 반입출',   icon: '🔬', desc: 'QR 스캔 반출·반입 (전 부서) · 등록/검교정은 품질관리부만', status: 'live', ver: 'v1.0', crossDept: true },
   'asset':     { name: '자산 관리 대장',    icon: '🖥️', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
+  // v1.0 회의 모듈 — 회의실 예약 + 녹음·실시간 전사 + AI 회의록 (전 부서 사용)
+  'meeting':   { name: '회의실 예약·회의록', icon: '🎙', desc: '5개 회의실 주간 예약 현황 + 회의 녹음·실시간 전사·AI 회의록 (전 부서)', status: 'live', ver: 'v1.0', crossDept: true },
 };
 const DEPTS = [
   { id: 'sales',        icon: '💼', name: '영업부',     tools: ['deptsch'] },
@@ -738,7 +740,7 @@ const DEPTS = [
   { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
   { id: 'construction', icon: '🏗️', name: '현장시공',   tools: ['deptsch'] },
   { id: 'safety',       icon: '🦺', name: '안전관리부', tools: ['deptsch'] },
-  { id: 'general',      icon: '👔', name: '총무부',     tools: ['deptsch', 'asset'] },
+  { id: 'general',      icon: '👔', name: '총무부',     tools: ['deptsch', 'asset', 'meeting'] },
   { id: 'finance',      icon: '💲', name: '재무부',     tools: ['deptsch'] },
   { id: 'nuclear',      icon: '☢️', name: '원자력사업부', tools: ['deptsch'] },
   { id: 'overseas',     icon: '🌏', name: '해외사업부',   tools: ['deptsch'] },
@@ -1124,6 +1126,8 @@ const QADASH_BUILD = 'b11';
 const ITPBUILDER_BUILD = 'c2';
 const QADOC_BUILD = 'c0';
 const MTOOLS_BUILD = 'b3';
+// meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
+const MEETING_BUILD = 'b1';
 const ASSET_BUILD = 'a6';
 // v29.24: ITP/QA 조회 뷰어 (신규)
 const ITPVIEW_BUILD = 'a1';
@@ -2630,6 +2634,8 @@ function render() {
   if (view.selectedTool === 'itpview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/itp-viewer/itp-viewer.html?v=${ITPVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="ITP 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'qaview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/qa-viewer/qa-viewer.html?v=${QAVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="QA Doc 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'mtools') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/measurement-tools/measurement-tools.html?v=${MTOOLS_BUILD}" allow="camera" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="측정기구 반입출 관리"></iframe></div>`; return; }
+  // v1.0 회의 모듈 — 녹음(실시간 전사)을 위해 allow="microphone" 필수
+  if (view.selectedTool === 'meeting') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/meeting/meeting.html?v=${MEETING_BUILD}" allow="microphone" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="회의실 예약·회의록"></iframe></div>`; return; }
   if (view.selectedTool === 'asset') {
     // 자산 관리 대장: 라이선스 정보는 총무부·슈퍼·임원만 조회 (full=1 URL 파라미터로 iframe에 전달)
     const _uu = getU(state.currentUser);
