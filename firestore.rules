@@ -77,6 +77,8 @@ service cloud.firestore {
     match /carDeleteReqs/{docId}         { allow read, write: if isCompanyUser(); }
     match /measurementTools/{toolId}     { allow read, write: if isCompanyUser(); }
     match /measurementCheckouts/{coId}   { allow read, write: if isCompanyUser(); }
+    // v29.43: AI 비서 사용 기록 — 질문 1건당 1문서(로그). 생성만 허용, 수정·삭제 불가(감사 로그 성격)
+    match /aiUsage/{docId}               { allow read, create: if isCompanyUser(); allow update, delete: if false; }
 
     match /{col}/{docId} {
       allow read, write: if isCompanyUser() && col.matches('^t_.*');

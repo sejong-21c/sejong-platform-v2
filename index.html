@@ -709,6 +709,7 @@ const NAV = [
   { id: 'okr',       icon: '🎯', label: '목표(OKR)' },
   { id: 'manday',    icon: '⏱', label: 'Manday Tracker', superOnly: true },
   { id: 'org',       icon: '👥', label: '조직/권한', superOnly: true },
+  { id: 'aiusage',   icon: '🤖', label: 'AI 사용량', superOnly: true },
   { id: 'approval',  icon: '📝', label: '결재' },
 ];
 const TOOLS = {
@@ -2658,7 +2659,7 @@ function render() {
     content.innerHTML = renderMessengerFrame();
     return;
   }
-  const renderers = { dashboard, calendar, projects, tasks, quotes, okr, org, approval };
+  const renderers = { dashboard, calendar, projects, tasks, quotes, okr, org, approval, aiusage };
   content.innerHTML = `<div class="content-pad">${renderers[view.cur]()}</div>`;
 }
 
@@ -6095,6 +6096,96 @@ function getOkrCalendarEvents() {
   }));
 }
 
+/* ═════════════ 🤖 AI 사용량 (v29.43, super/exec 전용) ═════════════
+   AI 비서가 질문 1건마다 aiUsage 컬렉션에 남긴 기록을 최근 30일 범위로 읽어 집계.
+   기록을 남기는 쪽은 modules/ai-assistant/ai-assistant.js의 logAiUsage(). */
+function aiusage() {
+  setTimeout(loadAiUsage, 0);
+  return `<div class="mod-head">
+      <div><div class="mod-title">🤖 AI 사용량</div>
+        <div class="mod-sub">AI 비서 요청 기록 (최근 30일) — 회사공용 게이트웨이·개인 키 사용 모두 집계</div></div>
+      <button class="back-btn" onclick="loadAiUsage()">↺ 새로고침</button>
+    </div>
+    <div id="aiUsageBody"><div class="card" style="padding:30px;text-align:center;color:var(--text-light);">불러오는 중…</div></div>`;
+}
+async function loadAiUsage() {
+  const box = document.getElementById('aiUsageBody');
+  if (!box) return;
+  const escA = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  let rows = [];
+  try {
+    const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'aiUsage'), fb.where('at', '>=', since)));
+    snap.forEach(d => rows.push(d.data()));
+  } catch (e) {
+    box.innerHTML = `<div class="card" style="padding:24px;color:#991b1b;">사용 기록을 불러오지 못했습니다: ${escA(e.message||e)}<br>
+      <span style="font-size:12px;color:var(--text-light);">Firebase 콘솔에 firestore.rules(aiUsage 규칙)가 게시됐는지 확인하세요.</span></div>`;
+    return;
+  }
+  rows.sort((a, b) => (b.at||0) - (a.at||0));
+  const dayOf = ts => { const d = new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const today = dayOf(Date.now());
+  const weekAgo = Date.now() - 7*86400000;
+  const todayN = rows.filter(r => r.day === today).length;
+  const weekN  = rows.filter(r => (r.at||0) >= weekAgo).length;
+  const fails  = rows.filter(r => !r.ok);
+
+  const tally = (key, fallback) => {
+    const m = {};
+    rows.forEach(r => { const k = r[key] || fallback; m[k] = (m[k]||0)+1; });
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  };
+  const barRow = ([k, v], max) => `
+    <div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px;">
+      <div style="width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escA(k)}">${escA(k)}</div>
+      <div style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden;">
+        <div style="width:${Math.round(v/max*100)}%;height:100%;background:var(--primary);border-radius:4px;"></div>
+      </div>
+      <b style="width:44px;text-align:right;">${v}</b>
+    </div>`;
+  const byProv = tally('provider', '(실패)');
+  const byUser = tally('user', '(미확인)');
+  const maxProv = Math.max(1, ...byProv.map(e=>e[1]));
+  const maxUser = Math.max(1, ...byUser.map(e=>e[1]));
+
+  const byDay = {};
+  rows.forEach(r => { if (r.day) byDay[r.day] = (byDay[r.day]||0)+1; });
+  const days = Object.keys(byDay).sort().slice(-14);
+  const maxDay = Math.max(1, ...days.map(d=>byDay[d]));
+  const dayBars = days.map(d => `
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;">
+      <span style="font-size:10px;color:var(--text-light);">${byDay[d]}</span>
+      <div style="width:70%;max-width:26px;height:${Math.max(3, Math.round(byDay[d]/maxDay*70))}px;background:var(--primary);border-radius:3px 3px 0 0;"></div>
+      <span style="font-size:9px;color:var(--text-lighter);">${d.slice(5)}</span>
+    </div>`).join('');
+
+  const failRows = fails.slice(0, 10).map(r => `
+    <tr><td style="padding:5px 8px;white-space:nowrap;">${escA(r.day||'')}</td>
+        <td style="padding:5px 8px;">${escA(r.user||'')}</td>
+        <td style="padding:5px 8px;color:#991b1b;font-size:11px;">${escA(r.err||'')}</td></tr>`).join('');
+
+  const kpi = (label, val, sub) => `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value">${val}</div><div class="kpi-trend">${sub}</div></div>`;
+  box.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;">
+      ${kpi('📅 오늘', todayN + '회', today)}
+      ${kpi('🗓 최근 7일', weekN + '회', '하루 평균 ' + Math.round(weekN/7) + '회')}
+      ${kpi('📊 최근 30일', rows.length + '회', '전체 요청')}
+      ${kpi('⚠️ 실패', fails.length + '회', '최근 30일')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px;">
+      <div class="card" style="padding:16px;"><h4 style="margin-bottom:10px;">🏢 회사(모델)별 — 30일</h4>${byProv.map(e=>barRow(e,maxProv)).join('') || '<div style="color:var(--text-light);font-size:12px;">기록 없음</div>'}</div>
+      <div class="card" style="padding:16px;"><h4 style="margin-bottom:10px;">👤 사용자별 TOP — 30일</h4>${byUser.slice(0,10).map(e=>barRow(e,maxUser)).join('') || '<div style="color:var(--text-light);font-size:12px;">기록 없음</div>'}</div>
+    </div>
+    <div class="card" style="padding:16px;margin-bottom:14px;">
+      <h4 style="margin-bottom:10px;">📈 일별 요청 수 (최근 14일)</h4>
+      <div style="display:flex;align-items:flex-end;gap:4px;min-height:100px;">${dayBars || '<div style="color:var(--text-light);font-size:12px;">기록 없음</div>'}</div>
+    </div>
+    <div class="card" style="padding:16px;">
+      <h4 style="margin-bottom:10px;">⚠️ 최근 실패 기록 (최대 10건)</h4>
+      ${failRows ? `<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:5px 8px;">날짜</th><th style="padding:5px 8px;">사용자</th><th style="padding:5px 8px;">오류</th></tr></thead><tbody>${failRows}</tbody></table>` : '<div style="color:var(--text-light);font-size:12px;">실패 기록 없음 👍</div>'}
+    </div>`;
+}
+
 /* ═════════════ 👥 조직/권한 ═════════════ */
 function org() {
   const me = getU(state.currentUser);
@@ -6859,6 +6950,6 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.42.2"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.43"></script>
 </body>
 </html>

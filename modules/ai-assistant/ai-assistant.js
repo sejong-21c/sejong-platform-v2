@@ -674,6 +674,22 @@
     }
   };
 
+  // v29.43: 사용 기록 — 질문 1건당 aiUsage 문서 1개 (관리 탭 'AI 사용량'에서 집계).
+  // 실패해도 조용히 무시 — 기록 때문에 채팅이 죽는 일은 없어야 한다.
+  function logAiUsage(ok, provider, errMsg) {
+    try {
+      if (!window.fb || !fb.db || !state || !state.currentUser) return;
+      var u = (state.users || []).find(function (x) { return x.id === state.currentUser; });
+      var now = new Date();
+      var day = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      fb.setDoc(fb.doc(fb.collection(fb.db, 'aiUsage')), {
+        day: day, at: Date.now(),
+        uid: state.currentUser, user: (u && u.name) || '(미확인)', dept: (u && u.dept) || '',
+        provider: provider || '', ok: !!ok, err: errMsg ? String(errMsg).slice(0, 120) : ''
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   var aiBusy = false;
   window.sendAiMessage = async function () {
     var input = $id('aiInput');
@@ -696,9 +712,11 @@
       thinkingEl.remove();
       appendMsg('assistant', reply);
       if (lastProviderLabel) appendMsg('system', '— ' + lastProviderLabel);
+      logAiUsage(true, lastProviderLabel);
     } catch (e) {
       thinkingEl.remove();
       appendMsg('system', '오류: ' + (e.message || e));
+      logAiUsage(false, lastProviderLabel, e.message || e);
     } finally {
       aiBusy = false;
       if (btn) { btn.disabled = false; btn.textContent = '전송'; }
