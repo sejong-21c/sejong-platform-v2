@@ -38,7 +38,8 @@
   // v29.41: 회사 게이트웨이(Cloudflare Worker) 주소 — 설정되면 서버 보관 공용 키를 우선 사용.
   // 워커 배포 후 DEFAULT_GATEWAY_URL에 주소를 넣으면 전 직원이 아무 설정 없이 적용된다.
   var GATEWAY_URL_LS = 'sjp_ai_gateway_url';
-  var DEFAULT_GATEWAY_URL = '';
+  // 2026-07-19 배포 완료된 회사 워커(키는 Cloudflare에 Secret으로 보관, cwkim 계정 관리)
+  var DEFAULT_GATEWAY_URL = 'https://sejong-ai-gateway.cwkim-65d.workers.dev';
   function getGatewayUrl() {
     var u = (lsGet(GATEWAY_URL_LS) || DEFAULT_GATEWAY_URL).trim();
     return u ? u.replace(/\/+$/, '') : '';
