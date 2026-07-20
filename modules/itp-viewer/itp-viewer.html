@@ -9,7 +9,7 @@
   // 각 문서 = 프로젝트 1개, 문서 안 items[]에 각 아이템의 ITP rows·설계 데이터가 들어있다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot, doc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -20,7 +20,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, deleteDoc, getDocs };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc };
 </script>
 <style>
 :root {
@@ -175,6 +175,7 @@ function renderProj() {
 
   const rows = items.map((it, i) => {
     const rowCount = Array.isArray(it.rows) ? it.rows.length : 0;
+    const label = ((it.name || it.tag || '아이템') + (it.tag ? ' · ' + it.tag : '')).replace(/'/g,'');
     return `<div class="item-row" onclick="goItem(${i})">
       <div class="no">#${i+1}</div>
       <div class="nm">${esc(it.name || it.tag || '(이름 없음)')} ${it.tag ? `<span style="font-weight:400;color:var(--text-light);">· ${esc(it.tag)}</span>` : ''}</div>
@@ -183,6 +184,7 @@ function renderProj() {
         <span class="badge gray">${rowCount}행</span>
         ${it.docNo ? `<span class="badge">${esc(it.docNo)}${it.rev?' Rev.'+esc(it.rev):''}</span>` : ''}
       </div>
+      <button onclick="event.stopPropagation();deleteItpItem('${esc(doc.pid)}','${esc(it.id||'')}',${i},'${esc(label)}')" title="이 아이템만 삭제" style="flex-shrink:0;background:#fff5f5;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;">🗑</button>
       <div class="arrow">›</div>
     </div>`;
   }).join('');
@@ -202,11 +204,10 @@ function renderProj() {
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 목록</button>
         <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}')">📋 Builder 열기</button>
-        <button class="btn" style="color:#dc2626;border-color:#fca5a5;background:#fff5f5;" onclick="deleteItpDoc('${esc(doc.pid)}','${esc((lbl.code+' '+lbl.name).replace(/'/g,''))}')" title="이 프로젝트의 ITP 문서를 삭제합니다">🗑 ITP 삭제</button>
       </div>
     </div>
     <div class="section">
-      <h3>📦 아이템 (${items.length}개)</h3>
+      <h3>📦 아이템 (${items.length}개) <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 행 클릭 시 상세, 🗑 클릭 시 그 아이템만 삭제</span></h3>
       ${items.length ? `<div class="item-list">${rows}</div>` : '<div class="empty">이 프로젝트에는 등록된 아이템이 없습니다.</div>'}
     </div>
   `;
@@ -277,22 +278,30 @@ function render() {
   else app.innerHTML = renderList();
 }
 
-// v1.1: ITP 문서 삭제 — 잘못 만든 프로젝트 ITP를 통째로 제거.
-// t_itpBuilderDocs/{pid} 본문 + 같은 컬렉션에 chunk__/dwg_ 로 저장된 첨부 조각 문서까지 정리.
-async function deleteItpDoc(pid, label){
+// v1.2: 아이템 단위 삭제 — 프로젝트 ITP에서 선택한 아이템 하나만 제거 (전체 삭제 아님).
+// Firestore 최신 문서를 다시 읽어 해당 아이템만 items 배열에서 빼고 저장(merge).
+// id 매칭을 우선, 없으면 인덱스로 폴백. 마지막 1개를 지우면 프로젝트가 목록에서 사라짐(items 0).
+async function deleteItpItem(pid, itemId, idx, label){
   if(!fb.auth || !fb.auth.currentUser){ alert('로그인 후 삭제할 수 있습니다.'); return; }
-  if(!confirm(`"${label}" ITP 문서를 삭제합니다.\n\n· 이 프로젝트의 ITP(전 아이템·검사항목)가 지워집니다\n· 되돌릴 수 없습니다 (ITP Builder에서 다시 만들 수는 있음)\n\n계속할까요?`)) return;
+  if(!confirm(`"${label}" 아이템 1개를 이 ITP에서 삭제합니다.\n\n· 이 아이템의 검사항목만 지워집니다 (다른 아이템은 유지)\n· 되돌릴 수 없습니다\n\n계속할까요?`)) return;
   try{
-    // 첨부/도면 조각 문서 함께 삭제 (id가 chunk__ 또는 dwg_ 로 시작하고 이 pid 관련)
-    const jobs = [ fb.deleteDoc(fb.doc(fb.db, 't_itpBuilderDocs', pid)) ];
-    try{
-      const all = await fb.getDocs(fb.collection(fb.db, 't_itpBuilderDocs'));
-      all.forEach(d=>{ if(/^(chunk__|dwg_)/.test(d.id) && d.id.includes(pid)) jobs.push(fb.deleteDoc(fb.doc(fb.db,'t_itpBuilderDocs',d.id))); });
-    }catch(e){}
-    await Promise.all(jobs);
-    state.selectedPid = null; state.selectedItem = null;
+    const snap = await fb.getDoc(fb.doc(fb.db, 't_itpBuilderDocs', pid));
+    if(!snap.exists()){ alert('ITP 문서를 찾지 못했습니다. 이미 삭제된 것 같습니다.'); render(); return; }
+    const d = snap.data();
+    const items = Array.isArray(d.items) ? d.items.slice() : [];
+    // id 우선 매칭, 실패 시 인덱스
+    let rm = itemId ? items.findIndex(x => x && x.id === itemId) : -1;
+    if(rm < 0) rm = idx;
+    if(rm < 0 || rm >= items.length){ alert('삭제할 아이템을 찾지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
+    items.splice(rm, 1);
+    await fb.setDoc(fb.doc(fb.db, 't_itpBuilderDocs', pid), { items, savedAt: Date.now() }, { merge: true });
+    // 로컬 상태 즉시 반영 (onSnapshot이 곧 덮어쓰지만 UX상 바로 갱신)
+    const localDoc = state.itpDocs.find(x => x.pid === pid);
+    if(localDoc) localDoc.items = items;
+    state.selectedItem = null;
+    if(!items.length){ state.selectedPid = null; }   // 다 지웠으면 목록으로
     render(); scrollToTop();
-    alert('✅ ITP 문서를 삭제했습니다.');
+    alert('✅ 아이템을 삭제했습니다.' + (items.length ? '' : ' (남은 아이템이 없어 목록으로 돌아갑니다)'));
   }catch(e){ alert('삭제 실패: ' + (e.message||e)); }
 }
 
@@ -300,7 +309,7 @@ window.goProj = goProj;
 window.goItem = goItem;
 window.goBack = goBack;
 window.openBuilder = openBuilder;
-window.deleteItpDoc = deleteItpDoc;
+window.deleteItpItem = deleteItpItem;
 window.state = state;
 window.render = render;
 window.scrollToTop = scrollToTop;
