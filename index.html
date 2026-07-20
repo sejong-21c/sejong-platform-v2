@@ -430,8 +430,8 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 
 .okr-tree { display: flex; flex-direction: column; gap: 10px; }
 .okr { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
-.okr.dept { margin-left: 28px; border-left: 3px solid var(--primary); }
-.okr.person { margin-left: 56px; border-left: 3px solid var(--success); }
+.okr.dept { margin-left: 28px; border-left: 3px solid var(--border); }
+.okr.person { margin-left: 56px; border-left: 3px solid var(--border); }
 
 .org-grid { display: grid; grid-template-columns: 220px 1fr; gap: 14px; }
 .dept-tree-box { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; height: fit-content; }
@@ -1136,15 +1136,15 @@ const WBS_BUILD = 'b54';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b12';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const NCR_BUILD = 'b13';
-const CAR_BUILD = 'b12';
-const QADASH_BUILD = 'b13';
+const NCR_BUILD = 'b14';
+const CAR_BUILD = 'b13';
+const QADASH_BUILD = 'b14';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
 const ITPBUILDER_BUILD = 'c2';
 const QADOC_BUILD = 'c2';
-const MTOOLS_BUILD = 'b5';
+const MTOOLS_BUILD = 'b6';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MEETING_BUILD = 'b4';
 const ASSET_BUILD = 'a8';
@@ -3529,7 +3529,7 @@ function dashboard() {
 
   // 핵심 액션 (개인 브리핑 있을 때)
   const keyActionsCard = hasBriefing && b.keyActions ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--danger);">
+    <div class="card" style="margin-bottom:14px;">
       <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="flame"></i> 오늘 핵심 액션 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Cowork AI 자동 정리 (${b.generatedAt||''})</span></h3>
       ${b.keyActions.map((a,i)=>`
         <div style="display:flex;gap:10px;padding:9px 0;${i<b.keyActions.length-1?'border-bottom:1px solid var(--border-light);':''}">
@@ -6482,7 +6482,7 @@ function org() {
   // v29.18: promotedTo 마킹된 항목은 이미 실계정 승격 완료(지정 승계만 남음) → 목록에서 제외
   const pending = (state.pendingUsers || []).filter(p => !p.promotedTo);
   const pendingHtml = (isSuper && pending.length) ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--warning);padding:14px 16px;">
+    <div class="card" style="margin-bottom:14px;padding:14px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h3 style="font-size:13px;">⏳ 사전 등록 대기 계정 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(${pending.length}명 · 해당 이메일로 첫 로그인 시 자동 승격)</span></h3>
       </div>

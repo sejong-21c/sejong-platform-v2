@@ -432,13 +432,13 @@ function render() {
       ${_qdKpiCard('car','closed', '평균 CAR 처리일', avgCarDays!=null?avgCarDays:'-', '',              '완료건 기준(일)')}
     </div>
 
-    <div class="qd-section" style="border-left:3px solid var(--primary);">
+    <div class="qd-section">
       <h4>🚢 종합 불량 영향률 (추정) — ${defectRate!=null?defectRate+'%':'데이터 없음'}</h4>
       <div style="font-size:12px;color:var(--text-light);">처리방안이 입력된 NCR ${withDisposition.length}건 중 재작업·수리·폐기·반송으로 이어진 비율입니다.</div>
       <div class="caveat">⚠️ 실제 "출고 불량률"(생산·출고 수량 대비 불량 수량)을 계산하려면 프로젝트별 생산/출고 수량 데이터가 필요한데, 현재 시스템에는 이 데이터가 없습니다. 위 수치는 NCR의 처리방안을 기준으로 한 근사치이며, 정확한 출고 불량률을 원하시면 WBS 또는 프로젝트에 "출고 수량" 항목을 추가하는 걸 권장드립니다.</div>
     </div>
 
-    <div class="qd-section" style="border-left:3px solid ${issues.length?'var(--danger)':'var(--success)'};">
+    <div class="qd-section">
       <h4>${issues.length ? '🚨' : '✅'} 데이터 정합성 검사 (${issues.length}건) <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 필터와 무관하게 전체 NCR/CAR 대상, 자동 점검</span></h4>
       ${issues.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
         ${issues.map(i => `<div style="font-size:12px;padding:6px 10px;border-radius:6px;background:${i.sev==='red'?'#FFEBEE':'#FFF3E0'};color:${i.sev==='red'?'#C62828':'#E65100'};">${i.sev==='red'?'⛔':'⚠️'} ${i.text}</div>`).join('')}
@@ -646,7 +646,7 @@ function qdRenderDrillSection(ncrs, cars) {
       <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
     </tr>`;
   }).join('');
-  return `<div id="qd-drill-section" class="qd-section" style="border-left:3px solid var(--primary);">
+  return `<div id="qd-drill-section" class="qd-section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
       <h4 style="margin:0;">🔎 드릴다운 상세 목록 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 아래 필터 조건에 해당하는 NCR/CAR입니다. 행을 클릭하면 등록된 보고서가 새 탭으로 열립니다.</span></h4>
       <button class="btn" onclick="qdDrillClear()" style="font-size:11px;padding:4px 10px;">✕ 전체 필터 해제</button>

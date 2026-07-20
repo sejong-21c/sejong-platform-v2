@@ -621,7 +621,7 @@ function render() {
   const canRegisterNCR = canDoLocal('ncr', 'register', cu);
   const isQualityHead = canDeleteNCR; // 하위 코드 호환용 alias — 아래에서 canDeleteNCR로 대체
   const deleteReqHtml = (isQualityHead && deleteReqs.length) ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--danger);">
+    <div class="card" style="margin-bottom:14px;">
       <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);">🗑️ NCR 삭제 승인 요청 (${deleteReqs.length}건)</h3>
       ${deleteReqs.map(r => {
         const n = ncrs.find(x => x.id === r.ncrId);
@@ -665,7 +665,7 @@ function render() {
     ${deleteReqHtml}
 
     ${pending.length ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--warning);">
+    <div class="card" style="margin-bottom:14px;">
       <h3 style="font-size:14px;margin-bottom:10px;">🔧 Traveller 검사 부적합 — NCR 발행 대기 (${pending.length})</h3>
       ${pending.map(p => {
         const it = findItemById(p.itemId);
