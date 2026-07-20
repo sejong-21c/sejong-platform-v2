@@ -2008,6 +2008,12 @@ function v28WeeklySummary(){
 // v29: Firestore 자동 저장 (WBS 행/아이템을 프로젝트당 wbsData/{pid} 문서 하나로)
 // v29.13.1: 마지막으로 확인한 rows/items 서명. 이 값과 동일하면 저장 스킵 → 무의미한 rev 증가 방지.
 let _lastSavedSig = null;
+// v30.3: ★ 마스터 wbsData 로드 완료 가드 ★ — subscribeWbsData가 첫 스냅샷을 받기 전엔 true가 되지 않는다.
+//   초기 렌더 R()이 예약한 400ms 디바운스 자동저장이 "로드 완료 전"에 발화하면, WBS가 아직 빈 배열이라
+//   {rows:[],items:[]}가 실제 데이터를 덮어써 소리 없이 사라지던 사고(= 2026-07 SJ435 wbsHistory 0건 계열)가 있었다.
+//   새/느린 기기(아이패드·폰·타인 PC, 콜드 캐시)일수록 첫 스냅샷이 400ms 넘게 늦어 이 레이스에서 지기 쉬웠다.
+//   wbsRec에는 _recLoaded 가드가 있었지만 wbsData에는 없던 허점. 로드 전에는 아예 저장을 막는다(페일세이프).
+let _wbsMasterLoaded = false;
 function _sig(rows, items) {
   try { return JSON.stringify({ r: rows, i: items }); } catch (e) { return null; }
 }
@@ -2076,6 +2082,9 @@ function _schedRecSave() { clearTimeout(v28SaveTimer); v28SaveTimer = setTimeout
 function v28Save(){
   if(_demoMode) return; // v30.1: 데모 모드는 Firestore에 쓰지 않음
   if(!window.fb || !_wbsPid) return;
+  // v30.3: ★ 로드 완료 전 저장 금지 ★ — 마스터 첫 스냅샷을 아직 못 받았으면(=화면의 빈 WBS가 진실이 아님)
+  //   어떤 경우에도 wbsData/wbsHistory에 쓰지 않는다. 로드가 끝나면(subscribeWbsData) 실제 편집이 다시 저장을 예약한다.
+  if(!_wbsMasterLoaded) return;
   // v29.11: 편집 권한 없는 사용자(canEdit=0)가 실수로 저장 트리거를 걸어도 Firestore에 쓰지 않는다.
   // (subscribeWbsData의 metadata.hasPendingWrites 가드가 있지만 이중 방어)
   if (document.body.classList.contains("sjp-readonly")) return;
@@ -3460,12 +3469,62 @@ async function _recoverRevFromHistory(pid) {
     }
   } catch (e) { console.warn("rev 복구 실패:", e.message); }
 }
-function subscribeWbsData(pid){
+// v30.3: 마스터 wbsData가 비었는데(문서 없음 또는 rows 0개) 이력(wbsHistory)엔 내용이 있으면,
+//   로드-전-저장 레이스 등으로 실제 데이터가 빈 배열에 덮인 사고다. 지정 프로젝트에 한해 이력에서 1회 자동 복구한다.
+//   ★ 다른 프로젝트는 절대 건드리지 않는다(_RECOVER_CODES 목록에 있는 코드만). 복구는 데이터를 되살리기만 할 뿐 삭제하지 않는다. ★
+const _RECOVER_CODES = ["SJ435-26"];   // 자동 복구 대상 프로젝트 코드 (필요 시 여기에만 추가)
+const _recoveryTriedPids = new Set();
+function _pickBestHistRev(docs){
+  // rows가 가장 많은 스냅샷을 고르고, 동률이면 rev가 가장 큰 것 (= 가장 최근의 가장 온전한 상태)
+  let best = null;
+  for (const h of (docs||[])){
+    const rows = Array.isArray(h && h.rows) ? h.rows : [];
+    if (!rows.length) continue;
+    const rev = Number(h.rev) || 0;
+    if (!best || rows.length > best._n || (rows.length === best._n && rev > best._rev)){
+      best = { rows, items: Array.isArray(h.items) ? h.items : [], _rev: rev, _n: rows.length };
+    }
+  }
+  return best;
+}
+async function _recoverWbsFromHistory(pid, projCode, curDoc){
+  try{
+    if (!_RECOVER_CODES.includes(String(projCode||"").trim())) return;   // 지정 프로젝트만
+    if (_recoveryTriedPids.has(pid)) return; _recoveryTriedPids.add(pid); // 세션 내 1회
+    const flagKey = "sjflow_wbs_recovered_" + pid;
+    if (localStorage.getItem(flagKey)) return;                            // 기기별 1회(무한 복구 방지)
+    if (document.body.classList.contains("sjp-readonly")) return;         // 읽기전용 사용자는 복구 쓰기 금지
+    const snap = await fb.getDocs(fb.query(fb.collection(fb.db, "wbsHistory"), fb.where("pid", "==", pid)));
+    const docs = snap.docs.map(d => d.data());
+    const best = _pickBestHistRev(docs);
+    if (!best){ console.warn("[SJ FLOW] WBS 자동복구 불가 — 이력에도 내용 없음:", projCode, pid); return; }
+    const curRev = Number(curDoc && curDoc.rev) || Number(_wbsRev) || 0;
+    const maxHist = docs.reduce((m, h) => Math.max(m, Number(h.rev) || 0), 0);
+    const newRev = Math.max(curRev, maxHist) + 1;                         // 반드시 현재보다 큰 rev (lost-update 가드 통과)
+    const at = Date.now();
+    const byUid = (fb.auth && fb.auth.currentUser) ? fb.auth.currentUser.uid : null;
+    await fb.setDoc(fb.doc(fb.db, "wbsData", pid),
+      { rows: best.rows, items: best.items, rev: newRev, updatedAt: at, recoveredFromRev: best._rev }, { merge: true });
+    await fb.setDoc(fb.doc(fb.db, "wbsHistory", pid + "_" + String(newRev).padStart(4, "0")),
+      { pid, rev: newRev, rows: best.rows, items: best.items, at, byUid, source: "auto-recovery(from Rev " + best._rev + ")" });
+    localStorage.setItem(flagKey, String(at));
+    console.info("[SJ FLOW] ✅ WBS 자동복구 완료:", projCode, "이력 Rev", best._rev, "→ Rev", newRev, "(" + best.rows.length + "행)");
+    try{ addLog("✅ WBS 데이터 자동복구: 이력 Rev " + best._rev + "(" + best.rows.length + "행)에서 되살림 → Rev " + newRev, "ok"); }catch(e){}
+    // 복구 저장의 서버 echo가 곧 이 onSnapshot에 다시 들어와 화면에 반영된다.
+  }catch(e){ console.error("[SJ FLOW] WBS 자동복구 실패:", e); }
+}
+function subscribeWbsData(pid, projCode){
+  _wbsMasterLoaded = false;   // v30.3: 이 프로젝트 마스터가 아직 로드 안 됨 → 로드 전 자동저장 차단
   // 마스터 wbsData 구독. shadow 활성 시엔 화면엔 shadow가 우선 보이지만, 마스터도 백그라운드로 최신 유지.
   fb.onSnapshot(fb.doc(fb.db, "wbsData", pid), snap => {
     if (snap.metadata.hasPendingWrites) return;
+    // v30.3: ★ 첫 서버 스냅샷 수신 = 로드 완료 ★ — 이 시점부터 v28Save 허용(그 전엔 빈 배열 덮어쓰기 차단).
+    //   문서가 없을 때(신규 프로젝트)도 로드 완료로 간주해야 사용자가 첫 행을 추가·저장할 수 있다.
+    _wbsMasterLoaded = true;
+    const d = snap.exists() ? (snap.data() || {}) : {};
+    // v30.3: 마스터가 비었으면(문서 없음 or rows 0개) 지정 프로젝트에 한해 이력에서 자동 복구(1회).
+    if (!Array.isArray(d.rows) || d.rows.length === 0) _recoverWbsFromHistory(pid, projCode, d);
     if (!snap.exists()) return;
-    const d = snap.data();
     const incomingRev = Number(d.rev) || 0;
     if (!incomingRev) _recoverRevFromHistory(pid);
     // v28.4.36: ★ lost-update 방지 ★ — 편집 직후 400ms 디바운스 저장을 기다리는 사이에
@@ -3969,7 +4028,7 @@ window.resetWbsRev = resetWbsRev;
       if (idx >= 0) PROJS[idx] = synth; else PROJS.unshift(synth);
       S = {...S, selproj:synth, wsel:null};
       _wbsPid = pid;
-      subscribeWbsData(_wbsPid);
+      subscribeWbsData(_wbsPid, null);   // 부서 컨테이너는 자동복구 대상 아님
       R();
       return;
     }
@@ -4005,7 +4064,7 @@ window.resetWbsRev = resetWbsRev;
       if (view === "mm") S = {...S, mproj:targetProj, mp:"items", mitem:null, mitpId:null};
       else S = {...S, selproj:targetProj, wsel:null};
       _wbsPid = targetProj.id;
-      subscribeWbsData(_wbsPid);
+      subscribeWbsData(_wbsPid, targetProj.no);   // v30.3: 코드 전달 → 지정 프로젝트 자동복구 판정용
     }
     R();
   } catch(e) { console.warn("[SJ FLOW] Firestore 초기화 실패:", e.message); }
