@@ -3379,7 +3379,7 @@ function renderDeptSchedProjects() {
       const bEvents = getDeptBriefingEvents(did).filter(e => e.date >= new Date().toISOString().slice(0,10)).sort((a,b) => a.date.localeCompare(b.date));
       if (!bEvents.length) return '';
       return '<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">📬 Cowork 메일 자동 연동 일정 (' + bEvents.length + ')</div>' +
-        '<div class="card" style="border-left:3px solid #f59e0b;">' + bEvents.map(function(e) {
+        '<div class="card">' + bEvents.map(function(e) {
           return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">' + e.title + '</div><div style="font-size:12px;color:' + (e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)') + ';font-weight:600;white-space:nowrap;margin-left:8px;">' + e.date + (e.time ? ' ' + e.time : '') + '</div></div>';
         }).join('') + '</div></div>';
     })()}
@@ -3557,7 +3557,7 @@ function dashboard() {
   // 원자력사업부 브리핑 (nuclear 데이터 있을 때)
   const nuc = b && b.nuclear;
   const nuclearCard = nuc ? `
-    <div class="card" style="border-left:3px solid #f59e0b;margin-top:14px;">
+    <div class="card" style="margin-top:14px;">
       <h3 style="margin-bottom:10px;font-size:14px;">☢️ 원자력사업부 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— ${nuc.summary||'메일 자동 분류'}</span></h3>
       ${nuc.items ? nuc.items.map((it,i)=>`
         <div style="display:flex;gap:10px;padding:8px 0;${i<nuc.items.length-1?'border-bottom:1px solid var(--border-light);':''}">
@@ -5728,7 +5728,7 @@ function _renderOkrCard(o) {
   const totalCount = (o.milestones || []).length;
   const editable = canEditOkr(o);
   return `
-    <div class="card" style="margin-bottom:12px;padding:14px 16px;border-left:3px solid ${color};">
+    <div class="card" style="margin-bottom:12px;padding:14px 16px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
         ${o.scope==='dept'
           ? `<span class="b-pill blue">🏛 ${o.deptName||'부서'}</span>`
