@@ -1769,11 +1769,13 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         headUid = head ? head.id : "";
       }
     } catch (e) {}
+    // v3.4: 결재가 본인에게 갇히던 사고(검토=작성자) 방지 —
+    //   ① 검토 기본 OFF(사용자가 명시적으로 켜야 함) ② 승인자 기본 PM(본인이면 비움)
     setAppvModal({
-      users, pmUid, projCode, projName,
-      includeReview: !!headUid,       // 부서장 있으면 기본 검토 포함
-      reviewerUid: headUid,
-      approverUid: pmUid || "",       // 기본 승인자 = PM (없으면 직접 선택)
+      users, pmUid, projCode, projName, selfUid: cur.uid,
+      includeReview: false,           // 기본 검토 없음 — 필요할 때만 켜서 선택
+      reviewerUid: "",
+      approverUid: (pmUid && pmUid !== cur.uid) ? pmUid : "",  // 승인자 기본 PM (단, 본인이 PM이면 직접 선택)
     });
   };
 
@@ -1782,8 +1784,11 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     const cur = fb.auth && fb.auth.currentUser;
     const m = appvModal;
     if (!cur || !m) return;
-    if (m.includeReview && !m.reviewerUid) { showMsg("검토자를 선택하거나 '검토 없이'로 바꿔주세요.", 5000); return; }
+    // v3.4: 본인(작성자)을 검토·승인에 넣으면 결재가 본인에게 갇힘 → 강하게 차단
+    if (m.includeReview && !m.reviewerUid) { showMsg("검토자를 선택하거나 '검토자 추가'를 꺼주세요.", 5000); return; }
+    if (m.includeReview && m.reviewerUid === cur.uid) { showMsg("검토자를 본인으로 지정할 수 없습니다.", 5000); return; }
     if (!m.approverUid) { showMsg("승인자를 선택해주세요.", 5000); return; }
+    if (m.approverUid === cur.uid) { showMsg("승인자를 본인으로 지정할 수 없습니다. 다른 사람을 선택해주세요.", 6000); return; }
     if (m.includeReview && m.reviewerUid === m.approverUid) { showMsg("검토자와 승인자가 같습니다. 다르게 지정하거나 검토를 빼주세요.", 6000); return; }
     const line = [{ role: "작성", uid: cur.uid, status: "approved", decidedAt: Date.now(), note: "" }];
     if (m.includeReview && m.reviewerUid) {
@@ -1913,7 +1918,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
             <select value={appvModal.reviewerUid} onChange={e=>setAppvModal(p=>({...p, reviewerUid:e.target.value}))}
               style={{width:"100%", padding:"6px 8px", fontSize:12, border:"1px solid var(--sjp-border)", borderRadius:5}}>
               <option value="">— 검토자 선택 —</option>
-              {appvModal.users.map(u=><option key={u.id} value={u.id}>{u.name} {u.title||""} {u.dept?`(${u.dept})`:""}</option>)}
+              {appvModal.users.filter(u=>u.id!==appvModal.selfUid).map(u=><option key={u.id} value={u.id}>{u.name} {u.title||""} {u.dept?`(${u.dept})`:""}</option>)}
             </select>
           }
         </div>
@@ -1923,7 +1928,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           <select value={appvModal.approverUid} onChange={e=>setAppvModal(p=>({...p, approverUid:e.target.value}))}
             style={{width:"100%", padding:"6px 8px", fontSize:12, border:"1px solid var(--sjp-border)", borderRadius:5}}>
             <option value="">— 승인자 선택 —</option>
-            {appvModal.users.map(u=><option key={u.id} value={u.id}>{u.name} {u.title||""} {u.dept?`(${u.dept})`:""}{u.id===appvModal.pmUid?" — PM":""}</option>)}
+            {appvModal.users.filter(u=>u.id!==appvModal.selfUid).map(u=><option key={u.id} value={u.id}>{u.name} {u.title||""} {u.dept?`(${u.dept})`:""}{u.id===appvModal.pmUid?" — PM":""}</option>)}
           </select>
         </div>
         <div style={{display:"flex", gap:6, justifyContent:"flex-end"}}>
