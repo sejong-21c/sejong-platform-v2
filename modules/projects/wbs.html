@@ -313,6 +313,12 @@ body.sjp-readonly .sjp-req-btn:hover { background:#fde68a; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <!-- v28.4.48: 공유 링크 QR 코드 생성 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
 </head>
 <body><div id="app"></div>
 <script>
@@ -384,7 +390,7 @@ function v28MhdrHTML(opts){
   return `<div class="v28-mhdr">${cells}</div>`;
 }
 function dp(ds){if(!ds)return 0;return Math.max(0,Math.min(100,(new Date(ds)-GS)/(GE-GS)*100));}
-// v29.6: 일정 성과(계획 대비 실적) 기반 그라데이션 색상 — 늦음(빨강)→정상(초록)→앞섬(파랑) 연속 스펙트럼
+// v29.6: 일정 성과(계획 대비 실적) 기반 그라데이션 색상 — 늦음(빨강)<i data-lucide="arrow-right"></i>정상(초록)<i data-lucide="arrow-right"></i>앞섬(파랑) 연속 스펙트럼
 function expectedPctByDate(s,e){
   if(!s||!e)return null;
   const sd=new Date(s),ed=new Date(e),td=new Date(new Date().toISOString().slice(0,10));
@@ -455,7 +461,7 @@ let _demoMode=false;
 let _shadowUid=null;
 let _shadowRows=null; // 로컬 캐시 (shadow 활성 시 WBS를 이걸로 덮어씀)
 let _shadowItems=null;
-let _shadowLoadedSig=undefined; // 로드 직후 서명(baseline). 이후 값이 달라지면 실제 편집 → 자동 상신 트리거
+let _shadowLoadedSig=undefined; // 로드 직후 서명(baseline). 이후 값이 달라지면 실제 편집 <i data-lucide="arrow-right"></i> 자동 상신 트리거
 // v29.13: 이전 Rev 조회 모드. _viewRev이 설정되면 저장·구독 무시하고 그 스냅샷만 표시.
 let _viewRev=null;
 let _viewSnapshot=null;
@@ -491,7 +497,7 @@ let S={
 // 화면에 존재하는 모든 스크롤 영역을 배열로 관리해 한 번에 저장/복원하도록 일반화.
 const SCROLL_KEEP_SELECTORS=[".wbs-unified-wrap",".mm-checklist-scroll",".itp-L",".itp-R",".dpnl",".v28-wsum-list"];
 const us=u=>{
-  // 재렌더 전 스크롤 위치 저장 (스크롤 영역들 + 페이지) → 깜빡임/맨위로 튐 방지
+  // 재렌더 전 스크롤 위치 저장 (스크롤 영역들 + 페이지) <i data-lucide="arrow-right"></i> 깜빡임/맨위로 튐 방지
   const _scrolls={};
   let _pageScroll=0;
   try{
@@ -646,13 +652,13 @@ function wCS(w){
     const ncr=w.itpLink?cS(w.itpLink).ncr:0;   // NCR(부적합) 집계는 ITP 검사기록 그대로 유지
     return{pct,status:st,ncr};
   }
-  // 자식이 있는 대단락 → 자식들의 진도율 평균(롤업)
+  // 자식이 있는 대단락 <i data-lucide="arrow-right"></i> 자식들의 진도율 평균(롤업)
   if(hasC(w.id)){
     const kids=childW(w.id);
     if(kids.length){
       let pct;
       if(w.wtTank && kids.length===WT_TANK.length){
-        // ★ TA 탱크: 공정 가중치 적용 (검사 일정 기준 단순평균 → 실제 제작 진척 반영)
+        // ★ TA 탱크: 공정 가중치 적용 (검사 일정 기준 단순평균 <i data-lucide="arrow-right"></i> 실제 제작 진척 반영)
         const tot=WT_TANK.reduce((a,b)=>a+b,0);
         const sum=kids.reduce((a,k,i)=>a+wCS(k).pct*WT_TANK[i],0);
         pct=Math.round(sum/tot);
@@ -677,7 +683,7 @@ function wCS(w){
     const today=new Date();
     const start=new Date(w.s), end=new Date(w.e);
     if(today<start)pct=0;             // 발주/시작 전
-    else if(today>=end)pct=99;        // 납기 지남 → 입고완료 전까지 99%
+    else if(today>=end)pct=99;        // 납기 지남 <i data-lucide="arrow-right"></i> 입고완료 전까지 99%
     else pct=Math.round((today-start)/(end-start)*100);
     pct=Math.max(1,Math.min(99,pct)); // 진행중은 1~99% 범위
   }
@@ -717,7 +723,7 @@ function wVis(){
 // ── 대단락 "N", 하위 "N.M" ──
 function renumberWBS(){
   // v28.4.34: projId별로 독립적으로 다단계 번호 매김 (3레벨 이상 지원).
-  //   lv0 → 1, 2, 3 …   lv1 → N.1, N.2 …   lv2 → N.M.1, N.M.2 …   (레벨 제한 없음)
+  //   lv0 <i data-lucide="arrow-right"></i> 1, 2, 3 …   lv1 <i data-lucide="arrow-right"></i> N.1, N.2 …   lv2 <i data-lucide="arrow-right"></i> N.M.1, N.M.2 …   (레벨 제한 없음)
   //   각 항목은 배열 순서 + lv로 계층이 결정되므로, 레벨별 카운터를 유지하면서
   //   더 얕은 레벨을 만날 때마다 그보다 깊은 카운터를 리셋한다.
   const projIds=new Set(WBS.filter(w=>w.projId).map(w=>w.projId));
@@ -756,7 +762,7 @@ function moveWBS(id,dir){
     // 아래로: 내 서브트리 바로 다음이 같은 lv 형제여야 하고, 그 형제의 서브트리 끝 뒤로 이동.
     if(end>=WBS.length)return;
     const nxt=WBS[end];
-    if(nxt.projId!==item.projId||(nxt.lv||0)!==lv)return;   // 다음이 부모 경계/다른 프로젝트 → 더 못 내려감
+    if(nxt.projId!==item.projId||(nxt.lv||0)!==lv)return;   // 다음이 부모 경계/다른 프로젝트 <i data-lucide="arrow-right"></i> 더 못 내려감
     const nxtEnd=subEnd(end);
     const bl=WBS.splice(idx,end-idx);
     WBS.splice(idx+(nxtEnd-end),0,...bl);
@@ -775,9 +781,9 @@ function syncFn(iid,tid,res){
   const item=fI(iid);if(!item)return;
   const{pct,status,ncr}=cS(iid);const wbs=item.wbsLink?fW(item.wbsLink):null;
   const tpl=TPL.find(t=>t.id===tid);
-  if(res==="Reject")addLog(`⚠️ NCR | ${item.tagNo} — ${(tpl?.item||"").slice(0,18)}`,"err");
-  else if(res==="Accept")addLog(`✅ Accept | ${item.tagNo} [${tid}]`,"ok");
-  if(wbs){addLog(`🔄 WBS ${wbs.code}: ${status} (${pct}%)`,pct===100?"ok":ncr>0?"err":"info");if(pct===100)addLog(`🎉 ${item.tagNo} 완료 → WBS ${wbs.code} 완료`,"ok");}
+  if(res==="Reject")addLog(`<i data-lucide="alert-triangle"></i>️ NCR | ${item.tagNo} — ${(tpl?.item||"").slice(0,18)}`,"err");
+  else if(res==="Accept")addLog(`<i data-lucide="check-circle"></i> Accept | ${item.tagNo} [${tid}]`,"ok");
+  if(wbs){addLog(`🔄 WBS ${wbs.code}: ${status} (${pct}%)`,pct===100?"ok":ncr>0?"err":"info");if(pct===100)addLog(`🎉 ${item.tagNo} 완료 <i data-lucide="arrow-right"></i> WBS ${wbs.code} 완료`,"ok");}
   for(const pid in MITEM){const idx=MITEM[pid].findIndex(i=>i.id===iid);if(idx>=0){MITEM[pid][idx]={...MITEM[pid][idx],status};break;}}
 }
 function mvBtn(wid){
@@ -791,7 +797,7 @@ function gV(dk,k){return document.querySelector(`[data-draft="${dk}"][data-k="${
 function rDetailPanel(){
   if(!S.wsel)return"";
   // v29.33: 선택된 행이 삭제/원격 저장으로 WBS에서 사라졌으면(stale 참조) 선택을 조용히 해제.
-  //   이전엔 wCS→hasC가 undefined.lv를 읽다 TypeError로 R() 전체가 죽어 화면이 마비됐음.
+  //   이전엔 wCS<i data-lucide="arrow-right"></i>hasC가 undefined.lv를 읽다 TypeError로 R() 전체가 죽어 화면이 마비됐음.
   //   최신 객체로 재해석(id 매칭)해야 다른 사용자의 수정 내용도 패널에 반영됨.
   const _live=WBS.find(x=>x.id===S.wsel.id);
   if(!_live){S.wsel=null;S.wedit=false;return"";}
@@ -802,7 +808,7 @@ function rDetailPanel(){
   const pctSrc=_manual?"✋ 수동":(w.itpLink?"ITP 자동":(w.s&&w.e?"일정 기준":"자동"));
   const pctSrcColor=_manual?"#7c3aed":"#9ca3af";
   function field(lbl,val,ec){return`<div class="dpnl-field"><div class="dpnl-field-lbl">${lbl}</div><div class="dpnl-field-val">${em?ec:val}</div></div>`;}
-  const itpBtn=w.itpLink&&!em?`<button data-a="goITP" data-iid="${w.itpLink}" data-wid="${w.id}" style="margin-top:4px;padding:2px 7px;background:#4a7fc1;color:#fff;border:none;border-radius:3px;font-size:9px;cursor:pointer">🔗 ITP 이동</button>`:"";
+  const itpBtn=w.itpLink&&!em?`<button data-a="goITP" data-iid="${w.itpLink}" data-wid="${w.id}" style="margin-top:4px;padding:2px 7px;background:#4a7fc1;color:#fff;border:none;border-radius:3px;font-size:9px;cursor:pointer"><i data-lucide="link"></i> ITP 이동</button>`:"";
   return`<div class="dpnl">
     <div class="dpnl-hdr">
       <div style="display:flex;align-items:center">
@@ -812,9 +818,9 @@ function rDetailPanel(){
         ${!em&&ncr>0?`<span class="bdg" style="background:#fee2e2;color:#dc2626;margin-left:8px">NCR ${ncr}건</span>`:""}
       </div>
       <div class="dpnl-actions">
-        ${em?`<button class="save-btn" data-a="svWEdit">💾 저장</button><button data-a="clWEdit" style="padding:4px 10px;background:#f3f4f6;border:none;border-radius:5px;font-size:11px;cursor:pointer;color:#6b7280">취소</button>`:`<button class="edit-btn" data-a="stWEdit">✏ 수정</button>`}
-        ${em?"":`<button data-a="dupW" data-id="${w.id}" style="padding:4px 10px;background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600" title="이 항목(하위 포함)을 같은 일정으로 바로 아래에 복사">📋 복사</button>`}
-        <button data-a="delW" data-id="${w.id}" style="padding:4px 10px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600" title="이 항목 삭제">🗑 삭제</button>
+        ${em?`<button class="save-btn" data-a="svWEdit"><i data-lucide="save"></i> 저장</button><button data-a="clWEdit" style="padding:4px 10px;background:#f3f4f6;border:none;border-radius:5px;font-size:11px;cursor:pointer;color:#6b7280">취소</button>`:`<button class="edit-btn" data-a="stWEdit"><i data-lucide="pencil"></i> 수정</button>`}
+        ${em?"":`<button data-a="dupW" data-id="${w.id}" style="padding:4px 10px;background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600" title="이 항목(하위 포함)을 같은 일정으로 바로 아래에 복사"><i data-lucide="clipboard-list"></i> 복사</button>`}
+        <button data-a="delW" data-id="${w.id}" style="padding:4px 10px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600" title="이 항목 삭제"><i data-lucide="trash-2"></i> 삭제</button>
         <button class="close-btn" data-a="clrW">✕</button>
       </div>
     </div>
@@ -825,8 +831,8 @@ function rDetailPanel(){
       ${field("완료일",w.e,`<input type="date" data-draft="wedit" data-k="e" value="${w.e}" class="dpnl-input"/>`)}
       ${field("진도율",`<span style="font-weight:700;color:#4a7fc1">${pd}</span> <span style="font-size:9px;color:${pctSrcColor};font-weight:600">(${pctSrc})</span>`,`<div><input type="number" min="0" max="100" data-draft="wedit" data-k="pctManual" value="${_manual?w.pctManual:''}" placeholder="비우면 자동" class="dpnl-input" style="width:120px"/> <span style="font-size:9px;color:#9ca3af">% · 입력 시 ITP/일정 자동집계 무시</span></div>`)}
       ${field("상태",`<span class="bdg" style="background:${sc.bg};color:${sc.c}">${status}</span>`,`<select data-draft="wedit" data-k="status" class="dpnl-select">${["미시작","진행중","완료","지연"].map(o=>`<option${o===w.status?" selected":""}>${o}</option>`).join("")}</select>`)}
-      ${field("담당 업체",w.vendor?`<span style="font-size:11px;color:#1e40af;font-weight:700">🏢 ${w.vendor}</span>`:`<span style="font-size:10px;color:#9ca3af">—</span>`,`<input data-draft="wedit" data-k="vendor" value="${(w.vendor||"").replace(/"/g,"&quot;")}" placeholder="㈜세종기술 / 동원전기 등" class="dpnl-input"/>`)}
-      ${field("📝 메모 / 이벤트",w.memo?`<div style="font-size:11px;color:#1e40af;background:#eff6ff;border:1px solid #93c5fd;border-radius:3px;padding:4px 8px;white-space:pre-wrap;line-height:1.4">${w.memo}</div>`:`<span style="font-size:10px;color:#9ca3af">— PDF 막대 옆 콜아웃에 표시됨 —</span>`,`<textarea data-draft="wedit" data-k="memo" placeholder="예: 8/10 PSM 서류 결과 수령" class="dpnl-input" rows="2" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box;line-height:1.4">${w.memo||""}</textarea>`)}
+      ${field("담당 업체",w.vendor?`<span style="font-size:11px;color:#1e40af;font-weight:700"><i data-lucide="building"></i> ${w.vendor}</span>`:`<span style="font-size:10px;color:#9ca3af">—</span>`,`<input data-draft="wedit" data-k="vendor" value="${(w.vendor||"").replace(/"/g,"&quot;")}" placeholder="㈜세종기술 / 동원전기 등" class="dpnl-input"/>`)}
+      ${field("<i data-lucide="file-text"></i> 메모 / 이벤트",w.memo?`<div style="font-size:11px;color:#1e40af;background:#eff6ff;border:1px solid #93c5fd;border-radius:3px;padding:4px 8px;white-space:pre-wrap;line-height:1.4">${w.memo}</div>`:`<span style="font-size:10px;color:#9ca3af">— PDF 막대 옆 콜아웃에 표시됨 —</span>`,`<textarea data-draft="wedit" data-k="memo" placeholder="예: 8/10 PSM 서류 결과 수령" class="dpnl-input" rows="2" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box;line-height:1.4">${w.memo||""}</textarea>`)}
       ${(()=>{
         // v28.4.36: 제작공정(ITP) 연동을 상세 패널에서 직접 설정/변경/해제.
         //   - 연동 없는 행(복사본 등): 조회 시 '— 연동 없음 —', 수정 모드에서 아이템 선택으로 새로 연동
@@ -839,7 +845,7 @@ function rDetailPanel(){
           const takenByOther=i.wbsLink&&i.wbsLink!==w.id;
           return `<option value="${i.id}"${i.id===w.itpLink?" selected":""}>${i.tagNo}${takenByOther?" ⚠ 다른 행에 연동됨":""}</option>`;
         }).join("");
-        return field("제작공정 연동",disp,`<div><select data-draft="wedit" data-k="itpLink" class="dpnl-select">${opts}</select><div style="font-size:9px;color:#9ca3af;margin-top:2px">변경 시 기존 연동은 자동 해제 · ⚠ 표시 아이템 선택 시 그쪽 행의 연동을 가져옴</div></div>`);
+        return field("제작공정 연동",disp,`<div><select data-draft="wedit" data-k="itpLink" class="dpnl-select">${opts}</select><div style="font-size:9px;color:#9ca3af;margin-top:2px">변경 시 기존 연동은 자동 해제 · <i data-lucide="alert-triangle"></i> 표시 아이템 선택 시 그쪽 행의 연동을 가져옴</div></div>`);
       })()}
     </div>
   </div>`;
@@ -937,7 +943,7 @@ function evmsPanel(pid,compact){
     <div style="background:#fff;border:1px solid #e4e7ec;border-radius:8px;padding:7px 12px;${compact?'':'margin-bottom:12px'};display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:700;color:#374151">종합 일정 평가:</span>
       <span style="font-size:12px;font-weight:700;color:${spiC}">${verdict}</span>
-      <button data-a="opEvmsBac" data-pid="${pid}" style="margin-left:auto;padding:4px 10px;font-size:10px;background:#1e40af;color:#fff;border:none;border-radius:4px;cursor:pointer">💰 계약금액(BAC) 입력</button>
+      <button data-a="opEvmsBac" data-pid="${pid}" style="margin-left:auto;padding:4px 10px;font-size:10px;background:#1e40af;color:#fff;border:none;border-radius:4px;cursor:pointer"><i data-lucide="circle-dollar-sign"></i> 계약금액(BAC) 입력</button>
     </div>
     ${compact?'':svg}
     ${compact?'':`<div style="background:#fff;border:1px solid #e4e7ec;border-radius:8px;margin-top:12px;overflow:hidden">
@@ -965,16 +971,16 @@ function rWBS(){
   
   // ═══════════════════════════════════════════════════════════
   // v28.4.17 ★ 통합 WBS 행 — 모든 컬럼을 하나의 <tr>에 (탭에 따라 CSS로 보이기/숨기기)
-  // 부장님 아이디어: 분할/트리/간트 모두 같은 table 사용 → 단차 원천 차단
+  // 부장님 아이디어: 분할/트리/간트 모두 같은 table 사용 <i data-lucide="arrow-right"></i> 단차 원천 차단
   // ═══════════════════════════════════════════════════════════
   function wRowUnified(w,rowIdx){
     const{pct,status,ncr}=wCS(w);
     const sc=SS[status]||{bg:"#f3f4f6",c:"#6b7280"};
     const ind=w.lv*12;const hc=hasC(w.id);
     const eb=hc?`<button data-a="tgExp" data-id="${w.id}" style="width:13px;height:13px;border-radius:2px;background:#e4e7ec;border:none;cursor:pointer;font-size:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${S.wexp[w.id]?"▼":"▶"}</button>`:`<span style="width:13px;display:inline-block"></span>`;
-    const ib=w.itpLink?`<button data-a="goITP" data-iid="${w.itpLink}" data-wid="${w.id}" style="padding:1px 5px;font-size:9px;color:#4a7fc1;background:#eef3fb;border:none;border-radius:3px;cursor:pointer">🔗ITP</button>`:"";
-    const memoIcon=w.memo?`<span title="${w.memo.replace(/"/g,'&quot;')}" style="font-size:9px;color:#1e40af;cursor:help;margin-left:3px">📝</span>`:"";
-    const vendorIcon=w.vendor?`<span title="담당 업체: ${w.vendor.replace(/"/g,'&quot;')}" style="font-size:9px;color:#1e40af;cursor:help;margin-left:2px">🏢</span>`:"";
+    const ib=w.itpLink?`<button data-a="goITP" data-iid="${w.itpLink}" data-wid="${w.id}" style="padding:1px 5px;font-size:9px;color:#4a7fc1;background:#eef3fb;border:none;border-radius:3px;cursor:pointer"><i data-lucide="link"></i>ITP</button>`:"";
+    const memoIcon=w.memo?`<span title="${w.memo.replace(/"/g,'&quot;')}" style="font-size:9px;color:#1e40af;cursor:help;margin-left:3px"><i data-lucide="file-text"></i></span>`:"";
+    const vendorIcon=w.vendor?`<span title="담당 업체: ${w.vendor.replace(/"/g,'&quot;')}" style="font-size:9px;color:#1e40af;cursor:help;margin-left:2px"><i data-lucide="building"></i></span>`:"";
     const selCls=S.wsel?.id===w.id?"sel":"";
     // 간트 막대 계산 — 자식이 있으면 후손들의 일정 범위(min s ~ max e)로 표시
     let barS=w.s, barE=w.e;
@@ -985,13 +991,13 @@ function rWBS(){
     const l=dp(barS),wd=Math.max(dp(barE)-l,.5);const fp=pct==null?0:pct;
     const _expPct=expectedPctByDate(barS,barE);
     const _fillBg=_expPct==null?"#16a34a":scheduleHealthGradient(fp-_expPct);
-    // v30: 메모 콜아웃 — 막대에 📝 점, 클릭 시 빨간 연결선 말풍선 (마스터 스케줄 콜아웃 스타일)
-    // v30.1: 헤더를 드래그하면 위치 이동 → memoDx/memoDy로 행에 저장(재렌더·저장에도 유지)
+    // v30: 메모 콜아웃 — 막대에 <i data-lucide="file-text"></i> 점, 클릭 시 빨간 연결선 말풍선 (마스터 스케줄 콜아웃 스타일)
+    // v30.1: 헤더를 드래그하면 위치 이동 <i data-lucide="arrow-right"></i> memoDx/memoDy로 행에 저장(재렌더·저장에도 유지)
     const _hasMemo=!!w.memo;
     const _end=Math.min(l+wd,100);
     const _esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
     const _axo=w.memoAx||0; // v30.2: 연결점(빨간 점) 가로 오프셋 — 점 자체도 드래그로 이동 가능
-    const _memoDot=_hasMemo?`<span class="v28-memo-dot" data-dot="${w.id}" style="left:calc(${_end}% + ${_axo}px)" title="드래그: 연결점 이동 · 클릭: 메모 열기/닫기">📝</span>`:"";
+    const _memoDot=_hasMemo?`<span class="v28-memo-dot" data-dot="${w.id}" style="left:calc(${_end}% + ${_axo}px)" title="드래그: 연결점 이동 · 클릭: 메모 열기/닫기"><i data-lucide="file-text"></i></span>`:"";
     let _memoCo="";
     if(_hasMemo&&_memoOpen[w.id]){
       const _bx=(_end>72?-232:22)+(w.memoDx||0); // 콜아웃 left(px, 막대 끝 기준) — 오른쪽 끝 막대는 기본 왼쪽 배치
@@ -1000,13 +1006,13 @@ function rWBS(){
       const _ay=_by-10+9;
       _memoCo=`<svg class="v28-memo-line" data-line="${w.id}" style="left:${_end.toFixed(2)}%;top:10px;width:1px;height:1px"><line x1="${_axo}" y1="-7" x2="${_ax}" y2="${_ay}" stroke="#dc2626" stroke-width="1.6"/><circle cx="${_axo}" cy="-7" r="2.2" fill="#dc2626"/></svg>`
         +`<div class="v28-memo-co" data-co="${w.id}" data-bx="${_bx}" data-by="${_by}" style="left:calc(${_end.toFixed(2)}% + ${_bx}px);top:${_by}px" onclick="if(!event.target.closest('[data-a]'))event.stopPropagation()">`
-        +`<div class="co-hd" data-codrag="${w.id}" title="드래그하면 위치를 옮길 수 있어요"><span>📝</span><span class="t">${_esc(w.name)}</span><button data-a="opMemoEd" data-id="${w.id}" title="메모 수정">✏</button><button data-a="tgMemoCo" data-id="${w.id}" title="닫기">✕</button></div><div class="co-bd">${_esc(w.memo)}</div></div>`;
+        +`<div class="co-hd" data-codrag="${w.id}" title="드래그하면 위치를 옮길 수 있어요"><span><i data-lucide="file-text"></i></span><span class="t">${_esc(w.name)}</span><button data-a="opMemoEd" data-id="${w.id}" title="메모 수정"><i data-lucide="pencil"></i></button><button data-a="tgMemoCo" data-id="${w.id}" title="닫기">✕</button></div><div class="co-bd">${_esc(w.memo)}</div></div>`;
     }
     const ganttBar=`<div style="position:relative;height:20px;background:#f1f5f9;border-radius:2px;width:100%;margin-top:5px"><div class="v28-bar-outer${_hasMemo?' has-memo':''}"${_hasMemo?` data-a="tgMemoCo" data-id="${w.id}" title="클릭: 메모 보기/닫기 · 우클릭: 메모 작성"`:""} style="left:${l}%;width:${wd}%"><div class="v28-bar-fill" style="width:${fp}%;background:${_fillBg}"></div></div><span class="v28-bar-label" style="left:${l}%;width:${wd}%">${fp}%</span>${_memoDot}${_memoCo}</div>`;
     // 모든 컬럼을 한 행에 넣고 class로 표시 제어
     return `<tr class="wbs-row ${selCls}" data-a="selW" data-id="${w.id}" data-id-row="${w.id}">
       <td class="col-code"><div class="cell-inner"><span style="display:inline-flex;align-items:center;gap:3px;padding-left:${ind}px;white-space:nowrap"><span style="flex-shrink:0">${eb}</span><span style="font-weight:${w.lv===0?700:400};font-size:11px;color:#4a7fc1;white-space:nowrap">${w.code}</span></span></div></td>
-      <td class="col-name"><div class="cell-inner">${w.name.slice(0,22)}${w.name.length>22?'…':''}${w.itpLink?`<span style="font-size:8px;color:#4a7fc1">🔗</span>`:""}${memoIcon}${vendorIcon}</div></td>
+      <td class="col-name"><div class="cell-inner">${w.name.slice(0,22)}${w.name.length>22?'…':''}${w.itpLink?`<span style="font-size:8px;color:#4a7fc1"><i data-lucide="link"></i></span>`:""}${memoIcon}${vendorIcon}</div></td>
       <td class="col-mgr"><div class="cell-inner" style="color:#6b7280;font-size:10px">${w.mgr||''}</div></td>
       <td class="col-start"><div class="cell-inner" style="color:#6b7280;font-size:10px;white-space:nowrap">${w.s||''}</div></td>
       <td class="col-end"><div class="cell-inner" style="color:#6b7280;font-size:10px;white-space:nowrap">${w.e||''}</div></td>
@@ -1032,7 +1038,7 @@ function rWBS(){
   // ═══════════════════════════════════════════════════════════
   // v28.4.17 ★ 통합 WBS Table — 모든 탭 (split/tree/gantt) 같은 table 사용
   // 부장님 발상: 하나의 table에 모든 컬럼, 탭에 따라 CSS class로 보이기/숨기기
-  // → 단차 원천 차단 (HTML이 자동으로 행 높이 같게 보장)
+  // <i data-lucide="arrow-right"></i> 단차 원천 차단 (HTML이 자동으로 행 높이 같게 보장)
   // ═══════════════════════════════════════════════════════════
   const ms=v28Months();
   // v28.4.45: 간트 본문 월 구분 세로선 — 막대/오늘선과 같은 dp() 좌표계로 정렬.
@@ -1128,10 +1134,10 @@ function rWBS(){
     : `<div class="wbs-unified-wrap" style="position:relative;overflow:auto;background:#fff;border-radius:8px;border:1px solid #e4e7ec;flex:1;min-height:160px;max-height:none">
     ${unifiedTable}
   </div>`;
-  return`<div class="thdr"><div class="htitle">📊 ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span><button onclick="openWbsHistory()" style="font-size:11px;color:#7c3aed;background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:2px 8px;margin-left:4px;cursor:pointer" title="이전 Rev 이력 보기">📜 이력</button>${_viewRev?`<span style="font-size:11px;color:#b45309;font-weight:700;background:#fef3c7;padding:2px 8px;border-radius:10px;margin-left:6px">📖 이전 Rev.${_viewRev} 조회 중</span><button onclick="closeWbsHistoryView()" style="font-size:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer">← 현재로</button>${new URLSearchParams(window.location.search).get("canEdit")!=="0"?`<button onclick="restoreWbsRev(${_viewRev})" style="font-size:11px;background:#059669;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer" title="지금 보고 있는 이 Rev의 내용으로 현재 WBS를 되돌립니다 (새 Rev로 저장되어 이력 보존)">↩ 이 Rev로 복원</button>`:''}`:''}</div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"📊 간트":"📈 EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)">📄 PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)">📊 Excel</button><button class="v284-print-btn" data-a="opShare" style="background:#0ea5e9" title="조회 전용 링크·QR 생성 — 외부인도 로그인 없이 열람 가능">🔗 공유</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집">📝 NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기">📥 Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기">📤 Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기">↗ 새 창</button>${(S.selproj?.no||'').toUpperCase()==='SJ435-26' && WBS.some(w=>(w.id||'').startsWith('w_sj435_')) ? `<button class="v28-eb" style="background:#dc2626;color:#fff" onclick="removeSJ435FabSchedule()" title="자동 추가된 제작 스케줄 48행을 이 WBS에서 제거">🗑 제작 스케줄 제거</button>` : ''}${/SJ428-?25/i.test((S.selproj?.no||'')+'|'+(S.selproj?.code||'')+'|'+(S.selproj?.name||'')) && !WBS.some(w=>(w.id||'').startsWith('w_fab428_')) ? `<button class="v28-eb" style="background:#0ea5e9;color:#fff" onclick="importFabScheduleSJ428()" title="SJ428-25 Fabrication Schedule 7개 공정을 이설장비 제작 아래에 삽입">📥 Fab 스케줄 넣기</button>` : ''}<button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다">📝 PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
+  return`<div class="thdr"><div class="htitle"><i data-lucide="chart-column"></i> ${S.selproj?.name||""} — WBS <span style="font-size:12px;color:#1e40af;font-weight:700;margin-left:6px">· 총 ${projPct}%</span> <span id="wbsRevBadge" style="font-size:11px;color:#7c3aed;font-weight:700;background:#f5f3ff;padding:2px 8px;border-radius:10px;margin-left:6px" title="이 스케줄의 개정 번호(저장할 때마다 자동 증가)">Rev. ${_wbsRev||0}</span><button onclick="openWbsHistory()" style="font-size:11px;color:#7c3aed;background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:2px 8px;margin-left:4px;cursor:pointer" title="이전 Rev 이력 보기">📜 이력</button>${_viewRev?`<span style="font-size:11px;color:#b45309;font-weight:700;background:#fef3c7;padding:2px 8px;border-radius:10px;margin-left:6px">📖 이전 Rev.${_viewRev} 조회 중</span><button onclick="closeWbsHistoryView()" style="font-size:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer"><i data-lucide="arrow-left"></i> 현재로</button>${new URLSearchParams(window.location.search).get("canEdit")!=="0"?`<button onclick="restoreWbsRev(${_viewRev})" style="font-size:11px;background:#059669;color:#fff;border:none;border-radius:10px;padding:2px 10px;margin-left:4px;cursor:pointer" title="지금 보고 있는 이 Rev의 내용으로 현재 WBS를 되돌립니다 (새 Rev로 저장되어 이력 보존)">↩ 이 Rev로 복원</button>`:''}`:''}</div><span style="font-size:11px;color:#6b7280;display:flex;align-items:center;margin-right:auto">PM ${S.selproj?.pm||""}</span><div style="display:flex;gap:4px">${["split","tree","gantt",...(_deptMode?[]:["evms"])].map(v=>`<button class="vb${S.wv===v?" on":""}" data-a="setWV" data-v="${v}">${v==="split"?"⊞ 분할":v==="tree"?"🌳 트리":v==="gantt"?"<i data-lucide="chart-column"></i> 간트":"<i data-lucide="trending-up"></i> EVMS"}</button>`).join("")}</div><button class="addb" data-a="opWM">+ 추가</button><button class="v284-print-btn" data-a="v284Print" title="MASTER SCHEDULE PDF 다운로드 (A3 가로, 회사 표준 양식)"><i data-lucide="file"></i> PDF</button><button class="v284-print-btn" data-a="v284Excel" style="background:#16a34a" title="MASTER SCHEDULE Excel 다운로드 (편집 가능)"><i data-lucide="chart-column"></i> Excel</button><button class="v284-print-btn" data-a="opShare" style="background:#0ea5e9" title="조회 전용 링크·QR 생성 — 외부인도 로그인 없이 열람 가능"><i data-lucide="link"></i> 공유</button><button class="v284-print-btn" data-a="opNoteEdit" style="background:#7c3aed" title="PDF 하단 NOTE 편집"><i data-lucide="file-text"></i> NOTE</button><button class="v28-eb" data-a="v28Exp" title="WBS JSON 내보내기"><i data-lucide="download"></i> Export</button><button class="v28-eb" data-a="v28Imp" title="WBS JSON 불러오기"><i data-lucide="upload"></i> Import</button><button class="v28-eb" onclick="window.open(location.href,'_blank')" title="새 창에서 열기"><i data-lucide="arrow-up-right"></i> 새 창</button>${(S.selproj?.no||'').toUpperCase()==='SJ435-26' && WBS.some(w=>(w.id||'').startsWith('w_sj435_')) ? `<button class="v28-eb" style="background:#dc2626;color:#fff" onclick="removeSJ435FabSchedule()" title="자동 추가된 제작 스케줄 48행을 이 WBS에서 제거"><i data-lucide="trash-2"></i> 제작 스케줄 제거</button>` : ''}${/SJ428-?25/i.test((S.selproj?.no||'')+'|'+(S.selproj?.code||'')+'|'+(S.selproj?.name||'')) && !WBS.some(w=>(w.id||'').startsWith('w_fab428_')) ? `<button class="v28-eb" style="background:#0ea5e9;color:#fff" onclick="importFabScheduleSJ428()" title="SJ428-25 Fabrication Schedule 7개 공정을 이설장비 제작 아래에 삽입"><i data-lucide="download"></i> Fab 스케줄 넣기</button>` : ''}<button class="sjp-req-btn" onclick="submitWbsChangeRequest()" title="스케줄 변경이 필요한 사항을 PM에게 결재로 요청합니다"><i data-lucide="file-text"></i> PM에 변경 요청</button><span style="font-size:10px;color:#6b7280;display:flex;align-items:center"><span class="sdot"></span>Trv. 연동</span></div>
   <div class="fbar"><span style="font-size:10px;color:#9ca3af;margin-right:3px">필터:</span>${["전체","완료","진행중","미시작","지연"].map(f=>`<button class="fb${S.wf===f?" on":""}" data-a="setWF" data-f="${f}">${f}(${fCnt(f)})</button>`).join("")}</div>
   <div class="cont">${(S.wv!=="evms" && !_deptMode)?`<div style="margin-bottom:10px;border:1px solid #e4e7ec;border-radius:8px;background:#f8fafc;overflow:hidden;flex-shrink:0">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer" data-a="tgEvms"><span style="font-size:11px;font-weight:700;color:#1e40af">📈 EVMS 요약 (계획·실행·일정차이·SPI)</span><span style="font-size:11px;color:#6b7280">${S.evmsHide?'▶ 펼치기':'▼ 접기'}</span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer" data-a="tgEvms"><span style="font-size:11px;font-weight:700;color:#1e40af"><i data-lucide="trending-up"></i> EVMS 요약 (계획·실행·일정차이·SPI)</span><span style="font-size:11px;color:#6b7280">${S.evmsHide?'▶ 펼치기':'▼ 접기'}</span></div>
     ${S.evmsHide?'':`<div style="padding:0 10px 10px">${evmsPanel(_pid,true)}</div>`}
   </div>`:''}${ct}${rDetailPanel()}${v28WeeklySummary()}</div>`;
 }
@@ -1155,11 +1161,11 @@ function rMMItm(){
       <td style="min-width:100px">${prg(pct)}</td>
       <td>${ncr>0?`<span class="bdg" style="background:#fee2e2;color:#dc2626">NCR ${ncr}</span>`:""}</td>
       <td><span class="bdg" style="background:${sc.bg};color:${sc.c}">${status}</span></td>
-      <td>${wb?`<span style="font-size:10px;color:#4a7fc1;background:#eef3fb;padding:2px 5px;border-radius:3px">📊${wb.code}</span>`:""}</td>
+      <td>${wb?`<span style="font-size:10px;color:#4a7fc1;background:#eef3fb;padding:2px 5px;border-radius:3px"><i data-lucide="chart-column"></i>${wb.code}</span>`:""}</td>
       <td style="white-space:nowrap">
-        <button data-a="opEditItem" data-iid="${it.id}" style="padding:2px 8px;background:#eef3fb;color:#4a7fc1;border:1px solid #c3d6f0;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">✏ 수정</button>
-        <button data-a="delMItem" data-iid="${it.id}" data-pid="${p.id}" style="margin-left:3px;padding:2px 7px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">🗑 삭제</button>
-        <button data-a="opMITP" data-iid="${it.id}" style="margin-left:4px;padding:2px 8px;background:#f0f4f9;color:#4a7fc1;border:1px solid #e4e7ec;border-radius:4px;font-size:10px;cursor:pointer">ITP →</button>
+        <button data-a="opEditItem" data-iid="${it.id}" style="padding:2px 8px;background:#eef3fb;color:#4a7fc1;border:1px solid #c3d6f0;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600"><i data-lucide="pencil"></i> 수정</button>
+        <button data-a="delMItem" data-iid="${it.id}" data-pid="${p.id}" style="margin-left:3px;padding:2px 7px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600"><i data-lucide="trash-2"></i> 삭제</button>
+        <button data-a="opMITP" data-iid="${it.id}" style="margin-left:4px;padding:2px 8px;background:#f0f4f9;color:#4a7fc1;border:1px solid #e4e7ec;border-radius:4px;font-size:10px;cursor:pointer">ITP <i data-lucide="arrow-right"></i></button>
       </td>
     </tr>`;
   }).join("");
@@ -1186,12 +1192,12 @@ function rMMITP(){
         <button data-a="mvITPItem" data-iid="${item.id}" data-tid="${t.id}" data-dir="dn" style="width:18px;height:16px;border:1px solid #d1d5db;border-radius:3px;background:#f9fafb;color:#374151;cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center">▼</button>
       </div>
       <div style="display:flex;gap:2px">
-        <button data-a="opEditITPItem" data-iid="${item.id}" data-tid="${t.id}" style="width:18px;height:16px;border:none;border-radius:3px;background:#eef3fb;color:#4a7fc1;cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center">✏</button>
+        <button data-a="opEditITPItem" data-iid="${item.id}" data-tid="${t.id}" style="width:18px;height:16px;border:none;border-radius:3px;background:#eef3fb;color:#4a7fc1;cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center"><i data-lucide="pencil"></i></button>
         <button data-a="delITPItem" data-iid="${item.id}" data-tid="${t.id}" style="width:18px;height:16px;border:none;border-radius:3px;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center">×</button>
       </div>
     </div>
   </div>`;}).join("");
-  let rC=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:150px;color:#9ca3af"><div style="font-size:26px;margin-bottom:6px">📋</div><div style="font-size:11px">왼쪽에서 항목 선택</div></div>`;
+  let rC=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:150px;color:#9ca3af"><div style="font-size:26px;margin-bottom:6px"><i data-lucide="clipboard-list"></i></div><div style="font-size:11px">왼쪽에서 항목 선택</div></div>`;
   if(selT&&selR){
     const phI=pi[selT.ph]||{date:"",insp:""};
     const rBtns=["Accept","Reject","N/A","-"].map(r=>{const s=RS[r];const on=selR.result===r;return`<button data-a="setIR" data-iid="${item.id}" data-tid="${selT.id}" data-res="${r}" style="flex:1;padding:6px 0;border-radius:6px;border:2px solid ${on?s.bd:"#e4e7ec"};background:${on?s.bg:"#fff"};color:${on?s.c:"#9ca3af"};cursor:pointer;font-weight:700;font-size:12px">${r}</button>`;}).join("");
@@ -1203,10 +1209,10 @@ function rMMITP(){
       <div style="margin-bottom:10px"><div class="fl" style="font-weight:600;margin-bottom:4px">검사 결과</div><div style="display:flex;gap:4px">${rBtns}</div></div>
       <div style="margin-bottom:8px"><div class="fl" style="font-weight:600">Acceptance Criteria</div><input value="${(selR.criteria||"").replace(/"/g,"&quot;")}" data-iid="${item.id}" data-tid="${selT.id}" style="width:100%;padding:5px 7px;border:1px solid #e4e7ec;border-radius:5px;font-size:11px;outline:none" onblur="setIC(this)"/></div>
       <div style="margin-bottom:8px"><div class="fl" style="font-weight:600">실측값 / 확인 결과</div><input value="${(selR.actual||"").replace(/"/g,"&quot;")}" data-iid="${item.id}" data-tid="${selT.id}" placeholder="실측값 입력" style="width:100%;padding:5px 7px;border:1px solid #e4e7ec;border-radius:5px;font-size:11px;outline:none" onblur="setIA(this)"/></div>
-      <div style="margin-bottom:10px"><div class="fl" style="font-weight:600">관찰사항 / Observation</div><textarea data-iid="${item.id}" data-tid="${selT.id}" rows="2" style="width:100%;padding:5px 7px;border:1px solid ${selR.result==="Reject"?"#fca5a5":"#e4e7ec"};border-radius:5px;font-size:11px;resize:none;outline:none;font-family:inherit" onblur="setIO(this)">${selR.obs||""}</textarea>${selR.result==="Reject"?`<div style="font-size:10px;color:#dc2626;margin-top:2px;font-weight:600">⚠️ NCR 발행 필요</div>`:""}</div>
+      <div style="margin-bottom:10px"><div class="fl" style="font-weight:600">관찰사항 / Observation</div><textarea data-iid="${item.id}" data-tid="${selT.id}" rows="2" style="width:100%;padding:5px 7px;border:1px solid ${selR.result==="Reject"?"#fca5a5":"#e4e7ec"};border-radius:5px;font-size:11px;resize:none;outline:none;font-family:inherit" onblur="setIO(this)">${selR.obs||""}</textarea>${selR.result==="Reject"?`<div style="font-size:10px;color:#dc2626;margin-top:2px;font-weight:600"><i data-lucide="alert-triangle"></i>️ NCR 발행 필요</div>`:""}</div>
       <div><div class="fl" style="font-weight:600;margin-bottom:4px">Inspection Point</div><div style="display:flex;gap:5px">${pBtns}</div></div>`;
   }
-  return`<div style="padding:10px 14px;flex:1;display:flex;flex-direction:column;overflow:hidden">${bc}<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div><span style="font-size:15px;font-weight:700">${item.tagNo}</span><span style="font-size:11px;color:#6b7280;margin-left:6px">${item.type} · ${item.spec}</span></div><div style="display:flex;gap:6px;align-items:center">${prg(pct).replace("class=\"prg\"","style=\"min-width:120px\" class=\"prg\"")}${ncr>0?`<span class="bdg" style="background:#fee2e2;color:#dc2626;padding:2px 8px;font-size:11px">NCR ${ncr}건</span>`:""}${wbs?`<button data-a="goWBS" data-wid="${item.wbsLink}" style="padding:3px 8px;background:#eef3fb;color:#4a7fc1;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">📊 WBS로</button>`:""}</div></div><div style="display:flex;gap:5px;margin-bottom:8px">${tabs}</div><div class="itp-wrap"><div class="itp-L" style="display:flex;flex-direction:column">
+  return`<div style="padding:10px 14px;flex:1;display:flex;flex-direction:column;overflow:hidden">${bc}<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div><span style="font-size:15px;font-weight:700">${item.tagNo}</span><span style="font-size:11px;color:#6b7280;margin-left:6px">${item.type} · ${item.spec}</span></div><div style="display:flex;gap:6px;align-items:center">${prg(pct).replace("class=\"prg\"","style=\"min-width:120px\" class=\"prg\"")}${ncr>0?`<span class="bdg" style="background:#fee2e2;color:#dc2626;padding:2px 8px;font-size:11px">NCR ${ncr}건</span>`:""}${wbs?`<button data-a="goWBS" data-wid="${item.wbsLink}" style="padding:3px 8px;background:#eef3fb;color:#4a7fc1;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600"><i data-lucide="chart-column"></i> WBS로</button>`:""}</div></div><div style="display:flex;gap:5px;margin-bottom:8px">${tabs}</div><div class="itp-wrap"><div class="itp-L" style="display:flex;flex-direction:column">
     <div class="mm-checklist-scroll" style="flex:1;overflow-y:auto">${list}</div>
     <div style="padding:6px 10px;border-top:1px solid #e4e7ec;background:#f8fafc;flex-shrink:0">
       <button data-a="opAddITPItem" data-iid="${item.id}" style="width:100%;padding:5px;background:#eef3fb;color:#4a7fc1;border:1px dashed #c3d6f0;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600">+ 검사 항목 추가</button>
@@ -1224,7 +1230,7 @@ function rModals(){
   let h="";
   // v28.4.46: PDF/Excel 출력 레벨 선택 모달
   if(S.expChoose){const _t=S.expChoose;h+=`<div class="ov"><div class="mdl" style="max-width:430px">
-      <div style="font-size:14px;font-weight:700;margin-bottom:4px;color:#1a2332">${_t==="pdf"?"📄 PDF":"📊 Excel"} 출력 범위 선택</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px;color:#1a2332">${_t==="pdf"?"<i data-lucide="file"></i> PDF":"<i data-lucide="chart-column"></i> Excel"} 출력 범위 선택</div>
       <div style="font-size:11px;color:#6b7280;margin-bottom:12px">어느 레벨까지 출력할지 선택하세요. 상위 레벨 진도율은 하위 전체를 반영한 값 그대로 나갑니다.</div>
       ${[["0","대단락만 (Level 1)","1, 2, 3 …"],["1","중단락까지 (Level 2)","+ 3.1 TA-6101A …"],["2","소단락까지 (Level 3)","+ 3.1.1 자재입고 …"],["99","전체 (세부단락 포함)","모든 레벨"]].map(([lv,label,ex])=>`
         <button data-a="doExport" data-lv="${lv}" style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 14px;margin-bottom:6px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;color:#1a2332;box-sizing:border-box" onmouseover="this.style.background='#eef3fb';this.style.borderColor='#4a7fc1'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e4e7ec'">
@@ -1234,15 +1240,15 @@ function rModals(){
     </div></div>`;}
   // v28.4.48: 공유 링크·QR 모달
   if(S.shareMod){const sm=S.shareMod;h+=`<div class="ov"><div class="mdl" style="max-width:460px;text-align:center">
-      <div style="font-size:14px;font-weight:700;margin-bottom:4px;color:#1a2332">🔗 조회 전용 공유</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px;color:#1a2332"><i data-lucide="link"></i> 조회 전용 공유</div>
       <div style="font-size:11px;color:#6b7280;margin-bottom:12px">이 링크를 받은 사람은 <b>로그인 없이</b> 현재 스케줄을 조회만 할 수 있습니다.<br>다시 공유하면 같은 링크가 최신 상태로 갱신됩니다.</div>
       ${sm.qr?`<img src="${sm.qr}" alt="QR" style="width:170px;height:170px;border:1px solid #e4e7ec;border-radius:8px;padding:6px;background:#fff"/>`:""}
       <div style="display:flex;gap:6px;margin-top:12px">
         <input id="wbsShareUrl" readonly value="${sm.url}" style="flex:1;padding:8px 10px;border:1.5px solid #c3d6f0;border-radius:6px;font-size:11px;color:#374151;background:#f8fafc" onclick="this.select()"/>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('wbsShareUrl').value).then(()=>{this.textContent='✓ 복사됨';setTimeout(()=>this.textContent='복사',1500)})" style="padding:8px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">복사</button>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('wbsShareUrl').value).then(()=>{this.textContent='<i data-lucide="check"></i> 복사됨';setTimeout(()=>this.textContent='복사',1500)})" style="padding:8px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">복사</button>
       </div>
       <div style="display:flex;gap:6px;justify-content:center;margin-top:10px">
-        <button onclick="window.open(document.getElementById('wbsShareUrl').value,'_blank')" style="padding:6px 14px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:6px;font-size:11px;cursor:pointer">↗ 미리보기</button>
+        <button onclick="window.open(document.getElementById('wbsShareUrl').value,'_blank')" style="padding:6px 14px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:6px;font-size:11px;cursor:pointer"><i data-lucide="arrow-up-right"></i> 미리보기</button>
         <button data-a="clShare" style="padding:6px 14px;background:#f3f4f6;border:none;border-radius:6px;font-size:11px;cursor:pointer">닫기</button>
       </div>
     </div></div>`;}
@@ -1272,7 +1278,7 @@ function rModals(){
       <div style="margin-bottom:7px"><div class="fl">담당 부서 <span style="font-size:9px;color:#9ca3af">— 부서 스케줄 필터·권한 기준</span></div><select data-draft="wform" data-k="dept" class="fi"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${(f.dept||_deptFilter||"")===d?" selected":""}>${d}</option>`).join("")}</select></div>
       <div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:.4"><div class="fl">작업코드</div>${inp("wform","code","placeholder='자동'",f.code)}</div><div style="flex:1"><div class="fl">작업명</div>${inp("wform","name","",f.name)}</div></div><div style="margin-bottom:7px"><div class="fl">담당자</div>${inp("wform","mgr","",f.mgr)}</div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">시작일</div>${inp("wform","s","type='date'",f.s)}</div><div style="flex:1"><div class="fl">완료일</div>${inp("wform","e","type='date'",f.e)}</div></div><div style="display:flex;gap:6px;margin-bottom:7px"><div style="flex:1"><div class="fl">상태</div>${sel("wform","status",["미시작","진행중","완료","지연"],f.status||"미시작")}</div><div style="flex:1"><div class="fl">제작공정 연동</div><select data-draft="wform" data-k="itpLink" class="fi"><option value="">없음</option><option value="__new__">★ 새 제작공정(Trv.) 아이템 자동 생성</option>${allI().map(i=>`<option value="${i.id}">${i.tagNo}</option>`).join("")}</select></div></div><!-- v28.4.8: 담당 업체 + 메모 (MS Project Notes 스타일) --><div style="margin-bottom:7px"><div class="fl">담당 업체 <span style="font-size:9px;color:#9ca3af">— REMARK 컬럼 표시</span></div>${inp("wform","vendor","placeholder='㈜세종기술 / 동원전기 등'",f.vendor||"")}</div><div style="margin-bottom:10px"><div class="fl">메모 / 이벤트 <span style="font-size:9px;color:#9ca3af">— PDF 막대 옆 콜아웃</span></div><textarea data-draft="wform" data-k="memo" class="fi" rows="2" placeholder="작업 핵심 이벤트 메모 (예: 8/10 PSM 서류 결과 수령)" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box">${f.memo||""}</textarea></div><div style="display:flex;gap:6px;justify-content:flex-end"><button data-a="clWM" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button><button data-a="svW" style="padding:5px 11px;background:#4a7fc1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">저장</button></div></div></div>`;}
   // v28.4.17: NOTE 편집 모달
-  if(S.noteEditMod){const curNote=S.selproj?.customNote||"";h+=`<div class="ov"><div class="mdl" style="max-width:560px"><div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#1a2332">📝 PDF 하단 NOTE 편집</div><div style="font-size:11px;color:#6b7280;margin-bottom:8px;line-height:1.5">PDF 출력 시 하단에 표시될 NOTE 내용입니다. 한 줄에 하나씩 작성하세요. 비워두면 기본 메시지가 표시됩니다.</div><textarea id="noteEditTA" class="fi" rows="10" placeholder="예시:&#10;본 일정은 작성 시점 기준이며, 작업 변수에 따라 변경 될 수 있다.&#10;본 SCHEDULE는 발주처와의 협의 하에 진행한다.&#10;진척률은 EPC Control System의 실시간 데이터를 기준으로 산출된다.&#10;소방, 통신검사 작업 투입 보름전 신청 (9/15)&#10;작업개시: 세종작업 종료시 즉시 (16일 소요)" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:11px;line-height:1.5">${curNote.replace(/</g,'&lt;')}</textarea><div style="display:flex;gap:6px;justify-content:space-between;margin-top:10px"><button data-a="clNoteEdit" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button><div style="display:flex;gap:6px"><button data-a="resetNote" style="padding:5px 11px;background:#fef3c7;color:#92400e;border:none;border-radius:5px;cursor:pointer;font-size:11px">🔄 기본값으로</button><button data-a="svNoteEdit" style="padding:5px 14px;background:#7c3aed;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">💾 저장</button></div></div></div></div>`;}
+  if(S.noteEditMod){const curNote=S.selproj?.customNote||"";h+=`<div class="ov"><div class="mdl" style="max-width:560px"><div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#1a2332"><i data-lucide="file-text"></i> PDF 하단 NOTE 편집</div><div style="font-size:11px;color:#6b7280;margin-bottom:8px;line-height:1.5">PDF 출력 시 하단에 표시될 NOTE 내용입니다. 한 줄에 하나씩 작성하세요. 비워두면 기본 메시지가 표시됩니다.</div><textarea id="noteEditTA" class="fi" rows="10" placeholder="예시:&#10;본 일정은 작성 시점 기준이며, 작업 변수에 따라 변경 될 수 있다.&#10;본 SCHEDULE는 발주처와의 협의 하에 진행한다.&#10;진척률은 EPC Control System의 실시간 데이터를 기준으로 산출된다.&#10;소방, 통신검사 작업 투입 보름전 신청 (9/15)&#10;작업개시: 세종작업 종료시 즉시 (16일 소요)" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:11px;line-height:1.5">${curNote.replace(/</g,'&lt;')}</textarea><div style="display:flex;gap:6px;justify-content:space-between;margin-top:10px"><button data-a="clNoteEdit" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button><div style="display:flex;gap:6px"><button data-a="resetNote" style="padding:5px 11px;background:#fef3c7;color:#92400e;border:none;border-radius:5px;cursor:pointer;font-size:11px">🔄 기본값으로</button><button data-a="svNoteEdit" style="padding:5px 14px;background:#7c3aed;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600"><i data-lucide="save"></i> 저장</button></div></div></div></div>`;}
   if(S.maitem){const f=DRAFT.mnitem;
     h+=`<div class="ov"><div class="mdl">
       <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1a2332">아이템 추가</div>
@@ -1285,7 +1291,7 @@ function rModals(){
         <div style="flex:1"><div class="fl">제작사</div><input data-draft="mnitem" data-k="maker" value="${(f.maker||"").replace(/"/g,'&quot;')}" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
       </div>
       <div style="margin-bottom:7px;padding:10px;background:#f8fafc;border-radius:7px;border:1px solid #e4e7ec">
-        <div class="fl" style="font-weight:700;color:#1a2332;margin-bottom:8px">📊 WBS 연동</div>
+        <div class="fl" style="font-weight:700;color:#1a2332;margin-bottom:8px"><i data-lucide="chart-column"></i> WBS 연동</div>
         <div style="display:flex;gap:6px;margin-bottom:7px">
           <label style="flex:1;display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:6px;border:2px solid ${(f.wbsMode||'new')==='new'?'#4a7fc1':'#e4e7ec'};background:${(f.wbsMode||'new')==='new'?'#eef3fb':'#fff'};cursor:pointer">
             <input type="radio" data-draft="mnitem" data-k="wbsMode" value="new" ${(f.wbsMode||'new')==='new'?'checked':''} style="accent-color:#4a7fc1" onchange="DRAFT.mnitem.wbsMode='new';R()"/>
@@ -1334,7 +1340,7 @@ function rModals(){
         <div style="flex:1"><div class="fl">제작사</div><input data-draft="editItem" data-k="maker" value="${(f.maker!==undefined?f.maker:it.maker).replace(/"/g,'&quot;')}" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
       </div>
       <div style="margin-bottom:10px;padding:10px;background:#f8fafc;border-radius:7px;border:1px solid #e4e7ec">
-        <div class="fl" style="font-weight:700;color:#1a2332;margin-bottom:8px">📊 WBS 연동
+        <div class="fl" style="font-weight:700;color:#1a2332;margin-bottom:8px"><i data-lucide="chart-column"></i> WBS 연동
           ${curWbs?`<span style="margin-left:6px;font-size:10px;color:#4a7fc1;background:#eef3fb;padding:1px 6px;border-radius:3px">현재: ${curWbs.code} ${curWbs.name}</span>`:'<span style="margin-left:6px;font-size:10px;color:#e57373">(미연동)</span>'}
         </div>
         <div style="display:flex;gap:5px;margin-bottom:8px">
@@ -1368,7 +1374,7 @@ function rModals(){
               ${WBS.map(w=>`<option value="${w.id}"${(f.wbsLink!==undefined?f.wbsLink:(it.wbsLink||""))===w.id?" selected":""}>${w.lv===0?"▶ ":"  └ "}${w.code} ${w.name}${w.itpLink&&w.itpLink!==it.id?" ⚠연동됨":""}</option>`).join("")}
             </select>
           </div>
-        `:`<div style="font-size:11px;color:#dc2626;padding:4px 0">⚠ 저장 시 WBS 연동이 해제됩니다.</div>`}
+        `:`<div style="font-size:11px;color:#dc2626;padding:4px 0"><i data-lucide="alert-triangle"></i> 저장 시 WBS 연동이 해제됩니다.</div>`}
       </div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
         <button data-a="clEditItem" style="padding:5px 11px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button>
@@ -1428,7 +1434,7 @@ function act(a,d){
     case"opEvmsBac":{const cur=(S.evmsBac&&S.evmsBac[d.pid])||0;const v=prompt("계약금액(BAC)을 원 단위로 입력하세요 (예: 2000000000)",cur||"");if(v!==null){const n=Number(String(v).replace(/[^0-9.]/g,''))||0;us(s=>({...s,evmsBac:{...(s.evmsBac||{}),[d.pid]:n}}));}}break;
     case"tgExp":us(s=>({...s,wexp:{...s.wexp,[d.id]:!s.wexp[d.id]}}));break;
     case"selW":{const w=WBS.find(x=>x.id===d.id);us({wsel:S.wsel?.id===w?.id?null:w,wedit:false});break;}
-    // v30: 간트 막대 클릭 → 메모 콜아웃 토글 / 콜아웃 ✏ → 메모 편집
+    // v30: 간트 막대 클릭 <i data-lucide="arrow-right"></i> 메모 콜아웃 토글 / 콜아웃 <i data-lucide="pencil"></i> <i data-lucide="arrow-right"></i> 메모 편집
     case"tgMemoCo":{if(_memoOpen[d.id])delete _memoOpen[d.id];else _memoOpen[d.id]=true;us({});break;} // us() 경유 — 스크롤 위치 유지
     case"opMemoEd":{openMemoEditor(d.id);break;}
     case"clrW":us({wsel:null,wedit:false});break;
@@ -1453,7 +1459,7 @@ function act(a,d){
       // v29.33: 삭제 후 코드 재부여 — 대단락 4를 지우면 기존 5·6·7이 4·5·6으로 당겨져야 함
       // (이전엔 renumberWBS 호출이 빠져 삭제된 번호가 결번으로 남았음)
       renumberWBS();
-      addLog(`🗑 삭제: ${w.code} ${w.name}${childCount?' (하위 '+childCount+'개 포함)':''}`,"warn");
+      addLog(`<i data-lucide="trash-2"></i> 삭제: ${w.code} ${w.name}${childCount?' (하위 '+childCount+'개 포함)':''}`,"warn");
       us({wsel:null,wedit:false});
       break;}
     case"dupW":{
@@ -1502,7 +1508,7 @@ function act(a,d){
       WBS.splice(insAt,0,...copies);
       renumberWBS();
       const newTop=WBS.find(x=>x.id===copies[0].id);
-      addLog(`📋 복사: ${src.code} ${src.name}${block.length>1?' (하위 '+(block.length-1)+'개 포함)':''} → ${newTop?newTop.code:''}`,"ok");
+      addLog(`<i data-lucide="clipboard-list"></i> 복사: ${src.code} ${src.name}${block.length>1?' (하위 '+(block.length-1)+'개 포함)':''} <i data-lucide="arrow-right"></i> ${newTop?newTop.code:''}`,"ok");
       // 복사된 최상위 행을 자동 선택 + 바로 수정 모드로 열어 이름·항목을 곧장 고칠 수 있게
       us({wsel:newTop,wedit:true});
       break;}
@@ -1535,11 +1541,11 @@ function act(a,d){
             WBS=WBS.map(x=>x.itpLink===nv&&x.id!==id?{...x,itpLink:null}:x);
             Object.keys(MITEM).forEach(pid=>{const xi=(MITEM[pid]||[]).findIndex(i=>i.id===nv);if(xi>=0)MITEM[pid][xi]={...MITEM[pid][xi],wbsLink:id};});
           }
-          addLog(nv?`🔗 제작공정 연동 ${itpLink?'변경':'설정'}: ${fI(nv)?.tagNo||nv}`:`✂ 제작공정 연동 해제`,"info");
+          addLog(nv?`<i data-lucide="link"></i> 제작공정 연동 ${itpLink?'변경':'설정'}: ${fI(nv)?.tagNo||nv}`:`✂ 제작공정 연동 해제`,"info");
           itpLink=nv;
         }
       }
-      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept,itpLink}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
+      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept,itpLink}:w);const updated=WBS.find(w=>w.id===id);addLog(`<i data-lucide="pencil"></i> 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
     case"mvW":moveWBS(d.id,d.dir==="up"?-1:1);break;
     case"opWM":{DRAFT.wform={code:"",name:"",mgr:"",s:"",e:"",status:"미시작",itpLink:"",parentId:"",dept:_deptFilter||""};us({wmod:true});}break;
     case"clWM":us({wmod:false});break;
@@ -1593,8 +1599,8 @@ function act(a,d){
       addLog("WBS 추가: "+n,"ok");
       us({wmod:false});
       break;}
-    case"goITP":{let proj=null,item=null;for(const pid in MITEM){const found=MITEM[pid].find(i=>i.id===d.iid);if(found){proj=PROJS.find(p=>p.id===pid);item=found;break;}}if(!REC[d.iid])REC[d.iid]=iR();addLog(`📊→🔩 ITP: ${item?.tagNo}`,"info");us({mv:"mm",mp:"itp",mproj:proj,mitem:item,mitpId:null,mphf:-1});break;}
-    case"goWBS":{const w=fW(d.wid);addLog(`🔩→📊 WBS: ${w?.code}`,"info");us({mv:"wbs",wp:"wbs",wsel:w});}break;
+    case"goITP":{let proj=null,item=null;for(const pid in MITEM){const found=MITEM[pid].find(i=>i.id===d.iid);if(found){proj=PROJS.find(p=>p.id===pid);item=found;break;}}if(!REC[d.iid])REC[d.iid]=iR();addLog(`<i data-lucide="chart-column"></i><i data-lucide="arrow-right"></i>🔩 ITP: ${item?.tagNo}`,"info");us({mv:"mm",mp:"itp",mproj:proj,mitem:item,mitpId:null,mphf:-1});break;}
+    case"goWBS":{const w=fW(d.wid);addLog(`🔩<i data-lucide="arrow-right"></i><i data-lucide="chart-column"></i> WBS: ${w?.code}`,"info");us({mv:"wbs",wp:"wbs",wsel:w});}break;
     case"opMITP":{const it=allI().find(i=>i.id===d.iid);if(!REC[it.id])REC[it.id]=iR();us({mp:"itp",mitem:it,mitpId:null,mphf:-1});}break;
     case"bcMItm":us({mp:"items"});break;
     case"opMAI":{DRAFT.mnitem={tagNo:"",type:"",spec:"ASME Sec.VIII Div.1",maker:"",wbsLink:"",wbsMode:"new",wbsParent:"",wbsName:""};us({maitem:true});}break;
@@ -1679,7 +1685,7 @@ function act(a,d){
         const idx=MITEM[pid].findIndex(i=>i.id===eid);
         if(idx>=0){MITEM[pid][idx]={...MITEM[pid][idx],tagNo:eTagNo,type:eType,spec:eSpec,maker:eMaker,wbsLink:newWbsId};break;}
       }
-      addLog("✏ 아이템 수정: "+eTagNo,"ok");
+      addLog("<i data-lucide="pencil"></i> 아이템 수정: "+eTagNo,"ok");
       us({editItem:null});
       break;}
     // ITP 항목 순서 이동
@@ -1766,7 +1772,7 @@ function act(a,d){
       delete _lastRecSigs[iid];
       _recOnServer.delete(iid);
       if(window.fb&&pid&&!_shadowUid)fb.deleteDoc(fb.doc(fb.db,"wbsRec",pid+"_"+iid)).catch(e=>console.warn("wbsRec delete fail",e));
-      addLog("🗑 아이템 삭제","warn");
+      addLog("<i data-lucide="trash-2"></i> 아이템 삭제","warn");
       us({});
       break;}
   }
@@ -1802,7 +1808,7 @@ document.addEventListener("mouseup",()=>{
   WBS=WBS.map(x=>x.id===d.id?{...x,memoDx:(x.memoDx||0)+d.ddx,memoDy:(x.memoDy||0)+d.ddy}:x);
   us({}); // 재렌더 + 기존 저장 파이프라인으로 위치 영구 저장
 });
-// ═══ v30.2: 연결점(빨간 📝 점) 드래그 — 가로로 끌어 연결선 시작점 이동(memoAx 저장), 살짝 클릭은 메모 토글 ═══
+// ═══ v30.2: 연결점(빨간 <i data-lucide="file-text"></i> 점) 드래그 — 가로로 끌어 연결선 시작점 이동(memoAx 저장), 살짝 클릭은 메모 토글 ═══
 let _dotDrag=null;
 function _eatNextClick(){ // 드래그 직후 발생하는 click이 행 선택(selW)으로 번지지 않게 1회 차단
   const f=ev=>{ev.stopPropagation();ev.preventDefault();};
@@ -1876,14 +1882,14 @@ async function openMemoEditor(wid){
   ov.id="wbsMemoEd";
   ov.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center";
   ov.innerHTML=`<div style="background:#fff;border-radius:10px;padding:16px;width:440px;max-width:92vw;box-shadow:0 10px 40px rgba(0,0,0,.3)">
-    <div style="font-size:13px;font-weight:800;color:#1a2332;margin-bottom:2px">📝 메모 / 이벤트 — ${_e(w.code)} ${_e(w.name)}</div>
+    <div style="font-size:13px;font-weight:800;color:#1a2332;margin-bottom:2px"><i data-lucide="file-text"></i> 메모 / 이벤트 — ${_e(w.code)} ${_e(w.name)}</div>
     <div style="font-size:10px;color:#6b7280;margin-bottom:8px">간트 막대 클릭 시 말풍선으로 표시되고, PDF 콜아웃에도 나갑니다.${w.dept?` · 담당 부서: <b>${_e(w.dept)}</b>`:""}</div>
     <textarea id="wbsMemoTA" rows="5" style="width:100%;box-sizing:border-box;border:1px solid #c3d6f0;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;line-height:1.5;resize:vertical;outline:none" placeholder="예:&#10;1. 염석 세척조 미입고&#10;2. PE TANK 미입고&#10;3. T-103 미제작">${_e(w.memo)}</textarea>
     <div style="display:flex;gap:6px;margin-top:10px">
-      ${w.memo?`<button id="wbsMemoDel" style="padding:6px 12px;background:#fee2e2;color:#dc2626;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🗑 메모 삭제</button>`:""}
+      ${w.memo?`<button id="wbsMemoDel" style="padding:6px 12px;background:#fee2e2;color:#dc2626;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600"><i data-lucide="trash-2"></i> 메모 삭제</button>`:""}
       <span style="flex:1"></span>
       <button id="wbsMemoCancel" style="padding:6px 12px;background:#f3f4f6;border:none;border-radius:5px;cursor:pointer;font-size:11px">취소</button>
-      <button id="wbsMemoSave" style="padding:6px 16px;background:#dc2626;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">💾 저장</button>
+      <button id="wbsMemoSave" style="padding:6px 16px;background:#dc2626;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700"><i data-lucide="save"></i> 저장</button>
     </div></div>`;
   ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
   document.body.appendChild(ov);
@@ -1893,7 +1899,7 @@ async function openMemoEditor(wid){
     const had=!!w.memo;
     WBS=WBS.map(x=>x.id===wid?{...x,memo:val}:x);
     if(val)_memoOpen[wid]=true;else delete _memoOpen[wid];
-    addLog(val?`📝 메모 ${had?"수정":"작성"}: ${w.code} ${w.name}`:`🗑 메모 삭제: ${w.code} ${w.name}`,val?"ok":"warn");
+    addLog(val?`<i data-lucide="file-text"></i> 메모 ${had?"수정":"작성"}: ${w.code} ${w.name}`:`<i data-lucide="trash-2"></i> 메모 삭제: ${w.code} ${w.name}`,val?"ok":"warn");
     ov.remove();
     us(S.wsel&&S.wsel.id===wid?{wsel:WBS.find(x=>x.id===wid)}:{});
   };
@@ -1936,9 +1942,9 @@ function v28WeeklySummary(){
   
   const fmtDate=d=>d.toISOString().slice(0,10);
   const nextMon=new Date(wkEnd);nextMon.setDate(wkEnd.getDate()+1);
-  const collapsed=S.weeklyHide!==false; // 기본 접힘 → 간트 공간 확보
+  const collapsed=S.weeklyHide!==false; // 기본 접힘 <i data-lucide="arrow-right"></i> 간트 공간 확보
   const hdr=`<div class="v28-wsum-hdr" data-a="tgWeekly" style="cursor:pointer">
-      <div class="v28-wsum-title">📋 주간 자동 정리${collapsed?` <span style="font-size:10px;color:#6b7280;font-weight:500">(지연 ${delays.length} · NCR ${ncrs.length} · 완료 ${wkDone.length} · 차주 ${nxStartItems.length})</span>`:''}</div>
+      <div class="v28-wsum-title"><i data-lucide="clipboard-list"></i> 주간 자동 정리${collapsed?` <span style="font-size:10px;color:#6b7280;font-weight:500">(지연 ${delays.length} · NCR ${ncrs.length} · 완료 ${wkDone.length} · 차주 ${nxStartItems.length})</span>`:''}</div>
       <div class="v28-wsum-meta">${collapsed?'▶ 펼치기':`생성: ${fmtDate(today)} · 발표: ${fmtDate(nextMon)} 월요회의　▼ 접기`}</div>
     </div>`;
   if(collapsed)return `<div class="v28-wsum" style="flex-shrink:0">${hdr}</div>`;
@@ -1946,19 +1952,19 @@ function v28WeeklySummary(){
     ${hdr}
     <div class="v28-wsum-grid">
       <div class="v28-wsum-sec">
-        <div class="v28-wsum-sec-ttl" style="color:#dc2626">⚠️ 진행 지연 (${delays.length}건)</div>
+        <div class="v28-wsum-sec-ttl" style="color:#dc2626"><i data-lucide="alert-triangle"></i>️ 진행 지연 (${delays.length}건)</div>
         <div class="v28-wsum-list">${delays.length===0?'<div class="v28-wsum-em">— 지연 없음 —</div>':delays.map(w=>{const{pct}=wCS(w);return `<div class="v28-wsum-it">• <b>${w.code}</b> ${w.name.slice(0,18)} — ${pct||0}% (계획 ${Math.round((new Date()-new Date(w.s))/(new Date(w.e)-new Date(w.s))*100)}%)</div>`;}).join("")}</div>
       </div>
       <div class="v28-wsum-sec">
-        <div class="v28-wsum-sec-ttl" style="color:#dc2626">🚨 부적합 요약 (${ncrs.length}건)</div>
+        <div class="v28-wsum-sec-ttl" style="color:#dc2626"><i data-lucide="siren"></i> 부적합 요약 (${ncrs.length}건)</div>
         <div class="v28-wsum-list">${ncrs.length===0?'<div class="v28-wsum-em">— NCR 없음 —</div>':ncrs.map(w=>{const{ncr}=wCS(w);return `<div class="v28-wsum-it">• <b>${w.code}</b> ${w.name.slice(0,18)} — NCR ${ncr}건</div>`;}).join("")}</div>
       </div>
       <div class="v28-wsum-sec">
-        <div class="v28-wsum-sec-ttl" style="color:#16a34a">✅ 이번주 완료 (${wkDone.length}건)</div>
+        <div class="v28-wsum-sec-ttl" style="color:#16a34a"><i data-lucide="check-circle"></i> 이번주 완료 (${wkDone.length}건)</div>
         <div class="v28-wsum-list">${wkDone.length===0?'<div class="v28-wsum-em">— 없음 —</div>':wkDone.map(w=>`<div class="v28-wsum-it">• <b>${w.code}</b> ${w.name.slice(0,18)} 100%</div>`).join("")}</div>
       </div>
       <div class="v28-wsum-sec">
-        <div class="v28-wsum-sec-ttl" style="color:#3a6bb5">📅 차주 시작 (${nxStartItems.length}건)</div>
+        <div class="v28-wsum-sec-ttl" style="color:#3a6bb5"><i data-lucide="calendar-days"></i> 차주 시작 (${nxStartItems.length}건)</div>
         <div class="v28-wsum-list">${nxStartItems.length===0?'<div class="v28-wsum-em">— 없음 —</div>':nxStartItems.map(w=>`<div class="v28-wsum-it">• <b>${w.code}</b> ${w.name.slice(0,18)} ${w.s.slice(5)}</div>`).join("")}</div>
       </div>
     </div>
@@ -1966,7 +1972,7 @@ function v28WeeklySummary(){
 }
 
 // v29: Firestore 자동 저장 (WBS 행/아이템을 프로젝트당 wbsData/{pid} 문서 하나로)
-// v29.13.1: 마지막으로 확인한 rows/items 서명. 이 값과 동일하면 저장 스킵 → 무의미한 rev 증가 방지.
+// v29.13.1: 마지막으로 확인한 rows/items 서명. 이 값과 동일하면 저장 스킵 <i data-lucide="arrow-right"></i> 무의미한 rev 증가 방지.
 let _lastSavedSig = null;
 function _sig(rows, items) {
   try { return JSON.stringify({ r: rows, i: items }); } catch (e) { return null; }
@@ -1977,7 +1983,7 @@ function _sig(rows, items) {
 // 아이템당 약 4~8KB × 수십~수백 아이템으로 1MB 문서 한도를 위협하므로,
 // 아이템별 문서 wbsRec/{pid}_{itemId}로 분리 저장. 서명 비교로 변경된 아이템 문서만 쓴다.
 let _histSaveErrLogged = false;   // wbsHistory 저장 실패 경고는 세션당 1회만
-let _lastRecSigs = {};      // itemId → 마지막 저장/로드 서명 (변경 감지 + 구독 echo 무시)
+let _lastRecSigs = {};      // itemId <i data-lucide="arrow-right"></i> 마지막 저장/로드 서명 (변경 감지 + 구독 echo 무시)
 let _recLoaded = false;     // 초기 wbsRec 스냅샷 수신 전엔 저장 금지 — 로드 전에 생성된
                             // 기본 REC(iR())가 서버의 실제 검사 기록을 덮어쓰는 사고 방지
 let _recSaveErrLogged = false;
@@ -2027,7 +2033,7 @@ function v28SaveRec() {
       console.warn("wbsRec save fail", iid, e);
       delete _lastRecSigs[iid];   // 다음 디바운스 저장 때 재시도
       // 규칙 미설정 등으로 조용히 유실되지 않도록 1회 로그 노출 (wbsHistory 0건 사건 계열 방지)
-      if (!_recSaveErrLogged) { _recSaveErrLogged = true; addLog("⚠️ 검사 실적(wbsRec) 저장 실패 — Firestore 규칙 확인 필요: " + (e.message||e), "err"); }
+      if (!_recSaveErrLogged) { _recSaveErrLogged = true; addLog("<i data-lucide="alert-triangle"></i>️ 검사 실적(wbsRec) 저장 실패 — Firestore 규칙 확인 필요: " + (e.message||e), "err"); }
     });
   });
 }
@@ -2076,7 +2082,7 @@ function v28Save(){
   const cur = fb.auth && fb.auth.currentUser;
   const byUid = cur ? cur.uid : null;
   fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, rev: _wbsRev, updatedAt: savedAt}, {merge: true}).catch(e=>console.warn("v28Save fail",e));
-  // v29.13: 매 저장마다 wbsHistory/{pid}_{padded_rev}에도 스냅샷 저장 → "이전 Rev 보기" 지원.
+  // v29.13: 매 저장마다 wbsHistory/{pid}_{padded_rev}에도 스냅샷 저장 <i data-lucide="arrow-right"></i> "이전 Rev 보기" 지원.
   const revStr = String(_wbsRev).padStart(4, '0');
   fb.setDoc(fb.doc(fb.db,"wbsHistory", _wbsPid + "_" + revStr),
     { pid: _wbsPid, rev: _wbsRev, rows, items, at: savedAt, byUid: byUid, source: "master-save" }
@@ -2086,19 +2092,19 @@ function v28Save(){
     console.warn("history save fail", e);
     if (_histSaveErrLogged) return;
     _histSaveErrLogged = true;
-    addLog("⚠️ WBS 이력(wbsHistory) 저장 실패 — Firestore 규칙 확인 필요: " + (e.message || e), "err");
+    addLog("<i data-lucide="alert-triangle"></i>️ WBS 이력(wbsHistory) 저장 실패 — Firestore 규칙 확인 필요: " + (e.message || e), "err");
     const revB = document.getElementById("wbsRevBadge");
     if (revB && !document.getElementById("wbsHistWarn")) {
       const w = document.createElement("span");
       w.id = "wbsHistWarn";
-      w.textContent = "⚠ 이력 저장 실패";
+      w.textContent = "<i data-lucide="alert-triangle"></i> 이력 저장 실패";
       w.title = "Rev 스냅샷이 wbsHistory에 저장되지 않았습니다: " + (e.code || e.message || e);
       w.style.cssText = "margin-left:6px;font-size:11px;color:#991b1b;background:#fee2e2;padding:2px 8px;border-radius:10px;cursor:pointer;vertical-align:middle;";
       w.onclick = () => alert(
         "WBS 이력 저장이 실패하고 있습니다.\n\n오류: " + (e.code || e.message || e) +
         "\n\n· WBS 내용(wbsData) 자체는 정상 저장되고 있습니다" +
         "\n· 단, '이전 Rev 보기/복원'용 스냅샷이 남지 않고 있습니다" +
-        "\n· Firebase 콘솔 → Firestore → 규칙에서 wbsHistory 쓰기 허용을 확인해주세요" +
+        "\n· Firebase 콘솔 <i data-lucide="arrow-right"></i> Firestore <i data-lucide="arrow-right"></i> 규칙에서 wbsHistory 쓰기 허용을 확인해주세요" +
         "\n· 저장소의 firestore.rules 파일과 콘솔 게시본이 같은지도 확인해주세요");
       revB.after(w);
     }
@@ -2127,7 +2133,7 @@ function removeSJ435FabSchedule() {
   WBS.length = 0; kept.forEach(w => WBS.push(w));
   v28RecalcRange();
   R();
-  alert(`✅ ${targets.length}행 제거 완료. 자동 저장 곧 발화.`);
+  alert(`<i data-lucide="check-circle"></i> ${targets.length}행 제거 완료. 자동 저장 곧 발화.`);
 }
 window.removeSJ435FabSchedule = removeSJ435FabSchedule;
 
@@ -2175,7 +2181,7 @@ function importFabScheduleSJ428() {
   WBS.splice(insertAt, 0, ...rows);
   if (typeof v28RecalcRange === 'function') v28RecalcRange();
   R();
-  alert('✅ Fab 스케줄 7개 작업을 "' + parent.name + '" 아래에 추가했습니다.\n잠시 후 자동 저장됩니다. (날짜·진도율은 각 행에서 수정 가능)');
+  alert('<i data-lucide="check-circle"></i> Fab 스케줄 7개 작업을 "' + parent.name + '" 아래에 추가했습니다.\n잠시 후 자동 저장됩니다. (날짜·진도율은 각 행에서 수정 가능)');
 }
 window.importFabScheduleSJ428 = importFabScheduleSJ428;
 
@@ -2183,7 +2189,7 @@ window.importFabScheduleSJ428 = importFabScheduleSJ428;
 // PM은 결재 메뉴에서 승인 후 직접 WBS를 편집. Firestore approvals 컬렉션에 저장.
 async function submitWbsChangeRequest() {
   if (!_wbsPid || !window.fb) return;
-  const desc = prompt("PM에게 요청할 스케줄 변경 내용을 입력하세요 (어떤 항목을 어떻게 바꾸고 싶은지 구체적으로).\n\n예: SJ2026-002 · 배관공사 시작일을 2026-07-15 → 2026-08-01로 변경 요청 (자재 입고 지연)");
+  const desc = prompt("PM에게 요청할 스케줄 변경 내용을 입력하세요 (어떤 항목을 어떻게 바꾸고 싶은지 구체적으로).\n\n예: SJ2026-002 · 배관공사 시작일을 2026-07-15 <i data-lucide="arrow-right"></i> 2026-08-01로 변경 요청 (자재 입고 지연)");
   if (!desc || !desc.trim()) return;
   const cur = fb.auth && fb.auth.currentUser;
   if (!cur) return alert("로그인 정보가 없습니다. 새로고침 후 다시 시도해주세요.");
@@ -2211,7 +2217,7 @@ async function submitWbsChangeRequest() {
   };
   try {
     await fb.setDoc(fb.doc(fb.db, "approvals", id), doc);
-    alert("✅ PM에게 변경 요청을 전송했습니다.\n\n부장님 · PM이 '결재' 메뉴에서 확인 후 승인하면 WBS에 반영됩니다.");
+    alert("<i data-lucide="check-circle"></i> PM에게 변경 요청을 전송했습니다.\n\n부장님 · PM이 '결재' 메뉴에서 확인 후 승인하면 WBS에 반영됩니다.");
   } catch (e) { alert("전송 중 오류: " + (e.message || e)); }
 }
 window.submitWbsChangeRequest = submitWbsChangeRequest;
@@ -2230,7 +2236,7 @@ function v28Export(){
   a.href=url;a.download=`${_base||"EPC_Control_v28"}_${new Date().toISOString().slice(0,10)}.json`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  addLog("📥 JSON Export 완료","ok");
+  addLog("<i data-lucide="download"></i> JSON Export 완료","ok");
 }
 
 // JSON Import
@@ -2249,9 +2255,9 @@ function v28Import(){
       if(d.PIM){Object.keys(PIM).forEach(k=>delete PIM[k]);Object.assign(PIM,d.PIM);}
       if(d.ITEM_TPL&&typeof ITEM_TPL!=="undefined"){Object.keys(ITEM_TPL).forEach(k=>delete ITEM_TPL[k]);Object.assign(ITEM_TPL,d.ITEM_TPL);}
       v28RecalcRange();
-      addLog("📤 JSON Import 완료: "+f.name,"ok");
+      addLog("<i data-lucide="upload"></i> JSON Import 완료: "+f.name,"ok");
       R();
-    }catch(err){alert("Import 실패: "+err.message);addLog("📤 Import 실패","err");}
+    }catch(err){alert("Import 실패: "+err.message);addLog("<i data-lucide="upload"></i> Import 실패","err");}
   };
   inp.click();
 }
@@ -2324,7 +2330,7 @@ act=function(a,d){
               const cv=tmp.querySelector("canvas");if(cv)qr=cv.toDataURL();
             }
           }catch(e){}
-          addLog("🔗 공유 링크 생성: "+url,"ok");
+          addLog("<i data-lucide="link"></i> 공유 링크 생성: "+url,"ok");
           us({shareMod:{url,qr}});
         }catch(err){alert("공유 링크 생성 실패: "+(err.message||err));}
         finally{_genBusy=false;hideGenOverlay();}
@@ -2359,7 +2365,7 @@ act=function(a,d){
       const newNote=ta.value.trim();
       PROJS=PROJS.map(p=>p.id===S.selproj.id?{...p,customNote:newNote}:p);
       const updated=PROJS.find(p=>p.id===S.selproj.id);
-      addLog(`📝 NOTE 저장: ${updated.no} (${newNote.length} 자)`,"ok");
+      addLog(`<i data-lucide="file-text"></i> NOTE 저장: ${updated.no} (${newNote.length} 자)`,"ok");
       us({noteEditMod:false,selproj:updated});return;
     }
     case"resetNote":{
@@ -2385,7 +2391,7 @@ async function v284GenerateExcel(maxLv){
   //   상위 진도율은 wCS()가 전역 WBS로 롤업하므로 하위를 출력에서 빼도 %는 정확.
   const _mx=(maxLv==null||isNaN(maxLv))?99:Number(maxLv);
   // v28.4.42: 부서 스케줄(부서 도구함)에서 열었으면 그 부서 행만 출력 — 화면과 동일 기준.
-  //   프로젝트(EPC Control)에서 열면 _deptFilter=null → 전체 부서 출력.
+  //   프로젝트(EPC Control)에서 열면 _deptFilter=null <i data-lucide="arrow-right"></i> 전체 부서 출력.
   const projWBS=WBS.filter(w=>w.projId===proj.id&&(!_deptFilter||w.dept===_deptFilter)&&(w.lv||0)<=_mx);
   if(projWBS.length===0){alert(_deptFilter?`이 프로젝트에 ${_deptFilter} 담당 WBS 항목이 없습니다.
 (항목의 '담당 부서'가 지정돼 있어야 부서별 출력에 포함됩니다)`:"이 프로젝트에 WBS 항목이 없습니다.");return;}
@@ -2903,11 +2909,11 @@ ${todayLineXml}${curveShapesXml}
     }
     if(!wroteWithLine) XLSX.writeFile(wb,fileName);
 
-    addLog(`✅ Excel 다운로드 완료: ${fileName}`,"ok");
+    addLog(`<i data-lucide="check-circle"></i> Excel 다운로드 완료: ${fileName}`,"ok");
   }catch(e){
     console.error("Excel 생성 오류:",e);
     alert("Excel 생성 중 오류:\n"+(e.message||""));
-    addLog(`❌ Excel 실패: ${e.message}`,"err");
+    addLog(`<i data-lucide="x-circle"></i> Excel 실패: ${e.message}`,"err");
   }
 }
 
@@ -2995,7 +3001,13 @@ function prTravellerPrint(){
   .trv-foot{margin-top:18px;border-top:1px solid #d1d5db;padding-top:8px;font-size:9px;color:#9ca3af;display:flex;justify-content:space-between}
   .trv-legend{font-size:9px;color:#6b7280;margin-bottom:12px}
   @media print{body{padding:0}.no-print{display:none}}
-</style></head><body>
+</style><script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
+</head><body>
   <div class="trv-head">
     <div>
       <h1>제작 공정표 (TRAVELLER)</h1>
@@ -3024,6 +3036,12 @@ function prTravellerPrint(){
     <button onclick="window.print()" style="padding:9px 20px;background:#4a7fc1;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600">🖨 인쇄 / PDF 저장</button>
     <button onclick="window.close()" style="padding:9px 20px;background:#f3f4f6;border:none;border-radius:6px;font-size:13px;cursor:pointer;margin-left:8px">닫기</button>
   </div>
+<script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
+</script>
 </body></html>`;
 
   const w = window.open("", "_blank");
@@ -3121,13 +3139,13 @@ async function v284GeneratePDF(maxLv){
   const finishDate=projWBS.filter(w=>w.e).map(w=>w.e).sort().reverse()[0]||"";
   
   // WBS 행 HTML — 회사 양식 그대로 (대단락 흰배경/굵음 + 소단락 흰배경 + 들여쓰기 "-")
-  // v28.4.5: 행 단위 빨간선 제거 → 전체 SVG로 EVMS 곡선 그림
+  // v28.4.5: 행 단위 빨간선 제거 <i data-lucide="arrow-right"></i> 전체 SVG로 EVMS 곡선 그림
   // 각 행의 진척 X 위치 계산 (막대 시작점 + 막대길이 × 진척률)
   const rowHeight=30;
   const evmsPoints=[];  // [{x: 진척%위치, y: 행 인덱스}] EVMS S곡선 그리기용
   // v28.4.30: 격자선은 모든 행에서 동일한 X 위치라 행마다 반복 생성할 필요가 없음.
   // 예전엔 행마다 (월수×8)개씩 그려서 대형 프로젝트는 격자선만 수천 개 DOM이 생겨 html2canvas가 느려졌음.
-  // → 표 전체 높이를 덮는 오버레이 하나로 한 번만 그림 (idx===0 행에 배치, overflow:visible로 아래까지 노출).
+  // <i data-lucide="arrow-right"></i> 표 전체 높이를 덮는 오버레이 하나로 한 번만 그림 (idx===0 행에 배치, overflow:visible로 아래까지 노출).
   const gridlinesHTML=months.map((mo,mIdx)=>[4,8,12,16,20,24,28,31].map((d,dIdx)=>`<div style="position:absolute;left:${((mIdx*8+dIdx+1)/(months.length*8))*100}%;top:0;bottom:0;width:1px;background:#e8e8e8"></div>`).join('')).join('');
 
   const wbsRowsHTML=projWBS.map((w,idx)=>{
@@ -3267,7 +3285,7 @@ async function v284GeneratePDF(maxLv){
   
   document.body.appendChild(pdfContainer);
 
-  // EVMS S-Curve를 canvas에 직접 묘화 (append 후 실제 픽셀 크기 확보 → 선 굵기 정확)
+  // EVMS S-Curve를 canvas에 직접 묘화 (append 후 실제 픽셀 크기 확보 <i data-lucide="arrow-right"></i> 선 굵기 정확)
   try{
     const _cv=pdfContainer.querySelector('#evms-scurve-cv');
     if(_cv&&_pvArr.length){
@@ -3377,11 +3395,11 @@ async function v284GeneratePDF(maxLv){
     const _lvSfx=_mx>=99?"":({0:"대단락",1:"중단락까지",2:"소단락까지"}[_mx]||"")+"_";const fileName=`${proj.no}_${_deptFilter?_deptFilter+"_":""}${_lvSfx}MASTER_SCHEDULE_${todayStrFile}.pdf`;
     pdf.save(fileName);
     
-    addLog(`✅ PDF 생성 완료: ${fileName}`,"ok");
+    addLog(`<i data-lucide="check-circle"></i> PDF 생성 완료: ${fileName}`,"ok");
   }catch(e){
     console.error("PDF 생성 오류:",e);
     alert("PDF 생성 중 오류가 발생했습니다.\n"+(e.message||""));
-    addLog(`❌ PDF 생성 실패: ${e.message}`,"err");
+    addLog(`<i data-lucide="x-circle"></i> PDF 생성 실패: ${e.message}`,"err");
   }finally{
     if(pdfContainer&&pdfContainer.parentNode){
       pdfContainer.parentNode.removeChild(pdfContainer);
@@ -3391,11 +3409,11 @@ async function v284GeneratePDF(maxLv){
 
 // v28.4.29 데모: 3가지 버그 수정 안내
 setTimeout(()=>{
-  addLog("🎯 v28.4.17 — 3가지 버그 핫픽스 완료","ok");
-  addLog("✅ ① WBS 트리에 메모/업체 명확히 표시 (15자 미리보기 + 호버 시 전체)","info");
-  addLog("✅ ② PDF 빨간선 시작 위치 수정 (첫 막대 행 직접 측정)","info");
-  addLog("✅ ③ Excel 셀 색상 적용 (xlsx-js-style 라이브러리)","info");
-  addLog("📄 PDF / 📊 Excel 두 버튼 다 테스트해보세요","info");
+  addLog("<i data-lucide="target"></i> v28.4.17 — 3가지 버그 핫픽스 완료","ok");
+  addLog("<i data-lucide="check-circle"></i> ① WBS 트리에 메모/업체 명확히 표시 (15자 미리보기 + 호버 시 전체)","info");
+  addLog("<i data-lucide="check-circle"></i> ② PDF 빨간선 시작 위치 수정 (첫 막대 행 직접 측정)","info");
+  addLog("<i data-lucide="check-circle"></i> ③ Excel 셀 색상 적용 (xlsx-js-style 라이브러리)","info");
+  addLog("<i data-lucide="file"></i> PDF / <i data-lucide="chart-column"></i> Excel 두 버튼 다 테스트해보세요","info");
 },500);
 
 // v29: SJ FLOW(index.html)와 같은 Firestore를 직접 읽어서 프로젝트 메타 + WBS/아이템을 불러옴.
@@ -3430,7 +3448,7 @@ function subscribeWbsData(pid){
     if (!incomingRev) _recoverRevFromHistory(pid);
     // v28.4.36: ★ lost-update 방지 ★ — 편집 직후 400ms 디바운스 저장을 기다리는 사이에
     // "직전 저장의 서버 echo"(hasPendingWrites=false로 도착)가 이 핸들러에 들어와
-    // WBS 전체를 과거 상태로 되돌려, 방금 한 편집(예: 상태→완료)이 소리 없이 사라지던
+    // WBS 전체를 과거 상태로 되돌려, 방금 한 편집(예: 상태<i data-lucide="arrow-right"></i>완료)이 소리 없이 사라지던
     // race가 있었다 (연속으로 빠르게 편집할수록 잘 재현).
     // (1) 이미 알고 있는 rev보다 과거의 스냅샷(지연 echo)은 무시.
     if (incomingRev && _wbsRev && incomingRev < _wbsRev) return;
@@ -3443,7 +3461,7 @@ function subscribeWbsData(pid){
     if (revEl) revEl.textContent = "Rev. " + _wbsRev;
     // v29.13: 이전 Rev 조회 중이면 master 갱신을 화면에 반영하지 않는다(스냅샷 유지).
     if (_viewRev) { R(); return; }
-    // shadow 활성 & 로컬 shadow 스냅샷 존재 → shadow가 화면 진실. master 데이터는 로드하지만 화면 갱신은 shadow 기준.
+    // shadow 활성 & 로컬 shadow 스냅샷 존재 <i data-lucide="arrow-right"></i> shadow가 화면 진실. master 데이터는 로드하지만 화면 갱신은 shadow 기준.
     if (_shadowUid && _shadowRows) {
       // master rev만 반영. 화면 rows는 유지.
       R();
@@ -3452,7 +3470,7 @@ function subscribeWbsData(pid){
     if (_dirty) { R(); return; }   // 편집 보호 — 디바운스 저장이 곧 이 내용을 서버에 반영
     WBS.length = 0; (d.rows||[]).forEach(w => WBS.push(w));
     MITEM[pid] = d.items || [];
-    // v29.13.1: 서버에서 로드한 상태를 마지막 저장 상태로 간주 → 즉시 재저장 방지.
+    // v29.13.1: 서버에서 로드한 상태를 마지막 저장 상태로 간주 <i data-lucide="arrow-right"></i> 즉시 재저장 방지.
     _lastSavedSig = _sig(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]);
     // 자동 상신 baseline = 서버 로드 내용. (pending이 있으면 아래 pending 핸들러가 다시 덮어씀)
     if (_shadowUid) _shadowLoadedSig = _lastSavedSig;
@@ -3469,7 +3487,7 @@ function subscribeWbsData(pid){
       const iid = d.itemId;
       if (!iid) return;
       if (ch.type === "removed") {
-        // 다른 브라우저에서 아이템 삭제 → 로컬 검사 기록도 정리
+        // 다른 브라우저에서 아이템 삭제 <i data-lucide="arrow-right"></i> 로컬 검사 기록도 정리
         delete REC[iid]; delete PIM[iid]; delete ITEM_TPL[iid]; delete _lastRecSigs[iid];
         _recOnServer.delete(iid);
         changed = true; return;
@@ -3495,7 +3513,7 @@ function subscribeWbsData(pid){
   }, err => {
     console.warn("[SJ FLOW] wbsRec 구독 실패:", err.message);
     // 규칙 미설정(read 거부) 시 조용히 넘어가면 검사 실적이 안 보이는 이유를 알 수 없다 — 로그로 노출
-    addLog("⚠️ 검사 실적(wbsRec) 로드 실패 — Firestore 규칙 확인 필요: " + err.message, "err");
+    addLog("<i data-lucide="alert-triangle"></i>️ 검사 실적(wbsRec) 로드 실패 — Firestore 규칙 확인 필요: " + err.message, "err");
   });
   // v29.12: shadow 모드면 개인 pending 구독 추가. 존재하면 그 rows를 화면에 덮어씀.
   if (_shadowUid) {
@@ -3508,12 +3526,12 @@ function subscribeWbsData(pid){
         _shadowItems = d.items || [];
         WBS.length = 0; _shadowRows.forEach(w => WBS.push(w));
         MITEM[pid] = _shadowItems;
-        // 로드된 pending을 baseline으로 확정 → 편집 없이 열기만 했을 때 오(誤)자동상신 방지 + 재저장 no-op
+        // 로드된 pending을 baseline으로 확정 <i data-lucide="arrow-right"></i> 편집 없이 열기만 했을 때 오(誤)자동상신 방지 + 재저장 no-op
         _lastSavedSig = _sig(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]);
         _shadowLoadedSig = _lastSavedSig;
         updateShadowIndicator(true);
       } else {
-        // pending doc이 삭제됐음(승인 완료 또는 폐기) → master로 리셋되도록 다음 master 이벤트에 위임
+        // pending doc이 삭제됐음(승인 완료 또는 폐기) <i data-lucide="arrow-right"></i> master로 리셋되도록 다음 master 이벤트에 위임
         _shadowRows = null; _shadowItems = null;
         updateShadowIndicator(false);
         // 즉시 master 재적용을 원한다면 여기서 별도 재fetch 필요 — 다음 master onSnapshot에 자동 동기화.
@@ -3584,10 +3602,10 @@ async function _submitShadowApproval({ includeHead = false, silent = false } = {
       status: "pending", date: today, createdAt: Date.now(), baseRev: _wbsRev,
     };
     await fb.setDoc(fb.doc(fb.db, "approvals", id), doc);
-    if (silent) _shadowToast("✅ PM에게 결재 자동 상신됨 · 이후 수정도 최신으로 반영됩니다");
+    if (silent) _shadowToast("<i data-lucide="check-circle"></i> PM에게 결재 자동 상신됨 · 이후 수정도 최신으로 반영됩니다");
     else alert(headUid
-      ? "✅ 부서장 검토 → PM 승인 순서로 결재를 올렸습니다.\n최종 승인 시 마스터 WBS에 자동 반영됩니다."
-      : "✅ PM에게 결재를 올렸습니다.\n승인 시 마스터 WBS에 자동 반영됩니다.");
+      ? "<i data-lucide="check-circle"></i> 부서장 검토 <i data-lucide="arrow-right"></i> PM 승인 순서로 결재를 올렸습니다.\n최종 승인 시 마스터 WBS에 자동 반영됩니다."
+      : "<i data-lucide="check-circle"></i> PM에게 결재를 올렸습니다.\n승인 시 마스터 WBS에 자동 반영됩니다.");
   } catch (e) {
     if (!silent) alert("전송 중 오류: " + (e.message || e));
     else console.warn("자동 상신 실패:", e.message);
@@ -3684,7 +3702,7 @@ async function openWbsHistory() {
         <div style="font-size:11px;color:#6b7280;">${dateStr}</div>
         <div style="font-size:10px;color:#9ca3af;">${src} · rows ${((h.rows||[]).length)} · items ${((h.items||[]).length)}</div>
       </div>
-      <button style="font-size:11px;padding:4px 10px;background:#7c3aed;color:#fff;border:none;border-radius:4px;cursor:pointer;">👁 조회</button>
+      <button style="font-size:11px;padding:4px 10px;background:#7c3aed;color:#fff;border:none;border-radius:4px;cursor:pointer;"><i data-lucide="eye"></i> 조회</button>
       ${_canRestore ? `<button onclick="event.stopPropagation();restoreWbsRev(${h.rev})" style="font-size:11px;padding:4px 10px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="이 Rev의 내용으로 현재 WBS를 되돌립니다 (새 Rev로 저장되어 이력은 보존됨)">↩ 복원</button>` : ''}
     </div>`;
   }).join("");
@@ -3760,7 +3778,7 @@ async function restoreWbsRev(rev) {
     // 복원 자체도 이력에 남김 (source에 원본 rev 기록)
     await fb.setDoc(fb.doc(fb.db, "wbsHistory", _wbsPid + "_" + String(newRev).padStart(4, "0")),
       { pid: _wbsPid, rev: newRev, rows, items, at: savedAt, byUid: cur ? cur.uid : null, source: "restore-from-rev-" + rev });
-    alert(`✅ Rev. ${rev} 내용으로 복원 완료 — 새 Rev. ${newRev}(으)로 저장됐습니다.`);
+    alert(`<i data-lucide="check-circle"></i> Rev. ${rev} 내용으로 복원 완료 — 새 Rev. ${newRev}(으)로 저장됐습니다.`);
     location.reload();   // 마스터 재구독 + 화면 초기화
   } catch (e) { alert("복원 중 오류: " + (e.message || e)); }
 }
@@ -3770,7 +3788,7 @@ window.closeWbsHistoryView = closeWbsHistoryView;
 window.restoreWbsRev = restoreWbsRev;
 
 // v29.13.2: 이력 중복 정리 — 연속된 rev 중 rows/items가 이전과 동일한 것을 삭제.
-// 각 "변경 지점"의 최초 rev만 남김. 예: 1(X) 2(X) 3(X) 4(Y) 5(Y) → 1, 4 만 남기고 나머지 삭제.
+// 각 "변경 지점"의 최초 rev만 남김. 예: 1(X) 2(X) 3(X) 4(Y) 5(Y) <i data-lucide="arrow-right"></i> 1, 4 만 남기고 나머지 삭제.
 async function cleanupWbsHistory() {
   if (!window.fb || !_wbsPid) return;
   if (!confirm("연속된 동일 내용의 이력을 정리합니다.\n각 변경 지점의 최초 Rev만 남습니다.\n(현재 마스터 상태와 Rev 번호는 그대로)\n\n계속하시겠습니까?")) return;
@@ -3795,7 +3813,7 @@ async function cleanupWbsHistory() {
   try {
     // 병렬 삭제(수백 건도 몇 초 내 완료)
     await Promise.all(toDelete.map(id => fb.deleteDoc(fb.doc(fb.db, "wbsHistory", id))));
-    alert(`✅ ${toDelete.length}건 정리 완료. ${list.length - toDelete.length}건이 이력에 남았습니다.`);
+    alert(`<i data-lucide="check-circle"></i> ${toDelete.length}건 정리 완료. ${list.length - toDelete.length}건이 이력에 남았습니다.`);
     // 모달 갱신
     const ov = document.getElementById("wbsHistOverlay"); if (ov) ov.remove();
     openWbsHistory();
@@ -3808,7 +3826,7 @@ window.cleanupWbsHistory = cleanupWbsHistory;
 async function resetWbsRev() {
   if (!window.fb || !_wbsPid) return;
   if (!confirm(
-    "⚠️ 이 프로젝트의 모든 이력 스냅샷을 삭제하고 Rev 번호를 0으로 초기화합니다.\n\n" +
+    "<i data-lucide="alert-triangle"></i>️ 이 프로젝트의 모든 이력 스냅샷을 삭제하고 Rev 번호를 0으로 초기화합니다.\n\n" +
     "· 현재 화면의 WBS 내용은 그대로 유지됩니다\n" +
     "· 이력은 완전히 삭제됩니다 (되돌릴 수 없음)\n" +
     "· 다음 저장부터 Rev 1로 다시 시작합니다\n\n" +
@@ -3830,7 +3848,7 @@ async function resetWbsRev() {
     _wbsRev = 0;
     const revEl = document.getElementById("wbsRevBadge");
     if (revEl) revEl.textContent = "Rev. 0";
-    alert(`✅ 완료 — 이력 ${ids.length}건 삭제, Rev이 0으로 초기화됐습니다.\n다음 편집·저장부터 Rev 1로 다시 카운트됩니다.`);
+    alert(`<i data-lucide="check-circle"></i> 완료 — 이력 ${ids.length}건 삭제, Rev이 0으로 초기화됐습니다.\n다음 편집·저장부터 Rev 1로 다시 카운트됩니다.`);
     const ov = document.getElementById("wbsHistOverlay"); if (ov) ov.remove();
   } catch (e) { alert("초기화 중 오류: " + (e.message || e)); }
 }
@@ -3859,7 +3877,7 @@ window.resetWbsRev = resetWbsRev;
       _D("1.7","ENERGE INSPECTION","기술부","기술부","2026-03-20","2026-05-05",100),
       _D("1.8","PSM","기술부","기술부","2026-01-02","2026-03-28",100,null,"PSM 완성검사 (11/16~12/15) 예정.\n준비 및 작성(1/2~3/28) 완료 후 제출."),
       _D("1.9","위해관리 계획서","기술부","기술부","2026-04-01","2026-04-30",100),
-      _D("1.10","설치 검사","기술부","기술부","2026-05-02","2026-10-31",55,null,"1. 검사 신청 접수 늦음\n2. 소방서 담당자 변경으로 검토 지연\n→ 현장심사 ~10/31"),
+      _D("1.10","설치 검사","기술부","기술부","2026-05-02","2026-10-31",55,null,"1. 검사 신청 접수 늦음\n2. 소방서 담당자 변경으로 검토 지연\n<i data-lucide="arrow-right"></i> 현장심사 ~10/31"),
       _D("1.11","장외영향평가서","기술부","기술부","2026-01-02","2026-03-28",100),
       _D("2","기계 제작","생산부","생산부","2026-01-04","2026-06-30",68,null,"",0),
       _D("2.1","지하저장조 2종 11기","생산부","생산부","2026-01-04","2026-03-02",100),
@@ -3882,7 +3900,7 @@ window.resetWbsRev = resetWbsRev;
     _memoOpen["wd_2_2"] = true; _memoOpen["wd_1_10"] = true;
     const bar = document.createElement("div");
     bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9998;background:#1e293b;color:#fff;font-size:12px;padding:8px 14px;display:flex;gap:16px;align-items:center;justify-content:center;flex-wrap:wrap;box-shadow:0 -2px 10px rgba(0,0,0,.2)";
-    bar.innerHTML = "🧪 <b>데모 모드</b> (저장 안 됨) &nbsp;·&nbsp; 📊 <b>막대 클릭</b> = 메모 보기/닫기 &nbsp;·&nbsp; 🖱 <b>막대 우클릭</b> = 메모 작성·수정 &nbsp;·&nbsp; ✋ <b>말풍선 빨간 머리 드래그</b> = 위치 이동 &nbsp;·&nbsp; 🔴 <b>빨간 점 드래그</b> = 연결점 이동";
+    bar.innerHTML = "🧪 <b>데모 모드</b> (저장 안 됨) &nbsp;·&nbsp; <i data-lucide="chart-column"></i> <b>막대 클릭</b> = 메모 보기/닫기 &nbsp;·&nbsp; 🖱 <b>막대 우클릭</b> = 메모 작성·수정 &nbsp;·&nbsp; ✋ <b>말풍선 빨간 머리 드래그</b> = 위치 이동 &nbsp;·&nbsp; <i data-lucide="circle-alert"></i> <b>빨간 점 드래그</b> = 연결점 이동";
     document.body.appendChild(bar);
     v28RecalcRange();
     R();
@@ -3904,8 +3922,8 @@ window.resetWbsRev = resetWbsRev;
       bar.innerHTML =
         '<span>🟡 <b>변경 제안 모드</b> — 수정하면 <b>자동으로 PM에게 결재 상신</b>됩니다. PM 승인 시 마스터 WBS에 반영돼요.</span>' +
         '<span class="grow"></span>' +
-        '<button onclick="discardShadow()" title="변경사항을 폐기하고 마스터로 복귀">🗑 폐기</button>' +
-        '<button class="primary" onclick="submitShadowForApproval()" title="부서장 검토를 포함해 다시 상신하거나, 지금 즉시 상신">📤 부서장 검토 포함 상신</button>';
+        '<button onclick="discardShadow()" title="변경사항을 폐기하고 마스터로 복귀"><i data-lucide="trash-2"></i> 폐기</button>' +
+        '<button class="primary" onclick="submitShadowForApproval()" title="부서장 검토를 포함해 다시 상신하거나, 지금 즉시 상신"><i data-lucide="upload"></i> 부서장 검토 포함 상신</button>';
       document.body.insertBefore(bar, document.body.firstChild);
     }, 0);
   }
@@ -4008,7 +4026,7 @@ window.resetWbsRev = resetWbsRev;
         S.selproj = newP;
         if (!MITEM[newId]) MITEM[newId] = [];
       }
-      addLog("🔗 외부 도구 → 프로젝트 동기화: " + p.no, "ok");
+      addLog("<i data-lucide="link"></i> 외부 도구 <i data-lucide="arrow-right"></i> 프로젝트 동기화: " + p.no, "ok");
       _notify(); us({});
       return true;
     },
@@ -4047,7 +4065,7 @@ window.resetWbsRev = resetWbsRev;
           added++;
         }
       });
-      addLog("🔗 아이템 동기화: 신규 " + added + " · 갱신 " + updated, "ok");
+      addLog("<i data-lucide="link"></i> 아이템 동기화: 신규 " + added + " · 갱신 " + updated, "ok");
       _notify(); us({});
       return true;
     },
@@ -4066,7 +4084,7 @@ window.resetWbsRev = resetWbsRev;
           REC[iid][t.id] = { result:"-", actual:"", criteria:t.crit||"", obs:"", point:t.pt||"W" };
         }
       });
-      addLog("🔗 ITP 템플릿 적용 (" + tplItems.length + "항목)", "ok");
+      addLog("<i data-lucide="link"></i> ITP 템플릿 적용 (" + tplItems.length + "항목)", "ok");
       _notify(); us({});
       return true;
     },
@@ -4096,7 +4114,7 @@ window.resetWbsRev = resetWbsRev;
       WBS.push(newW);
       if (typeof renumberWBS === "function") renumberWBS();
       if (typeof v28RecalcRange === "function") v28RecalcRange();
-      addLog("🔗 WBS 추가 (외부): " + newW.name, "ok");
+      addLog("<i data-lucide="link"></i> WBS 추가 (외부): " + newW.name, "ok");
       _notify(); us({});
       return newId;
     },
@@ -4162,7 +4180,7 @@ window.resetWbsRev = resetWbsRev;
       });
       if (drafts.length > 50) drafts.length = 50;
       localStorage.setItem("sjp_mail_drafts", JSON.stringify(drafts));
-      addLog("📧 ITP 메일 임시저장 (Phase 3 API 대기)", "info");
+      addLog("<i data-lucide="mail"></i> ITP 메일 임시저장 (Phase 3 API 대기)", "info");
       return { ok: true, mode: "draft", count: drafts.length };
     },
     getMailDrafts: () => JSON.parse(localStorage.getItem("sjp_mail_drafts") || "[]"),
@@ -4231,14 +4249,14 @@ window.resetWbsRev = resetWbsRev;
       "min-width:185px"
     ].join(";");
     _dropdown.innerHTML =
-      '<button id="sjp-btn-itp" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#eef3fb;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">📋 ITP Builder 열기</button>' +
-      '<button id="sjp-btn-qadoc" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#f0eeff;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">📄 QA Doc Generator 열기</button>' +
+      '<button id="sjp-btn-itp" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#eef3fb;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500"><i data-lucide="clipboard-list"></i> ITP Builder 열기</button>' +
+      '<button id="sjp-btn-qadoc" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#f0eeff;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500"><i data-lucide="file"></i> QA Doc Generator 열기</button>' +
       '<button id="sjp-btn-mail" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#fff8e6;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">✉️ ITP 작성 메일 임시저장</button>' +
       '<div style="height:1px;background:#e4e7ec;margin:5px 2px"></div>' +
       '<button id="sjp-btn-reset" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#fee2e2;color:#7c1d1d;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">🔄 데모 데이터 초기화</button>' +
-      '<button id="sjp-btn-home" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#f3f4f6;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">🏠 메인 메뉴</button>';
+      '<button id="sjp-btn-home" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#f3f4f6;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500"><i data-lucide="home"></i> 메인 메뉴</button>';
     document.body.appendChild(_dropdown);
-    btn.textContent = "🏢 Sejong-Platform −";
+    btn.textContent = "<i data-lucide="building"></i> Sejong-Platform −";
 
     // 메뉴 핸들러 연결
     document.getElementById("sjp-btn-itp").onclick = () => { closeDropdown(); openTool("ITP Builder", "../itp-builder/index.html"); };
@@ -4247,7 +4265,7 @@ window.resetWbsRev = resetWbsRev;
     document.getElementById("sjp-btn-reset").onclick = () => {
       closeDropdown();
       const ok = confirm(
-        "⚠️ 데모 데이터 초기화\n\n" +
+        "<i data-lucide="alert-triangle"></i>️ 데모 데이터 초기화\n\n" +
         "다음 데이터를 모두 삭제하고 페이지를 새로고침합니다:\n\n" +
         "• EPC Control (WBS · ITP · 검사기록 · 사용자 입력 프로젝트)\n" +
         "• ITP Builder (작성 중인 ITP)\n" +
@@ -4262,7 +4280,7 @@ window.resetWbsRev = resetWbsRev;
         localStorage.removeItem("sjp_qa_doc_generator_v1");
         localStorage.removeItem("sjp_mail_drafts");
       } catch(e){}
-      alert("✅ 초기화 완료 — 페이지를 새로고침합니다.");
+      alert("<i data-lucide="check-circle"></i> 초기화 완료 — 페이지를 새로고침합니다.");
       window.location.reload();
     };
     document.getElementById("sjp-btn-home").onclick = () => {
@@ -4281,7 +4299,7 @@ window.resetWbsRev = resetWbsRev;
     _dropdown = null;
     document.removeEventListener("click", closeOnOutside, true);
     const btn = document.getElementById("sjp-hdr-btn");
-    if (btn) btn.textContent = "🏢 Sejong-Platform +";
+    if (btn) btn.textContent = "<i data-lucide="building"></i> Sejong-Platform +";
   }
 
   function closeOnOutside(e) {
@@ -4292,7 +4310,7 @@ window.resetWbsRev = resetWbsRev;
 
   function openTool(label, relativeUrl) {
     if (!S.selproj) {
-      alert("⚠️ 먼저 좌측 사이드바에서 프로젝트를 선택해주세요.\n선택된 프로젝트 정보가 외부 도구로 전달됩니다.");
+      alert("<i data-lucide="alert-triangle"></i>️ 먼저 좌측 사이드바에서 프로젝트를 선택해주세요.\n선택된 프로젝트 정보가 외부 도구로 전달됩니다.");
       return;
     }
     _exposeGlobals();
@@ -4301,16 +4319,16 @@ window.resetWbsRev = resetWbsRev;
     const child = window.open(relativeUrl, "sjp_" + label.replace(/\s/g,"_"),
       "width=1280,height=900,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no");
     if (!child) {
-      alert("⚠️ 팝업이 차단되었습니다.\n브라우저 주소창 우측의 팝업 차단 해제 후 다시 시도해주세요.");
+      alert("<i data-lucide="alert-triangle"></i>️ 팝업이 차단되었습니다.\n브라우저 주소창 우측의 팝업 차단 해제 후 다시 시도해주세요.");
       return;
     }
     _childWindows[label] = child;
-    addLog("🔗 " + label + " 열림 — 프로젝트 [" + S.selproj.no + "]", "ok");
+    addLog("<i data-lucide="link"></i> " + label + " 열림 — 프로젝트 [" + S.selproj.no + "]", "ok");
   }
 
   function openMailDialog() {
     if (!S.selproj) {
-      alert("⚠️ 먼저 프로젝트를 선택해주세요.");
+      alert("<i data-lucide="alert-triangle"></i>️ 먼저 프로젝트를 선택해주세요.");
       return;
     }
     const recipient = prompt("받는 사람 이메일:", "cwshin@sejong-21c.com");
@@ -4331,7 +4349,7 @@ window.resetWbsRev = resetWbsRev;
     const r = window.SJP.bridge.sendItpMail(recipient, subject, body);
     if (r.ok) {
       alert(
-        "✅ 메일 임시저장 완료\n\n" +
+        "<i data-lucide="check-circle"></i> 메일 임시저장 완료\n\n" +
         "받는 사람: " + recipient + "\n" +
         "제목: " + subject + "\n" +
         "보관함: 총 " + r.count + "건\n\n" +
@@ -4346,6 +4364,12 @@ window.resetWbsRev = resetWbsRev;
   // setInterval(attachToHeader, 300);  // 비활성화: SJ FLOW 사이드바 통합
 
   addLog("🚀 v28.5 bridge 활성화 (SJ FLOW 사이드바 통합)", "ok");
-  addLog("📌 외부 도구는 SJ FLOW 좌측 사이드바에서 접근 (헤더 + 버튼 제거)", "info");
+  addLog("<i data-lucide="pin"></i> 외부 도구는 SJ FLOW 좌측 사이드바에서 접근 (헤더 + 버튼 제거)", "info");
 })();
-</script></body></html>
+</script><script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
+</script>
+</body></html>

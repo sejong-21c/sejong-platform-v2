@@ -185,6 +185,12 @@ input[type=file]{display:none}
   .wrap>.step:first-child{grid-column:1 / -1}
 }
 </style>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
 </head>
 <body>
 
@@ -615,7 +621,7 @@ function saveResults(r){
     const removeIds = new Set(batch.map(x => x.id));
     working = working.filter(x => !removeIds.has(x.id));
     if (trySave(working)) {
-      showToast(`⚠️ 저장 공간 부족으로 오래된 로컬 전용 기록 ${batch.length}건을 백업 후 정리했습니다`);
+      showToast(`<i data-lucide="alert-triangle"></i>️ 저장 공간 부족으로 오래된 로컬 전용 기록 ${batch.length}건을 백업 후 정리했습니다`);
       return true;
     }
   }
@@ -828,7 +834,7 @@ function initFromITPBuilder(){
   const itpSel=document.getElementById('itp');
 
   if(!state){
-    badge.innerHTML='⚠️ ITP Builder 데이터 없음 — 먼저 ITP Builder에서 프로젝트를 작성해 주세요';
+    badge.innerHTML='<i data-lucide="alert-triangle"></i>️ ITP Builder 데이터 없음 — 먼저 ITP Builder에서 프로젝트를 작성해 주세요';
     badge.style.background='#fff3cd'; badge.style.color='#856404';
     itemSel.innerHTML='<option value="">— 아이템 선택 —</option>';
     itemSel.disabled=true;
@@ -840,7 +846,7 @@ function initFromITPBuilder(){
   const projCode=state.proj?.code||'';
   const projName=state.proj?.name||state.proj||'';
   const projLabel=[projCode, projName].filter(Boolean).join(' / ')||'(프로젝트 정보 없음)';
-  badge.innerHTML='📁 '+projLabel;
+  badge.innerHTML='<i data-lucide="folder"></i> '+projLabel;
   badge.style.background='#eef4fb'; badge.style.color='#185fa5';
 
   // 아이템 드롭다운 — ITP Builder 로컬 저장값이 비어있으면 WBS/EPC Control
@@ -981,8 +987,8 @@ const ITP_FIELDS={
   // 전체 측정값 세트를 하나씩 추가하는 목록형으로 구성한다.
   '04':{name:'Forming Inspection', specialType:'head-list',
     headFields:[
-      // 이름은 별도 지정 안 하면 추가 순서대로 Shell Top head → Shell BTM head
-      // → Jacket BTM head 순으로 기본값이 들어간다(addHeadRow 참고).
+      // 이름은 별도 지정 안 하면 추가 순서대로 Shell Top head <i data-lucide="arrow-right"></i> Shell BTM head
+      // <i data-lucide="arrow-right"></i> Jacket BTM head 순으로 기본값이 들어간다(addHeadRow 참고).
       {key:'name', label:'경판 이름', type:'text', ph:'예: Shell Top Head'},
       {key:'id', label:'ID (Inside Diameter)', type:'text', ph:'mm'},
       {key:'outRound', label:'Out-of-Roundness', type:'minmax', ph:'mm'},
@@ -1131,7 +1137,7 @@ function buildField(f, prefix=''){
   const dk = prefix ? prefix+'.'+f.key : f.key;
   const showIfAttr = f.showIf ? ` data-show-if="${f.showIf.key}|${f.showIf.value}"` : '';
   // 라벨 + 외부불러오기 힌트 배지
-  const hintBadge = f.hint ? `<span style="font-size:9px;color:#185fa5;background:#e6f1fb;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:500">🔗 ${f.hint}</span>` : '';
+  const hintBadge = f.hint ? `<span style="font-size:9px;color:#185fa5;background:#e6f1fb;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:500"><i data-lucide="link"></i> ${f.hint}</span>` : '';
   let inner = '';
 
   if(f.type==='textarea'){
@@ -1232,7 +1238,7 @@ function buildField(f, prefix=''){
     inner = `<input class="insp-field" data-key="${dk}" type="text" readonly placeholder="${f.ph||''}" style="width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#f4f4f2;color:#555;box-sizing:border-box">`;
   } else if(f.type==='external-ref'){
     inner = `<div style="padding:10px;background:#eef3fb;border:1px dashed #185fa5;border-radius:7px;font-size:12px;color:#185fa5;line-height:1.5">
-      <strong>🔗 외부 불러오기 위치</strong>${f.example?`<div style="font-size:11px;color:#555;margin-top:4px">${f.example}</div>`:''}
+      <strong><i data-lucide="link"></i> 외부 불러오기 위치</strong>${f.example?`<div style="font-size:11px;color:#555;margin-top:4px">${f.example}</div>`:''}
     </div>`;
   } else if(f.type==='checklist'){
     const items = (f.items||[]).map((it,i) => `
@@ -1527,11 +1533,11 @@ function bindFieldEvents(itpId){
       if(key.endsWith('.rowResult')) updateMaterialOverallResult();
     };
   });
-  // 2) checkbox change → showIf 재평가
+  // 2) checkbox change <i data-lucide="arrow-right"></i> showIf 재평가
   document.querySelectorAll('#insp-fields input[type=checkbox].insp-field').forEach(cb=>{
     cb.addEventListener('change', applyShowIf);
   });
-  // 3) datetime-pair → 자동 Holding Time 계산
+  // 3) datetime-pair <i data-lucide="arrow-right"></i> 자동 Holding Time 계산
   document.querySelectorAll('#insp-fields input[data-auto-calc]').forEach(inp=>{
     inp.addEventListener('change', ()=>{
       const ack = inp.dataset.autoCalc;
@@ -1683,8 +1689,8 @@ function fmtFieldValue(f, data){
   }
   if(f.type==='checkbox'){
     const v=data[dk];
-    if(v && typeof v==='object') return v.checked ? `✓ ${escapeHtml(v.label||'')}` : '아니오';
-    return v ? '✓ 예' : '아니오';
+    if(v && typeof v==='object') return v.checked ? `<i data-lucide="check"></i> ${escapeHtml(v.label||'')}` : '아니오';
+    return v ? '<i data-lucide="check"></i> 예' : '아니오';
   }
   if(f.type==='checklist'){
     const items=f.items||[];
@@ -1843,8 +1849,8 @@ async function saveDraft(){
   const item = document.getElementById('item').value;
   const itpSel = document.getElementById('itp');
   const itpVal = itpSel.value;
-  if(!item || !itpVal){ showToast('⚠️ 아이템과 ITP 검사 항목을 먼저 선택하세요'); return; }
-  if(!window.fb || !fb.db){ showToast('⚠️ 오프라인 상태라 임시저장을 할 수 없습니다'); return; }
+  if(!item || !itpVal){ showToast('<i data-lucide="alert-triangle"></i>️ 아이템과 ITP 검사 항목을 먼저 선택하세요'); return; }
+  if(!window.fb || !fb.db){ showToast('<i data-lucide="alert-triangle"></i>️ 오프라인 상태라 임시저장을 할 수 없습니다'); return; }
   const btn=document.getElementById('draft-save-btn');
   const origHtml=btn.innerHTML;
   btn.disabled=true;
@@ -1979,7 +1985,7 @@ async function applyDraftToForm(draft){
     }
     renderPreviews();
   }
-  showToast('📝 임시저장된 내용을 불러왔습니다');
+  showToast('<i data-lucide="file-text"></i> 임시저장된 내용을 불러왔습니다');
 }
 async function deleteDraftForCurrentSelection(item, itpVal){
   if(!item || !itpVal || !window.fb || !fb.db) return;
@@ -2167,7 +2173,7 @@ function confirmCrop(){
   canvas.width=800;canvas.height=600;
   ctx.drawImage(cropImg,sx,sy,sw,sh,0,0,800,600);
   pendingFiles[cropTargetIdx].dataUrl=canvas.toDataURL('image/jpeg',0.88);
-  closeCropModal();renderPreviews();showToast('✅ 크롭 적용');
+  closeCropModal();renderPreviews();showToast('<i data-lucide="check-circle"></i> 크롭 적용');
 }
 function closeCropModal(){document.getElementById('crop-modal').classList.remove('open');cropTargetIdx=null;dragState=null;}
 window.addEventListener('resize',()=>{if(document.getElementById('crop-modal').classList.contains('open')&&cropImg)initCropCanvas();});
@@ -2190,15 +2196,15 @@ async function submitUpload(){
   const failNote=document.getElementById('fail-note').value||'';
   const note=(result==='합격'||result==='진행중')?result:`${result} — ${failNote||'사유 미기재'}`;
   const inspData=collectInspData();
-  if(!item){showToast('⚠️ 아이템을 선택해 주세요');return;}
-  if(!itpVal){showToast('⚠️ ITP 검사 항목을 선택해 주세요');return;}
-  if(!date){showToast('⚠️ 검사 일시를 입력해 주세요');return;}
-  if(!pendingFiles.length){showToast('⚠️ 사진을 1장 이상 선택해 주세요');return;}
-  if(fieldsKey==='02' && !document.querySelectorAll('#insp-fields .material-entry').length){showToast('⚠️ 자재를 1건 이상 추가해 주세요');return;}
+  if(!item){showToast('<i data-lucide="alert-triangle"></i>️ 아이템을 선택해 주세요');return;}
+  if(!itpVal){showToast('<i data-lucide="alert-triangle"></i>️ ITP 검사 항목을 선택해 주세요');return;}
+  if(!date){showToast('<i data-lucide="alert-triangle"></i>️ 검사 일시를 입력해 주세요');return;}
+  if(!pendingFiles.length){showToast('<i data-lucide="alert-triangle"></i>️ 사진을 1장 이상 선택해 주세요');return;}
+  if(fieldsKey==='02' && !document.querySelectorAll('#insp-fields .material-entry').length){showToast('<i data-lucide="alert-triangle"></i>️ 자재를 1건 이상 추가해 주세요');return;}
   // v29.34: Heat No.를 하나도 안 적으면(BOM 자동 생성 행만 있고 손 안 댄
   // 상태) collectInspData가 전부 걸러내 빈 등록이 되므로, 제출 전에 막는다.
-  if(fieldsKey==='02' && ![...document.querySelectorAll('#insp-fields .material-entry .insp-field[data-key$=".heatNo"]')].some(el=>el.value.trim())){showToast('⚠️ 최소 1개 자재에 Heat No.를 입력해 주세요');return;}
-  if(fieldsKey==='08' && !document.querySelectorAll('#insp-fields .hydro-entry').length){showToast('⚠️ 가압부를 1건 이상 추가해 주세요');return;}
+  if(fieldsKey==='02' && ![...document.querySelectorAll('#insp-fields .material-entry .insp-field[data-key$=".heatNo"]')].some(el=>el.value.trim())){showToast('<i data-lucide="alert-triangle"></i>️ 최소 1개 자재에 Heat No.를 입력해 주세요');return;}
+  if(fieldsKey==='08' && !document.querySelectorAll('#insp-fields .hydro-entry').length){showToast('<i data-lucide="alert-triangle"></i>️ 가압부를 1건 이상 추가해 주세요');return;}
 
   const btn=document.getElementById('submit-btn');
   const pw=document.getElementById('prog-wrap');
@@ -2323,11 +2329,11 @@ function getMaterialAggregateStatuses(pid){
   });
   return out.sort((a,b)=>a.item.localeCompare(b.item,'ko'));
 }
-// 합부 판정 문자열 → 배지(이모지+텍스트). 종합판정 요약/체크리스트/체크리스트
+// 합부 판정 문자열 <i data-lucide="arrow-right"></i> 배지(이모지+텍스트). 종합판정 요약/체크리스트/체크리스트
 // 상세 목록에서 공통으로 쓴다.
 function statusBadgeHtml(status){
-  if(status==='합격') return '🟢 합격';
-  if(status==='불합격') return '🔴 불합격';
+  if(status==='합격') return '<i data-lucide="circle-check"></i> 합격';
+  if(status==='불합격') return '<i data-lucide="circle-alert"></i> 불합격';
   if(status==='조건부합격') return '🟠 조건부합격';
   if(status==='진행중') return '🟡 진행중';
   if(status==='보류') return '🟡 보류';
@@ -2433,7 +2439,7 @@ function renderHist(){
     });
   }catch(e){
     console.error('[등록이력 렌더링]', e);
-    showToast('⚠️ 등록이력을 불러오는 중 오류가 발생했습니다 — 새로고침해 주세요');
+    showToast('<i data-lucide="alert-triangle"></i>️ 등록이력을 불러오는 중 오류가 발생했습니다 — 새로고침해 주세요');
     const el=document.getElementById('hist-list');
     const empty=document.getElementById('hist-empty');
     if(el) el.style.display='none';
@@ -2489,7 +2495,7 @@ function renderRegGrid(rec){
 // dataUrl이 없는(멀리서 조각만 받은) 사진은 openDetail에서 이미 채워두므로
 // 여기선 안내만 하고 강제로 다시 받아오지 않는다.
 function downloadPhoto(p, rec, idx){
-  if(!p.dataUrl){ showToast('⚠️ 사진을 아직 못 불러왔습니다 — 잠시 후 다시 시도하세요'); return; }
+  if(!p.dataUrl){ showToast('<i data-lucide="alert-triangle"></i>️ 사진을 아직 못 불러왔습니다 — 잠시 후 다시 시도하세요'); return; }
   const safeItem=(rec.item||'item').replace(/[\\/:*?"<>|]/g,'_');
   const safeStage=(rec.stage||'').replace(/[\\/:*?"<>|]/g,'_');
   // v29.38 fix: 확장자 없이 다운로드돼서 파일 형식을 못 알아보던 문제 —
@@ -2532,7 +2538,7 @@ function confirmDel(){
     saveResults(records);
     document.getElementById('del-modal').classList.remove('open');
     delTargetIdx=null;
-    showToast('🗑️ 사진이 삭제되었습니다');
+    showToast('<i data-lucide="trash-2"></i>️ 사진이 삭제되었습니다');
     if(!records.find(r=>r.id===currentRecId))backToHist();
     else openDetail(currentRecId);
   }
@@ -2703,7 +2709,7 @@ const A4W=794,A4H=1123;
 function buildSheet(){
   if(!sheetRec)return;
   const totalPhotos=sheetPages.reduce((s,pg)=>s+pg.slots.filter(x=>x!==null).length,0);
-  if(!totalPhotos){showToast('⚠️ 사진을 1장 이상 배치해 주세요');return;}
+  if(!totalPhotos){showToast('<i data-lucide="alert-triangle"></i>️ 사진을 1장 이상 배치해 주세요');return;}
 
   const rec=sheetRec;
   const preview=document.getElementById('sheet-preview-pages');
@@ -2836,9 +2842,9 @@ async function downloadPDF(){
     }
     const rec=loadResults().find(r=>r.id===currentRecId);
     pdf.save(`사진대지_${rec?.stage||'검사'}_${(rec?.date||'').slice(0,10)}.pdf`);
-    showToast('✅ PDF 다운로드 완료');
+    showToast('<i data-lucide="check-circle"></i> PDF 다운로드 완료');
   }catch(e){
-    showToast('❌ PDF 생성 실패: '+e.message);
+    showToast('<i data-lucide="x-circle"></i> PDF 생성 실패: '+e.message);
   }finally{
     btn.disabled=false;
     btn.innerHTML='<i class="ti ti-download"></i> PDF 다운로드';
@@ -2853,5 +2859,11 @@ function showToast(msg){
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
+</script>
 </body>
 </html>

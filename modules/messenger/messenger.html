@@ -130,6 +130,12 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   .msg-layout { grid-template-columns: 1fr; }
 }
 </style>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
 </head>
 <body>
 <div id="app"></div>
@@ -258,7 +264,7 @@ function messenger() {
   const dmChs = state.channels.filter(c => c.type === 'dm' && (c.members||[]).includes(me));
 
   const chItem = (c) => {
-    const ico = c.type==='announce'?'📢':c.type==='dept'?'🏢':c.type==='project'?'🏗️':c.type==='group'?'👥':'💬';
+    const ico = c.type==='announce'?'<i data-lucide="megaphone"></i>':c.type==='dept'?'<i data-lucide="building"></i>':c.type==='project'?'<i data-lucide="hard-hat"></i>️':c.type==='group'?'<i data-lucide="users"></i>':'<i data-lucide="message-square"></i>';
     const last = [...state.messages].reverse().find(m => m.channel === c.id);
     const unread = getUnreadCount(c.id);
     let label = c.name;
@@ -288,7 +294,7 @@ function messenger() {
 
   return `<div style="height:100%;display:flex;flex-direction:column;">
     <div class="mod-head">
-      <div><div class="mod-title">💬 메신저</div><div class="mod-sub">사내 메신저 · 채널 · 1:1 · 그룹 · 파일 공유</div></div>
+      <div><div class="mod-title"><i data-lucide="message-square"></i> 메신저</div><div class="mod-sub">사내 메신저 · 채널 · 1:1 · 그룹 · 파일 공유</div></div>
       <div style="display:flex;gap:6px;">
         <button class="btn btn-sm" onclick="openNewDM()">+ 1:1 채팅</button>
         <button class="btn btn-primary btn-sm" onclick="openNewGroup()">+ 그룹 만들기</button>
@@ -296,16 +302,16 @@ function messenger() {
     </div>
     <div class="msg-layout" style="flex:1;min-height:0;">
       <div class="msg-side">
-        ${sectionBlock('announce', '📢 공지', announceChs)}
-        ${sectionBlock('dept', '🏢 부서', deptChs)}
-        ${sectionBlock('project', '🏗️ 프로젝트', projChs)}
-        ${groupChs.length?sectionBlock('group', '👥 그룹', groupChs):''}
-        ${sectionBlock('dm', '💬 다이렉트 메시지', dmChs, '<div style="font-size:11px;color:var(--text-lighter);padding:4px 10px;">+ 1:1 채팅으로 시작</div>')}
+        ${sectionBlock('announce', '<i data-lucide="megaphone"></i> 공지', announceChs)}
+        ${sectionBlock('dept', '<i data-lucide="building"></i> 부서', deptChs)}
+        ${sectionBlock('project', '<i data-lucide="hard-hat"></i>️ 프로젝트', projChs)}
+        ${groupChs.length?sectionBlock('group', '<i data-lucide="users"></i> 그룹', groupChs):''}
+        ${sectionBlock('dm', '<i data-lucide="message-square"></i> 다이렉트 메시지', dmChs, '<div style="font-size:11px;color:var(--text-lighter);padding:4px 10px;">+ 1:1 채팅으로 시작</div>')}
       </div>
       <div class="msg-main">
         ${ch ? `
         <div class="msg-head">
-          <span>${ch.type==='dm'?'💬 '+dmTitle(ch):'# '+ch.name}</span>
+          <span>${ch.type==='dm'?'<i data-lucide="message-square"></i> '+dmTitle(ch):'# '+ch.name}</span>
           ${ch.type==='group'||ch.type==='project'?`<span style="font-size:11px;color:var(--text-light);font-weight:400;">${(ch.members||[]).length||state.users.length}명</span>`:''}
         </div>
         <div class="msg-body" id="msgBody"
@@ -537,6 +543,12 @@ function init() {
   boot();
 }
 init();
+</script>
+<script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>

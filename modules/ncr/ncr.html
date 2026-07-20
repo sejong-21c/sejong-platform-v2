@@ -142,6 +142,12 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1a18;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:all .3s;z-index:999;white-space:nowrap;font-weight:500}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
 </head>
 <body>
 
@@ -164,14 +170,14 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 
 <div id="ncr-trend-modal">
   <div class="ntr-head">
-    <h3>📊 NCR 품질 경향분석</h3>
+    <h3><i data-lucide="chart-column"></i> NCR 품질 경향분석</h3>
     <div style="display:flex;gap:8px;align-items:center;">
       <button onclick="printNCRTrend()" style="background:#fff;color:#7c3aed;border:none;padding:6px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">🖨️ 보고서 출력</button>
       <button onclick="closeNCRTrend()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1;">×</button>
     </div>
   </div>
   <div class="ntr-toolbar">
-    <span style="font-size:12px;font-weight:700;color:#7c3aed;">📅 기간</span>
+    <span style="font-size:12px;font-weight:700;color:#7c3aed;"><i data-lucide="calendar-days"></i> 기간</span>
     <select id="ntr-year" onchange="renderNCRTrend()"><option value="">전체 연도</option></select>
     <select id="ntr-month" onchange="renderNCRTrend()">
       <option value="">전체 월</option>
@@ -180,7 +186,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
       <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
       <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
     </select>
-    <span style="font-size:12px;font-weight:700;color:#7c3aed;margin-left:8px;">📁 프로젝트</span>
+    <span style="font-size:12px;font-weight:700;color:#7c3aed;margin-left:8px;"><i data-lucide="folder"></i> 프로젝트</span>
     <select id="ntr-proj" onchange="renderNCRTrend()"><option value="">전체 프로젝트</option></select>
     <span id="ntr-count" style="font-size:12px;color:#7c3aed;font-weight:600;margin-left:8px;"></span>
   </div>
@@ -199,7 +205,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
     </div>
     <div class="npm-content">
       <div class="npm-left">
-        <div class="npm-left-head">📄 원본 문서</div>
+        <div class="npm-left-head"><i data-lucide="file"></i> 원본 문서</div>
         <div id="ncr-parse-file" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
           <div style="padding:16px;color:var(--text-light);font-size:13px;">파일을 불러오는 중...</div>
         </div>
@@ -210,7 +216,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
     </div>
     <div class="npm-footer">
       <button class="btn" onclick="closeNCRParseModal()" style="background:var(--bg);color:var(--text);">취소</button>
-      <button id="ncr-parse-confirm-btn" class="btn btn-primary" onclick="confirmNCRParse()">✅ NCR 등록</button>
+      <button id="ncr-parse-confirm-btn" class="btn btn-primary" onclick="confirmNCRParse()"><i data-lucide="check-circle"></i> NCR 등록</button>
     </div>
   </div>
 </div>
@@ -621,8 +627,8 @@ function render() {
   const canRegisterNCR = canDoLocal('ncr', 'register', cu);
   const isQualityHead = canDeleteNCR; // 하위 코드 호환용 alias — 아래에서 canDeleteNCR로 대체
   const deleteReqHtml = (isQualityHead && deleteReqs.length) ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--danger);">
-      <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);">🗑️ NCR 삭제 승인 요청 (${deleteReqs.length}건)</h3>
+    <div class="card" style="margin-bottom:14px;">
+      <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);"><i data-lucide="trash-2"></i>️ NCR 삭제 승인 요청 (${deleteReqs.length}건)</h3>
       ${deleteReqs.map(r => {
         const n = ncrs.find(x => x.id === r.ncrId);
         const ru = getU(r.requestedBy);
@@ -644,12 +650,12 @@ function render() {
   document.getElementById('app').innerHTML = `
     <div class="mod-head">
       <div>
-        <div class="mod-title">⚠️ NCR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">부적합 보고서</span></div>
+        <div class="mod-title"><i data-lucide="alert-triangle"></i>️ NCR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">부적합 보고서</span></div>
         <div class="mod-sub">3경로 자동 집계 — 직접발행 · 메일접수 · 검사부적합(Traveller)</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="back-btn" onclick="try{window.parent.closeTool()}catch(e){}">← 도구함 닫기</button>
-        <button class="btn" onclick="openNCRTrend()">📊 경향분석</button>
+        <button class="back-btn" onclick="try{window.parent.closeTool()}catch(e){}"><i data-lucide="arrow-left"></i> 도구함 닫기</button>
+        <button class="btn" onclick="openNCRTrend()"><i data-lucide="chart-column"></i> 경향분석</button>
         <button class="btn" onclick="document.getElementById('ncr-file-input').click()">📎 파일로 등록</button>
         <button class="btn btn-primary" onclick="openNewNCR()">+ NCR 발행</button>
       </div>
@@ -665,14 +671,14 @@ function render() {
     ${deleteReqHtml}
 
     ${pending.length ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--warning);">
-      <h3 style="font-size:14px;margin-bottom:10px;">🔧 Traveller 검사 부적합 — NCR 발행 대기 (${pending.length})</h3>
+    <div class="card" style="margin-bottom:14px;">
+      <h3 style="font-size:14px;margin-bottom:10px;"><i data-lucide="wrench"></i> Traveller 검사 부적합 — NCR 발행 대기 (${pending.length})</h3>
       ${pending.map(p => {
         const it = findItemById(p.itemId);
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-light);gap:8px;">
           <div style="flex:1;"><div style="font-size:13px;font-weight:500;">${it?.tag||p.itemId} — ${p.stage} 공정</div>
           <div style="font-size:11px;color:var(--text-light);">${p.memo} · ${p.date||''}</div></div>
-          <button class="btn btn-sm" onclick="issueNCRFromTrav('${p.itemId}','${p.stage}')">→ NCR 발행</button>
+          <button class="btn btn-sm" onclick="issueNCRFromTrav('${p.itemId}','${p.stage}')"><i data-lucide="arrow-right"></i> NCR 발행</button>
         </div>`;
       }).join('')}
     </div>` : ''}
@@ -716,7 +722,7 @@ function render() {
                 + ((pendingReq.requestedBy === state.currentUser || canDeleteNCR)
                   ? `<button class="org-ico-btn" onclick="cancelNCRDelete('${pendingReq.id}')" title="삭제 요청 취소" style="color:var(--text-light);">↩</button>` : '')
               : (canDeleteNCR || canRegisterNCR)
-                ? `<button class="org-ico-btn" onclick="requestNCRDelete('${n.id}')" title="삭제 요청 (24시간 대기 후 삭제)" style="color:var(--danger);">🗑️</button>`
+                ? `<button class="org-ico-btn" onclick="requestNCRDelete('${n.id}')" title="삭제 요청 (24시간 대기 후 삭제)" style="color:var(--danger);"><i data-lucide="trash-2"></i>️</button>`
                 : '';
             return `<tr>
               <td style="font-weight:700;font-size:11px;white-space:nowrap;">${n.id}</td>
@@ -729,9 +735,9 @@ function render() {
               <td style="font-size:11px;white-space:nowrap;color:${n.closedAt?'var(--success)':'var(--text-light)'};">${n.closedAt||'-'}</td>
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
               <td style="white-space:nowrap;">
-                <button class="org-ico-btn" onclick="openNCRMgr('${n.id}')" title="상세">📋</button>
-                ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewNCRFile('${n.id}')" title="파일 보기">📄</button>` : ''}
-                ${!n.carId && n.status!=='closed' ? `<button class="org-ico-btn" onclick="createCARfromNCR('${n.id}')" title="CAR 발행">🔧</button>` : ''}
+                <button class="org-ico-btn" onclick="openNCRMgr('${n.id}')" title="상세"><i data-lucide="clipboard-list"></i></button>
+                ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewNCRFile('${n.id}')" title="파일 보기"><i data-lucide="file"></i></button>` : ''}
+                ${!n.carId && n.status!=='closed' ? `<button class="org-ico-btn" onclick="createCARfromNCR('${n.id}')" title="CAR 발행"><i data-lucide="wrench"></i></button>` : ''}
                 ${n.carId ? `<span style="font-size:10px;color:var(--primary);">${n.carId}</span>` : ''}
                 ${delBtn}
               </td>
@@ -850,7 +856,7 @@ function openNCRMgr(ncrId) {
   const dispOpts  = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${v}" ${v===n.disposition?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
 
-  openModal(`📋 NCR 관리 — ${n.id}`, `
+  openModal(`<i data-lucide="clipboard-list"></i> NCR 관리 — ${n.id}`, `
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
       <span class="b-pill ${g[0]}">${g[1]}</span>
       <span class="b-pill ${st[0]}">${st[1]}</span>
@@ -891,7 +897,7 @@ function openNCRMgr(ncrId) {
       <div style="display:flex;gap:8px;align-items:center;">
         <button type="button" class="btn btn-sm" onclick="document.getElementById('mgr-file-input').click()">📎 파일 선택</button>
         <span id="mgr-file-name" style="font-size:12px;color:var(--text-light);">${n.meta?.fileName||'없음'}</span>
-        ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button type="button" class="btn btn-sm" onclick="viewNCRFile('${n.id}')">📄 현재 파일 보기</button>` : ''}
+        ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button type="button" class="btn btn-sm" onclick="viewNCRFile('${n.id}')"><i data-lucide="file"></i> 현재 파일 보기</button>` : ''}
       </div>
       <input type="file" id="mgr-file-input" accept=".pdf,.docx" style="display:none" onchange="(function(inp){
         const f=inp.files[0]; if(!f) return;
@@ -956,7 +962,7 @@ function createCARfromNCR(ncrId) {
   const n = (state.ncrs||[]).find(x => x.id === ncrId);
   if (!n) return;
   const userOpts = (state.users||[]).map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('');
-  openModal(`🔧 CAR 발행 — ${ncrId}`, `
+  openModal(`<i data-lucide="wrench"></i> CAR 발행 — ${ncrId}`, `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">${n.desc}</div>
     <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="carAction" rows="3" placeholder="필요한 시정조치를 기재하세요"></textarea></div>
     <div class="fg" style="display:flex;gap:8px;">
@@ -998,14 +1004,14 @@ function issueNCRFromTrav(itemId, stage) {
     '<option value="__direct__">✏️ 직접 입력</option>',
     ...(state.projects||[]).filter(p=>!p.hidden).map(p=>`<option value="${p.id}" ${p.id===pid?'selected':''}>${p.code} ${p.name}</option>`)
   ].join('');
-  openModal(`🔧 NCR 발행 — ${it?.tag||itemId} ${stage}`, `
+  openModal(`<i data-lucide="wrench"></i> NCR 발행 — ${it?.tag||itemId} ${stage}`, `
     <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="travProj">${projOpts}</select></div>
     <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="travDesc" rows="3">${data.memo||''}</textarea></div>
     <div class="fg">
       <label class="fl">등급</label>
       <select class="fs" id="travGrade"><option value="major">중대</option><option value="minor" selected>일반</option><option value="obs">경미</option></select>
     </div>
-    <div style="font-size:11px;color:var(--text-lighter);padding:8px 10px;background:var(--bg);border-radius:6px;">💡 조치 기한이 필요하면 NCR을 발행한 뒤 CAR(시정조치 요청)를 발행하세요 — CAR에 회신기한 필드가 있습니다.</div>
+    <div style="font-size:11px;color:var(--text-lighter);padding:8px 10px;background:var(--bg);border-radius:6px;"><i data-lucide="lightbulb"></i> 조치 기한이 필요하면 NCR을 발행한 뒤 CAR(시정조치 요청)를 발행하세요 — CAR에 회신기한 필드가 있습니다.</div>
   `, () => {
     const proj  = document.getElementById('travProj').value;
     const desc  = document.getElementById('travDesc').value.trim();
@@ -1022,7 +1028,7 @@ function issueNCRFromTrav(itemId, stage) {
 
 // v29.12: Firestore 문서 하나의 최대 크기는 1MB라, 첨부파일을 meta.fileDataUrl에
 // base64로 통째로 넣으면 조용히 저장 실패(콘솔에만 에러)해서 "등록 즉시 사라지는"
-// 것처럼 보였음. → Firebase Storage 업로드로 전환했었으나, 사내 방화벽/보안 정책이
+// 것처럼 보였음. <i data-lucide="arrow-right"></i> Firebase Storage 업로드로 전환했었으나, 사내 방화벽/보안 정책이
 // Storage 요청 자체를 응답 없이 막는 환경이 있어(uploadBytes가 영원히 안 끝남,
 // Firestore는 정상 동작 확인됨) v29.13.3에서 Storage를 완전히 걷어냄.
 // v29.13.4 fix: 그 다음 시도한 별도 컬렉션(fileChunks)도 새 컬렉션이라 Firestore
@@ -1097,7 +1103,7 @@ async function loadAttachmentDataUrl(coll, chunkId, totalChunks) {
 const NCR_DELETE_WAIT_MS = 24 * 60 * 60 * 1000;
 
 function requestNCRDelete(ncrId) {
-  openModal(`🗑️ NCR 삭제 요청 — ${ncrId}`, `
+  openModal(`<i data-lucide="trash-2"></i>️ NCR 삭제 요청 — ${ncrId}`, `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">삭제 요청 후 24시간 동안 삭제 대기 상태가 되며, 그 사이 품질관리부장이 조기승인(즉시삭제) 또는 반려할 수 있습니다. 아무 조치가 없으면 24시간 후 자동 삭제됩니다.</div>
     <div class="fg"><label class="fl">삭제 사유</label><textarea class="fi" id="del-reason" rows="3" placeholder="삭제 사유를 입력하세요"></textarea></div>
   `, () => {
@@ -1449,7 +1455,7 @@ function renderNCRTrend() {
       ? `onclick="viewNCRFile('${_drillEsc(n.id)}')" title="클릭하면 등록된 보고서를 새 탭으로 엽니다"`
       : `onclick="closeNCRTrend();openNCRMgr('${_drillEsc(n.id)}')" title="첨부 보고서가 없어 상세 화면을 엽니다"`;
     return `<tr style="cursor:pointer;" ${clickAttr}>
-      <td style="font-weight:700;color:var(--primary);">${n.id} ${hasFile?'📄':'↗'}</td>
+      <td style="font-weight:700;color:var(--primary);">${n.id} ${hasFile?'<i data-lucide="file"></i>':'<i data-lucide="arrow-up-right"></i>'}</td>
       <td>${p}</td><td>${n.item||'-'}</td>
       <td>${n.location||'-'}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
       <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
@@ -1482,7 +1488,7 @@ function renderNCRTrend() {
     </div>
 
     <div class="ntr-section">
-      <h4>📋 상세 목록</h4>
+      <h4><i data-lucide="clipboard-list"></i> 상세 목록</h4>
       <div style="overflow-x:auto;">
         <table class="ntr-table">
           <thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
@@ -1555,30 +1561,42 @@ function printNCRTrend() {
     svg{overflow:visible;display:block;width:100%;}
     .pagebreak{page-break-before:always;break-before:page;}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
-  </style></head><body>
-    <div class="hdr"><h1>📊 NCR 품질 경향분석 보고서</h1>
+  </style><script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
+</head><body>
+    <div class="hdr"><h1><i data-lucide="chart-column"></i> NCR 품질 경향분석 보고서</h1>
       <span class="meta">작성일: ${today} &nbsp;|&nbsp; 기간: ${yr}년 ${mo}월 &nbsp;|&nbsp; 프로젝트: ${proj}${drillDesc ? ` &nbsp;|&nbsp; 선택 필터: ${drillDesc}` : ''} &nbsp;|&nbsp; 세종기술 품질관리부</span></div>
     <div class="kpi-row">
       <div class="kpi"><div class="v">${ncrs.length}</div><div class="l">전체 건수</div></div>
       <div class="kpi"><div class="v" style="color:#dc2626;">${ncrs.filter(n=>n.status!=='closed').length}</div><div class="l">진행 중</div></div>
       <div class="kpi"><div class="v" style="color:#059669;">${ncrs.filter(n=>n.status==='closed').length}</div><div class="l">종결</div></div>
     </div>
-    <div class="section-title">📊 항목별 분포</div>
+    <div class="section-title"><i data-lucide="chart-column"></i> 항목별 분포</div>
     <div class="grid3">
-      <div class="ch"><div class="ch-title">📈 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
+      <div class="ch"><div class="ch-title"><i data-lucide="trending-up"></i> 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
       <div class="ch"><div class="ch-title">프로젝트별</div>${_barSvg(projEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">발생장소별</div>${_barSvg(locEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">불량원인별</div>${_barSvg(causeEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">불량원인 상세별</div>${_barSvg(detailEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">처리방안별</div>${_donutSvg(dispEntries,COLORS)}</div>
     </div>
-    <div class="card pagebreak"><div class="card-title">📋 상세 목록</div>
+    <div class="card pagebreak"><div class="card-title"><i data-lucide="clipboard-list"></i> 상세 목록</div>
       <table><thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
         <tbody>${tableRows||'<tr><td colspan="10" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
       </table>
     </div>
     <script>window.onload=()=>{window.print();}<\/script>
-  </body></html>`);
+  <script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
+</script>
+</body></html>`);
   w.document.close();
 }
 
@@ -1728,12 +1746,12 @@ function showNCRParseModal(p) {
   const filePanel = document.getElementById('ncr-parse-file');
   if (filePanel) {
     if (p.ocrFailed && p.imgDataUrl) {
-      filePanel.innerHTML = `<div style="padding:6px 10px;background:#fff3e0;font-size:11px;color:#e65100;font-weight:600;flex-shrink:0;">⚠️ 스캔본 — OCR 인식 불가, 직접 입력하세요</div>
+      filePanel.innerHTML = `<div style="padding:6px 10px;background:#fff3e0;font-size:11px;color:#e65100;font-weight:600;flex-shrink:0;"><i data-lucide="alert-triangle"></i>️ 스캔본 — OCR 인식 불가, 직접 입력하세요</div>
         <div class="npm-left-img-wrap"><img src="${p.imgDataUrl}" style="width:100%;border-radius:4px;"></div>`;
     } else if (p.fileDataUrl?.startsWith('data:application/pdf')) {
       filePanel.innerHTML = `<iframe src="${_toBlobUrl(p.fileDataUrl)}" style="flex:1;border:none;width:100%;height:100%;"></iframe>`;
     } else if (p.fileDataUrl) {
-      filePanel.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-light);">📄 ${p.fileName||'파일'}<br><span style="font-size:11px;">PDF가 아닌 파일은 미리보기를 지원하지 않습니다.</span></div>`;
+      filePanel.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-light);"><i data-lucide="file"></i> ${p.fileName||'파일'}<br><span style="font-size:11px;">PDF가 아닌 파일은 미리보기를 지원하지 않습니다.</span></div>`;
     }
   }
   window._ncrParseFileDataUrl = p.fileDataUrl||null;
@@ -1743,7 +1761,7 @@ function showNCRParseModal(p) {
   document.getElementById('ncr-parse-modal').classList.add('open');
   document.getElementById('ncr-parse-body').innerHTML = `
     <div style="background:${p.ocrFailed?'#fff3e0':'#e8f5e9'};border-radius:8px;padding:8px 12px;font-size:12px;color:${p.ocrFailed?'#e65100':'#2e7d32'};font-weight:600;">
-      ${p.ocrFailed?'⚠️ 스캔본 자동 인식 불가 — 직접 입력하세요':'✅ 문서 파싱 완료 — 확인 후 등록하세요'}
+      ${p.ocrFailed?'<i data-lucide="alert-triangle"></i>️ 스캔본 자동 인식 불가 — 직접 입력하세요':'<i data-lucide="check-circle"></i> 문서 파싱 완료 — 확인 후 등록하세요'}
     </div>
     <div class="npm-row">
       <div class="npm-field"><label>NCR No. ${badge(p.ncrNo)}</label><input id="np-ncrno" value="${p.ncrNo||''}" placeholder="예: SJ-NCR-2026-01"></div>
@@ -1810,7 +1828,7 @@ async function confirmNCRParse() {
   if (uploadPromise) {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 파일 저장 중...'; } // 대부분 이미 끝나있어 순간적으로만 보임
     attach = await resolveAttachmentOrNull('ncr', uploadPromise);
-    if (btn) { btn.disabled = false; btn.textContent = '✅ NCR 등록'; }
+    if (btn) { btn.disabled = false; btn.textContent = '<i data-lucide="check-circle"></i> NCR 등록'; }
   }
   if (!attach.ok) return;
   if (!state.ncrs) state.ncrs = [];
@@ -1851,6 +1869,12 @@ loadState();
 render();
 startNcrFirestoreSync();
 setInterval(finalizeExpiredNCRDeletes, 60000);
+</script>
+<script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>

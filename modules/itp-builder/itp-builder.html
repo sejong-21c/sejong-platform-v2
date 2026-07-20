@@ -454,6 +454,12 @@ body {
   .itp-print-page + .itp-print-page { page-break-before: always !important; }
 }
 </style>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -753,7 +759,7 @@ function EPCSlots({jobNo}){
   return <div className="slots-grid">{slots.map(s =>
     <div key={s.key} className={"slot" + (s.connected?" connected":"")}>
       <div className="slot-title">{s.title}</div>
-      <div className="slot-status">{s.connected ? (s.value || "✓ EPC 연결") : "⊘ Standalone"}</div>
+      <div className="slot-status">{s.connected ? (s.value || "<i data-lucide="check"></i> EPC 연결") : "⊘ Standalone"}</div>
     </div>
   )}</div>;
 }
@@ -765,17 +771,17 @@ function PasteBox({kind, targetItemId, prompt, onApply, onCopyPrompt}){
   const [text, setText] = useState("");
   return <div style={{marginTop:6}}>
     {!open
-      ? <button onClick={()=>setOpen(true)} className="btn-secondary" style={{fontSize:10}}>📋 API 키 없이 — claude.ai 결과 붙여넣기</button>
+      ? <button onClick={()=>setOpen(true)} className="btn-secondary" style={{fontSize:10}}><i data-lucide="clipboard-list"></i> API 키 없이 — claude.ai 결과 붙여넣기</button>
       : <div style={{border:"1px dashed var(--sjp-border-strong)", borderRadius:5, padding:8, marginTop:4}}>
           <div style={{fontSize:9.5, color:"var(--sjp-text-sub)", marginBottom:6, lineHeight:1.5}}>
-            1) claude.ai 대화창에 이 PDF와 아래 프롬프트를 함께 올려서 물어보세요 → 2) 받은 JSON을 그대로 복사해 아래에 붙여넣고 "적용"을 누르세요.
+            1) claude.ai 대화창에 이 PDF와 아래 프롬프트를 함께 올려서 물어보세요 <i data-lucide="arrow-right"></i> 2) 받은 JSON을 그대로 복사해 아래에 붙여넣고 "적용"을 누르세요.
           </div>
           <div style={{display:"flex", gap:6, marginBottom:6}}>
             <button onClick={()=>onCopyPrompt(prompt)} className="btn-secondary" style={{fontSize:9}}>프롬프트 복사</button>
             <button onClick={()=>{setOpen(false); setText("");}} className="btn-secondary" style={{fontSize:9}}>닫기</button>
           </div>
           <textarea value={text} onChange={e=>setText(e.target.value)} placeholder='claude.ai가 준 JSON 결과를 여기 붙여넣기 (예: {"no":"...","name":"..."})' style={{width:"100%", minHeight:60, fontSize:10, fontFamily:"monospace", padding:6, border:"1px solid var(--sjp-border)", borderRadius:5, boxSizing:"border-box"}}/>
-          <button onClick={()=>{ if(onApply(kind, text, targetItemId)) { setText(""); setOpen(false); } }} className="btn-primary" style={{fontSize:10, marginTop:6}}>✓ 적용</button>
+          <button onClick={()=>{ if(onApply(kind, text, targetItemId)) { setText(""); setOpen(false); } }} className="btn-primary" style={{fontSize:10, marginTop:6}}><i data-lucide="check"></i> 적용</button>
         </div>
     }
   </div>;
@@ -834,7 +840,7 @@ const ITP_BASE = [
 ];
 
 // v2.3 — ITP를 프로젝트 공유 1개에서 아이템별 독립 문서로 전환하며 추가된 헬퍼.
-// buildSpecRows/buildInitialItpRows: 기존에 specReqs→itpRows 재생성 effect 안에 있던 로직을
+// buildSpecRows/buildInitialItpRows: 기존에 specReqs<i data-lucide="arrow-right"></i>itpRows 재생성 effect 안에 있던 로직을
 // 추출 — 이제 아이템마다 이 로직을 반복 적용해야 해서 별도 함수로 분리했다.
 function buildSpecRows(specReqs) {
   return (specReqs||[]).map((req, i) => mkR(
@@ -992,7 +998,7 @@ function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, wi
           </td>
           <td style={TD}>
             <textarea {...itpGrid.cellProps(i,0)} style={TS} value={r.activity} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, activity:e.target.value}:x))}/>
-            {r.specOnly && <div style={{fontSize:8, color:"#d4a017", fontWeight:600, marginTop:2}}>📋 Spec 추출</div>}
+            {r.specOnly && <div style={{fontSize:8, color:"#d4a017", fontWeight:600, marginTop:2}}><i data-lucide="clipboard-list"></i> Spec 추출</div>}
           </td>
           <td style={{...TD, fontSize:9}}><textarea {...itpGrid.cellProps(i,1)} style={TS} value={r.code} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, code:e.target.value}:x))}/></td>
           <td style={{...TD, fontSize:9}}><textarea {...itpGrid.cellProps(i,2)} style={TS} value={r.criteria} onChange={e=>setRows(p=>p.map(x=>x.id===r.id?{...x, criteria:e.target.value}:x))}/></td>
@@ -1019,7 +1025,7 @@ function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, wi
 
     {/* 신규 검사활동 행 추가 (인쇄 비표시) */}
     <div className="ic" style={{marginTop:8, padding:"8px 10px", background:"#f8fbff", border:"1px dashed var(--sjp-border-strong)", borderRadius:6}}>
-      <div style={{fontSize:11, fontWeight:600, color:"var(--sjp-primary)", marginBottom:5}}>➕ 검사활동 추가</div>
+      <div style={{fontSize:11, fontWeight:600, color:"var(--sjp-primary)", marginBottom:5}}><i data-lucide="plus"></i> 검사활동 추가</div>
       <div style={{display:"grid", gridTemplateColumns:"1fr 1.4fr 1.8fr 0.8fr auto", gap:5, alignItems:"start"}}>
         <input value={newRow.activity} onChange={e=>setNewRow(p=>({...p, activity:e.target.value}))} placeholder="Inspection Activity *"
           style={{fontSize:10, padding:"4px 6px", border:"1px solid var(--sjp-border)", borderRadius:3}}/>
@@ -1039,7 +1045,7 @@ function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, wi
     <div style={{marginTop:4, fontSize:9, color:"#444", lineHeight:1.7}}>
       1. The inspection process may be changed by the supplier's manufacturing condition.<br/>
       2. I&amp;T Activities: S-Supplier, R-Report Review, W-Witness, H-Hold Point<br/>
-      3. 노란색 행(📋 Spec)은 고객 시방서에서 추출한 추가 요구사항입니다.
+      3. 노란색 행(<i data-lucide="clipboard-list"></i> Spec)은 고객 시방서에서 추출한 추가 요구사항입니다.
     </div>
   </div>;
 }
@@ -1151,7 +1157,7 @@ function App(){
       if (s.items) {
         const {items: fixedItems, fixed} = dedupeItemIds(s.items);
         setItems(fixedItems);
-        if (fixed > 0) showMsg(`⚠ 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
+        if (fixed > 0) showMsg(`<i data-lucide="alert-triangle"></i> 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
         // v2.3 마이그레이션 — 예전 "프로젝트 공유 ITP 1개"였던 데이터를 아이템별로 분리.
         // 새 필드가 이미 있으면 그대로 쓰고, 없을 때만 옛 공유 값을 현재 모든 아이템의
         // 시작값으로 복사한다(1회성, 멱등 — 기존 실사용 데이터를 지우지 않기 위함).
@@ -1172,7 +1178,7 @@ function App(){
     if (window.SJP?.bridge?.isConnected?.()) {
       const epcProj = window.SJP.bridge.getProject?.();
       if (epcProj) setProj(p => ({...p, ...epcProj}));
-      setTimeout(()=>showMsg("✓ EPC Control에서 프로젝트 정보 동기화 완료", 5000), 100);
+      setTimeout(()=>showMsg("<i data-lucide="check"></i> EPC Control에서 프로젝트 정보 동기화 완료", 5000), 100);
     }
     // v2.4 fix — "클라우드가 항상 최신"이라고 무조건 믿고 덮어쓰면, 클라우드 업로드가 조용히
     // 실패했거나(오프라인·인증 타이밍) 아직 반영 전인 상태에서 재접속했을 때 방금 로컬에 저장한
@@ -1186,7 +1192,7 @@ function App(){
       if (Array.isArray(cloud.items) && cloud.items.length) {
         const {items: fixedItems, fixed} = dedupeItemIds(cloud.items);
         setItems(fixedItems);
-        if (fixed > 0) showMsg(`⚠ 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
+        if (fixed > 0) showMsg(`<i data-lucide="alert-triangle"></i> 아이템 ${fixed}개에서 id 중복이 발견되어 자동으로 분리했습니다. 방금 분리된 아이템들의 내용을 다시 한번 확인해주세요(도면/등록 정보가 다른 아이템 것으로 잘못 들어가 있을 수 있습니다).`, 12000);
         if (cloud.itpRowsByItem) setItpRowsByItem(cloud.itpRowsByItem);
         else if (cloud.itpRows?.length && fixedItems.length) setItpRowsByItem(Object.fromEntries(fixedItems.map(it => [it.id, JSON.parse(JSON.stringify(cloud.itpRows))])));
         if (cloud.itpDocNoByItem) setItpDocNoByItem(cloud.itpDocNoByItem);
@@ -1200,7 +1206,7 @@ function App(){
       if (cloud.wpsList?.length) { setWpsList(cloud.wpsList); saveMasterList("wps", cloud.wpsList); }
       if (cloud.welderList?.length) { setWelderList(cloud.welderList); saveMasterList("welder", cloud.welderList); }
       if (cloud.inspectorList?.length) { setInspectorList(cloud.inspectorList); saveMasterList("inspector", cloud.inspectorList); }
-      showMsg("✓ 클라우드에서 최신 데이터를 불러왔습니다", 4000);
+      showMsg("<i data-lucide="check"></i> 클라우드에서 최신 데이터를 불러왔습니다", 4000);
     });
   }, []);
 
@@ -1225,13 +1231,13 @@ function App(){
   // 전체 아이템을 순회하는 이 effect가 "아직 항목이 없는 아이템에 기본값을 채우는" 역할까지
   // 겸한다 — 새 아이템은 다음 렌더에서 자동으로 ITP_BASE+specReqs 행을 받는다. 기존 아이템의
   // id<1000(수동 편집분)은 그대로 보존하고 id>=1000(스펙 파생분)만 재생성한다.
-  // ⚠ 아래 마이그레이션 effect(위쪽에 선언됨)보다 반드시 나중에 실행되어야 함 — 둘 다
+  // <i data-lucide="alert-triangle"></i> 아래 마이그레이션 effect(위쪽에 선언됨)보다 반드시 나중에 실행되어야 함 — 둘 다
   // 함수형 업데이트(prev=>...)를 쓰므로 순서가 지켜지면 마이그레이션 결과를 덮어쓰지 않는다.
   // v2.6 fix — 예전엔 specReqs가 바뀔 때마다(또는 프로젝트를 다시 열 때마다) 이 effect가
   // 자동으로 재실행돼서, Step 2에서 스펙 파생 행(id>=1000)을 수동으로 삭제해도 다시 들어올
   // 때마다 되살아나는 불편이 있었음. 이제 이 effect는 "아직 아무 항목도 없는 새 아이템"에
   // 처음 한 번 시딩하는 역할만 하고, 이미 있는 아이템의 스펙 파생 행 재생성은 아래
-  // applySpecReqsToExistingItems()로 분리해 "다음 → 아이템 등록" 버튼을 눌렀을 때만 실행한다.
+  // applySpecReqsToExistingItems()로 분리해 "다음 <i data-lucide="arrow-right"></i> 아이템 등록" 버튼을 눌렀을 때만 실행한다.
   useEffect(() => {
     setItpRowsByItem(prev => {
       const next = {...prev};
@@ -1245,7 +1251,7 @@ function App(){
     });
   }, [items]);
 
-  // v2.6 — Step 0 "다음 → 아이템 등록" 클릭 시에만 명시적으로 호출. 현재 등록된 모든 아이템의
+  // v2.6 — Step 0 "다음 <i data-lucide="arrow-right"></i> 아이템 등록" 클릭 시에만 명시적으로 호출. 현재 등록된 모든 아이템의
   // id>=1000(스펙 파생) 블록을 지금 specReqs 기준으로 재생성하고, id<1000(수동 편집분)은 보존.
   const applySpecReqsToExistingItems = () => {
     setItpRowsByItem(prev => {
@@ -1320,18 +1326,18 @@ function App(){
         });
         foundParts.push(`아이템 ${qi.length}개`);
       }
-      showMsg(foundParts.length ? `✓ 반영 완료 — ${foundParts.join(", ")}` : `⚠ 이 문서에서 인식 가능한 정보를 찾지 못했습니다`, 5000);
+      showMsg(foundParts.length ? `<i data-lucide="check"></i> 반영 완료 — ${foundParts.join(", ")}` : `<i data-lucide="alert-triangle"></i> 이 문서에서 인식 가능한 정보를 찾지 못했습니다`, 5000);
     } else if (kind === "wo") {
       setProj(p => ({
         ...p,
         no: parsed.no || p.no, name: parsed.name || p.name, customer: parsed.customer || p.customer,
         po: parsed.po || p.po, scope: parsed.scope || p.scope
       }));
-      showMsg(`✓ Work Order 반영 완료 — 프로젝트 정보 업데이트`, 5000);
+      showMsg(`<i data-lucide="check"></i> Work Order 반영 완료 — 프로젝트 정보 업데이트`, 5000);
     } else if (kind === "spec") {
       const reqs = Array.isArray(parsed.requirements) ? parsed.requirements : [];
       setSpecReqs(reqs);
-      showMsg(`✓ 시방서 반영 완료 — 추가 요구사항 ${reqs.length}개`, 5000);
+      showMsg(`<i data-lucide="check"></i> 시방서 반영 완료 — 추가 요구사항 ${reqs.length}개`, 5000);
     } else if (kind === "quote") {
       const qi = Array.isArray(parsed.items) ? parsed.items : [];
       setQuoteItems(qi);
@@ -1341,16 +1347,16 @@ function App(){
         qi.forEach(qi2 => { if (qi2.tag && !byTag.has(qi2.tag)) byTag.set(qi2.tag, {...DEF_ITEM, ...qi2, id: Date.now()+Math.random()}); });
         return Array.from(byTag.values());
       });
-      showMsg(`✓ 견적서 반영 완료 — 아이템 ${qi.length}개 추출/사전 등록`, 5000);
+      showMsg(`<i data-lucide="check"></i> 견적서 반영 완료 — 아이템 ${qi.length}개 추출/사전 등록`, 5000);
     } else {
       const dwgUrl = fileMeta ? `data:${fileMeta.mediaType};base64,${fileMeta.b64}` : undefined;
       const patch = {...parsed, ...(dwgUrl?{dwgUrl, dwgName:fileMeta.name}:{})};
       if (targetItemId) {
         setItems(prev => prev.map(it => it.id === targetItemId ? {...it, ...patch} : it));
-        showMsg(`✓ 도면 반영 완료 — 기존 아이템에 적용`, 5000);
+        showMsg(`<i data-lucide="check"></i> 도면 반영 완료 — 기존 아이템에 적용`, 5000);
       } else {
         setNewItem(prev => ({...prev, ...patch, tag: prev.tag || parsed.tag || ""}));
-        showMsg(`✓ 도면 반영 완료 — 아이템 필드 자동 채움`, 5000);
+        showMsg(`<i data-lucide="check"></i> 도면 반영 완료 — 아이템 필드 자동 채움`, 5000);
       }
     }
   };
@@ -1362,18 +1368,18 @@ function App(){
       applyParsedResult(kind, parsed, targetItemId);
       return true;
     } catch (err) {
-      showMsg(`⚠ JSON 적용 실패 — ${err.message||"형식을 확인해주세요"}`, 6000);
+      showMsg(`<i data-lucide="alert-triangle"></i> JSON 적용 실패 — ${err.message||"형식을 확인해주세요"}`, 6000);
       return false;
     }
   };
   const copyPrompt = (text) => {
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(
-        () => showMsg("✓ 프롬프트 복사됨 — claude.ai에 PDF와 함께 붙여넣으세요", 5000),
-        () => showMsg("⚠ 클립보드 복사 실패 — 직접 선택해서 복사해주세요", 5000)
+        () => showMsg("<i data-lucide="check"></i> 프롬프트 복사됨 — claude.ai에 PDF와 함께 붙여넣으세요", 5000),
+        () => showMsg("<i data-lucide="alert-triangle"></i> 클립보드 복사 실패 — 직접 선택해서 복사해주세요", 5000)
       );
     } else {
-      showMsg("⚠ 이 브라우저는 클립보드 복사를 지원하지 않습니다", 5000);
+      showMsg("<i data-lucide="alert-triangle"></i> 이 브라우저는 클립보드 복사를 지원하지 않습니다", 5000);
     }
   };
 
@@ -1391,7 +1397,7 @@ function App(){
 [BOM_ROWS] From that material list table, extract ALL rows as an array: {name, mat, thk, sz, qty, remark}.
 - name: part name (e.g. "SHELL","TOP HEAD","BOTTOM HEAD","JACKET SHELL","TUBE SHEET","GIRTH FLANGE","CHANNEL","NOZZLE PIPE","REINFORCE PAD", etc.)
 - mat: material column. thk: thickness (numbers only). sz: size/dimension (e.g. "Ø1200xL3000","150A x SCH.40"). qty: numbers only. remark: remark column.
-Skip blank rows. Don't invent rows for parts that don't exist on this equipment (e.g. no jacket → no jacket rows).
+Skip blank rows. Don't invent rows for parts that don't exist on this equipment (e.g. no jacket <i data-lucide="arrow-right"></i> no jacket rows).
 
 [DERIVE FROM BOM_ROWS] shell_mat/shell_thk/shell_len = SHELL row. head_top_mat/head_bot_mat = TOP/BOTTOM HEAD rows. ts_mat/ts_thk = TUBE SHEET row. gf_mat/gf_thk = GIRTH FLANGE row. tube_mat/tube_od = TUBE row.
 shell_is_pipe = true if the SHELL row shows pipe notation (e.g. "10B x SCH.40", "450A") instead of a plate ID — in that case set shell_od (numeric OD in mm) and shell_od_display (e.g. "267.4mm (10BxSCH.40)"); otherwise leave shell_od/shell_od_display empty and shell_id = the plate inner diameter.
@@ -1437,7 +1443,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       applyParsedResult(kind, parsed, targetItemId, {b64, mediaType, name:file.name});
     } catch (err) {
       console.error(err);
-      showMsg(`⚠ ${kindLabel} 분석 실패 — ${err.message||"알 수 없는 오류"}`, 8000);
+      showMsg(`<i data-lucide="alert-triangle"></i> ${kindLabel} 분석 실패 — ${err.message||"알 수 없는 오류"}`, 8000);
     } finally {
       setParsing(null);
     }
@@ -1635,7 +1641,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         }
       }
       if (arr.length === 0) {
-        showMsg(`⚠ ${file.name}: 인식된 항목이 없습니다. 수동 입력 또는 형식 확인이 필요합니다.`, 6000);
+        showMsg(`<i data-lucide="alert-triangle"></i> ${file.name}: 인식된 항목이 없습니다. 수동 입력 또는 형식 확인이 필요합니다.`, 6000);
         return;
       }
       const kindLabel = kind==="wps"?"WPS":kind==="welder"?"Welder":"검사자";
@@ -1643,16 +1649,16 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       if (kind === "wps") { setWpsList(arr); window.WPS_LIST = arr; savedOk = saveMasterList("wps", arr); }
       else if (kind === "welder") { setWelderList(arr); window.WELDER_LIST = arr; savedOk = saveMasterList("welder", arr); }
       else { setInspectorList(arr); window.INSPECTOR_LIST = arr; savedOk = saveMasterList("inspector", arr); }
-      if (savedOk) showMsg(`✓ ${file.name}에서 ${arr.length}개 ${kindLabel} 항목 추출 완료 — QA Doc Generator에서도 자동 반영됩니다.`, 6000);
+      if (savedOk) showMsg(`<i data-lucide="check"></i> ${file.name}에서 ${arr.length}개 ${kindLabel} 항목 추출 완료 — QA Doc Generator에서도 자동 반영됩니다.`, 6000);
       else warnLocalSaveFailed();
     } catch (err) {
       console.error(err);
-      showMsg(`⚠ 파싱 실패 — ${err.message||"알 수 없는 오류"}`, 6000);
+      showMsg(`<i data-lucide="alert-triangle"></i> 파싱 실패 — ${err.message||"알 수 없는 오류"}`, 6000);
     }
   };
 
   const addItem = () => {
-    if (!newItem.tag || !newItem.name) { showMsg("⚠ Tag와 Name은 필수"); return; }
+    if (!newItem.tag || !newItem.name) { showMsg("<i data-lucide="alert-triangle"></i> Tag와 Name은 필수"); return; }
     // v2.2 fix: id를 Date.now()만으로 만들면 같은 밀리초 안에 여러 아이템을 연속 등록할 때
     // (WBS에서 넘어온 아이템을 짧은 간격으로 여러 개 등록하는 경우 등) id가 겹쳐서, 한 아이템의
     // 도면/등록 정보를 채우면 같은 id를 가진 다른 아이템에도 전부 똑같이 적용되는 사고가 있었음
@@ -1660,7 +1666,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     // 여러 아이템에 동시에 걸림). 다른 아이템 생성 경로(1158/1181행)와 동일하게 Math.random() 추가.
     setItems(p => [...p, {...newItem, id: Date.now()+Math.random()}]);
     setNewItem({...DEF_ITEM});
-    showMsg(`✓ 아이템 추가 — ${newItem.tag}`);
+    showMsg(`<i data-lucide="check"></i> 아이템 추가 — ${newItem.tag}`);
   };
 
   const removeItem = (id) => {
@@ -1714,12 +1720,12 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     showMsg("☁ QA Doc Generator로 전송 중... (WPS/Welder/검사자 List 포함)", 15000);
     try {
       await writeItpDocToFirestore({...payload, savedAt: Date.now()});
-      showMsg(`✓ QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — WPS ${wpsList.length}개 / Welder ${welderList.length}명 / 검사자 ${inspectorList.length}명 포함. QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 8000);
+      showMsg(`<i data-lucide="check"></i> QA Doc Generator로 전송 완료${bridged?" (EPC Control 연동 포함)":""} — WPS ${wpsList.length}개 / Welder ${welderList.length}명 / 검사자 ${inspectorList.length}명 포함. QA Doc Generator를 열거나 "🔄 ITP 최신정보 새로고침"을 눌러 확인하세요.`, 8000);
     } catch (e) {
-      showMsg(`⚠ 클라우드 전송 실패: ${e.message||e} — 로컬 전송은 완료됐으니 같은 브라우저라면 QA Doc Generator에서 확인 가능합니다.`, 8000);
+      showMsg(`<i data-lucide="alert-triangle"></i> 클라우드 전송 실패: ${e.message||e} — 로컬 전송은 완료됐으니 같은 브라우저라면 QA Doc Generator에서 확인 가능합니다.`, 8000);
     }
   };
-  // v3.2 — ITP를 결재선에 상신. 작성(본인) → [부서장 검토] → PM 승인.
+  // v3.2 — ITP를 결재선에 상신. 작성(본인) <i data-lucide="arrow-right"></i> [부서장 검토] <i data-lucide="arrow-right"></i> PM 승인.
   // index.html의 다단계 결재(approvals/approvalLine)와 동일 스키마로 문서 생성.
   const submitItpForApproval = async () => {
     const cur = fb.auth && fb.auth.currentUser;
@@ -1775,8 +1781,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
       await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
       showMsg(headUid
-        ? "✅ 부서장 검토 → PM 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)"
-        : "✅ PM에게 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)", 8000);
+        ? "<i data-lucide="check-circle"></i> 부서장 검토 <i data-lucide="arrow-right"></i> PM 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)"
+        : "<i data-lucide="check-circle"></i> PM에게 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)", 8000);
     } catch (e) { showMsg("결재 상신 실패: " + (e.message || e), 6000); }
   };
   // v2.1 — 자동저장(1초 디바운스)과 동일한 함수를 즉시 실행. 이 기능 도입 이전부터 로컬에만
@@ -1785,8 +1791,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     showMsg("☁ 클라우드에 업로드 중...", 30000);
     try {
       await writeItpDocToFirestore({proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt: Date.now()});
-      showMsg("✓ 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
-    } catch (e) { showMsg(`⚠ 업로드 실패: ${e.message||e}`, 6000); }
+      showMsg("<i data-lucide="check"></i> 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
+    } catch (e) { showMsg(`<i data-lucide="alert-triangle"></i> 업로드 실패: ${e.message||e}`, 6000); }
   };
   const handleExport = () => {
     const data = {proj, items, specReqs, quoteItems, wpsList, welderList, inspectorList, exported_at:new Date().toISOString(), version:"itp_builder_v1.2"};
@@ -1795,7 +1801,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     const a = document.createElement("a"); a.href = url; a.download = `${proj.no||"project"}_data.json`;
     a.click(); URL.revokeObjectURL(url);
     const bridged = pushToHost();
-    showMsg(bridged ? `✓ Export 완료 — EPC Control · QA Doc Generator로 자동 전송` : `✓ Export 완료 — Standalone 모드 (EPC 미연결)`);
+    showMsg(bridged ? `<i data-lucide="check"></i> Export 완료 — EPC Control · QA Doc Generator로 자동 전송` : `<i data-lucide="check"></i> Export 완료 — Standalone 모드 (EPC 미연결)`);
   };
   const handleImport = (file) => {
     const r = new FileReader();
@@ -1809,8 +1815,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         if (d.wpsList) { setWpsList(d.wpsList); window.WPS_LIST=d.wpsList; saveMasterList("wps", d.wpsList); }
         if (d.welderList) { setWelderList(d.welderList); window.WELDER_LIST=d.welderList; saveMasterList("welder", d.welderList); }
         if (d.inspectorList) { setInspectorList(d.inspectorList); window.INSPECTOR_LIST=d.inspectorList; saveMasterList("inspector", d.inspectorList); }
-        showMsg(`✓ Import 완료 — ${d.items?.length || 0}개 아이템`);
-      } catch(err) { showMsg(`⚠ Import 실패: ${err.message}`); }
+        showMsg(`<i data-lucide="check"></i> Import 완료 — ${d.items?.length || 0}개 아이템`);
+      } catch(err) { showMsg(`<i data-lucide="alert-triangle"></i> Import 실패: ${err.message}`); }
     };
     r.readAsText(file);
   };
@@ -1822,24 +1828,24 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     setItpRowsByItem({}); setItpDocNoByItem({}); setItpRevByItem({});
     setSelectedItpItemId(null); setPrintAllMode(false); setStep(0);
         setWitnessCols([{key:"sj",name:"SJ",bg:"#eef3fb"},{key:"qc",name:"QC",bg:"#eef3fb"},{key:"client",name:"Client",bg:"#eef3fb"}]);
-    showMsg(`✓ 새 프로젝트`);
+    showMsg(`<i data-lucide="check"></i> 새 프로젝트`);
   };
 
   return <div className="app">
     {/* v1.3 EPC Control 톤 Topbar */}
     <div className="epc-topbar no-print">
-      <div className="epc-topbar-icon">📋</div>
+      <div className="epc-topbar-icon"><i data-lucide="clipboard-list"></i></div>
       <div>
         <div className="epc-topbar-title">ITP Builder v1.4</div>
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
-      <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}>🔑 API 키{getApiKey()?" ✓":""}</button>
+      <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}><i data-lucide="key"></i> API 키{getApiKey()?" <i data-lucide="check"></i>":""}</button>
       <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
     </div>
 
     {showKeyModal && <div className="modal-overlay no-print" onClick={()=>setShowKeyModal(false)}>
       <div className="modal-box" onClick={e=>e.stopPropagation()}>
-        <div style={{fontWeight:700, marginBottom:8}}>🔑 Claude API 키</div>
+        <div style={{fontWeight:700, marginBottom:8}}><i data-lucide="key"></i> Claude API 키</div>
         <div style={{fontSize:10.5, color:"var(--sjp-text-sub)", marginBottom:10, lineHeight:1.5}}>
           Work Order·시방서·견적서·도면 PDF 자동 파싱에 사용됩니다. 이 키는 이 브라우저의 localStorage에만 저장되며,
           api.anthropic.com으로만 직접 전송됩니다 — 저장소(git)나 서버로는 전송/저장되지 않습니다.
@@ -1849,7 +1855,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <div style={{display:"flex", gap:6, justifyContent:"flex-end"}}>
           <button onClick={()=>{ setStoredApiKey(""); setKeyInput(""); showMsg("API 키를 삭제했습니다"); }} className="btn-secondary">삭제</button>
           <button onClick={()=>setShowKeyModal(false)} className="btn-secondary">닫기</button>
-          <button onClick={()=>{ setStoredApiKey(keyInput.trim()); setShowKeyModal(false); showMsg("✓ API 키 저장 완료"); }} className="btn-primary">저장</button>
+          <button onClick={()=>{ setStoredApiKey(keyInput.trim()); setShowKeyModal(false); showMsg("<i data-lucide="check"></i> API 키 저장 완료"); }} className="btn-primary">저장</button>
         </div>
       </div>
     </div>}
@@ -1870,22 +1876,22 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     {/* Step 0 */}
     {step === 0 && <div>
       <div className="card">
-        <div className="card-h">📄 프로젝트 문서 업로드 <span className="badge">WO·시방서·견적서 통합 인식</span></div>
+        <div className="card-h"><i data-lucide="file"></i> 프로젝트 문서 업로드 <span className="badge">WO·시방서·견적서 통합 인식</span></div>
         <div className="card-b">
           <div style={{fontSize:10, color:"var(--sjp-text-sub)", marginBottom:8}}>
             Work Order / 시방서 / 견적서 중 아무 문서나 올리면(또는 한 문서에 여러 내용이 섞여 있어도) 그 안에 실제로 있는 항목만 알아서 찾아서 반영합니다. 문서 종류별로 따로 올릴 필요 없습니다.
           </div>
           <input type="file" accept=".pdf" id="projectFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleFile(e.target.files[0], "project")}/>
-          <button onClick={()=>document.getElementById("projectFile").click()} disabled={parsing!==null} className="btn-primary">📄 문서 업로드 (PDF)</button>
+          <button onClick={()=>document.getElementById("projectFile").click()} disabled={parsing!==null} className="btn-primary"><i data-lucide="file"></i> 문서 업로드 (PDF)</button>
           <span style={{fontSize:10, color:"var(--sjp-text-sub)", marginLeft:8}}>Project No/발주처/PO/Scope, 추가 요구사항, 견적 아이템 — 있는 것만 자동 반영</span>
           <PasteBox kind="project" prompt={buildParsePrompt("project")} onApply={handlePasteApply} onCopyPrompt={copyPrompt}/>
 
           <div style={{display:"flex", gap:16, marginTop:12, flexWrap:"wrap"}}>
             <div style={{fontSize:10, color: specReqs.length > 0 ? "var(--sjp-success)" : "var(--sjp-text-sub)"}}>
-              📋 추가 요구사항: <strong>{specReqs.length}개</strong>
+              <i data-lucide="clipboard-list"></i> 추가 요구사항: <strong>{specReqs.length}개</strong>
             </div>
             <div style={{fontSize:10, color: quoteItems.length > 0 ? "#7f77dd" : "var(--sjp-text-sub)"}}>
-              💰 견적 아이템: <strong>{quoteItems.length}개</strong> (도면 미도착 상태에서도 ITP 생성 가능)
+              <i data-lucide="circle-dollar-sign"></i> 견적 아이템: <strong>{quoteItems.length}개</strong> (도면 미도착 상태에서도 ITP 생성 가능)
             </div>
           </div>
           {specReqs.length > 0 && <div style={{marginTop:8, maxHeight:200, overflowY:"auto"}}>
@@ -1893,7 +1899,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
               <div key={i} className="spec-row">
                 <strong style={{color:"var(--sjp-warning)"}}>[{r.category}]</strong> {r.activity}
                 {r.hold && <span style={{color:"var(--sjp-danger)", marginLeft:5, fontWeight:600}}>(H.P.)</span>}
-                <div style={{color:"var(--sjp-text-sub)", fontSize:10, marginTop:2}}>{r.code} → {r.criteria}</div>
+                <div style={{color:"var(--sjp-text-sub)", fontSize:10, marginTop:2}}>{r.code} <i data-lucide="arrow-right"></i> {r.criteria}</div>
               </div>
             )}
             <button onClick={()=>{ if(confirm("시방서 요구사항을 모두 제거하시겠습니까?")) setSpecReqs([]); }} style={{fontSize:10, padding:"3px 8px", background:"var(--sjp-danger-bg)", color:"var(--sjp-danger)", border:"1px solid #fbb", borderRadius:3, cursor:"pointer", marginTop:4}}>✕ 모두 제거</button>
@@ -1902,16 +1908,16 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       </div>
 
       <div className="card">
-        <div className="card-h">🔧 WPS / Welder / 검사자 List 업로드 <span className="badge">xlsx · pdf · csv 지원</span></div>
+        <div className="card-h"><i data-lucide="wrench"></i> WPS / Welder / 검사자 List 업로드 <span className="badge">xlsx · pdf · csv 지원</span></div>
         <div className="card-b">
           <div style={{fontSize:10, color:"var(--sjp-text-sub)", marginBottom:8}}>회사 표준 양식(xlsx) 또는 CSV/TXT/PDF 업로드. 업로드하면 QA Doc Generator의 Fit-up & Welding IR·검사자 선택에서 바로 선택 가능합니다.</div>
           <div style={{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap"}}>
             <input type="file" accept=".csv,.txt,.tsv,.xlsx,.xls,.pdf" id="wpsFile" style={{display:"none"}} onChange={e=>parseListFile(e.target.files[0], "wps")}/>
-            <button onClick={()=>document.getElementById("wpsFile").click()} className="btn-secondary">📄 WPS 파일 업로드</button>
+            <button onClick={()=>document.getElementById("wpsFile").click()} className="btn-secondary"><i data-lucide="file"></i> WPS 파일 업로드</button>
             <input type="file" accept=".csv,.txt,.tsv,.xlsx,.xls,.pdf" id="welderFile" style={{display:"none"}} onChange={e=>parseListFile(e.target.files[0], "welder")}/>
-            <button onClick={()=>document.getElementById("welderFile").click()} className="btn-secondary">📄 Welder 파일 업로드</button>
+            <button onClick={()=>document.getElementById("welderFile").click()} className="btn-secondary"><i data-lucide="file"></i> Welder 파일 업로드</button>
             <input type="file" accept=".csv,.txt,.tsv,.xlsx,.xls,.pdf" id="inspectorFile" style={{display:"none"}} onChange={e=>parseListFile(e.target.files[0], "inspector")}/>
-            <button onClick={()=>document.getElementById("inspectorFile").click()} className="btn-secondary">📄 검사자 파일 업로드</button>
+            <button onClick={()=>document.getElementById("inspectorFile").click()} className="btn-secondary"><i data-lucide="file"></i> 검사자 파일 업로드</button>
             <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>현재: WPS {wpsList.length}개 / Welder {welderList.length}명 / 검사자 {inspectorList.length}명</span>
           </div>
           <div className="fld" style={{marginTop:8}}><label>WPS No. List</label>
@@ -1925,7 +1931,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
             const expired = welderList.filter(w => welderStatus(welderDueDate(w)).label === "expired").length;
             if (!expiring && !expired) return null;
             return <div style={{marginTop:6, padding:"6px 10px", background:"var(--sjp-warning-bg)", border:"1px solid #f0d78c", borderRadius:5, fontSize:10.5, color:"#856404", fontWeight:600}}>
-              ⚠ 용접사 자격 만료임박 {expiring}명 / 만료 {expired}명 — 자격인정 관리대장 기준 (30일 이내)
+              <i data-lucide="alert-triangle"></i> 용접사 자격 만료임박 {expiring}명 / 만료 {expired}명 — 자격인정 관리대장 기준 (30일 이내)
             </div>;
           })()}
           <div className="fld"><label>검사자(Inspector) List</label>
@@ -1954,11 +1960,11 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
 
       <div style={{display:"flex", gap:6, justifyContent:"space-between", alignItems:"center"}}>
         <div style={{display:"flex", gap:6}}>
-          <button onClick={handleExport} className="btn-secondary">💾 JSON Export</button>
+          <button onClick={handleExport} className="btn-secondary"><i data-lucide="save"></i> JSON Export</button>
           <input type="file" accept=".json" id="impFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleImport(e.target.files[0])}/>
-          <button onClick={()=>document.getElementById("impFile").click()} className="btn-secondary">📥 JSON Import</button>
+          <button onClick={()=>document.getElementById("impFile").click()} className="btn-secondary"><i data-lucide="download"></i> JSON Import</button>
         </div>
-        <button onClick={()=>{applySpecReqsToExistingItems(); setStep(1);}} className="btn-primary">다음 → 아이템 등록</button>
+        <button onClick={()=>{applySpecReqsToExistingItems(); setStep(1);}} className="btn-primary">다음 <i data-lucide="arrow-right"></i> 아이템 등록</button>
       </div>
     </div>}
 
@@ -1970,7 +1976,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           <div className="card-b">
             <input type="file" accept="image/*,.pdf" id="dwgFile" style={{display:"none"}} onChange={e=>e.target.files[0] && handleFile(e.target.files[0], "dwg")}/>
             <button onClick={()=>document.getElementById("dwgFile").click()} disabled={parsing!==null} className="btn-primary" style={{background:"#993c1d", marginBottom:8, width:"100%"}}>
-              📐 도면 업로드 → 아이템 필드 자동 채움
+              <i data-lucide="pencil-ruler"></i> 도면 업로드 <i data-lucide="arrow-right"></i> 아이템 필드 자동 채움
             </button>
             {newItem.dwgName && <div style={{fontSize:10, color:"var(--sjp-success)", marginBottom:6}}>{newItem.dwgName}</div>}
             <PasteBox kind="dwg" prompt={buildParsePrompt("dwg")} onApply={handlePasteApply} onCopyPrompt={copyPrompt}/>
@@ -1988,7 +1994,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
             <div className="fld"><label>Design T (℃)</label><input value={newItem.design_t} onChange={e=>setNewItem(p=>({...p, design_t:e.target.value}))}/></div>
 
             <div className="head-block">
-              <div className="head-block-title">📌 상하 경판 분리 입력 (v25 신규)</div>
+              <div className="head-block-title"><i data-lucide="pin"></i> 상하 경판 분리 입력 (v25 신규)</div>
               <div className="fld"><label>Top Head Type</label>
                 <select value={newItem.head_top_type} onChange={e=>setNewItem(p=>({...p, head_top_type:e.target.value}))}>{HEAD_TYPES.map(t => <option key={t}>{t}</option>)}</select>
               </div>
@@ -1998,7 +2004,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
               </div>
               <div className="fld"><label>Bottom Head Mat.</label><input value={newItem.head_bot_mat} onChange={e=>setNewItem(p=>({...p, head_bot_mat:e.target.value}))}/></div>
               {(newItem.head_top_type === "CAP (B16.9)" || newItem.head_bot_type === "CAP (B16.9)") &&
-                <div style={{fontSize:10, color:"#996b04", marginTop:4}}>⚠ CAP 적용 — QC Gen에서 해당 측 Forming Report 자동 제외, DIM Report B16.9 공차 적용</div>}
+                <div style={{fontSize:10, color:"#996b04", marginTop:4}}><i data-lucide="alert-triangle"></i> CAP 적용 — QC Gen에서 해당 측 Forming Report 자동 제외, DIM Report B16.9 공차 적용</div>}
             </div>
 
             <label className="chk"><input type="checkbox" checked={newItem.jacket} onChange={e=>setNewItem(p=>({...p, jacket:e.target.checked}))}/>Jacket</label>
@@ -2025,7 +2031,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
                     <strong className="item-tag">{it.tag}</strong>
                     <div style={{display:"flex", gap:4}}>
                       <input type="file" accept="image/*,.pdf" id={`dwg-${it.id}`} style={{display:"none"}} onChange={e=>e.target.files[0] && handleFile(e.target.files[0], "dwg", it.id)}/>
-                      <button onClick={()=>document.getElementById(`dwg-${it.id}`).click()} style={{fontSize:9, padding:"2px 6px", background:"#993c1d", color:"#fff", border:"none", borderRadius:3, cursor:"pointer"}}>📐 도면</button>
+                      <button onClick={()=>document.getElementById(`dwg-${it.id}`).click()} style={{fontSize:9, padding:"2px 6px", background:"#993c1d", color:"#fff", border:"none", borderRadius:3, cursor:"pointer"}}><i data-lucide="pencil-ruler"></i> 도면</button>
                       <button onClick={()=>removeItem(it.id)} style={{fontSize:9, padding:"2px 6px", background:"var(--sjp-danger-bg)", color:"var(--sjp-danger)", border:"none", borderRadius:3, cursor:"pointer"}}>✕</button>
                     </div>
                   </div>
@@ -2038,8 +2044,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
                     {(it.head_top_type === "CAP (B16.9)" || it.head_bot_type === "CAP (B16.9)") &&
                       <span style={{color:"var(--sjp-warning)", marginLeft:5, fontWeight:600}}>(CAP)</span>}
                   </div>
-                  {it.dwgUrl ? <div style={{fontSize:9, color:"var(--sjp-success)", marginTop:2}}>✓ 도면 첨부됨</div>
-                    : <div style={{fontSize:9, color:"var(--sjp-warning)", marginTop:2}}>⚠ 도면 미첨부</div>}
+                  {it.dwgUrl ? <div style={{fontSize:9, color:"var(--sjp-success)", marginTop:2}}><i data-lucide="check"></i> 도면 첨부됨</div>
+                    : <div style={{fontSize:9, color:"var(--sjp-warning)", marginTop:2}}><i data-lucide="alert-triangle"></i> 도면 미첨부</div>}
                   <PasteBox kind="dwg" targetItemId={it.id} prompt={buildParsePrompt("dwg")} onApply={handlePasteApply} onCopyPrompt={copyPrompt}/>
                 </div>
               )
@@ -2048,9 +2054,9 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         </div>
 
         <div style={{display:"flex", gap:6}}>
-          <button onClick={()=>setStep(0)} className="btn-secondary" style={{flex:1}}>← 이전</button>
+          <button onClick={()=>setStep(0)} className="btn-secondary" style={{flex:1}}><i data-lucide="arrow-left"></i> 이전</button>
           <button onClick={()=>setStep(2)} className="btn-primary" disabled={items.length===0} style={{flex:2}}>
-            다음 → ITP 생성 ({items.length}개)
+            다음 <i data-lucide="arrow-right"></i> ITP 생성 ({items.length}개)
           </button>
         </div>
       </div>
@@ -2061,13 +2067,13 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       const selectedItem = items.find(it => it.id === selectedItpItemId) || null;
       return <div>
       <div className="no-print" style={{display:"flex", gap:6, marginBottom:8, alignItems:"center"}}>
-        <button onClick={()=>setStep(1)} className="btn-secondary">← 수정하기</button>
+        <button onClick={()=>setStep(1)} className="btn-secondary"><i data-lucide="arrow-left"></i> 수정하기</button>
         <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>자동 저장</span>
         <div style={{flex:1}}/>
         <button onClick={sendToQADoc} className="btn-primary" title="파일 다운로드 없이, 지금 상태를 바로 QA Doc Generator에 전달합니다">🚀 QA Doc Generator로 바로 전송</button>
-        <button onClick={submitItpForApproval} className="btn-primary" style={{background:"#7c3aed", borderColor:"#7c3aed"}} title="이 ITP를 결재선(작성→[부서장 검토]→PM 승인)에 올립니다">📋 결재 상신</button>
+        <button onClick={submitItpForApproval} className="btn-primary" style={{background:"#7c3aed", borderColor:"#7c3aed"}} title="이 ITP를 결재선(작성→[부서장 검토]→PM 승인)에 올립니다"><i data-lucide="clipboard-list"></i> 결재 상신</button>
         <button onClick={handleManualCloudUpload} className="btn-secondary" title="현재 화면의 내용을 지금 즉시 클라우드에 업로드합니다 (다른 계정에서도 볼 수 있게 됨)">☁ 지금 클라우드로 업로드</button>
-        <button onClick={handleExport} className="btn-secondary">💾 QC Gen으로 Export</button>
+        <button onClick={handleExport} className="btn-secondary"><i data-lucide="save"></i> QC Gen으로 Export</button>
       </div>
 
       {!printAllMode && items.length > 1 &&
@@ -2084,7 +2090,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       <div className="no-print" style={{marginBottom:8}}>
         <div className="print-bar">
           <span style={{fontSize:11, fontWeight:600}}>
-            📄 ITP — {proj.name || "프로젝트명"} ({proj.no || "Project No"})
+            <i data-lucide="file"></i> ITP — {proj.name || "프로젝트명"} ({proj.no || "Project No"})
             {!printAllMode && selectedItem && <> · {selectedItem.tag}</>}
             {printAllMode && <> · 전체 {items.length}개 아이템</>}
           </span>
@@ -2097,7 +2103,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         </div>
         <div style={{fontSize:10, color:"#666", padding:"4px 10px", marginTop:3, background:"#fffdf5", border:"0.5px dashed #ecd6a3", borderRadius:4}}>
           <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 필수 옵션:</span>
-          &nbsp;Chrome/Edge → <strong style={{color:"#c33"}}>여백(Margins): "없음(None)"</strong> (⚠ "기본값"을 선택하면 브라우저가 자체 여백을 추가로 넣어서 페이지가 한 장 더 넘어갈 수 있습니다) &nbsp;|&nbsp;
+          &nbsp;Chrome/Edge <i data-lucide="arrow-right"></i> <strong style={{color:"#c33"}}>여백(Margins): "없음(None)"</strong> (<i data-lucide="alert-triangle"></i> "기본값"을 선택하면 브라우저가 자체 여백을 추가로 넣어서 페이지가 한 장 더 넘어갈 수 있습니다) &nbsp;|&nbsp;
           <strong>"머리글 및 바닥글" 해제</strong> &nbsp;|&nbsp;
           <strong>"배경 그래픽" 체크</strong>
         </div>
@@ -2136,6 +2142,12 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
 // (sejong-platform 플로팅 패널 제거됨 — SJ FLOW iframe 통합 구조로 전환)
+</script>
+<script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>

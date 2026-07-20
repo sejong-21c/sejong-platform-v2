@@ -81,6 +81,12 @@ body { font-family:-apple-system,"Malgun Gothic","맑은 고딕",sans-serif; bac
 .empty { text-align:center; padding:40px; color:var(--text-lighter); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
 .loading { text-align:center; padding:40px; color:var(--text-lighter); font-size:13px; }
 </style>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
 </head>
 <body>
 <div id="app">불러오는 중...</div>
@@ -152,7 +158,7 @@ function renderList() {
   return `
     <div class="hd">
       <div>
-        <h1>📚 ITP 조회</h1>
+        <h1><i data-lucide="library"></i> ITP 조회</h1>
         <div class="sub">ITP Builder로 생성·저장된 문서를 프로젝트별로 조회합니다 (읽기 전용)</div>
       </div>
     </div>
@@ -188,19 +194,19 @@ function renderProj() {
   }).join('');
 
   return `
-    <div class="breadcrumb"><a onclick="goBack()">📚 ITP 조회</a><span class="sep">›</span><b>${esc(lbl.code)} ${esc(lbl.name)}</b></div>
+    <div class="breadcrumb"><a onclick="goBack()"><i data-lucide="library"></i> ITP 조회</a><span class="sep">›</span><b>${esc(lbl.code)} ${esc(lbl.name)}</b></div>
     <div class="hd">
       <div>
         <h1>${esc(lbl.code)} · ${esc(lbl.name)}</h1>
         <div class="sub">${lbl.client ? esc(lbl.client) + ' · ' : ''}${savedAt ? '최근 저장 ' + savedAt : ''}</div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="goBack()">← 목록</button>
-        <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}')">📋 Builder 열기</button>
+        <button class="btn" onclick="goBack()"><i data-lucide="arrow-left"></i> 목록</button>
+        <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}')"><i data-lucide="clipboard-list"></i> Builder 열기</button>
       </div>
     </div>
     <div class="section">
-      <h3>📦 아이템 (${items.length}개)</h3>
+      <h3><i data-lucide="package"></i> 아이템 (${items.length}개)</h3>
       ${items.length ? `<div class="item-list">${rows}</div>` : '<div class="empty">이 프로젝트에는 등록된 아이템이 없습니다.</div>'}
     </div>
   `;
@@ -233,7 +239,7 @@ function renderItem() {
 
   return `
     <div class="breadcrumb">
-      <a onclick="state.selectedPid=null;state.selectedItem=null;render();scrollToTop()">📚 ITP 조회</a><span class="sep">›</span>
+      <a onclick="state.selectedPid=null;state.selectedItem=null;render();scrollToTop()"><i data-lucide="library"></i> ITP 조회</a><span class="sep">›</span>
       <a onclick="goBack()">${esc(lbl.code)}</a><span class="sep">›</span>
       <b>${esc(it.name || it.tag || '아이템 #'+(state.selectedItem+1))}</b>
     </div>
@@ -243,12 +249,12 @@ function renderItem() {
         <div class="sub">${it.spec ? esc(it.spec) + ' · ' : ''}${it.docNo ? esc(it.docNo) + (it.rev ? ' Rev.'+esc(it.rev) : '') : ''}</div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="goBack()">← 아이템 목록</button>
-        <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', ${state.selectedItem})">📋 Builder 편집</button>
+        <button class="btn" onclick="goBack()"><i data-lucide="arrow-left"></i> 아이템 목록</button>
+        <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', ${state.selectedItem})"><i data-lucide="clipboard-list"></i> Builder 편집</button>
       </div>
     </div>
     <div class="section">
-      <h3>📋 ITP 항목 (${rows.length}행)</h3>
+      <h3><i data-lucide="clipboard-list"></i> ITP 항목 (${rows.length}행)</h3>
       ${rows.length ? `<div style="overflow-x:auto;">
         <table class="itp-table">
           <thead><tr>
@@ -280,6 +286,12 @@ window.render = render;
 window.scrollToTop = scrollToTop;
 
 startSync();
+</script>
+<script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>

@@ -90,18 +90,24 @@
   .legend .sw{width:11px;height:11px;border-radius:3px}
   .foot{margin-top:14px;font-size:10.5px;color:#9ca3af;line-height:1.6}
 </style>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
 </head>
 <body>
 <div class="wrap">
   <div class="topbar">
-    <h1>📊 YEONG-CHEON BUILD FACTORY — WBS</h1>
+    <h1><i data-lucide="chart-column"></i> YEONG-CHEON BUILD FACTORY — WBS</h1>
     <span class="badge">프로토타입 · 메모 콜아웃</span>
     <span class="sub">신규 반응설비 제작공사 · CONSTRUCTOR ㈜세종기술</span>
-    <span class="hint">💡 <b>빨간 점(📝)이 붙은 막대를 클릭</b>해 보세요 — 메모가 말풍선으로 나타납니다</span>
+    <span class="hint"><i data-lucide="lightbulb"></i> <b>빨간 점(<i data-lucide="file-text"></i>)이 붙은 막대를 클릭</b>해 보세요 — 메모가 말풍선으로 나타납니다</span>
   </div>
 
   <div class="toolbar">
-    <button onclick="openAll()">📌 모든 메모 펼치기</button>
+    <button onclick="openAll()"><i data-lucide="pin"></i> 모든 메모 펼치기</button>
     <button onclick="closeAll()">✕ 모두 닫기</button>
     <span class="info">막대 클릭 = 메모 토글 · 빈 곳 클릭 = 콜아웃 유지</span>
   </div>
@@ -139,7 +145,7 @@
     <div class="it"><span class="sw" style="background:#0ea5e9"></span>생산부</div>
     <div class="it"><span class="sw" style="background:#8b5cf6"></span>구매/영업부</div>
     <div class="it"><span class="sw" style="background:#f59e0b"></span>설치(현장)</div>
-    <div class="it"><span style="font-size:12px">📝</span> 메모 있음 (클릭 가능)</div>
+    <div class="it"><span style="font-size:12px"><i data-lucide="file-text"></i></span> 메모 있음 (클릭 가능)</div>
     <div class="it"><span style="display:inline-block;width:2px;height:12px;background:#ef4444;opacity:.6"></span> 오늘 (7/19)</div>
   </div>
 
@@ -226,13 +232,13 @@ DATA.forEach((r,i)=>{
     : `<div class="${barCls}${hasMemo?' has-memo':''}" data-i="${i}" style="left:${l}%;width:${w}%;background:${color}22;border:1px solid ${color}">
          <div class="fill" style="width:${fp}%;background:${color}"></div>
          <span class="lbl">${fp}%</span>
-         ${hasMemo?`<span class="memo-dot">📝</span>`:''}
+         ${hasMemo?`<span class="memo-dot"><i data-lucide="file-text"></i></span>`:''}
        </div>`;
   rowsEl.insertAdjacentHTML('beforeend', `
     <div class="row${r.grp?' grp':''}">
       <div class="left LEFTW">
         <div class="cell col-no">${r.no||''}</div>
-        <div class="cell col-name name">${r.grp?'':`<span class="dept-dot" style="background:${color}"></span>`}<span>${r.name}</span>${hasMemo?'<span class="memo-flag">📝</span>':''}</div>
+        <div class="cell col-name name">${r.grp?'':`<span class="dept-dot" style="background:${color}"></span>`}<span>${r.name}</span>${hasMemo?'<span class="memo-flag"><i data-lucide="file-text"></i></span>':''}</div>
         <div class="cell col-mgr mgr">${r.mgr||''}</div>
         <div class="cell col-date date">${r.s.slice(5).replace('-','/')}</div>
         <div class="cell col-date date">${r.e.slice(5).replace('-','/')}</div>
@@ -283,7 +289,7 @@ function toggle(i){
   co.className='callout';
   co.style.left = cx+'px'; co.style.top = cy+'px';
   co.innerHTML = `
-    <div class="co-hd"><span style="font-size:11px">📝</span><span class="t">${r.name}</span><button class="x" title="닫기">✕</button></div>
+    <div class="co-hd"><span style="font-size:11px"><i data-lucide="file-text"></i></span><span class="t">${r.name}</span><button class="x" title="닫기">✕</button></div>
     <div class="co-bd">${r.memo.replace(/</g,'&lt;')}<div class="meta">담당 ${r.mgr} · ${r.s.slice(5).replace('-','/')}~${r.e.slice(5).replace('-','/')} · 진척 ${r.p}%</div></div>`;
   co.querySelector('.x').onclick = (e)=>{ e.stopPropagation(); closeOne(i); };
   calloutsEl.appendChild(co);
@@ -331,6 +337,12 @@ window.addEventListener('resize', ()=>{
   const t=chart.querySelector('.today'); if(t){const lw=document.getElementById('hdrLeft').offsetWidth;const tw=chart.offsetWidth-lw;t.style.left=(lw+pct(TODAY)/100*tw)+'px';}
   drawLines();
 });
+</script>
+<script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>

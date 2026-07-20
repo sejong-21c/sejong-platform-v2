@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <title>WBS 메모 콜아웃 데모 실행</title>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
+i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
+i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
+</style>
 </head>
 <body style="font-family:-apple-system,'Malgun Gothic',sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#eef1f5;color:#1a2332">
 <div style="text-align:center">
@@ -14,6 +20,12 @@
 // 데모 플래그를 심고 wbs.html로 이동 — file://에서 쿼리스트링이 잘리는 환경도 커버
 try { localStorage.setItem("sjp_demo", "1"); } catch (e) {}
 location.replace("wbs.html?demo=1");
+</script>
+<script>
+(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
+function sch(){if(s)return;s=true;queueMicrotask(run);}
+new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>

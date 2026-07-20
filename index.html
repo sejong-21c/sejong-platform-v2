@@ -82,7 +82,12 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .nav-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; flex-shrink: 0; }
 .nav-icon svg { width: 16px; height: 16px; stroke-width: 1.8; color: #667085; }
 .nav-item.active .nav-icon svg, .tool-item.active .nav-icon svg { color: var(--primary); }
-/* ── v30 디자인: 할 일 카드 — 두꺼운 색 테두리 제거 → 중립 카드 + 호버 그림자 ── */
+/* 깜빡임 방지: SVG로 변환되기 전엔 <i data-lucide> 안의 이모지/텍스트를 안 보이게 (변환 후 svg가 들어가면 자동 표시) */
+i[data-lucide] { font-size: 0; color: transparent; display: inline-flex; align-items: center; }
+i[data-lucide] > svg { font-size: 13px; color: initial; }
+.nav-icon i[data-lucide] > svg { color: #667085; }
+.nav-item.active .nav-icon i[data-lucide] > svg, .tool-item.active .nav-icon i[data-lucide] > svg { color: var(--primary); }
+/* ── v30 디자인: 할 일 카드 — 두꺼운 색 테두리 제거 <i data-lucide="arrow-right"></i> 중립 카드 + 호버 그림자 ── */
 .task { border: 1px solid var(--border) !important; border-radius: 6px; box-shadow: none; transition: border-color .12s, box-shadow .12s; }
 .task:hover { border-color: #c7d2e0 !important; box-shadow: 0 1px 4px rgba(16,24,40,.08); }
 .b-pill { border-radius: 4px !important; font-weight: 600 !important; letter-spacing: -.1px; }
@@ -141,7 +146,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .h-back-label { display: inline; }
 .h-search { flex: 0 1 280px; position: relative; }
 .h-search input { width: 100%; padding: 7px 12px 7px 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 13px; }
-.h-search::before { content: "🔍"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; }
+.h-search::before { content: "<i data-lucide="search"></i>"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; }
 .h-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .icon-btn { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; position: relative; }
 .icon-btn:hover { background: var(--primary-light); }
@@ -210,9 +215,9 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .task-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 .task.done .task-title { text-decoration: line-through; color: var(--text-light); }
 .task-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-light); }
-.task.high { border-left-color: var(--danger); }
-.task.mid { border-left-color: var(--warning); }
-.task.low { border-left-color: var(--success); }
+.task.high {} /* v30: 색 강조 제거 */
+.task.mid {}
+.task.low {}
 .cal-event.done { text-decoration: line-through; opacity: 0.6; }
 .cal-event.task-ev { border: 1px dashed rgba(255,255,255,0.4); }
 
@@ -280,7 +285,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   .utl-name { font-size: 12px; }
 }
 
-/* === 📋 Traveller (제작 공정 관리) - v0.7 === */
+/* === <i data-lucide="clipboard-list"></i> Traveller (제작 공정 관리) - v0.7 === */
 .trav-fb { padding: 4px 10px; border: 1px solid var(--border); background: var(--white); border-radius: 4px; font-size: 11px; cursor: pointer; color: var(--text); }
 .trav-fb:hover { background: var(--primary-lighter); }
 .trav-fb.on { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
@@ -515,9 +520,9 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
       <div class="h-title" id="hTitle">대시보드</div>
       <div class="h-search"><input type="text" placeholder="프로젝트·업무·문서 검색..."></div>
       <div class="h-actions">
-        <button class="icon-btn" id="notifBell" title="알림" onclick="toggleNotifPanel(event)">🔔<span class="badge" id="notifBadge" style="display:none;">0</span></button>
+        <button class="icon-btn" id="notifBell" title="알림" onclick="toggleNotifPanel(event)"><i data-lucide="bell"></i><span class="badge" id="notifBadge" style="display:none;">0</span></button>
         <div id="notifPanel" style="display:none;position:absolute;top:54px;right:60px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.14);width:360px;max-width:90vw;max-height:70vh;overflow-y:auto;z-index:1500;"></div>
-        <button class="icon-btn" title="설정" onclick="resetData()">⚙️</button>
+        <button class="icon-btn" title="설정" onclick="resetData()"><i data-lucide="settings"></i>️</button>
         <div class="user-chip" id="userChip" onclick="toggleUserMenu(event)"><div class="avatar" id="userAvatar">김</div><span id="userName">사용자</span><span style="font-size:10px;color:var(--text-light);">▾</span></div>
         <div id="userMenu" style="display:none;position:absolute;top:54px;right:14px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.14);min-width:220px;z-index:1500;overflow:hidden;"></div>
       </div>
@@ -530,7 +535,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   <div class="modal">
     <div class="modal-head">
       <div class="modal-title" id="mTitle">Modal</div>
-      <button class="icon-btn" onclick="closeModal()">✕</button>
+      <button class="icon-btn" onclick="closeModal()"><i data-lucide="x"></i></button>
     </div>
     <div class="modal-body" id="mBody"></div>
     <div class="modal-foot">
@@ -540,7 +545,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   </div>
 </div>
 
-<button class="ai-fab" id="aiFab" title="AI 비서 (드래그해서 위치 이동)" onclick="toggleAiPanel()">🤖</button>
+<button class="ai-fab" id="aiFab" title="AI 비서 (드래그해서 위치 이동)" onclick="toggleAiPanel()"><i data-lucide="sparkles"></i></button>
 <script>
 /* v29.35: AI 봇(FAB) 드래그 이동 — 화면 어디든 옮기고 위치를 localStorage에 저장.
    클릭(패널 토글)과 드래그를 구분: 이동 거리 6px 미만이면 클릭으로 간주. */
@@ -694,12 +699,12 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
     <div><span class="dot"></span>AI 비서</div>
     <div>
       <button class="icon-btn" title="크게/작게" onclick="toggleAiPanelMax()">⤢</button>
-      <button class="icon-btn" title="API 키 설정" onclick="openAiKeyModal()">🔑</button>
-      <button class="icon-btn" onclick="toggleAiPanel()">✕</button>
+      <button class="icon-btn" title="API 키 설정" onclick="openAiKeyModal()"><i data-lucide="key"></i></button>
+      <button class="icon-btn" onclick="toggleAiPanel()"><i data-lucide="x"></i></button>
     </div>
   </div>
   <div class="ai-panel-body" id="aiMessages">
-    <div class="ai-hint">세종플랫폼 데이터 조회/등록을 대화로 처리합니다. 🔑에서 무료 API 키를 등록하면 바로 사용!<br>예) "지연된 업무 알려줘", "OO현장 배관설치 다음주 금요일까지 김철수한테 등록해줘"</div>
+    <div class="ai-hint">세종플랫폼 데이터 조회/등록을 대화로 처리합니다. <i data-lucide="key"></i>에서 무료 API 키를 등록하면 바로 사용!<br>예) "지연된 업무 알려줘", "OO현장 배관설치 다음주 금요일까지 김철수한테 등록해줘"</div>
   </div>
   <div class="ai-panel-foot">
     <input type="text" id="aiInput" placeholder="질문이나 명령을 입력하세요" onkeydown="if(event.key==='Enter') sendAiMessage();">
@@ -729,37 +734,37 @@ const NAV = [
 // 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백)
 function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
 const TOOLS = {
-  'itp':       { name: 'ITP Builder',       icon: '📋', li: 'clipboard-list', desc: 'ASME·TEMA ITP 자동 생성',   status: 'live', ver: 'v1.4'  },
-  'itpview':   { name: 'ITP 조회',           icon: '📚', li: 'library', desc: '생성된 ITP를 프로젝트·아이템별로 조회 (전 부서 공유)',   status: 'live', ver: 'v1.0', parentTool: 'itp', crossDept: true },
-  'qa':        { name: 'QA Doc Generator',  icon: '📄', li: 'file-text', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
-  'qaview':    { name: 'QA Doc 조회',         icon: '📚', li: 'book-open', desc: '생성된 QA/QC 문서를 프로젝트·아이템별로 조회 (전 부서 공유)', status: 'live', ver: 'v1.0', parentTool: 'qa', crossDept: true },
-  'ncr':       { name: 'NCR 관리',          icon: '⚠️', li: 'triangle-alert', desc: '부적합 보고서 발행·추적·종결 (전 부서 조회, 발행·삭제는 품질관리부만)', status: 'live', ver: 'v1.0', crossDept: true },
-  'car':       { name: 'CAR 관리',          icon: '🔧', li: 'wrench', desc: '시정조치 요청·회신·완료 (전 부서 조회, 발행·삭제는 품질관리부만)',     status: 'live', ver: 'v1.0', crossDept: true },
-  'qadash':    { name: '품질종합분석표',    icon: '📊', li: 'chart-column', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석 (전 부서 조회)', status: 'live', ver: 'v1.0', crossDept: true },
-  'manday':    { name: 'Manday Tracker',    icon: '⏱',  li: 'timer', desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
-  'mobile':    { name: 'Mobile Inspection', icon: '📱', li: 'smartphone', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
+  'itp':       { name: 'ITP Builder',       icon: '<i data-lucide="clipboard-list"></i>', li: 'clipboard-list', desc: 'ASME·TEMA ITP 자동 생성',   status: 'live', ver: 'v1.4'  },
+  'itpview':   { name: 'ITP 조회',           icon: '<i data-lucide="library"></i>', li: 'library', desc: '생성된 ITP를 프로젝트·아이템별로 조회 (전 부서 공유)',   status: 'live', ver: 'v1.0', parentTool: 'itp', crossDept: true },
+  'qa':        { name: 'QA Doc Generator',  icon: '<i data-lucide="file"></i>', li: 'file-text', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
+  'qaview':    { name: 'QA Doc 조회',         icon: '<i data-lucide="library"></i>', li: 'book-open', desc: '생성된 QA/QC 문서를 프로젝트·아이템별로 조회 (전 부서 공유)', status: 'live', ver: 'v1.0', parentTool: 'qa', crossDept: true },
+  'ncr':       { name: 'NCR 관리',          icon: '<i data-lucide="alert-triangle"></i>️', li: 'triangle-alert', desc: '부적합 보고서 발행·추적·종결 (전 부서 조회, 발행·삭제는 품질관리부만)', status: 'live', ver: 'v1.0', crossDept: true },
+  'car':       { name: 'CAR 관리',          icon: '<i data-lucide="wrench"></i>', li: 'wrench', desc: '시정조치 요청·회신·완료 (전 부서 조회, 발행·삭제는 품질관리부만)',     status: 'live', ver: 'v1.0', crossDept: true },
+  'qadash':    { name: '품질종합분석표',    icon: '<i data-lucide="chart-column"></i>', li: 'chart-column', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석 (전 부서 조회)', status: 'live', ver: 'v1.0', crossDept: true },
+  'manday':    { name: 'Manday Tracker',    icon: '<i data-lucide="timer"></i>',  li: 'timer', desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
+  'mobile':    { name: 'Mobile Inspection', icon: '<i data-lucide="smartphone"></i>', li: 'smartphone', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
   // 아래 mtools는 원본이 품질관리부 tools 배열에 있음. crossDept로 타부서에도 노출.
   //   - 반출·반입 스캔: 전 부서 사용 가능 (모듈 내부 게이팅 없음)
   //   - 측정기구 등록/수정/검교정: 품질관리부만 (모듈 내부 isQADept로 제어)
-  'deptsch':   { name: '부서 스케줄',       icon: '📅', li: 'calendar-range', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
-  'mtools':    { name: '측정기구 반입출',   icon: '🔬', li: 'microscope', desc: 'QR 스캔 반출·반입 (전 부서) · 등록/검교정은 품질관리부만', status: 'live', ver: 'v1.0', crossDept: true },
-  'asset':     { name: '자산 관리 대장',    icon: '🖥️', li: 'monitor', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
+  'deptsch':   { name: '부서 스케줄',       icon: '<i data-lucide="calendar-days"></i>', li: 'calendar-range', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
+  'mtools':    { name: '측정기구 반입출',   icon: '<i data-lucide="microscope"></i>', li: 'microscope', desc: 'QR 스캔 반출·반입 (전 부서) · 등록/검교정은 품질관리부만', status: 'live', ver: 'v1.0', crossDept: true },
+  'asset':     { name: '자산 관리 대장',    icon: '<i data-lucide="monitor"></i>️', li: 'monitor', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
 };
 // 회의 모듈은 부서 도구가 아니라 대메뉴(NAV 'meeting')로 노출 — 전 직원 자유 사용
 const DEPTS = [
-  { id: 'sales',        icon: '💼', li: 'briefcase', name: '영업부',     tools: ['deptsch'] },
-  { id: 'design',       icon: '📐', li: 'pencil-ruler', name: '기술부',     tools: ['deptsch'] },
-  { id: 'purchase',     icon: '🛒', li: 'shopping-cart', name: '구매부',     tools: ['deptsch'] },
-  { id: 'production',   icon: '🏭', li: 'factory', name: '생산부',     tools: ['deptsch'] },
-  { id: 'quality',      icon: '📦', li: 'package-check', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
-  { id: 'construction', icon: '🏗️', li: 'hard-hat', name: '현장시공',   tools: ['deptsch'] },
-  { id: 'safety',       icon: '🦺', li: 'shield-alert', name: '안전관리부', tools: ['deptsch'] },
-  { id: 'general',      icon: '👔', li: 'building-2', name: '총무부',     tools: ['deptsch', 'asset'] },
-  { id: 'finance',      icon: '💲', li: 'circle-dollar-sign', name: '재무부',     tools: ['deptsch'] },
-  { id: 'nuclear',      icon: '☢️', li: 'radiation', name: '원자력사업부', tools: ['deptsch'] },
-  { id: 'overseas',     icon: '🌏', li: 'globe', name: '해외사업부',   tools: ['deptsch'] },
+  { id: 'sales',        icon: '<i data-lucide="briefcase"></i>', li: 'briefcase', name: '영업부',     tools: ['deptsch'] },
+  { id: 'design',       icon: '<i data-lucide="pencil-ruler"></i>', li: 'pencil-ruler', name: '기술부',     tools: ['deptsch'] },
+  { id: 'purchase',     icon: '<i data-lucide="shopping-cart"></i>', li: 'shopping-cart', name: '구매부',     tools: ['deptsch'] },
+  { id: 'production',   icon: '<i data-lucide="factory"></i>', li: 'factory', name: '생산부',     tools: ['deptsch'] },
+  { id: 'quality',      icon: '<i data-lucide="package"></i>', li: 'package-check', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
+  { id: 'construction', icon: '<i data-lucide="hard-hat"></i>️', li: 'hard-hat', name: '현장시공',   tools: ['deptsch'] },
+  { id: 'safety',       icon: '<i data-lucide="shield-alert"></i>', li: 'shield-alert', name: '안전관리부', tools: ['deptsch'] },
+  { id: 'general',      icon: '<i data-lucide="building-2"></i>', li: 'building-2', name: '총무부',     tools: ['deptsch', 'asset'] },
+  { id: 'finance',      icon: '<i data-lucide="dollar-sign"></i>', li: 'circle-dollar-sign', name: '재무부',     tools: ['deptsch'] },
+  { id: 'nuclear',      icon: '<i data-lucide="radiation"></i>️', li: 'radiation', name: '원자력사업부', tools: ['deptsch'] },
+  { id: 'overseas',     icon: '<i data-lucide="globe"></i>', li: 'globe', name: '해외사업부',   tools: ['deptsch'] },
 ];
-// 부서 한글명 → id 매핑 (doProfileSetup 등에서 dept를 이름으로 저장하므로 채널 id 생성 시 필요)
+// 부서 한글명 <i data-lucide="arrow-right"></i> id 매핑 (doProfileSetup 등에서 dept를 이름으로 저장하므로 채널 id 생성 시 필요)
 const DEPT_NAME_TO_ID = Object.fromEntries(DEPTS.map(d => [d.name, d.id]));
 
 // ══════════ 권한 헬퍼 ══════════
@@ -777,7 +782,7 @@ const EXTRA_PERMS = {
 // 슈퍼관리자는 항상 O. 이 표 자체가 UI 렌더링(권한 부여 창) 소스도 됨.
 const PERM_MODULES = {
   project: {
-    label: '프로젝트 관리', icon: '🏗️',
+    label: '프로젝트 관리', icon: '<i data-lucide="hard-hat"></i>️',
     actions: {
       create:       { label: '프로젝트 생성/수정',  defaultGrant: 'sales-or-exec' },
       assignPM:     { label: 'PM 지정',              defaultGrant: 'sales-or-exec' },
@@ -785,59 +790,59 @@ const PERM_MODULES = {
     },
   },
   deptsch: {
-    label: '부서 스케줄', icon: '📅',
+    label: '부서 스케줄', icon: '<i data-lucide="calendar-days"></i>',
     actions: {
       // 자기 부서 스케줄 편집 = 부서장 이상 (부서 매칭은 canEditDeptSchedule에서 ctx로 추가 검증)
       editOwn: { label: '자기 부서 스케줄 편집', defaultGrant: 'manager' },
     },
   },
   quotes: {
-    label: '견적', icon: '💰', baseDept: '영업부',
+    label: '견적', icon: '<i data-lucide="circle-dollar-sign"></i>', baseDept: '영업부',
     actions: {
       view: { label: '견적 조회/편집', defaultGrant: 'dept' },
     },
   },
   ncr: {
-    label: 'NCR 관리', icon: '⚠️', baseDept: '품질관리부',
+    label: 'NCR 관리', icon: '<i data-lucide="alert-triangle"></i>️', baseDept: '품질관리부',
     actions: {
       register: { label: '발행/수정/종결', defaultGrant: 'dept' },
       delete:   { label: '즉시 삭제',      defaultGrant: 'dept-manager' },
     },
   },
   car: {
-    label: 'CAR 관리', icon: '🔧', baseDept: '품질관리부',
+    label: 'CAR 관리', icon: '<i data-lucide="wrench"></i>', baseDept: '품질관리부',
     actions: {
       register: { label: '발행/수정/회신', defaultGrant: 'dept' },
       delete:   { label: '즉시 삭제',      defaultGrant: 'dept-manager' },
     },
   },
   itp: {
-    label: 'ITP Builder', icon: '📋', baseDept: '품질관리부',
+    label: 'ITP Builder', icon: '<i data-lucide="clipboard-list"></i>', baseDept: '품질관리부',
     actions: {
       create:  { label: 'ITP 생성/수정', defaultGrant: 'dept' },
       approve: { label: '승인',          defaultGrant: 'dept-manager' },
     },
   },
   qa: {
-    label: 'QA Doc Generator', icon: '📄', baseDept: '품질관리부',
+    label: 'QA Doc Generator', icon: '<i data-lucide="file"></i>', baseDept: '품질관리부',
     actions: {
       create: { label: 'QA 문서 생성/수정', defaultGrant: 'dept' },
     },
   },
   qadash: {
-    label: '품질종합분석표', icon: '📊', baseDept: '품질관리부',
+    label: '품질종합분석표', icon: '<i data-lucide="chart-column"></i>', baseDept: '품질관리부',
     actions: {
       view: { label: '조회', defaultGrant: 'dept' },
     },
   },
   mobile: {
-    label: 'Mobile Inspection', icon: '📱', baseDept: '품질관리부',
+    label: 'Mobile Inspection', icon: '<i data-lucide="smartphone"></i>', baseDept: '품질관리부',
     actions: {
       use: { label: '현장 검사 등록', defaultGrant: 'dept' },
     },
   },
   mtools: {
-    label: '측정기구 반입출', icon: '🔬', baseDept: '품질관리부',
+    label: '측정기구 반입출', icon: '<i data-lucide="microscope"></i>', baseDept: '품질관리부',
     actions: {
       register: { label: '기구 등록/수정/삭제·검교정 관리', defaultGrant: 'dept' },
     },
@@ -899,7 +904,7 @@ function canAssignPM() {
   return isSuperOrExec(u) || u.dept === '영업부' || hasPerm('project', u);
 }
 // 특정 프로젝트의 스케줄(WBS·간트) 수정 권한
-// → super/exec/영업부 + 그 프로젝트의 PM 본인 + (개별)schedule + (신규) 프로젝트 members에 지정된 부서원
+// <i data-lucide="arrow-right"></i> super/exec/영업부 + 그 프로젝트의 PM 본인 + (개별)schedule + (신규) 프로젝트 members에 지정된 부서원
 function canEditSchedule(projId) {
   const u = getU(state.currentUser);
   if (!u) return false;
@@ -971,7 +976,7 @@ function openProjectMembers(pid) {
         </div>
       </div>`;
   }).filter(Boolean).join('');
-  openModal(`👥 팀 지정 — ${p.code} ${p.name}`, `
+  openModal(`<i data-lucide="users"></i> 팀 지정 — ${p.code} ${p.name}`, `
     <div style="font-size:11px;color:var(--text-lighter);margin-bottom:10px;">
       각 부서에서 이 프로젝트를 담당할 직원을 지정하세요. 지정된 직원만 해당 부서 필터의 WBS를 편집·업무 등록할 수 있고, 변경 사항은 PM(${(getU(p.pm)||{}).name||'미지정'})의 결재 후 반영됩니다.
     </div>
@@ -992,7 +997,7 @@ function openProjectMembers(pid) {
     } catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
   });
 }
-// v29: 부서 스케줄 편집 권한 → 슈퍼/임원 + 그 부서의 관리자급(부서장) 본인 + (개별)deptSchedule
+// v29: 부서 스케줄 편집 권한 <i data-lucide="arrow-right"></i> 슈퍼/임원 + 그 부서의 관리자급(부서장) 본인 + (개별)deptSchedule
 function canEditDeptSchedule(dept) {
   const u = getU(state.currentUser);
   if (!u) return false;
@@ -1051,7 +1056,7 @@ const QA_DOCS = [
 ];
 
 // ══════════ 직급 & 권한 체계 ══════════
-// 직급 11종 (위→아래 순서)
+// 직급 11종 (위<i data-lucide="arrow-right"></i>아래 순서)
 const TITLES = ['대표이사','부사장','상무이사','전무이사','이사','부장','차장','과장','대리','주임','사원'];
 // 권한 등급 4종
 const GRADES = {
@@ -1060,7 +1065,7 @@ const GRADES = {
   manager: { label: '부서장',     color: 'blue', desc: '자기 부서 목표 · 부서원 업무' },
   member:  { label: '일반',       color: 'gray', desc: '개인 목표 · 본인 업무' },
 };
-// 직급 → 권한 등급 자동 결정 (이사 이상=임원, 부장=부서장, 차장 이하=일반)
+// 직급 <i data-lucide="arrow-right"></i> 권한 등급 자동 결정 (이사 이상=임원, 부장=부서장, 차장 이하=일반)
 function gradeByTitle(title) {
   const execTitles = ['대표이사','부사장','상무이사','전무이사','이사'];
   if (execTitles.includes(title)) return 'exec';
@@ -1108,10 +1113,10 @@ function defaultState() {
     quotes: [],
     okrs: [],
     approvals: [],
-    // ══════════ Cowork 일일 브리핑 — 사용자별 (Cowork가 각자 데이터 저장 → 본인 로그인 시 표시) ══════════
+    // ══════════ Cowork 일일 브리핑 — 사용자별 (Cowork가 각자 데이터 저장 <i data-lucide="arrow-right"></i> 본인 로그인 시 표시) ══════════
     // Cowork 일일 브리핑 — 사용자별 (Cowork 연동 시 각자 데이터 채워짐). 데이터 없으면 권한별 기본 대시보드 표시
     briefings: {},
-    // 정기 보고서 (Cowork가 Drive에 저장 → 링크 연동, 실제 생성 시 채워짐)
+    // 정기 보고서 (Cowork가 Drive에 저장 <i data-lucide="arrow-right"></i> 링크 연동, 실제 생성 시 채워짐)
     reports: {},
     // NCR (부적합 보고서) — 3경로 집계: 수동발행 / 메일접수 / Traveller부적합
     ncrs: [],
@@ -1127,29 +1132,29 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b52';
+const WBS_BUILD = 'b53';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b10';
+const MESSENGER_BUILD = 'b11';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const NCR_BUILD = 'b11';
-const CAR_BUILD = 'b10';
-const QADASH_BUILD = 'b11';
+const NCR_BUILD = 'b12';
+const CAR_BUILD = 'b11';
+const QADASH_BUILD = 'b12';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
 const ITPBUILDER_BUILD = 'c2';
-const QADOC_BUILD = 'c0';
-const MTOOLS_BUILD = 'b3';
+const QADOC_BUILD = 'c1';
+const MTOOLS_BUILD = 'b4';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MEETING_BUILD = 'b2';
-const ASSET_BUILD = 'a6';
+const MEETING_BUILD = 'b3';
+const ASSET_BUILD = 'a7';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a1';
-const QAVIEW_BUILD = 'a1';
+const ITPVIEW_BUILD = 'a2';
+const QAVIEW_BUILD = 'a2';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
-  console.warn('[SJ FLOW] 로그인 필드 없는 구버전 데이터 감지 → 초기화');
+  console.warn('[SJ FLOW] 로그인 필드 없는 구버전 데이터 감지 <i data-lucide="arrow-right"></i> 초기화');
   state = defaultState();
   localStorage.setItem(KEY, JSON.stringify(state));
 }
@@ -1208,7 +1213,7 @@ function resetData() {
   render();
 }
 // ══════════ Cowork 브리핑 자동 로더 ══════════
-// data/briefings.json (Cowork 아침 메일정리 루틴이 매일 덮어씀) → state.briefings 병합
+// data/briefings.json (Cowork 아침 메일정리 루틴이 매일 덮어씀) <i data-lucide="arrow-right"></i> state.briefings 병합
 // 로그인 후 자동 호출. 파일 없거나 오프라인이면 조용히 무시(기존 데이터 유지).
 async function loadBriefings() {
   try {
@@ -1219,7 +1224,7 @@ async function loadBriefings() {
     state.briefings = state.briefings || {};
     Object.keys(data).forEach(k => {
       if (k.charAt(0) === '_') return;
-      // 이메일 키 → Firebase UID 변환 (@ 포함 시 이메일로 간주)
+      // 이메일 키 <i data-lucide="arrow-right"></i> Firebase UID 변환 (@ 포함 시 이메일로 간주)
       if (k.indexOf('@') !== -1) {
         const matched = state.users.find(u => u.email && u.email.toLowerCase() === k.toLowerCase());
         if (matched) { state.briefings[matched.id] = data[k]; return; }
@@ -1237,7 +1242,7 @@ async function loadBriefings() {
 }
 // ══════════ pendingProjects 자동 등록 ══════════
 // briefings.json에 pendingProjects 배열이 있으면 Firestore에 프로젝트+WBS 자동 생성
-// v29.36: ★ 등록 여부 판정을 localStorage → Firestore(woRegistry)로 이관 ★
+// v29.36: <i data-lucide="star"></i> 등록 여부 판정을 localStorage <i data-lucide="arrow-right"></i> Firestore(woRegistry)로 이관 <i data-lucide="star"></i>
 // localStorage는 브라우저(기기)별이라, 새 PC·새 브라우저·시크릿창에서 접속하면 같은 WO가
 // "미등록"으로 보였고, 아래 existing 분기가 wbsData를 시드 대단락으로 통째로 덮어써
 // 팀이 편집한 마스터 WBS(하위 레벨·상태·Rev)가 소리 없이 사라지는 사고가 있었다.
@@ -1302,7 +1307,7 @@ async function autoRegisterPendingProjects() {
     try {
       if (existing) {
         if (data.s) await fb.setDoc(fb.doc(fb.db, 'projects', pid), { start: data.s, end: data.e }, { merge: true });
-        // v29.36: ★ 기존 프로젝트의 wbsData는 절대 통째로 덮어쓰지 않는다 ★
+        // v29.36: <i data-lucide="star"></i> 기존 프로젝트의 wbsData는 절대 통째로 덮어쓰지 않는다 <i data-lucide="star"></i>
         // 시드는 WBS가 아직 비어있을 때만 넣고, 행이 하나라도 있으면 팀 작업분을 보존.
         // merge:true로 저장해 기존 rev 필드도 지우지 않는다(이력 Rev 연속성 유지).
         const wsnap = await fb.getDoc(fb.doc(fb.db, 'wbsData', pid));
@@ -1354,10 +1359,10 @@ window.SJP.loadBriefings = loadBriefings;
 // 근무 중에는 절대 로그아웃되지 않도록 한다. (완전 방치 시에만 보안상 정리)
 // 활동이 있을 때마다 타이머가 리셋되며, 아래 iframe 활동 감지로 도구 내부 조작도 포함된다.
 const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000; // 8시간 무활동 (근무일 기준)
-// v29.31: ★ 다중 탭 로그아웃 사고 근본 수정 ★
+// v29.31: <i data-lucide="star"></i> 다중 탭 로그아웃 사고 근본 수정 <i data-lucide="star"></i>
 // lastActive가 탭별 메모리에만 있어서, SJ FLOW 탭을 2개 이상 열어두면 활동이 없는
 // 백그라운드 탭이 혼자 '유휴'로 판단해 fb.signOut()을 호출했고, Firebase 로그아웃은
-// 같은 도메인의 모든 탭에 전파되므로 → 다른 탭에서 스케줄을 열심히 작성 중이어도
+// 같은 도메인의 모든 탭에 전파되므로 <i data-lucide="arrow-right"></i> 다른 탭에서 스케줄을 열심히 작성 중이어도
 // 통째로 로그인 화면으로 튕겼다 (사용 중 갑자기 로그아웃되던 진짜 원인).
 // 수정 1: 활동 시각을 localStorage 공유 키에 기록 — 어느 탭의 활동이든 전체가 인정.
 // 수정 2: 만료 판정은 항상 공유 키의 최신값 기준.
@@ -1407,7 +1412,7 @@ _ACTIVITY_EVENTS.forEach(function(ev){
 // iframe 안에서 마우스·키보드를 써도 그 이벤트는 iframe 자신의 document에서 발생하므로
 // 부모의 touchSession이 호출되지 않아, 도구를 열심히 쓰는 중에도 부모는 "무활동"으로 판단해
 // 10분 뒤 로그아웃시켜 버리는 버그가 있었다(사용 중 갑자기 로그아웃되는 원인).
-// 모든 모듈이 같은 오리진(sejong21c.com)이므로 iframe.contentDocument에 접근 가능 →
+// 모든 모듈이 같은 오리진(sejong21c.com)이므로 iframe.contentDocument에 접근 가능 <i data-lucide="arrow-right"></i>
 // 각 iframe document에도 동일한 활동 리스너를 붙여 부모 세션 타이머를 리셋한다.
 // iframe이 재로드되면 document가 새로 생기므로 WeakSet으로 중복 없이 주기적으로 재부착.
 const _wiredIframeDocs = new WeakSet();
@@ -1459,7 +1464,7 @@ function getWBS(pid) { return state.wbs[pid] || []; }
 function getItems(pid) { return (state.items[pid] || []).filter(it => !it.hidden).map(it => it.tag ? it : { ...it, tag: it.tagNo || '' }); }
 // v3.7 — 중복/불필요 아이템을 실수로 삭제해도 복구할 수 있도록 완전 삭제 대신 hidden 플래그로 숨김 처리.
 function getHiddenItems(pid) { return (state.items[pid] || []).filter(it => it.hidden).map(it => it.tag ? it : { ...it, tag: it.tagNo || '' }); }
-/* Cowork 메일 자동분류 결과(개인별 briefing.schedule) → 캘린더 일정으로 자동 반영 */
+/* Cowork 메일 자동분류 결과(개인별 briefing.schedule) <i data-lucide="arrow-right"></i> 캘린더 일정으로 자동 반영 */
 function getBriefingScheduleEvents() {
   const b = state.briefings && state.briefings[state.currentUser];
   if (!b || !Array.isArray(b.schedule)) return [];
@@ -1470,7 +1475,7 @@ function getBriefingScheduleEvents() {
     dept: s.dept || '',
   }));
 }
-// v29.4: 캘린더를 전사 공유 → 개인+부서 업무로 제한.
+// v29.4: 캘린더를 전사 공유 <i data-lucide="arrow-right"></i> 개인+부서 업무로 제한.
 // 부서/작성자 정보가 없는 예전 이벤트는 계속 모두에게 보이도록(하위호환) 그대로 두고,
 // 새로 만드는 이벤트부터 createdBy/dept를 저장해 본인 것이거나 내 부서 것만 보이게 필터링.
 function visibleManualEvents() {
@@ -1499,12 +1504,12 @@ function getDeptBriefingEvents(deptId) {
 function fmt(n) { return n.toLocaleString(); }
 
 /* ═══════════════════════════════════════════════════════════════════
-   v0.7.7 ★ window.SJP.bridge — 신과장 ITP Builder v1.4 자동 연동
+   v0.7.7 <i data-lucide="star"></i> window.SJP.bridge — 신과장 ITP Builder v1.4 자동 연동
    ═══════════════════════════════════════════════════════════════════
    신과장 ITP Builder는 ?embed=1 iframe 안에서 window.parent.SJP.bridge를
    250ms 주기로 폴링합니다. 여기서 노출하는 API를 통해:
-   - SJ FLOW 좌측 Tag 클릭 → 우측 ITP Builder에 자동 Project + Items 입력
-   - 우측 ITP Builder Export → SJ FLOW state로 데이터 역전송 (Traveller 등)
+   - SJ FLOW 좌측 Tag 클릭 <i data-lucide="arrow-right"></i> 우측 ITP Builder에 자동 Project + Items 입력
+   - 우측 ITP Builder Export <i data-lucide="arrow-right"></i> SJ FLOW state로 데이터 역전송 (Traveller 등)
    ═══════════════════════════════════════════════════════════════════ */
 window.SJP = window.SJP || {};
 window.SJP.bridge = {
@@ -1512,7 +1517,7 @@ window.SJP.bridge = {
   isConnected: function() { return true; },
   
   // ── 신과장 빌더가 호출 (시작 시 + 250ms 폴링) ──
-  // 현재 선택된 SJ FLOW 프로젝트 → 신과장 빌더 proj state 형식으로 변환
+  // 현재 선택된 SJ FLOW 프로젝트 <i data-lucide="arrow-right"></i> 신과장 빌더 proj state 형식으로 변환
   // v1.7 fix — pid를 안 받고 "지금 ITP Builder 탭에서 선택된 프로젝트"만 보고 동작해서,
   // QA Doc Generator가 자기 pid와 무관한 (ITP Builder에서 마지막으로 보던) 프로젝트 데이터를
   // 그대로 받아 화면에 표시하는 사고가 있었음(국도화학 T-8405 화면에 동성케미컬 데이터가
@@ -1537,7 +1542,7 @@ window.SJP.bridge = {
     };
   },
   
-  // 현재 선택된 SJ FLOW Tag → 신과장 빌더 items 배열로 변환
+  // 현재 선택된 SJ FLOW Tag <i data-lucide="arrow-right"></i> 신과장 빌더 items 배열로 변환
   // (선택된 Tag 1개 + 같은 프로젝트의 다른 Tag들도 함께)
   getItems: function(pid) {
     pid = pid || view.itpSelectedProj;
@@ -1552,7 +1557,7 @@ window.SJP.bridge = {
       ...items.filter(it => it.id !== selected)
     ] : items;
     // v29.9 fix: id 필드를 문자열 원본 그대로 사용. 이전엔 Date.parse(문자열 id)가 NaN이라
-      // Math.random 폴백이 250ms 폴링마다 새 값 반환 → 다운스트림 안정성 해침.
+      // Math.random 폴백이 250ms 폴링마다 새 값 반환 <i data-lucide="arrow-right"></i> 다운스트림 안정성 해침.
       // 신과장 빌더는 tag 기준으로 매칭하므로 숫자 강제 변환 불필요.
     return sorted.map(it => ({
       id: it.id,
@@ -1573,8 +1578,8 @@ window.SJP.bridge = {
     }));
   },
   
-  // ── 신과장 빌더가 호출 (Export → QA Doc 시) ──
-  // 신과장 빌더의 proj state → SJ FLOW state로 역동기화
+  // ── 신과장 빌더가 호출 (Export <i data-lucide="arrow-right"></i> QA Doc 시) ──
+  // 신과장 빌더의 proj state <i data-lucide="arrow-right"></i> SJ FLOW state로 역동기화
   setProject: function(p) {
     if (!p || !p.no) return;
     // 현재 선택된 프로젝트의 정보 업데이트 (코드는 키이므로 변경 금지)
@@ -1586,11 +1591,11 @@ window.SJP.bridge = {
       if (p.po) proj.po = p.po;
       if (p.scope) proj.scope = p.scope;
       save();
-      console.log('[SJ FLOW ← ITP Builder] 프로젝트 정보 갱신:', proj.code);
+      console.log('[SJ FLOW <i data-lucide="arrow-left"></i> ITP Builder] 프로젝트 정보 갱신:', proj.code);
     }
   },
   
-  // 신과장 빌더의 items → SJ FLOW state.items[pid]로 역동기화
+  // 신과장 빌더의 items <i data-lucide="arrow-right"></i> SJ FLOW state.items[pid]로 역동기화
   setItems: function(epcItems) {
     if (!Array.isArray(epcItems) || !epcItems.length) return;
     const pid = view.itpSelectedProj;
@@ -1631,13 +1636,13 @@ window.SJP.bridge = {
     });
     save();
     // v29.9 fix: state.items[pid]를 Firestore(wbsData/{pid})의 items 필드로도 반영.
-    // 안 하면 부모의 onSnapshot(wbsData) 다음 발화 때 items가 서버 값(예전 값)으로 덮여 씀 → silent data loss.
+    // 안 하면 부모의 onSnapshot(wbsData) 다음 발화 때 items가 서버 값(예전 값)으로 덮여 씀 <i data-lucide="arrow-right"></i> silent data loss.
     // wbsData 문서에 { rows, items } 형태로 저장돼 있으므로 items만 merge 업데이트.
     if (window.fb && fb.db) {
       fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { items: state.items[pid] }, { merge: true })
-        .catch(e => console.error('[SJ FLOW → Firestore wbsData items 동기화 실패]', e));
+        .catch(e => console.error('[SJ FLOW <i data-lucide="arrow-right"></i> Firestore wbsData items 동기화 실패]', e));
     }
-    console.log('[SJ FLOW ← ITP Builder] items 동기화:', pid, epcItems.length, '개');
+    console.log('[SJ FLOW <i data-lucide="arrow-left"></i> ITP Builder] items 동기화:', pid, epcItems.length, '개');
   },
   // v29.9: QA Doc Gen이 "EPC 합격품 가져오기"용으로 호출. 현재 프로젝트에서 traveller의
   // 모든 검사 단계가 'accepted'인 tag만 반환. wbs.html의 동일 이름 함수와 동일 동작.
@@ -1658,11 +1663,11 @@ window.SJP.bridge = {
     }));
   },
 
-  // ITP 9~18개 항목 템플릿 → Traveller의 검사 단계로 연결 (선택)
+  // ITP 9~18개 항목 템플릿 <i data-lucide="arrow-right"></i> Traveller의 검사 단계로 연결 (선택)
   setItpTemplate: function(itemId, tplItems) {
     // tplItems = [{id, item, ph, pt, crit}, ...]
     // 현재는 console.log만 — Traveller 통합 강화 시 활용
-    console.log('[SJ FLOW ← ITP Builder] ITP 템플릿 수신:', itemId, tplItems.length, '항목');
+    console.log('[SJ FLOW <i data-lucide="arrow-left"></i> ITP Builder] ITP 템플릿 수신:', itemId, tplItems.length, '항목');
   },
   
   // ── 선택 메소드 ──
@@ -1783,7 +1788,7 @@ function openTool(tid, deptName) {
   view.mobileSelectedProj = null; // Mobile도 프로젝트 선택부터
   // v29.1: 제작 공정 관리(Traveller)에서 다른 도구로 넘어올 때 travProj/selectedTraveller가
   // 안 지워지면 iframeViewKey()가 여전히 'travtag:...'를 반환해 render()가 콘텐츠 재생성을
-  // 건너뛰고(헤더 타이틀만 바뀌고 본문은 그대로 남는 버그) → 반드시 같이 초기화
+  // 건너뛰고(헤더 타이틀만 바뀌고 본문은 그대로 남는 버그) <i data-lucide="arrow-right"></i> 반드시 같이 초기화
   view.travProj = null;
   view.selectedTraveller = null;
   // v29: 부서 스케줄 — 어느 부서에서 열었는지 기억 (없으면 로그인 사용자 부서)
@@ -1818,7 +1823,7 @@ function openProject(pid) {
   view.selectedProj = p;
   view.cur = 'projects';
   view.epcSelectedWBS = null;
-  document.getElementById('hTitle').innerHTML = `<button onclick="closeProject()" style="border:none;background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;cursor:pointer;margin-right:8px;flex-shrink:0;">← <span class="h-back-label">프로젝트 목록</span></button><span class="h-crumb-mid" style="color:var(--text-light);font-size:13px;">프로젝트</span> <span class="h-crumb-mid" style="color:var(--text-lighter);">›</span> <span style="font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:3px;flex-shrink:0;">${p.code}</span> <span class="h-crumb-ver" style="color:var(--text-lighter);font-size:12px;margin-left:4px;">· EPC Control v28.5</span>`;
+  document.getElementById('hTitle').innerHTML = `<button onclick="closeProject()" style="border:none;background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;cursor:pointer;margin-right:8px;flex-shrink:0;"><i data-lucide="arrow-left"></i> <span class="h-back-label">프로젝트 목록</span></button><span class="h-crumb-mid" style="color:var(--text-light);font-size:13px;">프로젝트</span> <span class="h-crumb-mid" style="color:var(--text-lighter);">›</span> <span style="font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:3px;flex-shrink:0;">${p.code}</span> <span class="h-crumb-ver" style="color:var(--text-lighter);font-size:12px;margin-left:4px;">· EPC Control v28.5</span>`;
   renderNav();
   render();
 }
@@ -1880,7 +1885,7 @@ function showLogin() {
           </div>
           ${IS_LOCAL_ENV ? `
           <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.2);">
-            <button class="login-btn" onclick="enterLocalDevMode()" style="background:rgba(255,255,255,.12);color:#fff;border:1px dashed rgba(255,255,255,.4);">🛠 로컬 테스트 모드로 들어가기 (Google 로그인 없이)</button>
+            <button class="login-btn" onclick="enterLocalDevMode()" style="background:rgba(255,255,255,.12);color:#fff;border:1px dashed rgba(255,255,255,.4);"><i data-lucide="wrench"></i> 로컬 테스트 모드로 들어가기 (Google 로그인 없이)</button>
             <div style="font-size:10px;color:rgba(255,255,255,.6);text-align:center;margin-top:6px;line-height:1.5;">인터넷/사내망 문제로 Google 로그인이 안 될 때 이 브라우저에서만 우회 진입합니다.<br>프로젝트·WBS 등 클라우드 동기화 기능은 온라인 상태가 아니면 반영되지 않습니다.</div>
           </div>` : ''}
         </div>
@@ -1959,7 +1964,7 @@ async function processRedirectLogin() {
 // v29.7.3: 리디렉션 처리 중 (userinfo 조회 + signInWithCredential, 약 0.7~1초 소요) 로그인
 // 화면이 잠깐 보이는 "깜빡임"을 방지하기 위해 로딩 스피너를 대신 표시. onAuthStateChanged를
 // 이 사이 등록해두면 아직 sign-in 되기 전의 null 상태로 handleAuthChange가 호출되어 showLogin이
-// 실행됨 → 사용자는 "로그인 실패"로 오인해 버튼을 다시 누르고, 그 클릭이 진행 중인 signInWithCredential을
+// 실행됨 <i data-lucide="arrow-right"></i> 사용자는 "로그인 실패"로 오인해 버튼을 다시 누르고, 그 클릭이 진행 중인 signInWithCredential을
 // abort시켜 왕복이 반복되는 문제가 있었음.
 function showAuthLoading() {
   const ov = document.getElementById('authOverlay');
@@ -2047,7 +2052,7 @@ function stopFirestoreSync() {
   _fsUnsubs = [];
 }
 // WBS 행 하나의 진척률 계산 — wbs.html의 wCS()를 간이 포팅 (ITP 연동 부분 제외).
-// pctManual 우선 → 자식(소단락) 롤업 → 상태 문자열 → 시작/완료일 경과율 순.
+// pctManual 우선 <i data-lucide="arrow-right"></i> 자식(소단락) 롤업 <i data-lucide="arrow-right"></i> 상태 문자열 <i data-lucide="arrow-right"></i> 시작/완료일 경과율 순.
 function _wbsRowPct(w, rows, idx) {
   if (w.pctManual != null && w.pctManual !== '') return Math.max(0, Math.min(100, Math.round(Number(w.pctManual)) || 0));
   const kids = [];
@@ -2238,7 +2243,7 @@ async function handleAuthChange(fu) {
   }
   if (sessionExpired()) {
     state.currentUser = null; state.lastActive = null; save();
-    await fb.signOut(fb.auth); // 다시 onAuthStateChanged(null) → showLogin()
+    await fb.signOut(fb.auth); // 다시 onAuthStateChanged(null) <i data-lucide="arrow-right"></i> showLogin()
     return;
   }
   try {
@@ -2397,11 +2402,11 @@ function getNotifications(includeAll) {
   var dismissed = state.dismissedNotifs || [];
   var notifs = [];
   var b = state.briefings && state.briefings[state.currentUser];
-  if (b && b.urgentList) b.urgentList.forEach(function(m) { notifs.push({ type: 'urgent', icon: '🔴', title: m.subject, sub: m.from, proj: m.proj, mail: true }); });
+  if (b && b.urgentList) b.urgentList.forEach(function(m) { notifs.push({ type: 'urgent', icon: '<i data-lucide="circle-alert"></i>', title: m.subject, sub: m.from, proj: m.proj, mail: true }); });
   if (b && b.keyActions) b.keyActions.filter(function(a) { return a.priority === 'high'; }).forEach(function(a) { notifs.push({ type: 'action', icon: '⚡', title: a.text, sub: 'Cowork AI 브리핑', proj: a.proj, mail: false }); });
-  if (b && b.nuclear && b.nuclear.items) b.nuclear.items.filter(function(it) { return it.priority === 'high'; }).forEach(function(it) { notifs.push({ type: 'nuclear', icon: '☢️', title: it.text, sub: it.category || '원자력', proj: it.proj, mail: true }); });
+  if (b && b.nuclear && b.nuclear.items) b.nuclear.items.filter(function(it) { return it.priority === 'high'; }).forEach(function(it) { notifs.push({ type: 'nuclear', icon: '<i data-lucide="radiation"></i>️', title: it.text, sub: it.category || '원자력', proj: it.proj, mail: true }); });
   var pendA = (state.approvals || []).filter(function(a) { return apIsMyTurn(a, state.currentUser); });
-  pendA.forEach(function(a) { notifs.push({ type: 'approval', icon: '📝', title: a.title || '결재 요청', sub: (getU(a.author) || getU(a.from) || {}).name || '', proj: '', mail: false }); });
+  pendA.forEach(function(a) { notifs.push({ type: 'approval', icon: '<i data-lucide="file-text"></i>', title: a.title || '결재 요청', sub: (getU(a.author) || getU(a.from) || {}).name || '', proj: '', mail: false }); });
   // 채널별 안읽음 메시지 집계 — 메시지 건별이 아니라 채널당 1개 알림으로 묶어 알림 패널 도배 방지
   var visibleChannels = (state.channels || []).filter(function(c) {
     if (c.type === 'group' || c.type === 'dm') return (c.members || []).indexOf(state.currentUser) !== -1;
@@ -2487,7 +2492,7 @@ function toggleNotifPanel(e) {
       var nid = _nid(n);
       var href = _notifHref(n);
       var isExternal = href.indexOf('http') === 0;
-      var arrow = href ? (isExternal ? ' ↗' : ' →') : '';
+      var arrow = href ? (isExternal ? ' <i data-lucide="arrow-up-right"></i>' : ' <i data-lucide="arrow-right"></i>') : '';
       var rowClick = href
         ? 'onclick="goNotif(\'' + nid.replace(/'/g, "\\'") + '\',\'' + href.replace(/'/g, "\\'") + '\',' + isExternal + ')" style="cursor:pointer;"'
         : '';
@@ -2538,8 +2543,8 @@ function toggleUserMenu(e) {
       <div style="font-size:11px;color:var(--text-light);margin-top:2px;">${u.email}</div>
       <div style="margin-top:6px;"><span class="b-pill ${g.color}">${g.label}</span> <span style="font-size:11px;color:var(--text-light);">${u.dept}</span></div>
     </div>
-    ${u.grade==='super' ? `<div class="um-item" onclick="closeUserMenu();goOrg()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;">👥 조직 / 권한 관리</div>` : ''}
-    <div class="um-item" onclick="closeUserMenu();doLogout()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);color:#dc2626;">🚪 로그아웃</div>`;
+    ${u.grade==='super' ? `<div class="um-item" onclick="closeUserMenu();goOrg()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;"><i data-lucide="users"></i> 조직 / 권한 관리</div>` : ''}
+    <div class="um-item" onclick="closeUserMenu();doLogout()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);color:#dc2626;"><i data-lucide="log-out"></i> 로그아웃</div>`;
   menu.style.display = 'block';
   // 바깥 클릭 닫기
   setTimeout(()=>{ document.addEventListener('click', closeUserMenuOutside); }, 10);
@@ -2557,7 +2562,7 @@ function goOrg() { view.cur = 'org'; view.selectedTool = null; renderNav(); rend
 
 // v29: iframe 기반 화면(프로젝트 WBS·부서 스케줄·QA·Mobile·Manday·Traveller Tag)의 "대상 키".
 // Firestore 실시간 구독(startFirestoreSync)의 배경 render() 호출이 iframe을 통째로 재생성해
-// 무한 리로드(깜빡임) 루프를 일으키던 문제 → 대상이 같으면 render()에서 재생성을 건너뛴다.
+// 무한 리로드(깜빡임) 루프를 일으키던 문제 <i data-lucide="arrow-right"></i> 대상이 같으면 render()에서 재생성을 건너뛴다.
 function iframeViewKey() {
   const v = view;
   if (v.selectedTool === 'epc' || (v.selectedProj && v.cur === 'projects')) return 'epc:' + (v.selectedProj && v.selectedProj.id);
@@ -2588,7 +2593,7 @@ function iframeViewKey() {
 let _lastNavSig = null;
 function navSnapshot() {
   // selectedProj는 전체 프로젝트 객체라 그대로 저장하면 나중에(Firestore 갱신 후) 되돌아왔을 때
-  // 오래된 스냅샷이 잠깐 보일 수 있음 → id만 저장해두고 복원 시 state.projects에서 다시 조회.
+  // 오래된 스냅샷이 잠깐 보일 수 있음 <i data-lucide="arrow-right"></i> id만 저장해두고 복원 시 state.projects에서 다시 조회.
   return {
     cur: view.cur, selectedProjId: view.selectedProj ? view.selectedProj.id : null, selectedTool: view.selectedTool,
     epcTab: view.epcTab, itpSelectedProj: view.itpSelectedProj, itpSelectedItem: view.itpSelectedItem,
@@ -2627,17 +2632,17 @@ function render() {
     return;
   }
   if (view.selectedTool === 'itp') {
-    // ITP Builder 2단계: 프로젝트 미선택 → 카드 / 선택됨 → 빌더 화면
+    // ITP Builder 2단계: 프로젝트 미선택 <i data-lucide="arrow-right"></i> 카드 / 선택됨 <i data-lucide="arrow-right"></i> 빌더 화면
     if (!view.itpSelectedProj) { content.innerHTML = `<div class="content-pad">${renderITPProjects()}</div>`; return; }
     content.innerHTML = renderITPBuilder(); return;
   }
   if (view.selectedTool === 'qa') {
-    // QA Doc 2단계: 프로젝트 미선택 → 카드 / 선택됨 → 도구
+    // QA Doc 2단계: 프로젝트 미선택 <i data-lucide="arrow-right"></i> 카드 / 선택됨 <i data-lucide="arrow-right"></i> 도구
     if (!view.qaSelectedProj) { content.innerHTML = `<div class="content-pad">${renderQAProjects()}</div>`; return; }
     content.innerHTML = renderQADocFrame(); return;
   }
   if (view.selectedTool === 'mobile') {
-    // Mobile 2단계: 프로젝트 미선택 → 카드 / 선택됨 → 도구
+    // Mobile 2단계: 프로젝트 미선택 <i data-lucide="arrow-right"></i> 카드 / 선택됨 <i data-lucide="arrow-right"></i> 도구
     if (!view.mobileSelectedProj) { content.innerHTML = `<div class="content-pad">${renderMobileProjects()}</div>`; return; }
     content.innerHTML = renderMobileFrame(); return;
   }
@@ -2657,11 +2662,11 @@ function render() {
     return;
   }
   if (view.selectedTool === 'deptsch') {
-    // 부서 스케줄 2단계: 프로젝트/자체업무 미선택 → 카드 / 선택됨 → WBS iframe
+    // 부서 스케줄 2단계: 프로젝트/자체업무 미선택 <i data-lucide="arrow-right"></i> 카드 / 선택됨 <i data-lucide="arrow-right"></i> WBS iframe
     if (!view.deptSchedProj) { content.innerHTML = `<div class="content-pad">${renderDeptSchedProjects()}</div>`; return; }
     content.innerHTML = renderDeptSchedFrame(); return;
   }
-  // Traveller 3단계 라우팅: ① 프로젝트 카드 → ② Tag 리스트(iframe=MM) → ③ Tag 상세
+  // Traveller 3단계 라우팅: ① 프로젝트 카드 <i data-lucide="arrow-right"></i> ② Tag 리스트(iframe=MM) <i data-lucide="arrow-right"></i> ③ Tag 상세
   if (view.cur === 'traveller' || view.selectedTraveller || view.travProj) {
     if (view.selectedTraveller) { content.innerHTML = renderTravellerDetail(); return; }
     if (view.travProj) { content.innerHTML = renderTravellerTagList(); return; }
@@ -2705,15 +2710,15 @@ function renderEPCControl() {
   if (view.selectedTool === 'epc' && !view.selectedProj) {
     return `<div class="content-pad">
       <div class="mod-head">
-        <div><div class="mod-title">📊 EPC Control System <span style="font-size:13px;color:var(--text-light);font-weight:400;">v28.5</span></div>
+        <div><div class="mod-title"><i data-lucide="chart-column"></i> EPC Control System <span style="font-size:13px;color:var(--text-light);font-weight:400;">v28.5</span></div>
           <div class="mod-sub">WBS · 간트차트 · ITP · NCR 통합 관리 — 프로젝트를 선택하세요</div>
         </div>
-        <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
+        <button class="back-btn" onclick="closeTool()"><i data-lucide="arrow-left"></i> 도구함 닫기</button>
       </div>
       <div class="proj-grid">
         ${state.projects.map(p => `
           <div class="proj" onclick="openProject('${p.id}')">
-            <div class="proj-open-hint">→ 열기</div>
+            <div class="proj-open-hint"><i data-lucide="arrow-right"></i> 열기</div>
             <div class="proj-code">${p.code}</div>
             <div class="proj-name">${p.name}</div>
             <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
@@ -2746,17 +2751,17 @@ function renderEPCControl() {
                 onload="this.nextElementSibling && this.nextElementSibling.remove();"></iframe>
         <div id="epcFallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:40px;background:#fff;">
           <div style="max-width:560px;text-align:center;">
-            <div style="font-size:48px;margin-bottom:14px;">📊</div>
+            <div style="font-size:48px;margin-bottom:14px;"><i data-lucide="chart-column"></i></div>
             <h2 style="margin-bottom:8px;color:var(--primary);">EPC Control v28.5</h2>
             <p style="color:var(--text-light);margin-bottom:18px;">
               <strong>${p.code}</strong> ${p.name}<br>
               WBS · 간트차트 · ITP · NCR 통합 관리 화면이 이 자리에 로드됩니다.
             </p>
             <div style="background:var(--bg);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);margin-bottom:14px;">
-              📁 ${epcPath}
+              <i data-lucide="folder"></i> ${epcPath}
             </div>
-            <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:4px;text-align:left;font-size:12px;color:#92400e;line-height:1.6;">
-              <strong>⚠ 미리보기 환경 안내</strong><br>
+            <div style="background:#fef3c7;padding:12px 16px;border-radius:4px;text-align:left;font-size:12px;color:#92400e;line-height:1.6;">
+              <strong><i data-lucide="alert-triangle"></i> 미리보기 환경 안내</strong><br>
               현재 artifact 미리보기에서는 외부 파일(<code>modules/projects/wbs.html</code>)을 불러올 수 없습니다.<br>
               <strong>실제 회사 서버(GitHub/Vercel)에 배포 시</strong> EPC Control v28.5 화면이 그대로 표시됩니다.
             </div>
@@ -2825,7 +2830,7 @@ function linkManualDraftToProject(draftId, realPid) {
   saveManualDrafts(loadManualDrafts().filter(d => d.id !== draftId));
   closeModal();
   const p = getP(realPid);
-  alert(`✓ 연동 완료 — "${p ? p.code : realPid}" 프로젝트로 ITP·QA Doc 작성 내용을 옮겼습니다.\n이제 해당 프로젝트 카드에서 ITP Builder / QA Doc Generator를 열면 이어서 작성할 수 있습니다.`);
+  alert(`<i data-lucide="check"></i> 연동 완료 — "${p ? p.code : realPid}" 프로젝트로 ITP·QA Doc 작성 내용을 옮겼습니다.\n이제 해당 프로젝트 카드에서 ITP Builder / QA Doc Generator를 열면 이어서 작성할 수 있습니다.`);
   render();
 }
 function openLinkDraftPicker(draftId) {
@@ -2839,7 +2844,7 @@ function openLinkDraftPicker(draftId) {
       <input type="radio" name="linkTargetPid" value="${p.id}" ${i===0?'checked':''}>
       <span><b>${p.code}</b> — ${p.name}</span>
     </label>`).join('');
-  openModal('🔗 프로젝트와 연동', `
+  openModal('<i data-lucide="link"></i> 프로젝트와 연동', `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;">
       이 임시 초안(ITP·QA Doc)을 어떤 프로젝트로 옮길까요? 대상 프로젝트에 이미 작성 내용이 있다면 지금 초안 내용으로 덮어씌워집니다.
     </div>
@@ -2856,7 +2861,7 @@ function renderDraftSection(currentTool) {
   if (drafts.length === 0) return '';
   return `
     <div class="card" style="margin-bottom:16px;">
-      <div style="font-weight:700;margin-bottom:10px;">📝 임시 작성 초안 — 프로젝트 연동 대기 (${drafts.length}개)</div>
+      <div style="font-weight:700;margin-bottom:10px;"><i data-lucide="file-text"></i> 임시 작성 초안 — 프로젝트 연동 대기 (${drafts.length}개)</div>
       ${drafts.map(d => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;flex-wrap:wrap;">
           <div>
@@ -2864,9 +2869,9 @@ function renderDraftSection(currentTool) {
             <div style="font-size:10px;color:var(--text-lighter);">${new Date(d.createdAt).toLocaleString('ko-KR')}</div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <a class="btn btn-sm ${currentTool==='itp'?'btn-primary':''}" href="modules/itp-builder/itp-builder.html?pid=${d.id}&v=${ITPBUILDER_BUILD}" target="_blank" rel="noopener" style="text-decoration:none;">📋 ITP 열기</a>
-            <a class="btn btn-sm ${currentTool==='qa'?'btn-primary':''}" href="modules/qa-doc-generator/qa-doc-generator.html?pid=${d.id}&v=${QADOC_BUILD}" target="_blank" rel="noopener" style="text-decoration:none;">📄 QC Gen 열기</a>
-            <button class="btn btn-sm" onclick="openLinkDraftPicker('${d.id}')">🔗 프로젝트 연동</button>
+            <a class="btn btn-sm ${currentTool==='itp'?'btn-primary':''}" href="modules/itp-builder/itp-builder.html?pid=${d.id}&v=${ITPBUILDER_BUILD}" target="_blank" rel="noopener" style="text-decoration:none;"><i data-lucide="clipboard-list"></i> ITP 열기</a>
+            <a class="btn btn-sm ${currentTool==='qa'?'btn-primary':''}" href="modules/qa-doc-generator/qa-doc-generator.html?pid=${d.id}&v=${QADOC_BUILD}" target="_blank" rel="noopener" style="text-decoration:none;"><i data-lucide="file"></i> QC Gen 열기</a>
+            <button class="btn btn-sm" onclick="openLinkDraftPicker('${d.id}')"><i data-lucide="link"></i> 프로젝트 연동</button>
             <button class="btn btn-sm" onclick="deleteManualDraft('${d.id}')" style="color:#c0392b;">삭제</button>
           </div>
         </div>
@@ -2883,25 +2888,25 @@ function renderITPProjects() {
   const hiddenCount = allProjs.filter(p => p.hidden).length;
   const projs = showHidden ? allProjs : allProjs.filter(p => !p.hidden);
   const hideToggleBtn = hiddenCount > 0
-    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>`
+    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'<i data-lucide="eye-off"></i>':'<i data-lucide="eye"></i>'} 숨김 ${hiddenCount}</button>`
     : '';
   const draftSection = renderDraftSection('itp');
   const emptyNote = projs.length === 0 ? `
     <div style="padding:30px 20px;text-align:center;color:var(--text-light);font-size:12px;border:1px dashed var(--border);border-radius:10px;">
       아직 등록된 프로젝트가 없습니다.<br/>
-      계약 전이거나 프로젝트 등록 전에 ITP·QA 문서를 먼저 써야 한다면, 위쪽 "🆕 ITP 수동 작성"으로 임시 작성해두었다가 나중에 프로젝트가 생기면 연동할 수 있습니다.
+      계약 전이거나 프로젝트 등록 전에 ITP·QA 문서를 먼저 써야 한다면, 위쪽 "<i data-lucide="file-plus-2"></i> ITP 수동 작성"으로 임시 작성해두었다가 나중에 프로젝트가 생기면 연동할 수 있습니다.
     </div>
   ` : '';
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">📋 ITP Builder <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.4</span></div>
+        <div class="mod-title"><i data-lucide="clipboard-list"></i> ITP Builder <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.4</span></div>
         <div class="mod-sub">프로젝트를 선택하세요 · ASME · TEMA 기반 ITP 자동 생성</div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-primary btn-sm" onclick="createManualDraft('itp')" title="프로젝트 등록 전/계약 전에 ITP를 먼저 작성해두고, 나중에 프로젝트가 생기면 연동합니다">🆕 ITP 수동 작성</button>
+        <button class="btn btn-primary btn-sm" onclick="createManualDraft('itp')" title="프로젝트 등록 전/계약 전에 ITP를 먼저 작성해두고, 나중에 프로젝트가 생기면 연동합니다"><i data-lucide="file-plus-2"></i> ITP 수동 작성</button>
         ${hideToggleBtn}
-        <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
+        <button class="back-btn" onclick="closeTool()"><i data-lucide="arrow-left"></i> 도구함 닫기</button>
       </div>
     </div>
     ${draftSection}
@@ -2912,8 +2917,8 @@ function renderITPProjects() {
         const isHidden = p.hidden;
         return `
         <div class="proj ${isHidden?'proj-hidden':''}" onclick="openITPProj('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
-          <div class="proj-open-hint">→ ITP 작성</div>
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'<i data-lucide="ban"></i>':'<i data-lucide="eye"></i>'}</button>
+          <div class="proj-open-hint"><i data-lucide="arrow-right"></i> ITP 작성</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
           <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
@@ -2958,7 +2963,7 @@ function renderITPBuilder() {
   return `<div class="content-pad" style="height:100%;display:flex;flex-direction:column;">
     <div class="mod-head">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <button class="back-btn" onclick="closeITPProj()">← 프로젝트 목록</button>
+        <button class="back-btn" onclick="closeITPProj()"><i data-lucide="arrow-left"></i> 프로젝트 목록</button>
         <div>
           <div class="mod-title" style="font-size:16px;">
             <span style="color:var(--primary);font-size:13px;font-weight:700;background:var(--primary-lighter);padding:2px 8px;border-radius:4px;vertical-align:middle;">${p.code}</span>
@@ -2969,9 +2974,9 @@ function renderITPBuilder() {
         </div>
       </div>
       <div style="display:flex;gap:8px;">
-        <a class="btn btn-sm" href="${itpPath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);">↗ 새 창</a>
-        <button class="btn" onclick="itpFrameAction('import')">📥 Import</button>
-        <button class="btn btn-primary" onclick="itpFrameAction('export')">💾 Export → QA Doc</button>
+        <a class="btn btn-sm" href="${itpPath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);"><i data-lucide="arrow-up-right"></i> 새 창</a>
+        <button class="btn" onclick="itpFrameAction('import')"><i data-lucide="download"></i> Import</button>
+        <button class="btn btn-primary" onclick="itpFrameAction('export')"><i data-lucide="save"></i> Export <i data-lucide="arrow-right"></i> QA Doc</button>
       </div>
     </div>
 
@@ -2979,18 +2984,18 @@ function renderITPBuilder() {
       <!-- 좌측: 검사 대상 아이템(Tag) 카드 리스트 -->
       <div class="itp-side">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <strong style="font-size:13px;">📦 검사 대상 아이템 (${items.length})</strong>
+          <strong style="font-size:13px;"><i data-lucide="package"></i> 검사 대상 아이템 (${items.length})</strong>
           <button class="btn btn-sm btn-primary" onclick="openNewTag('${p.id}')">+ 추가</button>
         </div>
         ${items.length === 0 ? `
           <div style="padding:30px 14px;text-align:center;color:var(--text-lighter);font-size:12px;line-height:1.6;">
-            <div style="font-size:32px;margin-bottom:8px;">📦</div>
+            <div style="font-size:32px;margin-bottom:8px;"><i data-lucide="package"></i></div>
             아이템이 없습니다.<br>
             <button class="btn btn-sm btn-primary" style="margin-top:10px;" onclick="openNewTag('${p.id}')">+ 첫 아이템 등록</button>
           </div>
         ` : items.map(it => `
           <div class="itp-item-card${selectedItem && selectedItem.id===it.id?' sel':''}" onclick="setITPItem('${it.id}')" style="position:relative;">
-            <button onclick="event.stopPropagation();deleteITPItem('${p.id}','${it.id}');" title="삭제 (복구 가능)" style="position:absolute;top:6px;right:6px;width:18px;height:18px;line-height:16px;padding:0;font-size:11px;border:none;border-radius:50%;background:var(--bg);color:#c00;cursor:pointer;">✕</button>
+            <button onclick="event.stopPropagation();deleteITPItem('${p.id}','${it.id}');" title="삭제 (복구 가능)" style="position:absolute;top:6px;right:6px;width:18px;height:18px;line-height:16px;padding:0;font-size:11px;border:none;border-radius:50%;background:var(--bg);color:#c00;cursor:pointer;"><i data-lucide="x"></i></button>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-right:18px;">
               <span class="itp-tag">${it.tag}</span>
               <span style="font-size:10px;background:var(--bg);padding:1px 6px;border-radius:3px;">${it.type}</span>
@@ -3018,7 +3023,7 @@ function renderITPBuilder() {
 
         ${selectedItem ? `
           <div style="margin-top:14px;padding:10px;background:var(--primary-lighter);border-radius:5px;font-size:10px;line-height:1.6;">
-            <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">→ 우측 ITP Builder에서</div>
+            <div style="font-weight:700;color:var(--primary);margin-bottom:4px;"><i data-lucide="arrow-right"></i> 우측 ITP Builder에서</div>
             <div style="color:var(--text-light);">
               현재 선택: <b style="color:var(--primary);">${selectedItem.tag}</b><br>
               이 Tag를 기준으로 ITP를 작성하세요.
@@ -3035,17 +3040,17 @@ function renderITPBuilder() {
                 onload="this.nextElementSibling && this.nextElementSibling.remove();"></iframe>
         <div id="itpFallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:30px;background:#fff;">
           <div style="max-width:480px;text-align:center;">
-            <div style="font-size:42px;margin-bottom:12px;">📋</div>
+            <div style="font-size:42px;margin-bottom:12px;"><i data-lucide="clipboard-list"></i></div>
             <h3 style="margin-bottom:6px;color:var(--primary);font-size:15px;">ITP Builder v1.4</h3>
             <p style="color:var(--text-light);margin-bottom:14px;font-size:12px;">
               <strong>${p.code}</strong> ${p.name}${selectedItem?`<br>현재 Tag: <b>${selectedItem.tag}</b>`:''}<br>
               신과장 ITP Builder가 이 자리에 로드됩니다.
             </p>
             <div style="background:var(--bg);padding:10px 12px;border-radius:5px;font-family:monospace;font-size:10px;color:var(--text-light);margin-bottom:12px;word-break:break-all;">
-              📁 ${itpPath}
+              <i data-lucide="folder"></i> ${itpPath}
             </div>
-            <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 12px;border-radius:4px;text-align:left;font-size:11px;color:#92400e;line-height:1.6;">
-              <strong>⚠ 미리보기 환경 안내</strong><br>
+            <div style="background:#fef3c7;padding:10px 12px;border-radius:4px;text-align:left;font-size:11px;color:#92400e;line-height:1.6;">
+              <strong><i data-lucide="alert-triangle"></i> 미리보기 환경 안내</strong><br>
               artifact 미리보기에서는 외부 파일 로드 불가.<br>
               <strong>실제 서버 배포 시</strong> ITP Builder가 그대로 표시됩니다.
             </div>
@@ -3084,10 +3089,10 @@ function renderMandayFrame() {
               onload="this.nextElementSibling && this.nextElementSibling.remove();"></iframe>
       <div id="mandayFallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:40px;background:#fff;">
         <div style="max-width:520px;text-align:center;">
-          <div style="font-size:48px;margin-bottom:14px;">⏱</div>
+          <div style="font-size:48px;margin-bottom:14px;"><i data-lucide="timer"></i></div>
           <h2 style="margin-bottom:8px;color:var(--primary);">Manday Tracker v1.2</h2>
           <p style="color:var(--text-light);margin-bottom:18px;">프로젝트별 공수 집계 화면이 이 자리에 로드됩니다.</p>
-          <div style="background:var(--bg);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);">📁 ${mandayPath}</div>
+          <div style="background:var(--bg);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);"><i data-lucide="folder"></i> ${mandayPath}</div>
         </div>
       </div>
     </div>
@@ -3101,25 +3106,25 @@ function renderQAProjects() {
   const hiddenCount = state.projects.filter(p => p.hidden).length;
   const projs = showHidden ? state.projects : state.projects.filter(p => !p.hidden);
   const hideToggleBtn = hiddenCount > 0
-    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>`
+    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'<i data-lucide="eye-off"></i>':'<i data-lucide="eye"></i>'} 숨김 ${hiddenCount}</button>`
     : '';
   const draftSection = renderDraftSection('qa');
   const emptyNote = projs.length === 0 ? `
     <div style="padding:30px 20px;text-align:center;color:var(--text-light);font-size:12px;border:1px dashed var(--border);border-radius:10px;">
       아직 등록된 프로젝트가 없습니다.<br/>
-      계약 전이거나 프로젝트 등록 전에 QA 문서를 먼저 써야 한다면, 위쪽 "🆕 QC Gen 수동 작성"으로 임시 작성해두었다가 나중에 프로젝트가 생기면 연동할 수 있습니다.
+      계약 전이거나 프로젝트 등록 전에 QA 문서를 먼저 써야 한다면, 위쪽 "<i data-lucide="file-plus-2"></i> QC Gen 수동 작성"으로 임시 작성해두었다가 나중에 프로젝트가 생기면 연동할 수 있습니다.
     </div>
   ` : '';
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">📄 QA Doc Generator <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.4</span></div>
+        <div class="mod-title"><i data-lucide="file"></i> QA Doc Generator <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.4</span></div>
         <div class="mod-sub">프로젝트를 선택하세요 · 8가지 QA/QC 문서 자동 생성</div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-primary btn-sm" onclick="createManualDraft('qa')" title="프로젝트 등록 전/계약 전에 QA 문서를 먼저 작성해두고, 나중에 프로젝트가 생기면 연동합니다">🆕 QC Gen 수동 작성</button>
+        <button class="btn btn-primary btn-sm" onclick="createManualDraft('qa')" title="프로젝트 등록 전/계약 전에 QA 문서를 먼저 작성해두고, 나중에 프로젝트가 생기면 연동합니다"><i data-lucide="file-plus-2"></i> QC Gen 수동 작성</button>
         ${hideToggleBtn}
-        <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
+        <button class="back-btn" onclick="closeTool()"><i data-lucide="arrow-left"></i> 도구함 닫기</button>
       </div>
     </div>
     ${draftSection}
@@ -3130,8 +3135,8 @@ function renderQAProjects() {
         const isHidden = p.hidden;
         return `
         <div class="proj ${isHidden?'proj-hidden':''}" onclick="openQAProj('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
-          <div class="proj-open-hint">→ 문서 작성</div>
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'<i data-lucide="ban"></i>':'<i data-lucide="eye"></i>'}</button>
+          <div class="proj-open-hint"><i data-lucide="arrow-right"></i> 문서 작성</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
           <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
@@ -3152,17 +3157,17 @@ function renderMobileProjects() {
   const hiddenCount = state.projects.filter(p => p.hidden).length;
   const projs = showHidden ? state.projects : state.projects.filter(p => !p.hidden);
   const hideToggleBtn = hiddenCount > 0
-    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>`
+    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'<i data-lucide="eye-off"></i>':'<i data-lucide="eye"></i>'} 숨김 ${hiddenCount}</button>`
     : '';
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">📱 Mobile Inspection <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.0</span></div>
+        <div class="mod-title"><i data-lucide="smartphone"></i> Mobile Inspection <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.0</span></div>
         <div class="mod-sub">프로젝트를 선택하세요 · 현장 검사 사진 등록</div>
       </div>
       <div style="display:flex;gap:8px;">
         ${hideToggleBtn}
-        <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
+        <button class="back-btn" onclick="closeTool()"><i data-lucide="arrow-left"></i> 도구함 닫기</button>
       </div>
     </div>
     <div class="proj-grid">
@@ -3172,15 +3177,15 @@ function renderMobileProjects() {
         const draftCount = (state.mobileInspectionDrafts || []).filter(d => d.pid === p.id).length;
         return `
         <div class="proj ${isHidden?'proj-hidden':''}" onclick="openMobileProj('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
-          <div class="proj-open-hint">→ 검사 등록</div>
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'<i data-lucide="ban"></i>':'<i data-lucide="eye"></i>'}</button>
+          <div class="proj-open-hint"><i data-lucide="arrow-right"></i> 검사 등록</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
           <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
           <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
-          ${draftCount>0?`<div style="margin-top:6px;font-size:11px;color:#856404;background:#fff3cd;border-radius:6px;padding:3px 8px;display:inline-block;font-weight:600;">📝 임시저장 ${draftCount}건</div>`:''}
+          ${draftCount>0?`<div style="margin-top:6px;font-size:11px;color:#856404;background:#fff3cd;border-radius:6px;padding:3px 8px;display:inline-block;font-weight:600;"><i data-lucide="file-text"></i> 임시저장 ${draftCount}건</div>`:''}
         </div>
       `;}).join('')}
     </div>
@@ -3189,7 +3194,7 @@ function renderMobileProjects() {
 function openMobileProj(pid) { view.mobileSelectedProj = pid; render(); }
 function closeMobileProj() { view.mobileSelectedProj = null; render(); }
 
-/* ═════════════ 📅 부서 스케줄 (부서 도구) ═════════════ */
+/* ═════════════ <i data-lucide="calendar-days"></i> 부서 스케줄 (부서 도구) ═════════════ */
 // 1단계: '부서 자체 업무' 카드 + 프로젝트 카드 목록
 // 부서 자체 업무 요약을 "전체 프로젝트 일정 요약"과 동일한 utl-* 톤(1년 12개월 헤더 + 프로젝트 라벨 열 + 진척 바)으로 그린다.
 // 대상은 WBS 최상위(lv=0) 행 하나당 한 줄. 실제 projects 문서가 없는 컨테이너라 상단 프로젝트 목록에는 절대 나오지 않아야 함(v29.9 fix 참고).
@@ -3204,7 +3209,7 @@ function renderDeptSelfGantt(rows, deptName) {
     return `
       <div class="utl-wrap" style="margin-top:0;cursor:pointer;" onclick="openDeptSchedProj('__self__')" title="클릭하면 편집 화면으로 이동합니다">
         <div class="utl-head">
-          <div class="utl-title">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년</span></div>
+          <div class="utl-title"><i data-lucide="calendar-days"></i> ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년</span></div>
         </div>
         <div style="padding:24px;text-align:center;font-size:12px;color:var(--text-lighter);">등록된 자체 업무가 없습니다. 이 영역을 클릭해 편집 화면으로 이동한 뒤 업무를 추가해주세요.</div>
       </div>`;
@@ -3233,8 +3238,8 @@ function renderDeptSelfGantt(rows, deptName) {
     const promotedOkrId = okrByTitle[(w.name||'').trim()];
     const promoteBtn = meCanPromote
       ? (promotedOkrId
-          ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;background:#dcfce7;color:#166534;border-color:#86efac;" onclick="event.stopPropagation();demoteWbsRowFromOkr('${promotedOkrId}')" title="클릭하면 부서 목표에서 내림">🎯 등록됨 · ✕ 취소</button>`
-          : `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;" onclick="event.stopPropagation();promoteWbsRowToOkr('dept_${myDeptId}',${wi})">🎯 목표로 승격</button>`)
+          ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;background:#dcfce7;color:#166534;border-color:#86efac;" onclick="event.stopPropagation();demoteWbsRowFromOkr('${promotedOkrId}')" title="클릭하면 부서 목표에서 내림"><i data-lucide="target"></i> 등록됨 · <i data-lucide="x"></i> 취소</button>`
+          : `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;" onclick="event.stopPropagation();promoteWbsRowToOkr('dept_${myDeptId}',${wi})"><i data-lucide="target"></i> 목표로 승격</button>`)
       : '';
     return `
       <div class="utl-row" onclick="openDeptSchedProj('__self__')">
@@ -3258,7 +3263,7 @@ function renderDeptSelfGantt(rows, deptName) {
   return `
     <div class="utl-wrap" style="margin-top:0;">
       <div class="utl-head">
-        <div class="utl-title" style="cursor:pointer;" onclick="openDeptSchedProj('__self__')" title="클릭하면 편집 화면으로 이동합니다">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년 · 제목 또는 막대 클릭 시 편집 화면</span></div>
+        <div class="utl-title" style="cursor:pointer;" onclick="openDeptSchedProj('__self__')" title="클릭하면 편집 화면으로 이동합니다"><i data-lucide="calendar-days"></i> ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년 · 제목 또는 막대 클릭 시 편집 화면</span></div>
         <div class="utl-legend">
           <span><span class="utl-dot" style="background:#dc2626;"></span>지연</span>
           <span><span class="utl-dot" style="background:#22c55e;"></span>정상</span>
@@ -3277,7 +3282,7 @@ function renderDeptSelfGantt(rows, deptName) {
       </div>
     </div>`;
 }
-// 부서 자체 업무 WBS 대단락 → 부서 OKR로 승격. 대단락 이름=목표 제목, 시작/마감=기간,
+// 부서 자체 업무 WBS 대단락 <i data-lucide="arrow-right"></i> 부서 OKR로 승격. 대단락 이름=목표 제목, 시작/마감=기간,
 // 하위 WBS 행(같은 pid의 lv=1 이상)이 있으면 그 이름들을 마일스톤으로 자동 채운다.
 async function promoteWbsRowToOkr(pid, rowIndex) {
   const me = getU(state.currentUser);
@@ -3326,7 +3331,7 @@ async function promoteWbsRowToOkr(pid, rowIndex) {
   } catch (e) { alert('저장 중 오류: ' + (e.message || e)); }
 }
 // 반대 액션 — promoteWbsRowToOkr의 역동작. 부서스케줄 대단락이 이미 목표로 등록된 상태에서
-// "🎯 등록됨 · ✕ 취소" 버튼 눌러 목표 문서를 삭제(=목표에서 내림).
+// "<i data-lucide="target"></i> 등록됨 · <i data-lucide="x"></i> 취소" 버튼 눌러 목표 문서를 삭제(=목표에서 내림).
 async function demoteWbsRowFromOkr(okrId) {
   const o = (state.okrs || []).find(x => x.id === okrId);
   if (!o) return;
@@ -3347,7 +3352,7 @@ function renderDeptSchedProjects() {
   const projs = state.projects.filter(p => !p.hidden);
   const projCards = projs.map(p => `
     <div class="proj" onclick="openDeptSchedProj('${p.id}')">
-      <div class="proj-open-hint">→ ${dept} 스케줄</div>
+      <div class="proj-open-hint"><i data-lucide="arrow-right"></i> ${dept} 스케줄</div>
       <div class="proj-code">${p.code}</div>
       <div class="proj-name">${p.name}</div>
       <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
@@ -3361,13 +3366,13 @@ function renderDeptSchedProjects() {
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">📅 ${dept} 스케줄</div>
+        <div class="mod-title"><i data-lucide="calendar-days"></i> ${dept} 스케줄</div>
         <div class="mod-sub">프로젝트를 선택하면 ${dept} 담당 WBS만 필터해서 편집합니다 · ${canEdit ? '편집 가능' : '조회 전용(부서장·관리자급만 편집)'}</div>
       </div>
-      <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
+      <button class="back-btn" onclick="closeTool()"><i data-lucide="arrow-left"></i> 도구함 닫기</button>
     </div>
     <div style="margin-bottom:18px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏢 부서 자체 업무 (프로젝트 외)</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;"><i data-lucide="building"></i> 부서 자체 업무 (프로젝트 외)</div>
       ${renderDeptSelfGantt(state.wbs[selfPid], dept)}
     </div>
     ${(() => {
@@ -3379,7 +3384,7 @@ function renderDeptSchedProjects() {
         }).join('') + '</div></div>';
     })()}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text-light);">📊 프로젝트별 ${dept} 스케줄 (${projs.length})</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);"><i data-lucide="chart-column"></i> 프로젝트별 ${dept} 스케줄 (${projs.length})</div>
       <button class="btn btn-sm" onclick="toggleDeptSchedProjList('${dept}')" style="display:inline-flex;align-items:center;gap:4px;">${projListOpen ? '▼ 접기' : '▶ 펼치기'}</button>
     </div>
     ${projListOpen ? `<div class="proj-grid">${projCards || '<div style="color:var(--text-lighter);font-size:12px;padding:20px;">등록된 프로젝트가 없습니다.</div>'}</div>` : ''}
@@ -3409,10 +3414,10 @@ function renderDeptSchedFrame() {
   }
   return `<div style="display:flex;flex-direction:column;height:100%;">
     <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">
-      <button class="back-btn" onclick="closeDeptSchedProj()">← ${dept} 목록</button>
+      <button class="back-btn" onclick="closeDeptSchedProj()"><i data-lucide="arrow-left"></i> ${dept} 목록</button>
       <span style="font-size:13px;font-weight:600;">${title}</span>
       ${canEdit==='0' ? '<span class="b-pill gray" style="margin-left:auto;">조회 전용</span>'
-        : shadowUid ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;margin-left:auto;">🟡 변경 제안 모드 · 저장 시 PM 결재 대기</span>'
+        : shadowUid ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;margin-left:auto;"><i data-lucide="circle"></i> 변경 제안 모드 · 저장 시 PM 결재 대기</span>'
         : ''}
     </div>
     <div style="flex:1;position:relative;overflow:hidden;background:#fff;">
@@ -3429,10 +3434,10 @@ function renderQADocFrame() {
   return `<div style="height:100%;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">
       <div style="display:flex;align-items:center;gap:8px;">
-        <button class="back-btn" onclick="closeQAProj()">← 프로젝트 목록</button>
+        <button class="back-btn" onclick="closeQAProj()"><i data-lucide="arrow-left"></i> 프로젝트 목록</button>
         <span style="font-size:13px;"><span style="color:var(--primary);font-weight:700;background:var(--primary-lighter);padding:2px 7px;border-radius:4px;">${p.code}</span> ${p.name}</span>
       </div>
-      <a class="btn btn-sm" href="${qaPath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);">↗ 새 창</a>
+      <a class="btn btn-sm" href="${qaPath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);"><i data-lucide="arrow-up-right"></i> 새 창</a>
     </div>
     <div style="flex:1;position:relative;overflow:hidden;background:#fff;">
       <iframe id="qaFrame" src="${qaPath}"
@@ -3441,10 +3446,10 @@ function renderQADocFrame() {
               onload="this.nextElementSibling && this.nextElementSibling.remove();"></iframe>
       <div id="qaFallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:40px;background:#fff;">
         <div style="max-width:520px;text-align:center;">
-          <div style="font-size:48px;margin-bottom:14px;">📄</div>
+          <div style="font-size:48px;margin-bottom:14px;"><i data-lucide="file"></i></div>
           <h2 style="margin-bottom:8px;color:var(--primary);">QA Doc Generator v1.4</h2>
           <p style="color:var(--text-light);margin-bottom:18px;">8가지 QA/QC 문서 생성 화면이 이 자리에 로드됩니다.</p>
-          <div style="background:var(--bg);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);">📁 ${qaPath}</div>
+          <div style="background:var(--bg);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);"><i data-lucide="folder"></i> ${qaPath}</div>
         </div>
       </div>
     </div>
@@ -3461,10 +3466,10 @@ function renderMobileFrame() {
   return `<div style="height:100%;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">
       <div style="display:flex;align-items:center;gap:8px;">
-        <button class="back-btn" onclick="closeMobileProj()">← 프로젝트 목록</button>
+        <button class="back-btn" onclick="closeMobileProj()"><i data-lucide="arrow-left"></i> 프로젝트 목록</button>
         ${p?`<span style="font-size:13px;"><span style="color:var(--primary);font-weight:700;background:var(--primary-lighter);padding:2px 7px;border-radius:4px;">${p.code}</span> ${p.name}</span>`:''}
       </div>
-      <a class="btn btn-sm" href="${mobilePath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);">↗ 새 창</a>
+      <a class="btn btn-sm" href="${mobilePath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);"><i data-lucide="arrow-up-right"></i> 새 창</a>
     </div>
     <div style="flex:1;position:relative;overflow:hidden;background:#f5f5f7;">
       <iframe id="mobileFrame" src="${mobilePath}"
@@ -3473,10 +3478,10 @@ function renderMobileFrame() {
               onload="this.nextElementSibling && this.nextElementSibling.remove();"></iframe>
       <div id="mobileFallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:40px;background:#f5f5f7;">
         <div style="max-width:480px;text-align:center;">
-          <div style="font-size:48px;margin-bottom:14px;">📱</div>
+          <div style="font-size:48px;margin-bottom:14px;"><i data-lucide="smartphone"></i></div>
           <h2 style="margin-bottom:8px;color:var(--primary);">Mobile Inspection</h2>
           <p style="color:var(--text-light);margin-bottom:18px;">현장 검사 모바일 화면이 이 자리에 로드됩니다.</p>
-          <div style="background:var(--white);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);">📁 ${mobilePath}</div>
+          <div style="background:var(--white);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);"><i data-lucide="folder"></i> ${mobilePath}</div>
         </div>
       </div>
     </div>
@@ -3510,21 +3515,21 @@ function dashboard() {
       <div class="kpi"><div class="kpi-label">📬 내 신규 메일</div><div class="kpi-value">${b.newMails??'-'}</div><div class="kpi-trend">처리 ${b.processed??0}건</div></div>
       <div class="kpi"><div class="kpi-label"><i data-lucide="circle-alert"></i> 긴급 답변</div><div class="kpi-value">${b.urgentReplies??0}</div><div class="kpi-trend ${b.urgentReplies>0?'down':''}">${b.urgentReplies>0?'대기 중':'없음'}</div></div>
       <div class="kpi"><div class="kpi-label"><i data-lucide="triangle-alert"></i> NCR / CAR</div><div class="kpi-value">${b.ncr??0} / ${b.car??0}</div><div class="kpi-trend ${(b.ncr>0)?'down':''}">${b.ncr>0?'조치 필요':'이상 없음'}</div></div>
-      <div class="kpi"><div class="kpi-label"><i data-lucide="folder-plus"></i> 신규 Project</div><div class="kpi-value">${b.newProjects??'-'}</div><div class="kpi-trend">${b.autoRegistered?'✅ '+b.autoRegistered+'건 등록':'자동 분류'}</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="folder-plus"></i> 신규 Project</div><div class="kpi-value">${b.newProjects??'-'}</div><div class="kpi-trend">${b.autoRegistered?'<i data-lucide="check-circle"></i> '+b.autoRegistered+'건 등록':'자동 분류'}</div></div>
       <div class="kpi"><div class="kpi-label"><i data-lucide="timer"></i> 내 공수</div><div class="kpi-value">${(b.manday||0).toFixed(1)}H</div><div class="kpi-trend">오늘</div></div>`;
   } else {
-    // Cowork 자동화 안 한 사람 → 기본 업무 대시보드
+    // Cowork 자동화 안 한 사람 <i data-lucide="arrow-right"></i> 기본 업무 대시보드
     const myManday = 0;
     kpiCards = `
       <div class="kpi"><div class="kpi-label"><i data-lucide="list-todo"></i> 내 업무</div><div class="kpi-value">${my.length}</div><div class="kpi-trend">미완료</div></div>
       <div class="kpi"><div class="kpi-label"><i data-lucide="hard-hat"></i> ${isExec?'전사':isManager?'부서':'참여'} 프로젝트</div><div class="kpi-value">${active.length}</div><div class="kpi-trend">진행 중</div></div>
       <div class="kpi"><div class="kpi-label"><i data-lucide="calendar-days"></i> 오늘 일정</div><div class="kpi-value">${allEvents().filter(e=>e.date===today).length}</div><div class="kpi-trend">캘린더</div></div>
-      <div class="kpi"><div class="kpi-label">📝 결재 대기</div><div class="kpi-value">${pendA.length}</div><div class="kpi-trend">확인 요망</div></div>`;
+      <div class="kpi"><div class="kpi-label"><i data-lucide="file-text"></i> 결재 대기</div><div class="kpi-value">${pendA.length}</div><div class="kpi-trend">확인 요망</div></div>`;
   }
 
   // 핵심 액션 (개인 브리핑 있을 때)
   const keyActionsCard = hasBriefing && b.keyActions ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--danger);">
+    <div class="card" style="margin-bottom:14px;">
       <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="flame"></i> 오늘 핵심 액션 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Cowork AI 자동 정리 (${b.generatedAt||''})</span></h3>
       ${b.keyActions.map((a,i)=>`
         <div style="display:flex;gap:10px;padding:9px 0;${i<b.keyActions.length-1?'border-bottom:1px solid var(--border-light);':''}">
@@ -3543,7 +3548,7 @@ function dashboard() {
       <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="triangle-alert"></i> 긴급 답변 대기 (${b.urgentList.length})</h3>
       ${b.urgentList.map(m=>`
         <a href="${_gmailUrl(m.subject)}" target="_blank" style="padding:8px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:inherit;cursor:pointer;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${m.subject} <span style="font-size:10px;color:var(--primary);">↗ Gmail</span></div><div style="font-size:11px;color:var(--text-light);">${m.from}</div></div>
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${m.subject} <span style="font-size:10px;color:var(--primary);"><i data-lucide="arrow-up-right"></i> Gmail</span></div><div style="font-size:11px;color:var(--text-light);">${m.from}</div></div>
           <span style="font-size:10px;color:var(--primary);font-weight:600;align-self:center;white-space:nowrap;">${m.proj}</span>
         </a>
       `).join('')}
@@ -3553,7 +3558,7 @@ function dashboard() {
   const nuc = b && b.nuclear;
   const nuclearCard = nuc ? `
     <div class="card" style="border-left:3px solid #f59e0b;margin-top:14px;">
-      <h3 style="margin-bottom:10px;font-size:14px;">☢️ 원자력사업부 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— ${nuc.summary||'메일 자동 분류'}</span></h3>
+      <h3 style="margin-bottom:10px;font-size:14px;"><i data-lucide="radiation"></i>️ 원자력사업부 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— ${nuc.summary||'메일 자동 분류'}</span></h3>
       ${nuc.items ? nuc.items.map((it,i)=>`
         <div style="display:flex;gap:10px;padding:8px 0;${i<nuc.items.length-1?'border-bottom:1px solid var(--border-light);':''}">
           <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:${it.priority==='high'?'#dc2626':'#3b82f6'};color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;">${i+1}</span>
@@ -3568,7 +3573,7 @@ function dashboard() {
       `).join('') : ''}
       ${nuc.schedule && nuc.schedule.length ? `
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-light);">
-          <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:6px;">📅 원자력 관련 일정</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:6px;"><i data-lucide="calendar-days"></i> 원자력 관련 일정</div>
           ${nuc.schedule.map(s=>`
             <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;">
               <span>${s.title}</span>
@@ -3582,7 +3587,7 @@ function dashboard() {
   // 팀 공수 (부서장·임원 + teamManday 데이터 있을 때)
   const mandayCard = (isExec || isManager) && b && b.teamManday ? `
     <div class="card">
-      <h3 style="margin-bottom:12px;font-size:14px;">⏱ 오늘 팀 공수 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Manday Tracker 자동 집계</span></h3>
+      <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="timer"></i> 오늘 팀 공수 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Manday Tracker 자동 집계</span></h3>
       ${Object.entries(b.teamManday).map(([uid,h])=>{
         const mu = getU(uid);
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-light);">
@@ -3595,7 +3600,7 @@ function dashboard() {
   // 내 업무 (항상 — 개인 대시보드 핵심)
   const myTasksCard = `
     <div class="card">
-      <h3 style="margin-bottom:14px;font-size:14px;">📋 내 업무</h3>
+      <h3 style="margin-bottom:14px;font-size:14px;"><i data-lucide="clipboard-list"></i> 내 업무</h3>
       ${my.slice(0,6).map(t => `
         <div style="padding:10px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${t.title}</div><div style="font-size:11px;color:var(--text-light);margin-top:2px;">${getP(t.proj)?.code||''} · 마감 ${t.due}</div></div>
@@ -3610,7 +3615,7 @@ function dashboard() {
     <div class="card" style="margin-top:14px;">
       <h3 style="margin-bottom:12px;font-size:14px;">📑 정기 보고서 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Cowork 자동 생성 (클릭 시 열람)</span></h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
-        ${[['weekly','📅','주간'],['monthly','📆','월간'],['quarterly','📊','분기'],['annual','📈','연간']].map(([k,ico,lbl])=>{
+        ${[['weekly','<i data-lucide="calendar-days"></i>','주간'],['monthly','📆','월간'],['quarterly','<i data-lucide="chart-column"></i>','분기'],['annual','<i data-lucide="trending-up"></i>','연간']].map(([k,ico,lbl])=>{
           const rep = r[k];
           return `<div onclick="openReport('${k}')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
             <div style="font-size:22px;margin-bottom:4px;">${ico}</div>
@@ -3645,7 +3650,7 @@ function dashboard() {
       ${hasBriefing ? urgentCard : myTasksCard}
       ${(() => {
         const upcoming = allEvents().filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date)).slice(0,8);
-        return `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;">📅 다가오는 일정 (${upcoming.length})</h3>${upcoming.length ? upcoming.map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;">
+        return `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;"><i data-lucide="calendar-days"></i> 다가오는 일정 (${upcoming.length})</h3>${upcoming.length ? upcoming.map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;">
           <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${e.title}</div></div>
           <div style="text-align:right;flex-shrink:0;margin-left:8px;"><div style="font-size:12px;color:${e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)'};font-weight:600;">${e.date}</div>${e.time?'<div style="font-size:10px;color:var(--text-light);">'+e.time+'</div>':''}</div>
         </div>`).join('') : `<p style="font-size:12px;color:var(--text-light);">다가오는 일정이 없습니다</p>`}</div>`;
@@ -3674,15 +3679,15 @@ function dashboard() {
       return `
       <div class="card" style="margin-top:14px;">
         <h3 style="margin-bottom:12px;font-size:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-          <span>🎯 내 목표 진척 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— 부서 ${okrs.filter(o=>o.scope==='dept').length}개 + 개인 ${okrs.filter(o=>o.scope==='personal').length}개 · 평균 <b style="color:${color};">${avgPct}%</b></span></span>
-          <button class="btn btn-sm" onclick="switchMod('okr')">전체 보기 →</button>
+          <span><i data-lucide="target"></i> 내 목표 진척 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— 부서 ${okrs.filter(o=>o.scope==='dept').length}개 + 개인 ${okrs.filter(o=>o.scope==='personal').length}개 · 평균 <b style="color:${color};">${avgPct}%</b></span></span>
+          <button class="btn btn-sm" onclick="switchMod('okr')">전체 보기 <i data-lucide="arrow-right"></i></button>
         </h3>
         <div class="bar" style="margin-bottom:12px;"><div class="bar-fill" style="width:${avgPct}%;background:${color};"></div></div>
         ${okrs.slice(0,4).map(o => {
           const pct = _okrProgress(o);
           const c = _okrProgressColor(pct);
           return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-light);">
-            <span class="b-pill ${o.scope==='dept'?'blue':'gray'}" style="flex-shrink:0;">${o.scope==='dept'?'🏛':'👤'}</span>
+            <span class="b-pill ${o.scope==='dept'?'blue':'gray'}" style="flex-shrink:0;">${o.scope==='dept'?'<i data-lucide="landmark"></i>':'<i data-lucide="user"></i>'}</span>
             <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.title||''}</span>
             <span style="width:100px;flex-shrink:0;"><div class="bar" style="height:6px;"><div class="bar-fill" style="width:${pct}%;background:${c};"></div></div></span>
             <span style="font-size:12px;font-weight:600;color:${c};min-width:38px;text-align:right;">${pct}%</span>
@@ -3690,7 +3695,7 @@ function dashboard() {
         }).join('')}
         ${top3.length ? `
         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border-light);">
-          <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px;">📌 임박 마일스톤 (3건)</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px;"><i data-lucide="pin"></i> 임박 마일스톤 (3건)</div>
           ${top3.map(x => `
             <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">
               <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${x.m.title} <span style="color:var(--text-lighter);">· ${x.okr.title}</span></span>
@@ -3701,11 +3706,11 @@ function dashboard() {
     })()}
     ${reportsCard}
     <div class="card" style="margin-top:14px;">
-      <h3 style="margin-bottom:14px;font-size:14px;">🏗️ ${isExec?'전사':isManager?u.dept:'참여'} 프로젝트 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(카드 클릭 → 상세)</span></h3>
+      <h3 style="margin-bottom:14px;font-size:14px;"><i data-lucide="hard-hat"></i>️ ${isExec?'전사':isManager?u.dept:'참여'} 프로젝트 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(카드 클릭 <i data-lucide="arrow-right"></i> 상세)</span></h3>
       <div class="proj-grid">
         ${active.map(p => `
           <div class="proj" onclick="openProject('${p.id}')">
-            <div class="proj-open-hint">→ 열기</div>
+            <div class="proj-open-hint"><i data-lucide="arrow-right"></i> 열기</div>
             <div class="proj-code">${p.code}</div>
             <div class="proj-name">${p.name}</div>
             <div class="proj-meta"><span>${p.client}</span><span><b>${p.progress}%</b></span></div>
@@ -3717,16 +3722,16 @@ function dashboard() {
   `;
 }
 
-// 정기 보고서 열기 (나중에 Drive 연동 → 실제 HTML 링크)
+// 정기 보고서 열기 (나중에 Drive 연동 <i data-lucide="arrow-right"></i> 실제 HTML 링크)
 function openReport(key) {
   const r = (state.reports||{})[key];
   if (!r) return;
   openModal(`${r.label} (${r.date})`, `
     <div style="text-align:center;padding:20px 0;">
-      <div style="font-size:40px;margin-bottom:12px;">📄</div>
+      <div style="font-size:40px;margin-bottom:12px;"><i data-lucide="file"></i></div>
       <p style="font-size:13px;margin-bottom:8px;">${r.label} — ${r.date}</p>
       <p style="font-size:12px;color:var(--text-light);">Cowork가 생성한 보고서입니다.</p>
-      <div style="background:var(--bg);padding:10px 14px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);margin-top:12px;">📁 Google Drive: Skill v2.0/${r.file}</div>
+      <div style="background:var(--bg);padding:10px 14px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);margin-top:12px;"><i data-lucide="folder"></i> Google Drive: Skill v2.0/${r.file}</div>
       <p style="font-size:11px;color:var(--text-lighter);margin-top:12px;">※ Google Drive 연동 시 여기서 바로 열람됩니다 (현재 준비중)</p>
     </div>
   `);
@@ -3745,13 +3750,13 @@ function calendar() {
   let h = `
     <div class="mod-head">
       <div>
-        <div class="mod-title">📅 캘린더</div>
+        <div class="mod-title"><i data-lucide="calendar-days"></i> 캘린더</div>
         <div class="mod-sub">개인+부서 일정 · 회의 · 마감 · 검사</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;">
         ${gcalConnected
-          ? `<span style="font-size:11px;color:var(--success);display:flex;align-items:center;gap:4px;">🟢 구글 캘린더 연동됨</span><button class="btn btn-sm" onclick="disconnectGoogleCalendar()">연동 해제</button>`
-          : `<button class="btn btn-sm" onclick="connectGoogleCalendar()">🔗 구글 캘린더 연동</button>`}
+          ? `<span style="font-size:11px;color:var(--success);display:flex;align-items:center;gap:4px;"><i data-lucide="circle-check"></i> 구글 캘린더 연동됨</span><button class="btn btn-sm" onclick="disconnectGoogleCalendar()">연동 해제</button>`
+          : `<button class="btn btn-sm" onclick="connectGoogleCalendar()"><i data-lucide="link"></i> 구글 캘린더 연동</button>`}
         <button class="btn btn-primary" onclick="openEvent()">+ 일정 추가</button>
       </div>
     </div>
@@ -3780,7 +3785,7 @@ function calendar() {
     const isT = ds === today;
     h += `<div class="cal-day ${isT?'today':''}" onclick="showDate('${ds}')">
       <div class="cal-date">${d}</div>
-      ${ev.slice(0,3).map(e=>`<div class="cal-event ${e.color}${e.extraClass?' '+e.extraClass:''}" title="${e.title}${e.done?' (완료)':''}">${e.done?'✓ ':''}${e.title}</div>`).join('')}
+      ${ev.slice(0,3).map(e=>`<div class="cal-event ${e.color}${e.extraClass?' '+e.extraClass:''}" title="${e.title}${e.done?' (완료)':''}">${e.done?'<i data-lucide="check"></i> ':''}${e.title}</div>`).join('')}
       ${ev.length>3?`<div style="font-size:10px;color:var(--text-light);">+${ev.length-3}</div>`:''}
     </div>`;
   }
@@ -3892,35 +3897,35 @@ async function fetchWorkspaceUsers(token) {
     isAdmin: !!u.isAdmin,
   })).filter(u => u.email.endsWith('@sejong-21c.com'));
 }
-// orgUnitPath("/영업부") → 저희 DEPTS 목록에서 매칭. 없으면 빈 문자열.
+// orgUnitPath("/영업부") <i data-lucide="arrow-right"></i> 저희 DEPTS 목록에서 매칭. 없으면 빈 문자열.
 function guessDeptFromOrgUnit(orgUnitPath) {
   if (!orgUnitPath) return '';
   const path = orgUnitPath.replace(/^\//, '');
   const names = DEPTS.map(d => d.name);
   // 정확 매칭 우선
   if (names.includes(path)) return path;
-  // 부분 매칭 (예: "품질관리부/QC팀" → "품질관리부")
+  // 부분 매칭 (예: "품질관리부/QC팀" <i data-lucide="arrow-right"></i> "품질관리부")
   const first = path.split('/')[0];
   if (names.includes(first)) return first;
   // 짧은 별칭 힌트
   for (const n of names) { if (path.includes(n)) return n; }
   return '';
 }
-// 이메일에서 이름 추정 (예: "cwkim@sejong-21c.com" → "cwkim") — 이름 필드가 비어있을 때 대안
+// 이메일에서 이름 추정 (예: "cwkim@sejong-21c.com" <i data-lucide="arrow-right"></i> "cwkim") — 이름 필드가 비어있을 때 대안
 function guessNameFromEmail(email) {
   return (email || '').split('@')[0];
 }
 async function openWorkspaceImport() {
   const me = getU(state.currentUser);
   if (!me || me.grade !== 'super') { alert('사용자 일괄 임포트는 슈퍼관리자만 가능합니다.'); return; }
-  openModal('👥 Workspace에서 사용자 가져오기', `
+  openModal('<i data-lucide="users"></i> Workspace에서 사용자 가져오기', `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:14px;line-height:1.6;">
       회사 <b>Workspace 슈퍼관리자 계정</b>으로 승인하면 sejong-21c.com 도메인의 사용자 목록을 자동으로 불러와 미리 등록할 수 있습니다.<br>
       <span style="color:var(--text-lighter);font-size:11px;">이미 로그인한 계정과 사전 등록된 계정은 제외하고 신규만 표시됩니다.</span>
     </div>
     <div id="wksImportStatus" style="padding:14px;text-align:center;font-size:13px;color:var(--text-light);">
-      <button class="btn btn-primary" onclick="doWorkspaceFetch()">🔐 Workspace 조회 시작</button>
-      <div style="margin-top:10px;font-size:11px;color:var(--text-lighter);">또는 CSV 붙여넣기: <button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기</button></div>
+      <button class="btn btn-primary" onclick="doWorkspaceFetch()"><i data-lucide="lock-keyhole"></i> Workspace 조회 시작</button>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-lighter);">또는 CSV 붙여넣기: <button class="btn btn-sm" onclick="openCSVImport()"><i data-lucide="clipboard-list"></i> CSV 붙여넣기</button></div>
     </div>
     <div id="wksImportResult" style="display:none;"></div>
   `, null);
@@ -3930,30 +3935,30 @@ async function openWorkspaceImport() {
 async function doWorkspaceFetch() {
   const status = document.getElementById('wksImportStatus');
   const result = document.getElementById('wksImportResult');
-  status.innerHTML = '<div style="padding:14px;">🔐 Google 인증 창을 확인해주세요…</div>';
+  status.innerHTML = '<div style="padding:14px;"><i data-lucide="lock-keyhole"></i> Google 인증 창을 확인해주세요…</div>';
   const token = await gdirRequestToken();
   if (!token) {
     status.innerHTML = `
       <div style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:12px;">
-        ❌ 승인이 취소됐거나 스코프가 등록되지 않았습니다.<br>
-        <span style="font-size:11px;">GCP 콘솔 → API 및 서비스 → OAuth 동의 화면에 <b>admin.directory.user.readonly</b> 스코프가 추가되어 있는지 확인하세요.</span>
+        <i data-lucide="x-circle"></i> 승인이 취소됐거나 스코프가 등록되지 않았습니다.<br>
+        <span style="font-size:11px;">GCP 콘솔 <i data-lucide="arrow-right"></i> API 및 서비스 <i data-lucide="arrow-right"></i> OAuth 동의 화면에 <b>admin.directory.user.readonly</b> 스코프가 추가되어 있는지 확인하세요.</span>
       </div>
       <div style="margin-top:10px;text-align:center;">
         <button class="btn btn-sm" onclick="doWorkspaceFetch()">🔄 다시 시도</button>
-        <button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기로 대체</button>
+        <button class="btn btn-sm" onclick="openCSVImport()"><i data-lucide="clipboard-list"></i> CSV 붙여넣기로 대체</button>
       </div>`;
     return;
   }
-  status.innerHTML = '<div style="padding:14px;">📥 사용자 목록 불러오는 중…</div>';
+  status.innerHTML = '<div style="padding:14px;"><i data-lucide="download"></i> 사용자 목록 불러오는 중…</div>';
   let users;
   try { users = await fetchWorkspaceUsers(token); }
   catch (e) {
     status.innerHTML = `
       <div style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:12px;">
-        ❌ ${e.message}<br>
+        <i data-lucide="x-circle"></i> ${e.message}<br>
         <span style="font-size:11px;">Workspace 슈퍼관리자 계정으로 로그인했는지 확인하세요. 일반 사용자는 이 API에 접근할 수 없습니다.</span>
       </div>
-      <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기로 대체</button></div>`;
+      <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm" onclick="openCSVImport()"><i data-lucide="clipboard-list"></i> CSV 붙여넣기로 대체</button></div>`;
     return;
   }
   renderImportReviewTable(users, status, result);
@@ -3968,7 +3973,7 @@ function renderImportReviewTable(rawUsers, statusEl, resultEl) {
   if (!fresh.length) {
     statusEl.innerHTML = `
       <div style="padding:14px;background:#f0fdf4;color:#166534;border-radius:6px;font-size:13px;text-align:center;">
-        ✅ 새로 등록할 사용자가 없습니다 (총 ${rawUsers.length}명 조회 · 모두 이미 등록·사전 등록되어 있음)
+        <i data-lucide="check-circle"></i> 새로 등록할 사용자가 없습니다 (총 ${rawUsers.length}명 조회 · 모두 이미 등록·사전 등록되어 있음)
       </div>`;
     return;
   }
@@ -3978,12 +3983,12 @@ function renderImportReviewTable(rawUsers, statusEl, resultEl) {
   resultEl.style.display = '';
   resultEl.innerHTML = `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">
-      Workspace에서 <b>${rawUsers.length}명</b> 조회 → 신규 <b style="color:var(--primary);">${fresh.length}명</b>을 등록할 수 있습니다.<br>
+      Workspace에서 <b>${rawUsers.length}명</b> 조회 <i data-lucide="arrow-right"></i> 신규 <b style="color:var(--primary);">${fresh.length}명</b>을 등록할 수 있습니다.<br>
       체크박스로 등록 대상을 고르고, 부서·직급은 필요시 조정하세요 (부서는 Workspace 조직 단위에서 자동 추정).
     </div>
     <div style="display:flex;gap:6px;margin-bottom:8px;">
-      <button class="btn btn-sm" onclick="wksToggleAll(true)">✓ 전체 선택</button>
-      <button class="btn btn-sm" onclick="wksToggleAll(false)">✕ 전체 해제</button>
+      <button class="btn btn-sm" onclick="wksToggleAll(true)"><i data-lucide="check"></i> 전체 선택</button>
+      <button class="btn btn-sm" onclick="wksToggleAll(false)"><i data-lucide="x"></i> 전체 해제</button>
       <span style="margin-left:auto;font-size:11px;color:var(--text-lighter);align-self:center;">선택 <span id="wksSelCnt">${fresh.length}</span>명</span>
     </div>
     <div style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
@@ -4016,7 +4021,7 @@ function renderImportReviewTable(rawUsers, statusEl, resultEl) {
     </div>
     <div style="margin-top:14px;text-align:right;">
       <button class="btn" onclick="closeModal()">취소</button>
-      <button class="btn btn-primary" onclick="doWksBulkRegister(${JSON.stringify(fresh).replace(/"/g,'&quot;')})">✅ 선택한 사용자 사전 등록</button>
+      <button class="btn btn-primary" onclick="doWksBulkRegister(${JSON.stringify(fresh).replace(/"/g,'&quot;')})"><i data-lucide="check-circle"></i> 선택한 사용자 사전 등록</button>
     </div>`;
 }
 function wksToggleAll(checked) {
@@ -4040,7 +4045,7 @@ async function doWksBulkRegister(fresh) {
   });
   if (!confirm(`${rows.length}명을 사전 등록합니다. 계속하시겠습니까?\n\n(이후 해당 이메일로 각자 처음 Google 로그인하면 자동으로 계정이 활성화됩니다.)`)) return;
   const result = document.getElementById('wksImportResult');
-  result.innerHTML = '<div style="padding:20px;text-align:center;">📤 등록 중… <span id="wksProgress">0</span>/' + rows.length + '</div>';
+  result.innerHTML = '<div style="padding:20px;text-align:center;"><i data-lucide="upload"></i> 등록 중… <span id="wksProgress">0</span>/' + rows.length + '</div>';
   let done = 0, failed = 0;
   for (const row of rows) {
     try {
@@ -4060,7 +4065,7 @@ async function doWksBulkRegister(fresh) {
   }
   result.innerHTML = `
     <div style="padding:16px;background:#f0fdf4;color:#166534;border-radius:6px;font-size:13px;text-align:center;">
-      ✅ ${done}명 사전 등록 완료${failed?` · ⚠️ ${failed}명 실패`:''}
+      <i data-lucide="check-circle"></i> ${done}명 사전 등록 완료${failed?` · <i data-lucide="alert-triangle"></i>️ ${failed}명 실패`:''}
     </div>
     <div style="margin-top:12px;text-align:right;"><button class="btn btn-primary" onclick="closeModal()">닫기</button></div>`;
 }
@@ -4069,7 +4074,7 @@ async function doWksBulkRegister(fresh) {
 // 또는 간단히 "email,name,dept,title" 한 줄씩 붙여넣기도 허용.
 function openCSVImport() {
   const _m = document.querySelector('#modal .modal'); if (_m) _m.style.maxWidth = '900px';
-  openModal('📋 CSV 붙여넣기 임포트', `
+  openModal('<i data-lucide="clipboard-list"></i> CSV 붙여넣기 임포트', `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;line-height:1.6;">
       Workspace Admin 콘솔의 사용자 CSV 내보내기 결과를 붙여넣거나,<br>
       간단히 <code style="background:var(--bg);padding:1px 4px;border-radius:3px;">이메일,이름,부서,직급</code> 형식으로 한 줄씩 입력하세요.<br>
@@ -4077,7 +4082,7 @@ function openCSVImport() {
     </div>
     <textarea id="csvPasteArea" rows="10" style="width:100%;padding:10px;font-family:monospace;font-size:12px;border:1.5px solid var(--border);border-radius:6px;resize:vertical;" placeholder="cwkim@sejong-21c.com,김철우,품질관리부,부장&#10;swkim@sejong-21c.com,김시원,품질관리부,대리&#10;..."></textarea>
     <div style="margin-top:10px;font-size:11px;color:var(--text-lighter);">
-      💡 Workspace 원본 CSV는 자동 파싱: Email Address, First/Last Name, Org Unit Path 열을 사용합니다.
+      <i data-lucide="lightbulb"></i> Workspace 원본 CSV는 자동 파싱: Email Address, First/Last Name, Org Unit Path 열을 사용합니다.
     </div>
   `, () => {
     const text = document.getElementById('csvPasteArea').value.trim();
@@ -4260,7 +4265,7 @@ function showDate(ds) {
   // 일정은 외부 자동화가 관리하는 데이터라 여기서 지우면 다음 동기화 때 다시 나타나므로 제외)
   openModal(`${ds} 일정`, `
     ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-      <div><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}${e.source==='google'?' · 🔗 구글':''}${e.source==='holiday'?' · 🎌 공휴일':''}</div></div>
+      <div><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}${e.source==='google'?' · <i data-lucide="link"></i> 구글':''}${e.source==='holiday'?' · 🎌 공휴일':''}</div></div>
       ${(e.source!=='briefing' && e.source!=='holiday') ? `<button class="btn btn-sm" style="color:#dc2626;flex-shrink:0;" onclick="deleteEvent('${e.id}')">삭제</button>` : ''}
     </div>`).join('')}
     <button class="btn btn-primary btn-sm" onclick="closeModal();openEvent('${ds}')">+ 이 날에 일정 추가</button>`);
@@ -4359,20 +4364,20 @@ function projects() {
   };
   
   const hideToggleBtn = hiddenCount > 0 
-    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>` 
+    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'<i data-lucide="eye-off"></i>':'<i data-lucide="eye"></i>'} 숨김 ${hiddenCount}</button>` 
     : '';
   
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">📊 프로젝트 관리</div>
-        <div class="mod-sub">카드 클릭 → EPC Control로 WBS·간트·ITP 상세 관리</div>
+        <div class="mod-title"><i data-lucide="chart-column"></i> 프로젝트 관리</div>
+        <div class="mod-sub">카드 클릭 <i data-lucide="arrow-right"></i> EPC Control로 WBS·간트·ITP 상세 관리</div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${hideToggleBtn}
-        <button class="btn" onclick="openProjectFilter()">🔍 필터</button>
-        ${canEditProject() ? `<button class="btn" style="opacity:.55" onclick="openCoworkImportModal()" title="Cowork이 워크오더 PDF를 파싱해 만든 JSON을 붙여넣어 자동 등록">🤖</button>
-        <button class="btn" onclick="openWorkOrderModal()" title="워크오더 PDF 기반 프로젝트 + WBS 대단락 자동 등록">📋 워크오더 자동 등록</button>
+        <button class="btn" onclick="openProjectFilter()"><i data-lucide="search"></i> 필터</button>
+        ${canEditProject() ? `<button class="btn" style="opacity:.55" onclick="openCoworkImportModal()" title="Cowork이 워크오더 PDF를 파싱해 만든 JSON을 붙여넣어 자동 등록"><i data-lucide="sparkles"></i></button>
+        <button class="btn" onclick="openWorkOrderModal()" title="워크오더 PDF 기반 프로젝트 + WBS 대단락 자동 등록"><i data-lucide="clipboard-list"></i> 워크오더 자동 등록</button>
         <button class="btn btn-primary" onclick="openNewProject()">+ 신규</button>` : ''}
       </div>
     </div>
@@ -4381,18 +4386,18 @@ function projects() {
         const isHidden = p.hidden;
         return `
         <div class="proj ${isHidden?'proj-hidden':''}" onclick="openProject('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
-          ${canEditProject() ? `<button class="proj-edit-btn" onclick="event.stopPropagation();openEditProject('${p.id}');" title="프로젝트 수정">✏️</button>
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'<i data-lucide="ban"></i>':'<i data-lucide="eye"></i>'}</button>
+          ${canEditProject() ? `<button class="proj-edit-btn" onclick="event.stopPropagation();openEditProject('${p.id}');" title="프로젝트 수정"><i data-lucide="pencil"></i>️</button>
           <button class="proj-del-btn" onclick="event.stopPropagation();deleteProject('${p.id}');" title="프로젝트 삭제">🗑</button>` : ''}
-          <div class="proj-open-hint">→ 열기</div>
+          <div class="proj-open-hint"><i data-lucide="arrow-right"></i> 열기</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
           <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
-          <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||"미지정"}${canAssignPM()?` <button onclick="event.stopPropagation();openAssignPM('${p.id}')" style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 2px;" title="PM 지정/변경">✏️</button>`:""}</span><span><b>${p.progress}%</b></span></div>
+          <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||"미지정"}${canAssignPM()?` <button onclick="event.stopPropagation();openAssignPM('${p.id}')" style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 2px;" title="PM 지정/변경"><i data-lucide="pencil"></i>️</button>`:""}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%"></div></div>
           <div style="margin-top:6px;font-size:11px;color:var(--text-lighter);display:flex;justify-content:space-between;align-items:center;gap:6px;">
             <span>${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</span>
-            ${canManageProjectMembers(p.id)?`<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;" onclick="event.stopPropagation();openProjectMembers('${p.id}')" title="부서별 담당 직원 지정">👥 팀 ${(function(){const m=p.members||{};let c=0;Object.values(m).forEach(l=>c+=(l||[]).length);return c;})()}</button>`:''}
+            ${canManageProjectMembers(p.id)?`<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;" onclick="event.stopPropagation();openProjectMembers('${p.id}')" title="부서별 담당 직원 지정"><i data-lucide="users"></i> 팀 ${(function(){const m=p.members||{};let c=0;Object.values(m).forEach(l=>c+=(l||[]).length);return c;})()}</button>`:''}
           </div>
         </div>
       `;}).join('')}
@@ -4401,8 +4406,8 @@ function projects() {
   `;
 }
 
-/* ═════════════ 📅 전체 프로젝트 일정 요약 (통합 간트) ═════════════ */
-// 일정 성과(계획 대비 실적) 기반 그라데이션 색상 — 늦음(빨강)→정상(초록)→앞섬(파랑) 연속 스펙트럼
+/* ═════════════ <i data-lucide="calendar-days"></i> 전체 프로젝트 일정 요약 (통합 간트) ═════════════ */
+// 일정 성과(계획 대비 실적) 기반 그라데이션 색상 — 늦음(빨강)<i data-lucide="arrow-right"></i>정상(초록)<i data-lucide="arrow-right"></i>앞섬(파랑) 연속 스펙트럼
 // wbs.html의 동일 로직과 짝을 이룸 (모듈 간 공유 불가한 단일 HTML 구조라 중복 정의)
 function expectedPctByDate(s, e) {
   if (!s || !e) return null;
@@ -4466,7 +4471,7 @@ function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
   return `
     <div class="utl-wrap">
       <div class="utl-head">
-        <div class="utl-title">📅 전체 프로젝트 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">2026년 · 막대 클릭 시 상세 화면</span></div>
+        <div class="utl-title"><i data-lucide="calendar-days"></i> 전체 프로젝트 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">2026년 · 막대 클릭 시 상세 화면</span></div>
         <div class="utl-legend">
           <span><span class="utl-dot" style="background:#dc2626;"></span>지연</span>
           <span><span class="utl-dot" style="background:#22c55e;"></span>정상</span>
@@ -4529,11 +4534,11 @@ async function toggleHideProj(pid) {
     await fb.updateDoc(fb.doc(fb.db, 'projects', pid), { hidden: !p.hidden });
   } catch (e) { alert('처리 중 오류가 발생했습니다: ' + (e.message || e)); }
 }
-/* ═════════════ ✏ 프로젝트 수정 / 🗑 삭제 (구 wbs.html 사이드바 기능 이전) ═════════════ */
+/* ═════════════ <i data-lucide="pencil"></i> 프로젝트 수정 / <i data-lucide="trash-2"></i> 삭제 (구 wbs.html 사이드바 기능 이전) ═════════════ */
 function openEditProject(pid) {
   const p = state.projects.find(x => x.id === pid);
   if (!p) return;
-  openModal('✏ 프로젝트 수정', `
+  openModal('<i data-lucide="pencil"></i> 프로젝트 수정', `
     <div class="fg"><label class="fl">프로젝트 코드</label><input class="fi" id="epCode" value="${p.code||''}"></div>
     <div class="fg"><label class="fl">프로젝트명</label><input class="fi" id="epName" value="${p.name||''}"></div>
     <div class="fg"><label class="fl">고객사</label><input class="fi" id="epClient" value="${p.client||''}"></div>
@@ -4609,8 +4614,8 @@ function openBriefingModal(path) {
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0b2545;color:#fff;">' +
       '<div style="font-size:14px;font-weight:700;">☀️ 오늘의 아침 통합 브리핑</div>' +
       '<div style="display:flex;gap:8px;">' +
-        '<a href="' + path + '" target="_blank" rel="noopener" style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;">↗ 새 창</a>' +
-        '<button onclick="closeBriefingModal()" style="background:#fff;color:#0b2545;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">✕ 닫기</button>' +
+        '<a href="' + path + '" target="_blank" rel="noopener" style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;"><i data-lucide="arrow-up-right"></i> 새 창</a>' +
+        '<button onclick="closeBriefingModal()" style="background:#fff;color:#0b2545;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;"><i data-lucide="x"></i> 닫기</button>' +
       '</div>' +
     '</div>' +
     '<iframe src="' + path + '" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
@@ -4640,7 +4645,7 @@ function openProjectFilter() {
   const cur = view.projFilter || 'all';
   const opt = (v,label) => `<label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;${cur===v?'background:var(--primary-light);border-color:var(--primary);':''}">
     <input type="radio" name="pfilter" value="${v}" ${cur===v?'checked':''}> <span>${label}</span></label>`;
-  openModal('🔍 프로젝트 필터', `
+  openModal('<i data-lucide="search"></i> 프로젝트 필터', `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;">표시할 프로젝트 상태를 선택하세요.</div>
     ${opt('all','전체 보기')}
     ${opt('active','진행중만')}
@@ -4673,13 +4678,13 @@ function itpFrameAction(action) {
       // import는 파일 input을 직접 트리거
       const fileInput = doc.getElementById('impFile');
       if (fileInput) fileInput.click();
-      else alert('Import 버튼을 ITP Builder 화면 안에서 찾을 수 없습니다.\n화면 안의 📥 JSON Import 버튼을 직접 눌러주세요.');
+      else alert('Import 버튼을 ITP Builder 화면 안에서 찾을 수 없습니다.\n화면 안의 <i data-lucide="download"></i> JSON Import 버튼을 직접 눌러주세요.');
     } else {
-      alert('Export 버튼을 ITP Builder 화면 안에서 찾을 수 없습니다.\n화면 안의 💾 Export 버튼을 직접 눌러주세요.');
+      alert('Export 버튼을 ITP Builder 화면 안에서 찾을 수 없습니다.\n화면 안의 <i data-lucide="save"></i> Export 버튼을 직접 눌러주세요.');
     }
   } catch(e) {
     // CORS 등으로 iframe 내부 접근 불가 시 안내
-    alert('이 동작은 ITP Builder 화면 안의 버튼을 직접 눌러주세요.\n(💾 Export / 📥 Import — 화면 우측 상단 또는 하단)');
+    alert('이 동작은 ITP Builder 화면 안의 버튼을 직접 눌러주세요.\n(<i data-lucide="save"></i> Export / <i data-lucide="download"></i> Import — 화면 우측 상단 또는 하단)');
   }
 }
 
@@ -4735,11 +4740,11 @@ function openNewProject() {
   });
 }
 
-/* ═════════════ 📋 워크오더 자동 등록 (EPC v28.2 기반) ═════════════ */
+/* ═════════════ <i data-lucide="clipboard-list"></i> 워크오더 자동 등록 (EPC v28.2 기반) ═════════════ */
 function openWorkOrderModal() {
-  openModal('📋 워크오더 자동 등록', `
-    <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 12px;border-radius:4px;font-size:11px;color:#92400e;margin-bottom:14px;line-height:1.5;">
-      💡 워크오더 PDF 정보를 입력하시면, 프로젝트가 생성되고 <b>WBS 대단락이 자동 등록</b>됩니다.<br>
+  openModal('<i data-lucide="clipboard-list"></i> 워크오더 자동 등록', `
+    <div style="background:#fef3c7;padding:10px 12px;border-radius:4px;font-size:11px;color:#92400e;margin-bottom:14px;line-height:1.5;">
+      <i data-lucide="lightbulb"></i> 워크오더 PDF 정보를 입력하시면, 프로젝트가 생성되고 <b>WBS 대단락이 자동 등록</b>됩니다.<br>
       Work Scope는 여러 개 선택 가능 (각 항목이 WBS 대단락으로 변환).
     </div>
     <div class="fg" style="display:flex;gap:8px;">
@@ -4809,12 +4814,12 @@ function openWorkOrderModal() {
       }).catch(e => console.warn('[SJ FLOW] woRegistry 마커 실패:', e.message));
       ensureProjectChannel(newId, name).catch(() => {});
       closeModal();
-      alert(`✅ 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
+      alert(`<i data-lucide="check-circle"></i> 워크오더 자동 등록 완료\n• 프로젝트: ${code} ${name}\n• WBS 대단락: ${scopes.length}개 생성`);
     } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
 }
 
-/* ═════════════ 🤖 Cowork 자동등록 가져오기 (구 wbs.html JSON 붙여넣기 기능 이전) ═════════════
+/* ═════════════ <i data-lucide="sparkles"></i> Cowork 자동등록 가져오기 (구 wbs.html JSON 붙여넣기 기능 이전) ═════════════
    Cowork이 매일 아침 워크오더 PDF를 파싱해 만든 JSON을 붙여넣으면 검증 후 즉시 프로젝트+WBS 생성 */
 const CI_SAMPLE = {
   no: "SJ2026-036", name: "(VDS)MDI 분쇄기 교체공사", client: "㈜동성케미컬",
@@ -4852,7 +4857,7 @@ function ciParseInput(text) {
   const scopesStr = Array.isArray(data.scopes) ? data.scopes.join(' / ') : '(없음)';
   const itemsStr = Array.isArray(data.items) && data.items.length ? data.items.map(it => `${it.no?'['+it.no+'] ':''}${it.name}`).join(', ') : '(없음)';
   prevBox.innerHTML = `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px;font-size:11px;line-height:1.6;">
-    ✅ 검증 통과 — 아래 내용으로 프로젝트가 생성됩니다<br>
+    <i data-lucide="check-circle"></i> 검증 통과 — 아래 내용으로 프로젝트가 생성됩니다<br>
     <b>${data.no}</b> ${data.name} · ${data.client}<br>
     기간: ${data.s} ~ ${data.e} · WBS 대단락: ${scopesStr}<br>
     Items: ${itemsStr}
@@ -4861,12 +4866,12 @@ function ciParseInput(text) {
 }
 function openCoworkImportModal() {
   _ciParsed = null;
-  openModal('🤖 Cowork 자동등록 가져오기', `
-    <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:10px 12px;border-radius:4px;font-size:11px;color:#166534;margin-bottom:12px;line-height:1.5;">
-      💡 Cowork이 워크오더 PDF를 파싱해 생성한 JSON을 붙여넣으면, 검증 후 프로젝트와 WBS 대단락이 자동 등록됩니다.
+  openModal('<i data-lucide="sparkles"></i> Cowork 자동등록 가져오기', `
+    <div style="background:#f0fdf4;padding:10px 12px;border-radius:4px;font-size:11px;color:#166534;margin-bottom:12px;line-height:1.5;">
+      <i data-lucide="lightbulb"></i> Cowork이 워크오더 PDF를 파싱해 생성한 JSON을 붙여넣으면, 검증 후 프로젝트와 WBS 대단락이 자동 등록됩니다.
     </div>
     <textarea class="fi" id="ciJson" rows="8" style="font-family:monospace;font-size:11px;" placeholder='{"no":"SJ2026-099","name":"...","client":"...","s":"2026-01-01","e":"2026-06-30","scopes":["설계","제작"]}'></textarea>
-    <div style="margin:8px 0;"><button class="btn btn-sm" onclick="document.getElementById('ciJson').value=JSON.stringify(CI_SAMPLE,null,2);ciParseInput(document.getElementById('ciJson').value);">📄 샘플 JSON 채우기</button></div>
+    <div style="margin:8px 0;"><button class="btn btn-sm" onclick="document.getElementById('ciJson').value=JSON.stringify(CI_SAMPLE,null,2);ciParseInput(document.getElementById('ciJson').value);"><i data-lucide="file"></i> 샘플 JSON 채우기</button></div>
     <div id="ciErr" style="color:#dc2626;font-size:11px;margin-bottom:6px;"></div>
     <div id="ciPreview"></div>
   `, async () => {
@@ -4913,14 +4918,14 @@ function openCoworkImportModal() {
       }).catch(e => console.warn('[SJ FLOW] woRegistry 마커 실패:', e.message));
       ensureProjectChannel(newId, data.name).catch(() => {});
       closeModal();
-      alert(`✅ Cowork 자동등록 완료\n• 프로젝트: ${data.no} ${data.name}\n• WBS 대단락: ${scopes.length}개 생성`);
+      alert(`<i data-lucide="check-circle"></i> Cowork 자동등록 완료\n• 프로젝트: ${data.no} ${data.name}\n• WBS 대단락: ${scopes.length}개 생성`);
     } catch (e) { alert('생성 중 오류가 발생했습니다: ' + (e.message || e)); }
   });
   document.getElementById('mOk').disabled = true;
   document.getElementById('ciJson').oninput = (e) => ciParseInput(e.target.value);
 }
 
-// v29.4: 업무관리를 전사 공유 칸반 → 개인+부서 업무로 제한. 담당자가 나이거나
+// v29.4: 업무관리를 전사 공유 칸반 <i data-lucide="arrow-right"></i> 개인+부서 업무로 제한. 담당자가 나이거나
 // 담당자의 소속 부서가 내 부서와 같은 업무만 보이게 함(등급과 무관하게 전 직원 동일 적용).
 function visibleTasks() {
   const myDept = getU(state.currentUser).dept;
@@ -4961,13 +4966,13 @@ function getBriefingVirtualTasks() {
       id: 'brf_nu_' + state.currentUser + '_' + i,
       title: it.text, proj: it.proj || '', assignee: state.currentUser,
       due: '', priority: it.priority === 'high' ? 'high' : 'mid',
-      status: 'todo', virtual: true, source: '☢️ ' + (it.category || '원자력'), sourceColor: '#f59e0b',
+      status: 'todo', virtual: true, source: '<i data-lucide="radiation"></i>️ ' + (it.category || '원자력'), sourceColor: '#f59e0b',
     })));
   }
   return out;
 }
 // 부서 자체 업무 WBS 대단락은 실제 wbsData 문서를 갖고 있어서 status 필드를 직접 갱신한다(공유).
-// 브리핑 가상 업무는 원본이 매일 갱신되는 파싱 결과라 자체 status가 없음 → taskOverrides로 개인 보관.
+// 브리핑 가상 업무는 원본이 매일 갱신되는 파싱 결과라 자체 status가 없음 <i data-lucide="arrow-right"></i> taskOverrides로 개인 보관.
 function getScheduleVirtualTasks() {
   const myDept = getU(state.currentUser).dept;
   const myDeptId = DEPT_NAME_TO_ID[myDept] || '';
@@ -5078,7 +5083,7 @@ function onColDrop(ev, colId) {
   moveTask(id, colId);
 }
 
-// 업무 → 캘린더 이벤트: 마감일 있는 실제/부서WBS 업무를 캘린더에 표시.
+// 업무 <i data-lucide="arrow-right"></i> 캘린더 이벤트: 마감일 있는 실제/부서WBS 업무를 캘린더에 표시.
 // 완료 상태면 취소선(cal-event.done), 미완료면 우선순위에 맞는 색상.
 function getTaskCalendarEvents() {
   const out = [];
@@ -5097,7 +5102,7 @@ function tasks() {
   const virtualCount = myTasks.filter(t => t.virtual).length;
   return `
     <div class="mod-head">
-      <div><div class="mod-title">✅ 업무 관리</div><div class="mod-sub">칸반 보드 · 개인+부서 업무 · 자동 파싱 포함${virtualCount ? ` <span style="color:var(--text-light);">(자동 ${virtualCount}건)</span>` : ''}</div></div>
+      <div><div class="mod-title"><i data-lucide="check-circle"></i> 업무 관리</div><div class="mod-sub">칸반 보드 · 개인+부서 업무 · 자동 파싱 포함${virtualCount ? ` <span style="color:var(--text-light);">(자동 ${virtualCount}건)</span>` : ''}</div></div>
       <button class="btn btn-primary" onclick="openTask()">+ 업무 추가</button>
     </div>
     <div class="kanban">
@@ -5110,7 +5115,7 @@ function tasks() {
               const p = t.proj ? getP(t.proj) : null;
               const projCode = (p && p.code) ? p.code : (t.proj || '');
               const assigneeName = getU(t.assignee) ? getU(t.assignee).name : '';
-              // v30 디자인: 원색 꽉 찬 뱃지 → 연한 배경+테두리+진한 글자 (정보는 유지, 소음만 감소)
+              // v30 디자인: 원색 꽉 찬 뱃지 <i data-lucide="arrow-right"></i> 연한 배경+테두리+진한 글자 (정보는 유지, 소음만 감소)
               const _tint = { '#dc2626': ['#fef3f2', '#b42318', '#fecdca'], '#f59e0b': ['#fffaeb', '#b54708', '#fedf89'], '#3a6bb5': ['#eff4fb', '#2d5a96', '#c7d7f0'] }[t.sourceColor] || ['#f2f4f7', '#475467', '#d0d5dd'];
               const badge = t.virtual
                 ? `<span class="b-pill" style="background:${_tint[0]};color:${_tint[1]};border:1px solid ${_tint[2]};font-size:9px;padding:1px 6px;">${t.source||'자동'}</span>`
@@ -5207,9 +5212,9 @@ function getUnreadCount(channelId) {
 function dmTitle(ch){ const other=(ch.members||[]).find(id=>id!==state.currentUser); const ou=getU(other); return ou?`${ou.name} ${ou.title}`:''; }
 
 
-/* ═════════════ 📋 제작 공정 관리 (Traveller) — v0.7 ═════════════
+/* ═════════════ <i data-lucide="clipboard-list"></i> 제작 공정 관리 (Traveller) — v0.7 ═════════════
    회사 핵심 운영 시스템:
-   - 각 장비(Tag)별로 ITP 9개 공정을 거치며 검사관 합격 사인 → 다음 공정 진행
+   - 각 장비(Tag)별로 ITP 9개 공정을 거치며 검사관 합격 사인 <i data-lucide="arrow-right"></i> 다음 공정 진행
    - 합격된 공정 수에 따라 자동으로 WBS 진도율 갱신
    - 검사 포인트: H(Hold), W(Witness), R(Review), S(Surveillance)
    ═══════════════════════════════════════════════════════════════ */
@@ -5268,7 +5273,7 @@ function renderTravellerProjects() {
   const hiddenCount = state.projects.filter(p => p.hidden).length;
   const projs = showHidden ? state.projects : state.projects.filter(p => !p.hidden);
   const hideToggleBtn = hiddenCount > 0
-    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>`
+    ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'<i data-lucide="eye-off"></i>':'<i data-lucide="eye"></i>'} 숨김 ${hiddenCount}</button>`
     : '';
   
   // 프로젝트별 Traveller 진척 계산
@@ -5288,8 +5293,8 @@ function renderTravellerProjects() {
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">📋 제작 공정 관리 (Traveller)</div>
-        <div class="mod-sub">프로젝트 선택 → 장비별 ITP 9개 공정 진척 관리 · 검사관 합격 시 WBS 진도율 자동 갱신</div>
+        <div class="mod-title"><i data-lucide="clipboard-list"></i> 제작 공정 관리 (Traveller)</div>
+        <div class="mod-sub">프로젝트 선택 <i data-lucide="arrow-right"></i> 장비별 ITP 9개 공정 진척 관리 · 검사관 합격 시 WBS 진도율 자동 갱신</div>
       </div>
       <div style="display:flex;gap:6px;">${hideToggleBtn}</div>
     </div>
@@ -5299,8 +5304,8 @@ function renderTravellerProjects() {
         const isHidden = p.hidden;
         return `
         <div class="proj ${isHidden?'proj-hidden':''}" onclick="openTravProj('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
-          <div class="proj-open-hint">→ 열기</div>
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'<i data-lucide="ban"></i>':'<i data-lucide="eye"></i>'}</button>
+          <div class="proj-open-hint"><i data-lucide="arrow-right"></i> 열기</div>
           <div class="proj-code">${p.code}</div>
           <div class="proj-name">${p.name}</div>
           <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
@@ -5338,7 +5343,7 @@ function renderTravellerTagList() {
   return `
     <div style="display:flex;flex-direction:column;height:100%;">
       <div class="epc-bar" style="background:var(--white);">
-        <button class="back-btn" onclick="closeTravProj()">← 프로젝트 목록</button>
+        <button class="back-btn" onclick="closeTravProj()"><i data-lucide="arrow-left"></i> 프로젝트 목록</button>
         <div class="epc-crumb">
           <span style="color:var(--text-light);">제작 공정 관리</span>
           <span class="sep">›</span>
@@ -5347,7 +5352,7 @@ function renderTravellerTagList() {
           <span style="font-size:12px;color:var(--text-light);font-weight:400;margin-left:4px;">— 제작 공정 관리 (Traveller)</span>
         </div>
         <span style="margin-left:auto;font-size:11px;color:var(--text-light);">${p.client} · PM ${getU(p.pm).name}</span>
-        <a class="btn btn-sm" href="${mmPath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);">↗ 새 창</a>
+        <a class="btn btn-sm" href="${mmPath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);"><i data-lucide="arrow-up-right"></i> 새 창</a>
       </div>
       <div style="flex:1;position:relative;overflow:hidden;background:#fff;">
         <iframe id="travFrame" src="${mmPath}" 
@@ -5363,10 +5368,10 @@ function renderTravellerTagList() {
               장비(Tag)별 ITP 9개 공정 진척 관리 화면이 이 자리에 로드됩니다.
             </p>
             <div style="background:var(--bg);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);margin-bottom:14px;word-break:break-all;">
-              📁 ${mmPath}
+              <i data-lucide="folder"></i> ${mmPath}
             </div>
-            <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:4px;text-align:left;font-size:12px;color:#92400e;line-height:1.6;">
-              <strong>⚠ 미리보기 환경 안내</strong><br>
+            <div style="background:#fef3c7;padding:12px 16px;border-radius:4px;text-align:left;font-size:12px;color:#92400e;line-height:1.6;">
+              <strong><i data-lucide="alert-triangle"></i> 미리보기 환경 안내</strong><br>
               artifact 미리보기에서는 외부 파일을 불러올 수 없습니다.<br>
               <strong>실제 서버 배포 시</strong> Manufacture Manager 화면이 그대로 표시됩니다.
             </div>
@@ -5440,13 +5445,13 @@ function renderTravellerDetail() {
   const cur = getCurrentStage(itemId);
   
   // ITP_BASE를 단계별로 그룹화 (ph: 0=자재/도면, 1=용접/검사, 2=시험/출하)
-  const phaseLabels = ['📦 자재·도면 단계','🔥 용접·검사 단계','🧪 시험·출하 단계'];
+  const phaseLabels = ['<i data-lucide="package"></i> 자재·도면 단계','<i data-lucide="flame"></i> 용접·검사 단계','🧪 시험·출하 단계'];
   const phaseGroups = [0,1,2].map(ph => ITP_BASE.filter(b => b.ph === ph));
   
   return `
     <div style="display:flex;flex-direction:column;height:100%;">
       <div class="epc-bar" style="background:var(--white);">
-        <button class="back-btn" onclick="closeTraveller()">← Tag 목록</button>
+        <button class="back-btn" onclick="closeTraveller()"><i data-lucide="arrow-left"></i> Tag 목록</button>
         <div class="epc-crumb">
           <span style="color:var(--text-light);">제작 공정 관리</span>
           <span class="sep">›</span>
@@ -5503,7 +5508,7 @@ function renderTravellerDetail() {
             <div class="trav-stages">
               ${group.map(stage => {
                 const s = tr[stage.id] || {};
-                const sm = { passed:['var(--success)','✅ 합격','#dcfce7'], rejected:['var(--danger)','❌ 불합격(NCR)','#fee2e2'], pending:['var(--text-light)','⏳ 대기','#f1f5f9'] };
+                const sm = { passed:['var(--success)','<i data-lucide="check-circle"></i> 합격','#dcfce7'], rejected:['var(--danger)','<i data-lucide="x-circle"></i> 불합격(NCR)','#fee2e2'], pending:['var(--text-light)','⏳ 대기','#f1f5f9'] };
                 const stinfo = sm[s.status||'pending'];
                 const pt = PT_COLOR[stage.pt] || PT_COLOR.R;
                 const isCurrent = cur && cur.id === stage.id;
@@ -5520,9 +5525,9 @@ function renderTravellerDetail() {
                     ${s.status === 'passed' || s.status === 'rejected' ? `
                       <div class="trav-sign">
                         <div>👷 작업자: <b>${s.worker?getU(s.worker).name:'-'}</b></div>
-                        <div>🔍 QC: <b>${s.qc?getU(s.qc).name:'-'}</b></div>
-                        ${s.witness ? `<div>👁 입회자: <b>${getU(s.witness).name}</b></div>` : ''}
-                        <div style="color:var(--text-light);font-size:10px;">📅 ${s.date||'-'}</div>
+                        <div><i data-lucide="search"></i> QC: <b>${s.qc?getU(s.qc).name:'-'}</b></div>
+                        ${s.witness ? `<div><i data-lucide="eye"></i> 입회자: <b>${getU(s.witness).name}</b></div>` : ''}
+                        <div style="color:var(--text-light);font-size:10px;"><i data-lucide="calendar-days"></i> ${s.date||'-'}</div>
                         ${s.memo ? `<div style="margin-top:4px;padding:4px 6px;background:var(--bg);border-radius:3px;font-size:10px;">${s.memo}</div>` : ''}
                       </div>
                     ` : ''}
@@ -5557,13 +5562,13 @@ function openSignModal(itemId, stageId) {
     </div>
     <div class="fg" style="display:flex;gap:8px;">
       <div style="flex:1;"><label class="fl">👷 작업자</label><select class="fs" id="sgWorker"><option value="">-</option>${userOpts.replace(new RegExp(`value="${current.worker}"`),`value="${current.worker}" selected`)}</select></div>
-      <div style="flex:1;"><label class="fl">🔍 QC 검사관</label><select class="fs" id="sgQc"><option value="">-</option>${userOpts.replace(new RegExp(`value="${current.qc}"`),`value="${current.qc}" selected`)}</select></div>
+      <div style="flex:1;"><label class="fl"><i data-lucide="search"></i> QC 검사관</label><select class="fs" id="sgQc"><option value="">-</option>${userOpts.replace(new RegExp(`value="${current.qc}"`),`value="${current.qc}" selected`)}</select></div>
     </div>
     <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">👁 입회자 (Witness Only)</label><select class="fs" id="sgWit"><option value="">-</option>${userOpts.replace(new RegExp(`value="${current.witness}"`),`value="${current.witness}" selected`)}</select></div>
-      <div style="flex:1;"><label class="fl">📅 검사일</label><input class="fi" type="date" id="sgDate" value="${current.date||today}"></div>
+      <div style="flex:1;"><label class="fl"><i data-lucide="eye"></i> 입회자 (Witness Only)</label><select class="fs" id="sgWit"><option value="">-</option>${userOpts.replace(new RegExp(`value="${current.witness}"`),`value="${current.witness}" selected`)}</select></div>
+      <div style="flex:1;"><label class="fl"><i data-lucide="calendar-days"></i> 검사일</label><input class="fi" type="date" id="sgDate" value="${current.date||today}"></div>
     </div>
-    <div class="fg"><label class="fl">📝 비고 / NCR 사유</label><textarea class="fi" id="sgMemo" rows="3" style="resize:vertical;">${current.memo||''}</textarea></div>
+    <div class="fg"><label class="fl"><i data-lucide="file-text"></i> 비고 / NCR 사유</label><textarea class="fi" id="sgMemo" rows="3" style="resize:vertical;">${current.memo||''}</textarea></div>
   `, () => {
     const status = document.getElementById('sgStatus').value;
     const worker = document.getElementById('sgWorker').value;
@@ -5594,14 +5599,14 @@ function openSignModal(itemId, stageId) {
   });
 }
 
-/* ═════════════ 💰 견적 ═════════════ */
+/* ═════════════ <i data-lucide="circle-dollar-sign"></i> 견적 ═════════════ */
 function quotes() {
   const sm = { draft:['gray','작성중'], review:['yellow','검토'], approved:['green','승인'], sent:['blue','발송'] };
   const total = state.quotes.reduce((s,q)=>s+q.amount,0);
   const approved = state.quotes.filter(q=>q.status==='approved'||q.status==='sent').reduce((s,q)=>s+q.amount,0);
   const fmt = n => n.toLocaleString('ko-KR');
   return `<div class="mod-head">
-    <div><div class="mod-title">💰 견적 관리</div><div class="mod-sub">고객 견적 작성 · 검토 · 승인</div></div>
+    <div><div class="mod-title"><i data-lucide="circle-dollar-sign"></i> 견적 관리</div><div class="mod-sub">고객 견적 작성 · 검토 · 승인</div></div>
     <button class="btn btn-primary" onclick="openQuote()">+ 신규 견적</button>
   </div>
   <div class="kpi-grid">
@@ -5611,7 +5616,7 @@ function quotes() {
     <div class="kpi"><div class="kpi-label">전환율</div><div class="kpi-value">${state.quotes.length?Math.round(approved/total*100):0}%</div></div>
   </div>
   <div class="card" style="margin-top:14px;">
-    <h3 style="font-size:14px;margin-bottom:10px;">📋 견적 목록</h3>
+    <h3 style="font-size:14px;margin-bottom:10px;"><i data-lucide="clipboard-list"></i> 견적 목록</h3>
     <table class="table">
       <thead><tr><th>견적번호</th><th>고객</th><th>건명</th><th>금액</th><th>담당</th><th>상태</th><th>작성일</th></tr></thead>
       <tbody>
@@ -5647,7 +5652,7 @@ function openQuote() {
   });
 }
 
-/* ═════════════ 🎯 목표 관리 (OKR) — Firestore 연동 정식 구현 ═════════════
+/* ═════════════ <i data-lucide="target"></i> 목표 관리 (OKR) — Firestore 연동 정식 구현 ═════════════
    구조: 목표(Objective) + 마일스톤 · 스코프: 부서 연간 / 개인 분기
    저장: Firestore okrs/{id} 문서 (state.okrs 실시간 동기화, startFirestoreSync에서 구독)
    권한: 부서 목표 = 같은 부서 소속 + (manager/exec/super) 등급만 편집
@@ -5726,19 +5731,19 @@ function _renderOkrCard(o) {
     <div class="card" style="margin-bottom:12px;padding:14px 16px;border-left:3px solid ${color};">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
         ${o.scope==='dept'
-          ? `<span class="b-pill blue">🏛 ${o.deptName||'부서'}</span>`
-          : `<span class="b-pill gray">👤 개인</span>`}
+          ? `<span class="b-pill blue"><i data-lucide="landmark"></i> ${o.deptName||'부서'}</span>`
+          : `<span class="b-pill gray"><i data-lucide="user"></i> 개인</span>`}
         <span class="b-pill" style="background:#f1f5f9;color:var(--text-light);">${o.period||''}</span>
-        ${o.scope==='dept' && o.assigneeId ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${(getU(o.assigneeId)||{}).name||'담당자'}</span>` : ''}
-        ${o.scope==='personal' && o.ownerId && o.ownerId !== state.currentUser ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${(getU(o.ownerId)||{}).name||'대상자'}</span>` : ''}
+        ${o.scope==='dept' && o.assigneeId ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;"><i data-lucide="user"></i> ${(getU(o.assigneeId)||{}).name||'담당자'}</span>` : ''}
+        ${o.scope==='personal' && o.ownerId && o.ownerId !== state.currentUser ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;"><i data-lucide="user"></i> ${(getU(o.ownerId)||{}).name||'대상자'}</span>` : ''}
         <strong style="flex:1;font-size:14px;">${o.title||''}</strong>
         <span class="b-pill ${dueClass}">${dueText}</span>
         <strong style="color:${color};font-size:15px;">${pct}%</strong>
-        ${totalCount === 0 && o.pctManual != null && o.pctManual !== '' ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;" title="마일스톤이 없어 사용자가 직접 지정한 진행률입니다">✎ 수동</span>' : ''}
+        ${totalCount === 0 && o.pctManual != null && o.pctManual !== '' ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;" title="마일스톤이 없어 사용자가 직접 지정한 진행률입니다"><i data-lucide="pencil"></i> 수동</span>' : ''}
       </div>
       ${o.why ? `<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;padding-left:2px;">${o.why}</div>` : ''}
       <div class="bar" style="margin-bottom:10px;"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
-      <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;">📌 마일스톤 ${doneCount}/${totalCount}</div>
+      <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;"><i data-lucide="pin"></i> 마일스톤 ${doneCount}/${totalCount}</div>
       ${(o.milestones||[]).map((m, mi) => {
         const mPct = _milestonePct(m);
         const isFull = mPct >= 100;
@@ -5750,7 +5755,7 @@ function _renderOkrCard(o) {
         const pctPillBg = isFull ? '#dcfce7' : isPartial ? '#fef3c7' : '#f1f5f9';
         // v29.14: 마일스톤 담당자 배지 (부서 목표에서 특정 부서원에게 할당된 경우)
         const msAssignee = m.assigneeId ? getU(m.assigneeId) : null;
-        const assigneeBadge = msAssignee ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 6px;">👤 ${msAssignee.name||'담당'}</span>` : '';
+        const assigneeBadge = msAssignee ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 6px;"><i data-lucide="user"></i> ${msAssignee.name||'담당'}</span>` : '';
         return `
         <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-light);">
           <span onclick="${editable?`toggleOkrMilestone('${o.id}',${mi})`:''}"
@@ -5762,24 +5767,24 @@ function _renderOkrCard(o) {
                 title="${editable?'클릭: 진행률 % 지정':''}"
                 style="font-size:10px;font-weight:700;background:${pctPillBg};color:${pctPillColor};padding:2px 7px;border-radius:10px;${editable?'cursor:pointer;':''}min-width:36px;text-align:center;">${mPct}%</span>
           <span style="font-size:11px;color:var(--text-lighter);">${isFull && m.at ? '완료 '+m.at : (m.due||'')}</span>
-          ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="openOkrMilestoneModal('${o.id}',${mi})" title="마일스톤 수정 (제목·마감일·담당자)">✎</button>` : ''}
+          ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="openOkrMilestoneModal('${o.id}',${mi})" title="마일스톤 수정 (제목·마감일·담당자)"><i data-lucide="pencil"></i></button>` : ''}
           ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="deleteOkrMilestone('${o.id}',${mi})" title="마일스톤 삭제">✕</button>` : ''}
         </div>`;
       }).join('')}
       ${editable ? `
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
         ${totalCount === 0
-          ? `<button class="btn btn-sm" onclick="setOkrPctManual('${o.id}')" title="마일스톤이 없을 때는 전체 진행률을 직접 지정할 수 있습니다.">${o.pctManual!=null&&o.pctManual!==''?'✎ 수동 '+o.pctManual+'%':'✎ 진행률 지정'}</button>`
+          ? `<button class="btn btn-sm" onclick="setOkrPctManual('${o.id}')" title="마일스톤이 없을 때는 전체 진행률을 직접 지정할 수 있습니다.">${o.pctManual!=null&&o.pctManual!==''?'<i data-lucide="pencil"></i> 수동 '+o.pctManual+'%':'<i data-lucide="pencil"></i> 진행률 지정'}</button>`
           : ''}
         <button class="btn btn-sm" onclick="openOkrMilestoneModal('${o.id}')">＋ 마일스톤</button>
-        <button class="btn btn-sm" onclick="openOkrModal('${o.id}')">✎ 편집</button>
-        <button class="btn btn-sm" onclick="deleteOkr('${o.id}')" style="color:var(--danger);">🗑 삭제</button>
+        <button class="btn btn-sm" onclick="openOkrModal('${o.id}')"><i data-lucide="pencil"></i> 편집</button>
+        <button class="btn btn-sm" onclick="deleteOkr('${o.id}')" style="color:var(--danger);"><i data-lucide="trash-2"></i> 삭제</button>
       </div>
-      ${totalCount > 0 ? '<div style="margin-top:4px;font-size:10px;color:var(--text-lighter);text-align:right;">💡 진행률은 각 마일스톤 % 평균으로 자동 계산됩니다. 개별 마일스톤의 % 값을 클릭해 수정하세요.</div>' : ''}
+      ${totalCount > 0 ? '<div style="margin-top:4px;font-size:10px;color:var(--text-lighter);text-align:right;"><i data-lucide="lightbulb"></i> 진행률은 각 마일스톤 % 평균으로 자동 계산됩니다. 개별 마일스톤의 % 값을 클릭해 수정하세요.</div>' : ''}
       ` : (o.scope === 'dept'
           ? `<div style="margin-top:6px;display:flex;justify-content:flex-end;align-items:center;gap:6px;">
                <span style="font-size:10px;color:var(--text-lighter);">조회 전용 (부서장·담당자만 편집)</span>
-               <button class="btn btn-sm" onclick="submitOkrChangeRequest('${o.id}')" title="부서장에게 이 목표의 변경을 결재로 요청합니다">📝 부서장에 변경 요청</button>
+               <button class="btn btn-sm" onclick="submitOkrChangeRequest('${o.id}')" title="부서장에게 이 목표의 변경을 결재로 요청합니다"><i data-lucide="file-text"></i> 부서장에 변경 요청</button>
              </div>`
           : `<div style="margin-top:6px;font-size:10px;color:var(--text-lighter);text-align:right;">조회 전용 (편집 권한 없음)</div>`)}
     </div>`;
@@ -5822,39 +5827,39 @@ function okr() {
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">🎯 목표 관리</div>
+        <div class="mod-title"><i data-lucide="target"></i> 목표 관리</div>
         <div class="mod-sub">부서 연간 · 개인 분기 목표 · 로그인 계정(${me.name||'-'}·${myDept||'-'}) 기준 · 마일스톤 체크 시 진척률 자동 반영</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        ${totalDone > 0 ? `<button class="btn btn-sm" onclick="toggleOkrShowCompleted()" title="100% 달성 목표 표시/숨김 전환">${showCompleted ? '🙈 완료 숨기기' : '👁 완료 보기'} <span style="color:var(--text-lighter);font-weight:400;">(${totalDone})</span></button>` : ''}
+        ${totalDone > 0 ? `<button class="btn btn-sm" onclick="toggleOkrShowCompleted()" title="100% 달성 목표 표시/숨김 전환">${showCompleted ? '<i data-lucide="eye-off"></i> 완료 숨기기' : '<i data-lucide="eye"></i> 완료 보기'} <span style="color:var(--text-lighter);font-weight:400;">(${totalDone})</span></button>` : ''}
         <button class="btn btn-primary" onclick="openOkrModal(null)">+ 신규 목표</button>
       </div>
     </div>
-    ${(!showCompleted && hiddenDone > 0) ? `<div style="font-size:11px;color:var(--text-lighter);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:4px;">✅ 완료된 목표 ${hiddenDone}개가 숨겨져 있습니다. 위 버튼으로 다시 볼 수 있어요.</div>` : ''}
+    ${(!showCompleted && hiddenDone > 0) ? `<div style="font-size:11px;color:var(--text-lighter);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:4px;"><i data-lucide="check-circle"></i> 완료된 목표 ${hiddenDone}개가 숨겨져 있습니다. 위 버튼으로 다시 볼 수 있어요.</div>` : ''}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
       <div class="card" style="padding:14px 16px;">
-        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">🏛 ${myDept||'부서'} 연간 목표</div>
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;"><i data-lucide="landmark"></i> ${myDept||'부서'} 연간 목표</div>
         <div style="font-size:24px;font-weight:700;">${deptGoals.length}<span style="font-size:12px;color:var(--text-light);font-weight:400;margin-left:6px;">개</span></div>
         <div class="bar" style="margin-top:6px;"><div class="bar-fill" style="width:${deptPct}%;background:${_okrProgressColor(deptPct)};"></div></div>
         <div style="font-size:11px;color:var(--text-light);margin-top:4px;">평균 진척률 ${deptPct}%</div>
       </div>
       <div class="card" style="padding:14px 16px;">
-        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">👤 내 분기 목표</div>
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;"><i data-lucide="user"></i> 내 분기 목표</div>
         <div style="font-size:24px;font-weight:700;">${personGoals.length}<span style="font-size:12px;color:var(--text-light);font-weight:400;margin-left:6px;">개</span></div>
         <div class="bar" style="margin-top:6px;"><div class="bar-fill" style="width:${personPct}%;background:${_okrProgressColor(personPct)};"></div></div>
         <div style="font-size:11px;color:var(--text-light);margin-top:4px;">평균 진척률 ${personPct}%</div>
       </div>
     </div>
 
-    <div style="font-size:13px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏛 ${myDept||'부서'} 연간 목표 (${deptGoals.length})</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text-light);margin-bottom:8px;"><i data-lucide="landmark"></i> ${myDept||'부서'} 연간 목표 (${deptGoals.length})</div>
     ${deptGoals.length ? deptGoals.map(_renderOkrCard).join('') : `<div class="card" style="text-align:center;padding:24px;color:var(--text-lighter);font-size:12px;">등록된 부서 목표가 없습니다.${(me.grade==='manager'||me.grade==='exec'||me.grade==='super')?' <a onclick="openOkrModal(null,\'dept\')" style="color:var(--primary);cursor:pointer;text-decoration:underline;">+ 첫 부서 목표 등록하기</a>':''}</div>`}
 
-    <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;">👤 내 분기 목표 (${personGoals.length})</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;"><i data-lucide="user"></i> 내 분기 목표 (${personGoals.length})</div>
     ${personGoals.length ? personGoals.map(_renderOkrCard).join('') : `<div class="card" style="text-align:center;padding:24px;color:var(--text-lighter);font-size:12px;">등록된 개인 목표가 없습니다. <a onclick="openOkrModal(null,'personal')" style="color:var(--primary);cursor:pointer;text-decoration:underline;">+ 첫 개인 목표 등록하기</a></div>`}
 
     ${isDeptManager && deptMemberPersonalGoals.length ? `
-      <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;">👥 부서원 개인 목표 (${deptMemberPersonalGoals.length}) <span style="font-size:10px;color:var(--text-lighter);font-weight:400;">— 부서장이 부서원에게 설정한 개인 목표</span></div>
+      <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;"><i data-lucide="users"></i> 부서원 개인 목표 (${deptMemberPersonalGoals.length}) <span style="font-size:10px;color:var(--text-lighter);font-weight:400;">— 부서장이 부서원에게 설정한 개인 목표</span></div>
       ${deptMemberPersonalGoals.map(_renderOkrCard).join('')}
     ` : ''}
   `;
@@ -5904,7 +5909,7 @@ function openOkrModal(okrId, defaultScope) {
     <div class="fg"><label class="fl">기간</label><input class="fi" id="okrPeriod" placeholder="예: 2026 연간, 2026 Q3" value="${period}"></div>
     <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="okrEnd" value="${end}"></div>
     ${(existing && (existing.milestones||[]).length > 0)
-      ? '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;padding:8px 10px;background:#f8fafc;border-radius:4px;">💡 마일스톤이 있어 전체 진행률은 각 마일스톤 % 평균으로 자동 계산됩니다. 카드에서 마일스톤별로 % 값을 직접 지정하세요.</div>'
+      ? '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;padding:8px 10px;background:#f8fafc;border-radius:4px;"><i data-lucide="lightbulb"></i> 마일스톤이 있어 전체 진행률은 각 마일스톤 % 평균으로 자동 계산됩니다. 카드에서 마일스톤별로 % 값을 직접 지정하세요.</div>'
       : '<div class="fg"><label class="fl">진행률 % (선택 · 마일스톤이 없을 때만 이 값이 사용됩니다)</label><input class="fi" type="number" min="0" max="100" id="okrPctManual" placeholder="예: 42" value="' + (existing && existing.pctManual!=null ? existing.pctManual : '') + '"></div>'}
     <div style="font-size:11px;color:var(--text-lighter);margin-top:8px;">저장 후 하단 "＋ 마일스톤" 버튼으로 마일스톤을 추가하세요.</div>
   `, async () => {
@@ -5924,7 +5929,7 @@ function openOkrModal(okrId, defaultScope) {
     doc.period = document.getElementById('okrPeriod').value.trim();
     doc.end = document.getElementById('okrEnd').value;
     // 진행률 수동 입력값 — 마일스톤이 있는 경우엔 필드 자체가 렌더되지 않으므로 있을 때만 처리.
-    // 비어있으면 null → 자동 계산 복원.
+    // 비어있으면 null <i data-lucide="arrow-right"></i> 자동 계산 복원.
     const pctInput = document.getElementById('okrPctManual');
     if (pctInput) {
       const pctRaw = pctInput.value.trim();
@@ -5941,7 +5946,7 @@ function openOkrModal(okrId, defaultScope) {
       const assigneeSel = document.getElementById('okrAssignee');
       doc.assigneeId = assigneeSel ? assigneeSel.value : state.currentUser;
     } else {
-      // v29.14: 부서장(+super/exec)이 부서원에게 대신 설정 가능 → okrOwner 셀렉트 값 우선
+      // v29.14: 부서장(+super/exec)이 부서원에게 대신 설정 가능 <i data-lucide="arrow-right"></i> okrOwner 셀렉트 값 우선
       const ownerSel = document.getElementById('okrOwner');
       doc.ownerId = (canSetPersonalOwner && ownerSel) ? ownerSel.value : state.currentUser;
       doc.deptId = null; doc.deptName = null; doc.assigneeId = null;
@@ -6052,7 +6057,7 @@ async function submitOkrChangeRequest(okrId) {
   // 부서장(같은 부서 · manager) 찾기
   const deptHead = (state.users || []).find(u => u.dept === me.dept && u.grade === 'manager');
   if (!deptHead) return alert('이 부서의 부서장 계정이 아직 등록되지 않아 결재 요청을 보낼 수 없습니다.');
-  const desc = prompt(`부서장(${deptHead.name} ${deptHead.title||''})에게 요청할 목표 변경 내용을 입력하세요.\n\n대상 목표: ${o.title}\n\n예: 마감일을 2026-12-31 → 2027-01-31로 연장 요청 (감사 일정 지연)`);
+  const desc = prompt(`부서장(${deptHead.name} ${deptHead.title||''})에게 요청할 목표 변경 내용을 입력하세요.\n\n대상 목표: ${o.title}\n\n예: 마감일을 2026-12-31 <i data-lucide="arrow-right"></i> 2027-01-31로 연장 요청 (감사 일정 지연)`);
   if (!desc || !desc.trim()) return;
   const id = 'app_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
   const today = new Date().toISOString().slice(0,10);
@@ -6065,7 +6070,7 @@ async function submitOkrChangeRequest(okrId) {
   };
   try {
     await fb.setDoc(fb.doc(fb.db, 'approvals', id), doc);
-    alert(`✅ ${deptHead.name} 부서장에게 변경 요청을 전송했습니다.\n결재 메뉴에서 진행 상황을 확인할 수 있습니다.`);
+    alert(`<i data-lucide="check-circle"></i> ${deptHead.name} 부서장에게 변경 요청을 전송했습니다.\n결재 메뉴에서 진행 상황을 확인할 수 있습니다.`);
   } catch (e) { alert('전송 중 오류: ' + (e.message || e)); }
 }
 
@@ -6090,7 +6095,7 @@ function getOkrMilestoneVirtualTasks() {
     // 이 목표에서 나에게 배정된 마일스톤 필터
     const myMilestones = milestones.map((m, i) => ({ m, mi: i })).filter(({ m }) => {
       if (o.scope === 'personal') return true; // 개인 목표는 owner=me면 전부 표시
-      // 부서 목표: 마일스톤별 assigneeId 우선. 없으면 목표-레벨 assigneeId로 폴백. 둘 다 없으면 목표 담당 없음 → 표시 안 함.
+      // 부서 목표: 마일스톤별 assigneeId 우선. 없으면 목표-레벨 assigneeId로 폴백. 둘 다 없으면 목표 담당 없음 <i data-lucide="arrow-right"></i> 표시 안 함.
       if (m.assigneeId) return m.assigneeId === uid;
       if (o.assigneeId) return o.assigneeId === uid;
       return false;
@@ -6101,7 +6106,7 @@ function getOkrMilestoneVirtualTasks() {
         id: 'okr_ph_' + o.id, _okrId: o.id, okrBacked: false, okrPlaceholder: true,
         title: (o.title || '목표') + ' — 마일스톤을 추가하세요',
         proj: '', assignee: uid, due: o.end || '', priority: 'mid', status: 'todo',
-        virtual: true, source: '🎯 ' + (o.title || '목표'),
+        virtual: true, source: '<i data-lucide="target"></i> ' + (o.title || '목표'),
         sourceColor: sourceColor, completedAt: null, subLine: subLine + ' · 마일스톤 없음',
       });
       return;
@@ -6113,7 +6118,7 @@ function getOkrMilestoneVirtualTasks() {
         _okrId: o.id, _msIdx: mi, okrBacked: true,
         title: m.title || '(마일스톤)', proj: '', assignee: uid,
         due: m.due || '', priority: 'mid', status: status,
-        virtual: true, source: '🎯 ' + (o.title || '목표'),
+        virtual: true, source: '<i data-lucide="target"></i> ' + (o.title || '목표'),
         sourceColor: sourceColor, completedAt: m.at || null, subLine: subLine,
       });
     });
@@ -6129,7 +6134,7 @@ function getOkrCalendarEvents() {
   }));
 }
 
-/* ═════════════ 🛡️ 관리 탭 (v29.44) — super + '접근 권한' 지정 사용자만 ═════════════
+/* ═════════════ <i data-lucide="shield"></i>️ 관리 탭 (v29.44) — super + '접근 권한' 지정 사용자만 ═════════════
    하위 탭: AI 사용량 · 시스템 오류 · 접속 기록 · 작업 활동 · 접근 권한.
    기록 수집: AI 사용은 ai-assistant.js(logAiUsage), 나머지는 아래 수집기들이 담당. */
 
@@ -6192,7 +6197,7 @@ function logAccess(uid) {
 
 // ── 작업 활동 수집 — index.html이 Firestore에 쓰는 순간을 자동 기록 ──
 //    (로그성·개인상태 컬렉션은 제외. WBS 편집 등 iframe 모듈 내부 작업은 각 모듈 이력이 담당)
-// ★ v29.44.1: window.fb는 <script type="module">이 이 스크립트보다 늦게 만든다.
+// <i data-lucide="star"></i> v29.44.1: window.fb는 <script type="module">이 이 스크립트보다 늦게 만든다.
 //   최상위에서 fb를 바로 만지면 ReferenceError로 이 스크립트 전체(뒤의 init 등록 포함)가 죽어
 //   로그인·부팅이 전면 중단된다 — v29.44 첫 배포 장애의 원인. 반드시 fb 생성을 기다렸다가 감쌀 것.
 (function () {
@@ -6233,7 +6238,7 @@ function admin() {
   setTimeout(loadAdminTab, 0);
   const tabs = [['ai','🤖 AI 사용량'], ['err','🐞 시스템 오류'], ['acc','🚪 접속 기록'], ['act','🛠 작업 활동'], ['perm','🔐 접근 권한']];
   return `<div class="mod-head">
-      <div><div class="mod-title">🛡️ 관리</div>
+      <div><div class="mod-title"><i data-lucide="shield"></i>️ 관리</div>
         <div class="mod-sub">AI 사용량 · 시스템 오류 · 접속/작업 기록 (최근 30일)</div></div>
       <button class="back-btn" onclick="loadAdminTab()">↺ 새로고침</button>
     </div>
@@ -6252,7 +6257,7 @@ function loadAdminTab() {
 }
 const _admLoadFail = (box, e) => { box.innerHTML = `<div class="card" style="padding:24px;color:#991b1b;">기록을 불러오지 못했습니다: ${_admEsc(e.message||e)}<br><span style="font-size:12px;color:var(--text-light);">Firebase 콘솔에 firestore.rules 최신본이 게시됐는지 확인하세요.</span></div>`; };
 
-// 🐞 시스템 오류
+// <i data-lucide="bug"></i> 시스템 오류
 async function loadErrorLog() {
   const box = document.getElementById('adminBody'); if (!box) return;
   let rows; try { rows = await _admFetch30d('errorLog'); } catch (e) { return _admLoadFail(box, e); }
@@ -6264,12 +6269,12 @@ async function loadErrorLog() {
       <td style="padding:6px 8px;color:#991b1b;font-size:11px;">${_admEsc(r.msg)}<div style="color:var(--text-lighter);">${_admEsc(r.src)}</div></td>
     </tr>`).join('');
   box.innerHTML = `<div class="card" style="padding:16px;">
-    <h4 style="margin-bottom:10px;">🐞 시스템 오류 — 최근 30일 ${rows.length}건 ${rows.length ? '' : '(오류 없음 👍)'}</h4>
+    <h4 style="margin-bottom:10px;"><i data-lucide="bug"></i> 시스템 오류 — 최근 30일 ${rows.length}건 ${rows.length ? '' : '(오류 없음 <i data-lucide="thumbs-up"></i>)'}</h4>
     ${trs ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:6px 8px;">시각</th><th style="padding:6px 8px;">사용자</th><th style="padding:6px 8px;">화면</th><th style="padding:6px 8px;">오류 내용</th></tr></thead><tbody>${trs}</tbody></table></div>` : ''}
   </div>`;
 }
 
-// 🚪 접속 기록
+// <i data-lucide="log-out"></i> 접속 기록
 async function loadAccessLog() {
   const box = document.getElementById('adminBody'); if (!box) return;
   let rows; try { rows = await _admFetch30d('accessLog'); } catch (e) { return _admLoadFail(box, e); }
@@ -6284,16 +6289,16 @@ async function loadAccessLog() {
     </tr>`).join('');
   box.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;">
-      <div class="kpi"><div class="kpi-label">📅 오늘 접속</div><div class="kpi-value">${todayUsers.length}명</div><div class="kpi-trend">${_admEsc(todayUsers.slice(0,5).join(', '))}${todayUsers.length>5?' 외':''}</div></div>
-      <div class="kpi"><div class="kpi-label">📊 최근 30일</div><div class="kpi-value">${rows.length}회</div><div class="kpi-trend">접속(세션) 수</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="calendar-days"></i> 오늘 접속</div><div class="kpi-value">${todayUsers.length}명</div><div class="kpi-trend">${_admEsc(todayUsers.slice(0,5).join(', '))}${todayUsers.length>5?' 외':''}</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="chart-column"></i> 최근 30일</div><div class="kpi-value">${rows.length}회</div><div class="kpi-trend">접속(세션) 수</div></div>
     </div>
     <div class="card" style="padding:16px;">
-      <h4 style="margin-bottom:10px;">🚪 접속 기록 (최근 100건)</h4>
+      <h4 style="margin-bottom:10px;"><i data-lucide="log-out"></i> 접속 기록 (최근 100건)</h4>
       ${trs ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:6px 8px;">시각</th><th style="padding:6px 8px;">이름</th><th style="padding:6px 8px;">부서</th><th style="padding:6px 8px;">기기</th></tr></thead><tbody>${trs}</tbody></table></div>` : '<div style="color:var(--text-light);font-size:12px;">기록 없음 — 규칙 게시 이후의 접속부터 쌓입니다</div>'}
     </div>`;
 }
 
-// 🛠 작업 활동
+// <i data-lucide="wrench"></i> 작업 활동
 async function loadActivityLog() {
   const box = document.getElementById('adminBody'); if (!box) return;
   let rows; try { rows = await _admFetch30d('activityLog'); } catch (e) { return _admLoadFail(box, e); }
@@ -6309,17 +6314,17 @@ async function loadActivityLog() {
     </tr>`).join('');
   box.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;">
-      <div class="kpi"><div class="kpi-label">📊 최근 30일 작업</div><div class="kpi-value">${rows.length}건</div><div class="kpi-trend">저장·수정·삭제</div></div>
-      <div class="kpi"><div class="kpi-label">👤 활동 TOP</div><div class="kpi-value" style="font-size:15px;">${_admEsc(top.map(t=>t[0]+' '+t[1]).join(' · ') || '-')}</div><div class="kpi-trend">최근 30일</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="chart-column"></i> 최근 30일 작업</div><div class="kpi-value">${rows.length}건</div><div class="kpi-trend">저장·수정·삭제</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="user"></i> 활동 TOP</div><div class="kpi-value" style="font-size:15px;">${_admEsc(top.map(t=>t[0]+' '+t[1]).join(' · ') || '-')}</div><div class="kpi-trend">최근 30일</div></div>
     </div>
     <div class="card" style="padding:16px;">
-      <h4 style="margin-bottom:10px;">🛠 작업 활동 (최근 150건)</h4>
+      <h4 style="margin-bottom:10px;"><i data-lucide="wrench"></i> 작업 활동 (최근 150건)</h4>
       <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">업무·프로젝트·일정·결재 등 이 화면에서 이뤄지는 작업이 기록됩니다. WBS 상세 편집 이력은 각 프로젝트의 "이전 Rev 보기"에서 확인하세요.</div>
       ${trs ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:6px 8px;">시각</th><th style="padding:6px 8px;">이름</th><th style="padding:6px 8px;">작업</th><th style="padding:6px 8px;">대상</th></tr></thead><tbody>${trs}</tbody></table></div>` : '<div style="color:var(--text-light);font-size:12px;">기록 없음 — 규칙 게시 이후의 작업부터 쌓입니다</div>'}
     </div>`;
 }
 
-// 🔐 접근 권한 — 관리 탭을 볼 수 있는 사람 지정 (저장은 super만 가능, 규칙에서도 차단)
+// <i data-lucide="lock-keyhole"></i> 접근 권한 — 관리 탭을 볼 수 있는 사람 지정 (저장은 super만 가능, 규칙에서도 차단)
 function renderAdminPerm() {
   const box = document.getElementById('adminBody'); if (!box) return;
   const me = getU(state.currentUser);
@@ -6331,7 +6336,7 @@ function renderAdminPerm() {
       <b>${_admEsc(u.name)}</b><span style="color:var(--text-light);">${_admEsc(u.dept || '')} ${_admEsc(u.title || '')}</span>
     </label>`).join('');
   box.innerHTML = `<div class="card" style="padding:16px;max-width:560px;">
-    <h4 style="margin-bottom:6px;">🔐 관리 탭 접근 권한</h4>
+    <h4 style="margin-bottom:6px;"><i data-lucide="lock-keyhole"></i> 관리 탭 접근 권한</h4>
     <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;">체크된 사람만 이 관리 탭을 볼 수 있습니다. (대표님은 항상 볼 수 있어 목록에 없음)</div>
     ${rows || '<div style="color:var(--text-light);font-size:12px;">직원 목록이 없습니다</div>'}
     <div style="margin-top:12px;">
@@ -6346,7 +6351,7 @@ async function saveAdminPerm() {
     await fb.setDoc(fb.doc(fb.db, 'adminAccess', 'config'), { uids, at: Date.now(), byUid: state.currentUser });
     state.adminAccess = { uids };
     renderNav();
-    const m = document.getElementById('admPermMsg'); if (m) m.textContent = '✓ 저장됨 (' + uids.length + '명)';
+    const m = document.getElementById('admPermMsg'); if (m) m.textContent = '<i data-lucide="check"></i> 저장됨 (' + uids.length + '명)';
   } catch (e) {
     alert('저장 실패: ' + (e.message || e) + '\n(대표 계정만 저장할 수 있습니다)');
   }
@@ -6410,32 +6415,32 @@ async function loadAiUsage() {
   const kpi = (label, val, sub) => `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value">${val}</div><div class="kpi-trend">${sub}</div></div>`;
   box.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;">
-      ${kpi('📅 오늘', todayN + '회', today)}
-      ${kpi('🗓 최근 7일', weekN + '회', '하루 평균 ' + Math.round(weekN/7) + '회')}
-      ${kpi('📊 최근 30일', rows.length + '회', '전체 요청')}
-      ${kpi('⚠️ 실패', fails.length + '회', '최근 30일')}
+      ${kpi('<i data-lucide="calendar-days"></i> 오늘', todayN + '회', today)}
+      ${kpi('<i data-lucide="calendar"></i> 최근 7일', weekN + '회', '하루 평균 ' + Math.round(weekN/7) + '회')}
+      ${kpi('<i data-lucide="chart-column"></i> 최근 30일', rows.length + '회', '전체 요청')}
+      ${kpi('<i data-lucide="alert-triangle"></i>️ 실패', fails.length + '회', '최근 30일')}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px;">
-      <div class="card" style="padding:16px;"><h4 style="margin-bottom:10px;">🏢 회사(모델)별 — 30일</h4>${byProv.map(e=>barRow(e,maxProv)).join('') || '<div style="color:var(--text-light);font-size:12px;">기록 없음</div>'}</div>
-      <div class="card" style="padding:16px;"><h4 style="margin-bottom:10px;">👤 사용자별 TOP — 30일</h4>${byUser.slice(0,10).map(e=>barRow(e,maxUser)).join('') || '<div style="color:var(--text-light);font-size:12px;">기록 없음</div>'}</div>
+      <div class="card" style="padding:16px;"><h4 style="margin-bottom:10px;"><i data-lucide="building"></i> 회사(모델)별 — 30일</h4>${byProv.map(e=>barRow(e,maxProv)).join('') || '<div style="color:var(--text-light);font-size:12px;">기록 없음</div>'}</div>
+      <div class="card" style="padding:16px;"><h4 style="margin-bottom:10px;"><i data-lucide="user"></i> 사용자별 TOP — 30일</h4>${byUser.slice(0,10).map(e=>barRow(e,maxUser)).join('') || '<div style="color:var(--text-light);font-size:12px;">기록 없음</div>'}</div>
     </div>
     <div class="card" style="padding:16px;margin-bottom:14px;">
-      <h4 style="margin-bottom:10px;">📈 일별 요청 수 (최근 14일)</h4>
+      <h4 style="margin-bottom:10px;"><i data-lucide="trending-up"></i> 일별 요청 수 (최근 14일)</h4>
       <div style="display:flex;align-items:flex-end;gap:4px;min-height:100px;">${dayBars || '<div style="color:var(--text-light);font-size:12px;">기록 없음</div>'}</div>
     </div>
     <div class="card" style="padding:16px;">
-      <h4 style="margin-bottom:10px;">⚠️ 최근 실패 기록 (최대 10건)</h4>
-      ${failRows ? `<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:5px 8px;">날짜</th><th style="padding:5px 8px;">사용자</th><th style="padding:5px 8px;">오류</th></tr></thead><tbody>${failRows}</tbody></table>` : '<div style="color:var(--text-light);font-size:12px;">실패 기록 없음 👍</div>'}
+      <h4 style="margin-bottom:10px;"><i data-lucide="alert-triangle"></i>️ 최근 실패 기록 (최대 10건)</h4>
+      ${failRows ? `<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:var(--text-light);text-align:left;"><th style="padding:5px 8px;">날짜</th><th style="padding:5px 8px;">사용자</th><th style="padding:5px 8px;">오류</th></tr></thead><tbody>${failRows}</tbody></table>` : '<div style="color:var(--text-light);font-size:12px;">실패 기록 없음 <i data-lucide="thumbs-up"></i></div>'}
     </div>`;
 }
 
-/* ═════════════ 👥 조직/권한 ═════════════ */
+/* ═════════════ <i data-lucide="users"></i> 조직/권한 ═════════════ */
 function org() {
   const me = getU(state.currentUser);
   const isSuper = me && me.grade === 'super';
   const deptList = ['영업부','기술부','구매부','생산부','품질관리부','현장시공','안전관리부','총무부','재무부'];
-  const deptIco = {'영업부':'💼','기술부':'📐','구매부':'🛒','생산부':'🏭','품질관리부':'📦','현장시공':'🏗️','안전관리부':'🦺','총무부':'👔','재무부':'💲'};
-  const depts = deptList.map(name => ({ name, ico: deptIco[name]||'🏢', users: state.users.filter(u=>u.dept===name) }));
+  const deptIco = {'영업부':'<i data-lucide="briefcase"></i>','기술부':'<i data-lucide="pencil-ruler"></i>','구매부':'<i data-lucide="shopping-cart"></i>','생산부':'<i data-lucide="factory"></i>','품질관리부':'<i data-lucide="package"></i>','현장시공':'<i data-lucide="hard-hat"></i>️','안전관리부':'<i data-lucide="shield-alert"></i>','총무부':'<i data-lucide="building-2"></i>','재무부':'<i data-lucide="dollar-sign"></i>'};
+  const depts = deptList.map(name => ({ name, ico: deptIco[name]||'<i data-lucide="building"></i>', users: state.users.filter(u=>u.dept===name) }));
 
   // 사용자 한 줄 (컴팩트 테이블 row)
   const userRow = (u) => {
@@ -6457,11 +6462,11 @@ function org() {
     const extras = [mpChips.join(''), legacyChips].filter(Boolean).join('');
     let btns = '';
     if (isSuper) {
-      btns += `<button class="org-ico-btn" onclick="openExtraPerms('${u.id}')" title="개별 권한 부여">⚙️</button>`;
+      btns += `<button class="org-ico-btn" onclick="openExtraPerms('${u.id}')" title="개별 권한 부여"><i data-lucide="settings"></i>️</button>`;
       if (u.grade !== 'super') {
-        btns += `<button class="org-ico-btn" onclick="openEditUserProfile('${u.id}')" title="부서/직급 수정">✏️</button>`;
-        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화 (로그인 차단, 기록 유지)'}">${u.disabled?'🔓':'🔒'}</button>`;
-        btns += `<button class="org-ico-btn" style="color:#991b1b;" onclick="hardDeleteUser('${u.id}')" title="계정 완전 삭제 (users 문서 제거)">🗑️</button>`;
+        btns += `<button class="org-ico-btn" onclick="openEditUserProfile('${u.id}')" title="부서/직급 수정"><i data-lucide="pencil"></i>️</button>`;
+        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화 (로그인 차단, 기록 유지)'}">${u.disabled?'<i data-lucide="unlock"></i>':'<i data-lucide="lock"></i>'}</button>`;
+        btns += `<button class="org-ico-btn" style="color:#991b1b;" onclick="hardDeleteUser('${u.id}')" title="계정 완전 삭제 (users 문서 제거)"><i data-lucide="trash-2"></i>️</button>`;
       }
     }
     return `<tr style="${u.disabled?'opacity:.5;':''}">
@@ -6474,10 +6479,10 @@ function org() {
   };
 
   // v29.9: 사전 등록 대기 계정 (아직 Google 로그인 안 한 미리 등록된 계정들)
-  // v29.18: promotedTo 마킹된 항목은 이미 실계정 승격 완료(지정 승계만 남음) → 목록에서 제외
+  // v29.18: promotedTo 마킹된 항목은 이미 실계정 승격 완료(지정 승계만 남음) <i data-lucide="arrow-right"></i> 목록에서 제외
   const pending = (state.pendingUsers || []).filter(p => !p.promotedTo);
   const pendingHtml = (isSuper && pending.length) ? `
-    <div class="card" style="margin-bottom:14px;border-left:3px solid var(--warning);padding:14px 16px;">
+    <div class="card" style="margin-bottom:14px;padding:14px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h3 style="font-size:13px;">⏳ 사전 등록 대기 계정 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(${pending.length}명 · 해당 이메일로 첫 로그인 시 자동 승격)</span></h3>
       </div>
@@ -6489,7 +6494,7 @@ function org() {
           <td>${p.dept||'-'} · ${p.title||'-'}</td>
           <td style="color:var(--text-lighter);">${p.createdAt?new Date(p.createdAt).toISOString().slice(0,10):'-'}</td>
           <td style="text-align:right;white-space:nowrap;">
-            <button class="org-ico-btn" onclick="openPendingUser('${p.id}')" title="수정">✏️</button>
+            <button class="org-ico-btn" onclick="openPendingUser('${p.id}')" title="수정"><i data-lucide="pencil"></i>️</button>
             <button class="org-ico-btn" style="color:#dc2626;" onclick="deletePendingUser('${p.id}')" title="삭제">🗑️</button>
           </td>
         </tr>`).join('')}</tbody>
@@ -6497,9 +6502,9 @@ function org() {
     </div>` : '';
 
   return `<div class="mod-head">
-    <div><div class="mod-title">👥 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (부서/직급 수정·권한 부여·비활성화 가능)':'조회 전용'} · 계정은 Google 로그인으로 본인이 직접 생성</div></div>
+    <div><div class="mod-title"><i data-lucide="users"></i> 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (부서/직급 수정·권한 부여·비활성화 가능)':'조회 전용'} · 계정은 Google 로그인으로 본인이 직접 생성</div></div>
     ${isSuper ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="btn btn-sm" onclick="openWorkspaceImport()" title="Workspace 사용자 목록을 자동으로 불러와 일괄 사전 등록">👥 Workspace에서 가져오기</button>
+      <button class="btn btn-sm" onclick="openWorkspaceImport()" title="Workspace 사용자 목록을 자동으로 불러와 일괄 사전 등록"><i data-lucide="users"></i> Workspace에서 가져오기</button>
       <button class="btn btn-primary btn-sm" onclick="openPendingUser()">+ 계정 미리 등록</button>
     </div>` : ''}
   </div>
@@ -6507,17 +6512,17 @@ function org() {
   ${pendingHtml}
 
   <details style="margin-bottom:14px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);">
-    <summary style="cursor:pointer;padding:10px 14px;font-size:13px;font-weight:600;color:var(--primary);">🔐 권한 체계 보기 (등급 자동 결정 규칙)</summary>
+    <summary style="cursor:pointer;padding:10px 14px;font-size:13px;font-weight:600;color:var(--primary);"><i data-lucide="lock-keyhole"></i> 권한 체계 보기 (등급 자동 결정 규칙)</summary>
     <div style="padding:0 14px 14px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text-light);">
         ${Object.entries(GRADES).map(([k,v])=>`<span style="padding:5px 10px;background:var(--bg);border-radius:6px;"><span class="b-pill ${v.color}">${v.label}</span> ${v.desc} (${state.users.filter(u=>u.grade===k).length}명)</span>`).join('')}
       </div>
       <div style="margin-top:10px;font-size:11px;color:var(--text-light);line-height:1.6;">
-        📌 이사 이상→임원 · 부장→부서장 · 차장 이하→일반 · 시스템 오너→슈퍼관리자<br>
-        💡 등급은 기본 권한입니다. <b>⚙️ 버튼</b>으로 도구별·액션별 개인 권한(NCR 삭제, CAR 삭제, ITP 승인 등)을 세분화해서 부여/차단할 수 있습니다.
+        <i data-lucide="pin"></i> 이사 이상<i data-lucide="arrow-right"></i>임원 · 부장<i data-lucide="arrow-right"></i>부서장 · 차장 이하<i data-lucide="arrow-right"></i>일반 · 시스템 오너<i data-lucide="arrow-right"></i>슈퍼관리자<br>
+        <i data-lucide="lightbulb"></i> 등급은 기본 권한입니다. <b><i data-lucide="settings"></i>️ 버튼</b>으로 도구별·액션별 개인 권한(NCR 삭제, CAR 삭제, ITP 승인 등)을 세분화해서 부여/차단할 수 있습니다.
       </div>
       <div style="margin-top:10px;font-size:11px;color:var(--text-light);line-height:1.6;padding-top:8px;border-top:1px solid var(--border-light);">
-        <b style="color:var(--text);">🔧 도구별 기본 부여 규칙</b><br>
+        <b style="color:var(--text);"><i data-lucide="wrench"></i> 도구별 기본 부여 규칙</b><br>
         ${Object.entries(PERM_MODULES).map(([mid, mod]) => {
           const actions = Object.entries(mod.actions).map(([aid, act]) => {
             const sem = grantSemantics(act.defaultGrant, mod);
@@ -6567,12 +6572,12 @@ function openExtraPerms(uid) {
       const effective = explicit === true ? true : explicit === false ? false : gotByDefault;
       const pillBg = effective ? '#dcfce7' : '#f3f4f6';
       const pillFg = effective ? '#166534' : '#6b7280';
-      const pillText = effective ? '✅ 가능' : '⛔ 불가';
+      const pillText = effective ? '<i data-lucide="check-circle"></i> 가능' : '⛔ 불가';
       const name = `mp_${modId}_${actId}`;
       rows.push(`
         <tr style="border-top:1px solid var(--border-light);">
           <td style="padding:8px 12px;font-size:12px;color:var(--text);">${act.label}</td>
-          <td style="padding:8px 8px;font-size:11px;color:var(--text-light);">${sem.desc}<span style="color:${gotByDefault?'#059669':'#9ca3af'};font-size:10px;margin-left:4px;">${gotByDefault?'✓':'—'}</span></td>
+          <td style="padding:8px 8px;font-size:11px;color:var(--text-light);">${sem.desc}<span style="color:${gotByDefault?'#059669':'#9ca3af'};font-size:10px;margin-left:4px;">${gotByDefault?'<i data-lucide="check"></i>':'—'}</span></td>
           <td style="padding:8px 8px;text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:${pillBg};color:${pillFg};">${pillText}</span></td>
           <td style="padding:8px 8px;text-align:center;"><label style="cursor:pointer;"><input type="radio" name="${name}" value="default" ${st==='default'?'checked':''} data-mp="${modId}.${actId}"></label></td>
           <td style="padding:8px 8px;text-align:center;"><label style="cursor:pointer;"><input type="radio" name="${name}" value="allow" ${st==='allow'?'checked':''} data-mp="${modId}.${actId}"></label></td>
@@ -6582,13 +6587,13 @@ function openExtraPerms(uid) {
   });
   const legacy = (u.extraPerms||[]).length ? `
     <div style="margin-top:14px;padding:9px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;">
-      ⚠️ 이전 방식의 추가 권한 남아있음: ${(u.extraPerms||[]).map(k => EXTRA_PERMS[k]?.label || k).join(', ')} — 계속 유지됩니다. 신 방식으로 이관하려면 위 표에서 다시 설정하세요.
+      <i data-lucide="alert-triangle"></i>️ 이전 방식의 추가 권한 남아있음: ${(u.extraPerms||[]).map(k => EXTRA_PERMS[k]?.label || k).join(', ')} — 계속 유지됩니다. 신 방식으로 이관하려면 위 표에서 다시 설정하세요.
     </div>` : '';
-  openModal(`⚙️ 개별 권한 — ${u.name} ${u.title}`, `
+  openModal(`<i data-lucide="settings"></i>️ 개별 권한 — ${u.name} ${u.title}`, `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;line-height:1.6;">
       등급 <b>${(GRADES[u.grade]||{}).label}</b> · 부서 <b>${u.dept||'-'}</b><br>
-      각 액션마다 <b>기본</b> (도구별 기본 규칙 따름) / <b>👍 개별 허용</b> / <b>🚫 개별 차단</b> 셋 중 하나를 선택합니다.<br>
-      <span style="color:var(--text-lighter);font-size:11px;">"기본 부여 대상" 옆 <span style="color:#059669;">✓</span>는 이 사용자가 기본으로 자격이 있음을 뜻합니다.</span>
+      각 액션마다 <b>기본</b> (도구별 기본 규칙 따름) / <b><i data-lucide="thumbs-up"></i> 개별 허용</b> / <b><i data-lucide="ban"></i> 개별 차단</b> 셋 중 하나를 선택합니다.<br>
+      <span style="color:var(--text-lighter);font-size:11px;">"기본 부여 대상" 옆 <span style="color:#059669;"><i data-lucide="check"></i></span>는 이 사용자가 기본으로 자격이 있음을 뜻합니다.</span>
     </div>
     <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
       <table style="width:100%;border-collapse:collapse;font-size:11px;">
@@ -6598,8 +6603,8 @@ function openExtraPerms(uid) {
             <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--text-light);">기본 부여 대상</th>
             <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:var(--text-light);width:70px;">현재</th>
             <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:var(--text-light);width:60px;">기본</th>
-            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#059669;width:70px;">👍 허용</th>
-            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#dc2626;width:70px;">🚫 차단</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#059669;width:70px;"><i data-lucide="thumbs-up"></i> 허용</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#dc2626;width:70px;"><i data-lucide="ban"></i> 차단</th>
           </tr>
         </thead>
         <tbody>${rows.join('')}</tbody>
@@ -6625,7 +6630,7 @@ function openExtraPerms(uid) {
       alert('저장 중 오류가 발생했습니다: ' + (e.message || e));
     }
   });
-  // 권한 표가 넓기 때문에 이 모달만 유일하게 폭 확장 (기본 480 → 820)
+  // 권한 표가 넓기 때문에 이 모달만 유일하게 폭 확장 (기본 480 <i data-lucide="arrow-right"></i> 820)
   const _mBox = document.querySelector('#modal .modal'); if (_mBox) _mBox.style.maxWidth = '820px';
 }
 
@@ -6640,9 +6645,9 @@ async function openPendingUser(pendingId) {
   if (!p) p = { email: '', name: '', dept: '품질관리부', title: '사원' };
   const deptOpts = DEPTS.map(d => `<option value="${d.name}" ${p.dept===d.name?'selected':''}>${d.name}</option>`).join('');
   const titleOpts = TITLES.map(t => `<option value="${t}" ${p.title===t?'selected':''}>${t}</option>`).join('');
-  openModal(editing ? `✏️ 사전 등록 계정 수정` : `+ 계정 미리 등록`, `
+  openModal(editing ? `<i data-lucide="pencil"></i>️ 사전 등록 계정 수정` : `+ 계정 미리 등록`, `
     <div style="font-size:11px;color:var(--text-light);background:var(--bg);padding:9px 12px;border-radius:6px;margin-bottom:14px;line-height:1.55;">
-      💡 이 이메일 계정으로 사용자가 처음 Google 로그인하면, 아래 입력한 부서·직급 정보로 자동으로 계정이 생성됩니다. 소속 입력 화면을 건너뛰게 하는 관리 편의 기능.
+      <i data-lucide="lightbulb"></i> 이 이메일 계정으로 사용자가 처음 Google 로그인하면, 아래 입력한 부서·직급 정보로 자동으로 계정이 생성됩니다. 소속 입력 화면을 건너뛰게 하는 관리 편의 기능.
     </div>
     <div class="fg"><label class="fl">이메일 <span style="color:var(--danger);">*</span></label><input class="fi" id="puEmail" placeholder="name@sejong-21c.com" value="${p.email||''}" ${editing?'readonly style="background:#f5f5f5;"':''}></div>
     <div class="fg"><label class="fl">이름</label><input class="fi" id="puName" placeholder="홍길동" value="${p.name||''}"></div>
@@ -6650,7 +6655,7 @@ async function openPendingUser(pendingId) {
       <div style="flex:1;"><label class="fl">부서</label><select class="fs" id="puDept">${deptOpts}</select></div>
       <div style="flex:1;"><label class="fl">직급</label><select class="fs" id="puTitle">${titleOpts}</select></div>
     </div>
-    <div style="font-size:11px;color:var(--text-light);margin-top:-6px;margin-bottom:10px;">직급에 따라 권한 등급이 자동 결정됩니다 (이사 이상→임원, 부장→부서장, 그 외→일반).</div>
+    <div style="font-size:11px;color:var(--text-light);margin-top:-6px;margin-bottom:10px;">직급에 따라 권한 등급이 자동 결정됩니다 (이사 이상<i data-lucide="arrow-right"></i>임원, 부장<i data-lucide="arrow-right"></i>부서장, 그 외<i data-lucide="arrow-right"></i>일반).</div>
   `, async () => {
     const email = document.getElementById('puEmail').value.trim().toLowerCase();
     const name  = document.getElementById('puName').value.trim();
@@ -6698,7 +6703,7 @@ function openEditUserProfile(uid) {
   const deptOpts = DEPTS.map(d=>`<option value="${d.name}" ${d.name===u.dept?'selected':''}>${d.name}</option>`).join('');
   const titleOpts = TITLES.map(t=>`<option value="${t}" ${t===u.title?'selected':''}>${t}</option>`).join('');
   const gradeOpts = Object.keys(GRADES).map(g=>`<option value="${g}" ${g===u.grade?'selected':''}>${GRADES[g].label}</option>`).join('');
-  openModal(`✏️ ${u.name} 정보 수정`, `
+  openModal(`<i data-lucide="pencil"></i>️ ${u.name} 정보 수정`, `
     <div class="fg"><label class="fl">부서</label><select class="fs" id="euDept">${deptOpts}</select></div>
     <div class="fg"><label class="fl">직급</label><select class="fs" id="euTitle" onchange="document.getElementById('euGrade').value = gradeByTitle(this.value);">${titleOpts}</select></div>
     <div class="fg"><label class="fl">권한 등급</label><select class="fs" id="euGrade">${gradeOpts}</select></div>
@@ -6747,7 +6752,7 @@ async function hardDeleteUser(uid) {
   if (!u) return;
   if (u.grade === 'super') { alert('슈퍼관리자 계정은 삭제할 수 없습니다.'); return; }
   if (u.id === state.currentUser) { alert('본인 계정은 삭제할 수 없습니다.'); return; }
-  const c1 = confirm(`⚠️ ${u.name} ${u.title} (${u.email}) 계정을 완전 삭제합니다.\n\n· 이 사용자의 로그인 정보가 users 컬렉션에서 제거됩니다.\n· NCR·CAR·프로젝트·업무 등 기록에 남아있는 사용자 UID는 유지되지만, 이름 조회가 실패해 "삭제된 사용자"로 표시됩니다.\n· 이 사용자가 다시 Google 로그인하면 새 계정으로 재등록됩니다 (필요 시 사전 등록으로 미리 소속 지정).\n\n비활성화만 원하시면 [취소]하고 🔒 버튼을 사용하세요.\n\n계속하시겠습니까?`);
+  const c1 = confirm(`<i data-lucide="alert-triangle"></i>️ ${u.name} ${u.title} (${u.email}) 계정을 완전 삭제합니다.\n\n· 이 사용자의 로그인 정보가 users 컬렉션에서 제거됩니다.\n· NCR·CAR·프로젝트·업무 등 기록에 남아있는 사용자 UID는 유지되지만, 이름 조회가 실패해 "삭제된 사용자"로 표시됩니다.\n· 이 사용자가 다시 Google 로그인하면 새 계정으로 재등록됩니다 (필요 시 사전 등록으로 미리 소속 지정).\n\n비활성화만 원하시면 [취소]하고 <i data-lucide="lock"></i> 버튼을 사용하세요.\n\n계속하시겠습니까?`);
   if (!c1) return;
   const confirmText = prompt(`정말 삭제하려면 이메일 앞부분을 입력하세요:\n(예: ${(u.email||'').split('@')[0]})`);
   if (!confirmText || confirmText.trim().toLowerCase() !== (u.email||'').split('@')[0].toLowerCase()) {
@@ -6765,7 +6770,7 @@ async function hardDeleteUser(uid) {
 }
 
 
-/* ═════════════ 📝 결재 ═════════════ */
+/* ═════════════ <i data-lucide="file-text"></i> 결재 ═════════════ */
 // v29.11: 3구획 결재 관리 화면 — 내가 결재할 것 / 내가 요청한 것 / 완료된 결재
 // 지원 유형: 'schedule-change' (WBS 변경 요청), 'okr-change' (부서 목표 변경),
 // 기존 기안 유형 '출장'/'구매'/'경비'/'품의'/'기타'도 그대로 표시.
@@ -6778,17 +6783,17 @@ const APPROVAL_STATUS_META = {
   rejected: { pill:'red',    label:'반려' },
 };
 const APPROVAL_TEMPLATES = {
-  iso:      { label:'ISO 업무 (report·도면·절차서)', icon:'📄', roles:['작성','검토','승인'],           amount:false },
-  quality3: { label:'품질 3자검사 (대리·과장·부서장)', icon:'🔎', roles:['작성','검토','승인'],           amount:false, locked:true },
-  purchase: { label:'품의·기안 (금액)',               icon:'💰', roles:['작성','검토','부서장','대표이사'], amount:true  },
-  project:  { label:'프로젝트 (스케줄·WBS 변경)',       icon:'📊', roles:['작성','승인(PM)'],              amount:false },
+  iso:      { label:'ISO 업무 (report·도면·절차서)', icon:'<i data-lucide="file"></i>', roles:['작성','검토','승인'],           amount:false },
+  quality3: { label:'품질 3자검사 (대리·과장·부서장)', icon:'<i data-lucide="search"></i>', roles:['작성','검토','승인'],           amount:false, locked:true },
+  purchase: { label:'품의·기안 (금액)',               icon:'<i data-lucide="circle-dollar-sign"></i>', roles:['작성','검토','부서장','대표이사'], amount:true  },
+  project:  { label:'프로젝트 (스케줄·WBS 변경)',       icon:'<i data-lucide="chart-column"></i>', roles:['작성','승인(PM)'],              amount:false },
 };
 const ROLE_OPTIONS = ['작성','검토','부서장','승인','합의','대표이사','승인(PM)'];
 function _approvalTypeLabel(t) {
   if (APPROVAL_TEMPLATES[t]) return APPROVAL_TEMPLATES[t].icon + ' ' + APPROVAL_TEMPLATES[t].label.split(' (')[0];
-  if (t === 'schedule-change' || t === 'wbs-shadow') return '📊 WBS 변경';
-  if (t === 'itp') return '📋 ITP 결재';
-  if (t === 'okr-change') return '🎯 목표 변경';
+  if (t === 'schedule-change' || t === 'wbs-shadow') return '<i data-lucide="chart-column"></i> WBS 변경';
+  if (t === 'itp') return '<i data-lucide="clipboard-list"></i> ITP 결재';
+  if (t === 'okr-change') return '<i data-lucide="target"></i> 목표 변경';
   return t || '기타';
 }
 
@@ -6876,11 +6881,11 @@ function _renderLineFlow(line) {
   return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">` + line.map((s,i) => {
     const u = getU(s.uid) || {};
     let bg='var(--white)', col='var(--text)', bd='1px solid var(--border)', ic='●';
-    if (s.status==='approved'){ bg='#dcfce7'; col='#166534'; bd='none'; ic='✓'; }
-    else if (s.status==='rejected'){ bg='#fee2e2'; col='#991b1b'; bd='none'; ic='✕'; }
+    if (s.status==='approved'){ bg='#dcfce7'; col='#166534'; bd='none'; ic='<i data-lucide="check"></i>'; }
+    else if (s.status==='rejected'){ bg='#fee2e2'; col='#991b1b'; bd='none'; ic='<i data-lucide="x"></i>'; }
     else if (s.status==='pending'){ bg='#fef3c7'; col='#92400e'; bd='none'; ic='⏳'; }
     else { col='var(--text-lighter)'; ic='…'; }
-    const arrow = i>0 ? `<span style="color:var(--text-lighter);">→</span>` : '';
+    const arrow = i>0 ? `<span style="color:var(--text-lighter);"><i data-lucide="arrow-right"></i></span>` : '';
     return `${arrow}<span style="background:${bg};color:${col};border:${bd};border-radius:20px;padding:4px 10px;font-size:12px;">${ic} ${s.role} · ${u.name||'-'}</span>`;
   }).join('') + `</div>`;
 }
@@ -6918,7 +6923,7 @@ function approval() {
   const tblHead = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재선 진행</th><th>금액</th><th>상태</th><th>기안일</th></tr></thead>`;
   return `
     <div class="mod-head">
-      <div><div class="mod-title">📝 결재 관리</div><div class="mod-sub">WBS 변경 · 목표 변경 · 출장 · 구매 · 경비 · 품의 (문서 클릭 시 상세)</div></div>
+      <div><div class="mod-title"><i data-lucide="file-text"></i> 결재 관리</div><div class="mod-sub">WBS 변경 · 목표 변경 · 출장 · 구매 · 경비 · 품의 (문서 클릭 시 상세)</div></div>
       <button class="btn btn-primary" onclick="openApproval()">+ 신규 기안</button>
     </div>
     <div class="kpi-grid">
@@ -6928,19 +6933,19 @@ function approval() {
       <div class="kpi"><div class="kpi-label">완료(승인/반려)</div><div class="kpi-value" style="color:var(--text-light);">${cnt('approved')+cnt('rejected')}</div></div>
     </div>
     <div class="card" style="margin-top:14px;">
-      <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);">🔴 내가 결재할 항목 (${toReview.length})</h3>
+      <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);"><i data-lucide="circle-alert"></i> 내가 결재할 항목 (${toReview.length})</h3>
       ${toReview.length
         ? `<table class="table">${tblHead}<tbody>${toReview.map(_renderApprovalRow).join('')}</tbody></table>`
         : `<div style="text-align:center;padding:14px;color:var(--text-lighter);font-size:12px;">결재할 항목이 없습니다.</div>`}
     </div>
     <div class="card" style="margin-top:14px;">
-      <h3 style="font-size:14px;margin-bottom:10px;color:var(--primary);">📤 내가 요청한 항목 (${mine.length})</h3>
+      <h3 style="font-size:14px;margin-bottom:10px;color:var(--primary);"><i data-lucide="upload"></i> 내가 요청한 항목 (${mine.length})</h3>
       ${mine.length
         ? `<table class="table">${tblHead}<tbody>${mine.map(_renderApprovalRow).join('')}</tbody></table>`
         : `<div style="text-align:center;padding:14px;color:var(--text-lighter);font-size:12px;">진행 중인 요청이 없습니다.</div>`}
     </div>
     <div class="card" style="margin-top:14px;">
-      <h3 style="font-size:14px;margin-bottom:10px;color:var(--text-light);">📚 완료된 결재 (${done.length})</h3>
+      <h3 style="font-size:14px;margin-bottom:10px;color:var(--text-light);"><i data-lucide="library"></i> 완료된 결재 (${done.length})</h3>
       ${done.length
         ? `<table class="table">${tblHead}<tbody>${done.slice(0,20).map(_renderApprovalRow).join('')}</tbody></table>${done.length>20?'<div style="font-size:11px;color:var(--text-lighter);margin-top:6px;text-align:right;">최근 20건만 표시됨</div>':''}`
         : `<div style="text-align:center;padding:14px;color:var(--text-lighter);font-size:12px;">완료된 결재가 없습니다.</div>`}
@@ -6988,8 +6993,8 @@ function openApprovalDetail(aid) {
     ${canDecide?`
       <div class="fg" style="margin-top:12px;"><label class="fl">결재 의견 (선택)</label><input class="fi" id="apDecNote" placeholder="필요 시 승인·반려 사유를 남기세요"></div>
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px;">
-        <button class="btn" style="background:var(--danger);color:#fff;" onclick="decideApproval('${a.id}','rejected')">✕ 반려</button>
-        <button class="btn btn-primary" onclick="decideApproval('${a.id}','approved')">✓ 승인</button>
+        <button class="btn" style="background:var(--danger);color:#fff;" onclick="decideApproval('${a.id}','rejected')"><i data-lucide="x"></i> 반려</button>
+        <button class="btn btn-primary" onclick="decideApproval('${a.id}','approved')"><i data-lucide="check"></i> 승인</button>
       </div>
     `:''}
   `;
@@ -7045,7 +7050,7 @@ async function decideApproval(aid, decision) {
         return alert('원본 pending 문서를 찾지 못했습니다. 이미 반영됐거나 폐기된 것 같습니다.');
       }
       const pd = psnap.data();
-      // 현재 master rev 조회 → 1 증가
+      // 현재 master rev 조회 <i data-lucide="arrow-right"></i> 1 증가
       let curRev = 0;
       try {
         const msnap = await fb.getDoc(fb.doc(fb.db, 'wbsData', a.projId));
@@ -7065,7 +7070,7 @@ async function decideApproval(aid, decision) {
       } catch (e) {
         // v29.37.1: 조용히 삼키지 않는다 — 승인 반영 자체는 성공했으니 진행하되, 이력 누락은 알린다.
         console.warn('history 저장 실패:', e.message);
-        alert('⚠️ 승인 반영은 완료됐지만 WBS 이력(wbsHistory) 스냅샷 저장에 실패했습니다.\n\n오류: ' + (e.message || e) + '\n\nFirebase 콘솔 → Firestore → 규칙에서 wbsHistory 쓰기 허용을 확인해주세요.');
+        alert('<i data-lucide="alert-triangle"></i>️ 승인 반영은 완료됐지만 WBS 이력(wbsHistory) 스냅샷 저장에 실패했습니다.\n\n오류: ' + (e.message || e) + '\n\nFirebase 콘솔 <i data-lucide="arrow-right"></i> Firestore <i data-lucide="arrow-right"></i> 규칙에서 wbsHistory 쓰기 허용을 확인해주세요.');
       }
       await fb.deleteDoc(fb.doc(fb.db, 'wbsPending', pendId));
       patch.appliedAt = appliedAt;
@@ -7080,14 +7085,14 @@ async function decideApproval(aid, decision) {
     if (decision === 'rejected') {
       alert('반려 처리되었습니다. 기안자에게 표시됩니다.');
     } else if (a.type === 'wbs-shadow' && finalApproved && autoApplied) {
-      alert(`✅ 최종 승인 완료 · 마스터 WBS에 자동 반영 (Rev. ${patch.appliedRev}).`);
+      alert(`<i data-lucide="check-circle"></i> 최종 승인 완료 · 마스터 WBS에 자동 반영 (Rev. ${patch.appliedRev}).`);
     } else if (!finalApproved) {
       const nextNm = (getU(patch.approver) || {}).name || '다음 결재자';
-      alert(`✅ 승인 완료 · ${nextNm}님에게 결재가 넘어갔습니다.`);
+      alert(`<i data-lucide="check-circle"></i> 승인 완료 · ${nextNm}님에게 결재가 넘어갔습니다.`);
     } else if (a.type === 'schedule-change') {
-      alert('✅ 최종 승인 완료.\n텍스트 요청은 자동 반영되지 않으니, 프로젝트 관리에서 실제 WBS를 수정해주세요.');
+      alert('<i data-lucide="check-circle"></i> 최종 승인 완료.\n텍스트 요청은 자동 반영되지 않으니, 프로젝트 관리에서 실제 WBS를 수정해주세요.');
     } else {
-      alert('✅ 최종 승인 완료 · 결재가 완결되었습니다.');
+      alert('<i data-lucide="check-circle"></i> 최종 승인 완료 · 결재가 완결되었습니다.');
     }
     closeModal();
   } catch (e) { alert('처리 중 오류: ' + (e.message || e)); }
@@ -7116,10 +7121,10 @@ function _renderLineEditor() {
           ? '<span style="font-size:11px;color:var(--text-lighter);flex:0 0 auto;width:70px;text-align:center;">서명 필수</span>'
           : `<button class="btn btn-sm" onclick="_draftLineMove(${i},-1)" ${i<=1?'disabled':''}>▲</button>
              <button class="btn btn-sm" onclick="_draftLineMove(${i},1)" ${i>=_draftLine.length-1?'disabled':''}>▼</button>
-             <button class="btn btn-sm" style="color:var(--danger);" onclick="_draftLineRemove(${i})">✕</button>`)}
+             <button class="btn btn-sm" style="color:var(--danger);" onclick="_draftLineRemove(${i})"><i data-lucide="x"></i></button>`)}
     </div>`).join('')
     + (locked
-      ? `<div style="font-size:11px;color:var(--text-lighter);margin-top:2px;">🔒 품질 3자검사 — 3자 서명이 필수라 단계는 고정됩니다. 각 단계 담당자만 변경할 수 있어요.</div>`
+      ? `<div style="font-size:11px;color:var(--text-lighter);margin-top:2px;"><i data-lucide="lock"></i> 품질 3자검사 — 3자 서명이 필수라 단계는 고정됩니다. 각 단계 담당자만 변경할 수 있어요.</div>`
       : `<button class="btn btn-sm" style="margin-top:2px;" onclick="_draftLineAdd()">+ 결재 단계 추가</button>`);
 }
 function _setDraftRole(i, v) { if(_draftLine[i]) _draftLine[i].role = v; }
@@ -7195,14 +7200,20 @@ window.addEventListener('resize', () => {
 </script>
 <script src="modules/ai-assistant/ai-assistant.js?v=29.43"></script>
 <script>
-// v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
-// 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.
+// v30: <i data-lucide> <i data-lucide="arrow-right"></i> SVG 자동 변환. 디바운스를 매우 짧게(0ms=마이크로태스크) 하고,
+// 변환이 필요한지 먼저 확인해 불필요한 호출을 스킵 <i data-lucide="arrow-right"></i> 메뉴 전환 시 이모지 깜빡임 원천 차단.
 (function () {
-  var t = null;
-  function run() { if (window.lucide) { try { lucide.createIcons(); } catch (e) {} } }
-  new MutationObserver(function () { clearTimeout(t); t = setTimeout(run, 80); })
-    .observe(document.body, { childList: true, subtree: true });
+  var scheduled = false;
+  function run() {
+    scheduled = false;
+    if (!window.lucide) return;
+    if (!document.querySelector('i[data-lucide]:not(:has(svg))')) return; // 이미 다 변환됨
+    try { lucide.createIcons(); } catch (e) {}
+  }
+  function schedule() { if (scheduled) return; scheduled = true; queueMicrotask(run); }
+  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
   window.addEventListener('load', run);
+  document.addEventListener('DOMContentLoaded', run);
   run();
 })();
 </script>
