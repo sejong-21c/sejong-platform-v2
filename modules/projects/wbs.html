@@ -544,8 +544,11 @@ window.wpToggle=function(id,ev){
   if(ar)ar.textContent=open?"▶":"▼";
 };
 window.wpPick=function(id,label){
+  // v28.4.52: 선택을 DRAFT에 저장 → 다른 창 클릭 후 재렌더돼도 상위 그룹 선택 유지
+  //   (기존엔 hidden input value만 DOM으로 넣어 oninput을 안 거쳐 DRAFT에 반영 안 됨 → 리셋됨)
+  try{ DRAFT.wform.parentId=id; }catch(e){}
   const v=document.querySelector('[data-draft="wform"][data-k="parentId"]');if(v)v.value=id;
-  const b=document.getElementById("wpParentBtn");if(b)b.textContent=label;
+  const b=document.getElementById("wpParentBtn");if(b){const s=b.querySelector("span");if(s)s.textContent=label;else b.textContent=label;}
   const t=document.getElementById("wpTree");if(t)t.style.display="none";
 };
 window.wpOpenTree=function(){
@@ -593,6 +596,24 @@ document.addEventListener("mouseup",()=>{
   _rszCol=null;document.body.style.cursor="";document.body.style.userSelect="";
   try{localStorage.setItem(_COLW_KEY,JSON.stringify(_colW));}catch(e){}
 });
+// v28.4.52: 모달(.mdl) 드래그 이동 — 헤더(.mdl-drag)를 잡아 창을 원하는 위치로 옮긴다.
+//   재렌더로 모달이 새로 그려지면 위치는 다시 중앙(허용) — 입력 중엔 재렌더가 없어 유지됨.
+let _mdlEl=null,_mdlSX=0,_mdlSY=0,_mdlDX=0,_mdlDY=0;
+document.addEventListener("mousedown",e=>{
+  const h=e.target&&e.target.closest?e.target.closest(".mdl-drag"):null;
+  if(!h)return;
+  _mdlEl=h.closest(".mdl");if(!_mdlEl)return;
+  const m=(_mdlEl.style.transform||"").match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+  _mdlDX=m?parseFloat(m[1]):0; _mdlDY=m?parseFloat(m[2]):0;
+  _mdlSX=e.clientX;_mdlSY=e.clientY;
+  document.body.style.userSelect="none";
+  e.preventDefault();
+});
+document.addEventListener("mousemove",e=>{
+  if(!_mdlEl)return;
+  _mdlEl.style.transform=`translate(${_mdlDX+(e.clientX-_mdlSX)}px, ${_mdlDY+(e.clientY-_mdlSY)}px)`;
+});
+document.addEventListener("mouseup",()=>{ if(_mdlEl){_mdlEl=null;document.body.style.userSelect="";} });
 const allI=()=>Object.values(MITEM).flat();
 const fI=id=>allI().find(i=>i.id===id);
 const fW=id=>WBS.find(w=>w.id===id);
@@ -1261,10 +1282,14 @@ function rModals(){
         <button data-a="clShare" style="padding:6px 14px;background:#f3f4f6;border:none;border-radius:6px;font-size:11px;cursor:pointer">닫기</button>
       </div>
     </div></div>`;}
-  if(S.wmod){const f=DRAFT.wform;h+=`<div class="ov"><div class="mdl"><div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1a2332">WBS 항목 추가</div>
+  if(S.wmod){const f=DRAFT.wform;
+    // v28.4.52: 현재 선택된 상위 그룹 라벨을 DRAFT 기준으로 계산 → 재렌더돼도 유지
+    const _pp=DRAFT.wform.parentId?WBS.find(x=>x.id===DRAFT.wform.parentId):null;
+    const _ppLabel=_pp?`${_pp.code} ${String(_pp.name).replace(/</g,"&lt;")} 아래 — ${lvName((_pp.lv||0)+1)}(Level ${(_pp.lv||0)+2}) 추가`:"— 대단락(Level 1)으로 추가 —";
+    h+=`<div class="ov"><div class="mdl"><div class="mdl-drag" style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1a2332;cursor:move;display:flex;justify-content:space-between;align-items:center" title="드래그해서 창 이동">WBS 항목 추가 <span style="font-size:10px;color:#9ca3af;font-weight:400">⠿ 이동</span></div>
       <div style="margin-bottom:7px"><div class="fl">상위 그룹 (추가 위치)</div>
         <input type="hidden" data-draft="wform" data-k="parentId" value="${DRAFT.wform.parentId||""}">
-        <button type="button" id="wpParentBtn" onclick="wpOpenTree()" class="fi" style="text-align:left;cursor:pointer;background:#fff;display:flex;justify-content:space-between;align-items:center"><span>— 대단락(Level 1)으로 추가 —</span><span style="font-size:9px;color:#9ca3af">▼ 클릭해서 위치 선택</span></button>
+        <button type="button" id="wpParentBtn" onclick="wpOpenTree()" class="fi" style="text-align:left;cursor:pointer;background:#fff;display:flex;justify-content:space-between;align-items:center"><span>${_ppLabel}</span><span style="font-size:9px;color:#9ca3af">▼ 클릭해서 위치 선택</span></button>
         <div id="wpTree" style="display:none;border:1.5px solid #c3d6f0;border-radius:6px;max-height:250px;overflow-y:auto;margin-top:4px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.08)">
           <div style="padding:7px 10px;border-bottom:1px solid #e4e7ec;cursor:pointer;font-size:11px;font-weight:700;color:#1e40af;background:#f8fafc" onclick="wpPick('','— 대단락(Level 1)으로 추가 —')" onmouseover="this.style.background='#eef3fb'" onmouseout="this.style.background='#f8fafc'">— 대단락(Level 1)으로 추가 —</div>
           ${(()=>{
