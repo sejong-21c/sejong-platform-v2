@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>정오 업데이트 · 2026-07-20 12:00 · 품질관리부 김철우 부장</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#273449; --line:#334155;
+    --txt:#e2e8f0; --sub:#94a3b8; --hi:#f8fafc;
+    --high:#ef4444; --mid:#f59e0b; --low:#38bdf8; --ok:#22c55e; --nuc:#fcd34d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font-family:"Malgun Gothic","Segoe UI",system-ui,sans-serif;line-height:1.55;font-size:14px}
+  .wrap{max-width:1040px;margin:0 auto;padding:20px 16px 60px}
+  header{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;
+         border-bottom:2px solid var(--line);padding-bottom:14px;margin-bottom:20px}
+  header h1{font-size:20px;margin:0;color:var(--hi)}
+  header .meta{color:var(--sub);font-size:13px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:18px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi .n{font-size:26px;font-weight:700;color:var(--hi)}
+  .kpi .l{font-size:12px;color:var(--sub);margin-top:2px}
+  h2{font-size:15px;color:var(--hi);margin:26px 0 10px;display:flex;align-items:center;gap:8px}
+  h2 .bar{width:4px;height:16px;background:var(--low);border-radius:2px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--sub);font-weight:600;font-size:12px}
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+  .t-high{background:rgba(239,68,68,.18);color:#fca5a5}
+  .t-mid{background:rgba(245,158,11,.18);color:#fcd34d}
+  .t-low{background:rgba(56,189,248,.18);color:#7dd3fc}
+  .t-ok{background:rgba(34,197,94,.18);color:#86efac}
+  .t-nuc{background:rgba(252,211,77,.16);color:#fcd34d}
+  li{margin:5px 0}
+  .muted{color:var(--sub)}
+  .exec{background:var(--card2);border-left:4px solid var(--low)}
+  .nuc{border-left:4px solid var(--nuc)}
+  .foot{margin-top:30px;color:var(--sub);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+  code{background:#0b1220;padding:1px 5px;border-radius:4px;font-size:12px;color:#cbd5e1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>정오 업데이트</h1>
+    <span class="meta">2026-07-20(월) 12:00 · ㈜세종기술 품질관리부 · 김철우 부장 (cwkim@sejong-21c.com)</span>
+  </header>
+
+  <section class="card exec">
+    <strong style="color:var(--hi)">Executive Summary</strong>
+    <ul style="margin:8px 0 0">
+      <li>오전 브리핑(07:30) 이후 <b>신규 8건</b> 도착. 실무 핵심은 <b>SJ435-26 삼성전기 ITP 보완요청</b> 1건 — 나머지는 국도화학 세무·거래명세 정산, ISO 인증 컨설팅, 주간회의 회의록, 지원사업·AI 뉴스레터.</li>
+      <li><b>SJ435-26(삼성전기 BT-6):</b> 신안건업이 ITP 관련 파일 추가 송부(7/16) → 신채완 과장이 검토 후 <b>보완요청 3건 회신(11:48)</b> — ①용접사 WPQR/굽힘시험 결과 누락, ②자재성적서 불일치(SS275↔SHN275 등급·동국제강 792kg 누락), ③WPS 필렛 필수변수 미기재. <b>신안건업 보완서류 회수 팔로업 필요.</b></li>
+      <li><b>주간 회의(08:15~10:15) 종료.</b> 회의록 자동 생성 완료. 최우선 과제 = <b>미수금 회수·자금 운용</b>. 부장 후속: 각 팀 수금계획 취합→자금 스케줄 수립, TTT 최종 설계자료 ~7/30 발송, 회의자료 작성요령 재정리 공유.</li>
+      <li><b>NCR/CAR 신규 0건 · 진행 0건</b> — 품질 지표 안정. 신규 수주(WO) 0건.</li>
+      <li>원자력 최우선: <b>한수원 체코원전 M229C·N210B 예가 견적 7/21(화) 회신</b>(영업부 김민준 작성, 부장 검토) — 마감 임박.</li>
+    </ul>
+  </section>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">8</div><div class="l">신규 메일(07:30 이후)</div></div>
+    <div class="kpi"><div class="n">8</div><div class="l">분류·처리</div></div>
+    <div class="kpi"><div class="n">2</div><div class="l">긴급 답변 대기</div></div>
+    <div class="kpi"><div class="n">0</div><div class="l">신규 NCR/CAR</div></div>
+    <div class="kpi"><div class="n">0</div><div class="l">신규 수주(WO)</div></div>
+  </div>
+
+  <h2><span class="bar"></span>긴급 답변 / 액션 대기</h2>
+  <div class="card">
+    <table>
+      <tr><th>우선</th><th>건명</th><th>Project</th><th>마감·비고</th></tr>
+      <tr><td><span class="tag t-high">긴급</span></td>
+          <td>한수원 체코원전 M229C·N210B 예가 견적서 회신 (영업부 김민준 차장 작성, 부장 검토)</td>
+          <td>원자력/체코원전</td><td>7/21(화)</td></tr>
+      <tr><td><span class="tag t-high">긴급</span></td>
+          <td>SJ435-26 신안건업 보완서류 회수 팔로업 (WPQR·자재성적서·WPS 필렛)</td>
+          <td>SJ435-26</td><td>회신 재촉</td></tr>
+      <tr><td><span class="tag t-mid">중요</span></td>
+          <td>주간회의 후속 — 팀별 미수금 수금계획 취합 → 자금 운용 스케줄 수립</td>
+          <td>부서/경영</td><td>금주(자금난 최우선)</td></tr>
+      <tr><td><span class="tag t-mid">중요</span></td>
+          <td>국도화학 NDE 전자세금계산서·거래명세서(6월) 제출 — 고려기술검사 세금계산서 회수 완료(7/19)</td>
+          <td>국도화학</td><td>7/20 중</td></tr>
+    </table>
+  </div>
+
+  <h2><span class="bar"></span>신규 메일 분류 (07:30 이후 · 8건)</h2>
+  <div class="card">
+    <table>
+      <tr><th>시각(KST)</th><th>발신</th><th>제목</th><th>분류</th><th>조치</th></tr>
+      <tr><td>11:48</td><td>신채완 과장</td><td>Re: 신안건업 삼성전기 ITP 보완요청(WPQR·자재·WPS 3건)</td><td><span class="tag t-high">SJ435-26</span></td><td>라벨 부착 · 팔로업</td></tr>
+      <tr><td>10:55</td><td>OpenRouter</td><td>One API key for every major model</td><td><span class="tag t-low">AI/뉴스</span></td><td>참고</td></tr>
+      <tr><td>10:09</td><td>김시원 대리</td><td>Fwd: 신안건업 삼성전기 ITP 파일 추가 송부(7/16分)</td><td><span class="tag t-high">SJ435-26</span></td><td>라벨 부착</td></tr>
+      <tr><td>10:08</td><td>Google Cloud</td><td>Agentic AI Edition 웨비나(7/22~23, 12:15~17:00)</td><td><span class="tag t-mid">교육/AI</span></td><td>일정 참고</td></tr>
+      <tr><td>09:59</td><td>Gemini Notes</td><td>회의록: “주간 회의” 2026-07-20</td><td><span class="tag t-mid">부서업무</span></td><td>후속 액션 반영</td></tr>
+      <tr><td>09:57</td><td>기업마당 BIZinfo</td><td>7/20자 중소기업 지원정책 뉴스레터</td><td><span class="tag t-low">지원사업</span></td><td>참고</td></tr>
+      <tr><td>08:47</td><td>신채완 과장</td><td>[세종기술] 국도화학 NDE 전자계산서·거래내역·입회내역 송부</td><td><span class="tag t-mid">국도화학</span></td><td>정산·제출</td></tr>
+      <tr><td>08:19</td><td>양병원 이사</td><td>Fwd: ISO 37001/37301 시스템 문서(컨설팅 업체자료)</td><td><span class="tag t-low">인증/부서</span></td><td>검토</td></tr>
+      <tr><td>08:12</td><td>고주연 과장</td><td>Re: 거래명세서(6월) — 고려기술검사 세금계산서 첨부</td><td><span class="tag t-mid">국도화학</span></td><td>제출용 회수</td></tr>
+    </table>
+    <p class="muted" style="margin:8px 0 0">보낸편지함 신규 0건. NVIDIA/Cloudflare/Techbloom 등은 오전 브리핑에서 이미 처리(중복 제외).</p>
+  </div>
+
+  <h2><span class="bar"></span>주간 회의 후속 (오전 완료 · 김철우 부장 액션)</h2>
+  <div class="card">
+    <ul style="margin:0">
+      <li><b>[최우선]</b> 팀별 미수금 수금계획 취합 → 자금 운용 스케줄 수립 (전사 자금난 해소 최우선)</li>
+      <li>TTT 설계 — 팀별 자료 취합 후 <b>~7/30 최종 설계자료 발송</b> (외한·전기팀 자료 오늘 중 전달)</li>
+      <li>전기공사 일정 지연 현황 사업주 공유·대응 / 변압기 추가공사 동원기전 발주</li>
+      <li>회의자료 작성요령 재정리 공유 · 매주 금요일 오전까지 회의자료 제출(그룹)</li>
+      <li>설계 신입 서류심사 → 면접 여부 결정 / ESG 경영체계 검토 사장 보고</li>
+    </ul>
+  </div>
+
+  <h2><span class="bar"></span>NCR / CAR 추적</h2>
+  <div class="card">
+    <span class="tag t-ok">신규 0건</span> &nbsp; <span class="tag t-ok">진행 중 0건</span>
+    <p class="muted" style="margin:8px 0 0">오전 이후 부적합 관련 신규 메일 없음(Label_33 무변동). 품질 지표 안정.</p>
+  </div>
+
+  <h2><span class="bar"></span>원자력·파워플랜트 Part</h2>
+  <div class="card nuc">
+    <ul style="margin:0">
+      <li><span class="tag t-nuc">견적·마감</span> 한수원 체코원전 M229C·N210B 예가 견적 <b>7/21 회신</b> (영업부 김민준 작성, 부장 검토) — 오전 신규 메일 없음, 이월 최우선</li>
+      <li><span class="tag t-nuc">입찰</span> 한울 3·4호기 이송대차 입찰(7/16 18:00 마감 경과) — 제출 결과·후속 확인</li>
+      <li><span class="tag t-nuc">입찰</span> 한수원 Y-134-N210 기술자료(Y-585·Y-596 서명본) 준비 — 이영주 대리</li>
+      <li><span class="tag t-nuc">심사</span> KHNP 유자격(경영) 심사결과(신청 202600239, 보조기기·신규) 확인 대기</li>
+      <li><span class="tag t-nuc">교육</span> 27기 원자력품질 검사자과정(QC) 7/22~24 (7/24 삼성전기 밸브테스트와 중첩 — 인력 조정)</li>
+      <li><span class="tag t-nuc">규제</span> 2025년도(31회) 원자력산업실태조사 제출 ~7/31</li>
+    </ul>
+  </div>
+
+  <h2><span class="bar"></span>주요 일정</h2>
+  <div class="card">
+    <table>
+      <tr><th>일자</th><th>일정</th><th>Project</th></tr>
+      <tr><td>7/21(화)</td><td>한수원 체코원전 M229C·N210B 견적서 제출</td><td>원자력</td></tr>
+      <tr><td>7/22~24</td><td>27기 원자력품질 검사자과정(QC) 교육 (3일)</td><td>원자력/교육</td></tr>
+      <tr><td>7/22~23</td><td>Google Cloud Agentic AI 웨비나 12:15~17:00 (온라인)</td><td>교육/AI</td></tr>
+      <tr><td>7/24(금)</td><td>삼성전기 BT-6 자동밸브 작동테스트 10:00 (브이아이테크 검수)</td><td>SJ435-26</td></tr>
+      <tr><td>7/28(화)</td><td>SJ2026-040 CKS Welder Qualification Renew 자료 제출</td><td>부서업무</td></tr>
+      <tr><td>7/30(목)</td><td>한전KPS 제26차 협력회사 등록 신청 마감</td><td>부서업무</td></tr>
+      <tr><td>7/31(금)</td><td>2025년도(31회) 원자력산업실태조사 제출 마감</td><td>원자력</td></tr>
+    </table>
+    <p class="muted" style="margin:8px 0 0">이번 실행에서 신규 확정(날짜+시간) 업무 일정 없음 → 캘린더 자동 등록 0건. 주간회의는 이미 종료(캘린더 기존 등록). Agentic AI 웨비나는 정보성으로 표기만 함.</p>
+  </div>
+
+  <div class="foot">
+    ⓒ ㈜세종기술 품질관리부 · daily-mail 정오 업데이트 자동 생성 · 2026-07-20 12:00 KST<br>
+    권한 판정: 등록자 cwkim@sejong-21c.com (부장, L3 최종승인). 데이터: Gmail(newer_than:1d) · Google Calendar · SJ FLOW briefings.json
+  </div>
+</div>
+</body>
+</html>
