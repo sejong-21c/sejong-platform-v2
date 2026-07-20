@@ -856,7 +856,11 @@ function scopedSetter(setMapFn, itemId, fallback) {
 }
 
 // ════════ 7. ITP Preview ════════
-function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols}){
+function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, witnessCols, setWitnessCols, hdr, setHdr}){
+  // v1.10: 헤더 필드 — override(hdr) 값이 있으면 그걸, 없으면 proj/item 자동값. onChange로 override 저장.
+  hdr = hdr || {};
+  const _setHdr = (k, v) => setHdr && setHdr({...hdr, [k]: v});
+  const _hin = { width:"100%", border:"none", fontSize:10, background:"transparent", fontFamily:"inherit" };
   const active = rows.filter(r => r.active);
   const isHX = (item.type||"").includes("Condenser") || (item.type||"").includes("Heat");
   const isSUS = !isHX && /(316|304|sus|sts)/i.test(item.shell_mat||"");
@@ -932,13 +936,21 @@ function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, wi
         </tr>
         <tr>
           <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, fontWeight:500, whiteSpace:"nowrap"}}>Project Name / Job No.</td>
-          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}} colSpan={3}>{proj.name||"—"} / {proj.no||"—"}</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}} colSpan={3}>
+            <input value={hdr.projName!=null&&hdr.projName!==""?hdr.projName:(proj.name||"")} onChange={e=>_setHdr("projName", e.target.value)} placeholder="Project Name" style={{...(_hin), width:"48%"}}/>
+            {" / "}
+            <input value={hdr.jobNo!=null&&hdr.jobNo!==""?hdr.jobNo:(proj.no||"")} onChange={e=>_setHdr("jobNo", e.target.value)} placeholder="Job No." style={{...(_hin), width:"40%"}}/>
+          </td>
         </tr>
         <tr>
           <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, fontWeight:500, whiteSpace:"nowrap"}}>Item Name / Tag No.</td>
-          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}}>{iLbl||"—"}</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}}>
+            <input value={hdr.itemLabel!=null&&hdr.itemLabel!==""?hdr.itemLabel:(iLbl||"")} onChange={e=>_setHdr("itemLabel", e.target.value)} placeholder="Item Name / Tag No." style={_hin}/>
+          </td>
           <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10, fontWeight:500, whiteSpace:"nowrap"}}>Customer</td>
-          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}}>{proj.customer||"—"}</td>
+          <td style={{border:"1px solid #555", padding:"3px 6px", fontSize:10}}>
+            <input value={hdr.customer!=null&&hdr.customer!==""?hdr.customer:(proj.customer||"")} onChange={e=>_setHdr("customer", e.target.value)} placeholder="Customer" style={_hin}/>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -1081,6 +1093,9 @@ function App(){
   const [itpRowsByItem, setItpRowsByItem] = useState({});   // {[itemId]: Row[]}
   const [itpDocNoByItem, setItpDocNoByItem] = useState({}); // {[itemId]: string}
   const [itpRevByItem, setItpRevByItem] = useState({});     // {[itemId]: string}
+  // v1.10: ITP 미리보기 헤더(프로젝트명/Job No·아이템명/Tag No·Customer) 아이템별 수동 override.
+  //   빈 문자열이면 proj/item의 자동값 사용. 신과장이 도면 태그를 잘못 넣은 경우 등 여기서 직접 교정.
+  const [itpHdrByItem, setItpHdrByItem] = useState({});     // {[itemId]: {projName,jobNo,itemLabel,customer}}
   const [selectedItpItemId, setSelectedItpItemId] = useState(null);
   const [printAllMode, setPrintAllMode] = useState(false);
   // v2.3 — mobile-inspection.html이 ITP Builder의 items가 비어 WBS 브릿지 아이템만 있는
@@ -1160,6 +1175,7 @@ function App(){
         if (s.itpDocNoByItem) setItpDocNoByItem(s.itpDocNoByItem);
         else if (s.itpDocNo && fixedItems.length) setItpDocNoByItem(Object.fromEntries(fixedItems.map(it => [it.id, s.itpDocNo])));
         if (s.itpRevByItem) setItpRevByItem(s.itpRevByItem);
+        if (s.itpHdrByItem) setItpHdrByItem(s.itpHdrByItem);
         else if (s.itpRev && fixedItems.length) setItpRevByItem(Object.fromEntries(fixedItems.map(it => [it.id, s.itpRev])));
       }
       if (s.specReqs) setSpecReqs(s.specReqs);
@@ -1192,6 +1208,7 @@ function App(){
         if (cloud.itpDocNoByItem) setItpDocNoByItem(cloud.itpDocNoByItem);
         else if (cloud.itpDocNo && fixedItems.length) setItpDocNoByItem(Object.fromEntries(fixedItems.map(it => [it.id, cloud.itpDocNo])));
         if (cloud.itpRevByItem) setItpRevByItem(cloud.itpRevByItem);
+        if (cloud.itpHdrByItem) setItpHdrByItem(cloud.itpHdrByItem);
         else if (cloud.itpRev && fixedItems.length) setItpRevByItem(Object.fromEntries(fixedItems.map(it => [it.id, cloud.itpRev])));
       }
       if (cloud.specReqs?.length) setSpecReqs(cloud.specReqs);
@@ -1207,13 +1224,13 @@ function App(){
   useEffect(() => {
     const timer = setTimeout(() => {
       const savedAt = Date.now();
-      const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt};
+      const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt};
       const ok = saveLS({...payload, items: stripDwgForLocalStorage(items)});
       if (!ok) warnLocalSaveFailed();
       pushToFirestore(payload);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [proj, items, specReqs, quoteItems, revComments, itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList]);
+  }, [proj, items, specReqs, quoteItems, revComments, itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList]);
 
   // v1.5 — 업로드된 WPS/Welder 목록을 window 전역에도 반영 (동일 페이지 내 다른 참조 대응)
   useEffect(() => { if (wpsList.length) window.WPS_LIST = wpsList; }, [wpsList]);
@@ -1669,6 +1686,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     setItpRowsByItem(p => { const {[id]:_, ...rest} = p; return rest; });
     setItpDocNoByItem(p => { const {[id]:_, ...rest} = p; return rest; });
     setItpRevByItem(p => { const {[id]:_, ...rest} = p; return rest; });
+    setItpHdrByItem(p => { const {[id]:_, ...rest} = p; return rest; });
     if (selectedItpItemId === id) setSelectedItpItemId(null);
   };
 
@@ -1707,7 +1725,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   // "전송" 버튼을 누르면 클라우드(Firestore)에도 즉시 올려서, QA Doc Generator가 그쪽에서
   // 직접 받아가게 한다(1초 자동저장을 기다리지 않고 지금 바로).
   const sendToQADoc = async () => {
-    const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList};
+    const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList};
     const ok = saveLS({...payload, items: stripDwgForLocalStorage(items), savedAt: Date.now()});
     if (!ok) warnLocalSaveFailed();
     const bridged = pushToHost();
@@ -1772,7 +1790,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     showMsg("☁ ITP 저장 후 결재 상신 중...", 15000);
     try {
       // 결재자가 열어볼 수 있게 현재 ITP를 먼저 클라우드에 저장
-      await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
+      await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
       await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
       showMsg(headUid
         ? "✅ 부서장 검토 → PM 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)"
@@ -1784,7 +1802,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
   const handleManualCloudUpload = async () => {
     showMsg("☁ 클라우드에 업로드 중...", 30000);
     try {
-      await writeItpDocToFirestore({proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, wpsList, welderList, inspectorList, savedAt: Date.now()});
+      await writeItpDocToFirestore({proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt: Date.now()});
       showMsg("✓ 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
     } catch (e) { showMsg(`⚠ 업로드 실패: ${e.message||e}`, 6000); }
   };
@@ -2110,6 +2128,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
             setRows={scopedSetter(setItpRowsByItem, selectedItem.id, buildInitialItpRows(specReqs))}
             docNo={itpDocNoByItem[selectedItem.id] || ""} setDocNo={scopedSetter(setItpDocNoByItem, selectedItem.id, "")}
             rev={itpRevByItem[selectedItem.id] || "0"} setRev={scopedSetter(setItpRevByItem, selectedItem.id, "0")}
+            hdr={itpHdrByItem[selectedItem.id] || {}} setHdr={scopedSetter(setItpHdrByItem, selectedItem.id, {})}
             witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
         </div>
       }
@@ -2121,6 +2140,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
             setRows={scopedSetter(setItpRowsByItem, it.id, buildInitialItpRows(specReqs))}
             docNo={itpDocNoByItem[it.id] || ""} setDocNo={scopedSetter(setItpDocNoByItem, it.id, "")}
             rev={itpRevByItem[it.id] || "0"} setRev={scopedSetter(setItpRevByItem, it.id, "0")}
+            hdr={itpHdrByItem[it.id] || {}} setHdr={scopedSetter(setItpHdrByItem, it.id, {})}
             witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
         </div>
       )}
