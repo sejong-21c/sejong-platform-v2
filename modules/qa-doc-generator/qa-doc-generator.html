@@ -353,12 +353,6 @@ input:focus, select:focus, textarea:focus { outline: none; }
   table { page-break-inside: avoid; }
 }
 </style>
-<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
-<style>
-/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
-i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
-i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
-</style>
 </head>
 <body>
 <div id="root"></div>
@@ -840,7 +834,7 @@ function LogoCell(){
 function EPCSlots({jobNo}){
   // v1.6 — "Doc No." 슬롯은 실제 값이 없어 의미가 없었으므로 "Project No."로 교체하고 실제 값을 표시.
   // Inspector는 EPC_INSPECTOR_MASTER 대신 ITP Builder에서 업로드한 검사자 List 연결 여부로 판단.
-  // WPS/Welder "Master" <i data-lucide="arrow-right"></i> "List"로 명칭 통일 (ITP Builder 쪽 명칭과 일치).
+  // WPS/Welder "Master" → "List"로 명칭 통일 (ITP Builder 쪽 명칭과 일치).
   const slots = [
     {key:"project", title:"Project", connected:!!window.EPC_PROJECT},
     {key:"items", title:"Items", connected:!!window.EPC_ITEMS},
@@ -859,7 +853,7 @@ function EPCSlots({jobNo}){
       }}>
         <div style={{fontWeight:700, fontSize:11, color:"var(--sjp-text-main)", marginBottom:2}}>{s.title}</div>
         <div style={{color: s.connected?"var(--sjp-success)":"var(--sjp-text-muted)", fontWeight: s.connected?700:500, fontSize:9}}>
-          {s.connected ? (s.value || "<i data-lucide="check"></i> EPC 연결") : "⊘ Standalone"}
+          {s.connected ? (s.value || "✓ EPC 연결") : "⊘ Standalone"}
         </div>
       </div>
     )}
@@ -898,9 +892,9 @@ function PinImg({src,cps,pk,onPinChange}){
     {src?<div style={{position:"relative",width:"100%",height:"100%"}}>
       <img ref={ref} src={src} style={{width:"100%",maxHeight:440,objectFit:"contain",display:"block",cursor:mode?"crosshair":"default"}} onClick={addPin}/>
       {pins.map((pin,i)=> <div key={i} onClick={e=>{e.stopPropagation();sync(pins.filter((_,j)=>j!==i));}} style={{position:"absolute",left:`${pin.x*100}%`,top:`${pin.y*100}%`,transform:"translate(-50%,-50%)",background:"#e53e3e",color:"#fff",borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,cursor:"pointer",zIndex:10,border:"1.5px solid #fff"}}>{pin.label}</div>)}
-    </div>:<span style={{fontSize:9,color:"#aaa",display:"flex",alignItems:"center",justifyContent:"center",height:140}}>Ctrl+V 붙여넣기 후 <i data-lucide="map-pin"></i>핀 배치</span>}
+    </div>:<span style={{fontSize:9,color:"#aaa",display:"flex",alignItems:"center",justifyContent:"center",height:140}}>Ctrl+V 붙여넣기 후 📍핀 배치</span>}
     <div className="fc" style={{position:"absolute",bottom:4,right:4,display:"flex",gap:3,zIndex:20}}>
-      <button onClick={()=>sM(p=>!p)} style={{fontSize:9,padding:"2px 7px",background:mode?"#e53e3e":SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>{mode?`<i data-lucide="map-pin"></i>${next} 배치중(OFF)`:"<i data-lucide="map-pin"></i>핀 배치 ON"}</button>
+      <button onClick={()=>sM(p=>!p)} style={{fontSize:9,padding:"2px 7px",background:mode?"#e53e3e":SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>{mode?`📍${next} 배치중(OFF)`:"📍핀 배치 ON"}</button>
       {pins.length>0&&<button onClick={()=>{const np=pins.slice(0,-1);sync(np);if(np.length<LBLS.length)sN(LBLS[np.length]||"A");}} style={{fontSize:9,padding:"2px 6px",background:"#888",color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>↶ 마지막 핀 취소</button>}
       {pins.length>0&&<button onClick={clr} style={{fontSize:9,padding:"2px 6px",background:"#666",color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>핀 초기화</button>}
     </div>
@@ -959,7 +953,7 @@ function ITPPreview({proj,items}){
     </table>
     <div style={{marginTop:4,fontSize:9,color:"#444",lineHeight:1.7}}>1. The inspection process may be changed by the supplier's manufacturing condition.<br/>2. I&amp;T Activities: S-Supplier, R-Report Review, W-Witness, H-Hold Point</div>
     <div className="ic" style={{marginTop:6,padding:"7px 10px",background:"#f0f4f8",borderRadius:5,border:"1px dashed #aac"}}>
-      <div style={{fontSize:10,fontWeight:500,color:"#555",marginBottom:5}}><i data-lucide="plus"></i> 행 추가 <span style={{fontWeight:400,color:"#999"}}>(프린트 시 숨김)</span></div>
+      <div style={{fontSize:10,fontWeight:500,color:"#555",marginBottom:5}}>➕ 행 추가 <span style={{fontWeight:400,color:"#999"}}>(프린트 시 숨김)</span></div>
       <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"flex-end"}}>
         {[["activity","Activity *",2],["code","Code",1],["criteria","Criteria",2],["doc","Doc",1]].map(([k,ph,f])=> <div key={k} style={{flex:f,minWidth:80}}><div style={{fontSize:9,color:"#888",marginBottom:2}}>{ph}</div><textarea value={nr[k]||""} onChange={e=>sNR(p=>({...p,[k]:e.target.value}))} rows={2} style={{width:"100%",fontSize:10,padding:"3px 5px",border:"0.5px solid #bbb",borderRadius:3,resize:"vertical",boxSizing:"border-box"}}/></div>)}
         <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"center"}}>
@@ -1050,7 +1044,7 @@ function BOMPreview({doc}){
       </tr>)}</tbody>
     </table>
     <div className="bc" style={{marginTop:6,padding:"8px 10px",background:"#f0f8f4",border:"1px dashed #1d9e75",borderRadius:5}}>
-      <div style={{fontSize:10,fontWeight:500,color:"#1d9e75",marginBottom:6}}><i data-lucide="plus"></i> Add BOM Row <span style={{fontWeight:400,color:"#999"}}>(hidden in print)</span></div>
+      <div style={{fontSize:10,fontWeight:500,color:"#1d9e75",marginBottom:6}}>➕ Add BOM Row <span style={{fontWeight:400,color:"#999"}}>(hidden in print)</span></div>
       <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"flex-end"}}>
         {[["name","Description *",2],["mat","Material",1.5],["sz","Size",2],["qty","Q'TY",0.5],["remark","Remark",1]].map(([k,ph,f])=> <div key={k} style={{flex:f,minWidth:50}}><div style={{fontSize:9,color:"#888",marginBottom:2}}>{ph}</div><input value={nw[k]} onChange={e=>sNW(p=>({...p,[k]:e.target.value}))} style={{width:"100%",fontSize:11,padding:"4px 6px",border:"0.5px solid #bbb",borderRadius:3,boxSizing:"border-box"}}/></div>)}
         <button onClick={()=>{if(!nw.name)return;sR(p=>[...p,{...nw,heat:""}]);sNW({name:"",mat:"",sz:"",qty:"1",remark:""});}} style={{padding:"6px 16px",background:"#1d9e75",color:"#fff",border:"none",borderRadius:4,cursor:"pointer",fontSize:11,fontWeight:500,alignSelf:"flex-end"}}>+ Add</button>
@@ -1079,31 +1073,31 @@ function BendingPreview({doc}){
   const θ1Tol=slJoint?`± ${(parseFloat(slJoint.root_tol)/2).toFixed(1)}°`:"± 2.5°";
   // ── UG-79 한계% 재질별 자동 추론 ──
   // ASME BPVC Section IX Table QW-422 P-Number 기준 + UG-79(d) 표준 한계
-  // P-No.1: Carbon steel (SA-285, SA-516, SA-36) <i data-lucide="arrow-right"></i> 5%
-  // P-No.3: Low-alloy steel (1¼Cr, 2¼Cr-1Mo) <i data-lucide="arrow-right"></i> 5%
-  // P-No.4: Cr-Mo (5Cr-½Mo) <i data-lucide="arrow-right"></i> 10%
-  // P-No.5: Cr-Mo (9Cr-1Mo, 9Cr-1Mo-V) <i data-lucide="arrow-right"></i> 10%
-  // P-No.6: Martensitic stainless (SA-240 Type 410, 13Cr) <i data-lucide="arrow-right"></i> 10%
-  // P-No.7: Ferritic stainless (Type 405, 430) <i data-lucide="arrow-right"></i> 15%
-  // P-No.8: Austenitic stainless (SA-240 Type 304/304L/316/316L/321/347) <i data-lucide="arrow-right"></i> 15%
-  // P-No.10H: Duplex (UNS S31803, S32205) <i data-lucide="arrow-right"></i> 10%
-  // P-No.41-49: Ni-base alloys <i data-lucide="arrow-right"></i> 10~15%
-  // Aluminum (SB-209) <i data-lucide="arrow-right"></i> 15%
-  // Titanium <i data-lucide="arrow-right"></i> 10%
+  // P-No.1: Carbon steel (SA-285, SA-516, SA-36) → 5%
+  // P-No.3: Low-alloy steel (1¼Cr, 2¼Cr-1Mo) → 5%
+  // P-No.4: Cr-Mo (5Cr-½Mo) → 10%
+  // P-No.5: Cr-Mo (9Cr-1Mo, 9Cr-1Mo-V) → 10%
+  // P-No.6: Martensitic stainless (SA-240 Type 410, 13Cr) → 10%
+  // P-No.7: Ferritic stainless (Type 405, 430) → 15%
+  // P-No.8: Austenitic stainless (SA-240 Type 304/304L/316/316L/321/347) → 15%
+  // P-No.10H: Duplex (UNS S31803, S32205) → 10%
+  // P-No.41-49: Ni-base alloys → 10~15%
+  // Aluminum (SB-209) → 15%
+  // Titanium → 10%
   const inferUG79Limit=(mat)=>{
     if(!mat)return{limit:"5",pNo:"P-No.1 (default)",reason:"재질 미지정 — 기본 P-No.1"};
     const m=mat.toUpperCase().replace(/[-\s]/g,"");
     // Austenitic SS first (most permissive)
-    if(/SA240(304|316|321|347|309|310|TP30|TP31|TP32|TP34)/.test(m)||/304L|316L|316TI/.test(m)||/AUSTENITIC/.test(m))return{limit:"15",pNo:"P-No.8 (Austenitic SS)",reason:"오스테나이트계 스테인리스 <i data-lucide="arrow-right"></i> 15%"};
-    if(/SB209|ALUMIN|AL6061|AL5083/.test(m))return{limit:"15",pNo:"P-No.21-25 (Aluminum)",reason:"알루미늄 합금 <i data-lucide="arrow-right"></i> 15%"};
-    if(/SA240(405|430|TYPE405|TYPE430)/.test(m)||/FERRITICSS/.test(m))return{limit:"15",pNo:"P-No.7 (Ferritic SS)",reason:"페라이트계 스테인리스 <i data-lucide="arrow-right"></i> 15%"};
-    if(/DUPLEX|S31803|S32205|S32750/.test(m))return{limit:"10",pNo:"P-No.10H (Duplex SS)",reason:"듀플렉스 <i data-lucide="arrow-right"></i> 10%"};
-    if(/SA240(410|TYPE410)|13CR/.test(m))return{limit:"10",pNo:"P-No.6 (Martensitic SS)",reason:"마르텐사이트계 <i data-lucide="arrow-right"></i> 10%"};
-    if(/9CR1MO|SA213T9|SA335P9|SA387GR91|9CR/.test(m))return{limit:"10",pNo:"P-No.5 (9Cr-1Mo)",reason:"9Cr-1Mo <i data-lucide="arrow-right"></i> 10%"};
-    if(/5CR|SA335P5|SA387GR5/.test(m))return{limit:"10",pNo:"P-No.4 (5Cr-½Mo)",reason:"5Cr-½Mo <i data-lucide="arrow-right"></i> 10%"};
-    if(/INCONEL|HASTELLOY|MONEL|N0660|N06022|N06625|SB168|SB443/.test(m))return{limit:"10",pNo:"P-No.41-49 (Ni-base)",reason:"니켈베이스 합금 <i data-lucide="arrow-right"></i> 10%"};
-    if(/SA387|SA204|CRMO|CR1MO|225CR/.test(m))return{limit:"5",pNo:"P-No.3 (Low-alloy)",reason:"저합금강 <i data-lucide="arrow-right"></i> 5%"};
-    if(/SA285|SA515|SA516|SA36|SA106|SA53|SA178|SA105|CARBONSTEEL|MILDSTEEL/.test(m))return{limit:"5",pNo:"P-No.1 (Carbon Steel)",reason:"탄소강 <i data-lucide="arrow-right"></i> 5%"};
+    if(/SA240(304|316|321|347|309|310|TP30|TP31|TP32|TP34)/.test(m)||/304L|316L|316TI/.test(m)||/AUSTENITIC/.test(m))return{limit:"15",pNo:"P-No.8 (Austenitic SS)",reason:"오스테나이트계 스테인리스 → 15%"};
+    if(/SB209|ALUMIN|AL6061|AL5083/.test(m))return{limit:"15",pNo:"P-No.21-25 (Aluminum)",reason:"알루미늄 합금 → 15%"};
+    if(/SA240(405|430|TYPE405|TYPE430)/.test(m)||/FERRITICSS/.test(m))return{limit:"15",pNo:"P-No.7 (Ferritic SS)",reason:"페라이트계 스테인리스 → 15%"};
+    if(/DUPLEX|S31803|S32205|S32750/.test(m))return{limit:"10",pNo:"P-No.10H (Duplex SS)",reason:"듀플렉스 → 10%"};
+    if(/SA240(410|TYPE410)|13CR/.test(m))return{limit:"10",pNo:"P-No.6 (Martensitic SS)",reason:"마르텐사이트계 → 10%"};
+    if(/9CR1MO|SA213T9|SA335P9|SA387GR91|9CR/.test(m))return{limit:"10",pNo:"P-No.5 (9Cr-1Mo)",reason:"9Cr-1Mo → 10%"};
+    if(/5CR|SA335P5|SA387GR5/.test(m))return{limit:"10",pNo:"P-No.4 (5Cr-½Mo)",reason:"5Cr-½Mo → 10%"};
+    if(/INCONEL|HASTELLOY|MONEL|N0660|N06022|N06625|SB168|SB443/.test(m))return{limit:"10",pNo:"P-No.41-49 (Ni-base)",reason:"니켈베이스 합금 → 10%"};
+    if(/SA387|SA204|CRMO|CR1MO|225CR/.test(m))return{limit:"5",pNo:"P-No.3 (Low-alloy)",reason:"저합금강 → 5%"};
+    if(/SA285|SA515|SA516|SA36|SA106|SA53|SA178|SA105|CARBONSTEEL|MILDSTEEL/.test(m))return{limit:"5",pNo:"P-No.1 (Carbon Steel)",reason:"탄소강 → 5%"};
     return{limit:"5",pNo:"Unknown (default)",reason:`재질 "${mat}" 미인식 — 기본 5%`};
   };
   const ug79Info=inferUG79Limit(it.shell_mat);
@@ -1236,9 +1230,9 @@ function BendingPreview({doc}){
         <span><strong>TOP</strong>: {bendHtTop}{bendHtTop==="CAP"&&<span style={{color:"#c33",marginLeft:3}}>(Forming 불필요)</span>}</span>
         <span style={{color:"#bbb"}}>|</span>
         <span><strong>BTM</strong>: {bendHtBtm}{bendHtBtm==="CAP"&&<span style={{color:"#c33",marginLeft:3}}>(Forming 불필요)</span>}</span>
-        {bothCAP&&<span style={{color:"#c33",fontWeight:600,marginLeft:"auto"}}><i data-lucide="alert-triangle"></i> 양쪽 CAP — 별도 Forming Report 필요 없음, Shell-Bending만 진행</span>}
-        {!bothCAP&&hasCAPanywhere&&<span style={{color:"#c33",fontWeight:500,marginLeft:"auto"}}><i data-lucide="alert-triangle"></i> 한쪽 CAP — 해당 Head는 Forming Report 제외</span>}
-        {headDiffers&&!hasCAPanywhere&&<span style={{color:"#ba7517",fontWeight:500,marginLeft:"auto"}}><i data-lucide="alert-triangle"></i> 상/하 형상 다름 — 각각 Forming Report 필요</span>}
+        {bothCAP&&<span style={{color:"#c33",fontWeight:600,marginLeft:"auto"}}>⚠ 양쪽 CAP — 별도 Forming Report 필요 없음, Shell-Bending만 진행</span>}
+        {!bothCAP&&hasCAPanywhere&&<span style={{color:"#c33",fontWeight:500,marginLeft:"auto"}}>⚠ 한쪽 CAP — 해당 Head는 Forming Report 제외</span>}
+        {headDiffers&&!hasCAPanywhere&&<span style={{color:"#ba7517",fontWeight:500,marginLeft:"auto"}}>⚠ 상/하 형상 다름 — 각각 Forming Report 필요</span>}
       </div>;
     })()}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#fff7eb",borderRadius:4,border:"1px dashed #ba7517",flexWrap:"wrap"}}>
@@ -1248,13 +1242,13 @@ function BendingPreview({doc}){
       {[["cylindrical","Cylindrical (50t/Rf)"],["double_curved","Double-curved (75t/Rf)"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="feShape" checked={feShape===v} onChange={()=>sFES(v)} style={{accentColor:"#ba7517"}}/>{l}</label>)}
       <span style={{fontSize:10,color:"#555"}}>한계:</span>
       <input value={feLimit} onChange={e=>sFEL(e.target.value)} style={{width:34,fontSize:10,padding:"1px 3px",border:"0.5px solid #ccc",borderRadius:2,textAlign:"center"}}/><span style={{fontSize:10,color:"#888"}}>%</span>
-      <button onClick={()=>sFEL(ug79Info.limit)} title={`재질 "${it.shell_mat||"미지정"}" <i data-lucide="arrow-right"></i> ${ug79Info.reason}`} style={{fontSize:9,padding:"1px 6px",background:feLimit===ug79Info.limit?"#1d9e75":"#fff",color:feLimit===ug79Info.limit?"#fff":"#1d9e75",border:`0.5px solid #1d9e75`,borderRadius:3,cursor:"pointer",whiteSpace:"nowrap"}}>{feLimit===ug79Info.limit?`<i data-lucide="check"></i> ${ug79Info.pNo}`:`🔄 자동(${ug79Info.limit}%)`}</button>
-      {slJoint&&<span style={{fontSize:9,color:"#1d9e75",marginLeft:"auto"}}><i data-lucide="check"></i> Joint {slJoint.joint_no}: {slJoint.root_angle}°±{slJoint.root_tol}° <i data-lucide="arrow-right"></i> θ₁={θ1Design}°{θ1Tol}</span>}
+      <button onClick={()=>sFEL(ug79Info.limit)} title={`재질 "${it.shell_mat||"미지정"}" → ${ug79Info.reason}`} style={{fontSize:9,padding:"1px 6px",background:feLimit===ug79Info.limit?"#1d9e75":"#fff",color:feLimit===ug79Info.limit?"#fff":"#1d9e75",border:`0.5px solid #1d9e75`,borderRadius:3,cursor:"pointer",whiteSpace:"nowrap"}}>{feLimit===ug79Info.limit?`✓ ${ug79Info.pNo}`:`🔄 자동(${ug79Info.limit}%)`}</button>
+      {slJoint&&<span style={{fontSize:9,color:"#1d9e75",marginLeft:"auto"}}>✓ Joint {slJoint.joint_no}: {slJoint.root_angle}°±{slJoint.root_tol}° → θ₁={θ1Design}°{θ1Tol}</span>}
     </div>
     {/* Bevel + Shell 도면 — 동일 높이로 정렬 (요구사항 #3) */}
     <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"stretch"}}>
       <div style={{flex:1,display:"flex",flexDirection:"column"}}>
-        <div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:3,color:"#ba7517",minHeight:30}}><i data-lucide="pencil-ruler"></i> Detail of Bevel — Ctrl+V <i data-lucide="arrow-right"></i> <i data-lucide="map-pin"></i>핀: {bvLabels.join("·")}</div>
+        <div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:3,color:"#ba7517",minHeight:30}}>📐 Detail of Bevel — Ctrl+V → 📍핀: {bvLabels.join("·")}</div>
         <div className="fc" style={{display:"flex",gap:2,marginBottom:3,flexWrap:"wrap",alignItems:"center",fontSize:9,minHeight:22}}>
           <span style={{color:"#888"}}>핀 라벨:</span>
           {bvLabels.map((lbl,i)=> <input key={i} value={lbl} onChange={e=>sBVL(p=>p.map((x,j)=>j===i?e.target.value:x))} style={{width:28,fontSize:9,padding:"1px 2px",border:"0.5px solid #ccc",borderRadius:2,textAlign:"center"}}/>)}
@@ -1266,7 +1260,7 @@ function BendingPreview({doc}){
         </div>
       </div>
       <div style={{flex:1,display:"flex",flexDirection:"column"}}>
-        <div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:3,color:"#ba7517",minHeight:30}}><i data-lucide="pencil-ruler"></i> Sketch of Shell — Ctrl+V <i data-lucide="arrow-right"></i> <i data-lucide="map-pin"></i>핀: A·B·C·D·E·F·G</div>
+        <div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:3,color:"#ba7517",minHeight:30}}>📐 Sketch of Shell — Ctrl+V → 📍핀: A·B·C·D·E·F·G</div>
         <div className="fc" style={{minHeight:22,marginBottom:3}}>{/* 좌측 핀 라벨 영역과 높이 맞춤용 빈 공간 */}</div>
         <div className="pf-img" style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,flex:1,minHeight:220,background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleSH(ev.target.result);r.readAsDataURL(f);}}}>
           {shImg?<PinImg src={shImg} cps={shCps} pk={shKey}/>:<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:220,fontSize:11,color:"#aaa",textAlign:"center"}}>[ Shell 전개/측면도 Ctrl+V ]<br/>※ Circumference 마크는 핀 제외</div>}
@@ -1357,7 +1351,7 @@ function BendingPreview({doc}){
           </tr>
           <tr>
             <td style={cell}>Root Gap</td>
-            <td style={tolCell}>{rootGapTolStr}{rootGapMax>0&&<span style={{fontSize:FS-1,color:"#1d9e75",display:"block"}}><i data-lucide="check"></i> Joint 자동</span>}</td>
+            <td style={tolCell}>{rootGapTolStr}{rootGapMax>0&&<span style={{fontSize:FS-1,color:"#1d9e75",display:"block"}}>✓ Joint 자동</span>}</td>
             <td style={cell}>Root Gap</td>
             {sections.map((s,si)=> thkPoints.map((pt,i)=> <td key={`${si}rg${i}`} style={cell} colSpan={s.pts.length/thkPoints.length}><input {...bendGrid.cellProps(10,si*thkPoints.length+i)} value={actVals[si]?.rootGap?.[i]||""} onChange={e=>updAV(si,"rootGap",i,e.target.value)} style={ciU}/></td>))}
           </tr>
@@ -1422,7 +1416,7 @@ function FitupPreview({doc}){
   const[wps,sW]=useState(savedFitup.wps||"");
   const[mEq,sME]=useState(savedFitup.mEq||"");
   useEffect(()=>{IMG_STORE.set(fitupKey,{joints,wps,mEq});},[joints,wps,mEq,fitupKey]);
-  // v1.5 — ITP Builder에서 업로드된 목록만 사용. 아직 업로드 전이면 빈 배열 <i data-lucide="arrow-right"></i> "N/A"로 표시(더미값 노출 금지).
+  // v1.5 — ITP Builder에서 업로드된 목록만 사용. 아직 업로드 전이면 빈 배열 → "N/A"로 표시(더미값 노출 금지).
   const wpsList=(p.wpsList&&p.wpsList.length>0)?p.wpsList:((typeof window!=="undefined"&&window.WPS_LIST)||[]);
   const welderList=(p.welderList&&p.welderList.length>0)?p.welderList:((typeof window!=="undefined"&&window.WELDER_LIST)||[]);
   const hc=hdr(),tc=bdr();const TH9={...hdr(),fontSize:9,textAlign:"center"};
@@ -1511,7 +1505,7 @@ function FitupPreview({doc}){
       {renderJoints(page2Joints, 20)}
     </>}
     <div className="fc" style={{display:"flex",gap:4,marginTop:5,alignItems:"center",flexWrap:"wrap",padding:"6px 8px",background:"#f5f5f5",borderRadius:4,border:"1px dashed #ccc"}}>
-      <span style={{fontSize:10,fontWeight:500,color:"#666"}}><i data-lucide="plus"></i> Joint 추가:</span>
+      <span style={{fontSize:10,fontWeight:500,color:"#666"}}>➕ Joint 추가:</span>
       <input placeholder="No." value={nw.no} onChange={e=>sNW({...nw,no:e.target.value})} style={{fontSize:10,padding:"2px 5px",border:"1px solid #ccc",borderRadius:3,width:90}}/>
       <input placeholder="Description" value={nw.desc} onChange={e=>sNW({...nw,desc:e.target.value})} style={{fontSize:10,padding:"2px 5px",border:"1px solid #ccc",borderRadius:3,width:140}}/>
       <select value={nw.weld} onChange={e=>sNW({...nw,weld:e.target.value})} style={{fontSize:10,padding:"2px",border:"1px solid #ccc",borderRadius:3}}><option>Butt</option><option>Fillet</option></select>
@@ -1550,7 +1544,7 @@ function MountFlangeTable({rows:initialRows,supportType,onChange,hc,tc}){
     </tr>)}</tbody>
     <tfoot>
       <tr className="fc"><td colSpan={6} style={{padding:"4px 6px",background:"#f8fafc",borderTop:"0.5px solid #ddd",textAlign:"left"}}><button onClick={addRow} style={{fontSize:10,padding:"2px 10px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>+ Check Item 추가</button></td></tr>
-      {supportType&&<tr className="fc"><td colSpan={6} style={{fontSize:9,padding:"3px 6px",background:"#f8fafc",color:"#1d9e75",borderTop:"0.5px solid #ddd"}}><i data-lucide="check"></i> BOM에서 "{supportType.toUpperCase()}" 자동 감지 <i data-lucide="arrow-right"></i> 해당 측정 항목 추가됨. 항목명·공차값 직접 수정 가능 (고객사별 사양 반영).</td></tr>}
+      {supportType&&<tr className="fc"><td colSpan={6} style={{fontSize:9,padding:"3px 6px",background:"#f8fafc",color:"#1d9e75",borderTop:"0.5px solid #ddd"}}>✓ BOM에서 "{supportType.toUpperCase()}" 자동 감지 → 해당 측정 항목 추가됨. 항목명·공차값 직접 수정 가능 (고객사별 사양 반영).</td></tr>}
     </tfoot>
   </table>;
 }
@@ -1596,7 +1590,7 @@ function DIMPreview({doc}){
       });
     }
     const def=isC?[
-      // v2.1 [A-2] — 일반 치수 행: tol 제거 <i data-lucide="arrow-right"></i> tolFn(D.W.G) 동적 계산
+      // v2.1 [A-2] — 일반 치수 행: tol 제거 → tolFn(D.W.G) 동적 계산
       {desc:"Shell ID",dwg:it.shell_id||""},
       {desc:"Channel ID",dwg:it.shell_id||""},
       {desc:"Tube Sheet OD",dwg:""},
@@ -1669,7 +1663,7 @@ function DIMPreview({doc}){
   useEffect(()=>{IMG_STORE.set(dimSetKey,{tolStd,mEq});},[tolStd,mEq,dimSetKey]);
   useEffect(()=>{IMG_STORE.set(dimRowsKey,rows);},[rows,dimRowsKey]);
   // v2.1 [A-1·A-3·A-4] renderTable 전면 재구성
-  // - Description: select 폐기 <i data-lucide="arrow-right"></i> 자유 텍스트 input (마이그레이션 포함)
+  // - Description: select 폐기 → 자유 텍스트 input (마이그레이션 포함)
   // - "+" 헤더 th / colgroup의 + col / 우측 빈 td 모두 className="fc" (인쇄 숨김)
   // - tableLayout:"fixed" + <colgroup>으로 데이터 열 너비 강제 균등 (86%/COLS_PER_ROW)
   // - 모든 셀·input 중앙 정렬 (cellCenter / inpCenter)
@@ -1764,16 +1758,16 @@ function DIMPreview({doc}){
       <span><strong>TOP</strong>: {dimHtTop}{dimHtTop!=="CAP"&&dimD>0&&<span style={{color:"#888",marginLeft:4}}>(h ≈ {tolTop.height}{typeof tolTop.height==="string"&&tolTop.height.includes("±")?"":" mm"})</span>}</span>
       <span style={{color:"#bbb"}}>|</span>
       <span><strong>BTM</strong>: {dimHtBtm}{dimHtBtm!=="CAP"&&dimD>0&&<span style={{color:"#888",marginLeft:4}}>(h ≈ {tolBtm.height}{typeof tolBtm.height==="string"&&tolBtm.height.includes("±")?"":" mm"})</span>}</span>
-      {dimHtTop!==dimHtBtm&&<span style={{color:"#ba7517",fontWeight:500,marginLeft:"auto"}}><i data-lucide="alert-triangle"></i> 상/하 형상 다름 — 각각 적용됨</span>}
-      {(dimHtTop==="CAP"||dimHtBtm==="CAP")&&<span style={{color:"#c33",fontWeight:500,marginLeft:dimHtTop!==dimHtBtm?0:"auto"}}><i data-lucide="alert-triangle"></i> CAP — Forming Report 제외</span>}
+      {dimHtTop!==dimHtBtm&&<span style={{color:"#ba7517",fontWeight:500,marginLeft:"auto"}}>⚠ 상/하 형상 다름 — 각각 적용됨</span>}
+      {(dimHtTop==="CAP"||dimHtBtm==="CAP")&&<span style={{color:"#c33",fontWeight:500,marginLeft:dimHtTop!==dimHtBtm?0:"auto"}}>⚠ CAP — Forming Report 제외</span>}
     </div>
     <div style={{marginBottom:6}}>
       <div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:3,color:"#993c1d",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span><i data-lucide="pencil-ruler"></i> Side Elevation — Ctrl+V 붙여넣기 <i data-lucide="arrow-right"></i> <i data-lucide="map-pin"></i>핀 배치 ON <i data-lucide="arrow-right"></i> 클릭으로 A·B·C 마킹 (핀 개수 = Check Point 개수)</span>
-        {pins.length>0&&<span style={{color:SJB,fontSize:9}}>현재 핀 {pins.length}개 / Row {rows.length}개<button onClick={ensureRowsForPins} style={{marginLeft:6,fontSize:9,padding:"1px 6px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>핀 <i data-lucide="arrow-right"></i> Row 동기화</button></span>}
+        <span>📐 Side Elevation — Ctrl+V 붙여넣기 → 📍핀 배치 ON → 클릭으로 A·B·C 마킹 (핀 개수 = Check Point 개수)</span>
+        {pins.length>0&&<span style={{color:SJB,fontSize:9}}>현재 핀 {pins.length}개 / Row {rows.length}개<button onClick={ensureRowsForPins} style={{marginLeft:6,fontSize:9,padding:"1px 6px",background:SJB,color:"#fff",border:"none",borderRadius:3,cursor:"pointer"}}>핀 → Row 동기화</button></span>}
       </div>
       <div className={isSplit?"pf-img dim-big":"pf-img"} style={{position:"relative",border:"1px dashed #bbb",borderRadius:4,minHeight:isSplit?undefined:Math.max(180,460-chunks.length*70),maxHeight:isSplit?undefined:Math.max(220,500-chunks.length*70),background:"#fafafa",overflow:"hidden"}} tabIndex={0} onPaste={e=>{const f=e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>handleDI(ev.target.result);r.readAsDataURL(f);}}}>
-        {dImg?<PinImg src={dImg} cps={rows} pk={dk} onPinChange={()=>sTick(t=>t+1)}/>:<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:Math.max(180,460-chunks.length*70),fontSize:12,color:"#aaa"}}>[ Side Elevation — Ctrl+V 붙여넣기 <i data-lucide="arrow-right"></i> 핀 배치 ]</div>}
+        {dImg?<PinImg src={dImg} cps={rows} pk={dk} onPinChange={()=>sTick(t=>t+1)}/>:<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:Math.max(180,460-chunks.length*70),fontSize:12,color:"#aaa"}}>[ Side Elevation — Ctrl+V 붙여넣기 → 핀 배치 ]</div>}
         {dImg&&<button className="fc" onClick={()=>handleDI(null)} style={{position:"absolute",top:4,right:4,fontSize:9,padding:"1px 6px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:3,cursor:"pointer",zIndex:30}}>✕ 삭제</button>}
       </div>
     </div>
@@ -1977,7 +1971,7 @@ function HydroPreview({doc}){
   const tp = isFullWater ? 1 : (isNumeric(ap)?parseFloat(ap):(isNumeric(tpcVal)?parseFloat(tpcVal):1));
   const hmin = parseInt(holdMin) || 60;
   // v2.3 (패치노트 [5] C안) — ramp 10분 고정 + 누적 시각 표시
-  // 예: hmin=60 <i data-lucide="arrow-right"></i> 0 · 10m · 1h 10m · 1h 20m  (가압 10분 + 유지 60분 + 감압 10분)
+  // 예: hmin=60 → 0 · 10m · 1h 10m · 1h 20m  (가압 10분 + 유지 60분 + 감압 10분)
   // ASME UG-99 표준에 부합하는 실제 적용 시간 누적 표기
   const tRampUp = 10, tRampDown = 10;
   const totalT = tRampUp + hmin + tRampDown;
@@ -1993,7 +1987,7 @@ function HydroPreview({doc}){
   const xs = [0, vRampUpEnd, vHoldEnd, vEnd];
   const xsTime = [0, tHoldStart, tHoldEnd, tEnd];  // 실제 시간 (라벨용)
   const ys = [0, tp, tp, 0];
-  const sx = vRatio => 26 + vRatio * (W - 36);  // 시각 비율 <i data-lucide="arrow-right"></i> SVG x좌표
+  const sx = vRatio => 26 + vRatio * (W - 36);  // 시각 비율 → SVG x좌표
   const sy = v => H - 16 - v * ((H-32)/(tp*1.2||1));
   const pts = xs.map((x,i) => `${sx(x)},${sy(ys[i])}`).join(" ");
   const hc=hdr(),tc=bdr();const HC1={...hc,whiteSpace:"nowrap"};
@@ -2031,12 +2025,12 @@ function HydroPreview({doc}){
         <tr><td style={HC1}>Design Pressure</td><td style={tc}>{dpStr}</td><td style={HC1}>MAWP</td><td style={tc}>
           <input value={mawp} onChange={e=>sMawp(e.target.value)} placeholder={it.mawp?"":"도면값 없음 — 직접 입력"} style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"70%"}}/>
           {isNumeric(mawp)?" MPa":""}
-          {it.mawp&&<span className="fc" style={{fontSize:9,color:"#1d9e75",marginLeft:4}}><i data-lucide="check"></i> 도면값</span>}
+          {it.mawp&&<span className="fc" style={{fontSize:9,color:"#1d9e75",marginLeft:4}}>✓ 도면값</span>}
         </td></tr>
         <tr><td style={HC1}>Test Pressure</td><td style={tc}>
           <input value={tpcVal} onChange={e=>sTpc(e.target.value)} placeholder={tpFromDwg?"":"숫자(MPa) 또는 Full Water"} style={{fontSize:11,fontWeight:700,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"60%"}}/>
           {tpUnit&&` ${tpUnit}`}
-          {tpFromDwg&&<span className="fc" style={{fontSize:9,color:"#1d9e75",marginLeft:6}}><i data-lucide="check"></i> 도면값</span>}
+          {tpFromDwg&&<span className="fc" style={{fontSize:9,color:"#1d9e75",marginLeft:6}}>✓ 도면값</span>}
         </td><td style={HC1}>Test Temp.</td><td style={tc}><input value={tTemp} onChange={e=>sTT(e.target.value)} placeholder="ex. AMB" style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"90%"}}/></td></tr>
         <tr><td style={HC1}>Actual Pressure</td><td style={tc}>
           <input value={ap} onChange={e=>sAP(e.target.value)} placeholder="숫자(MPa) 또는 Full Water" style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"70%"}}/>
@@ -2233,12 +2227,12 @@ function PrintBar({title}){
   // v2.0 Hybrid — 인쇄 다이얼로그 옵션 안내문 (Safari·Default margin 대비)
   return <div className="no-print" style={{marginBottom:8}}>
     <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:"#f0f4f8", borderRadius:5}}>
-      <span style={{fontSize:11, fontWeight:500}}><i data-lucide="file"></i> {title}</span>
+      <span style={{fontSize:11, fontWeight:500}}>📄 {title}</span>
       <button onClick={()=>window.print()} style={{padding:"4px 12px", background:SJB, color:"#fff", border:"none", borderRadius:4, cursor:"pointer", fontSize:11}}>🖨 인쇄</button>
     </div>
     <div style={{fontSize:10, color:"#666", padding:"4px 10px", marginTop:3, background:"#fffdf5", border:"0.5px dashed #ecd6a3", borderRadius:4}}>
       <span style={{color:"#996b04", fontWeight:600}}>🖨 인쇄 시 필수 옵션:</span>
-      &nbsp;Chrome/Edge 다이얼로그 <i data-lucide="arrow-right"></i> <strong style={{color:"#c33"}}>여백(Margins): "없음(None)"</strong> (<i data-lucide="alert-triangle"></i> "기본값"을 선택하면 브라우저가 자체 여백을 추가로 넣어서 페이지가 한 장 더 넘어갈 수 있습니다) &nbsp;|&nbsp;
+      &nbsp;Chrome/Edge 다이얼로그 → <strong style={{color:"#c33"}}>여백(Margins): "없음(None)"</strong> (⚠ "기본값"을 선택하면 브라우저가 자체 여백을 추가로 넣어서 페이지가 한 장 더 넘어갈 수 있습니다) &nbsp;|&nbsp;
       <strong>"머리글 및 바닥글" 체크 해제</strong> &nbsp;|&nbsp;
       <strong>"배경 그래픽" 체크</strong>
     </div>
@@ -2303,7 +2297,7 @@ function App(){
   const pullFromItpBuilder = ({force=false, silent=false, noOwnItemsYet=null, noOwnProjectYet=null}={}) => {
     try {
       const itpRaw = localStorage.getItem(`sjp_itp_builder_v1__${QAG_PID}`);
-      if (!itpRaw) { if (!silent) showMsg("<i data-lucide="alert-triangle"></i> 이 프로젝트로 저장된 ITP Builder 데이터가 없습니다", 4000); return; }
+      if (!itpRaw) { if (!silent) showMsg("⚠ 이 프로젝트로 저장된 ITP Builder 데이터가 없습니다", 4000); return; }
       const itpData = JSON.parse(itpRaw);
       let touched = false;
       // 마운트 시점의 proj/items는 데모 값("SJ2026-030"·아이템 1개)으로 시작하므로,
@@ -2322,10 +2316,10 @@ function App(){
         if (mapped[0]) setActiveItemId(mapped[0].id);
         touched = true;
       }
-      if (!silent) showMsg(touched ? `<i data-lucide="check"></i> ITP Builder 최신 정보를 반영했습니다 (${itpData.proj?.no||"—"} · 아이템 ${itpData.items?.length||0}개)` : "ℹ 반영할 새 내용이 없습니다 (이미 최신)", 5000);
+      if (!silent) showMsg(touched ? `✓ ITP Builder 최신 정보를 반영했습니다 (${itpData.proj?.no||"—"} · 아이템 ${itpData.items?.length||0}개)` : "ℹ 반영할 새 내용이 없습니다 (이미 최신)", 5000);
     } catch(e) {
       console.warn("[QA Doc Generator] ITP Builder 데이터 로드 실패", e.message);
-      if (!silent) showMsg("<i data-lucide="alert-triangle"></i> 불러오기 실패 — " + e.message, 5000);
+      if (!silent) showMsg("⚠ 불러오기 실패 — " + e.message, 5000);
     }
   };
   const refreshFromItpBuilder = () => {
@@ -2350,7 +2344,7 @@ function App(){
       if (truth?.no && truth.no !== s.proj.no) {
         console.warn(`[QA Doc Generator] 저장된 데이터(${s.proj.no})가 이 프로젝트(${truth.no})와 달라 오염된 캐시로 판단, 초기화합니다.`);
         s = {...s, proj: null, items: null};
-        setTimeout(()=>showMsg(`<i data-lucide="alert-triangle"></i> 이 프로젝트와 맞지 않는 예전 데이터를 발견해 초기화했습니다 — 최신 정보를 다시 불러옵니다.`, 8000), 300);
+        setTimeout(()=>showMsg(`⚠ 이 프로젝트와 맞지 않는 예전 데이터를 발견해 초기화했습니다 — 최신 정보를 다시 불러옵니다.`, 8000), 300);
       }
     }
     if (s) {
@@ -2374,12 +2368,12 @@ function App(){
       const bridgeItems = window.SJP.bridge.getItems?.(QAG_PID);
       if (bridgeProj && (!s || !s.proj || !s.proj.no)) {
         setProj(bridgeProj);
-        setTimeout(()=>showMsg("<i data-lucide="check"></i> ITP Builder의 프로젝트 데이터를 자동 인식했습니다", 4000), 100);
+        setTimeout(()=>showMsg("✓ ITP Builder의 프로젝트 데이터를 자동 인식했습니다", 4000), 100);
       }
       if (bridgeItems?.length && (!s || !s.items || s.items.length === 0)) {
         setItems(bridgeItems);
         if (bridgeItems[0]) setActiveItemId(bridgeItems[0].id);
-        setTimeout(()=>showMsg(`<i data-lucide="check"></i> ITP Builder에서 ${bridgeItems.length}개 아이템 자동 동기화`, 4000), 200);
+        setTimeout(()=>showMsg(`✓ ITP Builder에서 ${bridgeItems.length}개 아이템 자동 동기화`, 4000), 200);
       }
     }
     // v1.6 — 같은 ?pid=...(프로젝트 등록 전 임시 초안 포함)로 ITP Builder를 먼저 작성해뒀다면,
@@ -2413,7 +2407,7 @@ function App(){
         if (cloud.activeDoc) setActiveDoc(cloud.activeDoc);
         if (cloud.currentProjId) setCurrentProjId(cloud.currentProjId);
         setLoadNonce(n => n+1);
-        showMsg("<i data-lucide="check"></i> 클라우드에서 최신 데이터를 불러왔습니다", 4000);
+        showMsg("✓ 클라우드에서 최신 데이터를 불러왔습니다", 4000);
       } catch (e) { console.error("[QA Doc Generator 클라우드 불러오기]", e); }
     })();
   }, []);
@@ -2467,10 +2461,10 @@ function App(){
     const ok = projSave(currentProjId, name, payload);
     if (ok) {
       refreshSavedList();
-      showMsg(`<i data-lucide="check"></i> 저장 완료 — ${name}`);
+      showMsg(`✓ 저장 완료 — ${name}`);
       pushQaGenDocFireAndForget(QAG_PROJ_INDEX_COLL, currentProjId, payload, {name, projNo: payload.proj?.no||""});
     }
-    else { showMsg("<i data-lucide="alert-triangle"></i> 저장 실패 (용량 초과 가능)"); }
+    else { showMsg("⚠ 저장 실패 (용량 초과 가능)"); }
   };
 
   // Save As — 새 이름으로 저장 (대화상자 표시)
@@ -2497,10 +2491,10 @@ function App(){
       refreshSavedList();
       setShowSaveDialog(false);
       setSaveAsName("");
-      showMsg(`<i data-lucide="check"></i> 저장 완료 — ${name}`);
+      showMsg(`✓ 저장 완료 — ${name}`);
       pushQaGenDocFireAndForget(QAG_PROJ_INDEX_COLL, id, payload, {name, projNo: payload.proj?.no||""});
     } else {
-      showMsg("<i data-lucide="alert-triangle"></i> 저장 실패 (용량 초과 가능)");
+      showMsg("⚠ 저장 실패 (용량 초과 가능)");
     }
   };
 
@@ -2508,10 +2502,10 @@ function App(){
   const handleLoadProj = async (id) => {
     let data = projLoadOne(id);
     if (!data) {
-      if (!window.fb || !fb.db) { showMsg("<i data-lucide="alert-triangle"></i> 데이터 없음"); return; }
+      if (!window.fb || !fb.db) { showMsg("⚠ 데이터 없음"); return; }
       try { data = await loadQaGenDocFromFirestore(QAG_PROJ_INDEX_COLL, id); }
       catch (e) { console.error("[QA Doc Gen 클라우드 프로젝트 불러오기]", e); }
-      if (!data) { showMsg("<i data-lucide="alert-triangle"></i> 데이터 없음"); return; }
+      if (!data) { showMsg("⚠ 데이터 없음"); return; }
     }
     if (proj.no && items.length > 0 && !confirm("현재 작업 내용이 사라집니다. 계속하시겠습니까?\n(저장하지 않은 변경사항은 유실됨)")) return;
     // v3.1 — 그림/표 데이터(IMG_STORE) 복원. 다른 state보다 먼저 채워둬야 Preview 재마운트 시 바로 읽어간다.
@@ -2526,7 +2520,7 @@ function App(){
     setCurrentProjId(id);
     setShowLoadModal(false);
     const idx = projIndexLoad().find(x => x.id === id);
-    showMsg(`<i data-lucide="check"></i> 불러오기 완료 — ${idx?.name || id}`);
+    showMsg(`✓ 불러오기 완료 — ${idx?.name || id}`);
   };
 
   // Delete — 저장된 프로젝트 삭제 (모달 안에서 호출)
@@ -2538,9 +2532,9 @@ function App(){
     if (ok) {
       if (currentProjId === id) setCurrentProjId(null);
       refreshSavedList();
-      showMsg(`<i data-lucide="trash-2"></i> 삭제 완료 — ${name}`);
+      showMsg(`🗑 삭제 완료 — ${name}`);
     } else {
-      showMsg(`<i data-lucide="alert-triangle"></i> 삭제 실패`);
+      showMsg(`⚠ 삭제 실패`);
     }
   };
 
@@ -2551,7 +2545,7 @@ function App(){
     setDocData({});
     IMG_STORE.clear();   // v3.1 — 이전 프로젝트의 사진/표 데이터가 새 프로젝트로 새어들지 않도록 초기화
     setCurrentProjId(null);   // v3.0 — 프로젝트 컨텍스트도 초기화
-    showMsg("<i data-lucide="check"></i> 새 프로젝트");
+    showMsg("✓ 새 프로젝트");
   };
 
   // v4.0 — 자동저장(1초 디바운스)과 동일한 함수를 즉시 실행. 이 기능 도입 이전부터 로컬에만
@@ -2560,8 +2554,8 @@ function App(){
     showMsg("☁ 클라우드에 업로드 중...", 30000);
     try {
       await pushQaGenDocToFirestore(QAG_FS_COLL, QAG_PID, collectPayload());
-      showMsg("<i data-lucide="check"></i> 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
-    } catch (e) { showMsg(`<i data-lucide="alert-triangle"></i> 업로드 실패: ${e.message||e}`, 6000); }
+      showMsg("✓ 클라우드 업로드 완료 — 다른 계정에서도 이제 이 내용을 볼 수 있습니다", 5000);
+    } catch (e) { showMsg(`⚠ 업로드 실패: ${e.message||e}`, 6000); }
   };
 
   // v3.1 — 아이템 선택 목록에서 더 이상 필요 없는 아이템을 뺄 수 있게 삭제 기능 추가
@@ -2585,15 +2579,15 @@ function App(){
   return <div style={{maxWidth:1200, margin:"0 auto", padding:"14px"}}>
     {/* v1.2 EPC Control 톤 Topbar */}
     <div className="epc-topbar no-print">
-      <div className="epc-topbar-icon"><i data-lucide="wrench"></i></div>
+      <div className="epc-topbar-icon">🛠</div>
       <div>
         <div className="epc-topbar-title">QA Doc Generator v1.4</div>
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
       <div className="epc-topbar-actions">
         <button onClick={refreshFromItpBuilder} className="btn-secondary" title="같은 프로젝트(pid)로 열린 ITP Builder의 최신 프로젝트 정보·아이템을 끌어옵니다 (ITP Builder의 '🚀 QA Doc Generator로 바로 전송'과 같은 내용을 QA Gen 쪽에서 요청하는 것)">🔄 ITP 정보 끌어오기</button>
-        <button onClick={handleSaveOverwrite} className="btn-secondary" title="현재 프로젝트에 덮어쓰기"><i data-lucide="save"></i> 저장{currentProjId&&<span style={{fontSize:9,marginLeft:4,color:"#1d9e75"}}>*</span>}</button>
-        <button onClick={handleSaveAs} className="btn-secondary" title="새 이름으로 저장"><i data-lucide="save"></i>+ 다른 이름</button>
+        <button onClick={handleSaveOverwrite} className="btn-secondary" title="현재 프로젝트에 덮어쓰기">💾 저장{currentProjId&&<span style={{fontSize:9,marginLeft:4,color:"#1d9e75"}}>*</span>}</button>
+        <button onClick={handleSaveAs} className="btn-secondary" title="새 이름으로 저장">💾+ 다른 이름</button>
         <button onClick={()=>{refreshSavedListWithCloud();setShowLoadModal(true);}} className="btn-secondary" title="저장된 프로젝트 불러오기 (다른 계정이 클라우드에 저장한 것 포함)">📂 불러오기 ({savedList.length})</button>
         <button onClick={handleNew} className="btn-secondary" title="현재 화면을 비우고 새 프로젝트를 시작합니다 (저장된 프로젝트 목록에는 영향 없음)">🗋 New</button>
         <button onClick={handleManualCloudUpload} className="btn-secondary" title="현재 화면의 내용을 지금 즉시 클라우드에 업로드합니다 (다른 계정에서도 볼 수 있게 됨)">☁ 지금 클라우드로 업로드</button>
@@ -2602,7 +2596,7 @@ function App(){
 
     {/* v1.2 ITP Builder 연동 안내 */}
     <div className="itp-link-info no-print">
-      <div className="itp-link-info-icon"><i data-lucide="link"></i></div>
+      <div className="itp-link-info-icon">🔗</div>
       <div className="itp-link-info-text">
         <div className="itp-link-info-title">ITP Builder 연동</div>
         <div className="itp-link-info-sub">
@@ -2635,15 +2629,15 @@ function App(){
 
     {items.length === 0 ?
       <div className="empty-state">
-        <div style={{fontSize:14, marginBottom:8, fontWeight:600, color:"var(--sjp-text-main)"}}><i data-lucide="download"></i> 아이템이 없습니다</div>
+        <div style={{fontSize:14, marginBottom:8, fontWeight:600, color:"var(--sjp-text-main)"}}>📥 아이템이 없습니다</div>
         <div style={{fontSize:11, lineHeight:1.7}}>같은 프로젝트의 ITP Builder에서 <strong style={{color:"var(--sjp-primary)"}}>"🚀 QA Doc Generator로 바로 전송"</strong>을 누르거나,<br/>
         상단의 <strong style={{color:"var(--sjp-primary)"}}>"🔄 ITP 정보 끌어오기"</strong> 버튼으로 직접 불러올 수 있습니다.</div>
       </div>
       :
       <div className="no-print" style={{marginBottom:12, padding:"12px 14px", background:"#fff", border:"1px solid var(--sjp-border)", borderRadius:"var(--sjp-radius-lg)", boxShadow:"var(--sjp-shadow)"}}>
         <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexWrap:"wrap", gap:6}}>
-          <div style={{fontSize:11, fontWeight:700, color:"var(--sjp-text-main)"}}><i data-lucide="package"></i> 아이템 선택 ({items.length}개)</div>
-          {items.length > 8 && <input value={itemSearch} onChange={e=>setItemSearch(e.target.value)} placeholder="<i data-lucide="search"></i> Tag/이름 검색..." style={{fontSize:11, padding:"4px 8px", border:"1px solid var(--sjp-border)", borderRadius:5, width:180}}/>}
+          <div style={{fontSize:11, fontWeight:700, color:"var(--sjp-text-main)"}}>📦 아이템 선택 ({items.length}개)</div>
+          {items.length > 8 && <input value={itemSearch} onChange={e=>setItemSearch(e.target.value)} placeholder="🔍 Tag/이름 검색..." style={{fontSize:11, padding:"4px 8px", border:"1px solid var(--sjp-border)", borderRadius:5, width:180}}/>}
         </div>
         {(() => {
           const q = itemSearch.trim().toLowerCase();
@@ -2693,7 +2687,7 @@ function App(){
         {(() => {
           // V25 doc 객체 합성 어댑터 — V25 Preview는 {doc:{type,item,proj,...}} 시그니처
           const doc = { type: activeDoc, item: activeItem, proj };
-          // v2.1 [B-1] — Preview 컴포넌트에 key 부여 (Item/Part 전환 시 React 재마운트 <i data-lucide="arrow-right"></i> useState 재초기화)
+          // v2.1 [B-1] — Preview 컴포넌트에 key 부여 (Item/Part 전환 시 React 재마운트 → useState 재초기화)
           const dKey = `${activeDoc}_${activeItem.id||activeItem.tag||""}_${loadNonce}`;
           if (activeDoc === "BOM")     return <BOMPreview key={dKey} doc={doc}/>;
           if (activeDoc === "BENDING") {
@@ -2737,14 +2731,14 @@ function App(){
     {/* v3.0 — 저장 대화상자 (Save As) */}
     {showSaveDialog && <div className="no-print" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}}>
       <div style={{background:"#fff",borderRadius:8,padding:20,minWidth:400,maxWidth:520,boxShadow:"0 4px 20px rgba(0,0,0,.15)"}}>
-        <h3 style={{fontSize:15,fontWeight:700,marginBottom:12,color:"var(--sjp-text-main)"}}><i data-lucide="save"></i> 다른 이름으로 저장</h3>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:12,color:"var(--sjp-text-main)"}}>💾 다른 이름으로 저장</h3>
         <label style={{display:"block",fontSize:11,color:"var(--sjp-text-sub)",marginBottom:5}}>프로젝트 이름</label>
         <input value={saveAsName} onChange={e=>setSaveAsName(e.target.value)} placeholder="예: SJ2026-030 동성케미컬 콘덴서" autoFocus
           onKeyDown={e=>{if(e.key==="Enter")handleSaveAsConfirm();else if(e.key==="Escape")setShowSaveDialog(false);}}
           style={{width:"100%",padding:"9px 12px",fontSize:13,border:"1px solid var(--sjp-border)",borderRadius:5,marginBottom:14}}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
           <button onClick={()=>{setShowSaveDialog(false);setSaveAsName("");}} className="btn-secondary">취소</button>
-          <button onClick={handleSaveAsConfirm} className="btn-primary" style={{background:"var(--sjp-primary)",color:"#fff",padding:"7px 16px",border:"none",borderRadius:5,fontSize:12,fontWeight:600,cursor:"pointer"}}><i data-lucide="save"></i> 저장</button>
+          <button onClick={handleSaveAsConfirm} className="btn-primary" style={{background:"var(--sjp-primary)",color:"#fff",padding:"7px 16px",border:"none",borderRadius:5,fontSize:12,fontWeight:600,cursor:"pointer"}}>💾 저장</button>
         </div>
       </div>
     </div>}
@@ -2757,7 +2751,7 @@ function App(){
           <button onClick={()=>setShowLoadModal(false)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888"}}>✕</button>
         </div>
         {savedList.length === 0 ? (
-          <div style={{padding:30,textAlign:"center",color:"var(--sjp-text-muted)",fontSize:12}}>저장된 프로젝트가 없습니다.<br/>먼저 <strong><i data-lucide="save"></i>+ 다른 이름</strong>으로 저장하세요.</div>
+          <div style={{padding:30,textAlign:"center",color:"var(--sjp-text-muted)",fontSize:12}}>저장된 프로젝트가 없습니다.<br/>먼저 <strong>💾+ 다른 이름</strong>으로 저장하세요.</div>
         ) : (
           <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
             {[...savedList].sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||"")).map(p =>
@@ -2771,7 +2765,7 @@ function App(){
                   </div>
                 </div>
                 <button onClick={()=>handleLoadProj(p.id)} className="btn-primary" style={{background:"var(--sjp-primary)",color:"#fff",padding:"6px 12px",border:"none",borderRadius:4,fontSize:11,fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>📂 불러오기</button>
-                <button onClick={()=>handleDeleteProj(p.id)} title="삭제" style={{background:"var(--sjp-danger-bg)",color:"var(--sjp-danger)",padding:"6px 10px",border:"1px solid #fbb",borderRadius:4,fontSize:12,fontWeight:600,cursor:"pointer"}}><i data-lucide="trash-2"></i></button>
+                <button onClick={()=>handleDeleteProj(p.id)} title="삭제" style={{background:"var(--sjp-danger-bg)",color:"var(--sjp-danger)",padding:"6px 10px",border:"1px solid #fbb",borderRadius:4,fontSize:12,fontWeight:600,cursor:"pointer"}}>🗑</button>
               </div>
             )}
           </div>
@@ -2799,7 +2793,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const btn = document.createElement("button");
     btn.id = "sjpq-hdr-btn";
     btn.type = "button";
-    btn.textContent = "<i data-lucide="building"></i> Sejong-Platform +";
+    btn.textContent = "🏢 Sejong-Platform +";
     btn.title = "Sejong-Platform 도구 메뉴";
     btn.style.cssText = [
       "padding:5px 11px",
@@ -2847,17 +2841,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     ].join(";");
     _qaDropdown.innerHTML =
       '<button id="sjpq-refresh" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#dcfce7;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">🔄 EPC 합격품 가져오기</button>' +
-      '<button id="sjpq-epc" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#eef3fb;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500"><i data-lucide="chart-column"></i> EPC Control로 이동</button>' +
+      '<button id="sjpq-epc" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#eef3fb;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">📊 EPC Control로 이동</button>' +
       '<div style="height:1px;background:#e4e7ec;margin:5px 2px"></div>' +
       '<button id="sjpq-reset" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#fee2e2;color:#7c1d1d;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">🔄 데모 데이터 초기화</button>' +
-      '<button id="sjpq-home" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#f3f4f6;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500"><i data-lucide="home"></i> 메인 메뉴</button>';
+      '<button id="sjpq-home" style="display:block;width:100%;text-align:left;padding:6px 9px;margin:2px 0;border:none;background:#f3f4f6;color:#1a2332;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500">🏠 메인 메뉴</button>';
     document.body.appendChild(_qaDropdown);
-    btn.textContent = "<i data-lucide="building"></i> Sejong-Platform −";
+    btn.textContent = "🏢 Sejong-Platform −";
 
     document.getElementById("sjpq-refresh").onclick = () => {
       closeQaDropdown();
       if (!window.SJP || !window.SJP.bridge || !window.SJP.bridge.getAcceptedItems) {
-        alert("<i data-lucide="alert-triangle"></i>️ EPC Control 연결이 안 되어 있습니다.\n\nEPC Control에서 '<i data-lucide="file"></i> QA Doc Generator 열기' 버튼을 사용해서 이 창을 열어주세요.");
+        alert("⚠️ EPC Control 연결이 안 되어 있습니다.\n\nEPC Control에서 '📄 QA Doc Generator 열기' 버튼을 사용해서 이 창을 열어주세요.");
         return;
       }
       const accepted = window.SJP.bridge.getAcceptedItems();
@@ -2870,11 +2864,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         "• " + a.item.tagNo + " (" + a.item.type + ") — " + a.accepted.length + "개 합격"
       ).join("\n");
       alert(
-        "<i data-lucide="check-circle"></i> EPC 합격품 동기화 완료\n\n" +
+        "✅ EPC 합격품 동기화 완료\n\n" +
         "• 아이템 수: " + accepted.length + "개\n" +
         "• 합격 검사 항목 총합: " + totalChecks + "개\n\n" +
         summary + "\n\n" +
-        "<i data-lucide="arrow-right"></i> 좌측 사이드바에서 해당 아이템 선택 후\n  8가지 QA/QC 문서 작성 가능합니다."
+        "→ 좌측 사이드바에서 해당 아이템 선택 후\n  8가지 QA/QC 문서 작성 가능합니다."
       );
       window.EPC_ACCEPTED_ITEMS = accepted;
     };
@@ -2883,14 +2877,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       closeQaDropdown();
       try { if (window.opener && !window.opener.closed) { window.opener.focus(); return; } } catch(e){}
       // v29.9 fix: modules/epc-control/ 경로는 존재 안 함. 실제 EPC 화면은 프로젝트 상세(부모 index.html)
-      // <i data-lucide="arrow-right"></i> 프로젝트 카드 클릭 <i data-lucide="arrow-right"></i> WBS. 부모 창으로 돌아가면 사용자가 프로젝트 선택 가능.
+      // → 프로젝트 카드 클릭 → WBS. 부모 창으로 돌아가면 사용자가 프로젝트 선택 가능.
       window.location.href = "../../index.html";
     };
 
     document.getElementById("sjpq-reset").onclick = () => {
       closeQaDropdown();
       const ok = confirm(
-        "<i data-lucide="alert-triangle"></i>️ 데모 데이터 초기화\n\n" +
+        "⚠️ 데모 데이터 초기화\n\n" +
         "다음 데이터를 모두 삭제하고 페이지를 새로고침합니다:\n\n" +
         "• QA Doc Generator 작성 중인 문서\n" +
         "• EPC Control 데이터 (가능 시)\n" +
@@ -2916,14 +2910,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         }
         kills.forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
       } catch(e){}
-      alert("<i data-lucide="check-circle"></i> 초기화 완료 — 페이지를 새로고침합니다.");
+      alert("✅ 초기화 완료 — 페이지를 새로고침합니다.");
       window.location.reload();
     };
 
     document.getElementById("sjpq-home").onclick = () => {
       closeQaDropdown();
       if (confirm("메인 메뉴로 이동하시겠습니까?\n저장하지 않은 작업이 있다면 먼저 JSON 백업하세요.")) {
-        // v29.9 fix: 경로 오버슛(../../../) <i data-lucide="arrow-right"></i> 실제 파일은 ../../index.html
+        // v29.9 fix: 경로 오버슛(../../../) → 실제 파일은 ../../index.html
         window.location.href = "../../index.html";
       }
     };
@@ -2936,7 +2930,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     _qaDropdown = null;
     document.removeEventListener("click", closeOnQaOutside, true);
     const btn = document.getElementById("sjpq-hdr-btn");
-    if (btn) btn.textContent = "<i data-lucide="building"></i> Sejong-Platform +";
+    if (btn) btn.textContent = "🏢 Sejong-Platform +";
   }
 
   function closeOnQaOutside(e) {
@@ -2947,12 +2941,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   setInterval(attachQaDocBtn, 300);
 })();
-</script>
-<script>
-(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
-function sch(){if(s)return;s=true;queueMicrotask(run);}
-new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
-window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>

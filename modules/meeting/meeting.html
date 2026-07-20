@@ -407,7 +407,7 @@ function rEditor(m){
   </div>`;
 }
 
-// 편집 폼 <i data-lucide="arrow-right"></i> S.selMin 반영 (input 이벤트로 실시간 수집, 재렌더 없이)
+// 편집 폼 → S.selMin 반영 (input 이벤트로 실시간 수집, 재렌더 없이)
 document.addEventListener('input',e=>{
   const ed=e.target.dataset.ed;if(!ed||!S.selMin)return;EDITING=true;
   const m=S.selMin;const g=+e.target.dataset.g,i=+e.target.dataset.i;
@@ -744,7 +744,7 @@ async function exportXlsx(m){
 // 데모 모드는 fb 없이도 바로 시작
 if(DEMO&&!fbReady){setTimeout(()=>{if(!S.me)seedDemo();},800);}
 window.addEventListener('beforeunload',e=>{if(REC.on){e.preventDefault();e.returnValue='녹음이 진행 중입니다. 나가면 녹음이 중단됩니다.';}});
-// v30 디자인: innerHTML 갱신 시 <i data-lucide> <i data-lucide="arrow-right"></i> SVG 자동 변환
+// v30 디자인: innerHTML 갱신 시 <i data-lucide> → SVG 자동 변환
 (function(){let t=null;const run=()=>{if(window.lucide){try{lucide.createIcons();}catch(e){}}};
 new MutationObserver(()=>{clearTimeout(t);t=setTimeout(run,80);}).observe(document.body,{childList:true,subtree:true});
 window.addEventListener('load',run);run();})();

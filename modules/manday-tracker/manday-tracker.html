@@ -4,26 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Man/Day Tracker v1.2</title>
-<script type="module">
-  // Firebase Auth + Firestore — index.html/messenger.html과 동일한 프로젝트/설정 (모듈은 자체 초기화를 갖는다)
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import {
-    getFirestore, doc, getDoc, setDoc
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
-    authDomain: "sejong-platform.firebaseapp.com",
-    projectId: "sejong-platform",
-    storageBucket: "sejong-platform.firebasestorage.app",
-    messagingSenderId: "884301297710",
-    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
-    measurementId: "G-8LJDWYVJ5G"
-  };
-  const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), onAuthStateChanged, doc, getDoc, setDoc };
-</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root {
@@ -264,12 +244,6 @@
     thead th, tbody td { padding: 6px 4px; }
   }
 </style>
-<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
-<style>
-/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
-i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
-i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
-</style>
 </head>
 <body>
 
@@ -279,11 +253,11 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
 <div class="container">
   <header>
     <div>
-      <h1><i data-lucide="chart-column"></i> Man/Day Tracker v1.2</h1>
+      <h1>📊 Man/Day Tracker v1.2</h1>
       <div class="subtitle">오늘 내가 한 일, 로그인해서 바로 입력</div>
     </div>
     <div class="user-bar">
-      <button class="secondary small" id="md-newwin-btn" onclick="openMandayNewWindow()" style="display:none;"><i data-lucide="arrow-up-right"></i> 새 창</button>
+      <button class="secondary small" id="md-newwin-btn" onclick="openMandayNewWindow()" style="display:none;">↗ 새 창</button>
       <div class="user-badge">
         <span>🧑 <strong id="u-name"></strong> <span id="u-title"></span></span>
         <span class="role-badge" id="u-role"></span>
@@ -294,20 +268,20 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
   
   <div class="tabs">
     <button class="tab active" data-tab="entry" onclick="switchTab('entry')">⚡ 오늘 업무 입력</button>
-    <button class="tab" data-tab="dashboard" onclick="switchTab('dashboard')"><i data-lucide="trending-up"></i> 대시보드</button>
-    <button class="tab admin-only" data-tab="manage" onclick="switchTab('manage')"><i data-lucide="settings"></i>️ 관리</button>
+    <button class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">📈 대시보드</button>
+    <button class="tab admin-only" data-tab="manage" onclick="switchTab('manage')">⚙️ 관리</button>
   </div>
 
   <!-- Tab 1: Entry -->
   <div class="tab-content" id="tab-entry">
     <div class="panel">
-      <h2><i data-lucide="smartphone"></i> 한 줄 입력 (카톡처럼)</h2>
+      <h2>📱 한 줄 입력 (카톡처럼)</h2>
       <div class="hint">
         <b>형식:</b> <code>[코드] [프로젝트명], [아이템] [업무] [시간]</code><br>
         <b>예시 1:</b> <code>SJ456-25 삼성전기, V-103 외관검사 4시간</code><br>
         <b>예시 2 (야근):</b> <code>SJ456-25 삼성전기, V-103 PWHT입회 정규8시간 야근2시간</code><br>
         <b>예시 3 (날짜):</b> <code>4/24 SJ456-25 삼성전기, V-103 외관검사 8h</code><br>
-        <span style="color:var(--accent-dark);"><i data-lucide="check"></i> 로그인한 본인으로 자동 기록 · 여러 줄 동시 입력 가능</span>
+        <span style="color:var(--accent-dark);">✓ 로그인한 본인으로 자동 기록 · 여러 줄 동시 입력 가능</span>
       </div>
       <div class="kakao-input">
         <textarea id="kakao-input" placeholder="SJ456-25 삼성전기, V-103 외관검사 4시간"></textarea>
@@ -353,7 +327,7 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
     </div>
 
     <div class="panel">
-      <h2 id="recent-title"><i data-lucide="clipboard-list"></i> 내 최근 입력 (최신 20건)</h2>
+      <h2 id="recent-title">📋 내 최근 입력 (최신 20건)</h2>
       <div id="recent-list"></div>
     </div>
   </div>
@@ -361,7 +335,7 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
   <!-- Tab 2: Dashboard -->
   <div class="tab-content" id="tab-dashboard" style="display:none;">
     <div class="panel">
-      <h2><i data-lucide="search"></i> 필터</h2>
+      <h2>🔍 필터</h2>
       <div class="row">
         <div class="col">
           <label>시작일</label>
@@ -386,7 +360,7 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
         <button class="secondary" onclick="quickFilter('week')">이번주</button>
         <button class="secondary" onclick="quickFilter('month')">이번달</button>
         <button class="secondary" onclick="resetFilter()">초기화</button>
-        <button class="secondary" onclick="exportCSV()"><i data-lucide="download"></i> CSV Export</button>
+        <button class="secondary" onclick="exportCSV()">📥 CSV Export</button>
       </div>
     </div>
 
@@ -421,7 +395,7 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
     </div>
 
     <div class="panel">
-      <h2><i data-lucide="chart-column"></i> 프로젝트별 집계</h2>
+      <h2>📊 프로젝트별 집계</h2>
       <div style="overflow-x:auto;">
         <table id="project-summary-table">
           <thead>
@@ -444,7 +418,7 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
     </div>
 
     <div class="panel">
-      <h2><i data-lucide="file"></i> 상세 기록</h2>
+      <h2>📄 상세 기록</h2>
       <div style="overflow-x:auto;">
         <table id="detail-table">
           <thead>
@@ -470,7 +444,7 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
   <!-- Tab 3: Manage (Admin only) -->
   <div class="tab-content" id="tab-manage" style="display:none;">
     <div class="panel">
-      <h2><i data-lucide="folder"></i> 프로젝트 관리</h2>
+      <h2>📁 프로젝트 관리</h2>
       <div class="row">
         <div class="col">
           <label>프로젝트 코드</label>
@@ -488,9 +462,9 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
     </div>
 
     <div class="panel">
-      <h2><i data-lucide="user"></i> 검사관 관리</h2>
+      <h2>👤 검사관 관리</h2>
       <div class="hint" style="margin-bottom:12px;">
-        <i data-lucide="key"></i> 등록된 검사관은 <strong style="color:var(--accent-dark);">기본 PIN "0000"</strong>으로 로그인합니다.<br>
+        🔑 등록된 검사관은 <strong style="color:var(--accent-dark);">기본 PIN "0000"</strong>으로 로그인합니다.<br>
         첫 로그인 시 본인이 원하는 PIN으로 <strong>반드시 변경</strong>해야 메인 화면에 진입할 수 있습니다.
       </div>
       <div class="row">
@@ -517,15 +491,15 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
     </div>
 
     <div class="panel">
-      <h2><i data-lucide="save"></i> 데이터 관리</h2>
+      <h2>💾 데이터 관리</h2>
       <p style="color: var(--text-soft); font-size:13px; margin-bottom:12px;">
         데이터는 공유 저장소에 저장되어 검사관들 간 공유됩니다.
       </p>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="secondary" onclick="exportAll()"><i data-lucide="package"></i> 전체 백업 (JSON)</button>
+        <button class="secondary" onclick="exportAll()">📦 전체 백업 (JSON)</button>
         <button class="secondary" onclick="document.getElementById('import-file').click()">📂 백업 불러오기</button>
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAll(event)">
-        <button class="danger" onclick="clearAll()"><i data-lucide="trash-2"></i> 전체 삭제</button>
+        <button class="danger" onclick="clearAll()">🗑 전체 삭제</button>
       </div>
     </div>
   </div>
@@ -584,15 +558,13 @@ function escapeHtml(s) {
   })[c]);
 }
 
-// ============ 저장소 (Firestore — 검사관 전원이 공유) ============
+// ============ 저장소 ============
 async function safeGet(key) {
-  try {
-    const snap = await fb.getDoc(fb.doc(fb.db, 'mandayTracker', key));
-    return snap.exists() ? snap.data().value : null;
-  } catch { return null; }
+  try { const r = await window.storage.get(key, true); return r ? JSON.parse(r.value) : null; }
+  catch { return null; }
 }
 async function safeSet(key, val) {
-  try { return await fb.setDoc(fb.doc(fb.db, 'mandayTracker', key), { value: val }); }
+  try { return await window.storage.set(key, JSON.stringify(val), true); }
   catch (err) { toast('저장 실패: ' + err.message, true); }
 }
 async function loadAll() {
@@ -627,7 +599,7 @@ function enterApp() {
   const isAdmin = currentUser.role === 'admin';
   $$('.tab.admin-only').forEach(t => t.classList.toggle('hidden', !isAdmin));
   $('#f-inspector-col').style.display = isAdmin ? '' : 'none';
-  $('#recent-title').textContent = isAdmin ? '<i data-lucide="clipboard-list"></i> 최근 입력 (최신 20건)' : '<i data-lucide="clipboard-list"></i> 내 최근 입력 (최신 20건)';
+  $('#recent-title').textContent = isAdmin ? '📋 최근 입력 (최신 20건)' : '📋 내 최근 입력 (최신 20건)';
   $('#c-insp-label').textContent = isAdmin ? '참여 검사관' : '내 기록일수';
   
   $('#m-date').value = todayStr();
@@ -696,12 +668,12 @@ function parseLine(line) {
 function renderPreview(results) {
   const area = $('#preview-area');
   if (!results.length) { area.innerHTML = ''; return; }
-  let html = '<div class="preview"><div class="preview-title"><i data-lucide="file-text"></i> 파싱 결과 (' + results.length + '건)</div>';
+  let html = '<div class="preview"><div class="preview-title">📝 파싱 결과 (' + results.length + '건)</div>';
   let validCount = 0;
   results.forEach((r, idx) => {
     if (r.error) {
       html += `<div class="preview-item error">
-        <div style="color:var(--danger); font-weight:600; margin-bottom:4px;"><i data-lucide="x-circle"></i> 줄 ${idx+1}: ${escapeHtml(r.error)}</div>
+        <div style="color:var(--danger); font-weight:600; margin-bottom:4px;">❌ 줄 ${idx+1}: ${escapeHtml(r.error)}</div>
         <div style="font-family:monospace; color:var(--text-soft); font-size:12px;">${escapeHtml(r.raw||'')}</div>
       </div>`;
     } else {
@@ -721,7 +693,7 @@ function renderPreview(results) {
     }
   });
   html += `<div style="margin-top:10px; display:flex; gap:8px;">
-    <button onclick="confirmParse()" ${validCount===0?'disabled style="opacity:0.5;cursor:not-allowed"':''}><i data-lucide="check"></i> 유효 항목 ${validCount}건 저장</button>
+    <button onclick="confirmParse()" ${validCount===0?'disabled style="opacity:0.5;cursor:not-allowed"':''}>✓ 유효 항목 ${validCount}건 저장</button>
     <button class="secondary" onclick="cancelParse()">취소</button>
   </div></div>`;
   area.innerHTML = html;
@@ -856,7 +828,7 @@ function renderInspectorList() {
       ? '<span class="role-badge admin">관리자</span>' 
       : '<span class="role-badge inspector">검사관</span>';
     const pinBadge = i.pinChanged === false 
-      ? '<span class="role-badge warning"><i data-lucide="alert-triangle"></i>️ 기본 PIN</span>' 
+      ? '<span class="role-badge warning">⚠️ 기본 PIN</span>' 
       : '';
     return `<div class="list-item">
       <div class="info">
@@ -1012,7 +984,7 @@ async function deleteProject(id) {
   const p = state.projects.find(x => x.id === id);
   if (!p) return;
   const used = state.entries.some(e => e.projCode === p.code);
-  const ok = await showModal('프로젝트 삭제', `<p><strong>${escapeHtml(p.code)}</strong> ${escapeHtml(p.name)}를 삭제하시겠습니까?</p>${used ? '<p style="color:var(--danger);margin-top:8px;font-size:13px;"><i data-lucide="alert-triangle"></i>️ 이 프로젝트의 입력 기록이 있습니다. 기록 자체는 유지됩니다.</p>' : ''}`);
+  const ok = await showModal('프로젝트 삭제', `<p><strong>${escapeHtml(p.code)}</strong> ${escapeHtml(p.name)}를 삭제하시겠습니까?</p>${used ? '<p style="color:var(--danger);margin-top:8px;font-size:13px;">⚠️ 이 프로젝트의 입력 기록이 있습니다. 기록 자체는 유지됩니다.</p>' : ''}`);
   if (!ok) return;
   state.projects = state.projects.filter(x => x.id !== id);
   await saveProjects();
@@ -1037,10 +1009,10 @@ async function addInspector() {
   await saveInspectors();
   $('#i-name').value = ''; $('#i-title').value = ''; $('#i-role').value = 'inspector';
   
-  await showModal('<i data-lucide="check-circle"></i> 등록 완료', `
+  await showModal('✅ 등록 완료', `
     <p><strong>${escapeHtml(name)} ${escapeHtml(title||'')}</strong>님이 등록되었습니다.</p>
     <div style="background:var(--accent); padding:12px; border-radius:6px; margin-top:12px;">
-      <p style="font-size:13px; color:var(--accent-dark); margin-bottom:6px;"><strong><i data-lucide="megaphone"></i> 본인에게 전달하실 안내</strong></p>
+      <p style="font-size:13px; color:var(--accent-dark); margin-bottom:6px;"><strong>📢 본인에게 전달하실 안내</strong></p>
       <p style="font-size:13px;">• 이름: <strong>${escapeHtml(name)}</strong></p>
       <p style="font-size:13px;">• 기본 PIN: <strong>0000</strong></p>
       <p style="font-size:13px;">• 첫 로그인 시 본인의 새 PIN을 설정하셔야 합니다.</p>
@@ -1064,7 +1036,7 @@ async function deleteInspector(id) {
 async function resetPin(id) {
   const i = state.inspectors.find(x => x.id === id);
   if (!i) return;
-  const ok = await showModal('<i data-lucide="key"></i> PIN 초기화', `
+  const ok = await showModal('🔑 PIN 초기화', `
     <p><strong>${escapeHtml(i.name)} ${escapeHtml(i.title||'')}</strong>의 PIN을 기본값 <strong>"0000"</strong>으로 초기화합니다.</p>
     <p style="margin-top:8px; color:var(--text-soft); font-size:13px;">초기화 후 해당 검사관은 다음 로그인 시 새 PIN을 다시 설정해야 합니다.</p>
   `);
@@ -1144,7 +1116,7 @@ async function importAll(ev) {
 }
 
 async function clearAll() {
-  const ok = await showModal('<i data-lucide="alert-triangle"></i>️ 전체 삭제', '<p style="color:var(--danger);">모든 기록/프로젝트/검사관 데이터가 삭제됩니다.</p><p style="margin-top:8px;">현재 관리자 계정도 삭제되어 재생성이 필요합니다. 계속하시겠습니까?</p>');
+  const ok = await showModal('⚠️ 전체 삭제', '<p style="color:var(--danger);">모든 기록/프로젝트/검사관 데이터가 삭제됩니다.</p><p style="margin-top:8px;">현재 관리자 계정도 삭제되어 재생성이 필요합니다. 계속하시겠습니까?</p>');
   if (!ok) return;
   state.entries = []; state.projects = []; state.inspectors = [];
   await Promise.all([ safeSet('md-entries', []), safeSet('md-projects', []), safeSet('md-inspectors', []) ]);
@@ -1189,21 +1161,7 @@ async function init() {
   enterApp();
   $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
 }
-async function boot() {
-  if (!window.fb) { setTimeout(boot, 100); return; } // Firebase SDK(모듈 스크립트) 로딩 대기 — index.html/messenger.html과 동일한 패턴
-  // SJ FLOW(부모 창)에서 이미 로그인된 Firebase Auth 세션이 로드될 때까지 대기 — messenger.html과 동일한 패턴
-  await new Promise(resolve => {
-    const unsub = fb.onAuthStateChanged(fb.auth, u => { unsub(); resolve(u); });
-  });
-  init();
-}
-boot();
-</script>
-<script>
-(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
-function sch(){if(s)return;s=true;queueMicrotask(run);}
-new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
-window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
+init();
 </script>
 </body>
 </html>

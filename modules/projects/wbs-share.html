@@ -58,12 +58,6 @@ footer { text-align:center; font-size:10.5px; color:#9ca3af; margin-top:18px; li
 .err { text-align:center; padding:70px 20px; color:var(--mut); font-size:14px; }
 @media print { header{-webkit-print-color-adjust:exact} .card{border:none} .toolbar{display:none} }
 </style>
-<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
-<style>
-/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
-i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
-i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
-</style>
 </head>
 <body>
 <div class="wrap" id="app"><div class="err">스케줄을 불러오는 중...</div></div>
@@ -90,7 +84,7 @@ const hasKids = i => i < ROWS.length-1 && (ROWS[i+1].lv||0) > (ROWS[i].lv||0);
 function init(d){
   META = d;
   ROWS = d.rows || [];
-  // 진도율 계산 (pctManual <i data-lucide="arrow-right"></i> 자식 롤업 <i data-lucide="arrow-right"></i> 상태 <i data-lucide="arrow-right"></i> 일정 경과)
+  // 진도율 계산 (pctManual → 자식 롤업 → 상태 → 일정 경과)
   const memo = {};
   function calcPct(i){
     if (memo[i] != null) return memo[i];
@@ -164,7 +158,7 @@ function paintShell(){
   const monthLabels = months.map(mo=>`<span style="position:absolute;left:${mo.x.toFixed(2)}%;padding-left:4px;font-size:9px;color:#6b7280">${(mo.y%100)}년 ${mo.m+1}월</span>`).join("");
   document.getElementById("app").innerHTML = `
     <header>
-      <h1><i data-lucide="chart-column"></i> ${esc(d.no)} ${esc(d.name)} — MASTER SCHEDULE <span class="ro-badge">조회 전용</span></h1>
+      <h1>📊 ${esc(d.no)} ${esc(d.name)} — MASTER SCHEDULE <span class="ro-badge">조회 전용</span></h1>
       <div class="sub">${d.client?esc(d.client)+" · ":""}PM ${esc(d.pm||"-")} · Rev. ${d.rev||0}${d.dept?" · "+esc(d.dept)+" 범위":""} · 공유 시점: ${at} · ㈜세종기술</div>
     </header>
     <div class="toolbar">
@@ -221,12 +215,6 @@ function paintBody(){
 }
 
 if (window.fb) boot(); else window.addEventListener("fb-ready", boot);
-</script>
-<script>
-(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
-function sch(){if(s)return;s=true;queueMicrotask(run);}
-new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
-window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>

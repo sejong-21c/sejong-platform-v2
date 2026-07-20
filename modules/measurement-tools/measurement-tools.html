@@ -185,12 +185,6 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   .form-grid { grid-template-columns: 1fr; }
 }
 </style>
-<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
-<style>
-/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
-i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
-i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
-</style>
 </head>
 <body>
 
@@ -438,7 +432,7 @@ function plannedCalDate(nextCal) {
   const p = n => String(n).padStart(2,'0');
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
-/* 제조사 + 모델 <i data-lucide="arrow-right"></i> 양식의 "Manuf' & Model" 한 필드 병기 */
+/* 제조사 + 모델 → 양식의 "Manuf' & Model" 한 필드 병기 */
 function manufAndModel(t) {
   const m = t.maker || '', mo = t.model || '';
   if (m && mo) return `${m}\n(${mo})`;
@@ -461,7 +455,7 @@ function performCheckout(tool, userName, site, actor) {
   if (tool.status === 'repair') return { ok: false, msg: '수리중 상태입니다.' };
   if (isCheckedOut(tool)) {
     const c = tool.currentCheckout;
-    return { ok: false, msg: `이미 반출중 (${c.userName} <i data-lucide="arrow-right"></i> ${c.site})` };
+    return { ok: false, msg: `이미 반출중 (${c.userName} → ${c.site})` };
   }
   if (!userName) return { ok: false, msg: '사용자 이름을 입력해주세요.' };
   if (!site)     return { ok: false, msg: '반출 현장을 입력해주세요.' };
@@ -479,7 +473,7 @@ function performCheckout(tool, userName, site, actor) {
   if (idx >= 0) tools[idx] = { ...tools[idx], currentCheckout: co, status: 'normal', updatedAt: now };
   checkouts.push(log);
   save();
-  return { ok: true, msg: `반출 완료 · ${tool.name} <i data-lucide="arrow-right"></i> ${site}`, kind: 'out' };
+  return { ok: true, msg: `반출 완료 · ${tool.name} → ${site}`, kind: 'out' };
 }
 
 function performCheckin(tool, userName, actor) {
@@ -558,7 +552,7 @@ async function maybeSendCalibrationAlerts() {
   for (const tool of targets) {
     if (tool.lastAlertDate === t) continue;
     const st = calStatus(tool.nextCalibration);
-    const icon = st.level === 'danger' ? '<i data-lucide="circle-alert"></i>' : '🟠';
+    const icon = st.level === 'danger' ? '🔴' : '🟠';
     const line = `${icon} [검교정 ${st.level==='danger'?'만기':'임박'}] ${tool.name} (${tool.code}) — ${st.label}, 다음검교정 ${fmtDate(tool.nextCalibration)}`;
     try {
       await fb.setDoc(
@@ -597,23 +591,23 @@ function render() {
   app.innerHTML = `
     <div class="mod-head">
       <div>
-        <div class="mod-title"><i data-lucide="microscope"></i> 측정기구 반입출 관리</div>
+        <div class="mod-title">🔬 측정기구 반입출 관리</div>
         <div class="mod-sub">QR/바코드 스캔으로 반출·반입 처리 · 검교정 이력 관리</div>
       </div>
       <div>${qa ? '<span class="b-pill blue">품질관리부 권한</span>' : '<span class="b-pill gray">조회 전용</span>'}</div>
     </div>
     <div class="tabs">
       <button class="tab ${view.tab==='dashboard'?'active':''}" onclick="setTab('dashboard')">
-        <i data-lucide="chart-column"></i> 대시보드
+        📊 대시보드
         ${badges.calDanger>0?`<span class="tab-badge">${badges.calDanger}</span>`:''}
         ${badges.calWarn>0 && badges.calDanger===0?`<span class="tab-badge warn">${badges.calWarn}</span>`:''}
       </button>
       <button class="tab ${view.tab==='scan'?'active':''}" onclick="setTab('scan')">📷 반출·반입</button>
       <button class="tab ${view.tab==='active'?'active':''}" onclick="setTab('active')">
-        <i data-lucide="package"></i> 현재 반출 현황
+        📦 현재 반출 현황
         ${badges.out>0?`<span class="tab-badge gray">${badges.out}</span>`:''}
       </button>
-      ${qa ? `<button class="tab ${view.tab==='master'?'active':''}" onclick="setTab('master')"><i data-lucide="settings"></i>️ 측정기구 관리</button>` : ''}
+      ${qa ? `<button class="tab ${view.tab==='master'?'active':''}" onclick="setTab('master')">⚙️ 측정기구 관리</button>` : ''}
       <button class="tab ${view.tab==='history'?'active':''}" onclick="setTab('history')">📜 이력</button>
     </div>
     <div id="tab-body"></div>
@@ -670,8 +664,8 @@ function renderDashboard() {
     </div>
 
     <div class="card" style="margin-bottom:16px;">
-      <div style="font-weight:700;font-size:14px;margin-bottom:12px;"><i data-lucide="calendar"></i> 검교정 임박/만기 목록</div>
-      ${calList.length === 0 ? `<div class="empty-hint" style="padding:30px;"><i data-lucide="circle-check"></i> 임박한 검교정이 없습니다.</div>` : `
+      <div style="font-weight:700;font-size:14px;margin-bottom:12px;">🗓 검교정 임박/만기 목록</div>
+      ${calList.length === 0 ? `<div class="empty-hint" style="padding:30px;">🟢 임박한 검교정이 없습니다.</div>` : `
       <table class="mt-table">
         <thead><tr>
           <th style="width:110px;">관리번호</th><th>기구명</th><th style="width:120px;">다음 검교정</th>
@@ -697,7 +691,7 @@ function renderDashboard() {
     </div>
 
     <div class="card">
-      <div style="font-weight:700;font-size:14px;margin-bottom:12px;"><i data-lucide="upload"></i> 최근 반출 (미반입)</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:12px;">📤 최근 반출 (미반입)</div>
       ${recentOut.length === 0 ? `<div class="empty-hint" style="padding:30px;">📭 반출중인 기구가 없습니다.</div>` : `
       <table class="mt-table">
         <thead><tr>
@@ -752,7 +746,7 @@ function renderScan() {
             <button class="btn btn-primary" onclick="openCameraScan()">📷 카메라로 스캔</button>
             <button class="btn" onclick="document.getElementById('scan-input').focus()">✍️ 수동 입력 포커스</button>
           </div>
-          <div class="scan-status" id="scan-status"><i data-lucide="circle-check"></i> 스캐너 대기중...</div>
+          <div class="scan-status" id="scan-status">🟢 스캐너 대기중...</div>
         </div>
       </div>
       <div class="card">
@@ -761,7 +755,7 @@ function renderScan() {
         <div class="recent-scans">
           ${recent.map(r => `
             <div class="recent-scans-item">
-              <span style="font-size:16px;">${r.ok?(r.action==='in'?'<i data-lucide="download"></i>':'<i data-lucide="upload"></i>'):'<i data-lucide="x-circle"></i>'}</span>
+              <span style="font-size:16px;">${r.ok?(r.action==='in'?'📥':'📤'):'❌'}</span>
               <div style="flex:1;min-width:0;">
                 <div style="font-weight:600;color:${r.ok?'var(--text)':'var(--danger)'};">${esc(r.msg)}</div>
                 <div style="font-size:11px;color:var(--text-lighter);">${fmtDateTime(r.time)} · ${esc(r.code)}</div>
@@ -899,16 +893,16 @@ function renderMaster() {
         <option value="none"   ${view.filterCal==='none'  ?'selected':''}>미설정</option>
       </select>
       <div style="flex:1;"></div>
-      <button class="btn" onclick="exportExcel()" title="측정 및 시험 장비 종합관리대장 (SJ-EGMR-001) 양식으로 엑셀 다운로드"><i data-lucide="chart-column"></i> 엑셀 대장</button>
+      <button class="btn" onclick="exportExcel()" title="측정 및 시험 장비 종합관리대장 (SJ-EGMR-001) 양식으로 엑셀 다운로드">📊 엑셀 대장</button>
       <button class="btn" onclick="exportPDF()" title="A4 가로 인쇄 · 브라우저에서 'PDF로 저장' 선택">🖨 PDF 대장</button>
       ${qa ? `
         <button class="btn" onclick="openPrintAll()">🏷 QR 라벨</button>
-        ${qa && seedPendingCount() > 0 ? `<button class="btn btn-warning" onclick="importSeedLedger()" title="SJ-EGMR-001_rev.4 종이 대장의 ${SEED_COUNT}건 중 아직 등록되지 않은 항목을 한번에 등록"><i data-lucide="download"></i> 대장 일괄 임포트 (${seedPendingCount()}건)</button>` : ''}
-        <button class="btn btn-primary" onclick="openTool('')"><i data-lucide="plus"></i> 신규 등록</button>
+        ${qa && seedPendingCount() > 0 ? `<button class="btn btn-warning" onclick="importSeedLedger()" title="SJ-EGMR-001_rev.4 종이 대장의 ${SEED_COUNT}건 중 아직 등록되지 않은 항목을 한번에 등록">📥 대장 일괄 임포트 (${seedPendingCount()}건)</button>` : ''}
+        <button class="btn btn-primary" onclick="openTool('')">➕ 신규 등록</button>
       ` : ''}
     </div>
     <div class="card">
-      ${filtered.length === 0 ? `<div class="empty-hint"><div class="big"><i data-lucide="search"></i></div>일치하는 측정기구가 없습니다.</div>` : `
+      ${filtered.length === 0 ? `<div class="empty-hint"><div class="big">🔍</div>일치하는 측정기구가 없습니다.</div>` : `
       <table class="mt-table">
         <thead><tr>
           <th style="width:56px;"></th>
@@ -1249,15 +1243,15 @@ function openDetail(id) {
           <tr><td style="padding:5px 8px;color:var(--text-light);">교정 만료일 <span style="color:var(--text-lighter);font-size:11px;">(Expiry)</span></td><td class="${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">${fmtDate(t.nextCalibration)} · ${st.label}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">교정 계획일 <span style="color:var(--text-lighter);font-size:11px;">(Planned)</span></td><td>${fmtDate(plannedCalDate(t.nextCalibration))}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">검교정기관</td><td>${esc(t.calibrationOrg||'-')}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">성적서</td><td>${t.certificateUrl?`<a href="${esc(t.certificateUrl)}" target="_blank"><i data-lucide="file"></i> 열기</a>`:'-'}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">성적서</td><td>${t.certificateUrl?`<a href="${esc(t.certificateUrl)}" target="_blank">📄 열기</a>`:'-'}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">구매</td><td>${fmtDate(t.purchaseDate)} ${t.purchasePrice?' · '+Number(t.purchasePrice).toLocaleString()+'원':''}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">현재 반출</td><td>${isCheckedOut(t)?`<strong>${esc(t.currentCheckout.userName)}</strong> <i data-lucide="arrow-right"></i> ${esc(t.currentCheckout.site)} (${fmtDateTime(t.currentCheckout.checkedOutAt)})`:'-'}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">현재 반출</td><td>${isCheckedOut(t)?`<strong>${esc(t.currentCheckout.userName)}</strong> → ${esc(t.currentCheckout.site)} (${fmtDateTime(t.currentCheckout.checkedOutAt)})`:'-'}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);vertical-align:top;">비고</td><td>${esc(t.note||'-').replace(/\n/g,'<br>')}</td></tr>
         </table>
         <div style="margin-top:14px;">
           <button class="btn btn-sm" onclick="printOne('${t.id}')">🖨 라벨 인쇄</button>
-          ${isQADept()?`<button class="btn btn-sm" onclick="closeDetailModal();openTool('${t.id}')"><i data-lucide="pencil"></i>️ 수정</button>`:''}
-          ${isQADept()?`<button class="btn btn-sm" onclick="openCal('${t.id}')"><i data-lucide="calendar"></i> 검교정 등록</button>`:''}
+          ${isQADept()?`<button class="btn btn-sm" onclick="closeDetailModal();openTool('${t.id}')">✏️ 수정</button>`:''}
+          ${isQADept()?`<button class="btn btn-sm" onclick="openCal('${t.id}')">🗓 검교정 등록</button>`:''}
         </div>
       </div>
     </div>
@@ -1705,12 +1699,6 @@ function exportPDF() {
   .no-print-bar { position: fixed; top: 10px; right: 10px; background: #1976D2; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; border: none; z-index: 100; }
   @media print { .no-print-bar { display: none; } }
 </style>
-<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
-<style>
-/* v30 디자인: Lucide 아이콘 통일 + 이모지 폴백 깜빡임 방지 */
-i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;vertical-align:-2px}
-i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:currentColor}
-</style>
 </head>
 <body>
   <button class="no-print-bar" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
@@ -1718,12 +1706,6 @@ i[data-lucide]>svg{font-size:13px;width:14px;height:14px;stroke-width:1.8;color:
   <script>
     window.addEventListener('load', () => setTimeout(() => window.print(), 400));
   </` + `script>
-<script>
-(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
-function sch(){if(s)return;s=true;queueMicrotask(run);}
-new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
-window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
-</script>
 </body>
 </html>`);
   w.document.close();
@@ -1785,7 +1767,7 @@ async function importSeedLedger() {
   });
   save();
   render();
-  alert(`<i data-lucide="check-circle"></i> ${toAdd.length}건이 등록되었습니다.\n(건너뜀: ${skipped}건)`);
+  alert(`✅ ${toAdd.length}건이 등록되었습니다.\n(건너뜀: ${skipped}건)`);
 }
 window.importSeedLedger = importSeedLedger;
 
@@ -1814,7 +1796,7 @@ async function openCameraScan() {
         const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const qr = window.jsQR ? jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' }) : null;
         if (qr && qr.data) {
-          msg.textContent = '<i data-lucide="check-circle"></i> 인식됨: ' + qr.data;
+          msg.textContent = '✅ 인식됨: ' + qr.data;
           const code = qr.data;
           closeCameraScan();
           processScan(code);
@@ -1825,7 +1807,7 @@ async function openCameraScan() {
     };
     _camAnim = requestAnimationFrame(tick);
   } catch(e) {
-    msg.textContent = '<i data-lucide="x-circle"></i> 카메라 접근 실패: ' + (e.message || e);
+    msg.textContent = '❌ 카메라 접근 실패: ' + (e.message || e);
     console.error(e);
   }
 }
@@ -1894,12 +1876,6 @@ if (document.readyState === 'loading') {
 } else {
   boot();
 }
-</script>
-<script>
-(function(){var s=false;function run(){s=false;if(!window.lucide)return;if(!document.querySelector("i[data-lucide]:not(:has(svg))"))return;try{lucide.createIcons();}catch(e){}}
-function sch(){if(s)return;s=true;queueMicrotask(run);}
-new MutationObserver(sch).observe(document.body,{childList:true,subtree:true});
-window.addEventListener("load",run);document.addEventListener("DOMContentLoaded",run);run();})();
 </script>
 </body>
 </html>
