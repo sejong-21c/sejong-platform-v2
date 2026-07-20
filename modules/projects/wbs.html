@@ -435,6 +435,53 @@ const TPL=[
 let ITEM_TPL={};
 function getTPL(iid){if(!ITEM_TPL[iid])ITEM_TPL[iid]=TPL.map(t=>({...t}));return ITEM_TPL[iid];}
 const iR=()=>TPL.reduce((a,t)=>{a[t.id]={result:"-",actual:"",criteria:t.crit,obs:"",point:t.pt};return a;},{});
+
+// v30.6: 승인된 ITP Builder(t_itpBuilderDocs) 검사행 → 이 Traveller 아이템 체크리스트로 복사.
+//   witness{sj,qc,client}(S/R/W/H)에서 가장 강한 Inspection Point 하나를 뽑고,
+//   activity 키워드로 단계(검사준비0/검사중1/검사후2)를 추정. 진행 기록 있으면 확인 후 덮어씀.
+function _ptFromWitness(w){ w=w||{}; const vals=[w.sj,w.qc,w.client]; for(const p of ["H","W","R","S"]){ if(vals.indexOf(p)>=0) return p; } return "W"; }
+function _itpPhase(a){ a=(a||"").toLowerCase();
+  if(/\bpo\b|datasheet|document|drawing|도면|mill|wps|pqr|wpq|procedure|절차서|검토|승인|material/.test(a)) return 0;
+  if(/final|ship|nameplate|packing|paint|dft|출하|포장|최종/.test(a)) return 2;
+  return 1;
+}
+async function applyApprovedItpToItem(iid, opts){
+  opts=opts||{};
+  const pid=_wbsPid||(S.mproj&&S.mproj.id);
+  if(!pid||!window.fb||!fb.getDoc) return {ok:false,reason:"noproj"};
+  let mit=null; for(const p in MITEM){const f=(MITEM[p]||[]).find(i=>i.id===iid); if(f){mit=f;break;}}
+  if(!mit) return {ok:false,reason:"noitem"};
+  const tag=(mit.tagNo||"").trim();
+  let doc;
+  try{ const s=await fb.getDoc(fb.doc(fb.db,"t_itpBuilderDocs",pid)); if(!s.exists()) return {ok:false,reason:"noitp"}; doc=s.data(); }
+  catch(e){ return {ok:false,reason:"err",msg:e.message}; }
+  if(doc.approvalStatus!=="approved") return {ok:false,reason:"notapproved"};
+  const items=doc.items||[];
+  const aItem=items.find(x=>((x.tag||"").trim()===tag && tag!=="")) || (items.length===1?items[0]:null);
+  if(!aItem) return {ok:false,reason:"nomatch"};
+  const rbi=doc.itpRowsByItem||{};
+  const rows=(rbi[aItem.id]||rbi[String(aItem.id)]||[]).filter(r=>r && r.active!==false);
+  if(!rows.length) return {ok:false,reason:"norows"};
+  const hasProgress = REC[iid] && Object.values(REC[iid]).some(v=>v && ((v.result||"-")!=="-" || (v.actual||"")!=="" || (v.obs||"")!==""));
+  if(hasProgress && !opts.force){
+    if(!confirm(`'${tag}'에 이미 검사 진행 기록이 있습니다.\n승인된 ITP 항목으로 덮어쓰면 기존 검사 결과가 지워집니다.\n\n계속할까요?`)) return {ok:false,reason:"cancel"};
+  }
+  const tpl=rows.map((r,i)=>({ id:"itp"+String(i+1).padStart(2,"0"), ph:_itpPhase(r.activity), item:r.activity||("항목 "+(i+1)), pt:_ptFromWitness(r.witness), crit:r.criteria||"" }));
+  const rec={}; tpl.forEach(t=>{ rec[t.id]={result:"-",actual:"",criteria:t.crit,obs:"",point:t.pt}; });
+  ITEM_TPL[iid]=tpl; REC[iid]=rec;
+  for(const p in MITEM){const idx=(MITEM[p]||[]).findIndex(i=>i.id===iid); if(idx>=0){MITEM[p][idx]={...MITEM[p][idx],status:cS(iid).status};break;}}
+  if(typeof _schedRecSave==="function") _schedRecSave();
+  return {ok:true,count:tpl.length,tag};
+}
+// 결과 코드 → 사용자 안내
+function _itpSyncMsg(res){
+  const M={ noproj:"프로젝트 정보가 없습니다.", noitem:"아이템을 찾지 못했습니다.",
+    noitp:"이 프로젝트에 저장된 ITP 문서가 없습니다.",
+    notapproved:"아직 승인 완료된 ITP가 아닙니다. (결재 상신 → 승인 후 이용)",
+    nomatch:"이 태그와 일치하는 ITP 아이템을 찾지 못했습니다. (ITP Builder의 Tag와 동일해야 함)",
+    norows:"승인된 ITP에 검사 항목이 없습니다.", err:"불러오기 오류: "+(res.msg||"") };
+  return M[res.reason]||null;
+}
 const iPI=()=>({0:{date:"",insp:""},1:{date:"",insp:""},2:{date:"",insp:""}});
 let PROJS=[];
 // v28.4: 임의 샘플 MITEM 삭제됨 — 자동등록 또는 Manufacture Manager에서 추가
@@ -1245,7 +1292,10 @@ function rMMITP(){
   return`<div style="padding:10px 14px;flex:1;display:flex;flex-direction:column;overflow:hidden">${bc}<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div><span style="font-size:15px;font-weight:700">${item.tagNo}</span><span style="font-size:11px;color:#6b7280;margin-left:6px">${item.type} · ${item.spec}</span></div><div style="display:flex;gap:6px;align-items:center">${prg(pct).replace("class=\"prg\"","style=\"min-width:120px\" class=\"prg\"")}${ncr>0?`<span class="bdg" style="background:#fee2e2;color:#dc2626;padding:2px 8px;font-size:11px">NCR ${ncr}건</span>`:""}${wbs?`<button data-a="goWBS" data-wid="${item.wbsLink}" style="padding:3px 8px;background:#eef3fb;color:#4a7fc1;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">📊 WBS로</button>`:""}</div></div><div style="display:flex;gap:5px;margin-bottom:8px">${tabs}</div><div class="itp-wrap"><div class="itp-L" style="display:flex;flex-direction:column">
     <div class="mm-checklist-scroll" style="flex:1;overflow-y:auto">${list}</div>
     <div style="padding:6px 10px;border-top:1px solid #e4e7ec;background:#f8fafc;flex-shrink:0">
-      <button data-a="opAddITPItem" data-iid="${item.id}" style="width:100%;padding:5px;background:#eef3fb;color:#4a7fc1;border:1px dashed #c3d6f0;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600">+ 검사 항목 추가</button>
+      <div style="display:flex;gap:5px">
+        <button data-a="opAddITPItem" data-iid="${item.id}" style="flex:1;padding:5px;background:#eef3fb;color:#4a7fc1;border:1px dashed #c3d6f0;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600">+ 검사 항목 추가</button>
+        <button data-a="loadApprovedItp" data-iid="${item.id}" title="승인 완료된 ITP(ITP Builder)의 검사 항목을 이 아이템 체크리스트로 불러옵니다" style="flex:1;padding:5px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600">📋 승인 ITP 불러오기</button>
+      </div>
     </div>
   </div><div class="itp-R">${rC}</div></div></div>`;
 }
@@ -1579,7 +1629,10 @@ function act(a,d){
           itpLink=nv;
         }
       }
-      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept,itpLink}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");us({wedit:false,wsel:updated});break;}
+      WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept,itpLink}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");
+      // v30.6: ITP 연동(itpLink) 설정된 아이템에 승인된 ITP가 있으면 검사 체크리스트 자동 동기화.
+      if(itpLink){ applyApprovedItpToItem(itpLink,{}).then(res=>{ if(res.ok) addLog(`📋 승인 ITP 자동 연동: ${res.tag} (${res.count}항목)`,"ok"); else if(res.reason==="notapproved"||res.reason==="noitp") addLog("ℹ 연동됨 — 승인된 ITP는 아직 없어 검사항목 자동 반영은 승인 후 됩니다","info"); }); }
+      us({wedit:false,wsel:updated});break;}
     case"mvW":moveWBS(d.id,d.dir==="up"?-1:1);break;
     case"opWM":{DRAFT.wform={code:"",name:"",mgr:"",s:"",e:"",status:"미시작",itpLink:"",parentId:"",dept:_deptFilter||""};us({wmod:true});}break;
     case"clWM":us({wmod:false});break;
@@ -1636,6 +1689,13 @@ function act(a,d){
     case"goITP":{let proj=null,item=null;for(const pid in MITEM){const found=MITEM[pid].find(i=>i.id===d.iid);if(found){proj=PROJS.find(p=>p.id===pid);item=found;break;}}if(!REC[d.iid])REC[d.iid]=iR();addLog(`📊→🔩 ITP: ${item?.tagNo}`,"info");us({mv:"mm",mp:"itp",mproj:proj,mitem:item,mitpId:null,mphf:-1});break;}
     case"goWBS":{const w=fW(d.wid);addLog(`🔩→📊 WBS: ${w?.code}`,"info");us({mv:"wbs",wp:"wbs",wsel:w});}break;
     case"opMITP":{const it=allI().find(i=>i.id===d.iid);if(!REC[it.id])REC[it.id]=iR();us({mp:"itp",mitem:it,mitpId:null,mphf:-1});}break;
+    case"loadApprovedItp":{
+      const iid=d.iid;
+      applyApprovedItpToItem(iid,{}).then(res=>{
+        if(res.ok){ addLog(`📋 승인 ITP ${res.count}개 항목 불러옴: ${res.tag}`,"ok"); us({mitpId:null,mphf:-1}); }
+        else if(res.reason!=="cancel"){ const m=_itpSyncMsg(res); if(m) alert(m); }
+      });
+      break;}
     case"bcMItm":us({mp:"items"});break;
     case"opMAI":{DRAFT.mnitem={tagNo:"",type:"",spec:"ASME Sec.VIII Div.1",maker:"",wbsLink:"",wbsMode:"new",wbsParent:"",wbsName:""};us({maitem:true});}break;
     case"clMAI":us({maitem:false});break;
