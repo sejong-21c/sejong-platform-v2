@@ -80,6 +80,26 @@ body { font-family:-apple-system,"Malgun Gothic","맑은 고딕",sans-serif; bac
 
 .empty { text-align:center; padding:40px; color:var(--text-lighter); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
 .loading { text-align:center; padding:40px; color:var(--text-lighter); font-size:13px; }
+
+/* v1.4: ITP Builder 미리보기와 동일한 공식 문서 양식 */
+.itp-doc { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; overflow-x:auto; font-family:Arial,'Malgun Gothic',sans-serif; }
+.itp-hdr { width:100%; border-collapse:collapse; }
+.itp-hdr td { border:1px solid #555; padding:3px 6px; font-size:10px; vertical-align:middle; }
+.itp-hdr td.k { font-weight:500; white-space:nowrap; }
+.itp-hdr td.itp-logo { padding:4px 6px; }
+.itp-grid { width:100%; border-collapse:collapse; margin-top:-1px; }
+.itp-grid th { border:1px solid #555; padding:5px 6px; background:#fff; font-size:10px; font-weight:500; text-align:center; vertical-align:middle; }
+.itp-grid td { border:1px solid #888; padding:4px 5px; font-size:9px; vertical-align:top; line-height:1.5; }
+.itp-grid td.ish-no { text-align:center; vertical-align:middle; font-weight:600; font-size:11px; }
+.itp-grid td.ish-c { text-align:center; }
+.itp-grid td.ish-l { text-align:left; }
+.itp-grid td.ish-sm { font-size:9px; }
+.itp-note { margin-top:4px; font-size:9px; color:#444; line-height:1.7; }
+@media print {
+  body { background:#fff; } #app { padding:0; } .no-print, .breadcrumb { display:none !important; }
+  .itp-doc { border:none; padding:0; }
+  @page { size:A4 portrait; margin:10mm; }
+}
 </style>
 </head>
 <body>
@@ -233,22 +253,32 @@ function renderItem() {
   const it = items[state.selectedItem];
   if (!it) return renderProj();
   const lbl = projLabel(doc);
-  const rows = _itpRows(doc, it).filter(r => r && !r.specOnly === !r.specOnly);   // 전체 표시(specOnly 포함)
+  const rows = _itpRows(doc, it).filter(r => r && r.active !== false);
   const docNo = _itpDocNo(doc, it), rev = _itpRev(doc, it);
+  const hdr = (doc.itpHdrByItem && (doc.itpHdrByItem[it.id] || doc.itpHdrByItem[String(it.id)])) || {};
+  // 헤더 자동값 (override 우선) — ITP Builder ITPPreview와 동일
+  const proj = doc.proj || {};
+  const isHX = (it.type||"").includes("Condenser") || (it.type||"").includes("Heat");
+  const isSUS = !isHX && /(316|304|sus|sts)/i.test(it.shell_mat||"");
+  const titleFor = isHX ? "HEAT EXCHANGER" : isSUS ? "SUS TANK" : "CARBON TANK";
+  const hProjName = hdr.projName || proj.name || lbl.name || "";
+  const hJobNo    = hdr.jobNo    || proj.no   || lbl.code || "";
+  const hItemLbl  = hdr.itemLabel || `${it.name||it.tag||""} / ${it.tag||""}`;
+  const hCustomer = hdr.customer || proj.customer || lbl.client || "";
 
-  // 컬럼: No · Inspection Activity · Applicable Code/DWG · Acceptance Criteria · Verifying Doc · SJ · QC · Client · Remarks
+  // 검사표 행 (SJ/QC/Client 입회 표시)
   const bodyRows = rows.map((r, i) => {
     const w = r.witness || {};
-    return `<tr>
-      <td class="center" style="color:var(--text-light);">${i+1}</td>
-      <td>${esc(r.activity || r.act || r.item || '')}</td>
-      <td style="white-space:pre-line;">${esc(r.code || '')}</td>
-      <td style="white-space:pre-line;">${esc(r.criteria || r.spec || '')}</td>
-      <td>${esc(r.doc || r.method || '')}</td>
-      <td class="center">${esc(w.sj || '')}</td>
-      <td class="center">${esc(w.qc || '')}</td>
-      <td class="center">${esc(w.client || '')}</td>
-      <td>${esc(r.remarks || r.remark || '')}</td>
+    return `<tr${r.specOnly ? ' style="background:#fffbe5;"' : ''}>
+      <td class="ish-no">${i+1}</td>
+      <td class="ish-l">${esc(r.activity || r.act || r.item || '')}</td>
+      <td class="ish-l ish-sm" style="white-space:pre-line;">${esc(r.code || '')}</td>
+      <td class="ish-l ish-sm" style="white-space:pre-line;">${esc(r.criteria || r.spec || '')}</td>
+      <td class="ish-c ish-sm">${esc(r.doc || r.method || '')}</td>
+      <td class="ish-c">${esc(w.sj || '')}</td>
+      <td class="ish-c">${esc(w.qc || '')}</td>
+      <td class="ish-c">${esc(w.client || '')}</td>
+      <td class="ish-l ish-sm">${esc(r.remarks || r.remark || '')}</td>
     </tr>`;
   }).join('');
 
@@ -258,34 +288,60 @@ function renderItem() {
       <a onclick="goBack()">${esc(lbl.code)}</a><span class="sep">›</span>
       <b>${esc(it.name || it.tag || '아이템 #'+(state.selectedItem+1))}</b>
     </div>
-    <div class="hd">
-      <div>
-        <h1>${esc(it.name || it.tag || '(이름 없음)')} ${it.tag ? `<span style="font-size:13px;font-weight:400;color:var(--text-light);">· ${esc(it.tag)}</span>` : ''}</h1>
-        <div class="sub">${it.type ? esc(it.type) + ' · ' : ''}${docNo ? esc(docNo) + (rev ? ' Rev.'+esc(rev) : '') : ''}</div>
-      </div>
+    <div class="hd no-print">
+      <div><div class="sub">아래는 ITP Builder에서 승인·저장된 원본 그대로입니다. (읽기 전용)</div></div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 아이템 목록</button>
+        <button class="btn" onclick="window.print()">🖨 인쇄</button>
         <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', ${state.selectedItem})">📋 Builder 편집</button>
       </div>
     </div>
-    <div class="section">
-      <h3>📋 ITP 항목 (${rows.length}행)</h3>
-      ${rows.length ? `<div style="overflow-x:auto;">
-        <table class="itp-table">
-          <thead><tr>
-            <th class="center" style="width:36px;">#</th>
-            <th style="width:15%;">Inspection Activity</th>
-            <th style="width:18%;">Applicable Code / DWG</th>
-            <th style="width:26%;">Acceptance Criteria</th>
-            <th style="width:11%;">Verifying Doc.</th>
-            <th class="center" style="width:5%;">SJ</th>
-            <th class="center" style="width:5%;">QC</th>
-            <th class="center" style="width:6%;">Client</th>
-            <th>Remarks</th>
-          </tr></thead>
-          <tbody>${bodyRows}</tbody>
-        </table>
-      </div>` : '<div class="empty">이 아이템에는 아직 등록된 ITP 항목이 없습니다.</div>'}
+    <div class="itp-doc">
+      <table class="itp-hdr">
+        <colgroup><col style="width:30%"><col style="width:15%"><col style="width:25%"><col style="width:10%"><col style="width:20%"></colgroup>
+        <tbody>
+          <tr>
+            <td rowspan="4" class="itp-logo">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:36px;height:24px;border-radius:11px;background:linear-gradient(90deg,#2563eb,#7dd3fc);flex-shrink:0;"></div>
+                <div style="font-size:8.5px;line-height:1.5;color:#222;white-space:nowrap;"><div style="font-weight:700;font-size:10px;">㈜세종기술</div><div>Sejong Tech Co., Ltd.</div></div>
+              </div>
+            </td>
+            <td colspan="4" style="font-size:13px;font-weight:700;text-align:center;">Inspection and Test Plan for ${esc(titleFor)}</td>
+          </tr>
+          <tr>
+            <td class="k">Document No.</td><td>${esc(docNo)}</td>
+            <td class="k">Rev.</td><td class="ish-c">${esc(rev||'0')}</td>
+          </tr>
+          <tr>
+            <td class="k">Project Name / Job No.</td><td colspan="3">${esc(hProjName)} / ${esc(hJobNo)}</td>
+          </tr>
+          <tr>
+            <td class="k">Item Name / Tag No.</td><td>${esc(hItemLbl)}</td>
+            <td class="k">Customer</td><td>${esc(hCustomer)}</td>
+          </tr>
+        </tbody>
+      </table>
+      ${rows.length ? `
+      <table class="itp-grid">
+        <thead><tr>
+          <th style="width:5%;">No.</th>
+          <th style="width:13%;">Inspection Activity</th>
+          <th style="width:21%;">Applicable Code / DWG / Reference</th>
+          <th style="width:28%;">Acceptance Criteria</th>
+          <th style="width:9%;">Verifying Doc.</th>
+          <th style="width:6%;">SJ</th>
+          <th style="width:6%;">QC</th>
+          <th style="width:6%;">Client</th>
+          <th style="width:6%;">Remarks</th>
+        </tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+      <div class="itp-note">
+        1. The inspection process may be changed by the supplier's manufacturing condition.<br>
+        2. I&amp;T Activities: S-Supplier, R-Report Review, W-Witness, H-Hold Point<br>
+        3. 노란색 행은 고객 시방서에서 추출한 추가 요구사항입니다.
+      </div>` : '<div class="empty" style="margin-top:14px;">이 아이템에는 아직 등록된 ITP 항목이 없습니다.</div>'}
     </div>
   `;
 }
