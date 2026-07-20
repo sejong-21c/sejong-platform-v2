@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>일일 통합 브리핑 — 김철우 부장 (2026-07-19 오전)</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--line:#334155;--txt:#e2e8f0;--mut:#94a3b8;
+    --high:#ef4444;--mid:#f59e0b;--low:#22c55e;--blue:#3b82f6;--orange:#f97316;--red:#dc2626;--green:#16a34a;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:'Malgun Gothic','Segoe UI',sans-serif;line-height:1.55;padding:24px;max-width:1100px;margin:0 auto}
+  h1{font-size:22px;margin-bottom:4px}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:20px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
+  .kpi .n{font-size:26px;font-weight:700}
+  .kpi .l{font-size:12px;color:var(--mut);margin-top:2px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+  section h2{font-size:16px;margin-bottom:12px;border-left:4px solid var(--blue);padding-left:10px}
+  .exec{background:#172554;border-color:#1e40af}
+  .exec h2{border-color:#60a5fa}
+  ul{list-style:none}
+  li{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;display:flex;gap:8px;align-items:flex-start}
+  li:last-child{border-bottom:none}
+  .tag{flex-shrink:0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;color:#fff}
+  .t-high{background:var(--high)}.t-mid{background:var(--mid)}.t-low{background:var(--low)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-weight:600}
+  .proj{font-size:11px;color:var(--mut)}
+  .sch{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .sch:last-child{border-bottom:none}
+  .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .date{font-family:monospace;color:var(--mut);flex-shrink:0;width:110px}
+  .ok{color:var(--low);font-weight:600}
+  footer{color:var(--mut);font-size:11px;text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+  <h1>📋 일일 통합 브리핑 — 김철우 부장</h1>
+  <div class="sub">㈜세종기술 품질관리부 · 생성 2026-07-19 23:00 (오전 정리 자동 실행) · 검색범위 newer_than:1d</div>
+
+  <div class="grid">
+    <div class="kpi"><div class="n">12</div><div class="l">신규 메일</div></div>
+    <div class="kpi"><div class="n">11</div><div class="l">처리·검토</div></div>
+    <div class="kpi"><div class="n">2</div><div class="l">긴급 답변</div></div>
+    <div class="kpi"><div class="n ok">0</div><div class="l">NCR / CAR</div></div>
+    <div class="kpi"><div class="n">0</div><div class="l">신규 수주(WO)</div></div>
+  </div>
+
+  <section class="exec">
+    <h2>Executive Summary</h2>
+    <ul>
+      <li>오늘 수신 12건 중 <b>실무 신규 메일·수주(WO)·NCR/CAR은 0건</b>. 품질 지표 안정.</li>
+      <li>수신함 대부분(10건)은 <b>AI 서비스 가입 확인건</b>(NVIDIA Cloud/NIM·Cloudflare·Cerebras·OpenRouter·Day AI) — AI 봇 무료 API 게이트웨이 구축용 계정 셋업 진행 중.</li>
+      <li>최우선은 <b>7/20(월) 08:15 주간 공정회의 + Weekly Project Report 제출</b>, 이어서 <b>7/21 한수원 체코원전 예가 견적 회신</b>.</li>
+      <li>7/24 삼성전기 밸브 작동테스트가 27기 원자력 QC교육(7/22~24) 3일차와 <b>시간 중첩</b> → 품질 인력 분리 배정 필요.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🔥 긴급 답변 TOP</h2>
+    <table>
+      <tr><th>건명</th><th>발신/경유</th><th>Project</th></tr>
+      <tr><td>7/20(월) 08:15 주간 공정회의 + Weekly Project Report 제출 — 진행현황 정리</td><td>주간 공정회의(자체)</td><td class="proj">부서업무</td></tr>
+      <tr><td>한수원 체코원전 M229C·N210B 예가 견적서 7/21 회신 — 영업부 작성분 부장 검토</td><td>한수원 체코원전사업처 / 영업부 김민준 차장</td><td class="proj">원자력</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>✅ 오늘 핵심 액션</h2>
+    <ul>
+      <li><span class="tag t-high">HIGH</span> 7/20(월) 08:15 주간 공정회의 참석 + Weekly Project Report 제출 — Google Meet, 곽경원·김명식·손동균 참석 (캘린더 등록됨)</li>
+      <li><span class="tag t-high">HIGH</span> 한수원 체코원전 M229C·N210B 예가 견적서 7/21(화) 회신 — 영업부 김민준 차장 작성, 부장 검토 (캘린더 등록됨)</li>
+      <li><span class="tag t-mid">MID</span> 7/24(금) 삼성전기 BT-6라인 자동밸브 작동테스트 10:00 ↔ 원자력 QC교육 3일차 중첩 — 인력 분리·ITP 기준 품질보증기록 사전확인</li>
+      <li><span class="tag t-mid">MID</span> 다음주 27기 원자력품질 검사자과정(QC) 3일 + Google Cloud Agentic AI 웨비나(7/22~23) 병행 — 참석 계획 확정</li>
+      <li><span class="tag t-low">LOW</span> AI 서비스 가입 후속(NVIDIA 이메일 인증·Cloudflare 이메일 확인 등) — AI 게이트웨이 계정 셋업</li>
+      <li><span class="tag t-low">LOW</span> NCR/CAR 신규 0건 · 진행 중 0건 — 품질 지표 안정</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>📨 오늘 메일 분류</h2>
+    <table>
+      <tr><th>구분</th><th>건수</th><th>조치</th></tr>
+      <tr><td>AI 서비스 가입·인증 확인 (NVIDIA×5, Cloudflare×2, Cerebras, OpenRouter, Day AI)</td><td>10</td><td>참고 — AI 게이트웨이 계정 셋업, 인증 후속</td></tr>
+      <tr><td>원자력 QC교육 캘린더 알림 (한국원자력기자재진흥협회)</td><td>1</td><td>이미 캘린더 등록됨</td></tr>
+      <tr><td>해외 콜드세일즈 (Techbloom, 베트남)</td><td>1</td><td>필터 — 대응 불요</td></tr>
+      <tr><td>보낸편지함 (신규)</td><td>0</td><td>—</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>📅 다가오는 일정</h2>
+    <div class="sch"><span class="date">07-20 08:15</span><span class="dot" style="background:var(--blue)"></span>주간 공정회의 · Weekly Project Report 제출</div>
+    <div class="sch"><span class="date">07-21</span><span class="dot" style="background:var(--orange)"></span>한수원 체코원전 M229C·N210B 견적서 제출 (영업부)</div>
+    <div class="sch"><span class="date">07-22~24</span><span class="dot" style="background:var(--orange)"></span>27기 원자력품질 검사자과정(QC) 교육 (3일)</div>
+    <div class="sch"><span class="date">07-22~23</span><span class="dot" style="background:var(--blue)"></span>Google Cloud Agentic AI 웨비나 (12:15~17:00, 온라인)</div>
+    <div class="sch"><span class="date">07-24 10:00</span><span class="dot" style="background:var(--orange)"></span>삼성전기 BT-6라인 자동밸브 작동테스트 (브이아이테크 검수)</div>
+    <div class="sch"><span class="date">07-28</span><span class="dot" style="background:var(--green)"></span>SJ2026-040 CKS Welder Qualification Renew 자료 제출 마감</div>
+    <div class="sch"><span class="date">07-30</span><span class="dot" style="background:var(--green)"></span>한전KPS 제'26차 협력회사 등록 신청 마감</div>
+    <div class="sch"><span class="date">07-31</span><span class="dot" style="background:var(--red)"></span>2025년도(31회) 원자력산업실태조사 제출 마감</div>
+  </section>
+
+  <section>
+    <h2>☢️ 원자력사업 브리핑</h2>
+    <ul>
+      <li><span class="tag t-high">HIGH</span> 한수원 체코원전사업처 N210B·M229C 예가 견적요청 2건 — 영업부 작성 요청 완료, 07/21 회신</li>
+      <li><span class="tag t-mid">MID</span> 한울 3·4호기 이송대차 입찰(07-16 18:00 마감 경과) — 제출 결과·후속 확인</li>
+      <li><span class="tag t-mid">MID</span> 한수원 Y-134-N210 입찰 기술자료(Y-585/596 서명본) 준비 — 이영주 대리</li>
+      <li><span class="tag t-mid">MID</span> KHNP 유자격 심사결과(신청 202600239, 보조기기·신규) 확인 대기</li>
+      <li><span class="tag t-mid">MID</span> 27기 원자력품질 검사자과정(QC) 07/22~24 (7/24 밸브테스트 중첩 주의)</li>
+      <li><span class="tag t-mid">MID</span> 2025년도(31회) 원자력산업실태조사 제출 (~07/31)</li>
+    </ul>
+  </section>
+
+  <footer>ⓒ Daily Mail Skill — Morning Routine Automation · ㈜세종기술 품질관리부 · 2026-07-19</footer>
+</body>
+</html>
