@@ -807,6 +807,12 @@ function rDetailPanel(){
   S.wsel=_live;
   const w=S.wsel;const{pct,status,ncr}=wCS(w);const sc=SS[status]||{bg:"#f3f4f6",c:"#6b7280"};
   const em=S.wedit;const pd=pct!==null?`${pct}%`:"—";
+  // v28.4.51: 자식이 있는 상위 항목은 자기 s/e가 비어도 하위 날짜 범위(min 시작~max 완료)를
+  //   상세 패널 시작일/완료일에 보여준다 (간트 막대는 이미 wRange로 그려지는데 패널만 비어있던 문제).
+  const _kr = hasC(w.id) ? wRange(w.id) : null;
+  const _dispS = w.s || (_kr ? _kr.s : "");
+  const _dispE = w.e || (_kr ? _kr.e : "");
+  const _rollDate = (!w.s && _kr) ? ` <span style="font-size:9px;color:#9ca3af">(하위 합산)</span>` : "";
   const _manual=(w.pctManual!=null&&w.pctManual!=="");
   const pctSrc=_manual?"✋ 수동":(w.itpLink?"ITP 자동":(w.s&&w.e?"일정 기준":"자동"));
   const pctSrcColor=_manual?"#7c3aed":"#9ca3af";
@@ -830,8 +836,8 @@ function rDetailPanel(){
     <div class="dpnl-fields">
       ${field("담당 부서",w.dept?`<span style="font-size:11px;color:#7c3aed;font-weight:700">${w.dept}</span>`:`<span style="font-size:10px;color:#9ca3af">— 미지정 —</span>`,`<select data-draft="wedit" data-k="dept" class="dpnl-select"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${w.dept===d?" selected":""}>${d}</option>`).join("")}</select>`)}
       ${field("담당자",w.mgr,`<input data-draft="wedit" data-k="mgr" value="${(w.mgr||"").replace(/"/g,"&quot;")}" class="dpnl-input" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`)}
-      ${field("시작일",w.s,`<input type="date" data-draft="wedit" data-k="s" value="${w.s}" class="dpnl-input"/>`)}
-      ${field("완료일",w.e,`<input type="date" data-draft="wedit" data-k="e" value="${w.e}" class="dpnl-input"/>`)}
+      ${field("시작일",(_dispS||"—")+_rollDate,`<input type="date" data-draft="wedit" data-k="s" value="${w.s}" class="dpnl-input"/>`)}
+      ${field("완료일",(_dispE||"—")+_rollDate,`<input type="date" data-draft="wedit" data-k="e" value="${w.e}" class="dpnl-input"/>`)}
       ${field("진도율",`<span style="font-weight:700;color:#4a7fc1">${pd}</span> <span style="font-size:9px;color:${pctSrcColor};font-weight:600">(${pctSrc})</span>`,`<div><input type="number" min="0" max="100" data-draft="wedit" data-k="pctManual" value="${_manual?w.pctManual:''}" placeholder="비우면 자동" class="dpnl-input" style="width:120px"/> <span style="font-size:9px;color:#9ca3af">% · 입력 시 ITP/일정 자동집계 무시</span></div>`)}
       ${field("상태",`<span class="bdg" style="background:${sc.bg};color:${sc.c}">${status}</span>`,`<select data-draft="wedit" data-k="status" class="dpnl-select">${["미시작","진행중","완료","지연"].map(o=>`<option${o===w.status?" selected":""}>${o}</option>`).join("")}</select>`)}
       ${field("담당 업체",w.vendor?`<span style="font-size:11px;color:#1e40af;font-weight:700">🏢 ${w.vendor}</span>`:`<span style="font-size:10px;color:#9ca3af">—</span>`,`<input data-draft="wedit" data-k="vendor" value="${(w.vendor||"").replace(/"/g,"&quot;")}" placeholder="㈜세종기술 / 동원전기 등" class="dpnl-input"/>`)}
