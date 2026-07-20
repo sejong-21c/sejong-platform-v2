@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오후 마감 점검 · 2026-07-20 · 품질관리부 김철우 부장</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#273449; --line:#334155;
+    --txt:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8;
+    --high:#f87171; --mid:#fbbf24; --low:#4ade80;
+    --done:#22c55e; --orange:#fb923c; --blue:#60a5fa; --green:#34d399; --red:#f87171;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;background:var(--bg);color:var(--txt);line-height:1.55;padding:18px;max-width:1100px;margin:0 auto}
+  h1{font-size:1.35rem;margin-bottom:2px}
+  .sub{color:var(--muted);font-size:.82rem;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-align:center}
+  .kpi .n{font-size:1.7rem;font-weight:700}
+  .kpi .l{color:var(--muted);font-size:.75rem;margin-top:2px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+  section h2{font-size:1.02rem;margin-bottom:12px;padding-left:9px;border-left:4px solid var(--accent)}
+  .exec{background:linear-gradient(135deg,#1e293b,#243b53);border-left:4px solid var(--accent)}
+  .exec ul{list-style:none} .exec li{padding:5px 0 5px 20px;position:relative;font-size:.92rem}
+  .exec li::before{content:"▸";position:absolute;left:0;color:var(--accent)}
+  table{width:100%;border-collapse:collapse;font-size:.83rem}
+  th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.03em}
+  tr:last-child td{border-bottom:none}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.7rem;font-weight:700;white-space:nowrap}
+  .b-high{background:rgba(248,113,113,.18);color:var(--high)}
+  .b-mid{background:rgba(251,191,36,.18);color:var(--mid)}
+  .b-low{background:rgba(74,222,128,.18);color:var(--low)}
+  .b-done{background:rgba(34,197,94,.18);color:var(--done)}
+  .b-proj{background:rgba(56,189,248,.14);color:var(--accent)}
+  .chip{display:inline-block;padding:1px 7px;border-radius:6px;font-size:.72rem;background:var(--card2);color:var(--muted);margin-right:4px}
+  .done-list li,.next-list li{list-style:none;padding:6px 0 6px 22px;position:relative;font-size:.87rem;border-bottom:1px solid var(--line)}
+  .done-list li:last-child,.next-list li:last-child{border-bottom:none}
+  .done-list li::before{content:"✔";position:absolute;left:0;color:var(--done);font-weight:700}
+  .next-list li::before{content:"→";position:absolute;left:0;color:var(--orange);font-weight:700}
+  .cal{border-left:3px solid var(--orange);padding:8px 12px;background:var(--card2);border-radius:0 8px 8px 0;margin-bottom:8px}
+  .cal .d{font-size:.74rem;color:var(--orange);font-weight:700}
+  .foot{color:var(--muted);font-size:.72rem;text-align:center;margin-top:10px}
+  .ok{color:var(--done)} .note{color:var(--muted);font-size:.78rem;margin-top:8px}
+  @media(max-width:600px){body{padding:12px}.kpi .n{font-size:1.35rem}}
+</style>
+</head>
+<body>
+  <h1>🌆 오후 마감 점검</h1>
+  <div class="sub">㈜세종기술 품질관리부 · 김철우 부장 · 2026-07-20 (월) 16:30 마감 기준 · 시간대 Asia/Seoul</div>
+
+  <div class="grid">
+    <div class="kpi"><div class="n">14</div><div class="l">오늘 도착 메일</div></div>
+    <div class="kpi"><div class="n">14</div><div class="l">분류·처리</div></div>
+    <div class="kpi"><div class="n" style="color:var(--high)">3</div><div class="l">답변/처리 대기</div></div>
+    <div class="kpi"><div class="n ok">0 / 0</div><div class="l">NCR / CAR</div></div>
+    <div class="kpi"><div class="n">0</div><div class="l">신규 수주(WO)</div></div>
+  </div>
+
+  <section class="exec">
+    <h2>Executive Summary — 오늘 마감 결론</h2>
+    <ul>
+      <li><b>품질 지표 안정 마감</b> — 신규·진행 NCR/CAR 0건, 신규 수주(WO) 0건.</li>
+      <li><b>오후 신규 실무 2건</b>: ①진양화성 CD-201 검사신청서 접수(SJE437-26) ②ISO 37001/37301 인증 취득 <b>보류 결정</b>(경영).</li>
+      <li><b>오늘 오전~정오 처리 완료</b>: 주간회의(08:15~10:15), 삼성전기 ITP 보완요청 3건 회신, 국도화학 6월 정산서류 제출.</li>
+      <li><b>내일(7/21) 최우선</b>: 한수원 체코원전 M229C·N210B 예가 견적서 회신(영업부 작성분 부장 검토).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>① 미처리 · 답변/처리 대기 (내일 이월)</h2>
+    <table>
+      <tr><th>우선</th><th>건명</th><th>Project</th><th>비고</th></tr>
+      <tr><td><span class="badge b-high">최우선</span></td><td>한수원 체코원전 M229C·N210B 예가 견적서 회신</td><td><span class="badge b-proj">원자력</span></td><td>영업부 김민준 차장 작성 → 부장 검토 · <b>7/21(화) 마감</b></td></tr>
+      <tr><td><span class="badge b-high">긴급</span></td><td>진양화성 CD-201 TUBESHEET·GIRTH FLANGE 검사신청서 검토 + 검사일정 협의</td><td><span class="badge b-proj">SJE437-26</span></td><td>김재현 대리 13:23 접수 · ITP 대조 후 회신 (일자 미지정 → 캘린더 미등록)</td></tr>
+      <tr><td><span class="badge b-high">긴급</span></td><td>삼성전기 신안건업 보완서류 회수 (WPQR·자재성적서·WPS 필렛 3건)</td><td><span class="badge b-proj">SJ435-26</span></td><td>오전 보완요청 발송 완료 → 상대측 회신 대기</td></tr>
+    </table>
+    <div class="note">※ 답변 초안 작성 대기 모드는 스케줄 자동 실행이므로 건너뜀.</div>
+  </section>
+
+  <section>
+    <h2>② 오늘 처리 완료 요약</h2>
+    <ul class="done-list">
+      <li><b>주간회의 완료</b> (08:15~10:15) — 회의록 배포. 전사 자금난 대응: 팀별 미수금 수금계획 취합 → 물품 반입 시 중간대금 즉시 청구로 유동성 확보 결정.</li>
+      <li><b>삼성전기 ITP 보완요청 3건 회신</b> (신채완 과장 11:48) — 용접사 4인 WPQR·굽힘/RT 결과 누락, 자재성적서 불일치(SS275↔SHN275·동국제강 792kg), WPS(SA-WPS-083/087) 필렛 필수변수 미기재.</li>
+      <li><b>국도화학 6월 정산 제출</b> — NDE 전자세금계산서·거래명세서·입회내역 송부(08:47), 고려기술검사 6월 세금계산서 회수 완료.</li>
+      <li><b>ISO 37001/37301 인증 취득 보류 확정</b> — 하반기 사업계획 재검토 결과 신규 인증 보류, 필요성 대두 시 재추진(양병원 이사 13:36). <span class="chip">액션 종결</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>③ 내일로 넘어가는 액션 아이템</h2>
+    <ul class="next-list">
+      <li><b>[원자력]</b> 한수원 체코원전 예가 견적서 7/21 회신 (최우선)</li>
+      <li><b>[SJE437-26]</b> 진양화성 CD-201 검사신청서 검토 → 검사항목/ITP 대조 → 검사일정 협의·회신</li>
+      <li><b>[SJ435-26]</b> 신안건업 보완서류 회수 팔로업 (가조립 철골 검사·해체 일정 영향)</li>
+      <li><b>[부서업무]</b> TTT 설계자료 외한·전기팀 취합 → ~7/30 최종 발송</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>④ NCR / CAR 진척</h2>
+    <p class="ok" style="font-size:.9rem">✔ 오늘 하루 신규 부적합 <b>0건</b> · 진행 중 <b>0건</b> — 품질 지표 안정. Label_33(NCR/CAR 부적합 보고) 신규 부착 없음.</p>
+  </section>
+
+  <section>
+    <h2>⑤ 내일(7/21·화) 일정 미리보기</h2>
+    <div class="cal"><div class="d">7/21 (화) · 종일</div>한수원 체코원전 M229C·N210B 견적서 제출 마감 <span class="chip">원자력</span> <span class="chip">영업부 작성 · 부장 검토</span></div>
+    <div class="note">이후 예정: 7/22(수)~24(금) 27기 원자력품질 검사자과정(QC) 교육 · 7/22 Google Cloud Agentic AI 웨비나 12:15 · 7/24 삼성전기 BT-6라인 밸브 작동테스트 10:00(교육과 중첩 — 인력 조정 필요).</div>
+  </section>
+
+  <div class="foot">ⓒ Daily-Mail Skill · 오후 마감 자동 생성 · 생성시각 2026-07-20 16:30 KST · SJ FLOW 대시보드(data/briefings.json) 연동 완료</div>
+</body>
+</html>
