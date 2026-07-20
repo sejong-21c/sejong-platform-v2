@@ -9,7 +9,7 @@
   // 각 문서 = 프로젝트 1개, 문서 안 items[]에 각 아이템의 ITP rows·설계 데이터가 들어있다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, onSnapshot, doc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -20,7 +20,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, deleteDoc, getDocs };
 </script>
 <style>
 :root {
@@ -187,16 +187,22 @@ function renderProj() {
     </div>`;
   }).join('');
 
+  // v1.1: 결재 상태 배지
+  const AP = { pending:['결재중','#fef3c7','#92400e'], approved:['✅ 승인 완료','#dcfce7','#166534'], rejected:['반려됨','#fee2e2','#b91c1c'] };
+  const apInfo = AP[doc.approvalStatus];
+  const apBadge = apInfo ? `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:11px;background:${apInfo[1]};color:${apInfo[2]};margin-left:8px;vertical-align:middle;">${apInfo[0]}</span>` : '';
+
   return `
     <div class="breadcrumb"><a onclick="goBack()">📚 ITP 조회</a><span class="sep">›</span><b>${esc(lbl.code)} ${esc(lbl.name)}</b></div>
     <div class="hd">
       <div>
-        <h1>${esc(lbl.code)} · ${esc(lbl.name)}</h1>
+        <h1>${esc(lbl.code)} · ${esc(lbl.name)}${apBadge}</h1>
         <div class="sub">${lbl.client ? esc(lbl.client) + ' · ' : ''}${savedAt ? '최근 저장 ' + savedAt : ''}</div>
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 목록</button>
         <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}')">📋 Builder 열기</button>
+        <button class="btn" style="color:#dc2626;border-color:#fca5a5;background:#fff5f5;" onclick="deleteItpDoc('${esc(doc.pid)}','${esc((lbl.code+' '+lbl.name).replace(/'/g,''))}')" title="이 프로젝트의 ITP 문서를 삭제합니다">🗑 ITP 삭제</button>
       </div>
     </div>
     <div class="section">
@@ -271,10 +277,30 @@ function render() {
   else app.innerHTML = renderList();
 }
 
+// v1.1: ITP 문서 삭제 — 잘못 만든 프로젝트 ITP를 통째로 제거.
+// t_itpBuilderDocs/{pid} 본문 + 같은 컬렉션에 chunk__/dwg_ 로 저장된 첨부 조각 문서까지 정리.
+async function deleteItpDoc(pid, label){
+  if(!fb.auth || !fb.auth.currentUser){ alert('로그인 후 삭제할 수 있습니다.'); return; }
+  if(!confirm(`"${label}" ITP 문서를 삭제합니다.\n\n· 이 프로젝트의 ITP(전 아이템·검사항목)가 지워집니다\n· 되돌릴 수 없습니다 (ITP Builder에서 다시 만들 수는 있음)\n\n계속할까요?`)) return;
+  try{
+    // 첨부/도면 조각 문서 함께 삭제 (id가 chunk__ 또는 dwg_ 로 시작하고 이 pid 관련)
+    const jobs = [ fb.deleteDoc(fb.doc(fb.db, 't_itpBuilderDocs', pid)) ];
+    try{
+      const all = await fb.getDocs(fb.collection(fb.db, 't_itpBuilderDocs'));
+      all.forEach(d=>{ if(/^(chunk__|dwg_)/.test(d.id) && d.id.includes(pid)) jobs.push(fb.deleteDoc(fb.doc(fb.db,'t_itpBuilderDocs',d.id))); });
+    }catch(e){}
+    await Promise.all(jobs);
+    state.selectedPid = null; state.selectedItem = null;
+    render(); scrollToTop();
+    alert('✅ ITP 문서를 삭제했습니다.');
+  }catch(e){ alert('삭제 실패: ' + (e.message||e)); }
+}
+
 window.goProj = goProj;
 window.goItem = goItem;
 window.goBack = goBack;
 window.openBuilder = openBuilder;
+window.deleteItpDoc = deleteItpDoc;
 window.state = state;
 window.render = render;
 window.scrollToTop = scrollToTop;

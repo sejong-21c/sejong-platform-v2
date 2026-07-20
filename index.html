@@ -1158,7 +1158,7 @@ const MTOOLS_BUILD = 'b6';
 const MEETING_BUILD = 'b4';
 const ASSET_BUILD = 'a8';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a3';
+const ITPVIEW_BUILD = 'a4';
 const QAVIEW_BUILD = 'a3';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
@@ -7097,6 +7097,18 @@ async function decideApproval(aid, decision) {
     } catch (e) {
       return alert('자동 반영 중 오류: ' + (e.message || e) + '\n결재는 저장하지 않았습니다.');
     }
+  }
+  // v30.5: type='itp' 결재 결과를 t_itpBuilderDocs에 스탬프 → ITP 조회에서 승인 상태 배지 표시.
+  //   (ITP 문서 자체는 상신 시점에 이미 저장돼 있으므로 상태만 merge)
+  if (a.type === 'itp' && a.projId && (finalApproved || decision === 'rejected')) {
+    try {
+      await fb.setDoc(fb.doc(fb.db, 't_itpBuilderDocs', a.projId), {
+        approvalStatus: decision === 'rejected' ? 'rejected' : 'approved',
+        approvedBy: decision === 'rejected' ? null : uid,
+        approvedAt: Date.now(),
+        approvalId: aid,
+      }, { merge: true });
+    } catch (e) { console.warn('ITP 승인 스탬프 실패:', e.message); }
   }
   try {
     await fb.setDoc(fb.doc(fb.db, 'approvals', aid), patch, { merge: true });

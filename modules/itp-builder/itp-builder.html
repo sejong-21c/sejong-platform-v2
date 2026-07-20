@@ -1133,6 +1133,8 @@ function App(){
   const [msg, setMsg] = useState("");
   const [parsing, setParsing] = useState(null);
   const [showKeyModal, setShowKeyModal] = useState(false);
+  // v3.3: ITP 결재선 지정 모달 상태. null=닫힘. 열리면 {users, pmUid, projCode, projName, includeReview, reviewerUid, approverUid}
+  const [appvModal, setAppvModal] = useState(null);
   const [keyInput, setKeyInput] = useState(() => getApiKey());
 
   // v1.3 — sjp-bridge.js 외부 의존성 제거 (안전한 optional chaining 유지)
@@ -1749,52 +1751,69 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       const psnap = await fb.getDoc(fb.doc(fb.db, "projects", PID));
       if (psnap.exists()) { const pd = psnap.data(); pmUid = pd.pm || null; projCode = pd.code || projCode; projName = pd.name || projName; }
     } catch (e) { console.warn("PM 조회 실패:", e.message); }
-    if (!pmUid) { showMsg("이 프로젝트의 PM이 지정되어 있지 않아 결재를 올릴 수 없습니다.", 6000); return; }
-    // 부서장 검토 포함 여부
-    const includeHead = confirm(
-      "ITP 결재를 올립니다.\n\n[확인] 부서장 검토를 거쳐 PM 승인\n[취소] 부서장 없이 PM 승인"
-    );
-    let headUid = null;
-    if (includeHead) {
-      try {
-        const meSnap = await fb.getDoc(fb.doc(fb.db, "users", cur.uid));
-        const myDept = meSnap.exists() ? meSnap.data().dept : null;
-        if (myDept) {
-          const us = await fb.getDocs(fb.collection(fb.db, "users"));
-          const pool = us.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.dept === myDept && u.id !== cur.uid);
-          const head = pool.find(u => u.title === "부장") || pool.find(u => u.grade === "manager") || pool.find(u => u.grade === "super");
-          headUid = head ? head.id : null;
-        }
-      } catch (e) { console.warn("부서장 조회 실패:", e.message); }
-      if (!headUid) showMsg("부서장을 찾지 못해 PM에게 바로 올립니다.", 4000);
-    }
+    // v3.3: 결재선 직접 지정 모달을 연다 (기존 confirm 대신). 전체 사용자 목록 로드.
+    let users = [];
+    try {
+      const us = await fb.getDocs(fb.collection(fb.db, "users"));
+      users = us.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(u => !u.disabled)
+        .sort((a,b) => (a.name||"").localeCompare(b.name||"", "ko"));
+    } catch (e) { console.warn("사용자 목록 조회 실패:", e.message); }
+    // 부서장 기본 추천 (내 부서 부장/manager)
+    let headUid = "";
+    try {
+      const me = users.find(u => u.id === cur.uid);
+      if (me && me.dept) {
+        const pool = users.filter(u => u.dept === me.dept && u.id !== cur.uid);
+        const head = pool.find(u => u.title === "부장") || pool.find(u => u.grade === "manager") || pool.find(u => u.grade === "super");
+        headUid = head ? head.id : "";
+      }
+    } catch (e) {}
+    setAppvModal({
+      users, pmUid, projCode, projName,
+      includeReview: !!headUid,       // 부서장 있으면 기본 검토 포함
+      reviewerUid: headUid,
+      approverUid: pmUid || "",       // 기본 승인자 = PM (없으면 직접 선택)
+    });
+  };
+
+  // v3.3: 모달에서 지정한 결재선으로 실제 상신. 작성(본인·자동승인) → [검토] → 승인.
+  const doSubmitItpApproval = async () => {
+    const cur = fb.auth && fb.auth.currentUser;
+    const m = appvModal;
+    if (!cur || !m) return;
+    if (m.includeReview && !m.reviewerUid) { showMsg("검토자를 선택하거나 '검토 없이'로 바꿔주세요.", 5000); return; }
+    if (!m.approverUid) { showMsg("승인자를 선택해주세요.", 5000); return; }
+    if (m.includeReview && m.reviewerUid === m.approverUid) { showMsg("검토자와 승인자가 같습니다. 다르게 지정하거나 검토를 빼주세요.", 6000); return; }
     const line = [{ role: "작성", uid: cur.uid, status: "approved", decidedAt: Date.now(), note: "" }];
-    if (headUid) {
-      line.push({ role: "검토", uid: headUid, status: "pending", decidedAt: null, note: "" });
-      line.push({ role: "승인(PM)", uid: pmUid, status: "waiting", decidedAt: null, note: "" });
+    if (m.includeReview && m.reviewerUid) {
+      line.push({ role: "검토", uid: m.reviewerUid, status: "pending", decidedAt: null, note: "" });
+      line.push({ role: "승인", uid: m.approverUid, status: "waiting", decidedAt: null, note: "" });
     } else {
-      line.push({ role: "승인(PM)", uid: pmUid, status: "pending", decidedAt: null, note: "" });
+      line.push({ role: "승인", uid: m.approverUid, status: "pending", decidedAt: null, note: "" });
     }
     const firstPending = line.find(s => s.status === "pending");
     const id = "app_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
     const today = new Date().toISOString().slice(0, 10);
     const docData = {
       id, type: "itp",
-      title: `[${projCode || PID}] ITP 결재${proj.name ? " - " + proj.name : ""}`,
-      projId: PID, projCode, projName,
+      title: `[${m.projCode || PID}] ITP 결재${proj.name ? " - " + proj.name : ""}`,
+      projId: PID, projCode: m.projCode, projName: m.projName,
       description: `ITP Builder에서 작성한 ITP 결재 요청입니다. (검사 아이템 ${items.length}종)`,
       author: cur.uid, approvalLine: line,
       approver: firstPending.uid, to: firstPending.uid,
       status: "pending", date: today, createdAt: Date.now(),
     };
+    setAppvModal(null);
     showMsg("☁ ITP 저장 후 결재 상신 중...", 15000);
     try {
-      // 결재자가 열어볼 수 있게 현재 ITP를 먼저 클라우드에 저장
       await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
+      // v3.3: ITP 조회에서 '결재중' 배지가 뜨도록 상태 스탬프 (승인/반려 시 index.html decideApproval이 갱신)
+      try { await fb.setDoc(fb.doc(fb.db, "t_itpBuilderDocs", PID), { approvalStatus: "pending", approvalId: id, approvedBy: null, approvedAt: null }, { merge: true }); } catch(e) {}
       await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
-      showMsg(headUid
-        ? "✅ 부서장 검토 → PM 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)"
-        : "✅ PM에게 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)", 8000);
+      showMsg(m.includeReview
+        ? "✅ 검토 → 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)"
+        : "✅ 승인자에게 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)", 8000);
     } catch (e) { showMsg("결재 상신 실패: " + (e.message || e), 6000); }
   };
   // v2.1 — 자동저장(1초 디바운스)과 동일한 함수를 즉시 실행. 이 기능 도입 이전부터 로컬에만
@@ -1868,6 +1887,48 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           <button onClick={()=>{ setStoredApiKey(""); setKeyInput(""); showMsg("API 키를 삭제했습니다"); }} className="btn-secondary">삭제</button>
           <button onClick={()=>setShowKeyModal(false)} className="btn-secondary">닫기</button>
           <button onClick={()=>{ setStoredApiKey(keyInput.trim()); setShowKeyModal(false); showMsg("✓ API 키 저장 완료"); }} className="btn-primary">저장</button>
+        </div>
+      </div>
+    </div>}
+
+    {/* v3.3: ITP 결재선 지정 모달 */}
+    {appvModal && <div className="modal-overlay no-print" onClick={()=>setAppvModal(null)}>
+      <div className="modal-box" onClick={e=>e.stopPropagation()} style={{maxWidth:440}}>
+        <div style={{fontWeight:700, marginBottom:4, fontSize:15}}>📋 ITP 결재 상신</div>
+        <div style={{fontSize:11, color:"var(--sjp-text-sub)", marginBottom:14, lineHeight:1.5}}>
+          결재선을 지정하세요. 작성은 본인이며, 검토는 선택입니다. 최종 승인자가 승인하면 ITP 조회에 등록됩니다.
+        </div>
+        {/* 작성 (본인, 고정) */}
+        <div style={{display:"flex", alignItems:"center", gap:8, padding:"8px 10px", background:"#f0f7ff", border:"1px solid #cfe0f5", borderRadius:6, marginBottom:8}}>
+          <span style={{fontSize:11, fontWeight:700, color:"#2563eb", minWidth:44}}>작성</span>
+          <span style={{fontSize:12}}>{(appvModal.users.find(u=>u.id===(fb.auth&&fb.auth.currentUser&&fb.auth.currentUser.uid))||{}).name || "본인"} <span style={{color:"#9ca3af",fontSize:10}}>· 자동 승인</span></span>
+        </div>
+        {/* 검토 (선택) */}
+        <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:"8px 10px", marginBottom:8}}>
+          <label style={{display:"flex", alignItems:"center", gap:6, fontSize:12, fontWeight:700, cursor:"pointer", marginBottom:appvModal.includeReview?8:0}}>
+            <input type="checkbox" checked={appvModal.includeReview} onChange={e=>setAppvModal(p=>({...p, includeReview:e.target.checked}))}/>
+            검토자 추가 (선택)
+          </label>
+          {appvModal.includeReview &&
+            <select value={appvModal.reviewerUid} onChange={e=>setAppvModal(p=>({...p, reviewerUid:e.target.value}))}
+              style={{width:"100%", padding:"6px 8px", fontSize:12, border:"1px solid var(--sjp-border)", borderRadius:5}}>
+              <option value="">— 검토자 선택 —</option>
+              {appvModal.users.map(u=><option key={u.id} value={u.id}>{u.name} {u.title||""} {u.dept?`(${u.dept})`:""}</option>)}
+            </select>
+          }
+        </div>
+        {/* 승인 (필수) */}
+        <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:"8px 10px", marginBottom:14}}>
+          <div style={{fontSize:12, fontWeight:700, marginBottom:8}}>승인자 <span style={{color:"#dc2626"}}>*</span> {appvModal.pmUid && appvModal.approverUid===appvModal.pmUid && <span style={{fontSize:10, color:"#16a34a", fontWeight:400}}>· PM 기본 지정됨</span>}</div>
+          <select value={appvModal.approverUid} onChange={e=>setAppvModal(p=>({...p, approverUid:e.target.value}))}
+            style={{width:"100%", padding:"6px 8px", fontSize:12, border:"1px solid var(--sjp-border)", borderRadius:5}}>
+            <option value="">— 승인자 선택 —</option>
+            {appvModal.users.map(u=><option key={u.id} value={u.id}>{u.name} {u.title||""} {u.dept?`(${u.dept})`:""}{u.id===appvModal.pmUid?" — PM":""}</option>)}
+          </select>
+        </div>
+        <div style={{display:"flex", gap:6, justifyContent:"flex-end"}}>
+          <button onClick={()=>setAppvModal(null)} className="btn-secondary">취소</button>
+          <button onClick={doSubmitItpApproval} className="btn-primary" style={{background:"#7c3aed", borderColor:"#7c3aed"}}>결재 상신</button>
         </div>
       </div>
     </div>}
