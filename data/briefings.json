@@ -970,30 +970,33 @@
     "runAt": "오전 루틴(지연 실행)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-07-20 06:27 (오전 정리 자동 실행)",
-    "newMails": 1,
-    "processed": 0,
-    "urgentReplies": 0,
+    "generatedAt": "2026-07-21 08:06 (오전 정리 자동 실행)",
+    "newMails": 5,
+    "processed": 5,
+    "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "삼성전기 BT-6LINE 자동밸브 작동 테스트 일정(7/24 10:00) 김철우 부장 확정 회신 대기 중 (신규 아님, 참고용)",
+        "text": "국도화학 이상민 책임 문의 회신 (세금계산서 금액 공개, 납품사진)",
+        "proj": "SJ2026-014,16,17+국도화학",
+        "priority": "high"
+      },
+      {
+        "text": "신안건업 삼성전기 ITP 보완서류 회신 대기",
         "proj": "SJ435-26",
         "priority": "mid"
       }
     ],
-    "urgentList": [],
-    "schedule": [
+    "urgentList": [
       {
-        "title": "삼성전기 BT-6LINE 자동밸브 작동 테스트(확정대기)",
-        "date": "2026-07-24",
-        "time": "10:00",
-        "proj": "SJ435-26",
-        "color": "blue"
+        "subject": "RE: [세종기술] NDE 전자계산서 및 거래내역서 송부, 입회내역 전달",
+        "from": "이상민 책임(국도화학)",
+        "proj": "SJ2026-014,16,17"
       }
-    ]
+    ],
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-07-16 (daily-mail-swkim 자동 실행)",
