@@ -661,12 +661,21 @@ function wCS(w){
         pct=Math.round(sum/kids.length);
       }
       const anyNcr=kids.some(k=>wCS(k).ncr>0);
-      const st=w.status==="지연"?"지연":(pct===100?"완료":(pct>0||anyNcr)?"진행중":"미시작");
+      let st=w.status==="지연"?"지연":(pct===100?"완료":(pct>0||anyNcr)?"진행중":"미시작");
+      // v28.4.50: 하위가 모두 0%여도 사용자가 상위를 수동으로 '진행중'으로 두면 존중.
+      //   (스케줄 입력 중 섹션 헤더를 진행중으로 표시하려는데 미시작으로 뜨던 문제)
+      //   진도율(pct)은 롤업값 그대로 유지 — 상태 배지만 사용자 의도 반영.
+      if(st==="미시작" && w.status==="진행중") st="진행중";
       return{pct,status:st,ncr:anyNcr?1:0};
     }
   }
   // 말단(소단락): ITP 연동되면 검사기록 기반
-  if(w.itpLink)return cS(w.itpLink);
+  if(w.itpLink){
+    const c=cS(w.itpLink);
+    // v28.4.50: ITP 검사기록이 아직 없어 미시작으로 나와도 수동 '진행중'이면 존중
+    if(c.status==="미시작" && w.status==="진행중") return {...c, status:"진행중"};
+    return c;
+  }
   // status를 기준으로 진도율 결정 (완료=100, 미시작=0, 진행중=경과율 자동 또는 pct값)
   const st=w.status||(w.pct===100?"완료":w.pct>0?"진행중":"미시작");
   let pct;
