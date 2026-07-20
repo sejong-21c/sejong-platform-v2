@@ -41,6 +41,8 @@
 <!-- v29.5: 개인 구글 캘린더 연동용 — Firebase Auth(로그인)와는 완전히 별개의 OAuth 클라이언트.
      로그인에는 전혀 영향 없음(별도 client_id, 별도 토큰). -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- v30 디자인: 이모지 → Lucide 선 아이콘 (일정한 굵기·색, 실무 시스템 룩) -->
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
 <style>
 :root {
   --primary: #1976D2;
@@ -76,6 +78,15 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .sb-scroll { flex: 1; overflow-y: auto; padding: 6px 0; }
 .sb-section-title { padding: 12px 16px 6px; font-size: 10px; font-weight: 700; color: var(--text-lighter); letter-spacing: 1px; white-space: nowrap; overflow: hidden; }
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 9px 16px; cursor: pointer; color: var(--text); border-left: 3px solid transparent; white-space: nowrap; overflow: hidden; font-size: 13px; }
+/* ── v30 디자인: Lucide 아이콘 통일 (16px · stroke 1.8 · 회색, 활성 시 남색 자동 상속) ── */
+.nav-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; flex-shrink: 0; }
+.nav-icon svg { width: 16px; height: 16px; stroke-width: 1.8; color: #667085; }
+.nav-item.active .nav-icon svg, .tool-item.active .nav-icon svg { color: var(--primary); }
+/* ── v30 디자인: 할 일 카드 — 두꺼운 색 테두리 제거 → 중립 카드 + 호버 그림자 ── */
+.task { border: 1px solid var(--border) !important; border-radius: 6px; box-shadow: none; transition: border-color .12s, box-shadow .12s; }
+.task:hover { border-color: #c7d2e0 !important; box-shadow: 0 1px 4px rgba(16,24,40,.08); }
+.b-pill { border-radius: 4px !important; font-weight: 600 !important; letter-spacing: -.1px; }
+.kpi-label svg, .card h3 svg { width: 13px; height: 13px; stroke-width: 1.9; vertical-align: -2px; margin-right: 2px; color: #667085; }
 .nav-item:hover { background: var(--primary-lighter); }
 .nav-item.active { background: var(--primary-light); color: var(--primary); border-left-color: var(--primary); font-weight: 600; }
 .nav-sub { display: inline-block; margin-left: 6px; font-size: 9px; padding: 1px 5px; border-radius: 3px; background: var(--primary); color: #fff; font-weight: 700; letter-spacing: .3px; vertical-align: middle; }
@@ -698,52 +709,55 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 
 <script>
 /* ═════════════ 메뉴/도구/부서 ═════════════ */
+// v30: li = Lucide 아이콘 이름 (icon 이모지는 라이브러리 로드 실패 시 폴백)
 const NAV = [
-  { id: 'dashboard', icon: '🏠', label: '대시보드' },
-  { id: 'calendar',  icon: '📅', label: '캘린더' },
-  { id: 'projects',  icon: '📊', label: '프로젝트' },
-  { id: 'traveller', icon: '📋', label: '제작 공정 관리', sub: 'Traveller' },
-  { id: 'tasks',     icon: '✅', label: '업무관리' },
-  { id: 'messenger', icon: '💬', label: '메신저' },
-  { id: 'meeting',   icon: '🎙', label: '회의실·회의록' },   // v1.0 전 직원 공용 — 예약·녹음·AI 회의록
-  { id: 'quotes',    icon: '💰', label: '견적', deptOnly: '영업부' },
-  { id: 'okr',       icon: '🎯', label: '목표(OKR)' },
-  { id: 'manday',    icon: '⏱', label: 'Manday Tracker', superOnly: true },
-  { id: 'org',       icon: '👥', label: '조직/권한', superOnly: true },
+  { id: 'dashboard', icon: '🏠', li: 'layout-dashboard', label: '대시보드' },
+  { id: 'calendar',  icon: '📅', li: 'calendar-days', label: '캘린더' },
+  { id: 'projects',  icon: '📊', li: 'chart-gantt', label: '프로젝트' },
+  { id: 'traveller', icon: '📋', li: 'clipboard-list', label: '제작 공정 관리', sub: 'Traveller' },
+  { id: 'tasks',     icon: '✅', li: 'list-todo', label: '업무관리' },
+  { id: 'messenger', icon: '💬', li: 'message-square', label: '메신저' },
+  { id: 'meeting',   icon: '🎙', li: 'mic', label: '회의실·회의록' },   // v1.0 전 직원 공용 — 예약·녹음·AI 회의록
+  { id: 'quotes',    icon: '💰', li: 'calculator', label: '견적', deptOnly: '영업부' },
+  { id: 'okr',       icon: '🎯', li: 'target', label: '목표(OKR)' },
+  { id: 'manday',    icon: '⏱', li: 'timer', label: 'Manday Tracker', superOnly: true },
+  { id: 'org',       icon: '👥', li: 'users', label: '조직/권한', superOnly: true },
   // v29.44: 관리 탭 — superOnly와 달리 임원(exec)도 자동 노출되지 않음. super + 지정 사용자만.
-  { id: 'admin',     icon: '🛡️', label: '관리', adminOnly: true },
-  { id: 'approval',  icon: '📝', label: '결재' },
+  { id: 'admin',     icon: '🛡️', li: 'shield', label: '관리', adminOnly: true },
+  { id: 'approval',  icon: '📝', li: 'file-check-2', label: '결재' },
 ];
+// 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백)
+function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
 const TOOLS = {
-  'itp':       { name: 'ITP Builder',       icon: '📋', desc: 'ASME·TEMA ITP 자동 생성',   status: 'live', ver: 'v1.4'  },
-  'itpview':   { name: 'ITP 조회',           icon: '📚', desc: '생성된 ITP를 프로젝트·아이템별로 조회 (전 부서 공유)',   status: 'live', ver: 'v1.0', parentTool: 'itp', crossDept: true },
-  'qa':        { name: 'QA Doc Generator',  icon: '📄', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
-  'qaview':    { name: 'QA Doc 조회',         icon: '📚', desc: '생성된 QA/QC 문서를 프로젝트·아이템별로 조회 (전 부서 공유)', status: 'live', ver: 'v1.0', parentTool: 'qa', crossDept: true },
-  'ncr':       { name: 'NCR 관리',          icon: '⚠️', desc: '부적합 보고서 발행·추적·종결 (전 부서 조회, 발행·삭제는 품질관리부만)', status: 'live', ver: 'v1.0', crossDept: true },
-  'car':       { name: 'CAR 관리',          icon: '🔧', desc: '시정조치 요청·회신·완료 (전 부서 조회, 발행·삭제는 품질관리부만)',     status: 'live', ver: 'v1.0', crossDept: true },
-  'qadash':    { name: '품질종합분석표',    icon: '📊', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석 (전 부서 조회)', status: 'live', ver: 'v1.0', crossDept: true },
-  'manday':    { name: 'Manday Tracker',    icon: '⏱',  desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
-  'mobile':    { name: 'Mobile Inspection', icon: '📱', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
+  'itp':       { name: 'ITP Builder',       icon: '📋', li: 'clipboard-list', desc: 'ASME·TEMA ITP 자동 생성',   status: 'live', ver: 'v1.4'  },
+  'itpview':   { name: 'ITP 조회',           icon: '📚', li: 'library', desc: '생성된 ITP를 프로젝트·아이템별로 조회 (전 부서 공유)',   status: 'live', ver: 'v1.0', parentTool: 'itp', crossDept: true },
+  'qa':        { name: 'QA Doc Generator',  icon: '📄', li: 'file-text', desc: '8가지 QA/QC 문서 자동 생성', status: 'live', ver: 'v1.4'  },
+  'qaview':    { name: 'QA Doc 조회',         icon: '📚', li: 'book-open', desc: '생성된 QA/QC 문서를 프로젝트·아이템별로 조회 (전 부서 공유)', status: 'live', ver: 'v1.0', parentTool: 'qa', crossDept: true },
+  'ncr':       { name: 'NCR 관리',          icon: '⚠️', li: 'triangle-alert', desc: '부적합 보고서 발행·추적·종결 (전 부서 조회, 발행·삭제는 품질관리부만)', status: 'live', ver: 'v1.0', crossDept: true },
+  'car':       { name: 'CAR 관리',          icon: '🔧', li: 'wrench', desc: '시정조치 요청·회신·완료 (전 부서 조회, 발행·삭제는 품질관리부만)',     status: 'live', ver: 'v1.0', crossDept: true },
+  'qadash':    { name: '품질종합분석표',    icon: '📊', li: 'chart-column', desc: '프로젝트·연도·분기별 부적합/CAR 종합분석 (전 부서 조회)', status: 'live', ver: 'v1.0', crossDept: true },
+  'manday':    { name: 'Manday Tracker',    icon: '⏱',  li: 'timer', desc: '프로젝트별 공수 집계',       status: 'soon', ver: 'Phase 3' },
+  'mobile':    { name: 'Mobile Inspection', icon: '📱', li: 'smartphone', desc: '현장 검사 모바일 앱',       status: 'live', ver: 'v1.0' },
   // 아래 mtools는 원본이 품질관리부 tools 배열에 있음. crossDept로 타부서에도 노출.
   //   - 반출·반입 스캔: 전 부서 사용 가능 (모듈 내부 게이팅 없음)
   //   - 측정기구 등록/수정/검교정: 품질관리부만 (모듈 내부 isQADept로 제어)
-  'deptsch':   { name: '부서 스케줄',       icon: '📅', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
-  'mtools':    { name: '측정기구 반입출',   icon: '🔬', desc: 'QR 스캔 반출·반입 (전 부서) · 등록/검교정은 품질관리부만', status: 'live', ver: 'v1.0', crossDept: true },
-  'asset':     { name: '자산 관리 대장',    icon: '🖥️', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
+  'deptsch':   { name: '부서 스케줄',       icon: '📅', li: 'calendar-range', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
+  'mtools':    { name: '측정기구 반입출',   icon: '🔬', li: 'microscope', desc: 'QR 스캔 반출·반입 (전 부서) · 등록/검교정은 품질관리부만', status: 'live', ver: 'v1.0', crossDept: true },
+  'asset':     { name: '자산 관리 대장',    icon: '🖥️', li: 'monitor', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
 };
 // 회의 모듈은 부서 도구가 아니라 대메뉴(NAV 'meeting')로 노출 — 전 직원 자유 사용
 const DEPTS = [
-  { id: 'sales',        icon: '💼', name: '영업부',     tools: ['deptsch'] },
-  { id: 'design',       icon: '📐', name: '기술부',     tools: ['deptsch'] },
-  { id: 'purchase',     icon: '🛒', name: '구매부',     tools: ['deptsch'] },
-  { id: 'production',   icon: '🏭', name: '생산부',     tools: ['deptsch'] },
-  { id: 'quality',      icon: '📦', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
-  { id: 'construction', icon: '🏗️', name: '현장시공',   tools: ['deptsch'] },
-  { id: 'safety',       icon: '🦺', name: '안전관리부', tools: ['deptsch'] },
-  { id: 'general',      icon: '👔', name: '총무부',     tools: ['deptsch', 'asset'] },
-  { id: 'finance',      icon: '💲', name: '재무부',     tools: ['deptsch'] },
-  { id: 'nuclear',      icon: '☢️', name: '원자력사업부', tools: ['deptsch'] },
-  { id: 'overseas',     icon: '🌏', name: '해외사업부',   tools: ['deptsch'] },
+  { id: 'sales',        icon: '💼', li: 'briefcase', name: '영업부',     tools: ['deptsch'] },
+  { id: 'design',       icon: '📐', li: 'pencil-ruler', name: '기술부',     tools: ['deptsch'] },
+  { id: 'purchase',     icon: '🛒', li: 'shopping-cart', name: '구매부',     tools: ['deptsch'] },
+  { id: 'production',   icon: '🏭', li: 'factory', name: '생산부',     tools: ['deptsch'] },
+  { id: 'quality',      icon: '📦', li: 'package-check', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
+  { id: 'construction', icon: '🏗️', li: 'hard-hat', name: '현장시공',   tools: ['deptsch'] },
+  { id: 'safety',       icon: '🦺', li: 'shield-alert', name: '안전관리부', tools: ['deptsch'] },
+  { id: 'general',      icon: '👔', li: 'building-2', name: '총무부',     tools: ['deptsch', 'asset'] },
+  { id: 'finance',      icon: '💲', li: 'circle-dollar-sign', name: '재무부',     tools: ['deptsch'] },
+  { id: 'nuclear',      icon: '☢️', li: 'radiation', name: '원자력사업부', tools: ['deptsch'] },
+  { id: 'overseas',     icon: '🌏', li: 'globe', name: '해외사업부',   tools: ['deptsch'] },
 ];
 // 부서 한글명 → id 매핑 (doProfileSetup 등에서 dept를 이름으로 저장하므로 채널 id 생성 시 필요)
 const DEPT_NAME_TO_ID = Object.fromEntries(DEPTS.map(d => [d.name, d.id]));
@@ -1127,7 +1141,7 @@ const ITPBUILDER_BUILD = 'c2';
 const QADOC_BUILD = 'c0';
 const MTOOLS_BUILD = 'b3';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MEETING_BUILD = 'b1';
+const MEETING_BUILD = 'b2';
 const ASSET_BUILD = 'a6';
 // v29.24: ITP/QA 조회 뷰어 (신규)
 const ITPVIEW_BUILD = 'a1';
@@ -1692,7 +1706,7 @@ function renderNav() {
     const subHtml = n.sub ? `<span class="nav-sub">${n.sub}</span>` : '';
     const wipHtml = n.wip ? `<span class="nav-wip">준비중</span>` : '';
     html.push(`<div class="nav-item${isActive?' active':''}${n.wip?' nav-wip-item':''}" onclick="switchMod('${n.id}')">
-      <span class="nav-icon">${n.icon}</span><span class="nav-label">${n.label}${subHtml}${wipHtml}</span>
+      <span class="nav-icon">${LI(n.li, n.icon)}</span><span class="nav-label">${n.label}${subHtml}${wipHtml}</span>
     </div>`);
   });
   html.push('<div class="dept-group"><div class="sb-section-title">부서 도구함</div>');
@@ -1711,7 +1725,7 @@ function renderNav() {
     const readOnlyMark = !isMyDept ? ' <span style="font-size:9px;color:var(--text-lighter);font-weight:500;">· 조회</span>' : '';
     html.push(`<div class="dept-head" onclick="toggleDept('${d.id}')">
       <span class="dept-caret${expanded?' open':''}">▶</span>
-      <span class="nav-icon">${d.icon}</span><span>${d.name}${readOnlyMark}</span>
+      <span class="nav-icon">${LI(d.li, d.icon)}</span><span>${d.name}${readOnlyMark}</span>
     </div>`);
     if (expanded && visibleTools.length > 0) {
       html.push('<div class="dept-tools">');
@@ -1729,7 +1743,7 @@ function renderNav() {
             ${isPending ? '' : `onclick="openTool('${tid}','${d.name}')"`}
             title="${t.desc}">
           ${isSub?`<span style="color:var(--text-lighter);font-size:10px;margin-right:-2px;">└</span>`:''}
-          <span class="nav-icon">${t.icon}</span>
+          <span class="nav-icon">${LI(t.li, t.icon)}</span>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">${t.name}</span>
           <span class="tool-pill ${isPending?'soon':'live'}">${isPending?'Soon':t.ver}</span>
         </div>`);
@@ -3494,24 +3508,24 @@ function dashboard() {
     // 개인 Cowork 데이터 기반 — 내 메일·내 긴급·내 공수
     kpiCards = `
       <div class="kpi"><div class="kpi-label">📬 내 신규 메일</div><div class="kpi-value">${b.newMails??'-'}</div><div class="kpi-trend">처리 ${b.processed??0}건</div></div>
-      <div class="kpi"><div class="kpi-label">🔴 긴급 답변</div><div class="kpi-value">${b.urgentReplies??0}</div><div class="kpi-trend ${b.urgentReplies>0?'down':''}">${b.urgentReplies>0?'대기 중':'없음'}</div></div>
-      <div class="kpi"><div class="kpi-label">⚠️ NCR / CAR</div><div class="kpi-value">${b.ncr??0} / ${b.car??0}</div><div class="kpi-trend ${(b.ncr>0)?'down':''}">${b.ncr>0?'조치 필요':'이상 없음'}</div></div>
-      <div class="kpi"><div class="kpi-label">🆕 신규 Project</div><div class="kpi-value">${b.newProjects??'-'}</div><div class="kpi-trend">${b.autoRegistered?'✅ '+b.autoRegistered+'건 등록':'자동 분류'}</div></div>
-      <div class="kpi"><div class="kpi-label">⏱ 내 공수</div><div class="kpi-value">${(b.manday||0).toFixed(1)}H</div><div class="kpi-trend">오늘</div></div>`;
+      <div class="kpi"><div class="kpi-label"><i data-lucide="circle-alert"></i> 긴급 답변</div><div class="kpi-value">${b.urgentReplies??0}</div><div class="kpi-trend ${b.urgentReplies>0?'down':''}">${b.urgentReplies>0?'대기 중':'없음'}</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="triangle-alert"></i> NCR / CAR</div><div class="kpi-value">${b.ncr??0} / ${b.car??0}</div><div class="kpi-trend ${(b.ncr>0)?'down':''}">${b.ncr>0?'조치 필요':'이상 없음'}</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="folder-plus"></i> 신규 Project</div><div class="kpi-value">${b.newProjects??'-'}</div><div class="kpi-trend">${b.autoRegistered?'✅ '+b.autoRegistered+'건 등록':'자동 분류'}</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="timer"></i> 내 공수</div><div class="kpi-value">${(b.manday||0).toFixed(1)}H</div><div class="kpi-trend">오늘</div></div>`;
   } else {
     // Cowork 자동화 안 한 사람 → 기본 업무 대시보드
     const myManday = 0;
     kpiCards = `
-      <div class="kpi"><div class="kpi-label">📋 내 업무</div><div class="kpi-value">${my.length}</div><div class="kpi-trend">미완료</div></div>
-      <div class="kpi"><div class="kpi-label">🏗️ ${isExec?'전사':isManager?'부서':'참여'} 프로젝트</div><div class="kpi-value">${active.length}</div><div class="kpi-trend">진행 중</div></div>
-      <div class="kpi"><div class="kpi-label">📅 오늘 일정</div><div class="kpi-value">${allEvents().filter(e=>e.date===today).length}</div><div class="kpi-trend">캘린더</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="list-todo"></i> 내 업무</div><div class="kpi-value">${my.length}</div><div class="kpi-trend">미완료</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="hard-hat"></i> ${isExec?'전사':isManager?'부서':'참여'} 프로젝트</div><div class="kpi-value">${active.length}</div><div class="kpi-trend">진행 중</div></div>
+      <div class="kpi"><div class="kpi-label"><i data-lucide="calendar-days"></i> 오늘 일정</div><div class="kpi-value">${allEvents().filter(e=>e.date===today).length}</div><div class="kpi-trend">캘린더</div></div>
       <div class="kpi"><div class="kpi-label">📝 결재 대기</div><div class="kpi-value">${pendA.length}</div><div class="kpi-trend">확인 요망</div></div>`;
   }
 
   // 핵심 액션 (개인 브리핑 있을 때)
   const keyActionsCard = hasBriefing && b.keyActions ? `
     <div class="card" style="margin-bottom:14px;border-left:3px solid var(--danger);">
-      <h3 style="margin-bottom:12px;font-size:14px;">🔴 오늘 핵심 액션 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Cowork AI 자동 정리 (${b.generatedAt||''})</span></h3>
+      <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="flame"></i> 오늘 핵심 액션 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Cowork AI 자동 정리 (${b.generatedAt||''})</span></h3>
       ${b.keyActions.map((a,i)=>`
         <div style="display:flex;gap:10px;padding:9px 0;${i<b.keyActions.length-1?'border-bottom:1px solid var(--border-light);':''}">
           <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:${a.priority==='high'?'var(--danger)':'var(--primary)'};color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;">${i+1}</span>
@@ -3525,8 +3539,8 @@ function dashboard() {
 
   // 긴급 답변 대기 (개인 브리핑 있을 때)
   const urgentCard = hasBriefing && b.urgentList && b.urgentList.length ? `
-    <div class="card" style="border-left:3px solid var(--warning);">
-      <h3 style="margin-bottom:12px;font-size:14px;">⚠️ 긴급 답변 대기 (${b.urgentList.length})</h3>
+    <div class="card">
+      <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="triangle-alert"></i> 긴급 답변 대기 (${b.urgentList.length})</h3>
       ${b.urgentList.map(m=>`
         <a href="${_gmailUrl(m.subject)}" target="_blank" style="padding:8px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:inherit;cursor:pointer;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
           <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${m.subject} <span style="font-size:10px;color:var(--primary);">↗ Gmail</span></div><div style="font-size:11px;color:var(--text-light);">${m.from}</div></div>
@@ -5096,11 +5110,13 @@ function tasks() {
               const p = t.proj ? getP(t.proj) : null;
               const projCode = (p && p.code) ? p.code : (t.proj || '');
               const assigneeName = getU(t.assignee) ? getU(t.assignee).name : '';
+              // v30 디자인: 원색 꽉 찬 뱃지 → 연한 배경+테두리+진한 글자 (정보는 유지, 소음만 감소)
+              const _tint = { '#dc2626': ['#fef3f2', '#b42318', '#fecdca'], '#f59e0b': ['#fffaeb', '#b54708', '#fedf89'], '#3a6bb5': ['#eff4fb', '#2d5a96', '#c7d7f0'] }[t.sourceColor] || ['#f2f4f7', '#475467', '#d0d5dd'];
               const badge = t.virtual
-                ? `<span class="b-pill" style="background:${t.sourceColor||'#94a3b8'};color:#fff;font-size:9px;padding:1px 6px;">${t.source||'자동'}</span>`
+                ? `<span class="b-pill" style="background:${_tint[0]};color:${_tint[1]};border:1px solid ${_tint[2]};font-size:9px;padding:1px 6px;">${t.source||'자동'}</span>`
                 : '';
               const doneClass = t.status === 'done' ? ' done' : '';
-              const virtStyle = t.virtual ? ' style="opacity:.92;border-left-color:'+(t.sourceColor||'#94a3b8')+';"' : '';
+              const virtStyle = t.virtual ? ' style="opacity:.95;"' : '';
               return `
                 <div class="task ${t.priority}${doneClass}"${virtStyle} draggable="true"
                      ondragstart="onTaskDragStart(event,'${t.id}')" ondragend="onTaskDragEnd(event)">
@@ -7178,5 +7194,17 @@ window.addEventListener('resize', () => {
 
 </script>
 <script src="modules/ai-assistant/ai-assistant.js?v=29.43"></script>
+<script>
+// v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
+// 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.
+(function () {
+  var t = null;
+  function run() { if (window.lucide) { try { lucide.createIcons(); } catch (e) {} } }
+  new MutationObserver(function () { clearTimeout(t); t = setTimeout(run, 80); })
+    .observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('load', run);
+  run();
+})();
+</script>
 </body>
 </html>

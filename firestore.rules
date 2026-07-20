@@ -77,6 +77,9 @@ service cloud.firestore {
     match /carDeleteReqs/{docId}         { allow read, write: if isCompanyUser(); }
     match /measurementTools/{toolId}     { allow read, write: if isCompanyUser(); }
     match /measurementCheckouts/{coId}   { allow read, write: if isCompanyUser(); }
+    // v1.0 회의 모듈 — 회의실 예약 + 회의록 (전 직원 읽기·쓰기)
+    match /meetingReservations/{docId}   { allow read, write: if isCompanyUser(); }
+    match /meetingMinutes/{docId}        { allow read, write: if isCompanyUser(); }
     // v29.43: AI 비서 사용 기록 — 질문 1건당 1문서(로그). 생성만 허용, 수정·삭제 불가(감사 로그 성격)
     match /aiUsage/{docId}               { allow read, create: if isCompanyUser(); allow update, delete: if false; }
     // v29.44: 관리 탭 기록들 — 오류·접속·작업 로그. 생성만 허용, 수정·삭제 불가

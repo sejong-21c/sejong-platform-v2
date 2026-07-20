@@ -29,33 +29,45 @@
   window.fb = { auth: getAuth(app), db: getFirestore(app), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, onAuthStateChanged };
   window.dispatchEvent(new Event("fb-ready"));
 </script>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;background:#f0f4f8;color:#1a2332;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 .hdr{background:#fff;border-bottom:1px solid #e4e7ec;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
 .hdr h1{font-size:15px;font-weight:800;display:flex;align-items:center;gap:6px}
+svg.lucide{width:15px;height:15px;stroke-width:1.8;vertical-align:-2px;flex-shrink:0}
+.hdr h1 svg.lucide{width:17px;height:17px;color:#2d5a96}
+button svg.lucide{width:13px;height:13px;margin-right:1px}
 .tabs{display:flex;gap:4px}
 .tabs button{padding:6px 14px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:#4b5563}
 .tabs button.on{background:#4a7fc1;color:#fff;border-color:#4a7fc1}
 .me{margin-left:auto;font-size:11px;color:#6b7280}
 .cont{flex:1;overflow:auto;padding:12px 16px}
-.card{background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:12px;margin-bottom:12px}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:12px;margin-bottom:12px}
 button{font-family:inherit}
 .btn{padding:6px 12px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:#374151}
 .btn:hover{background:#f9fafb}
-.btn.pri{background:#4a7fc1;color:#fff;border-color:#4a7fc1}
-.btn.red{background:#dc2626;color:#fff;border-color:#dc2626}
-.btn.grn{background:#16a34a;color:#fff;border-color:#16a34a}
-.btn.pur{background:#7c3aed;color:#fff;border-color:#7c3aed}
+.btn.pri{background:#2d5a96;color:#fff;border-color:#2d5a96}
+.btn.pri:hover{background:#264e83}
+.btn.red{background:#fff;color:#b42318;border-color:#fecdca}
+.btn.red:hover{background:#fef3f2}
+.btn.grn{background:#2d5a96;color:#fff;border-color:#2d5a96}
+.btn.pur{background:#fff;color:#2d5a96;border-color:#c7d7f0}
+.btn.pur:hover{background:#eff4fb}
 .btn:disabled{opacity:.5;cursor:default}
 /* ── 회의실 상태 카드 ── */
 .room-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:12px}
-.room-card{background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:10px 12px;cursor:pointer;border-top:3px solid var(--rc,#94a3b8)}
-.room-card.on{outline:2px solid var(--rc);outline-offset:-1px}
-.room-card .rn{font-weight:800;font-size:12.5px;display:flex;align-items:center;gap:5px}
+.room-card{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;cursor:pointer;transition:border-color .12s}
+.room-card:hover{border-color:#c7d2e0}
+.room-card.on{border-color:#2d5a96;outline:1px solid #2d5a96;outline-offset:-1px}
+.room-card .rn{font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px;color:#101828}
+.room-card .rn svg.lucide{color:#475467}
 .room-card .st{font-size:11px;margin-top:5px;color:#6b7280;line-height:1.5}
-.room-card .st b.busy{color:#dc2626}
-.room-card .st b.free{color:#16a34a}
+.room-card .st b.busy{color:#b42318;font-weight:600}
+.room-card .st b.free{color:#067647;font-weight:600}
+.st-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.st-dot.free{background:#12b76a}
+.st-dot.busy{background:#f04438}
 /* ── 주간 그리드 ── */
 .wk-nav{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .wk-nav .ttl{font-size:14px;font-weight:800}
@@ -88,7 +100,8 @@ button{font-family:inherit}
 /* ── 회의록 탭 ── */
 .mm-wrap{display:flex;gap:12px;height:100%;min-height:0}
 .mm-list{width:300px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;overflow:auto}
-.mm-item{background:#fff;border:1px solid #e4e7ec;border-radius:9px;padding:9px 11px;cursor:pointer}
+.mm-item{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:9px 11px;cursor:pointer;transition:border-color .12s}
+.mm-item:hover{border-color:#c7d2e0}
 .mm-item.on{border-color:#4a7fc1;outline:1.5px solid #4a7fc1;outline-offset:-1px}
 .mm-item .t{font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mm-item .m{font-size:10.5px;color:#6b7280;margin-top:3px}
@@ -121,10 +134,10 @@ button{font-family:inherit}
 </head>
 <body>
 <div class="hdr">
-  <h1>🎙 회의실 예약 · 회의록</h1>
+  <h1><i data-lucide="mic"></i>회의실 예약 · 회의록</h1>
   <div class="tabs">
-    <button data-a="tab" data-v="rooms" id="tabRooms" class="on">📅 회의실 예약</button>
-    <button data-a="tab" data-v="minutes" id="tabMinutes">📝 회의록</button>
+    <button data-a="tab" data-v="rooms" id="tabRooms" class="on"><i data-lucide="calendar-days"></i> 회의실 예약</button>
+    <button data-a="tab" data-v="minutes" id="tabMinutes"><i data-lucide="file-text"></i> 회의록</button>
   </div>
   <span class="me" id="meLabel"></span>
 </div>
@@ -134,13 +147,14 @@ button{font-family:inherit}
 <script>
 // ═══════════════ 상수 ═══════════════
 const ROOMS=[
-  {id:'main', name:'대회의실',            icon:'🏛', color:'#4a7fc1'},
-  {id:'small',name:'소회의실',            icon:'👥', color:'#0ea5e9'},
-  {id:'guest',name:'접객실',              icon:'🤝', color:'#8b5cf6'},
-  {id:'svr',  name:'구동부 슈퍼바이저룸', icon:'⚙️', color:'#f59e0b'},
-  {id:'f3',   name:'3공장',               icon:'🏭', color:'#16a34a'},
+  {id:'main', name:'대회의실',            li:'landmark',   color:'#4a7fc1'},
+  {id:'small',name:'소회의실',            li:'users',      color:'#0ea5e9'},
+  {id:'guest',name:'접객실',              li:'handshake',  color:'#8b5cf6'},
+  {id:'svr',  name:'구동부 슈퍼바이저룸', li:'settings-2', color:'#f59e0b'},
+  {id:'f3',   name:'3공장',               li:'factory',    color:'#16a34a'},
 ];
-const roomOf=id=>ROOMS.find(r=>r.id===id)||{id,name:id,icon:'📍',color:'#94a3b8'};
+const roomOf=id=>ROOMS.find(r=>r.id===id)||{id,name:id,li:'map-pin',color:'#94a3b8'};
+const RI=r=>`<i data-lucide="${r.li||'map-pin'}"></i>`; // 아이콘 렌더 헬퍼
 const DAY_S=8*60, DAY_E=19*60, SLOT=30, PXMIN=26/30; // 08:00~19:00, 30분=26px
 const qs=new URLSearchParams(location.search);
 const DEMO=qs.get('demo')==='1'||location.hash==='#demo';
@@ -172,13 +186,20 @@ window.addEventListener('fb-ready',()=>{
   });
   fb.onSnapshot(fb.collection(fb.db,'meetingReservations'),snap=>{
     S.resv=[];snap.forEach(d=>S.resv.push(d.data()));R();
-  },e=>console.warn('resv sub fail',e.message));
+  },e=>{console.warn('resv sub fail',e.message);_connWarn(e);});
   fb.onSnapshot(fb.collection(fb.db,'meetingMinutes'),snap=>{
     S.mins=[];snap.forEach(d=>S.mins.push(d.data()));
     if(S.selMin){const f=S.mins.find(m=>m.id===S.selMin.id);if(f&&!EDITING)S.selMin=f;}
     R();
-  },e=>console.warn('mins sub fail',e.message));
+  },e=>{console.warn('mins sub fail',e.message);_connWarn(e);});
 });
+function _connWarn(e){
+  if(document.getElementById('connWarn'))return;
+  const b=document.createElement('div');b.id='connWarn';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9997;background:#fef3f2;color:#b42318;border-bottom:1px solid #fecdca;font-size:12px;padding:7px 14px;text-align:center';
+  b.textContent='서버 연결/권한 오류 — 예약·회의록이 보이지 않으면 관리자에게 Firestore 규칙 게시를 요청하세요 ('+(e&&e.code||'')+')';
+  document.body.appendChild(b);
+}
 async function saveResv(r){ if(DEMO){const i=S.resv.findIndex(x=>x.id===r.id);if(i>=0)S.resv[i]=r;else S.resv.push(r);R();return;}
   await fb.setDoc(fb.doc(fb.db,'meetingReservations',r.id),r);}
 async function delResv(id){ if(DEMO){S.resv=S.resv.filter(x=>x.id!==id);R();return;}
@@ -211,7 +232,7 @@ function seedDemo(){
       {content:'- 지연 만회 위해 주말 특근 편성',owner:'곽노한',deadline:'금주',note:''}]},
       {title:'자재 입고 지연',items:[{content:'- PE TANK 입고 지연 — 구매부 발주처 독촉 요청',owner:'구매부',deadline:'7/25',note:''}]}],
     transcript:'(데모) 회의 전사 내용...',status:'done',byUid:'demo',byName:'곽노한 부장',dept:'생산부',createdAt:Date.now()-864e5,updatedAt:Date.now()-860e5}];
-  $('demoBar').innerHTML='<div class="demo-bar">🧪 <b>데모 모드</b> (저장 안 됨) — 빈 시간 클릭=예약 · 예약 블록 클릭=상세 · 회의록 탭에서 🎙 녹음 체험 (크롬 권장)</div>';
+  $('demoBar').innerHTML='<div class="demo-bar"><b>데모 모드</b> (저장 안 됨) — 빈 시간 클릭=예약 · 예약 블록 클릭=상세 · 회의록 탭에서 녹음 체험 (크롬 권장)</div>';
   R();
 }
 
@@ -240,9 +261,9 @@ function rRooms(){
   const cards=ROOMS.map(r=>{
     const cur=S.resv.find(v=>v.room===r.id&&v.date===td&&t2m(v.s)<=nm&&nm<t2m(v.e));
     const next=S.resv.filter(v=>v.room===r.id&&v.date===td&&t2m(v.s)>nm).sort((a,b)=>t2m(a.s)-t2m(b.s))[0];
-    const st=cur?`<b class="busy">● 사용중</b> ${esc(cur.byName)} · ~${cur.e}<br>${esc(cur.title)}`
-             :`<b class="free">○ 비어있음</b>${next?`<br>다음: ${next.s} ${esc(next.title)}`:''}`;
-    return`<div class="room-card${S.room===r.id?' on':''}" style="--rc:${r.color}" data-a="pickRoom" data-v="${r.id}"><div class="rn">${r.icon} ${r.name}</div><div class="st">${st}</div></div>`;
+    const st=cur?`<span class="st-dot busy"></span><b class="busy">사용중</b> ${esc(cur.byName)} · ~${cur.e}<br>${esc(cur.title)}`
+             :`<span class="st-dot free"></span><b class="free">비어있음</b>${next?`<br>다음: ${next.s} ${esc(next.title)}`:''}`;
+    return`<div class="room-card${S.room===r.id?' on':''}" style="--rc:${r.color}" data-a="pickRoom" data-v="${r.id}"><div class="rn">${RI(r)} ${r.name}</div><div class="st">${st}</div></div>`;
   }).join('');
   // 주간 그리드
   const slots=[];for(let m=DAY_S;m<DAY_E;m+=SLOT)slots.push(m);
@@ -264,17 +285,17 @@ function rRooms(){
   const roomLegend=S.room==='all'?`<span style="font-size:10.5px;color:#6b7280">칸 안 세로줄 = 왼쪽부터 ${ROOMS.map(r=>`<span style="color:${r.color};font-weight:700">${r.name}</span>`).join(' · ')}</span>`:'';
   return`
   <div class="room-cards">
-    <div class="room-card${S.room==='all'?' on':''}" style="--rc:#334155" data-a="pickRoom" data-v="all"><div class="rn">🗂 전체 보기</div><div class="st">5개 회의실 통합 현황</div></div>
+    <div class="room-card${S.room==='all'?' on':''}" style="--rc:#334155" data-a="pickRoom" data-v="all"><div class="rn"><i data-lucide="layout-grid"></i> 전체 보기</div><div class="st">5개 회의실 통합 현황</div></div>
     ${cards}
   </div>
   <div class="wk-nav">
     <button class="btn" data-a="wk" data-v="-1">◀ 지난주</button>
     <button class="btn" data-a="wk" data-v="0">이번주</button>
     <button class="btn" data-a="wk" data-v="1">다음주 ▶</button>
-    <span class="ttl">${days[0].mm}/${days[0].dd} ~ ${days[6].mm}/${days[6].dd}${S.room!=='all'?` · ${roomOf(S.room).icon} ${roomOf(S.room).name}`:''}</span>
+    <span class="ttl">${days[0].mm}/${days[0].dd} ~ ${days[6].mm}/${days[6].dd}${S.room!=='all'?` · ${roomOf(S.room).name}`:''}</span>
     ${roomLegend}
     <span style="margin-left:auto"></span>
-    <button class="btn pri" data-a="newResvBtn">+ 회의실 예약</button>
+    <button class="btn pri" data-a="newResvBtn"><i data-lucide="plus"></i>회의실 예약</button>
   </div>
   <div class="grid-wrap"><div class="wk-grid">${heads}${timeCol}${cols}</div></div>
   <div style="font-size:10.5px;color:#9ca3af;margin-top:7px">빈 시간대를 클릭하면 바로 예약할 수 있어요 · 예약 블록 클릭 = 상세 보기(본인 예약은 수정·삭제 가능)</div>`;
@@ -289,21 +310,21 @@ function rMinutes(){
     const st=m.status==='rec'?'<span class="bdg rec">● 녹음중</span>':m.status==='draft'?'<span class="bdg draft">초안</span>':'<span class="bdg done">완료</span>';
     return`<div class="mm-item${S.selMin?.id===m.id?' on':''}" data-a="selMin" data-id="${m.id}">
       <div class="t">${esc(m.title||m.topic||'(제목 없음)')}</div>
-      <div class="m">${m.date} ${m.timeS||''}${m.timeE?'~'+m.timeE:''} · ${r.icon}${r.name} · ${esc(m.byName||'')} ${st}</div></div>`;
+      <div class="m">${m.date} ${m.timeS||''}${m.timeE?'~'+m.timeE:''} · ${r.name} · ${esc(m.byName||'')} ${st}</div></div>`;
   }).join('');
   let main='';
   if(REC.on)main=rRecording();
   else if(S.selMin)main=rEditor(S.selMin);
   else main=`<div class="card" style="text-align:center;padding:44px 20px;color:#6b7280">
-    <div style="font-size:34px;margin-bottom:10px">🎙</div>
+    <div style="margin-bottom:10px"><i data-lucide="mic" style="width:34px;height:34px;color:#98a2b3"></i></div>
     <div style="font-size:14px;font-weight:700;color:#1a2332;margin-bottom:6px">회의를 녹음하면 실시간으로 글자가 올라오고,<br>끝나면 AI가 회사 양식 회의록 초안을 만들어 드립니다</div>
     <div style="font-size:11.5px;margin-bottom:16px">크롬 브라우저에서 마이크 허용이 필요합니다 · 왼쪽 목록에서 기존 회의록을 열 수도 있어요</div>
-    <button class="btn red" data-a="setupRec" style="font-size:13px;padding:9px 20px">🎙 새 회의 녹음 시작</button>
-    <button class="btn" data-a="newBlank" style="margin-left:6px">✍ 녹음 없이 회의록 작성</button></div>`;
+    <button class="btn red" data-a="setupRec" style="font-size:13px;padding:9px 20px"><i data-lucide="mic"></i>새 회의 녹음 시작</button>
+    <button class="btn" data-a="newBlank" style="margin-left:6px"><i data-lucide="pen-line"></i>녹음 없이 회의록 작성</button></div>`;
   return`<div class="mm-wrap">
     <div class="mm-list">
-      <button class="btn red" data-a="setupRec">🎙 새 회의 녹음</button>
-      <button class="btn" data-a="newBlank">✍ 빈 회의록 작성</button>
+      <button class="btn red" data-a="setupRec"><i data-lucide="mic"></i>새 회의 녹음</button>
+      <button class="btn" data-a="newBlank"><i data-lucide="pen-line"></i>빈 회의록 작성</button>
       ${items||'<div style="font-size:11.5px;color:#9ca3af;text-align:center;padding:14px">저장된 회의록이 없습니다</div>'}
     </div>
     <div class="mm-main">${main}</div></div>`;
@@ -319,15 +340,15 @@ function rRecording(){
       ${REC.paused?'<span style="font-size:14px">⏸</span>':'<span class="rec-dot"></span>'}
       <span class="rec-timer" id="recTimer">${fmtEl(REC.elapsed)}</span>
       <span style="font-weight:700">${esc(meta.title||'회의 녹음')}</span>
-      <span style="font-size:11px;color:#6b7280">${roomOf(meta.room).icon} ${roomOf(meta.room).name} · ${meta.date||todayStr()}</span>
+      <span style="font-size:11px;color:#6b7280">${roomOf(meta.room).name} · ${meta.date||todayStr()}</span>
       <span style="margin-left:auto"></span>
-      ${REC.paused?'<button class="btn grn" data-a="recResume">▶ 재개</button>':'<button class="btn" data-a="recPause">⏸ 일시정지</button>'}
-      <button class="btn red" data-a="recStop">⏹ 녹음 종료</button>
+      ${REC.paused?'<button class="btn grn" data-a="recResume"><i data-lucide="play"></i>재개</button>':'<button class="btn" data-a="recPause"><i data-lucide="pause"></i>일시정지</button>'}
+      <button class="btn red" data-a="recStop"><i data-lucide="square"></i>녹음 종료</button>
     </div>
     <div class="tr-box" id="trBox">
       ${lines||''}
       ${REC.interim?`<div class="interim">${esc(REC.interim)}</div>`:''}
-      ${(!lines&&!REC.interim)?'<div class="hint">🎤 말씀하시면 여기에 실시간으로 글자가 올라옵니다...</div>':''}
+      ${(!lines&&!REC.interim)?'<div class="hint">말씀하시면 여기에 실시간으로 글자가 올라옵니다...</div>':''}
     </div>
     <div style="font-size:10.5px;color:#9ca3af;margin-top:7px">음성인식은 크롬 내장 기능(한국어)을 사용합니다 · 조용하면 자동으로 잠깐 멈췄다 다시 시작돼요</div>
   </div>`;
@@ -345,7 +366,7 @@ function rEditor(m){
     <div class="ag-blk">
       <div class="ag-t"><span style="font-weight:800;flex-shrink:0;padding-top:7px">【안건 ${gi+1}】</span>
         <input class="fi" data-ed="ag-title" data-g="${gi}" value="${esc(ag.title)}" placeholder="안건 제목"/>
-        <button class="btn" data-a="delAg" data-g="${gi}" title="안건 삭제">🗑</button></div>
+        <button class="btn" data-a="delAg" data-g="${gi}" title="안건 삭제"><i data-lucide="trash-2"></i></button></div>
       ${ag.items.map((it,ii)=>`<div class="it-row">
         <textarea class="fi" data-ed="it-content" data-g="${gi}" data-i="${ii}" placeholder="- 내용 / 결정사항 / Action Item">${esc(it.content)}</textarea>
         <input class="fi sm" data-ed="it-owner" data-g="${gi}" data-i="${ii}" value="${esc(it.owner)}" placeholder="주체"/>
@@ -354,22 +375,22 @@ function rEditor(m){
         <button class="btn" data-a="delIt" data-g="${gi}" data-i="${ii}">✕</button></div>`).join('')}
       <button class="btn" data-a="addIt" data-g="${gi}" style="font-size:11px">+ 항목</button>
     </div>`).join('');
-  const tr=m.transcript?`<details style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:700;font-size:12px">📜 녹음 전문 보기 (${(m.transcript||'').length.toLocaleString()}자)</summary>
+  const tr=m.transcript?`<details style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:700;font-size:12px">녹음 전문 보기 (${(m.transcript||'').length.toLocaleString()}자)</summary>
     <textarea class="fi" data-ed="transcript" style="min-height:160px;margin-top:6px;font-size:11.5px;line-height:1.6">${esc(m.transcript)}</textarea></details>`:'';
   return`<div class="card">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <span style="font-size:15px;font-weight:800">📝 회의록</span>
+      <span style="font-size:15px;font-weight:800;display:inline-flex;align-items:center;gap:5px"><i data-lucide="file-text"></i>회의록</span>
       ${m.status==='draft'?'<span class="bdg draft">초안</span>':'<span class="bdg done">완료</span>'}
       <span style="font-size:11px;color:#6b7280">작성 ${esc(m.byName||'')}</span>
       <span style="margin-left:auto"></span>
-      ${m.transcript&&!m.aiDone?`<button class="btn pur" data-a="aiGen" data-id="${m.id}">🤖 AI 회의록 생성</button>`:''}
-      ${m.transcript&&m.aiDone?`<button class="btn" data-a="aiGen" data-id="${m.id}" title="전사본으로 다시 생성 (현재 내용 덮어씀)">🔄 AI 재생성</button>`:''}
-      <button class="btn grn" data-a="saveMin">💾 저장</button>
-      <button class="btn pri" data-a="xlsx">📥 Excel 다운로드</button>
-      <button class="btn" data-a="delMinBtn" data-id="${m.id}">🗑</button>
+      ${m.transcript&&!m.aiDone?`<button class="btn pur" data-a="aiGen" data-id="${m.id}"><i data-lucide="sparkles"></i>AI 회의록 생성</button>`:''}
+      ${m.transcript&&m.aiDone?`<button class="btn" data-a="aiGen" data-id="${m.id}" title="전사본으로 다시 생성 (현재 내용 덮어씀)"><i data-lucide="refresh-cw"></i>AI 재생성</button>`:''}
+      <button class="btn grn" data-a="saveMin"><i data-lucide="save"></i>저장</button>
+      <button class="btn" data-a="xlsx"><i data-lucide="download"></i>Excel 다운로드</button>
+      <button class="btn" data-a="delMinBtn" data-id="${m.id}"><i data-lucide="trash-2"></i></button>
       <button class="btn" data-a="closeMin">닫기</button>
     </div>
-    ${m.audioUrl?`<div style="margin-bottom:10px"><audio controls src="${m.audioUrl}" style="width:100%;height:36px"></audio> <a href="${m.audioUrl}" download="회의녹음_${m.date}.webm" style="font-size:11px">💾 녹음 파일 저장</a></div>`:''}
+    ${m.audioUrl?`<div style="margin-bottom:10px"><audio controls src="${m.audioUrl}" style="width:100%;height:36px"></audio> <a href="${m.audioUrl}" download="회의녹음_${m.date}.webm" style="font-size:11px">녹음 파일 저장</a></div>`:''}
     ${tr}
     <div class="ed-grid">
       <div><div class="fl">회의 주제</div><input class="fi" data-ed="topic" value="${esc(m.topic||m.title||'')}"/></div>
@@ -378,7 +399,7 @@ function rEditor(m){
     <div style="margin-bottom:9px"><div class="fl">회의 내용 (한 줄 요약)</div><input class="fi" data-ed="summary" value="${esc(m.summary||'')}"/></div>
     <div class="ed-grid">
       <div><div class="fl">회의 일시</div><div style="display:flex;gap:5px"><input class="fi" type="date" data-ed="date" value="${m.date||todayStr()}" style="flex:1.2"/><input class="fi" type="time" data-ed="timeS" value="${m.timeS||''}"/><input class="fi" type="time" data-ed="timeE" value="${m.timeE||''}"/></div></div>
-      <div><div class="fl">회의 장소</div><select class="fi" data-ed="room">${ROOMS.map(x=>`<option value="${x.id}"${m.room===x.id?' selected':''}>${x.icon} ${x.name}</option>`).join('')}<option value="etc"${m.room==='etc'?' selected':''}>기타</option></select></div>
+      <div><div class="fl">회의 장소</div><select class="fi" data-ed="room">${ROOMS.map(x=>`<option value="${x.id}"${m.room===x.id?' selected':''}>${x.name}</option>`).join('')}<option value="etc"${m.room==='etc'?' selected':''}>기타</option></select></div>
     </div>
     <div style="margin-bottom:9px"><div class="fl">참석 인원 <button class="btn" data-a="addAtt" style="font-size:10px;padding:2px 8px">+ 추가</button></div>${atts}</div>
     <div class="fl" style="margin-bottom:5px">회의 내용 (안건별) <button class="btn" data-a="addAg" style="font-size:10px;padding:2px 8px">+ 안건 추가</button></div>
@@ -408,10 +429,10 @@ function renderModal(){
   const M=S.modal;
   if(M.type==='new'){
     const opts=(sel)=>{let h='';for(let m=DAY_S;m<=DAY_E;m+=SLOT)h+=`<option${m===sel?' selected':''}>${m2t(m)}</option>`;return h;};
-    ov.innerHTML=`<div class="mdl"><h3>📅 회의실 예약</h3>
+    ov.innerHTML=`<div class="mdl"><h3><i data-lucide="calendar-plus"></i> 회의실 예약</h3>
       <div style="margin-bottom:9px"><div class="fl">회의 제목 *</div><input class="fi" id="mTitle" value="${esc(M.title||'')}" placeholder="예: 주간 생산회의"/></div>
       <div class="frow">
-        <div><div class="fl">회의실 *</div><select class="fi" id="mRoom">${ROOMS.map(r=>`<option value="${r.id}"${M.room===r.id?' selected':''}>${r.icon} ${r.name}</option>`).join('')}</select></div>
+        <div><div class="fl">회의실 *</div><select class="fi" id="mRoom">${ROOMS.map(r=>`<option value="${r.id}"${M.room===r.id?' selected':''}>${r.name}</option>`).join('')}</select></div>
         <div><div class="fl">날짜 *</div><input class="fi" type="date" id="mDate" value="${M.date||todayStr()}"/></div>
       </div>
       <div class="frow">
@@ -425,29 +446,29 @@ function renderModal(){
   }else if(M.type==='detail'){
     const v=S.resv.find(x=>x.id===M.id);if(!v){S.modal=null;return;}
     const r=roomOf(v.room);const mine=DEMO||(S.me&&v.byUid===S.me.uid);
-    ov.innerHTML=`<div class="mdl"><h3>${r.icon} ${r.name}</h3>
+    ov.innerHTML=`<div class="mdl"><h3>${RI(r)} ${r.name}</h3>
       <div style="font-size:15px;font-weight:800;margin-bottom:8px">${esc(v.title)}</div>
       <div style="font-size:12.5px;line-height:2;color:#374151">
-        🗓 <b>${v.date}</b> &nbsp; ⏰ <b>${v.s} ~ ${v.e}</b><br>
-        👤 예약자: <b>${esc(v.byName)}</b>${v.dept?` (${esc(v.dept)})`:''}<br>
-        ${v.note?`📌 ${esc(v.note)}<br>`:''}
+        <i data-lucide="calendar"></i> <b>${v.date}</b> &nbsp; <i data-lucide="clock"></i> <b>${v.s} ~ ${v.e}</b><br>
+        <i data-lucide="user"></i> 예약자: <b>${esc(v.byName)}</b>${v.dept?` (${esc(v.dept)})`:''}<br>
+        ${v.note?`<i data-lucide="pin"></i> ${esc(v.note)}<br>`:''}
         <span style="font-size:10.5px;color:#9ca3af">등록: ${new Date(v.createdAt).toLocaleString('ko-KR')}</span></div>
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
-        <button class="btn red" data-a="recFromResv" data-id="${v.id}">🎙 이 회의 녹음 시작</button>
+        <button class="btn red" data-a="recFromResv" data-id="${v.id}"><i data-lucide="mic"></i>이 회의 녹음 시작</button>
         <span style="flex:1"></span>
-        ${mine?`<button class="btn" data-a="editResv" data-id="${v.id}">✏ 수정</button><button class="btn" data-a="delResvBtn" data-id="${v.id}">🗑 삭제</button>`:''}
+        ${mine?`<button class="btn" data-a="editResv" data-id="${v.id}"><i data-lucide="pencil"></i>수정</button><button class="btn" data-a="delResvBtn" data-id="${v.id}"><i data-lucide="trash-2"></i>삭제</button>`:''}
         <button class="btn" data-a="mdClose">닫기</button></div></div>`;
   }else if(M.type==='setup'){
     const tdResv=S.resv.filter(v=>v.date===todayStr()).sort((a,b)=>t2m(a.s)-t2m(b.s));
-    ov.innerHTML=`<div class="mdl"><h3>🎙 회의 녹음 시작</h3>
+    ov.innerHTML=`<div class="mdl"><h3><i data-lucide="mic"></i> 회의 녹음 시작</h3>
       ${tdResv.length?`<div style="margin-bottom:9px"><div class="fl">오늘 예약과 연결 (선택)</div><select class="fi" id="sResv"><option value="">— 연결 안 함 —</option>${tdResv.map(v=>`<option value="${v.id}"${M.resvId===v.id?' selected':''}>${v.s} ${roomOf(v.room).name} · ${esc(v.title)}</option>`).join('')}</select></div>`:''}
       <div style="margin-bottom:9px"><div class="fl">회의 제목 *</div><input class="fi" id="sTitle" value="${esc(M.title||'')}" placeholder="예: SJ428-25 공정 점검 회의"/></div>
-      <div class="frow"><div><div class="fl">회의실</div><select class="fi" id="sRoom">${ROOMS.map(r=>`<option value="${r.id}"${M.room===r.id?' selected':''}>${r.icon} ${r.name}</option>`).join('')}<option value="etc">기타</option></select></div></div>
+      <div class="frow"><div><div class="fl">회의실</div><select class="fi" id="sRoom">${ROOMS.map(r=>`<option value="${r.id}"${M.room===r.id?' selected':''}>${r.name}</option>`).join('')}<option value="etc">기타</option></select></div></div>
       <div style="margin-bottom:12px"><div class="fl">참석자 (쉼표로 구분)</div><input class="fi" id="sAtt" value="${esc(M.att||'')}" placeholder="예: 곽노한 부장, 김철우 과장, 이재규 부장"/></div>
-      <div style="font-size:11px;color:#6b7280;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:8px 10px;margin-bottom:12px">🎤 시작을 누르면 브라우저가 <b>마이크 권한</b>을 요청합니다. 허용해 주세요.<br>말하는 내용이 실시간으로 화면에 올라옵니다 (크롬 권장).</div>
+      <div style="font-size:11px;color:#6b7280;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:8px 10px;margin-bottom:12px">시작을 누르면 브라우저가 <b>마이크 권한</b>을 요청합니다. 허용해 주세요.<br>말하는 내용이 실시간으로 화면에 올라옵니다 (크롬 권장).</div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
         <button class="btn" data-a="mdClose">취소</button>
-        <button class="btn red" data-a="recStart">🎙 녹음 시작</button></div></div>`;
+        <button class="btn red" data-a="recStart"><i data-lucide="mic"></i>녹음 시작</button></div></div>`;
   }
   document.body.appendChild(ov);
 }
@@ -466,7 +487,7 @@ document.addEventListener('click',e=>{
     case'mdClose':S.modal=null;renderModal();break;
     case'mdSave':doSaveResv(d.eid);break;
     case'editResv':{const v=S.resv.find(x=>x.id===d.id);if(v)S.modal={type:'new',editId:v.id,title:v.title,room:v.room,date:v.date,s:t2m(v.s),e:t2m(v.e),note:v.note};renderModal();break;}
-    case'delResvBtn':{const v=S.resv.find(x=>x.id===d.id);if(v&&confirm(`"${v.title}" 예약을 삭제할까요?`)){delResv(v.id).then(()=>toast('예약이 삭제됐습니다'));S.modal=null;renderModal();}break;}
+    case'delResvBtn':{const v=S.resv.find(x=>x.id===d.id);if(v&&confirm(`"${v.title}" 예약을 삭제할까요?`)){delResv(v.id).then(()=>toast('예약이 삭제됐습니다')).catch(err=>alert('삭제 실패: '+(err.message||err)));S.modal=null;renderModal();}break;}
     case'recFromResv':{const v=S.resv.find(x=>x.id===d.id);S.modal={type:'setup',resvId:v?.id,title:v?.title,room:v?.room,att:''};S.tab='minutes';R();break;}
     case'setupRec':S.modal={type:'setup',room:'main'};renderModal();break;
     case'recStart':startRec();break;
@@ -496,13 +517,14 @@ function doSaveResv(editId){
   if(!date)return toast('날짜를 선택해 주세요');
   if(t2m(eT)<=t2m(s))return toast('종료 시간이 시작 시간보다 늦어야 해요');
   const clash=S.resv.find(v=>v.room===room&&v.date===date&&v.id!==editId&&t2m(v.s)<t2m(eT)&&t2m(s)<t2m(v.e));
-  if(clash)return toast(`⛔ 겹치는 예약: ${clash.s}~${clash.e} ${clash.title} (${clash.byName})`);
+  if(clash)return toast(`겹치는 예약이 있습니다: ${clash.s}~${clash.e} ${clash.title} (${clash.byName})`);
   if(!S.me&&!DEMO)return toast('로그인 정보가 없습니다');
   const old=editId?S.resv.find(x=>x.id===editId):null;
   const r={id:editId||uid(),room,date,s,e:eT,title,note,
     byUid:old?old.byUid:(S.me?.uid||'demo'),byName:old?old.byName:(S.me?`${S.me.name}${S.me.title?' '+S.me.title:''}`:'데모'),
     dept:old?old.dept:(S.me?.dept||''),createdAt:old?old.createdAt:Date.now(),updatedAt:Date.now()};
-  saveResv(r).then(()=>toast(editId?'✅ 수정됐습니다':'✅ 예약됐습니다'));
+  saveResv(r).then(()=>toast(editId?'수정됐습니다':'예약됐습니다'))
+    .catch(err=>{console.warn(err);alert('예약 저장에 실패했습니다.\n'+(err.message||err)+'\n\n(권한 오류라면 관리자에게 Firestore 규칙 게시를 요청하세요)');});
   S.modal=null;renderModal();if(DEMO)R();
 }
 
@@ -520,7 +542,7 @@ async function startRec(){
     REC.media=new MediaRecorder(stream);REC.chunks=[];
     REC.media.ondataavailable=ev=>{if(ev.data.size)REC.chunks.push(ev.data);};
     REC.media.start(1000);
-  }catch(err){console.warn('mic',err);toast('⚠ 마이크 권한이 거부돼 음성 파일 저장은 건너뜁니다');}
+  }catch(err){console.warn('mic',err);toast('마이크 권한이 거부돼 음성 파일 저장은 건너뜁니다');}
   REC.on=true;REC.paused=false;REC.startAt=Date.now();REC.elapsed=0;REC.lines=[];REC.interim='';REC.audioUrl='';
   const now=new Date();
   REC.meta={title,room,att,resvId,date:todayStr(),timeS:`${pad(now.getHours())}:${pad(now.getMinutes())}`};
@@ -541,7 +563,7 @@ function startRecog(SR){
     REC.interim=interim;
     updateTrBox();
   };
-  rg.onerror=ev=>{if(ev.error==='not-allowed'){toast('⛔ 마이크 권한이 거부됐습니다');stopRec();}};
+  rg.onerror=ev=>{if(ev.error==='not-allowed'){toast('마이크 권한이 거부됐습니다');stopRec();}};
   rg.onend=()=>{if(REC.on&&!REC.paused){try{rg.start();}catch(e){}}}; // 침묵으로 끊기면 자동 재시작
   try{rg.start();}catch(e){}
 }
@@ -549,7 +571,7 @@ function updateTrBox(){
   const b=$('trBox');if(!b)return;
   b.innerHTML=REC.lines.map(l=>`<div><span class="ts">[${fmtEl(l.t)}]</span>${esc(l.txt)}</div>`).join('')
     +(REC.interim?`<div class="interim">${esc(REC.interim)}</div>`:'')
-    +((!REC.lines.length&&!REC.interim)?'<div class="hint">🎤 말씀하시면 여기에 실시간으로 글자가 올라옵니다...</div>':'');
+    +((!REC.lines.length&&!REC.interim)?'<div class="hint">말씀하시면 여기에 실시간으로 글자가 올라옵니다...</div>':'');
   b.scrollTop=b.scrollHeight;
 }
 function pauseRec(){REC.paused=true;try{REC.recog?.stop();}catch(e){}try{REC.media?.pause();}catch(e){}R();}
@@ -578,7 +600,7 @@ async function stopRec(){
   const forDb={...m};delete forDb.audioUrl;
   saveMin(forDb).catch(e=>console.warn('minute save fail',e.message));
   S.selMin=m;EDITING=true;R();
-  toast(`⏹ 녹음 종료 — ${REC.lines.length}개 문장 인식됨. 🤖 AI 회의록 생성을 눌러보세요`);
+  toast(`녹음 종료 — ${REC.lines.length}개 문장이 인식됐습니다. 'AI 회의록 생성'을 눌러보세요`);
 }
 function newBlankMin(){
   const now=new Date();
@@ -592,7 +614,7 @@ function doSaveMin(){
   const m=S.selMin;if(!m)return;
   m.title=m.topic||m.title;m.status=m.agendas?.some(a=>a.title||a.items?.some(i=>i.content))?'done':'draft';m.updatedAt=Date.now();
   const forDb={...m};delete forDb.audioUrl;
-  saveMin(forDb).then(()=>{EDITING=false;toast('💾 저장됐습니다');R();}).catch(e=>toast('저장 실패: '+e.message));
+  saveMin(forDb).then(()=>{EDITING=false;toast('저장됐습니다');R();}).catch(e=>toast('저장 실패: '+e.message));
 }
 
 // ═══════════════ AI 게이트웨이 (회사 Cloudflare Worker — ai-assistant와 동일 관례) ═══════════════
@@ -626,7 +648,7 @@ async function callAI(messages){
 async function aiGenerate(){
   const m=S.selMin;if(!m||!m.transcript)return toast('전사본이 없습니다');
   if(m.aiDone&&!confirm('AI가 다시 생성하면 현재 안건 내용을 덮어씁니다. 계속할까요?'))return;
-  toast('🤖 AI가 회의록을 작성 중입니다... (10~30초)');
+  toast('AI가 회의록을 작성 중입니다... (10~30초)');
   const attStr=(m.attendees||[]).map(a=>a.name).filter(Boolean).join(', ')||'미상';
   const sys=`당신은 (주)세종기술의 회의록 작성 전문가입니다. 회의 전사본(STT)을 분석해 회사 공식 회의록을 작성합니다.
 반드시 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트·설명·코드펜스 금지.
@@ -651,8 +673,8 @@ async function aiGenerate(){
     m.topic=j.topic||m.topic;m.summary=j.summary||m.summary;
     m.agendas=(j.agendas||[]).map(ag=>({title:ag.title||'',items:(ag.items||[]).map(it=>({content:it.content||'',owner:it.owner||'',deadline:it.deadline||'',note:it.note||''}))}));
     m.aiDone=true;m.updatedAt=Date.now();EDITING=true;
-    R();toast(`✅ AI 회의록 초안 완성 (${via}) — 내용을 확인·수정 후 저장하세요`);
-  }catch(err){console.warn(err);toast('❌ AI 생성 실패: '+(err.message||err)+' — 잠시 후 다시 시도해 주세요');}
+    R();toast(`AI 회의록 초안 완성 (${via}) — 내용을 확인·수정 후 저장하세요`);
+  }catch(err){console.warn(err);toast('AI 생성 실패: '+(err.message||err)+' — 잠시 후 다시 시도해 주세요');}
 }
 
 // ═══════════════ Excel 다운로드 (회사 양식 원본에 값 채움 — meeting-minutes 스킬 규칙) ═══════════════
@@ -670,7 +692,7 @@ function splitWords(text,maxW=70){
 async function exportXlsx(m){
   if(!m)return;
   try{
-    toast('📥 Excel 생성 중...');
+    toast('Excel 생성 중...');
     await loadExcelJS();
     const buf=await(await fetch('assets/회의록_양식.xlsx')).arrayBuffer();
     const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);
@@ -715,13 +737,17 @@ async function exportXlsx(m){
     const aEl=document.createElement('a');aEl.href=URL.createObjectURL(blob);
     aEl.download=`회의록_${m.date||todayStr()}_${(m.topic||m.title||'회의').slice(0,20).replace(/[\\/:*?"<>|]/g,'')}.xlsx`;
     aEl.click();setTimeout(()=>URL.revokeObjectURL(aEl.href),4000);
-    toast('✅ 회사 양식 Excel로 저장됐습니다');
-  }catch(err){console.warn(err);toast('❌ Excel 생성 실패: '+(err.message||err));}
+    toast('회사 양식 Excel로 저장됐습니다');
+  }catch(err){console.warn(err);toast('Excel 생성 실패: '+(err.message||err));}
 }
 
 // 데모 모드는 fb 없이도 바로 시작
 if(DEMO&&!fbReady){setTimeout(()=>{if(!S.me)seedDemo();},800);}
 window.addEventListener('beforeunload',e=>{if(REC.on){e.preventDefault();e.returnValue='녹음이 진행 중입니다. 나가면 녹음이 중단됩니다.';}});
+// v30 디자인: innerHTML 갱신 시 <i data-lucide> → SVG 자동 변환
+(function(){let t=null;const run=()=>{if(window.lucide){try{lucide.createIcons();}catch(e){}}};
+new MutationObserver(()=>{clearTimeout(t);t=setTimeout(run,80);}).observe(document.body,{childList:true,subtree:true});
+window.addEventListener('load',run);run();})();
 R();
 </script>
 </body>

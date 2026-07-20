@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>디자인 개선 시안 — AS-IS / TO-BE</title>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;background:#eef1f5;color:#1f2937;font-size:13px;padding:24px}
+.page{max-width:1280px;margin:0 auto}
+h1{font-size:19px;font-weight:800;margin-bottom:4px}
+.sub{font-size:12px;color:#6b7280;margin-bottom:22px}
+.sec{margin-bottom:30px}
+.sec-t{font-size:14px;font-weight:800;margin-bottom:10px;color:#111827}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pane{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+.pane-h{padding:8px 14px;font-size:11px;font-weight:700;border-bottom:1px solid #e5e7eb}
+.pane-h.asis{background:#fef2f2;color:#b91c1c}
+.pane-h.tobe{background:#f0fdf4;color:#166534}
+.pane-b{padding:16px;background:#f5f7fa}
+svg.lucide{width:16px;height:16px;stroke-width:1.8;vertical-align:-3px;flex-shrink:0}
+
+/* ══════════ AS-IS 스타일 (현재 시스템 재현) ══════════ */
+.old-task{background:#fff;border:1px solid #fecaca;border-left:5px solid #ef4444;border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.old-task.warn{border-color:#fde68a;border-left-color:#f59e0b}
+.old-badge{display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:6px}
+.old-badge.warn{background:#f59e0b}
+.old-task .t{font-weight:800;font-size:13px;line-height:1.45;margin-bottom:5px}
+.old-task .m{font-size:11px;color:#6b7280}
+.old-nav{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;width:220px}
+.old-nav .ni{display:flex;align-items:center;gap:11px;padding:9px 16px;font-size:13px;cursor:pointer}
+.old-nav .ni.on{background:#eef3fb;color:#4a7fc1;border-left:3px solid #4a7fc1;font-weight:700}
+.old-room{background:#fff;border:1px solid #e4e7ec;border-top:3px solid #4a7fc1;border-radius:10px;padding:10px 12px;width:210px}
+.old-room .rn{font-weight:800;font-size:12.5px}
+.old-room .st{font-size:11px;margin-top:5px;color:#6b7280}
+.old-room .st b{color:#16a34a}
+.old-btns .b1{padding:6px 12px;border:none;background:#4a7fc1;color:#fff;border-radius:6px;font-weight:600;font-size:12px;margin-right:6px;cursor:pointer}
+.old-btns .b2{padding:6px 12px;border:none;background:#dc2626;color:#fff;border-radius:6px;font-weight:600;font-size:12px;margin-right:6px;cursor:pointer}
+.old-btns .b3{padding:6px 12px;border:none;background:#7c3aed;color:#fff;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer}
+
+/* ══════════ TO-BE 스타일 (개선안) ══════════ */
+/* 카드: 색 테두리 강조 제거 → 중립 카드 + 상태는 작은 점·텍스트 라벨로 */
+.new-task{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:11px 14px;margin-bottom:8px;transition:border-color .12s, box-shadow .12s;cursor:pointer}
+.new-task:hover{border-color:#c7d2e0;box-shadow:0 1px 4px rgba(16,24,40,.07)}
+.new-task .top{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.new-tag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:#b42318;background:#fef3f2;border:1px solid #fecdca;padding:1px 7px;border-radius:4px}
+.new-tag.warn{color:#b54708;background:#fffaeb;border-color:#fedf89}
+.new-tag .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.new-task .t{font-weight:600;font-size:13px;line-height:1.5;color:#101828;margin-bottom:4px}
+.new-task .m{font-size:11px;color:#667085;display:flex;align-items:center;gap:5px}
+.new-task .m svg.lucide{width:12px;height:12px}
+.new-nav{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;width:220px;padding:5px}
+.new-nav .ni{display:flex;align-items:center;gap:10px;padding:8px 11px;font-size:12.5px;color:#344054;border-radius:5px;cursor:pointer;font-weight:500}
+.new-nav .ni:hover{background:#f9fafb}
+.new-nav .ni.on{background:#f0f4fa;color:#2d5a96;font-weight:600}
+.new-nav .ni svg.lucide{width:16px;height:16px;color:#667085}
+.new-nav .ni.on svg.lucide{color:#2d5a96}
+.new-room{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:11px 13px;width:210px;cursor:pointer;transition:border-color .12s}
+.new-room:hover{border-color:#c7d2e0}
+.new-room .rn{font-weight:600;font-size:12.5px;display:flex;align-items:center;gap:7px;color:#101828}
+.new-room .rn svg.lucide{width:15px;height:15px;color:#475467}
+.new-room .st{font-size:11px;margin-top:6px;color:#667085;display:flex;align-items:center;gap:5px}
+.new-room .st .free{width:6px;height:6px;border-radius:50%;background:#12b76a}
+.new-room .st .busy{width:6px;height:6px;border-radius:50%;background:#f04438}
+.new-btns button{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:6px;font-weight:600;font-size:12px;margin-right:6px;cursor:pointer;font-family:inherit}
+.new-btns .p{background:#2d5a96;color:#fff;border:1px solid #2d5a96}
+.new-btns .p:hover{background:#264e83}
+.new-btns .s{background:#fff;color:#344054;border:1px solid #d0d5dd}
+.new-btns .s:hover{background:#f9fafb}
+.new-btns .d{background:#fff;color:#b42318;border:1px solid #fecdca}
+.new-btns svg.lucide{width:14px;height:14px}
+.note{font-size:11px;color:#667085;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:9px 12px;margin-top:10px;line-height:1.7}
+.ok-bar{position:sticky;bottom:12px;background:#101828;color:#fff;border-radius:8px;padding:12px 18px;font-size:12.5px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>디자인 개선 시안 — 이모지 제거 · 경계선 강조 제거</h1>
+  <div class="sub">왼쪽(AS-IS) = 현재 시스템 그대로 재현 · 오른쪽(TO-BE) = 개선안. OK 주시면 전체 시스템에 동일 규칙으로 적용합니다.</div>
+
+  <!-- ═════ 1. 할 일 카드 ═════ -->
+  <div class="sec">
+    <div class="sec-t">1. 할 일 카드 — 두꺼운 색 테두리·알록달록 뱃지 → 중립 카드 + 작은 상태 라벨</div>
+    <div class="duo">
+      <div class="pane"><div class="pane-h asis">AS-IS (현재)</div><div class="pane-b">
+        <div class="old-task">
+          <span class="old-badge">핵심</span>
+          <div class="t">[오늘] 용접 검사 일정 확정 — 발주처 입회 정상 진행 확인</div>
+          <div class="m">SJ435-26 · 브이엠 이차전지</div>
+        </div>
+        <div class="old-task warn">
+          <span class="old-badge warn">긴급</span>
+          <div class="t">삼성 프로젝트 NCR 회신 — 품질관리부 확인 요청</div>
+          <div class="m">SJ431-25 · 부서업무</div>
+        </div>
+      </div></div>
+      <div class="pane"><div class="pane-h tobe">TO-BE (개선안)</div><div class="pane-b">
+        <div class="new-task">
+          <div class="top"><span class="new-tag"><span class="dot"></span>핵심</span><span style="font-size:10.5px;color:#98a2b3">오늘</span></div>
+          <div class="t">용접 검사 일정 확정 — 발주처 입회 정상 진행 확인</div>
+          <div class="m"><i data-lucide="folder"></i>SJ435-26 · 브이엠 이차전지</div>
+        </div>
+        <div class="new-task">
+          <div class="top"><span class="new-tag warn"><span class="dot"></span>긴급</span></div>
+          <div class="t">삼성 프로젝트 NCR 회신 — 품질관리부 확인 요청</div>
+          <div class="m"><i data-lucide="folder"></i>SJ431-25 · 부서업무</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ═════ 2. 사이드바 메뉴 ═════ -->
+  <div class="sec">
+    <div class="sec-t">2. 사이드바 메뉴 — 이모지 → Lucide 아이콘 (선 굵기 일정, 색 통일)</div>
+    <div class="duo">
+      <div class="pane"><div class="pane-h asis">AS-IS (현재)</div><div class="pane-b">
+        <div class="old-nav">
+          <div class="ni on">🏠 대시보드</div>
+          <div class="ni">📅 캘린더</div>
+          <div class="ni">📊 프로젝트</div>
+          <div class="ni">💬 메신저</div>
+          <div class="ni">🎙 회의실·회의록</div>
+          <div class="ni">📝 결재</div>
+        </div>
+      </div></div>
+      <div class="pane"><div class="pane-h tobe">TO-BE (개선안)</div><div class="pane-b">
+        <div class="new-nav">
+          <div class="ni on"><i data-lucide="layout-dashboard"></i>대시보드</div>
+          <div class="ni"><i data-lucide="calendar-days"></i>캘린더</div>
+          <div class="ni"><i data-lucide="chart-gantt"></i>프로젝트</div>
+          <div class="ni"><i data-lucide="message-square"></i>메신저</div>
+          <div class="ni"><i data-lucide="mic"></i>회의실·회의록</div>
+          <div class="ni"><i data-lucide="file-check-2"></i>결재</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ═════ 3. 회의실 카드 ═════ -->
+  <div class="sec">
+    <div class="sec-t">3. 상태 카드 — 상단 색 띠 제거, 상태는 점 하나로</div>
+    <div class="duo">
+      <div class="pane"><div class="pane-h asis">AS-IS (현재)</div><div class="pane-b" style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="old-room"><div class="rn">🏛 대회의실</div><div class="st"><b>○ 비어있음</b><br>다음: 14:00 공정 점검</div></div>
+        <div class="old-room" style="border-top-color:#f59e0b"><div class="rn">⚙️ 구동부 슈퍼바이저룸</div><div class="st"><b style="color:#dc2626">● 사용중</b> 이재규 부장</div></div>
+      </div></div>
+      <div class="pane"><div class="pane-h tobe">TO-BE (개선안)</div><div class="pane-b" style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="new-room"><div class="rn"><i data-lucide="landmark"></i>대회의실</div><div class="st"><span class="free"></span>비어있음 · 다음 14:00 공정 점검</div></div>
+        <div class="new-room"><div class="rn"><i data-lucide="settings-2"></i>구동부 슈퍼바이저룸</div><div class="st"><span class="busy"></span>사용중 · 이재규 부장 ~16:00</div></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ═════ 4. 버튼 ═════ -->
+  <div class="sec">
+    <div class="sec-t">4. 버튼 — 원색 남발(파랑·빨강·보라·초록) → 주요 1색 + 회색, 아이콘 동반</div>
+    <div class="duo">
+      <div class="pane"><div class="pane-h asis">AS-IS (현재)</div><div class="pane-b old-btns">
+        <button class="b1">+ 회의실 예약</button><button class="b2">🎙 새 회의 녹음</button><button class="b3">🤖 AI 회의록 생성</button>
+      </div></div>
+      <div class="pane"><div class="pane-h tobe">TO-BE (개선안)</div><div class="pane-b new-btns">
+        <button class="p"><i data-lucide="plus"></i>회의실 예약</button>
+        <button class="s"><i data-lucide="mic"></i>새 회의 녹음</button>
+        <button class="s"><i data-lucide="sparkles"></i>AI 회의록 생성</button>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>TO-BE 적용 규칙 (전체 시스템 공통)</b><br>
+    ① 이모지 전부 제거 → Lucide 아이콘 (16px, stroke 1.8, 회색 #667085 기본 / 활성 시 남색)<br>
+    ② 카드의 두꺼운 색 테두리(왼쪽 5px 빨간 줄, 상단 3px 색 띠) 제거 → 1px 회색 테두리 + 호버 시만 옅은 그림자<br>
+    ③ 상태 표현: 원색 꽉 찬 뱃지 → 연한 배경 + 테두리 + 작은 점 라벨 (핵심=빨강 계열, 긴급=주황 계열, 완료=초록 계열)<br>
+    ④ 모서리 12px → 6px, 색상 3~4가지로 제한 (남색 #2d5a96 · 회색 계열 · 빨강/초록은 상태에만)<br>
+    ⑤ 버튼: 주요 동작 1개만 남색 채움, 나머지는 흰 배경 + 회색 테두리
+  </div>
+
+  <div class="ok-bar"><i data-lucide="eye" style="width:16px;height:16px"></i>
+    이 방향이 맞으면 "ㅇㅋ" 주세요 — index.html + 전 모듈(WBS·회의·자산·측정기구 등)에 같은 규칙으로 일괄 적용합니다. 특정 부분만 다르게 하고 싶으면 번호로 말씀해 주세요 (예: "3번은 색 띠 유지").
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>
