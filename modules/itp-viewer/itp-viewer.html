@@ -174,15 +174,15 @@ function renderProj() {
   const savedAt = doc.savedAt ? new Date(doc.savedAt).toISOString().replace('T',' ').slice(0,16) : '';
 
   const rows = items.map((it, i) => {
-    const rowCount = Array.isArray(it.rows) ? it.rows.length : 0;
+    const rowCount = _itpRows(doc, it).length;
     const label = ((it.name || it.tag || '아이템') + (it.tag ? ' · ' + it.tag : '')).replace(/'/g,'');
     return `<div class="item-row" onclick="goItem(${i})">
       <div class="no">#${i+1}</div>
       <div class="nm">${esc(it.name || it.tag || '(이름 없음)')} ${it.tag ? `<span style="font-weight:400;color:var(--text-light);">· ${esc(it.tag)}</span>` : ''}</div>
       <div class="badges">
-        ${it.spec ? `<span class="badge">${esc(it.spec)}</span>` : ''}
+        ${it.type ? `<span class="badge">${esc(it.type)}</span>` : ''}
         <span class="badge gray">${rowCount}행</span>
-        ${it.docNo ? `<span class="badge">${esc(it.docNo)}${it.rev?' Rev.'+esc(it.rev):''}</span>` : ''}
+        ${_itpDocNo(doc, it) ? `<span class="badge">${esc(_itpDocNo(doc, it))}${_itpRev(doc,it)?' Rev.'+esc(_itpRev(doc,it)):''}</span>` : ''}
       </div>
       <button onclick="event.stopPropagation();deleteItpItem('${esc(doc.pid)}','${esc(it.id||'')}',${i},'${esc(label)}')" title="이 아이템만 삭제" style="flex-shrink:0;background:#fff5f5;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;">🗑</button>
       <div class="arrow">›</div>
@@ -213,6 +213,19 @@ function renderProj() {
   `;
 }
 
+// v1.3: ITP Builder 저장 구조에 맞춘 행/헤더 접근 헬퍼.
+//   검사항목은 item.rows가 아니라 doc.itpRowsByItem[itemId]에 저장됨(빌더 v2.1+ 구조).
+//   행 필드: {activity, code, criteria, doc, witness:{sj,qc,client}, remarks}
+//   Document No/Rev도 doc.itpDocNoByItem / itpRevByItem 맵에 아이템별로 저장.
+function _itpRows(doc, it) {
+  const m = doc.itpRowsByItem || {};
+  const r = m[it.id] || m[String(it.id)];
+  if (Array.isArray(r)) return r;
+  return Array.isArray(it.rows) ? it.rows : [];   // 구버전 폴백
+}
+function _itpDocNo(doc, it) { const m = doc.itpDocNoByItem||{}; return m[it.id] || m[String(it.id)] || it.docNo || ''; }
+function _itpRev(doc, it) { const m = doc.itpRevByItem||{}; return m[it.id] || m[String(it.id)] || it.rev || ''; }
+
 function renderItem() {
   const doc = state.itpDocs.find(d => d.pid === state.selectedPid);
   if (!doc) return renderList();
@@ -220,21 +233,22 @@ function renderItem() {
   const it = items[state.selectedItem];
   if (!it) return renderProj();
   const lbl = projLabel(doc);
-  const rows = Array.isArray(it.rows) ? it.rows : [];
-  const wc = Array.isArray(it.witnessCols) ? it.witnessCols : [];
+  const rows = _itpRows(doc, it).filter(r => r && !r.specOnly === !r.specOnly);   // 전체 표시(specOnly 포함)
+  const docNo = _itpDocNo(doc, it), rev = _itpRev(doc, it);
 
-  // 표 헤더: 순번 · 항목 · 규격/기준 · 검사방법 · 판정기준 · (Witness cols…) · 비고
-  const wcHeader = wc.map(c => `<th class="center">${esc(c)}</th>`).join('');
+  // 컬럼: No · Inspection Activity · Applicable Code/DWG · Acceptance Criteria · Verifying Doc · SJ · QC · Client · Remarks
   const bodyRows = rows.map((r, i) => {
-    const wcCells = wc.map(c => `<td class="center">${esc(r[c] || '')}</td>`).join('');
+    const w = r.witness || {};
     return `<tr>
       <td class="center" style="color:var(--text-light);">${i+1}</td>
-      <td>${esc(r.act || r.activity || r.item || '')}</td>
-      <td>${esc(r.spec || r.criteria || '')}</td>
-      <td>${esc(r.method || r.insp || '')}</td>
-      <td>${esc(r.acceptance || r.accept || '')}</td>
-      ${wcCells}
-      <td>${esc(r.remark || r.remarks || '')}</td>
+      <td>${esc(r.activity || r.act || r.item || '')}</td>
+      <td style="white-space:pre-line;">${esc(r.code || '')}</td>
+      <td style="white-space:pre-line;">${esc(r.criteria || r.spec || '')}</td>
+      <td>${esc(r.doc || r.method || '')}</td>
+      <td class="center">${esc(w.sj || '')}</td>
+      <td class="center">${esc(w.qc || '')}</td>
+      <td class="center">${esc(w.client || '')}</td>
+      <td>${esc(r.remarks || r.remark || '')}</td>
     </tr>`;
   }).join('');
 
@@ -247,7 +261,7 @@ function renderItem() {
     <div class="hd">
       <div>
         <h1>${esc(it.name || it.tag || '(이름 없음)')} ${it.tag ? `<span style="font-size:13px;font-weight:400;color:var(--text-light);">· ${esc(it.tag)}</span>` : ''}</h1>
-        <div class="sub">${it.spec ? esc(it.spec) + ' · ' : ''}${it.docNo ? esc(it.docNo) + (it.rev ? ' Rev.'+esc(it.rev) : '') : ''}</div>
+        <div class="sub">${it.type ? esc(it.type) + ' · ' : ''}${docNo ? esc(docNo) + (rev ? ' Rev.'+esc(rev) : '') : ''}</div>
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 아이템 목록</button>
@@ -259,10 +273,15 @@ function renderItem() {
       ${rows.length ? `<div style="overflow-x:auto;">
         <table class="itp-table">
           <thead><tr>
-            <th class="center" style="width:40px;">#</th>
-            <th>항목</th><th>규격/기준</th><th>검사방법</th><th>판정기준</th>
-            ${wcHeader}
-            <th>비고</th>
+            <th class="center" style="width:36px;">#</th>
+            <th style="width:15%;">Inspection Activity</th>
+            <th style="width:18%;">Applicable Code / DWG</th>
+            <th style="width:26%;">Acceptance Criteria</th>
+            <th style="width:11%;">Verifying Doc.</th>
+            <th class="center" style="width:5%;">SJ</th>
+            <th class="center" style="width:5%;">QC</th>
+            <th class="center" style="width:6%;">Client</th>
+            <th>Remarks</th>
           </tr></thead>
           <tbody>${bodyRows}</tbody>
         </table>
