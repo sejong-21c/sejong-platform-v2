@@ -1774,6 +1774,13 @@ function switchMod(id) {
   view.selectedTool = null;
   view.selectedTraveller = null;
   view.travProj = null;
+  // v29.36: 도구 하위 선택 상태도 모두 정리 — 안 지우면 나중에 그 도구로 다시 들어갈 때
+  // iframeViewKey()가 stale 키를 반환해 render() 가드가 재생성을 스킵, "이동 안 됨"으로 보임.
+  view.deptSchedProj = null;
+  view.itpSelectedProj = null; view.itpSelectedItem = null;
+  view.qaSelectedProj = null; view.mobileSelectedProj = null;
+  // 콘텐츠 iframe 키 초기화 — 다음 render()가 반드시 새로 그리도록
+  var _c = document.getElementById('content'); if (_c) _c.dataset.ifkey = '';
   document.getElementById('hTitle').innerHTML = navItem ? navItem.label : '대시보드';
   document.getElementById('sb').classList.remove('mobile-open');
   renderNav();
@@ -1793,6 +1800,9 @@ function openTool(tid, deptName) {
   view.selectedTraveller = null;
   // v29: 부서 스케줄 — 어느 부서에서 열었는지 기억 (없으면 로그인 사용자 부서)
   if (tid === 'deptsch') { view.deptSchedDept = deptName || getU(state.currentUser).dept || ''; view.deptSchedProj = null; }
+  // v29.36: iframe 키 초기화 — 이전 화면과 같은 도구라도 하위 선택이 바뀌었을 때
+  // render() 가드가 재생성을 스킵해 "이동 안 됨"으로 보이던 문제 예방.
+  var _ct = document.getElementById('content'); if (_ct) _ct.dataset.ifkey = '';
   const t = TOOLS[tid];
   const deptLabel = deptName || ((tid === 'asset') ? '총무부' : '품질관리부');
   document.getElementById('hTitle').innerHTML = `<span style="color:var(--text-light);font-size:14px;">부서 도구함 / ${deptLabel}</span> <span style="color:var(--text-lighter);">›</span> ${t.icon} ${t.name} <span style="font-size:11px;color:var(--text-light);font-weight:400;">${t.ver}</span>`;
