@@ -559,7 +559,10 @@
     throw lastErr || new Error('사용 가능한 키/모델이 없습니다');
   }
 
+  var lastLocalFail = '';   // v29.45.1: 로컬 LLM이 설정됐지만 실패한 사유 (진단 안내용)
+
   async function callProviderOnce(h, onStatus) {
+    lastLocalFail = '';
     var gw = getGatewayUrl();
     var avail = PROVIDER_CHAIN.filter(function (p) {
       if (p.localOnly) return !!getLocalUrl();          // 로컬 LLM은 이 컴퓨터에 주소가 설정됐을 때만
@@ -582,13 +585,16 @@
           : e.status === 429 ? '무료 한도 초과'
           : e.status === 402 ? '해당 계정 무료 플랜 미설정'
           : e.status === 501 ? '게이트웨이에 키 미등록'
-          : e.name === 'AbortError' ? '시간 초과'
-          : e.status ? ('오류 ' + e.status) : '연결 실패';
+          : e.name === 'AbortError' ? '시간 초과(모델 로딩이 오래 걸리는 중일 수 있음)'
+          : e.status ? ('오류 ' + e.status) : '연결 실패(CORS 미허용 또는 서버 꺼짐)';
+        // 로컬 LLM 실패는 원인을 구체적으로 남겨 진단 안내에 쓴다
+        if (p.localOnly) lastLocalFail = why + (e.status ? '' : ' — ' + (e.message || e).toString().slice(0, 120));
         fails.push(p.label + '(' + why + ')');
       }
     }
     throw new Error('모든 AI 호출 실패: ' + fails.join(', ') + ' — 잠시 후 다시 시도하거나 🔑에서 키를 확인해주세요.');
   }
+  window.SJP_AI_lastLocalFail = function () { return lastLocalFail; };
 
   async function executeFunctionCall(name, args) {
     if (name === 'query_state') return queryState(args.collection);
@@ -703,6 +709,7 @@
         lsSet(LOCAL_URL_LS, luEl ? luEl.value.trim() : '');
         lsSet(LOCAL_MODEL_LS, lmEl ? lmEl.value.trim() : '');
         _localModelCache = '';   // 주소·모델 바뀌었으니 자동 감지 캐시 초기화
+        localFailHintShown = false;   // 설정을 바꿨으니 실패 안내를 다시 볼 수 있게
         keyProviders.forEach(function (p) {
           var el = $id('aiKeys_' + p.id);
           lsSet(p.ls, el ? el.value.split(/[\s,;]+/).filter(Boolean).join('\n') : '');
@@ -748,6 +755,7 @@
   }
 
   var aiBusy = false;
+  var localFailHintShown = false;   // v29.45.1: 로컬 LLM 실패 안내는 세션당 1회
   window.sendAiMessage = async function () {
     var input = $id('aiInput');
     var text = input.value.trim();
@@ -770,6 +778,11 @@
       appendMsg('assistant', reply);
       if (lastProviderLabel) appendMsg('system', '— ' + lastProviderLabel);
       logAiUsage(true, lastProviderLabel);
+      // v29.45.1: 로컬 LLM을 설정했는데 실패해서 다른 곳으로 넘어갔으면, 원인을 세션당 1회 안내
+      if (getLocalUrl() && lastLocalFail && lastProviderLabel.indexOf('로컬') === -1 && !localFailHintShown) {
+        localFailHintShown = true;
+        appendMsg('system', '🖥 내 컴퓨터 LLM으로 답하지 못해 다른 AI로 넘어갔어요 (' + lastLocalFail + ').\n확인: ① LM Studio에서 모델을 로드(Load)했는지 ② Start Server가 켜졌는지 ③ 서버 설정에서 Enable CORS 체크 ④ 주소가 http://localhost:1234/v1 인지.');
+      }
     } catch (e) {
       thinkingEl.remove();
       appendMsg('system', '오류: ' + (e.message || e));
