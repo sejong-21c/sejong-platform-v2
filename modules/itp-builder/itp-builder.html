@@ -514,7 +514,7 @@ const LOGO_FB = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BS
 
 const ITYPES = ["Pressure Vessel", "Reactor (Mixing Tank)", "Condenser / Heat Exchanger", "Storage Tank"];
 const CODES = ["KS", "ASME", "TEMA", "EN", "API", "Others"];
-const POPTS = ["S", "H", "W", "R", "N/A"];
+const POPTS = ["S", "H", "W", "SW", "R", "N/A"];
 const HEAD_TYPES = ["2:1 Ellip.", "10% Torispherical (F&D)", "Torispherical", "Hemispherical", "Flat", "Conical", "CAP (B16.9)"];
 
 const DEF_ITEM = {
@@ -1087,7 +1087,7 @@ function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, wi
 
     <div style={{marginTop:4, fontSize:9, color:"#444", lineHeight:1.7}}>
       1. The inspection process may be changed by the supplier's manufacturing condition.<br/>
-      2. I&amp;T Activities: S-Supplier, R-Report Review, W-Witness, H-Hold Point<br/>
+      2. I&amp;T Activities: S-Supplier, R-Report Review, W-Witness, SW-Spot Witness, H-Hold Point, N/A-Not Applicable<br/>
       3. 노란색 행(📋 Spec)은 고객 시방서에서 추출한 추가 요구사항입니다.
     </div>
   </div>;
@@ -1749,7 +1749,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           const rid = String(r.id || (idx+1)).padStart(2, "0");
           const ph = rid <= "05" ? 0 : rid <= "14" ? 1 : 2;
           const clientVal = (r.witness && r.witness.client) || r.client;
-          const pt = ["H","W","R","S","N/A"].includes(clientVal) ? clientVal : "W";
+          const pt = ["H","W","SW","R","S","N/A"].includes(clientVal) ? clientVal : "W";
           return { id: rid, item: r.activity || "", ph: ph, pt: pt, crit: r.criteria || "" };
         });
         if (tplItems.length > 0) window.SJP.bridge.setItpTemplate(epc.id, tplItems);

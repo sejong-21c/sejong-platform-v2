@@ -439,7 +439,7 @@ const iR=()=>TPL.reduce((a,t)=>{a[t.id]={result:"-",actual:"",criteria:t.crit,ob
 // v30.6: 승인된 ITP Builder(t_itpBuilderDocs) 검사행 → 이 Traveller 아이템 체크리스트로 복사.
 //   witness{sj,qc,client}(S/R/W/H)에서 가장 강한 Inspection Point 하나를 뽑고,
 //   activity 키워드로 단계(검사준비0/검사중1/검사후2)를 추정. 진행 기록 있으면 확인 후 덮어씀.
-function _ptFromWitness(w){ w=w||{}; const vals=[w.sj,w.qc,w.client]; for(const p of ["H","W","R","S"]){ if(vals.indexOf(p)>=0) return p; } return "W"; }
+function _ptFromWitness(w){ w=w||{}; const vals=[w.sj,w.qc,w.client]; for(const p of ["H","W","SW","R","S"]){ if(vals.indexOf(p)>=0) return p; } return "W"; }
 function _itpPhase(a){ a=(a||"").toLowerCase();
   if(/\bpo\b|datasheet|document|drawing|도면|mill|wps|pqr|wpq|procedure|절차서|검토|승인|material/.test(a)) return 0;
   if(/final|ship|nameplate|packing|paint|dft|출하|포장|최종/.test(a)) return 2;
@@ -1474,7 +1474,7 @@ function rModals(){
       <div style="margin-bottom:7px"><div class="fl">항목명</div><input data-draft="itpForm" data-k="item" value="${(f.item||"").replace(/"/g,'&quot;')}" placeholder="검사 항목명 입력" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
       <div style="display:flex;gap:6px;margin-bottom:7px">
         <div style="flex:1"><div class="fl">단계</div><select data-draft="itpForm" data-k="ph" class="fi"><option value="0"${(f.ph===0||f.ph==="0")?" selected":""}>검사 준비</option><option value="1"${(!f.ph||f.ph===1||f.ph==="1")?" selected":""}>검사 중</option><option value="2"${(f.ph===2||f.ph==="2")?" selected":""}>검사 후</option></select></div>
-        <div style="flex:1"><div class="fl">Inspection Point</div><select data-draft="itpForm" data-k="pt" class="fi"><option${(f.pt||"W")==="H"?" selected":""}>H</option><option${(f.pt||"W")==="W"?" selected":""}>W</option><option${(f.pt||"W")==="R"?" selected":""}>R</option><option${(f.pt||"W")==="S"?" selected":""}>S</option></select></div>
+        <div style="flex:1"><div class="fl">Inspection Point</div><select data-draft="itpForm" data-k="pt" class="fi"><option${(f.pt||"W")==="H"?" selected":""}>H</option><option${(f.pt||"W")==="W"?" selected":""}>W</option><option${(f.pt||"W")==="SW"?" selected":""}>SW</option><option${(f.pt||"W")==="R"?" selected":""}>R</option><option${(f.pt||"W")==="S"?" selected":""}>S</option></select></div>
       </div>
       <div style="margin-bottom:10px"><div class="fl">Acceptance Criteria</div><input data-draft="itpForm" data-k="crit" value="${(f.crit||"").replace(/"/g,'&quot;')}" placeholder="합격 기준" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
@@ -1492,7 +1492,7 @@ function rModals(){
       <div style="margin-bottom:7px"><div class="fl">항목명</div><input data-draft="editITPForm" data-k="item" value="${((f.item!==undefined?f.item:t.item)||"").replace(/"/g,'&quot;')}" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
       <div style="display:flex;gap:6px;margin-bottom:7px">
         <div style="flex:1"><div class="fl">단계</div><select data-draft="editITPForm" data-k="ph" class="fi"><option value="0"${((f.ph!==undefined?f.ph:t.ph)===0||(f.ph!==undefined?f.ph:t.ph)==="0")?" selected":""}>검사 준비</option><option value="1"${((f.ph!==undefined?f.ph:t.ph)===1||(f.ph!==undefined?f.ph:t.ph)==="1"||(f.ph!==undefined?f.ph:t.ph)===undefined)?" selected":""}>검사 중</option><option value="2"${((f.ph!==undefined?f.ph:t.ph)===2||(f.ph!==undefined?f.ph:t.ph)==="2")?" selected":""}>검사 후</option></select></div>
-        <div style="flex:1"><div class="fl">Inspection Point</div><select data-draft="editITPForm" data-k="pt" class="fi"><option${(f.pt!==undefined?f.pt:t.pt)==="H"?" selected":""}>H</option><option${(f.pt!==undefined?f.pt:t.pt)==="W"?" selected":""}>W</option><option${(f.pt!==undefined?f.pt:t.pt)==="R"?" selected":""}>R</option><option${(f.pt!==undefined?f.pt:t.pt)==="S"?" selected":""}>S</option></select></div>
+        <div style="flex:1"><div class="fl">Inspection Point</div><select data-draft="editITPForm" data-k="pt" class="fi"><option${(f.pt!==undefined?f.pt:t.pt)==="H"?" selected":""}>H</option><option${(f.pt!==undefined?f.pt:t.pt)==="W"?" selected":""}>W</option><option${(f.pt!==undefined?f.pt:t.pt)==="SW"?" selected":""}>SW</option><option${(f.pt!==undefined?f.pt:t.pt)==="R"?" selected":""}>R</option><option${(f.pt!==undefined?f.pt:t.pt)==="S"?" selected":""}>S</option></select></div>
       </div>
       <div style="margin-bottom:10px"><div class="fl">Acceptance Criteria</div><input data-draft="editITPForm" data-k="crit" value="${((f.crit!==undefined?f.crit:t.crit)||"").replace(/"/g,'&quot;')}" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
@@ -3036,7 +3036,7 @@ function prTravellerPrint(){
   const its = getI(p.id);
   if(!its || its.length===0){ alert("이 프로젝트에 등록된 아이템이 없습니다.\nManufacture Manager에서 아이템을 먼저 등록하세요."); return; }
 
-  const ptLabel = {R:"R (Review)", W:"W (Witness)", H:"H (Hold)", S:"S (Surveillance)"};
+  const ptLabel = {R:"R (Review)", W:"W (Witness)", SW:"SW (Spot Witness)", H:"H (Hold)", S:"S (Surveillance)"};
   const today = new Date().toISOString().slice(0,10);
 
   // 아이템별 제작공정표 블록 생성
@@ -3123,7 +3123,7 @@ function prTravellerPrint(){
     <span>PO No: <b>${p.po||"-"}</b></span>
     <span>출력일: <b>${today}</b></span>
   </div>
-  <div class="trv-legend">※ P/H 구분: R(Review·서류검토) / W(Witness·입회) / H(Hold·정지점) / S(Surveillance·순회)</div>
+  <div class="trv-legend">※ P/H 구분: R(Review·서류검토) / W(Witness·입회) / SW(Spot Witness·불시입회) / H(Hold·정지점) / S(Surveillance·순회)</div>
   ${blocks}
   <div class="trv-foot">
     <span>ⓒ Designed by Quality Control Dept. · Sejong-Platform</span>
