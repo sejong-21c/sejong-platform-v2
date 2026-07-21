@@ -962,22 +962,56 @@
     "runAt": "정오 업데이트 (12:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-07-20 16:35 (오후 정리 자동 실행)",
-    "newMails": 6,
-    "processed": 6,
-    "urgentReplies": 0,
-    "ncr": 0,
-    "car": 0,
+    "generatedAt": "2026-07-21 16:35 (오후 정리 자동 실행)",
+    "newMails": 7,
+    "processed": 7,
+    "urgentReplies": 1,
+    "ncr": 1,
+    "car": 1,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "신안건업 삼성전기 ITP 보완서류(용접사 인정 등) 회신 확인",
+        "text": "신안건업 WPS 수정본 검토 후 회신 초안 발송",
         "proj": "SJ435-26",
+        "priority": "high"
+      },
+      {
+        "text": "CAR 26-CAR-009 전 직원 품질교육 실시 (~7/31)",
+        "proj": "SJE437-26",
+        "priority": "high"
+      },
+      {
+        "text": "NCR SJ-NCR-2026-16 자재 사용 승인 여부 확인 (10시 회의 결과)",
+        "proj": "SJE437-26",
         "priority": "mid"
+      },
+      {
+        "text": "KHNP 유자격등록 신용평가서 재제출",
+        "proj": "품질보증",
+        "priority": "mid"
+      },
+      {
+        "text": "삼성전기 BT-6LINE 자동밸브 테스트 확정 회신 확인 (7/24)",
+        "proj": "SJ435-26",
+        "priority": "low"
       }
     ],
-    "urgentList": [],
-    "schedule": []
+    "urgentList": [
+      {
+        "subject": "신안건업 - 삼성전기 WPS관련 수정파일 송부의 건",
+        "from": "신안건업(주) 이현문",
+        "proj": "SJ435-26"
+      }
+    ],
+    "schedule": [
+      {
+        "title": "[SJE437-26] 진양화성 Heat No. 불일치 검토 회의",
+        "date": "2026-07-21",
+        "time": "10:00",
+        "proj": "SJE437-26",
+        "color": "blue"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-07-16 (daily-mail-swkim 자동 실행)",
