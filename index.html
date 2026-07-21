@@ -3018,9 +3018,9 @@ function renderITPBuilder() {
               <span class="itp-tag">${it.tag}</span>
               <span style="font-size:10px;background:var(--bg);padding:1px 6px;border-radius:3px;">${it.type}</span>
             </div>
-            <div style="font-size:12px;font-weight:500;margin-bottom:2px;">${it.name}</div>
-            <div style="font-size:10px;color:var(--text-light);">${it.material||'-'}</div>
-            <div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">${it.spec}</div>
+            <div style="font-size:12px;font-weight:500;margin-bottom:2px;${it.name?'':'color:var(--text-lighter);font-style:italic;'}">${it.name || '(이름 미입력)'}</div>
+            <div style="font-size:10px;color:var(--text-light);">${it.material ? '재질: '+it.material : '<span style="color:var(--text-lighter)">재질 미입력</span>'}</div>
+            ${it.spec ? `<div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">${it.spec}</div>` : ''}
           </div>
         `).join('')}
 
