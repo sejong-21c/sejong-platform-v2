@@ -3080,7 +3080,16 @@ function renderITPBuilder() {
 }
 
 
-function setITPItem(iid) { view.itpSelectedItem = iid; render(); }
+function setITPItem(iid) {
+  view.itpSelectedItem = iid;
+  // 전체 render() 시 좌측 아이템 목록(.itp-side)이 새로 그려지며 스크롤이 맨 위로 튀는 문제 방지:
+  // 클릭 전 스크롤 위치를 저장했다가 다시 그린 직후(브라우저 페인트 전) 복원한다.
+  const _side = document.querySelector('.itp-side');
+  const _y = _side ? _side.scrollTop : 0;
+  render();
+  const _side2 = document.querySelector('.itp-side');
+  if (_side2) _side2.scrollTop = _y;
+}
 
 /* ═════════════ QA Doc Generator Inline ═════════════ */
 // ══════════ QA Doc Generator iframe (modules/qa-doc-generator/qa-doc-generator.html) ══════════
