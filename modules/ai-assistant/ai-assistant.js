@@ -6,7 +6,9 @@
  * v29.39: 회사당 키 여러 개(여러 계정) 등록 + 키 자동 교대. Cerebras·Mistral 추가.
  * v29.41: 회사 게이트웨이(Cloudflare Worker, gateway/ 폴더) 연동 — 설정되면 서버에 보관된
  * 회사 공용 키를 먼저 쓰고(개인 키 불필요), 실패 시 개인 키로 폴백. NVIDIA는 게이트웨이 전용.
- * 우선순위: Gemini → Groq → Cerebras → NVIDIA → OpenRouter → Mistral → Claude(유료).
+ * v29.45: 로컬 LLM(LM Studio / Ollama) 연동 — 이 컴퓨터 주소가 설정되면 0순위로 먼저 시도,
+ * 꺼져 있거나 실패하면 자동으로 무료 API 체인으로 폴백. 주소는 기기별 localStorage 저장.
+ * 우선순위: 로컬 LLM → Gemini → Groq → Cerebras → NVIDIA → OpenRouter → Mistral → Claude(유료).
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -45,11 +47,36 @@
     return u ? u.replace(/\/+$/, '') : '';
   }
 
+  // v29.45: 로컬 LLM(LM Studio / Ollama) — 이 컴퓨터에서 돌리는 모델. 설정되면 0순위(무료·무제한·사내보안).
+  //   HTTPS 페이지에서 http://localhost 호출은 브라우저가 예외 허용(localhost는 신뢰 출처).
+  //   단, LM Studio는 "Enable CORS", Ollama는 OLLAMA_ORIGINS 설정이 있어야 브라우저가 접근 가능.
+  //   주소·모델은 이 컴퓨터 localStorage에만 저장 → 설정한 기기에서만 로컬 모델이 쓰인다.
+  var LOCAL_URL_LS = 'sjp_ai_local_url';       // 예: http://localhost:1234/v1  (LM Studio) / http://localhost:11434/v1 (Ollama)
+  var LOCAL_MODEL_LS = 'sjp_ai_local_model';   // 비우면 서버에 로드된 모델을 자동 감지
+  function getLocalUrl() { var u = lsGet(LOCAL_URL_LS).trim(); return u ? u.replace(/\/+$/, '') : ''; }
+  function getLocalModel() { return lsGet(LOCAL_MODEL_LS).trim(); }
+  var _localModelCache = '';
+  async function resolveLocalModel(base, signal) {
+    var explicit = getLocalModel();
+    if (explicit) return explicit;
+    if (_localModelCache) return _localModelCache;
+    try {
+      var res = await fetch(base + '/models', { signal: signal });
+      if (res.ok) { var d = await res.json(); var first = ((d.data || [])[0] || {}).id; if (first) { _localModelCache = first; return first; } }
+    } catch (e) {}
+    return 'local-model';
+  }
+
   // 모델명은 각 회사에서 계속 갱신되므로 배열 앞에서부터 시도하고,
   // 없어진 모델(404/400)이면 자동으로 다음 모델을 시도한다.
   // Gemini 최신 모델 확인: https://ai.google.dev/gemini-api/docs/models
   var CLAUDE_MODEL = 'claude-sonnet-4-20250514';
   var PROVIDER_CHAIN = [
+    // v29.45: 로컬 LLM — 이 컴퓨터에서 돌리면 0순위. 주소가 있는 기기에서만 활성(localStorage 저장).
+    //   게이트웨이/키 목록을 쓰지 않고 로컬 주소로 직접 호출한다(localOnly). 모델은 tryProvider에서 결정.
+    { id: 'local', label: '로컬 LLM', ls: null, localOnly: true,
+      note: '로컬 LLM — 이 컴퓨터의 LM Studio / Ollama (무료·무제한)',
+      models: [] },
     { id: 'gemini', label: 'Gemini', ls: GEMINI_KEY_LS, signup: 'https://aistudio.google.com/apikey',
       note: 'Gemini — 키 1개당 하루 1,500회',
       models: ['gemini-flash-latest', 'gemini-2.5-flash'] },
@@ -76,8 +103,8 @@
   ];
   // v29.39: 한 회사에 키 여러 개(여러 계정) 등록 가능 — 줄바꿈·쉼표·공백으로 구분
   function keysOf(p) { return p.ls ? lsGet(p.ls).split(/[\s,;]+/).filter(Boolean) : []; }
-  // 게이트웨이 주소가 있으면 개인 키가 없어도 사용 가능
-  function hasAnyKey() { return !!getGatewayUrl() || PROVIDER_CHAIN.some(function (p) { return keysOf(p).length; }); }
+  // 게이트웨이 주소·로컬 LLM 주소가 있으면 개인 키가 없어도 사용 가능
+  function hasAnyKey() { return !!getGatewayUrl() || !!getLocalUrl() || PROVIDER_CHAIN.some(function (p) { return keysOf(p).length; }); }
   // 마지막으로 성공한 키 번호를 기억해 다음 요청은 그 키부터 시작
   // (한도가 소진된 키를 매 질문마다 다시 두드려 느려지는 것을 방지)
   var KEY_CURSOR_LS = 'sjp_ai_key_cursor';
@@ -489,6 +516,19 @@
 
   // 한 회사 안에서: 소스(회사 게이트웨이 → 내 키들)를 교대하고, 소스마다 모델 목록을 시도한다.
   async function tryProvider(p, h) {
+    // v29.45: 로컬 LLM은 게이트웨이/키가 아니라 이 컴퓨터 주소로 직접 호출. 첫 응답이 느릴 수 있어 120초.
+    if (p.localOnly) {
+      var base = getLocalUrl();
+      if (!base) throw new Error('로컬 LLM 주소가 없습니다');
+      var ctlL = new AbortController();
+      var timerL = setTimeout(function () { ctlL.abort(); }, 120000);
+      try {
+        var model = await resolveLocalModel(base, ctlL.signal);
+        var rL = await callOpenAiCompatOnce('로컬 LLM', base + '/chat/completions', null, model, h, ctlL.signal);
+        clearTimeout(timerL);
+        return { result: rL, viaGateway: false };
+      } catch (e) { clearTimeout(timerL); throw e; }
+    }
     var sources = [];                                   // null = 회사 게이트웨이, 문자열 = 내 키
     if (getGatewayUrl()) sources.push(null);
     if (!p.gatewayOnly) keysOf(p).forEach(function (k) { sources.push(k); });
@@ -522,6 +562,7 @@
   async function callProviderOnce(h, onStatus) {
     var gw = getGatewayUrl();
     var avail = PROVIDER_CHAIN.filter(function (p) {
+      if (p.localOnly) return !!getLocalUrl();          // 로컬 LLM은 이 컴퓨터에 주소가 설정됐을 때만
       return gw ? true : (!p.gatewayOnly && keysOf(p).length);
     });
     if (!avail.length) {
@@ -625,6 +666,17 @@
       ' placeholder="https://sejong-ai-gateway.____.workers.dev"' +
       ' value="' + lsGet(GATEWAY_URL_LS).replace(/"/g, '&quot;') + '">' +
       '</div>';
+    // v29.45: 로컬 LLM(이 컴퓨터) — 설정한 기기에서만 0순위로 사용. 다른 직원 PC엔 영향 없음.
+    var localHtml = '<div class="fg" style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">' +
+      '<label class="fl">🖥 내 컴퓨터 LLM (LM Studio / Ollama) — 켜져 있으면 <b>0순위</b>로 이 컴퓨터 모델이 먼저 답합니다</label>' +
+      '<input class="fi" id="aiLocalUrlInput" spellcheck="false" autocomplete="off" style="margin-bottom:6px;"' +
+      ' placeholder="주소 — LM Studio: http://localhost:1234/v1  ·  Ollama: http://localhost:11434/v1"' +
+      ' value="' + lsGet(LOCAL_URL_LS).replace(/"/g, '&quot;') + '">' +
+      '<input class="fi" id="aiLocalModelInput" spellcheck="false" autocomplete="off"' +
+      ' placeholder="모델 이름 (비워두면 자동 감지 — 예: qwen3.5, exaone-3.5)"' +
+      ' value="' + lsGet(LOCAL_MODEL_LS).replace(/"/g, '&quot;') + '">' +
+      '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">LM Studio는 서버 설정에서 <b>Enable CORS</b>를 켜야 브라우저가 접근할 수 있습니다. 이 컴퓨터에서만 동작하고, 꺼져 있으면 자동으로 무료 API로 넘어갑니다.</div>' +
+      '</div>';
     var keyProviders = PROVIDER_CHAIN.filter(function (p) { return p.ls; });
     var fieldsHtml = keyProviders.map(function (p, i) {
       var n = keysOf(p).length;
@@ -639,6 +691,7 @@
         '</div>';
     }).join('');
     openModal('🔑 AI 비서 — API 키 설정', '' +
+      localHtml +
       gwHtml +
       '<div style="font-size:12px;color:var(--text-light);margin:10px 0;line-height:1.6;">개인 키 사용 시: 위에서부터 순서대로 자동 사용하고, 한도 초과·오류 시 다음으로 자동 전환됩니다.<br><b>계정을 여러 개 만들어 받은 키는 한 칸에 줄바꿈으로 전부 붙여넣으세요</b> — 키 단위로도 자동 교대되어 무료 한도가 키 수만큼 늘어납니다.</div>' +
       fieldsHtml +
@@ -646,6 +699,10 @@
       function () {
         var gwEl = $id('aiGatewayUrlInput');
         lsSet(GATEWAY_URL_LS, gwEl ? gwEl.value.trim() : '');
+        var luEl = $id('aiLocalUrlInput'), lmEl = $id('aiLocalModelInput');
+        lsSet(LOCAL_URL_LS, luEl ? luEl.value.trim() : '');
+        lsSet(LOCAL_MODEL_LS, lmEl ? lmEl.value.trim() : '');
+        _localModelCache = '';   // 주소·모델 바뀌었으니 자동 감지 캐시 초기화
         keyProviders.forEach(function (p) {
           var el = $id('aiKeys_' + p.id);
           lsSet(p.ls, el ? el.value.split(/[\s,;]+/).filter(Boolean).join('\n') : '');
