@@ -902,6 +902,24 @@ function rDetailPanel(){
       </div>
     </div>
     <div class="dpnl-fields">
+      ${(()=>{
+        // v30.7: 장비명(Type)·Spec을 WBS 행 패널에서 직접 편집 → 연동된 제작공정관리 아이템(MITEM)에 기록.
+        //   MITEM이 단일 원본이므로 제작공정관리·ITP Builder와 자동으로 서로 연동된다.
+        const it=w.itpLink?fI(w.itpLink):null;
+        const nmDisp=it?(it.type?`<span style="font-size:12px;font-weight:600;color:#1a2332">${it.type}</span>`:`<span style="font-size:10px;color:#9ca3af">— 미입력 —</span>`):`<span style="font-size:10px;color:#9ca3af">— 아래 '제작공정 연동' 필요 —</span>`;
+        const nmEdit=it
+          ?`<input data-draft="wedit" data-k="linkType" value="${(it.type||"").replace(/"/g,"&quot;")}" class="dpnl-input" placeholder="예: Mixing Tank 25㎥" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`
+          :`<span style="font-size:10px;color:#9ca3af">먼저 아래 '제작공정 연동'에서 아이템을 연결하세요</span>`;
+        return field("🔧 장비명 (Type)",nmDisp,nmEdit);
+      })()}
+      ${(()=>{
+        const it=w.itpLink?fI(w.itpLink):null;
+        const spDisp=it?(it.spec?`<span style="font-size:11px">${it.spec}</span>`:`<span style="font-size:10px;color:#9ca3af">— 미입력 —</span>`):`<span style="font-size:10px;color:#9ca3af">—</span>`;
+        const spEdit=it
+          ?`<input data-draft="wedit" data-k="linkSpec" value="${(it.spec||"").replace(/"/g,"&quot;")}" class="dpnl-input" placeholder="예: ASME Sec.VIII Div.1" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`
+          :`<span style="font-size:10px;color:#9ca3af">아이템 연동 후 입력 가능</span>`;
+        return field("📐 Spec.",spDisp,spEdit);
+      })()}
       ${field("담당 부서",w.dept?`<span style="font-size:11px;color:#7c3aed;font-weight:700">${w.dept}</span>`:`<span style="font-size:10px;color:#9ca3af">— 미지정 —</span>`,`<select data-draft="wedit" data-k="dept" class="dpnl-select"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${w.dept===d?" selected":""}>${d}</option>`).join("")}</select>`)}
       ${field("담당자",w.mgr,`<input data-draft="wedit" data-k="mgr" value="${(w.mgr||"").replace(/"/g,"&quot;")}" class="dpnl-input" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`)}
       ${field("시작일",(_dispS||"—")+_rollDate,`<input type="date" data-draft="wedit" data-k="s" value="${w.s}" class="dpnl-input"/>`)}
@@ -1628,6 +1646,13 @@ function act(a,d){
           addLog(nv?`🔗 제작공정 연동 ${itpLink?'변경':'설정'}: ${fI(nv)?.tagNo||nv}`:`✂ 제작공정 연동 해제`,"info");
           itpLink=nv;
         }
+      }
+      // v30.7: 장비명(type)·Spec을 연동된 MITEM 아이템에 기록 → 제작공정관리·ITP와 단일 원본 공유
+      const _lt=document.querySelector('[data-draft="wedit"][data-k="linkType"]');
+      const _ls=document.querySelector('[data-draft="wedit"][data-k="linkSpec"]');
+      if(itpLink&&(_lt||_ls)){
+        Object.keys(MITEM).forEach(pid=>{const xi=(MITEM[pid]||[]).findIndex(i=>i.id===itpLink);if(xi>=0){const cur=MITEM[pid][xi];MITEM[pid][xi]={...cur,type:_lt?(_lt.value||cur.type||"장비"):cur.type,spec:_ls?_ls.value:cur.spec};}});
+        addLog(`🔧 장비 정보 갱신: ${fI(itpLink)?.tagNo||itpLink} (제작공정·ITP 공유)`,"info");
       }
       WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept,itpLink}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");
       // v30.6: ITP 연동(itpLink) 설정된 아이템에 승인된 ITP가 있으면 검사 체크리스트 자동 동기화.
