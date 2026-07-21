@@ -703,18 +703,44 @@ async function writeItpDocToFirestore(payload) {
   // "커스텀 Object"로 오인해 setDoc을 거부하는 문제가 있었음(2026-07-07 실사용 중 발견). 이 창 realm의
   // 순수 plain object로 재생성해 해결. 함수/undefined 등 Firestore가 못 저장하는 값도 함께 제거됨.
   const doc = JSON.parse(JSON.stringify({...payload, items}));
-  // v1.11: ★ 승인 스탬프 보존 ★ — 이 저장은 문서를 통째로 덮어쓰므로, payload에 없는
-  // approvalStatus/approvedBy/approvedAt/approvalId가 매 저장(자동저장 포함)마다 지워져
-  // 승인된 ITP가 'ITP 조회'에서 사라지던 사고가 있었다. 저장 직전에 기존 승인 필드를 읽어
-  // 그대로 유지한다. (내용 편집 후에도 승인 유지 — 재승인 정책이 필요하면 별도 처리)
+  // v1.12: 승인 스탬프 보존 + 재승인 정책.
+  //   - 저장은 문서 전체 덮어쓰기라 approval* 필드가 payload에 없으면 지워짐 → 기존 값 보존.
+  //   - 단, 승인 완료(approved) 상태에서 "내용이 실제로 바뀌면" 재승인이 필요하므로
+  //     approvalStatus를 'draft'로 되돌린다(→ ITP 조회에서 빠지고, 재상신·재승인 대상).
+  //     열기만 한 자동저장은 내용 서명(contentSig)이 같아 승인 유지.
+  const newSig = _itpContentSig(payload);
+  doc.contentSig = newSig;
   try {
     const ex = await fb.getDoc(fb.doc(fb.db, ITP_FS_COLL, PID));
     if (ex.exists()) {
       const e = ex.data();
-      ["approvalStatus","approvedBy","approvedAt","approvalId"].forEach(k => { if (e[k] !== undefined && doc[k] === undefined) doc[k] = e[k]; });
+      ["approvalStatus","approvedBy","approvedAt","approvalId","approvedSig","approvalCount"].forEach(k => { if (e[k] !== undefined && doc[k] === undefined) doc[k] = e[k]; });
+      // 승인 완료본을 실제로 편집 → 재승인 필요: 결재중 전 단계인 'draft'로 되돌림
+      if (e.approvalStatus === "approved" && e.approvedSig && e.approvedSig !== newSig) {
+        doc.approvalStatus = "draft";
+        doc.approvedBy = null; doc.approvedAt = null;
+        try { showMsg("⚠ 승인된 ITP를 수정했습니다 — 재승인이 필요합니다. (결재 상신하면 승인 시 Rev.가 올라갑니다)", 8000); } catch(_){}
+      }
     }
   } catch(e) { console.warn("[ITP] 승인 스탬프 보존 조회 실패(무시):", e.message); }
   await fb.setDoc(fb.doc(fb.db, ITP_FS_COLL, PID), doc);
+}
+// v1.12: ITP 내용 서명 — 검사행·문서번호·헤더·아이템(태그/이름)만 대상(정렬 안정 직렬화).
+//   Rev/승인상태는 제외 — 이들이 바뀌었다고 '내용 편집'으로 보면 안 되므로.
+function _stableStr(o){
+  if (Array.isArray(o)) return "[" + o.map(_stableStr).join(",") + "]";
+  if (o && typeof o === "object") return "{" + Object.keys(o).sort().map(k => JSON.stringify(k) + ":" + _stableStr(o[k])).join(",") + "}";
+  return JSON.stringify(o === undefined ? null : o);
+}
+function _itpContentSig(payload){
+  try {
+    return _stableStr({
+      rows: payload.itpRowsByItem || {},
+      docno: payload.itpDocNoByItem || {},
+      hdr: payload.itpHdrByItem || {},
+      items: (payload.items || []).map(i => ({ id: i.id, tag: i.tag, name: i.name }))
+    });
+  } catch(e) { return ""; }
 }
 
 function pushToFirestore(payload) {

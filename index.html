@@ -1151,7 +1151,7 @@ const QADASH_BUILD = 'b14';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c5';
+const ITPBUILDER_BUILD = 'c6';
 const QADOC_BUILD = 'c2';
 const MTOOLS_BUILD = 'b6';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -7102,12 +7102,28 @@ async function decideApproval(aid, decision) {
   //   (ITP 문서 자체는 상신 시점에 이미 저장돼 있으므로 상태만 merge)
   if (a.type === 'itp' && a.projId && (finalApproved || decision === 'rejected')) {
     try {
-      await fb.setDoc(fb.doc(fb.db, 't_itpBuilderDocs', a.projId), {
+      const _iref = fb.doc(fb.db, 't_itpBuilderDocs', a.projId);
+      const _isnap = await fb.getDoc(_iref);
+      const _icur = _isnap.exists() ? _isnap.data() : {};
+      const _ipatch = {
         approvalStatus: decision === 'rejected' ? 'rejected' : 'approved',
         approvedBy: decision === 'rejected' ? null : uid,
         approvedAt: Date.now(),
         approvalId: aid,
-      }, { merge: true });
+      };
+      if (finalApproved) {
+        // 승인 시점의 내용을 '승인본'으로 고정 → 이후 편집 감지 기준
+        _ipatch.approvedSig = _icur.contentSig || null;
+        const _prevCount = Number(_icur.approvalCount) || 0;
+        _ipatch.approvalCount = _prevCount + 1;
+        // 재승인(2회차 이상)이면 Rev. No 를 전 아이템 +1
+        if (_prevCount >= 1) {
+          const _rev = Object.assign({}, _icur.itpRevByItem || {});
+          (_icur.items || []).forEach(it => { _rev[it.id] = String((parseInt(_rev[it.id], 10) || 0) + 1); });
+          _ipatch.itpRevByItem = _rev;
+        }
+      }
+      await fb.setDoc(_iref, _ipatch, { merge: true });
     } catch (e) { console.warn('ITP 승인 스탬프 실패:', e.message); }
   }
   try {
