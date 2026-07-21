@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정오 업데이트 · 품질관리부 · 2026-07-21</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--line:#334155;--txt:#e2e8f0;--sub:#94a3b8;
+        --red:#ef4444;--org:#f59e0b;--grn:#22c55e;--blu:#3b82f6;--pur:#a855f7;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Malgun Gothic','맑은 고딕',system-ui,sans-serif;background:var(--bg);color:var(--txt);line-height:1.55;padding:18px;max-width:1000px;margin:0 auto}
+  header{border-bottom:2px solid var(--line);padding-bottom:12px;margin-bottom:18px}
+  h1{font-size:20px}
+  .meta{color:var(--sub);font-size:13px;margin-top:4px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:20px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-align:center}
+  .kpi .n{font-size:26px;font-weight:700}
+  .kpi .l{font-size:12px;color:var(--sub);margin-top:2px}
+  .kpi.alert{border-color:var(--red)} .kpi.alert .n{color:var(--red)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+  h2{font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;color:#fff;white-space:nowrap}
+  .t-red{background:var(--red)} .t-org{background:var(--org)} .t-grn{background:var(--grn)} .t-blu{background:var(--blu)} .t-pur{background:var(--pur)} .t-gray{background:#64748b}
+  ul{list-style:none} li{padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  li:last-child{border-bottom:none}
+  .li-head{display:flex;gap:8px;align-items:center;margin-bottom:3px;flex-wrap:wrap}
+  .sub{color:var(--sub);font-size:12.5px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--sub);font-weight:600;font-size:12px}
+  .ncr-box{border-left:4px solid var(--red);background:rgba(239,68,68,.08);padding:12px 14px;border-radius:8px}
+  .ncr-box .code{font-weight:700;color:var(--red)}
+  .foot{color:var(--sub);font-size:12px;text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🕛 정오 업데이트 — ㈜세종기술 품질관리부</h1>
+  <div class="meta">등록자: 김철우 부장 (cwkim@sejong-21c.com) · 2026-07-21 (화) 12:06 KST · 오전 07:30 브리핑 이후 신규/변경분</div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">7</div><div class="l">신규 메일</div></div>
+  <div class="kpi"><div class="n">3</div><div class="l">자동 분류</div></div>
+  <div class="kpi alert"><div class="n">1</div><div class="l">긴급 답변</div></div>
+  <div class="kpi alert"><div class="n">1</div><div class="l">신규 NCR</div></div>
+  <div class="kpi"><div class="n">0</div><div class="l">CAR</div></div>
+  <div class="kpi"><div class="n">0</div><div class="l">신규 수주(WO)</div></div>
+</div>
+
+<section>
+  <h2>📌 Executive Summary</h2>
+  <ul>
+    <li>오전 중 <b>신규 NCR 1건 발생</b> — <b>NCR-2026-16 진양화성(SJE437-26) Tube sheet Heat No. 불일치</b>. 오늘 하루 품질 지표의 핵심 이슈.</li>
+    <li>같은 건으로 <b>오전 10:00 소회의실 '자재 사용승인 방안' 검토회의</b>가 소집·진행됨(부장 참석대상). 회의 결과 반영해 사용승인 여부 확정·NCR 처리 필요.</li>
+    <li>어제 접수된 <b>CD-201 검사신청서(SJE437-26-GD-IA-001)</b>와 직접 연동 — 검사 진행 전 자재 사용승인이 선결 조건.</li>
+    <li>이월 최우선: <b>한수원 체코원전 M229C·N210B 예가 견적 오늘 회신 마감</b>(영업부 작성분 부장 검토, 캘린더 등록됨).</li>
+    <li>그 외 신규 메일은 지원사업 공고·광고성으로 실무 조치 불요(마감일만 확인).</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="tag t-red">NCR</span> 신규 부적합 추적</h2>
+  <div class="ncr-box">
+    <div class="code">■ NCR-2026-16 · 진양화성 자재성적서–입고품 Heat No. 불일치</div>
+    <div class="sub" style="margin-top:6px">
+      · <b>프로젝트</b>: SJE437-26 진양화성 신규설비 증설/교체 (에너지관리공단 검사 대상)<br>
+      · <b>대상품</b>: Tube sheet (CD-201, 도번 24SD77008)<br>
+      · <b>부적합 내용</b>: 7/20 입고품과 에너지관리공단 제출 자재성적서 간 <b>Heat Number 상이</b><br>
+      · <b>접수</b>: 김시원 대리 → 신채완 과장·부장 (09:11) / 첨부: 불일치보고서 NCR-2026-16.pdf<br>
+      · <b>회의</b>: 7/21 10:00 소회의실 — 사용승인 방안 검토 (부장 참석대상, 오전 진행)<br>
+      · <b>후속 자료</b>: 신규 입고 Tube sheet 자재성적서 + 재질비교표(24SD77008) 회수 완료 (10:27)<br>
+      · <b>필요 조치</b>: 재질비교표 근거 <b>대체 사용승인 여부 확정</b> → NCR 처리·기록, 검사신청서 연동 반영
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>🔥 긴급 답변 대기</h2>
+  <table>
+    <tr><th>우선</th><th>건명</th><th>발신/경유</th><th>Project</th></tr>
+    <tr><td><span class="tag t-red">HIGH</span></td><td>NCR-2026-16 진양화성 Heat No. 불일치 — 사용승인 방안 확정·NCR 처리 (오전 회의 결과 반영)</td><td>김시원 대리(품질)</td><td>SJ437-26</td></tr>
+    <tr><td><span class="tag t-org">이월</span></td><td>체코원전 M229C·N210B 예가 견적서 오늘 회신 마감 — 영업부 작성분 부장 검토</td><td>한수원(경유 김민준 차장)</td><td>원자력</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>✅ 오늘 핵심 액션</h2>
+  <ul>
+    <li><div class="li-head"><span class="tag t-red">HIGH</span><span class="tag t-gray">SJ437-26</span></div>NCR-2026-16 진양화성 Tube sheet Heat No. 불일치 — 오전 사용승인 검토회의 결과 반영, 재질비교표 근거 대체승인 여부 확정·NCR 처리·기록. <span class="sub">Label_40+Label_33 부착</span></li>
+    <li><div class="li-head"><span class="tag t-red">HIGH</span><span class="tag t-gray">SJ437-26</span></div>CD-201 검사신청서(SJE437-26-GD-IA-001)와 NCR 연동 — 검사 진행 전 자재 사용승인 선결, 검사일정 협의 시 NCR 종결 여부 반영</li>
+    <li><div class="li-head"><span class="tag t-org">이월</span><span class="tag t-gray">원자력</span></div>체코원전 M229C·N210B 예가 견적 오늘 회신 마감 — 영업부 작성분 부장 검토·회신 (캘린더 09:00~18:00 등록)</li>
+    <li><div class="li-head"><span class="tag t-blu">MID</span><span class="tag t-gray">SJ435-26</span></div>삼성전기 신안건업 보완서류(WPQR·SS275 성적서·WPS 필렛) 회수 팔로업 — 7/24 BT-6라인 자동밸브 작동테스트 대비</li>
+    <li><div class="li-head"><span class="tag t-gray">LOW</span><span class="tag t-gray">부서업무</span></div>지원사업 참고: 스마트공장 수준확인(100% 국비, ~7/30) / 스마트공장 우수사례 컨소시엄(~7/24) — 신청 검토</li>
+  </ul>
+</section>
+
+<section>
+  <h2>📨 오전 신규 메일 분류</h2>
+  <table>
+    <tr><th>시각</th><th>발신</th><th>제목</th><th>분류/조치</th></tr>
+    <tr><td>09:11</td><td>김시원 대리</td><td>진양화성 NCR 공유 (NCR-2026-16)</td><td><span class="tag t-red">NCR</span> Label_40+33</td></tr>
+    <tr><td>09:31</td><td>김시원 대리</td><td>[SJE437-26] 자재 불일치 관련 회의 요청</td><td><span class="tag t-org">회의</span> Label_40</td></tr>
+    <tr><td>10:27</td><td>김시원 대리</td><td>Re: 신규 입고 Tube sheet 자재성적서 공유</td><td><span class="tag t-org">자료</span> Label_40</td></tr>
+    <tr><td>09:29</td><td>스마트제조혁신협회</td><td>스마트공장 수준확인 참여기업 모집(~7/30)</td><td><span class="tag t-gray">지원사업</span> 참고</td></tr>
+    <tr><td>07:19</td><td>Claude</td><td>Team 플랜 Fable 5 안내</td><td><span class="tag t-gray">광고</span> —</td></tr>
+    <tr><td>10:33 / 11:09</td><td>Synology / Cerebras</td><td>제품·튜토리얼 홍보</td><td><span class="tag t-gray">광고</span> —</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>📅 오늘 이후 일정</h2>
+  <table>
+    <tr><th>일자</th><th>일정</th><th>Project</th></tr>
+    <tr><td>07-21 10:00</td><td><span class="tag t-red">완료</span> 진양화성 Heat No. 불일치 사용승인 검토회의 (소회의실)</td><td>SJ437-26</td></tr>
+    <tr><td>07-21</td><td>체코원전 M229C·N210B 견적서 제출 마감 (영업부 작성)</td><td>원자력</td></tr>
+    <tr><td>07-22~24</td><td>27기 원자력품질 검사자과정(QC) 교육 (3일)</td><td>원자력/교육</td></tr>
+    <tr><td>07-22 12:15</td><td>Google Cloud Agentic AI 웨비나 (온라인)</td><td>교육/AI</td></tr>
+    <tr><td>07-24 10:00</td><td>삼성전기 BT-6라인 자동밸브 작동테스트 (브이아이테크)</td><td>SJ435-26</td></tr>
+    <tr><td>07-28</td><td>CKS Welder Qualification Renew 자료 제출 마감</td><td>SJ2026-040</td></tr>
+    <tr><td>07-30</td><td>한전KPS 제'26차 협력회사 등록 신청 마감</td><td>부서업무</td></tr>
+    <tr><td>07-31</td><td>2025년도(31회) 원자력산업실태조사 제출 마감</td><td>원자력</td></tr>
+  </table>
+</section>
+
+<div class="foot">ⓒ Daily Mail Skill — 정오 업데이트 자동 생성 · SJ FLOW 대시보드 연동(data/briefings.json) · Quality Control Dept.</div>
+</body>
+</html>
