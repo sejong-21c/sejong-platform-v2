@@ -3016,11 +3016,10 @@ function renderITPBuilder() {
             <button onclick="event.stopPropagation();deleteITPItem('${p.id}','${it.id}');" title="삭제 (복구 가능)" style="position:absolute;top:6px;right:6px;width:18px;height:18px;line-height:16px;padding:0;font-size:11px;border:none;border-radius:50%;background:var(--bg);color:#c00;cursor:pointer;">✕</button>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-right:18px;">
               <span class="itp-tag">${it.tag}</span>
-              <span style="font-size:10px;background:var(--bg);padding:1px 6px;border-radius:3px;">${it.type}</span>
             </div>
-            <div style="font-size:12px;font-weight:500;margin-bottom:2px;${it.name?'':'color:var(--text-lighter);font-style:italic;'}">${it.name || '(이름 미입력)'}</div>
-            <div style="font-size:10px;color:var(--text-light);">${it.material ? '재질: '+it.material : '<span style="color:var(--text-lighter)">재질 미입력</span>'}</div>
-            ${it.spec ? `<div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">${it.spec}</div>` : ''}
+            ${(() => { const nm = it.name || it.type; return `<div style="font-size:12px;font-weight:500;margin-bottom:2px;${nm?'':'color:var(--text-lighter);font-style:italic;'}">${nm || '(장비명 미입력)'}</div>`; })()}
+            ${it.spec ? `<div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">규격: ${it.spec}</div>` : ''}
+            ${it.maker ? `<div style="font-size:10px;color:var(--text-lighter);">제작사: ${it.maker}</div>` : ''}
           </div>
         `).join('')}
 
