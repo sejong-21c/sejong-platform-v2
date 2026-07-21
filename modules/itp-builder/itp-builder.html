@@ -1810,6 +1810,9 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     //   ① 검토 기본 OFF(사용자가 명시적으로 켜야 함) ② 승인자 기본 PM(본인이면 비움)
     setAppvModal({
       users, pmUid, projCode, projName, selfUid: cur.uid,
+      // v3.5: 본인이 부서장/PM이라 스스로 승인권자인 경우 → '작성자 즉시 승인' 옵션.
+      //   내가 PM이면 기본 체크(가장 흔한 상황), 아니면 꺼둠.
+      selfApprove: !!(pmUid && pmUid === cur.uid),
       includeReview: false,           // 기본 검토 없음 — 필요할 때만 켜서 선택
       reviewerUid: "",
       approverUid: (pmUid && pmUid !== cur.uid) ? pmUid : "",  // 승인자 기본 PM (단, 본인이 PM이면 직접 선택)
@@ -1821,6 +1824,49 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     const cur = fb.auth && fb.auth.currentUser;
     const m = appvModal;
     if (!cur || !m) return;
+    // ── v3.5: 작성자 본인이 승인권자(부서장·PM) → 즉시 승인 처리 ──
+    if (m.selfApprove) {
+      const now = Date.now();
+      const id = "app_" + now + "_" + Math.random().toString(36).slice(2, 6);
+      const today = new Date().toISOString().slice(0, 10);
+      const line = [
+        { role: "작성", uid: cur.uid, status: "approved", decidedAt: now, note: "" },
+        { role: "승인", uid: cur.uid, status: "approved", decidedAt: now, note: "작성자 본인 승인" },
+      ];
+      const docData = {
+        id, type: "itp",
+        title: `[${m.projCode || PID}] ITP 결재${proj.name ? " - " + proj.name : ""}`,
+        projId: PID, projCode: m.projCode, projName: m.projName,
+        description: `ITP Builder에서 작성한 ITP 결재 (작성자 본인 승인, 검사 아이템 ${items.length}종)`,
+        author: cur.uid, approvalLine: line,
+        approver: cur.uid, to: cur.uid,
+        status: "approved", decidedBy: cur.uid, decidedAt: now,
+        date: today, createdAt: now,
+      };
+      setAppvModal(null);
+      showMsg("☁ ITP 저장 후 즉시 승인 처리 중...", 15000);
+      try {
+        await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
+        // 승인 스탬프 (index.html decideApproval 의 finalApproved 로직과 동일 — 재승인 시 Rev.No +1)
+        try {
+          const iref = fb.doc(fb.db, "t_itpBuilderDocs", PID);
+          const isnap = await fb.getDoc(iref);
+          const icur = isnap.exists() ? isnap.data() : {};
+          const ipatch = { approvalStatus: "approved", approvedBy: cur.uid, approvedAt: now, approvalId: id, approvedSig: icur.contentSig || null };
+          const prevCount = Number(icur.approvalCount) || 0;
+          ipatch.approvalCount = prevCount + 1;
+          if (prevCount >= 1) {
+            const rev = Object.assign({}, icur.itpRevByItem || {});
+            (icur.items || []).forEach(it => { rev[it.id] = String((parseInt(rev[it.id], 10) || 0) + 1); });
+            ipatch.itpRevByItem = rev;
+          }
+          await fb.setDoc(iref, ipatch, { merge: true });
+        } catch (e) { console.warn("자가승인 스탬프 실패:", e.message); }
+        await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
+        showMsg("✅ 작성자 본인 권한으로 즉시 승인 완료 — ITP 조회에 바로 등록됩니다.", 8000);
+      } catch (e) { showMsg("상신 실패: " + (e.message || e), 6000); }
+      return;
+    }
     // v3.4: 본인(작성자)을 검토·승인에 넣으면 결재가 본인에게 갇힘 → 강하게 차단
     if (m.includeReview && !m.reviewerUid) { showMsg("검토자를 선택하거나 '검토자 추가'를 꺼주세요.", 5000); return; }
     if (m.includeReview && m.reviewerUid === cur.uid) { showMsg("검토자를 본인으로 지정할 수 없습니다.", 5000); return; }
@@ -1945,6 +1991,18 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           <span style={{fontSize:11, fontWeight:700, color:"#2563eb", minWidth:44}}>작성</span>
           <span style={{fontSize:12}}>{(appvModal.users.find(u=>u.id===(fb.auth&&fb.auth.currentUser&&fb.auth.currentUser.uid))||{}).name || "본인"} <span style={{color:"#9ca3af",fontSize:10}}>· 자동 승인</span></span>
         </div>
+        {/* v3.5: 작성자 본인이 승인권자(부서장·PM) → 즉시 승인 */}
+        <div style={{border:`1px solid ${appvModal.selfApprove?"#16a34a":"var(--sjp-border)"}`, background:appvModal.selfApprove?"#f0fdf4":"#fff", borderRadius:6, padding:"8px 10px", marginBottom:8}}>
+          <label style={{display:"flex", alignItems:"center", gap:6, fontSize:12, fontWeight:700, cursor:"pointer", color:appvModal.selfApprove?"#15803d":"var(--sjp-text-body)"}}>
+            <input type="checkbox" checked={appvModal.selfApprove} onChange={e=>setAppvModal(p=>({...p, selfApprove:e.target.checked}))}/>
+            작성자 본인이 승인권자 — 즉시 승인
+          </label>
+          {appvModal.selfApprove &&
+            <div style={{fontSize:10.5, color:"#15803d", marginTop:6, lineHeight:1.5}}>
+              내가 부서장·PM이라 별도 결재자 없이 <b>작성=승인</b>으로 바로 승인됩니다. ITP 조회에 즉시 등록됩니다.
+            </div>}
+        </div>
+        {!appvModal.selfApprove && <>
         {/* 검토 (선택) */}
         <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:"8px 10px", marginBottom:8}}>
           <label style={{display:"flex", alignItems:"center", gap:6, fontSize:12, fontWeight:700, cursor:"pointer", marginBottom:appvModal.includeReview?8:0}}>
@@ -1968,9 +2026,10 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
             {appvModal.users.filter(u=>u.id!==appvModal.selfUid).map(u=><option key={u.id} value={u.id}>{u.name} {u.title||""} {u.dept?`(${u.dept})`:""}{u.id===appvModal.pmUid?" — PM":""}</option>)}
           </select>
         </div>
+        </>}
         <div style={{display:"flex", gap:6, justifyContent:"flex-end"}}>
           <button onClick={()=>setAppvModal(null)} className="btn-secondary">취소</button>
-          <button onClick={doSubmitItpApproval} className="btn-primary" style={{background:"#7c3aed", borderColor:"#7c3aed"}}>결재 상신</button>
+          <button onClick={doSubmitItpApproval} className="btn-primary" style={{background:appvModal.selfApprove?"#16a34a":"#7c3aed", borderColor:appvModal.selfApprove?"#16a34a":"#7c3aed"}}>{appvModal.selfApprove?"✓ 즉시 승인":"결재 상신"}</button>
         </div>
       </div>
     </div>}

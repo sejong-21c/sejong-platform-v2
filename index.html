@@ -1151,7 +1151,7 @@ const QADASH_BUILD = 'b14';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c6';
+const ITPBUILDER_BUILD = 'c7';
 const QADOC_BUILD = 'c2';
 const MTOOLS_BUILD = 'b6';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -6916,7 +6916,7 @@ function _renderLineFlow(line) {
     return `${arrow}<span style="background:${bg};color:${col};border:${bd};border-radius:20px;padding:4px 10px;font-size:12px;">${ic} ${s.role} · ${u.name||'-'}</span>`;
   }).join('') + `</div>`;
 }
-function _renderApprovalRow(a) {
+function _renderApprovalRow(a, mode) {
   const s = APPROVAL_STATUS_META[a.status] || APPROVAL_STATUS_META.pending;
   const auth = getU(a.author) || {};
   const amt = a.amount ? '₩'+Number(a.amount).toLocaleString('ko-KR') : '';
@@ -6930,6 +6930,13 @@ function _renderApprovalRow(a) {
   } else {
     progress = (getU(a.approver || a.to) || {}).name || '-';
   }
+  // mode='mine' → 상신 취소 버튼, mode='done' → 삭제 버튼 (행 클릭과 분리)
+  let actionCell = '';
+  if (mode === 'mine') {
+    actionCell = `<td style="text-align:center;" onclick="event.stopPropagation()"><button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);font-size:11px;" onclick="cancelApproval('${a.id}')">↩ 상신 취소</button></td>`;
+  } else if (mode === 'done') {
+    actionCell = `<td style="text-align:center;" onclick="event.stopPropagation()"><button class="btn btn-sm" style="color:var(--danger);font-size:11px;" onclick="deleteApproval('${a.id}')">🗑 삭제</button></td>`;
+  }
   return `<tr onclick="openApprovalDetail('${a.id}')" style="cursor:pointer;" onmouseover="this.style.background='var(--primary-lighter)'" onmouseout="this.style.background=''">
     <td style="font-weight:600;">${a.title||'(제목 없음)'}</td>
     <td><span class="b-pill gray" style="font-size:10px;">${_approvalTypeLabel(a.type)}</span></td>
@@ -6938,7 +6945,39 @@ function _renderApprovalRow(a) {
     <td style="text-align:right;">${amt || '-'}</td>
     <td><span class="b-pill ${s.pill}">${s.label}</span></td>
     <td style="color:var(--text-light);">${a.date||''}</td>
+    ${actionCell}
   </tr>`;
+}
+// 상신 취소 (기안자 본인, 진행 중 결재만) — 결재선에서 제거. ITP면 문서 상태를 초안으로 되돌림.
+async function cancelApproval(aid) {
+  const a = (state.approvals || []).find(x => x.id === aid);
+  if (!a) return;
+  if (a.author !== state.currentUser) return alert('본인이 기안한 결재만 취소할 수 있습니다.');
+  if (a.status !== 'pending' && a.status !== 'review') return alert('이미 승인/반려된 결재는 취소할 수 없습니다. (완료된 결재에서 삭제하세요)');
+  if (!confirm(`이 결재 상신을 취소하시겠습니까?\n\n${a.title || ''}\n\n결재선에서 삭제되며 되돌릴 수 없습니다.`)) return;
+  try {
+    if (a.type === 'itp' && a.projId) {
+      // 결재중이던 ITP를 초안으로 되돌림 → ITP 조회에서 빠지고, 다시 상신 가능
+      try { await fb.setDoc(fb.doc(fb.db, 't_itpBuilderDocs', a.projId), { approvalStatus: 'draft', approvalId: null, approvedBy: null, approvedAt: null }, { merge: true }); } catch (e) {}
+    }
+    await fb.deleteDoc(fb.doc(fb.db, 'approvals', aid));
+    try { closeModal(); } catch (e) {}
+    alert('결재 상신을 취소했습니다.');
+  } catch (e) { alert('취소 중 오류: ' + (e.message || e)); }
+}
+// 완료된 결재 기록 삭제 (기안자 본인 또는 관리자)
+async function deleteApproval(aid) {
+  const a = (state.approvals || []).find(x => x.id === aid);
+  if (!a) return;
+  const me = getU(state.currentUser) || {};
+  const isAdmin = me.grade === 'super' || me.grade === 'admin' || me.grade === 'manager';
+  if (a.author !== state.currentUser && !isAdmin) return alert('본인이 기안한 결재 또는 관리자만 삭제할 수 있습니다.');
+  if (!confirm(`완료된 결재 기록을 삭제하시겠습니까?\n\n${a.title || ''}\n\n삭제하면 복구할 수 없습니다.`)) return;
+  try {
+    await fb.deleteDoc(fb.doc(fb.db, 'approvals', aid));
+    try { closeModal(); } catch (e) {}
+    alert('결재 기록을 삭제했습니다.');
+  } catch (e) { alert('삭제 중 오류: ' + (e.message || e)); }
 }
 function approval() {
   const uid = state.currentUser;
@@ -6948,6 +6987,7 @@ function approval() {
   const done     = all.filter(a => a.status === 'approved' || a.status === 'rejected');
   const cnt = k => all.filter(a => a.status === k).length;
   const tblHead = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재선 진행</th><th>금액</th><th>상태</th><th>기안일</th></tr></thead>`;
+  const tblHeadA = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재선 진행</th><th>금액</th><th>상태</th><th>기안일</th><th>관리</th></tr></thead>`;
   return `
     <div class="mod-head">
       <div><div class="mod-title">📝 결재 관리</div><div class="mod-sub">WBS 변경 · 목표 변경 · 출장 · 구매 · 경비 · 품의 (문서 클릭 시 상세)</div></div>
@@ -6968,13 +7008,13 @@ function approval() {
     <div class="card" style="margin-top:14px;">
       <h3 style="font-size:14px;margin-bottom:10px;color:var(--primary);">📤 내가 요청한 항목 (${mine.length})</h3>
       ${mine.length
-        ? `<table class="table">${tblHead}<tbody>${mine.map(_renderApprovalRow).join('')}</tbody></table>`
+        ? `<table class="table">${tblHeadA}<tbody>${mine.map(a=>_renderApprovalRow(a,'mine')).join('')}</tbody></table>`
         : `<div style="text-align:center;padding:14px;color:var(--text-lighter);font-size:12px;">진행 중인 요청이 없습니다.</div>`}
     </div>
     <div class="card" style="margin-top:14px;">
       <h3 style="font-size:14px;margin-bottom:10px;color:var(--text-light);">📚 완료된 결재 (${done.length})</h3>
       ${done.length
-        ? `<table class="table">${tblHead}<tbody>${done.slice(0,20).map(_renderApprovalRow).join('')}</tbody></table>${done.length>20?'<div style="font-size:11px;color:var(--text-lighter);margin-top:6px;text-align:right;">최근 20건만 표시됨</div>':''}`
+        ? `<table class="table">${tblHeadA}<tbody>${done.slice(0,20).map(a=>_renderApprovalRow(a,'done')).join('')}</tbody></table>${done.length>20?'<div style="font-size:11px;color:var(--text-lighter);margin-top:6px;text-align:right;">최근 20건만 표시됨</div>':''}`
         : `<div style="text-align:center;padding:14px;color:var(--text-lighter);font-size:12px;">완료된 결재가 없습니다.</div>`}
     </div>
   `;
@@ -7022,6 +7062,16 @@ function openApprovalDetail(aid) {
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px;">
         <button class="btn" style="background:var(--danger);color:#fff;" onclick="decideApproval('${a.id}','rejected')">✕ 반려</button>
         <button class="btn btn-primary" onclick="decideApproval('${a.id}','approved')">✓ 승인</button>
+      </div>
+    `:''}
+    ${(a.author===uid && (a.status==='pending'||a.status==='review'))?`
+      <div style="display:flex;justify-content:flex-end;margin-top:${canDecide?'8':'12'}px;border-top:1px solid var(--border);padding-top:10px;">
+        <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="cancelApproval('${a.id}')">↩ 이 결재 상신 취소</button>
+      </div>
+    `:''}
+    ${(a.status==='approved'||a.status==='rejected')?`
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+        <button class="btn btn-sm" style="color:var(--danger);" onclick="deleteApproval('${a.id}')">🗑 이 결재 기록 삭제</button>
       </div>
     `:''}
   `;
