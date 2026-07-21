@@ -515,6 +515,15 @@ const LOGO_FB = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BS
 const ITYPES = ["Pressure Vessel", "Reactor (Mixing Tank)", "Condenser / Heat Exchanger", "Storage Tank"];
 const CODES = ["KS", "ASME", "TEMA", "EN", "API", "Others"];
 const POPTS = ["S", "H", "W", "SW", "R", "N/A"];
+// ITP Rev. 증가 — 숫자(0→1)·문자(A→B, D→E) 지원. index.html _bumpItpRev 와 동일 규칙.
+function _bumpItpRev(v) {
+  v = (v == null ? "" : String(v)).trim();
+  if (/^\d+$/.test(v)) return String(parseInt(v, 10) + 1);
+  if (/^[A-Ya-y]$/.test(v)) return String.fromCharCode(v.toUpperCase().charCodeAt(0) + 1);
+  if (/^[Zz]$/.test(v)) return "AA";
+  if (v === "") return "1";
+  return v;
+}
 const HEAD_TYPES = ["2:1 Ellip.", "10% Torispherical (F&D)", "Torispherical", "Hemispherical", "Flat", "Conical", "CAP (B16.9)"];
 
 const DEF_ITEM = {
@@ -1719,6 +1728,22 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     showMsg(`✓ 아이템 추가 — ${newItem.tag}`);
   };
 
+  // v1.7 — 왼쪽 프로젝트 태그 전체를 ITP 아이템으로 한 번에 등록 (append-only, tag 기준 중복 방지).
+  //   "왼쪽 태그 = ITP 아이템"으로 기대하는 사용자를 위해, 하나씩 추가하지 않고 일괄로 가져온다.
+  const importProjectTags = () => {
+    const epc = (window.SJP?.bridge?.getItems && window.SJP.bridge.getItems()) || [];
+    if (!epc.length) { showMsg("가져올 프로젝트 태그가 없습니다. (EPC Control에서 프로젝트를 통해 열어주세요)", 6000); return; }
+    setItems(prev => {
+      const haveTags = new Set(prev.map(i => (i.tag||"").trim()).filter(Boolean));
+      const add = epc
+        .filter(e => e.tag && !haveTags.has(e.tag.trim()))
+        .map(e => ({ ...DEF_ITEM, ...e, id: Date.now()+Math.random() }));
+      if (!add.length) { showMsg("이미 모든 프로젝트 태그가 아이템으로 등록되어 있습니다.", 5000); return prev; }
+      showMsg(`✓ 프로젝트 태그 ${add.length}개를 ITP 아이템으로 추가했습니다. (검사 항목은 기본값으로 채워집니다 — 승인된 ITP였다면 재승인이 필요합니다)`, 9000);
+      return [...prev, ...add];
+    });
+  };
+
   const removeItem = (id) => {
     if (!confirm("이 아이템을 삭제하시겠습니까?")) return;
     setItems(p => p.filter(i => i.id !== id));
@@ -1857,7 +1882,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
           ipatch.approvalCount = prevCount + 1;
           if (prevCount >= 1) {
             const rev = Object.assign({}, icur.itpRevByItem || {});
-            (icur.items || []).forEach(it => { rev[it.id] = String((parseInt(rev[it.id], 10) || 0) + 1); });
+            (icur.items || []).forEach(it => { rev[it.id] = _bumpItpRev(rev[it.id]); });
             ipatch.itpRevByItem = rev;
           }
           await fb.setDoc(iref, ipatch, { merge: true });
@@ -2192,11 +2217,17 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
 
       <div>
         <div className="card">
-          <div className="card-h">등재된 아이템 ({items.length}개)</div>
+          <div className="card-h" style={{display:"flex", justifyContent:"space-between", alignItems:"center", gap:6}}>
+            <span>등재된 아이템 ({items.length}개)</span>
+            <button onClick={importProjectTags} className="btn-secondary" style={{fontSize:10.5, padding:"4px 10px"}}
+              title="왼쪽 프로젝트 태그(제작공정관리 아이템)를 모두 ITP 아이템으로 한 번에 등록합니다. 이미 있는 태그는 건너뜁니다.">
+              ⬇ 프로젝트 태그 전체 가져오기
+            </button>
+          </div>
           <div className="card-b">
             {items.length === 0 ?
               <div style={{padding:20, textAlign:"center", color:"#aaa", fontSize:11}}>
-                아직 등록된 아이템이 없습니다.<br/>왼쪽 폼 또는 Step 0의 견적서 PDF로 추가하세요.
+                아직 등록된 아이템이 없습니다.<br/>위 <b>⬇ 프로젝트 태그 전체 가져오기</b> 또는 왼쪽 폼·Step 0 견적서 PDF로 추가하세요.
               </div>
               :
               items.map(it =>

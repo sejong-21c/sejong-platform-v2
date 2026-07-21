@@ -1151,7 +1151,7 @@ const QADASH_BUILD = 'b14';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c8';
+const ITPBUILDER_BUILD = 'c9';
 const QADOC_BUILD = 'c2';
 const MTOOLS_BUILD = 'b6';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -6816,6 +6816,15 @@ const APPROVAL_TEMPLATES = {
   project:  { label:'프로젝트 (스케줄·WBS 변경)',       icon:'📊', roles:['작성','승인(PM)'],              amount:false },
 };
 const ROLE_OPTIONS = ['작성','검토','부서장','승인','합의','대표이사','승인(PM)'];
+// ITP Rev. 증가 — 숫자(0→1)와 문자(A→B, D→E) 둘 다 지원. 알 수 없는 형식은 그대로 둔다.
+function _bumpItpRev(v) {
+  v = (v == null ? '' : String(v)).trim();
+  if (/^\d+$/.test(v)) return String(parseInt(v, 10) + 1);
+  if (/^[A-Ya-y]$/.test(v)) return String.fromCharCode(v.toUpperCase().charCodeAt(0) + 1); // A→B … Y→Z
+  if (/^[Zz]$/.test(v)) return 'AA';
+  if (v === '') return '1';
+  return v; // 그 외(AA, 1A 등 커스텀)는 자동증가하지 않고 보존
+}
 function _approvalTypeLabel(t) {
   if (APPROVAL_TEMPLATES[t]) return APPROVAL_TEMPLATES[t].icon + ' ' + APPROVAL_TEMPLATES[t].label.split(' (')[0];
   if (t === 'schedule-change' || t === 'wbs-shadow') return '📊 WBS 변경';
@@ -7178,7 +7187,7 @@ async function decideApproval(aid, decision) {
         // 재승인(2회차 이상)이면 Rev. No 를 전 아이템 +1
         if (_prevCount >= 1) {
           const _rev = Object.assign({}, _icur.itpRevByItem || {});
-          (_icur.items || []).forEach(it => { _rev[it.id] = String((parseInt(_rev[it.id], 10) || 0) + 1); });
+          (_icur.items || []).forEach(it => { _rev[it.id] = _bumpItpRev(_rev[it.id]); });
           _ipatch.itpRevByItem = _rev;
         }
       }
