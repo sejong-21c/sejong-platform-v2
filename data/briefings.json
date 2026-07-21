@@ -970,32 +970,21 @@
     "runAt": "오전 루틴(지연 실행)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-07-21 08:06 (오전 정리 자동 실행)",
-    "newMails": 5,
-    "processed": 5,
-    "urgentReplies": 1,
+    "generatedAt": "2026-07-20 16:35 (오후 정리 자동 실행)",
+    "newMails": 6,
+    "processed": 6,
+    "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "국도화학 이상민 책임 문의 회신 (세금계산서 금액 공개, 납품사진)",
-        "proj": "SJ2026-014,16,17+국도화학",
-        "priority": "high"
-      },
-      {
-        "text": "신안건업 삼성전기 ITP 보완서류 회신 대기",
+        "text": "신안건업 삼성전기 ITP 보완서류(용접사 인정 등) 회신 확인",
         "proj": "SJ435-26",
         "priority": "mid"
       }
     ],
-    "urgentList": [
-      {
-        "subject": "RE: [세종기술] NDE 전자계산서 및 거래내역서 송부, 입회내역 전달",
-        "from": "이상민 책임(국도화학)",
-        "proj": "SJ2026-014,16,17"
-      }
-    ],
+    "urgentList": [],
     "schedule": []
   },
   "swkim@sejong-21c.com": {
