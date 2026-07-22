@@ -1299,7 +1299,7 @@ function rMMItm(){
         <button data-a="mvMItem" data-iid="${it.id}" data-dir="down" title="아래로" style="padding:2px 5px;background:#f3f4f6;color:#6b7280;border:1px solid #e4e7ec;border-radius:4px;font-size:10px;cursor:pointer">▼</button>
         <button data-a="opEditItem" data-iid="${it.id}" style="margin-left:3px;padding:2px 8px;background:#eef3fb;color:#4a7fc1;border:1px solid #c3d6f0;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">✏ 수정</button>
         <button data-a="delMItem" data-iid="${it.id}" data-pid="${p.id}" style="margin-left:3px;padding:2px 7px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">🗑 삭제</button>
-        <button data-a="opMITP" data-iid="${it.id}" style="margin-left:4px;padding:2px 8px;background:#f0f4f9;color:#4a7fc1;border:1px solid #e4e7ec;border-radius:4px;font-size:10px;cursor:pointer">ITP →</button>
+        <button data-a="goItpView" data-iid="${it.id}" data-tag="${(it.tagNo||'').replace(/"/g,'&quot;')}" title="ITP 조회에서 이 아이템의 승인 ITP를 봅니다" style="margin-left:4px;padding:2px 8px;background:#eef6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">ITP 조회 →</button>
       </td>
     </tr>`;
   }).join("");
@@ -1764,6 +1764,17 @@ function act(a,d){
       });
       break;}
     case"syncAllItp":{ syncAllApprovedItp(); break; }
+    case"goItpView":{
+      const it=allI().find(i=>i.id===d.iid);
+      const pid=S.mproj?.id||_wbsPid; const tag=d.tag||it?.tagNo||"";
+      try{
+        if(window.parent && window.parent!==window && typeof window.parent.openItpViewerFor==="function"){
+          window.parent.openItpViewerFor(pid, tag);
+        } else {
+          window.open("../itp-viewer/itp-viewer.html?pid="+encodeURIComponent(pid)+"&tag="+encodeURIComponent(tag),"_blank","noopener");
+        }
+      }catch(e){ window.open("../itp-viewer/itp-viewer.html?pid="+encodeURIComponent(pid)+"&tag="+encodeURIComponent(tag),"_blank","noopener"); }
+      break;}
     case"mvMItem":{
       const pid=S.mproj?.id; if(!pid||!MITEM[pid]){break;}
       const arr=MITEM[pid]; const idx=arr.findIndex(i=>i.id===d.iid); const j=idx+(d.dir==="up"?-1:1);

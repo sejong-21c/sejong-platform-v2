@@ -1141,7 +1141,7 @@ function defaultState() {
 
 // wbs.html iframe 캐시 무효화용 빌드 번호 — wbs.html을 수정할 때마다 값을 올려서
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
-const WBS_BUILD = 'b63';
+const WBS_BUILD = 'b64';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b12';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -1158,7 +1158,7 @@ const MTOOLS_BUILD = 'b6';
 const MEETING_BUILD = 'b4';
 const ASSET_BUILD = 'a8';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a10';
+const ITPVIEW_BUILD = 'a11';
 const QAVIEW_BUILD = 'a3';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
@@ -1790,6 +1790,13 @@ function switchMod(id) {
   renderNav();
   render();
 }
+// v: 제작공정관리(Traveller) 등 iframe에서 특정 아이템의 ITP 조회로 이동 요청 시 사용.
+//   pid=프로젝트(=t_itpBuilderDocs 문서)id, tag=아이템 태그. openTool로 itpview 전환하며 뷰어에 전달.
+let _itpViewTarget = null;
+window.openItpViewerFor = function(pid, tag) {
+  _itpViewTarget = { pid: pid || '', tag: tag || '' };
+  openTool('itpview');
+};
 function openTool(tid, deptName) {
   view.selectedTool = tid;
   view.selectedProj = null;
@@ -2669,7 +2676,7 @@ function render() {
   if (view.selectedTool === 'ncr') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html?v=${NCR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'car') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html?v=${CAR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'qadash') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/quality/qa-dashboard.html?v=${QADASH_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="품질종합분석표"></iframe></div>`; return; }
-  if (view.selectedTool === 'itpview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/itp-viewer/itp-viewer.html?v=${ITPVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="ITP 조회"></iframe></div>`; return; }
+  if (view.selectedTool === 'itpview') { const _t=_itpViewTarget; _itpViewTarget=null; const _q=(_t&&_t.pid)?`&pid=${encodeURIComponent(_t.pid)}${_t.tag?`&tag=${encodeURIComponent(_t.tag)}`:''}`:''; content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/itp-viewer/itp-viewer.html?v=${ITPVIEW_BUILD}${_q}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="ITP 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'qaview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/qa-viewer/qa-viewer.html?v=${QAVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="QA Doc 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'mtools') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/measurement-tools/measurement-tools.html?v=${MTOOLS_BUILD}" allow="camera" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="측정기구 반입출 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'asset') {
