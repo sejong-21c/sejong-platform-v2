@@ -1181,6 +1181,8 @@ function App(){
   const [showKeyModal, setShowKeyModal] = useState(false);
   // v3.3: ITP 결재선 지정 모달 상태. null=닫힘. 열리면 {users, pmUid, projCode, projName, includeReview, reviewerUid, approverUid}
   const [appvModal, setAppvModal] = useState(null);
+  // v1.8: 프로젝트 태그 선택 가져오기 모달. null=닫힘. {list:[{id,tag,type,spec,name,already}], checked:{[tag]:bool}}
+  const [importModal, setImportModal] = useState(null);
   const [keyInput, setKeyInput] = useState(() => getApiKey());
 
   // v1.3 — sjp-bridge.js 외부 의존성 제거 (안전한 optional chaining 유지)
@@ -1351,7 +1353,11 @@ function App(){
   // 여기서 다른 아이템으로 자동 대체된다.
   useEffect(() => {
     if (step === 2 && items.length && !items.some(it => it.id === selectedItpItemId)) {
-      setSelectedItpItemId(items[0].id);
+      // v1.8: URL로 지정된 태그/아이템(왼쪽 패널에서 선택해 들어온 것)을 우선 메인으로 선택. 없으면 첫 아이템.
+      const utag = URL_PARAMS.get("tag");
+      const uiid = URL_PARAMS.get("itemId");
+      const match = items.find(it => (utag && it.tag === utag) || (uiid && String(it.epcId) === String(uiid)));
+      setSelectedItpItemId((match || items[0]).id);
     }
   }, [step, items, selectedItpItemId]);
 
@@ -1730,18 +1736,50 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
 
   // v1.7 — 왼쪽 프로젝트 태그 전체를 ITP 아이템으로 한 번에 등록 (append-only, tag 기준 중복 방지).
   //   "왼쪽 태그 = ITP 아이템"으로 기대하는 사용자를 위해, 하나씩 추가하지 않고 일괄로 가져온다.
-  const importProjectTags = () => {
+  //   v1.8: 전체 일괄이 아니라 '원하는 태그만' 체크해서 가져오도록 선택 모달을 연다.
+  //   이미 등록된 태그를 다시 선택하면 장비명(type)·규격(spec)·이름을 최신값으로 '갱신(upsert)'한다
+  //   → WBS/제작공정관리에서 나중에 장비명을 채워도 이 버튼으로 ITP에 반영할 수 있다.
+  const openImportModal = () => {
     const epc = (window.SJP?.bridge?.getItems && window.SJP.bridge.getItems()) || [];
     if (!epc.length) { showMsg("가져올 프로젝트 태그가 없습니다. (EPC Control에서 프로젝트를 통해 열어주세요)", 6000); return; }
+    const haveTags = new Set(items.map(i => (i.tag||"").trim()).filter(Boolean));
+    const list = epc.filter(e => e.tag).map(e => ({
+      id: e.id, tag: e.tag,
+      type: e.type || "",
+      spec: e.appl_code || e.spec || "",
+      name: e.name || e.type || e.tag,
+      already: haveTags.has((e.tag||"").trim()),
+    }));
+    const checked = {};
+    list.forEach(x => { checked[x.tag] = !x.already; }); // 기본: 아직 없는 것만 체크
+    if (list.every(x => x.already)) list.forEach(x => { checked[x.tag] = false; }); // 전부 이미 있으면 다 해제(갱신은 선택적)
+    setImportModal({ list, checked });
+  };
+  const _toggleImp = (tag) => setImportModal(p => ({...p, checked:{...p.checked, [tag]: !p.checked[tag]}}));
+  const _setAllImp = (v) => setImportModal(p => ({...p, checked: Object.fromEntries(p.list.map(x=>[x.tag, v]))}));
+  const doImportSelected = () => {
+    const m = importModal; if (!m) return;
+    const chk = m.list.filter(x => m.checked[x.tag]);
+    if (!chk.length) { showMsg("가져올 아이템을 하나 이상 선택하세요.", 5000); return; }
+    const haveTags = new Set(items.map(i => (i.tag||"").trim()));
+    let added = 0, updated = 0;
+    chk.forEach(e => { if (haveTags.has((e.tag||"").trim())) updated++; else added++; });
+    const chkByTag = new Map(chk.map(e => [(e.tag||"").trim(), e]));
     setItems(prev => {
-      const haveTags = new Set(prev.map(i => (i.tag||"").trim()).filter(Boolean));
-      const add = epc
-        .filter(e => e.tag && !haveTags.has(e.tag.trim()))
-        .map(e => ({ ...DEF_ITEM, ...e, id: Date.now()+Math.random() }));
-      if (!add.length) { showMsg("이미 모든 프로젝트 태그가 아이템으로 등록되어 있습니다.", 5000); return prev; }
-      showMsg(`✓ 프로젝트 태그 ${add.length}개를 ITP 아이템으로 추가했습니다. (검사 항목은 기본값으로 채워집니다 — 승인된 ITP였다면 재승인이 필요합니다)`, 9000);
-      return [...prev, ...add];
+      const next = prev.map(it => {
+        const e = chkByTag.get((it.tag||"").trim());
+        if (!e) return it;
+        return { ...it, type: e.type||it.type, appl_code: e.spec||it.appl_code, name: e.name||e.type||it.name, epcId: e.id };
+      });
+      const existing = new Set(prev.map(it => (it.tag||"").trim()));
+      chk.forEach(e => {
+        const key = (e.tag||"").trim();
+        if (!existing.has(key)) next.push({ ...DEF_ITEM, tag: e.tag, name: e.name||e.type||e.tag, type: e.type||DEF_ITEM.type, appl_code: e.spec||"", epcId: e.id, id: Date.now()+Math.random() });
+      });
+      return next;
     });
+    setImportModal(null);
+    showMsg(`✓ 가져오기 완료 — 추가 ${added}개 · 갱신 ${updated}개${added?" (승인된 ITP였다면 재승인이 필요합니다)":""}`, 9000);
   };
 
   const removeItem = (id) => {
@@ -2059,6 +2097,37 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       </div>
     </div>}
 
+    {/* v1.8: 프로젝트 태그 선택 가져오기 모달 */}
+    {importModal && <div className="modal-overlay no-print" onClick={()=>setImportModal(null)}>
+      <div className="modal-box" onClick={e=>e.stopPropagation()} style={{maxWidth:460, maxHeight:"80vh", display:"flex", flexDirection:"column"}}>
+        <div style={{fontWeight:700, marginBottom:4, fontSize:15}}>⬇ 프로젝트 태그 가져오기</div>
+        <div style={{fontSize:11, color:"var(--sjp-text-sub)", marginBottom:10, lineHeight:1.5}}>
+          ITP 아이템으로 등록할 태그를 선택하세요. <b>이미 등록된 태그</b>를 다시 선택하면 장비명·규격을 최신값으로 갱신합니다.
+        </div>
+        <div style={{display:"flex", gap:8, marginBottom:8}}>
+          <button onClick={()=>_setAllImp(true)} className="btn-secondary" style={{fontSize:11, padding:"3px 10px"}}>전체 선택</button>
+          <button onClick={()=>_setAllImp(false)} className="btn-secondary" style={{fontSize:11, padding:"3px 10px"}}>전체 해제</button>
+          <div style={{flex:1, textAlign:"right", fontSize:11, color:"var(--sjp-text-sub)", alignSelf:"center"}}>
+            {Object.values(importModal.checked).filter(Boolean).length} / {importModal.list.length} 선택
+          </div>
+        </div>
+        <div style={{flex:1, overflowY:"auto", border:"1px solid var(--sjp-border)", borderRadius:6, padding:4}}>
+          {importModal.list.map(x =>
+            <label key={x.tag} style={{display:"flex", alignItems:"center", gap:8, padding:"6px 8px", borderRadius:5, cursor:"pointer", background: importModal.checked[x.tag]?"#f0f7ff":"transparent"}}>
+              <input type="checkbox" checked={!!importModal.checked[x.tag]} onChange={()=>_toggleImp(x.tag)}/>
+              <span style={{fontWeight:700, color:"var(--sjp-primary)", fontSize:12, minWidth:78}}>{x.tag}</span>
+              <span style={{flex:1, fontSize:11, color: x.type?"var(--sjp-text-body)":"#bbb"}}>{x.type || "(장비명 미입력)"}</span>
+              {x.already && <span style={{fontSize:9, color:"#16a34a", background:"#dcfce7", padding:"1px 6px", borderRadius:8, whiteSpace:"nowrap"}}>등록됨→갱신</span>}
+            </label>
+          )}
+        </div>
+        <div style={{display:"flex", gap:6, justifyContent:"flex-end", marginTop:12}}>
+          <button onClick={()=>setImportModal(null)} className="btn-secondary">취소</button>
+          <button onClick={doImportSelected} className="btn-primary">선택 항목 가져오기</button>
+        </div>
+      </div>
+    </div>}
+
     <EPCSlots jobNo={proj.no}/>
 
     {/* 단계 탭 */}
@@ -2219,15 +2288,15 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
         <div className="card">
           <div className="card-h" style={{display:"flex", justifyContent:"space-between", alignItems:"center", gap:6}}>
             <span>등재된 아이템 ({items.length}개)</span>
-            <button onClick={importProjectTags} className="btn-secondary" style={{fontSize:10.5, padding:"4px 10px"}}
-              title="왼쪽 프로젝트 태그(제작공정관리 아이템)를 모두 ITP 아이템으로 한 번에 등록합니다. 이미 있는 태그는 건너뜁니다.">
-              ⬇ 프로젝트 태그 전체 가져오기
+            <button onClick={openImportModal} className="btn-secondary" style={{fontSize:10.5, padding:"4px 10px"}}
+              title="왼쪽 프로젝트 태그(제작공정관리 아이템)를 골라서 ITP 아이템으로 등록합니다. 이미 있는 태그를 다시 고르면 장비명·규격을 최신값으로 갱신합니다.">
+              ⬇ 프로젝트 태그 선택 가져오기
             </button>
           </div>
           <div className="card-b">
             {items.length === 0 ?
               <div style={{padding:20, textAlign:"center", color:"#aaa", fontSize:11}}>
-                아직 등록된 아이템이 없습니다.<br/>위 <b>⬇ 프로젝트 태그 전체 가져오기</b> 또는 왼쪽 폼·Step 0 견적서 PDF로 추가하세요.
+                아직 등록된 아이템이 없습니다.<br/>위 <b>⬇ 프로젝트 태그 선택 가져오기</b> 또는 왼쪽 폼·Step 0 견적서 PDF로 추가하세요.
               </div>
               :
               items.map(it =>
