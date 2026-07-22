@@ -2165,6 +2165,46 @@ let _wbsMasterLoaded = false;
 function _sig(rows, items) {
   try { return JSON.stringify({ r: rows, i: items }); } catch (e) { return null; }
 }
+// v30.9: Rev(개정)은 '일정(시작/완료일) 변경' 또는 '작업/아이템 추가·삭제'일 때만 올린다.
+//   진도율·상태·체크리스트·비고 등은 데이터만 저장하고 Rev은 그대로. (요청: 삼성전기 Rev 75 폭증 방지)
+let _lastRevState = null;   // 직전 Rev 기준 스냅샷(요약용, 이름 포함)
+let _lastRevSig = null;     // 직전 Rev 판정용 서명(이름 제외 — id/일정/구성만)
+function _revState(rows, items){
+  return {
+    rows: (rows||[]).map(r=>({ id:r.id, name:r.name||"", code:r.code||"", s:r.s||"", e:r.e||"" })),
+    items: (items||[]).map(i=>({ id:i.id, tag:i.tagNo||"" })),
+  };
+}
+// Rev 증가 여부 판정 서명 — 행 {id,s,e} 집합 + 아이템 id 집합만 (이름 변경은 Rev 안 올림)
+function _revSigOf(st){
+  try{
+    const r=(st.rows||[]).map(x=>({id:x.id,s:x.s,e:x.e})).sort((a,b)=>String(a.id)<String(b.id)?-1:1);
+    const i=(st.items||[]).map(x=>x.id).sort();
+    return JSON.stringify({r,i});
+  }catch(e){ return null; }
+}
+// 왜 Rev이 올랐는지 사람이 읽을 요약 생성 (작업/아이템 추가·삭제, 일정 변경)
+function _buildRevSummary(oldSt, newSt, rows, items){
+  if(!oldSt) return "초기 저장";
+  const oR={},nR={},oI={},nI={};
+  (oldSt.rows||[]).forEach(r=>oR[r.id]=r); (newSt.rows||[]).forEach(r=>nR[r.id]=r);
+  (oldSt.items||[]).forEach(i=>oI[i.id]=i); (newSt.items||[]).forEach(i=>nI[i.id]=i);
+  const nmR=id=>{ const w=(rows||[]).find(x=>x.id===id); const b=w||nR[id]||oR[id]||{}; return ((b.code?b.code+" ":"")+(b.name||id)).trim(); };
+  const tgI=id=>{ const it=(items||[]).find(x=>x.id===id); return (it&&it.tagNo)||(nI[id]&&nI[id].tag)||(oI[id]&&oI[id].tag)||id; };
+  const cut=(arr,f,lbl)=>arr.length?`${lbl}: ${arr.slice(0,5).map(f).join(", ")}${arr.length>5?` 외 ${arr.length-5}건`:""}`:null;
+  const parts=[];
+  const addR=Object.keys(nR).filter(id=>!oR[id]);
+  const delR=Object.keys(oR).filter(id=>!nR[id]);
+  const p1=cut(addR,nmR,"작업 추가"); if(p1)parts.push(p1);
+  const p2=cut(delR,id=>((oR[id].code?oR[id].code+" ":"")+(oR[id].name||id)).trim(),"작업 삭제"); if(p2)parts.push(p2);
+  const dChg=[]; Object.keys(nR).forEach(id=>{ const o=oR[id],n=nR[id]; if(o&&(o.s!==n.s||o.e!==n.e)) dChg.push(`${nmR(id)} (${o.s||"-"}~${o.e||"-"} → ${n.s||"-"}~${n.e||"-"})`); });
+  if(dChg.length) parts.push(`일정 변경: ${dChg.slice(0,4).join(" / ")}${dChg.length>4?` 외 ${dChg.length-4}건`:""}`);
+  const addI=Object.keys(nI).filter(id=>!oI[id]);
+  const delI=Object.keys(oI).filter(id=>!nI[id]);
+  const p3=cut(addI,tgI,"아이템 추가"); if(p3)parts.push(p3);
+  const p4=cut(delI,id=>(oI[id].tag||id),"아이템 삭제"); if(p4)parts.push(p4);
+  return parts.length?parts.join(" · "):"구성 변경";
+}
 // v29.37: Traveller 검사 실적(REC/PIM/커스텀 ITP 템플릿 ITEM_TPL) Firestore 영속화.
 // 기존엔 메모리 전용이라 새로고침하면 항목별 Accept/Reject·실측값·비고·검사일이 전부 사라졌다
 // (요약 status만 items로 저장, 영속 경로는 JSON Export뿐). wbsData/{pid} 문서에 같이 넣으면
@@ -2267,16 +2307,30 @@ function v28Save(){
     }
     return;
   }
-  // v29.11: WBS 개정 번호(rev). 저장 때마다 +1 (증분 저장). PM이 승인한 각 변경 세트가 새 Rev.
-  _wbsRev = (Number(_wbsRev) || 0) + 1;
   const savedAt = Date.now();
   const cur = fb.auth && fb.auth.currentUser;
   const byUid = cur ? cur.uid : null;
-  fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, rev: _wbsRev, updatedAt: savedAt}, {merge: true}).catch(e=>console.warn("v28Save fail",e));
-  // v29.13: 매 저장마다 wbsHistory/{pid}_{padded_rev}에도 스냅샷 저장 → "이전 Rev 보기" 지원.
+  // v30.9: Rev 증가·이력 스냅샷은 '일정/구성 변경'일 때만. 진도율·상태·비고 등은 데이터만 저장(Rev 유지).
+  const _newRevState = _revState(rows, items);
+  const _newRevSig = _revSigOf(_newRevState);
+  const _revChanged = (_lastRevSig !== null && _newRevSig !== _lastRevSig);
+  if (!_revChanged) {
+    // 일정/구성 변경 아님 → 현재 Rev 유지, 이력 스냅샷 없이 데이터만 저장 (진행률 등 반영)
+    fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, rev: (_wbsRev||0), updatedAt: savedAt}, {merge: true}).catch(e=>console.warn("v28Save fail",e));
+    _lastRevState = _newRevState;   // 이름 변경 등 baseline 갱신(Rev엔 미반영)
+    if (_lastRevSig === null) _lastRevSig = _newRevSig;   // 최초 baseline 확정
+    return;
+  }
+  // 여기부터: 일정/구성이 실제로 바뀜 → Rev +1 + 이력 스냅샷(요약 포함)
+  const _revSummary = _buildRevSummary(_lastRevState, _newRevState, rows, items);
+  _wbsRev = (Number(_wbsRev) || 0) + 1;
+  _lastRevState = _newRevState; _lastRevSig = _newRevSig;
+  fb.setDoc(fb.doc(fb.db,"wbsData",_wbsPid), {rows, items, rev: _wbsRev, updatedAt: savedAt, lastRevSummary: _revSummary}, {merge: true}).catch(e=>console.warn("v28Save fail",e));
+  // v29.13: Rev 증가 시에만 wbsHistory/{pid}_{padded_rev} 스냅샷 저장 → "이전 Rev 보기" 지원.
   const revStr = String(_wbsRev).padStart(4, '0');
+  addLog(`📌 Rev.${_wbsRev} — ${_revSummary}`, "info");
   fb.setDoc(fb.doc(fb.db,"wbsHistory", _wbsPid + "_" + revStr),
-    { pid: _wbsPid, rev: _wbsRev, rows, items, at: savedAt, byUid: byUid, source: "master-save" }
+    { pid: _wbsPid, rev: _wbsRev, rows, items, at: savedAt, byUid: byUid, source: "master-save", summary: _revSummary }
   ).catch(e => {
     // v29.37.1: 이력 저장 실패를 조용히 삼키지 않는다 — 2026-07-17 SJ435 wbsHistory 0건
     // 사건이 정확히 이 catch에 묻혀서 열흘간 아무도 몰랐다. 1회 로그 + Rev 배지 옆 경고 표시.
@@ -3701,6 +3755,7 @@ function subscribeWbsData(pid, projCode){
     MITEM[pid] = d.items || [];
     // v29.13.1: 서버에서 로드한 상태를 마지막 저장 상태로 간주 → 즉시 재저장 방지.
     _lastSavedSig = _sig(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]);
+    _lastRevState = _revState(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]); _lastRevSig = _revSigOf(_lastRevState);
     // 자동 상신 baseline = 서버 로드 내용. (pending이 있으면 아래 pending 핸들러가 다시 덮어씀)
     if (_shadowUid) _shadowLoadedSig = _lastSavedSig;
     v28RecalcRange();
@@ -3757,6 +3812,7 @@ function subscribeWbsData(pid, projCode){
         MITEM[pid] = _shadowItems;
         // 로드된 pending을 baseline으로 확정 → 편집 없이 열기만 했을 때 오(誤)자동상신 방지 + 재저장 no-op
         _lastSavedSig = _sig(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]);
+    _lastRevState = _revState(WBS.filter(w=>w.projId===pid), MITEM[pid]||[]); _lastRevSig = _revSigOf(_lastRevState);
         _shadowLoadedSig = _lastSavedSig;
         updateShadowIndicator(true);
       } else {
@@ -3924,11 +3980,14 @@ async function openWbsHistory() {
     const dateStr = h.at ? new Date(h.at).toLocaleString("ko-KR") : "";
     const src = h.source === "shadow-approve" ? "🔵 결재 승인 반영"
               : (h.source||"").startsWith("restore") ? "↩ Rev 복원"
-              : "🟣 PM 직접 저장";
+              : "✏ 직접 수정 저장";
+    const _esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const summaryHtml = h.summary ? `<div style="font-size:11px;color:#1e40af;font-weight:600;margin-top:2px;">📌 ${_esc(h.summary)}</div>` : "";
     return `<div style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-bottom:1px solid #eee;cursor:pointer;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''" onclick="loadWbsHistory(${h.rev})">
       <span style="font-size:13px;font-weight:700;color:#7c3aed;background:#f5f3ff;padding:3px 10px;border-radius:12px;min-width:70px;text-align:center;">Rev. ${h.rev}</span>
       <div style="flex:1;">
         <div style="font-size:11px;color:#6b7280;">${dateStr}</div>
+        ${summaryHtml}
         <div style="font-size:10px;color:#9ca3af;">${src} · rows ${((h.rows||[]).length)} · items ${((h.items||[]).length)}</div>
       </div>
       <button style="font-size:11px;padding:4px 10px;background:#7c3aed;color:#fff;border:none;border-radius:4px;cursor:pointer;">👁 조회</button>
