@@ -1110,6 +1110,9 @@ function defaultState() {
        passed 시 자동으로 WBS의 해당 단계 진도율 가산
     */
     travellers: {},
+    // v: 제작공정관리 공정률 계산용 검사 실적 캐시. wbsRec[itemId] = { tid: {result, ...} }.
+    //   Firestore wbsRec 컬렉션 구독으로 채워지며, 로그인 시 새로 로드된다(로컬 저장 대상 아님).
+    wbsRec: {},
     tasks: [],
     events: [],
     channels: [
@@ -1171,7 +1174,7 @@ if (!state.users || !state.users.length || !state.users[0].email) {
 (function migrateFields() {
   const def = defaultState();
   let changed = false;
-  ['ncrs','cars','briefings','reports','channels','messages','channelReads','approvals','events','tasks','travellers','quotes','okrs','dismissedNotifs','taskOverrides'].forEach(k => {
+  ['ncrs','cars','briefings','reports','channels','messages','channelReads','approvals','events','tasks','travellers','wbsRec','quotes','okrs','dismissedNotifs','taskOverrides'].forEach(k => {
     if (state[k] === undefined && def[k] !== undefined) { state[k] = def[k]; changed = true; }
   });
   if (changed) { localStorage.setItem(KEY, JSON.stringify(state)); console.info('[SJ FLOW] 신규 필드 보강 완료'); }
@@ -2214,6 +2217,18 @@ function startFirestoreSync() {
     savePartial('items', state.items);
     render();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
+  // v: 제작공정관리(Traveller) 공정률 계산용 검사 실적(wbsRec) 구독.
+  //   wbs.html(MM 모드)이 아이템별 ITP 검사항목 결과를 wbsRec/{pid}_{itemId} 문서(rec 맵)에 저장한다.
+  //   카드 공정률 = 각 아이템 rec 항목 중 Accept/N/A 비율(아이템 평균). 프로젝트 총공정률(p.progress)과는 별개.
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsRec'), snap => {
+    snap.docChanges().forEach(ch => {
+      const d = ch.doc.data() || {};
+      const iid = d.itemId || ch.doc.id;
+      if (ch.type === 'removed') { delete state.wbsRec[iid]; return; }
+      state.wbsRec[iid] = d.rec || null;
+    });
+    render();
+  }, err => console.error('[Firestore] wbsRec 동기화 오류:', err)));
   // Mobile Inspection 임시저장(t_mobileInspectionDrafts) — 프로젝트 선택 화면에
   // "임시저장 N건" 배지로 보여주기 위해 목록만 가볍게 구독한다(문서 내용은
   // 필요 없고 pid만 세면 되지만, 별도 count-only 쿼리가 없어 그냥 전체를 받음).
@@ -5278,6 +5293,27 @@ function getTravProgress(itemId) {
   return { passed, rejected, pending, total, pct: Math.round(passed/total*100) };
 }
 
+// v: 아이템 1개의 ITP 검사 실적 공정률. wbs.html(MM)이 저장한 wbsRec[itemId](rec 맵)을 우선 사용.
+//   rec 항목 중 result가 'Accept' 또는 'N/A'면 완료로 집계 → 완료수/전체수. Reject는 NCR로 카운트.
+//   rec가 아직 없으면(검사 데이터 미로드/미입력) 로컬 travellers 집계로 폴백한다.
+function getItemInspProgress(itemId) {
+  const rec = state.wbsRec && state.wbsRec[itemId];
+  if (rec) {
+    const vals = Object.values(rec);
+    if (vals.length) {
+      let done = 0, rejected = 0;
+      vals.forEach(v => {
+        const r = v && v.result;
+        if (r === 'Accept' || r === 'N/A') done++;
+        else if (r === 'Reject') rejected++;
+      });
+      return { done, rejected, total: vals.length, pct: Math.round(done / vals.length * 100), hasRec: true };
+    }
+  }
+  // 폴백: 로컬 travellers(9단계 통과 여부)
+  const tp = getTravProgress(itemId);
+  return { done: tp.passed, rejected: tp.rejected, total: tp.total, pct: tp.pct, hasRec: false };
+}
 // 현재 진행 단계 (passed 다음의 첫 번째 pending or rejected)
 function getCurrentStage(itemId) {
   const tr = (state.travellers && state.travellers[itemId]) || {};
@@ -5313,14 +5349,19 @@ function renderTravellerProjects() {
   // 프로젝트별 Traveller 진척 계산
   const projStats = projs.map(p => {
     const items = state.items[p.id] || [];
-    const totalSteps = items.length * ITP_BASE.length;
-    let passed = 0, rejected = 0;
+    // v: 제작공정관리 공정률 = 아이템별 ITP 검사 Accept 비율(wbsRec 기반)의 평균.
+    //   각 아이템의 완료수/전체수를 합산해 전체 검사항목 대비 비율로 낸다(항목수 다른 아이템도 공정하게 반영).
+    //   rejected(Reject) 합계는 NCR 배지로 표시. 프로젝트 총공정률(p.progress)과는 별개 지표다.
+    let doneSum = 0, totalSum = 0, rejected = 0;
     items.forEach(it => {
-      const pr = getTravProgress(it.id);
-      passed += pr.passed;
+      const pr = getItemInspProgress(it.id);
+      doneSum += pr.done;
+      totalSum += pr.total;
       rejected += pr.rejected;
     });
-    const pct = totalSteps ? Math.round(passed/totalSteps*100) : 0;
+    const pct = totalSum ? Math.round(doneSum / totalSum * 100) : 0;
+    // 하단 라벨 호환: 완료 검사항목수 / 전체 검사항목수
+    const passed = doneSum, totalSteps = totalSum;
     return { p, items, totalSteps, passed, rejected, pct };
   });
   
