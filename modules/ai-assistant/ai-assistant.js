@@ -77,6 +77,11 @@
     { id: 'local', label: '로컬 LLM', ls: null, localOnly: true,
       note: '로컬 LLM — 이 컴퓨터의 LM Studio / Ollama (무료·무제한)',
       models: [] },
+    // v: 9Router Proxy — combo 키 하나로 여러 AI 모델을 자동 전환. 게이트웨이 전용(키는 Worker Secret에 보관).
+    //   브라우저 → 게이트웨이 → 9Router Proxy → 각 AI 공급사. 모델명은 9Router가 관리하므로 '9router-auto' 고정.
+    { id: '9router', label: '9Router', ls: null, gatewayOnly: true,
+      note: '9Router combo 키 — 게이트웨이 경유, 자동 모델 라우팅',
+      models: ['cc/claude-opus-4-7'] },
     { id: 'gemini', label: 'Gemini', ls: GEMINI_KEY_LS, signup: 'https://aistudio.google.com/apikey',
       note: 'Gemini — 키 1개당 하루 1,500회',
       models: ['gemini-flash-latest', 'gemini-2.5-flash'] },
@@ -502,16 +507,23 @@
   // ── 게이트웨이 체인: 키가 있는 회사를 순서대로, 실패하면 자동으로 다음 회사 ──
   var lastProviderLabel = '';   // 마지막으로 실제 응답한 회사 (답변 밑에 표시)
 
-  function callOneModel(p, key, model, h, signal) {
-    // key === null 이면 회사 게이트웨이 경유 (키는 서버가 보관·주입)
+  async function gatewayAuthHeaders() {
+    if (!window.fb || !fb.auth || !fb.auth.currentUser) throw new Error('회사 로그인 후 9Router를 사용할 수 있습니다');
+    return { Authorization: 'Bearer ' + await fb.auth.currentUser.getIdToken() };
+  }
+
+  async function callOneModel(p, key, model, h, signal) {
+    // key === null 이면 회사 게이트웨이 경유. 9Router는 로그인 토큰까지 붙여 Worker가 직원 계정만 확인한다.
     var gw = key === null ? getGatewayUrl() + '/v1/' + p.id : null;
-    if (p.id === 'gemini') return callGeminiOnce(key, model, h, signal, gw);
-    if (p.id === 'claude') return callClaudeOnce(key, model, h, signal, gw);
-    if (p.id === 'groq') return callOpenAiCompatOnce('Groq', (gw || 'https://api.groq.com/openai/v1') + '/chat/completions', key, model, h, signal);
-    if (p.id === 'cerebras') return callOpenAiCompatOnce('Cerebras', (gw || 'https://api.cerebras.ai/v1') + '/chat/completions', key, model, h, signal);
-    if (p.id === 'nvidia') return callOpenAiCompatOnce('NVIDIA', (gw || 'https://integrate.api.nvidia.com/v1') + '/chat/completions', key, model, h, signal);
-    if (p.id === 'mistral') return callOpenAiCompatOnce('Mistral', (gw || 'https://api.mistral.ai/v1') + '/chat/completions', key, model, h, signal);
-    return callOpenAiCompatOnce('OpenRouter', (gw || 'https://openrouter.ai/api/v1') + '/chat/completions', key, model, h, signal, { 'X-Title': 'Sejong Platform' });
+    var gatewayHeaders = key === null ? await gatewayAuthHeaders() : null;
+    if (p.id === 'gemini') return callGeminiOnce(key, model, h, signal, gw, gatewayHeaders);
+    if (p.id === 'claude') return callClaudeOnce(key, model, h, signal, gw, gatewayHeaders);
+    if (p.id === '9router') return callOpenAiCompatOnce('9Router', gw + '/chat/completions', key, model, h, signal, gatewayHeaders);
+    if (p.id === 'groq') return callOpenAiCompatOnce('Groq', (gw || 'https://api.groq.com/openai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders);
+    if (p.id === 'cerebras') return callOpenAiCompatOnce('Cerebras', (gw || 'https://api.cerebras.ai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders);
+    if (p.id === 'nvidia') return callOpenAiCompatOnce('NVIDIA', (gw || 'https://integrate.api.nvidia.com/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders);
+    if (p.id === 'mistral') return callOpenAiCompatOnce('Mistral', (gw || 'https://api.mistral.ai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders);
+    return callOpenAiCompatOnce('OpenRouter', (gw || 'https://openrouter.ai/api/v1') + '/chat/completions', key, model, h, signal, Object.assign({ 'X-Title': 'Sejong Platform' }, gatewayHeaders || {}));
   }
 
   // 한 회사 안에서: 소스(회사 게이트웨이 → 내 키들)를 교대하고, 소스마다 모델 목록을 시도한다.

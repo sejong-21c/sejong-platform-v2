@@ -35,12 +35,14 @@ https://sejong-ai-gateway.<계정이름>.workers.dev
 | `OPENROUTER_KEYS` | `sk-or-...,sk-or-...,sk-or-...` | |
 | `NVIDIA_KEYS` | `nvapi-...` | [build.nvidia.com](https://build.nvidia.com)에서 무료 발급 |
 | `MISTRAL_KEYS` | (있으면) | 선택 |
+| `NINEROUTER_KEYS` | `9router_...` | 9Router Proxy API Combo Key (쉼표 구분) |
 
 3. **일반 변수(Text)** 로 하나 더 추가:
 
 | 변수 이름 | 값 |
 |---|---|
 | `ALLOWED_ORIGINS` | `https://sejong21c.com,https://www.sejong21c.com` |
+| `NINEROUTER_BASE` | `https://<9router-공용주소>/v1` | 9Router Proxy 엔드포인트 URL (필수, localhost는 Worker에서 접근 불가) |`r`n| `NINEROUTER_MODEL` | `cc/claude-opus-4-7` 또는 Combo 이름 | 9Router에서 만든 combo/모델 이름 (필수) |`r`n| `FIREBASE_PROJECT_ID` | `sejong-platform` | 9Router 공용 키를 회사 로그인 사용자에게만 열기 위한 검증용 |
 
    → 우리 플랫폼에서 온 요청만 받겠다는 뜻. **이거 꼭 설정하세요** (안 하면 아무 사이트나 우리 키를 쓸 수 있음).
 
@@ -76,3 +78,9 @@ Cloudflare Worker (회사 키 보관 + 키 자동 교대)
    ▼
 Gemini / Groq / Cerebras / NVIDIA / OpenRouter / Mistral
 ```
+
+### 9Router 공용 연결 주의
+
+9Router의 기본 API 주소는 `http://localhost:20128/v1` 입니다. 이 주소는 9Router를 실행한 PC 내부에서만 접근되므로, 전 직원 공용으로 쓰려면 9Router를 켜 둘 회사 PC/서버를 Cloudflare Tunnel 같은 HTTPS 주소로 노출한 뒤 그 주소를 `NINEROUTER_BASE`에 넣어야 합니다.
+
+플랫폼 브라우저에는 9Router Combo 키가 내려가지 않습니다. 브라우저는 Firebase 로그인 토큰만 Worker에 보내고, Worker가 `@sejong-21c.com` 로그인 계정인지 확인한 뒤 `NINEROUTER_KEYS`를 9Router로 주입합니다.

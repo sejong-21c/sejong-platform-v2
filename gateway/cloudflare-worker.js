@@ -66,10 +66,69 @@ const PROVIDERS = {
       if (!headers.has('anthropic-version')) headers.set('anthropic-version', '2023-06-01');
     },
   },
+  // 9Router Proxy (OpenAI 호환). 공용 사용 시에는 상시 실행되는 9Router 서버를
+  // Cloudflare Tunnel 등의 HTTPS 주소로 노출하고, 그 주소를 NINEROUTER_BASE에 넣는다.
+  // (9Router의 기본 localhost:20128은 Cloudflare Worker에서 접근할 수 없다.)
+  '9router': {
+    envKey: 'NINEROUTER_KEYS',
+    baseEnv: 'NINEROUTER_BASE',
+    modelEnv: 'NINEROUTER_MODEL',
+    requireCompanyAuth: true,
+    auth: (headers, key) => { headers.set('Authorization', 'Bearer ' + key); },
+  },
 };
 
 // 키 교대 위치 기억 (워커 인스턴스가 살아있는 동안만 — 사라져도 첫 키부터 다시 돌 뿐이라 무해)
 const keyCursor = {};
+const FIREBASE_CERT_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+const firebaseCertCache = { expiresAt: 0, keys: new Map() };
+
+function base64UrlToBytes(value) {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((value.length + 3) % 4);
+  return Uint8Array.from(atob(padded), char => char.charCodeAt(0));
+}
+
+function decodeJwtPart(value) {
+  return JSON.parse(new TextDecoder().decode(base64UrlToBytes(value)));
+}
+
+function pemToBytes(pem) {
+  const clean = pem.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s/g, '');
+  return Uint8Array.from(atob(clean), char => char.charCodeAt(0));
+}
+
+async function firebaseSigningKey(kid) {
+  if (Date.now() >= firebaseCertCache.expiresAt || !firebaseCertCache.keys.has(kid)) {
+    const response = await fetch(FIREBASE_CERT_URL);
+    if (!response.ok) throw new Error('Firebase signing certificate lookup failed');
+    firebaseCertCache.keys = new Map(Object.entries(await response.json()));
+    firebaseCertCache.expiresAt = Date.now() + 60 * 60 * 1000;
+  }
+  const cert = firebaseCertCache.keys.get(kid);
+  if (!cert) throw new Error('Unknown Firebase token key id');
+  return crypto.subtle.importKey('spki', pemToBytes(cert), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+}
+
+async function verifyCompanyFirebaseToken(request, env) {
+  const projectId = (env.FIREBASE_PROJECT_ID || '').trim();
+  if (!projectId) return { status: 501, error: 'FIREBASE_PROJECT_ID not configured for 9Router access' };
+  const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i);
+  if (!match) return { status: 401, error: 'Firebase login token required for 9Router access' };
+  try {
+    const parts = match[1].split('.');
+    if (parts.length !== 3) throw new Error('Malformed Firebase token');
+    const header = decodeJwtPart(parts[0]);
+    const payload = decodeJwtPart(parts[1]);
+    if (header.alg !== 'RS256' || !header.kid) throw new Error('Unsupported Firebase token signature');
+    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', await firebaseSigningKey(header.kid), base64UrlToBytes(parts[2]), new TextEncoder().encode(parts[0] + '.' + parts[1]));
+    const now = Math.floor(Date.now() / 1000);
+    const isCompanyEmail = typeof payload.email === 'string' && /@sejong-21c[.]com$/i.test(payload.email);
+    if (!valid || payload.aud !== projectId || payload.iss !== 'https://securetoken.google.com/' + projectId || payload.exp <= now || !payload.email_verified || !isCompanyEmail) throw new Error('Firebase token is not an active company account');
+    return null;
+  } catch (error) {
+    return { status: 401, error: 'Invalid Firebase login token: ' + (error.message || error) };
+  }
+}
 
 function corsHeaders(origin, allowed) {
   const h = {
@@ -104,17 +163,35 @@ export default {
     }
 
     // 경로: /v1/<provider>/<나머지 경로>
-    const m = url.pathname.match(/^\/v1\/([a-z]+)\/(.+)$/);
+    const m = url.pathname.match(/^\/v1\/([a-z0-9]+)\/(.+)$/);
     if (!m) return json(404, { error: 'usage: POST /v1/<provider>/<path>' }, cors);
     const provider = PROVIDERS[m[1]];
     if (!provider) return json(404, { error: 'unknown provider: ' + m[1] }, cors);
     if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
 
+    if (provider.requireCompanyAuth) {
+      const authError = await verifyCompanyFirebaseToken(request, env);
+      if (authError) return json(authError.status, { error: authError.error }, cors);
+    }
+
     const keys = (env[provider.envKey] || '').split(/[\s,;]+/).filter(Boolean);
     if (!keys.length) return json(501, { error: m[1] + ' keys not configured on gateway' }, cors);
 
-    const body = await request.text();
-    const upstreamUrl = provider.base + '/' + m[2] + url.search;
+    let body = await request.text();
+    const baseUrl = (provider.baseEnv ? (env[provider.baseEnv] || '') : provider.base || '').trim().replace(/\/+$/, '');
+    if (!baseUrl) return json(501, { error: m[1] + ' base URL not configured on gateway' }, cors);
+    if (provider.modelEnv) {
+      const model = (env[provider.modelEnv] || '').trim();
+      if (!model) return json(501, { error: m[1] + ' model not configured on gateway' }, cors);
+      try {
+        const payload = JSON.parse(body);
+        payload.model = model;
+        body = JSON.stringify(payload);
+      } catch (error) {
+        return json(400, { error: 'invalid JSON request body for ' + m[1] }, cors);
+      }
+    }
+    const upstreamUrl = baseUrl + '/' + m[2] + url.search;
 
     // 키 교대: 마지막으로 성공한 키부터 시작, 한도 초과/불량 키면 다음 키
     const start = (keyCursor[m[1]] || 0) % keys.length;
