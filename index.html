@@ -5320,13 +5320,7 @@ function renderTravellerProjects() {
       passed += pr.passed;
       rejected += pr.rejected;
     });
-    // v: 진행률(%)은 WBS 실제 데이터(수동 입력 pctManual·자식 롤업·ITP 집계) 우선.
-    //   제작 공정 관리 편집 화면(wbs.html MM 모드)이 진척을 wbsData/projects.progress 에 저장하므로,
-    //   로컬 travellers 집계(passed/totalSteps)만 보던 기존 카드는 안에서 올린 진행률이 반영되지 않았다.
-    //   → WBS 행이 있으면 computeProjectProgress(pctManual 반영), 없으면 서버 progress, 최후에 traveller 집계.
-    const travPct = totalSteps ? Math.round(passed/totalSteps*100) : 0;
-    const hasWbs = ((state.wbs[p.id] || []).length > 0);
-    const pct = hasWbs ? computeProjectProgress(p.id) : (Number(p.progress) || travPct);
+    const pct = totalSteps ? Math.round(passed/totalSteps*100) : 0;
     return { p, items, totalSteps, passed, rejected, pct };
   });
   
