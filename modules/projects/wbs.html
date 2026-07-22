@@ -321,7 +321,7 @@ const DRAFT={
   wform:{code:"",name:"",mgr:"",s:"",e:"",status:"미시작",itpLink:"",vendor:"",memo:""},
   wnproj:{no:"",name:"",client:"",po:"",par:""},
   mnproj:{no:"",name:"",client:"",po:"",par:""},
-  mnitem:{tagNo:"",type:"",spec:"ASME Sec.VIII Div.1",maker:"",wbsLink:""},
+  mnitem:{tagNo:"",type:"",spec:"ASME Sec.VIII Div.1",maker:"",material:"",wbsLink:""},
   wedit:{},
   editProj:{},
   editItem:{},
@@ -526,7 +526,7 @@ let S={
   mp:"projects",mproj:null,mitem:null,mitpId:null,mphf:-1,
   maitem:false,
   mnproj:{no:"",name:"",client:"",po:"",par:""},
-  mnitem:{tagNo:"",type:"",spec:"ASME Sec.VIII Div.1",maker:"",wbsLink:""},
+  mnitem:{tagNo:"",type:"",spec:"ASME Sec.VIII Div.1",maker:"",material:"",wbsLink:""},
   editItem:null,
   addITPItem:false,
   editITPItem:null,
@@ -919,6 +919,14 @@ function rDetailPanel(){
           ?`<input data-draft="wedit" data-k="linkSpec" value="${(it.spec||"").replace(/"/g,"&quot;")}" class="dpnl-input" placeholder="예: ASME Sec.VIII Div.1" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`
           :`<span style="font-size:10px;color:#9ca3af">아이템 연동 후 입력 가능</span>`;
         return field("📐 Spec.",spDisp,spEdit);
+      })()}
+      ${(()=>{
+        const it=w.itpLink?fI(w.itpLink):null;
+        const mtDisp=it?(it.material?`<span style="font-size:11px">${it.material}</span>`:`<span style="font-size:10px;color:#9ca3af">— 미입력 —</span>`):`<span style="font-size:10px;color:#9ca3af">—</span>`;
+        const mtEdit=it
+          ?`<input data-draft="wedit" data-k="linkMaterial" value="${(it.material||"").replace(/"/g,"&quot;")}" class="dpnl-input" placeholder="예: SUS304 / SA516-70" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`
+          :`<span style="font-size:10px;color:#9ca3af">아이템 연동 후 입력 가능</span>`;
+        return field("🧱 재질 (Material)",mtDisp,mtEdit);
       })()}
       ${field("담당 부서",w.dept?`<span style="font-size:11px;color:#7c3aed;font-weight:700">${w.dept}</span>`:`<span style="font-size:10px;color:#9ca3af">— 미지정 —</span>`,`<select data-draft="wedit" data-k="dept" class="dpnl-select"><option value="">— 미지정 —</option>${DEPT_LIST.map(d=>`<option value="${d}"${w.dept===d?" selected":""}>${d}</option>`).join("")}</select>`)}
       ${field("담당자",w.mgr,`<input data-draft="wedit" data-k="mgr" value="${(w.mgr||"").replace(/"/g,"&quot;")}" class="dpnl-input" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#c3d6f0'"/>`)}
@@ -1390,6 +1398,7 @@ function rModals(){
       </div>
       <div style="display:flex;gap:6px;margin-bottom:7px">
         <div style="flex:1"><div class="fl">Spec.</div><input data-draft="mnitem" data-k="spec" value="${(f.spec||"ASME Sec.VIII Div.1").replace(/"/g,'&quot;')}" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
+        <div style="flex:1"><div class="fl">재질 (Material)</div><input data-draft="mnitem" data-k="material" value="${(f.material||"").replace(/"/g,'&quot;')}" class="fi" placeholder="예: SUS304 / SA516-70" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
         <div style="flex:1"><div class="fl">제작사</div><input data-draft="mnitem" data-k="maker" value="${(f.maker||"").replace(/"/g,'&quot;')}" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
       </div>
       <div style="margin-bottom:7px;padding:10px;background:#f8fafc;border-radius:7px;border:1px solid #e4e7ec">
@@ -1439,6 +1448,7 @@ function rModals(){
       </div>
       <div style="display:flex;gap:6px;margin-bottom:7px">
         <div style="flex:1"><div class="fl">Spec.</div><input data-draft="editItem" data-k="spec" value="${(f.spec!==undefined?f.spec:it.spec).replace(/"/g,'&quot;')}" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
+        <div style="flex:1"><div class="fl">재질 (Material)</div><input data-draft="editItem" data-k="material" value="${(f.material!==undefined?f.material:(it.material||"")).replace(/"/g,'&quot;')}" class="fi" placeholder="예: SUS304 / SA516-70" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
         <div style="flex:1"><div class="fl">제작사</div><input data-draft="editItem" data-k="maker" value="${(f.maker!==undefined?f.maker:it.maker).replace(/"/g,'&quot;')}" class="fi" onfocus="this.style.borderColor='#4a7fc1'" onblur="this.style.borderColor='#e4e7ec'"/></div>
       </div>
       <div style="margin-bottom:10px;padding:10px;background:#f8fafc;border-radius:7px;border:1px solid #e4e7ec">
@@ -1650,8 +1660,9 @@ function act(a,d){
       // v30.7: 장비명(type)·Spec을 연동된 MITEM 아이템에 기록 → 제작공정관리·ITP와 단일 원본 공유
       const _lt=document.querySelector('[data-draft="wedit"][data-k="linkType"]');
       const _ls=document.querySelector('[data-draft="wedit"][data-k="linkSpec"]');
-      if(itpLink&&(_lt||_ls)){
-        Object.keys(MITEM).forEach(pid=>{const xi=(MITEM[pid]||[]).findIndex(i=>i.id===itpLink);if(xi>=0){const cur=MITEM[pid][xi];MITEM[pid][xi]={...cur,type:_lt?(_lt.value||cur.type||"장비"):cur.type,spec:_ls?_ls.value:cur.spec};}});
+      const _lm=document.querySelector('[data-draft="wedit"][data-k="linkMaterial"]');
+      if(itpLink&&(_lt||_ls||_lm)){
+        Object.keys(MITEM).forEach(pid=>{const xi=(MITEM[pid]||[]).findIndex(i=>i.id===itpLink);if(xi>=0){const cur=MITEM[pid][xi];MITEM[pid][xi]={...cur,type:_lt?(_lt.value||cur.type||"장비"):cur.type,spec:_ls?_ls.value:cur.spec,material:_lm?_lm.value:(cur.material||"")};}});
         addLog(`🔧 장비 정보 갱신: ${fI(itpLink)?.tagNo||itpLink} (제작공정·ITP 공유)`,"info");
       }
       WBS=WBS.map(w=>w.id===id?{...w,name,mgr,s,e,status,vendor,memo,pctManual,dept,itpLink}:w);const updated=WBS.find(w=>w.id===id);addLog(`✏ 수정됨: ${updated.code} ${updated.name}${dept?' ['+dept+']':''}${pctManual!=null?' [진척 '+pctManual+'%]':''}${memo?' [메모]':''}${vendor?' ['+vendor+']':''}`,"ok");
@@ -1722,7 +1733,7 @@ function act(a,d){
       });
       break;}
     case"bcMItm":us({mp:"items"});break;
-    case"opMAI":{DRAFT.mnitem={tagNo:"",type:"",spec:"ASME Sec.VIII Div.1",maker:"",wbsLink:"",wbsMode:"new",wbsParent:"",wbsName:""};us({maitem:true});}break;
+    case"opMAI":{DRAFT.mnitem={tagNo:"",type:"",spec:"ASME Sec.VIII Div.1",maker:"",material:"",wbsLink:"",wbsMode:"new",wbsParent:"",wbsName:""};us({maitem:true});}break;
     case"clMAI":us({maitem:false});break;
     case"svMI":{
       const tagNo=document.querySelector('[data-draft="mnitem"][data-k="tagNo"]')?.value||"";
@@ -1730,6 +1741,7 @@ function act(a,d){
       const type=document.querySelector('[data-draft="mnitem"][data-k="type"]')?.value||"";
       const spec=document.querySelector('[data-draft="mnitem"][data-k="spec"]')?.value||"ASME Sec.VIII Div.1";
       const maker=document.querySelector('[data-draft="mnitem"][data-k="maker"]')?.value||"";
+      const material=document.querySelector('[data-draft="mnitem"][data-k="material"]')?.value||"";
       const wbsMode=DRAFT.mnitem.wbsMode||"new";
       const pid=S.mproj?.id;if(!pid)return;
       const newItemId="i"+Date.now();
@@ -1760,7 +1772,7 @@ function act(a,d){
         }
       }
       if(!MITEM[pid])MITEM[pid]=[];
-      MITEM[pid].push({id:newItemId,tagNo,type,spec,maker,status:"대기",wbsLink:finalWbsId});
+      MITEM[pid].push({id:newItemId,tagNo,type,spec,maker,material,status:"대기",wbsLink:finalWbsId});
       addLog("아이템 추가: "+tagNo,"ok");
       us({maitem:false});
       break;}
@@ -1780,6 +1792,7 @@ function act(a,d){
       const eType=document.querySelector('[data-draft="editItem"][data-k="type"]')?.value||S.editItem.type;
       const eSpec=document.querySelector('[data-draft="editItem"][data-k="spec"]')?.value||S.editItem.spec;
       const eMaker=document.querySelector('[data-draft="editItem"][data-k="maker"]')?.value||S.editItem.maker;
+      const _eMatEl=document.querySelector('[data-draft="editItem"][data-k="material"]');const eMaterial=_eMatEl?_eMatEl.value:(S.editItem.material||"");
       const eMode=DRAFT.editItem.wbsMode||(S.editItem.wbsLink?'exist':'new');
       const oldWbs=S.editItem.wbsLink;
       let newWbsId=null;
@@ -1802,7 +1815,7 @@ function act(a,d){
       }
       for(const pid in MITEM){
         const idx=MITEM[pid].findIndex(i=>i.id===eid);
-        if(idx>=0){MITEM[pid][idx]={...MITEM[pid][idx],tagNo:eTagNo,type:eType,spec:eSpec,maker:eMaker,wbsLink:newWbsId};break;}
+        if(idx>=0){MITEM[pid][idx]={...MITEM[pid][idx],tagNo:eTagNo,type:eType,spec:eSpec,maker:eMaker,material:eMaterial,wbsLink:newWbsId};break;}
       }
       addLog("✏ 아이템 수정: "+eTagNo,"ok");
       us({editItem:null});

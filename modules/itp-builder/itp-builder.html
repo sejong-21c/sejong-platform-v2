@@ -1155,6 +1155,7 @@ function App(){
   // v2.4 — 저장 실패(브라우저 저장공간 초과 등)를 화면에 알림. 1초마다 도는 자동저장에서
   // 매번 뜨면 스팸이 되므로 1분에 한 번만 표시(NCR/CAR/모바일 인스펙션과 동일한 관례).
   const lastQuotaWarnRef = useRef(0);
+  const _dragItemIdx = useRef(null);  // v1.11: 아이템 순서 드래그용
   const warnLocalSaveFailed = () => {
     const now = Date.now();
     if (now - lastQuotaWarnRef.current < 60000) return;
@@ -1753,6 +1754,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       id: e.id, tag: e.tag,
       type: e.type || "",
       spec: e.appl_code || e.spec || "",
+      material: e.shell_mat || e.material || "",
       name: e.name || e.type || e.tag,
       already: haveTags.has((e.tag||"").trim()),
     }));
@@ -1775,12 +1777,12 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       const next = prev.map(it => {
         const e = chkByTag.get((it.tag||"").trim());
         if (!e) return it;
-        return { ...it, type: e.type||it.type, appl_code: e.spec||it.appl_code, name: e.name||e.type||it.name, epcId: e.id };
+        return { ...it, type: e.type||it.type, appl_code: e.spec||it.appl_code, shell_mat: e.material||it.shell_mat, name: e.name||e.type||it.name, epcId: e.id };
       });
       const existing = new Set(prev.map(it => (it.tag||"").trim()));
       chk.forEach(e => {
         const key = (e.tag||"").trim();
-        if (!existing.has(key)) next.push({ ...DEF_ITEM, tag: e.tag, name: e.name||e.type||e.tag, type: e.type||DEF_ITEM.type, appl_code: e.spec||"", epcId: e.id, id: Date.now()+Math.random() });
+        if (!existing.has(key)) next.push({ ...DEF_ITEM, tag: e.tag, name: e.name||e.type||e.tag, type: e.type||DEF_ITEM.type, appl_code: e.spec||"", shell_mat: e.material||"", epcId: e.id, id: Date.now()+Math.random() });
       });
       return next;
     });
@@ -1830,6 +1832,38 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     }
     setCopyModal(null);
     showMsg(`✓ ${(items.find(it=>it.id===m.sourceId)||{}).tag} 의 검사항목을 ${cnt}개 아이템에 복사했습니다.${m.inclRev?" (Rev 포함)":""}${m.inclHdr?" (헤더 포함)":""} — 각 아이템의 문서번호는 고유값으로 유지됩니다.`, 9000);
+  };
+
+  // v1.11: 아이템 순서 변경 → 문서번호(끝 숫자 그룹) 순번 재부여. ◀▶ 버튼·드래그 공용.
+  const _resequenceDocNos = (ordered) => {
+    setItpDocNoByItem(prev => {
+      const out = {...prev};
+      ordered.forEach((it, i) => {
+        const cur = out[it.id];
+        if (cur && /\d(\D*)$/.test(cur)) {
+          out[it.id] = cur.replace(/(\d+)(\D*)$/, (m, num, tail) => String(i+1).padStart(num.length, "0") + tail);
+        }
+      });
+      return out;
+    });
+  };
+  const moveItem = (id, dir) => {
+    const idx = items.findIndex(it => it.id === id);
+    const j = idx + dir;
+    if (idx < 0 || j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    setItems(next);
+    _resequenceDocNos(next);
+  };
+  const moveItemToIndex = (from, to) => {
+    if (from == null || to == null || from === to) return;
+    if (from < 0 || from >= items.length || to < 0 || to >= items.length) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setItems(next);
+    _resequenceDocNos(next);
   };
 
   const removeItem = (id) => {
@@ -2450,13 +2484,26 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       </div>
 
       {!printAllMode && items.length > 1 &&
-        <div className="no-print" style={{display:"flex", gap:6, flexWrap:"wrap", marginBottom:8}}>
-          {items.map(it =>
-            <button key={it.id} onClick={()=>setSelectedItpItemId(it.id)}
-              style={{padding:"7px 14px", fontSize:11, background: selectedItpItemId===it.id?"var(--sjp-primary)":"#fff", color: selectedItpItemId===it.id?"#fff":"var(--sjp-text-body)", border:`1px solid ${selectedItpItemId===it.id?"var(--sjp-primary)":"var(--sjp-border)"}`, borderRadius:5, cursor:"pointer", fontWeight: selectedItpItemId===it.id?700:500}}>
-              <strong>{it.tag}</strong> · {it.name}
-            </button>
-          )}
+        <div className="no-print" style={{marginBottom:8}}>
+          <div style={{fontSize:10, color:"var(--sjp-text-sub)", marginBottom:4}}>↔ 아이템 순서 = ITP 문서번호(-001, -002…) 순번. ◀▶ 버튼 또는 드래그로 순서를 바꾸면 문서번호가 다시 매겨집니다.</div>
+          <div style={{display:"flex", gap:6, flexWrap:"wrap"}}>
+            {items.map((it, idx) => {
+              const on = selectedItpItemId===it.id;
+              return <div key={it.id} draggable
+                onDragStart={e=>{ _dragItemIdx.current=idx; e.dataTransfer.effectAllowed="move"; }}
+                onDragOver={e=>e.preventDefault()}
+                onDrop={e=>{ e.preventDefault(); moveItemToIndex(_dragItemIdx.current, idx); _dragItemIdx.current=null; }}
+                title="드래그해서 순서 변경"
+                style={{display:"inline-flex", alignItems:"center", border:`1px solid ${on?"var(--sjp-primary)":"var(--sjp-border)"}`, borderRadius:5, overflow:"hidden", background: on?"var(--sjp-primary)":"#fff"}}>
+                <button onClick={()=>moveItem(it.id,-1)} disabled={idx===0} title="앞으로" style={{border:"none", background:"transparent", color: on?"#fff":(idx===0?"#d1d5db":"#9ca3af"), cursor: idx===0?"default":"pointer", padding:"0 3px", fontSize:10}}>◀</button>
+                <button onClick={()=>setSelectedItpItemId(it.id)}
+                  style={{border:"none", background:"transparent", color: on?"#fff":"var(--sjp-text-body)", cursor:"grab", padding:"7px 6px", fontSize:11, fontWeight: on?700:500, whiteSpace:"nowrap"}}>
+                  <span style={{opacity:.45, marginRight:4}}>⠿</span><strong>{it.tag}</strong> · {it.name}
+                </button>
+                <button onClick={()=>moveItem(it.id,1)} disabled={idx===items.length-1} title="뒤로" style={{border:"none", background:"transparent", color: on?"#fff":(idx===items.length-1?"#d1d5db":"#9ca3af"), cursor: idx===items.length-1?"default":"pointer", padding:"0 3px", fontSize:10}}>▶</button>
+              </div>;
+            })}
+          </div>
         </div>
       }
 
