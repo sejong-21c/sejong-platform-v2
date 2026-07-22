@@ -1183,6 +1183,8 @@ function App(){
   const [appvModal, setAppvModal] = useState(null);
   // v1.8: 프로젝트 태그 선택 가져오기 모달. null=닫힘. {list:[{id,tag,type,spec,name,already}], checked:{[tag]:bool}}
   const [importModal, setImportModal] = useState(null);
+  // v1.9: ITP 복사 모달. null=닫힘. {sourceId, checked:{[itemId]:bool}, inclRev, inclHdr}
+  const [copyModal, setCopyModal] = useState(null);
   const [keyInput, setKeyInput] = useState(() => getApiKey());
 
   // v1.3 — sjp-bridge.js 외부 의존성 제거 (안전한 optional chaining 유지)
@@ -1782,6 +1784,50 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
     showMsg(`✓ 가져오기 완료 — 추가 ${added}개 · 갱신 ${updated}개${added?" (승인된 ITP였다면 재승인이 필요합니다)":""}`, 9000);
   };
 
+  // v1.9: 한 아이템의 ITP(검사항목)를 다른 아이템들로 복사. TA-6101A에 만든 검사표를
+  //   나머지 장비에 그대로 복제하고 싶을 때 사용. 검사항목(행)은 항상 복사하고, Rev·헤더는 옵션.
+  const openCopyModal = () => {
+    const src = selectedItpItemId;
+    if (!src || !items.some(it => it.id === src)) { showMsg("먼저 복사할 원본 아이템을 선택하세요.", 5000); return; }
+    if (items.length < 2) { showMsg("복사할 대상 아이템이 없습니다. (아이템을 먼저 추가하세요)", 5000); return; }
+    setCopyModal({ sourceId: src, checked: {}, inclRev: false, inclHdr: false });
+  };
+  const _toggleCopy = (id) => setCopyModal(p => ({...p, checked:{...p.checked, [id]: !p.checked[id]}}));
+  const _setAllCopy = (v) => setCopyModal(p => ({...p, checked: Object.fromEntries(items.filter(it=>it.id!==p.sourceId).map(it=>[it.id, v]))}));
+  const doCopyItp = () => {
+    const m = copyModal; if (!m) return;
+    const targets = Object.keys(m.checked).filter(id => m.checked[id]);
+    if (!targets.length) { showMsg("복사할 대상 아이템을 하나 이상 선택하세요.", 5000); return; }
+    const srcRows = itpRowsByItem[m.sourceId] || [];
+    // 대상 아이템 id는 문자열 key로 저장돼 있을 수 있어(state map은 문자열 키), 원본 item.id로 매칭
+    const srcRev = itpRevByItem[m.sourceId];
+    const srcHdr = itpHdrByItem[m.sourceId] || {};
+    let cnt = 0;
+    const findItemId = (k) => { const it = items.find(x => String(x.id) === String(k)); return it ? it.id : k; };
+    setItpRowsByItem(prev => {
+      const next = {...prev};
+      targets.forEach(k => {
+        const tid = findItemId(k);
+        next[tid] = JSON.parse(JSON.stringify(srcRows)).map((r, i) => ({...r, id: (Date.now()+i+Math.random())}));
+        cnt++;
+      });
+      return next;
+    });
+    if (m.inclRev && srcRev != null) {
+      setItpRevByItem(prev => { const next = {...prev}; targets.forEach(k => { next[findItemId(k)] = srcRev; }); return next; });
+    }
+    if (m.inclHdr) {
+      // 헤더 중 Customer/Rev 라벨 등 공통값만 복사하고, itemLabel(장비명/태그)은 대상 고유값 유지
+      setItpHdrByItem(prev => {
+        const next = {...prev};
+        targets.forEach(k => { const tid = findItemId(k); next[tid] = {...(next[tid]||{}), customer: srcHdr.customer, projName: srcHdr.projName, jobNo: srcHdr.jobNo }; });
+        return next;
+      });
+    }
+    setCopyModal(null);
+    showMsg(`✓ ${(items.find(it=>it.id===m.sourceId)||{}).tag} 의 검사항목을 ${cnt}개 아이템에 복사했습니다.${m.inclRev?" (Rev 포함)":""}${m.inclHdr?" (헤더 포함)":""} — 각 아이템의 문서번호는 고유값으로 유지됩니다.`, 9000);
+  };
+
   const removeItem = (id) => {
     if (!confirm("이 아이템을 삭제하시겠습니까?")) return;
     setItems(p => p.filter(i => i.id !== id));
@@ -2128,6 +2174,50 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       </div>
     </div>}
 
+    {/* v1.9: ITP 복사 모달 */}
+    {copyModal && (() => {
+      const srcItem = items.find(it => it.id === copyModal.sourceId) || {};
+      const srcRowCnt = (itpRowsByItem[copyModal.sourceId] || []).filter(r => r.active !== false).length;
+      const targets = items.filter(it => it.id !== copyModal.sourceId);
+      const selCnt = Object.values(copyModal.checked).filter(Boolean).length;
+      return <div className="modal-overlay no-print" onClick={()=>setCopyModal(null)}>
+        <div className="modal-box" onClick={e=>e.stopPropagation()} style={{maxWidth:460, maxHeight:"82vh", display:"flex", flexDirection:"column"}}>
+          <div style={{fontWeight:700, marginBottom:4, fontSize:15}}>📋 ITP 복사</div>
+          <div style={{fontSize:11, color:"var(--sjp-text-sub)", marginBottom:10, lineHeight:1.5}}>
+            <b style={{color:"#047857"}}>{srcItem.tag} · {srcItem.name||srcItem.type||""}</b> 의 검사항목 <b>{srcRowCnt}개</b>를 아래 선택한 아이템으로 복사합니다.
+            대상의 기존 검사항목은 <b>덮어쓰기</b> 됩니다. (문서번호는 각 아이템 고유값 유지)
+          </div>
+          <div style={{display:"flex", gap:8, marginBottom:8, alignItems:"center", flexWrap:"wrap"}}>
+            <button onClick={()=>_setAllCopy(true)} className="btn-secondary" style={{fontSize:11, padding:"3px 10px"}}>전체 선택</button>
+            <button onClick={()=>_setAllCopy(false)} className="btn-secondary" style={{fontSize:11, padding:"3px 10px"}}>전체 해제</button>
+            <div style={{flex:1, textAlign:"right", fontSize:11, color:"var(--sjp-text-sub)"}}>{selCnt} / {targets.length} 선택</div>
+          </div>
+          <div style={{flex:1, overflowY:"auto", border:"1px solid var(--sjp-border)", borderRadius:6, padding:4}}>
+            {targets.map(it =>
+              <label key={it.id} style={{display:"flex", alignItems:"center", gap:8, padding:"6px 8px", borderRadius:5, cursor:"pointer", background: copyModal.checked[it.id]?"#ecfdf5":"transparent"}}>
+                <input type="checkbox" checked={!!copyModal.checked[it.id]} onChange={()=>_toggleCopy(it.id)}/>
+                <span style={{fontWeight:700, color:"var(--sjp-primary)", fontSize:12, minWidth:78}}>{it.tag}</span>
+                <span style={{flex:1, fontSize:11, color: (it.name||it.type)?"var(--sjp-text-body)":"#bbb"}}>{it.name || it.type || "(장비명 미입력)"}</span>
+                <span style={{fontSize:9, color:"var(--sjp-text-sub)"}}>{(itpRowsByItem[it.id]||[]).filter(r=>r.active!==false).length}행</span>
+              </label>
+            )}
+          </div>
+          <div style={{display:"flex", gap:12, marginTop:10, fontSize:11, flexWrap:"wrap"}}>
+            <label style={{display:"flex", alignItems:"center", gap:5, cursor:"pointer"}}>
+              <input type="checkbox" checked={copyModal.inclRev} onChange={e=>setCopyModal(p=>({...p, inclRev:e.target.checked}))}/> Rev. 번호도 복사
+            </label>
+            <label style={{display:"flex", alignItems:"center", gap:5, cursor:"pointer"}}>
+              <input type="checkbox" checked={copyModal.inclHdr} onChange={e=>setCopyModal(p=>({...p, inclHdr:e.target.checked}))}/> 헤더(Customer 등)도 복사
+            </label>
+          </div>
+          <div style={{display:"flex", gap:6, justifyContent:"flex-end", marginTop:12}}>
+            <button onClick={()=>setCopyModal(null)} className="btn-secondary">취소</button>
+            <button onClick={doCopyItp} className="btn-primary" style={{background:"#059669", borderColor:"#059669"}}>선택 아이템에 복사</button>
+          </div>
+        </div>
+      </div>;
+    })()}
+
     <EPCSlots jobNo={proj.no}/>
 
     {/* 단계 탭 */}
@@ -2343,6 +2433,11 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","name":"","type":"","appl_
       <div className="no-print" style={{display:"flex", gap:6, marginBottom:8, alignItems:"center"}}>
         <button onClick={()=>setStep(1)} className="btn-secondary">← 수정하기</button>
         <span style={{fontSize:10, color:"var(--sjp-text-sub)"}}>자동 저장</span>
+        {items.length > 1 && selectedItem &&
+          <button onClick={openCopyModal} className="btn-secondary" style={{background:"#ecfdf5", borderColor:"#6ee7b7", color:"#047857"}}
+            title="현재 선택한 아이템의 검사항목(ITP)을 다른 아이템으로 복사합니다">
+            📋 이 ITP를 다른 아이템에 복사
+          </button>}
         <div style={{flex:1}}/>
         <button onClick={sendToQADoc} className="btn-primary" title="파일 다운로드 없이, 지금 상태를 바로 QA Doc Generator에 전달합니다">🚀 QA Doc Generator로 바로 전송</button>
         <button onClick={submitItpForApproval} className="btn-primary" style={{background:"#7c3aed", borderColor:"#7c3aed"}} title="이 ITP를 결재선(작성→[부서장 검토]→PM 승인)에 올립니다">📋 결재 상신</button>
