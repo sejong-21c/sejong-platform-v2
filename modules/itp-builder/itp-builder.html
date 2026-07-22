@@ -911,6 +911,8 @@ function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, wi
   const isHX = (item.type||"").includes("Condenser") || (item.type||"").includes("Heat");
   const isSUS = !isHX && /(316|304|sus|sts)/i.test(item.shell_mat||"");
   const iLbl = `${item.name||item.tag} / ${item.tag}`;
+  // v1.10: 제목(Inspection and Test Plan for ~)은 재질에서 자동판정하되, hdr.title 로 직접 편집 가능.
+  const autoTitle = `Inspection and Test Plan for ${isHX?"HEAT EXCHANGER":isSUS?"SUS TANK":"CARBON TANK"}`;
   const TH = {border:"1px solid #555", padding:"5px 6px", background:"#fff", fontSize:10, fontWeight:500, textAlign:"center", verticalAlign:"middle"};
   const TD = {border:"1px solid #888", padding:"4px 5px", fontSize:10, verticalAlign:"top"};
   const TS = {width:"100%", minHeight:36, border:"none", fontSize:9, resize:"none", background:"transparent", fontFamily:"Arial,sans-serif", lineHeight:1.5};
@@ -966,8 +968,10 @@ function ITPPreview({proj, item, rows, setRows, docNo, setDocNo, rev, setRev, wi
       <tbody>
         <tr>
           <td rowSpan={4} style={{border:"1px solid #555", padding:"4px 6px", textAlign:"left", verticalAlign:"middle"}}><LogoCell/></td>
-          <td colSpan={4} style={{border:"1px solid #555", padding:"6px 10px", fontSize:13, fontWeight:700, textAlign:"center"}}>
-            Inspection and Test Plan for {isHX?"HEAT EXCHANGER":isSUS?"SUS TANK":"CARBON TANK"}
+          <td colSpan={4} style={{border:"1px solid #555", padding:"6px 10px"}}>
+            <input value={hdr.title!=null&&hdr.title!==""?hdr.title:autoTitle} onChange={e=>_setHdr("title", e.target.value)}
+              title="제목 직접 편집 (재질 기준 자동값을 덮어씁니다)"
+              style={{width:"100%", border:"none", fontSize:13, fontWeight:700, textAlign:"center", background:"transparent", fontFamily:"inherit"}}/>
           </td>
         </tr>
         <tr>
