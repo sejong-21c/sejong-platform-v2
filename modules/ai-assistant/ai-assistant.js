@@ -60,13 +60,28 @@
   var _localModelCache = '';
   async function resolveLocalModel(base, signal, key) {
     var explicit = getLocalModel();
-    if (explicit) return explicit;
-    if (_localModelCache) return _localModelCache;
+    var headers = key ? { 'Authorization': 'Bearer ' + key } : {};
+    var modelsList = [];
     try {
-      var headers = key ? { 'Authorization': 'Bearer ' + key } : {};
       var res = await fetch(base + '/models', { headers: headers, signal: signal });
-      if (res.ok) { var d = await res.json(); var first = ((d.data || [])[0] || {}).id; if (first) { _localModelCache = first; return first; } }
+      if (res.ok) {
+        var d = await res.json();
+        modelsList = (d.data || []).map(function (m) { return typeof m === 'string' ? m : (m.id || ''); }).filter(Boolean);
+        if (modelsList.length) _localModelCache = modelsList[0];
+      }
     } catch (e) {}
+
+    if (explicit) {
+      if (!modelsList.length) return explicit;
+      if (modelsList.indexOf(explicit) !== -1) return explicit;
+      var normExp = explicit.toLowerCase().replace(/[-_ ]/g, '');
+      var foundNorm = modelsList.find(function (m) { return m.toLowerCase().replace(/[-_ ]/g, '') === normExp; });
+      if (foundNorm) return foundNorm;
+      var foundSub = modelsList.find(function (m) { return m.toLowerCase().indexOf(normExp) !== -1 || normExp.indexOf(m.toLowerCase()) !== -1; });
+      if (foundSub) return foundSub;
+      return explicit;
+    }
+    if (_localModelCache) return _localModelCache;
     return 'local-model';
   }
 
@@ -485,15 +500,28 @@
   }
 
   async function callOpenAiCompatOnce(label, url, key, model, h, signal, extraHeaders) {
+    var reqHeaders = Object.assign({ 'Content-Type': 'application/json' }, key ? { 'Authorization': 'Bearer ' + key } : {}, extraHeaders || {});
+    var reqBody = { model: model, max_tokens: 1024, messages: openAiMessagesFromHistory(h), tools: buildOpenAiTools() };
     var res = await fetch(url, {
       method: 'POST',
       signal: signal,
-      headers: Object.assign({ 'Content-Type': 'application/json' }, key ? { 'Authorization': 'Bearer ' + key } : {}, extraHeaders || {}),
-      body: JSON.stringify({ model: model, max_tokens: 1024, messages: openAiMessagesFromHistory(h), tools: buildOpenAiTools() })
+      headers: reqHeaders,
+      body: JSON.stringify(reqBody)
     });
+    // 400 Bad Request / 422 Unprocessable Entity 일 경우 tools(함수호출) 미지원 모델/프록시일 수 있으므로 tools 제거 후 1회 재시도
+    if (!res.ok && (res.status === 400 || res.status === 422)) {
+      delete reqBody.tools;
+      var retryRes = await fetch(url, {
+        method: 'POST',
+        signal: signal,
+        headers: reqHeaders,
+        body: JSON.stringify(reqBody)
+      }).catch(function () { return null; });
+      if (retryRes && retryRes.ok) res = retryRes;
+    }
     if (!res.ok) {
       var errText = await res.text().catch(function () { return ''; });
-      throw httpError(label, res.status, errText.slice(0, 200));
+      throw httpError(label, res.status, errText.slice(0, 300));
     }
     var data = await res.json();
     var msg = ((data.choices || [])[0] || {}).message || {};
@@ -604,7 +632,7 @@
           : e.name === 'AbortError' ? '시간 초과(모델 로딩이 오래 걸리는 중일 수 있음)'
           : e.status ? ('오류 ' + e.status) : '연결 실패(CORS 미허용 또는 서버 꺼짐)';
         // 로컬 LLM 실패는 원인을 구체적으로 남겨 진단 안내에 쓴다
-        if (p.localOnly) lastLocalFail = why + (e.status ? '' : ' — ' + (e.message || e).toString().slice(0, 120));
+        if (p.localOnly) lastLocalFail = why + ((e.message || e) ? (' — ' + (e.message || e).toString().slice(0, 180)) : '');
         fails.push(p.label + '(' + why + ')');
       }
     }
@@ -801,7 +829,7 @@
       // v29.45.1: 로컬 LLM을 설정했는데 실패해서 다른 곳으로 넘어갔으면, 원인을 세션당 1회 안내
       if (getLocalUrl() && lastLocalFail && lastProviderLabel.indexOf('로컬') === -1 && !localFailHintShown) {
         localFailHintShown = true;
-        appendMsg('system', '🖥 내 컴퓨터 LLM으로 답하지 못해 다른 AI로 넘어갔어요 (' + lastLocalFail + ').\n확인: ① LM Studio에서 모델을 로드(Load)했는지 ② Start Server가 켜졌는지 ③ 서버 설정에서 Enable CORS 체크 ④ 주소가 http://localhost:1234/v1 인지.');
+        appendMsg('system', '🖥 내 컴퓨터 LLM / 9Router로 답하지 못해 다른 AI로 넘어갔어요 (' + lastLocalFail + ').\n확인: ① 9Router/LM Studio 서버가 켜졌는지 ② 주소/API 키가 맞는지 ③ 9Router에 등록된 모델명(예: fable-5, cc/claude-opus-4-7)과 대소문자/하이픈이 일치하는지.');
       }
     } catch (e) {
       thinkingEl.remove();
