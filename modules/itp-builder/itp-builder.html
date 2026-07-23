@@ -864,9 +864,14 @@ function parseClipboardTSV(text){
   row.push(field); rows.push(row);
   // 트레일링 개행으로 생긴 맨 끝 빈 행 제거
   if(rows.length && rows[rows.length-1].length===1 && rows[rows.length-1][0]==="") rows.pop();
-  // 각 행의 후행 빈 필드 제거(병합셀 → content\t\t 대응). 최소 1칸은 유지.
+  // 각 행의 후행 빈 필드 제거(가로 병합셀 → content\t\t 대응). 최소 1칸은 유지.
   rows.forEach(r=>{ while(r.length>1 && r[r.length-1]==="") r.pop(); });
-  return rows;
+  // v2.9.1 — 세로 병합셀은 첫 줄에만 값이 있고 나머지 줄은 완전히 빈 줄로 옴(2·3·4줄 등
+  // 병합 크기만큼). 그 완전히 빈 줄을 제거해 값들이 연속된 칸에 채워지게 함(중간 빈칸/건너뜀
+  // 방지). "완전히 빈 줄"만 제거하므로, 다중열에서 일부 열만 빈 경우(예: Activity만 세로병합,
+  // Criteria엔 값)는 그대로 유지되어 오정렬 없음.
+  const filtered = rows.filter(r => !r.every(f => f === ""));
+  return filtered.length ? filtered : rows;
 }
 // v2.9 — 내용에 맞춰 높이가 자동으로 늘어나는 textarea. 기존엔 고정 높이(minHeight:36)라
 // 긴 내용이 잘려서 인쇄/미리보기에 안 나왔음. 값이 바뀔 때마다 scrollHeight로 높이 재설정.
