@@ -51,17 +51,20 @@
   //   HTTPS 페이지에서 http://localhost 호출은 브라우저가 예외 허용(localhost는 신뢰 출처).
   //   단, LM Studio는 "Enable CORS", Ollama는 OLLAMA_ORIGINS 설정이 있어야 브라우저가 접근 가능.
   //   주소·모델은 이 컴퓨터 localStorage에만 저장 → 설정한 기기에서만 로컬 모델이 쓰인다.
-  var LOCAL_URL_LS = 'sjp_ai_local_url';       // 예: http://localhost:1234/v1  (LM Studio) / http://localhost:11434/v1 (Ollama)
+  var LOCAL_URL_LS = 'sjp_ai_local_url';       // 예: http://localhost:1234/v1  (LM Studio) / http://localhost:11434/v1 (Ollama) / https://... (9Router)
+  var LOCAL_KEY_LS = 'sjp_ai_local_key';       // 9Router 등 인증이 필요한 로컬/터널 프록시 API 키
   var LOCAL_MODEL_LS = 'sjp_ai_local_model';   // 비우면 서버에 로드된 모델을 자동 감지
   function getLocalUrl() { var u = lsGet(LOCAL_URL_LS).trim(); return u ? u.replace(/\/+$/, '') : ''; }
+  function getLocalKey() { var k = lsGet(LOCAL_KEY_LS).trim(); return k || '9router'; }
   function getLocalModel() { return lsGet(LOCAL_MODEL_LS).trim(); }
   var _localModelCache = '';
-  async function resolveLocalModel(base, signal) {
+  async function resolveLocalModel(base, signal, key) {
     var explicit = getLocalModel();
     if (explicit) return explicit;
     if (_localModelCache) return _localModelCache;
     try {
-      var res = await fetch(base + '/models', { signal: signal });
+      var headers = key ? { 'Authorization': 'Bearer ' + key } : {};
+      var res = await fetch(base + '/models', { headers: headers, signal: signal });
       if (res.ok) { var d = await res.json(); var first = ((d.data || [])[0] || {}).id; if (first) { _localModelCache = first; return first; } }
     } catch (e) {}
     return 'local-model';
@@ -535,8 +538,9 @@
       var ctlL = new AbortController();
       var timerL = setTimeout(function () { ctlL.abort(); }, 120000);
       try {
-        var model = await resolveLocalModel(base, ctlL.signal);
-        var rL = await callOpenAiCompatOnce('로컬 LLM', base + '/chat/completions', null, model, h, ctlL.signal);
+        var keyL = getLocalKey();
+        var model = await resolveLocalModel(base, ctlL.signal, keyL);
+        var rL = await callOpenAiCompatOnce('로컬 LLM', base + '/chat/completions', keyL, model, h, ctlL.signal);
         clearTimeout(timerL);
         return { result: rL, viaGateway: false };
       } catch (e) { clearTimeout(timerL); throw e; }
@@ -684,16 +688,19 @@
       ' placeholder="https://sejong-ai-gateway.____.workers.dev"' +
       ' value="' + lsGet(GATEWAY_URL_LS).replace(/"/g, '&quot;') + '">' +
       '</div>';
-    // v29.45: 로컬 LLM(이 컴퓨터) — 설정한 기기에서만 0순위로 사용. 다른 직원 PC엔 영향 없음.
+    // v29.45: 로컬 LLM (LM Studio / Ollama / 9Router) — 설정한 기기에서만 0순위로 사용. 다른 직원 PC엔 영향 없음.
     var localHtml = '<div class="fg" style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">' +
-      '<label class="fl">🖥 내 컴퓨터 LLM (LM Studio / Ollama) — 켜져 있으면 <b>0순위</b>로 이 컴퓨터 모델이 먼저 답합니다</label>' +
+      '<label class="fl">🖥 내 컴퓨터 LLM / 9Router 터널 — 켜져 있으면 <b>0순위</b>로 이 모델이 먼저 답합니다</label>' +
       '<input class="fi" id="aiLocalUrlInput" spellcheck="false" autocomplete="off" style="margin-bottom:6px;"' +
-      ' placeholder="주소 — LM Studio: http://localhost:1234/v1  ·  Ollama: http://localhost:11434/v1"' +
+      ' placeholder="주소 — 9Router: https://your-tunnel/v1  ·  LM Studio: http://localhost:1234/v1"' +
       ' value="' + lsGet(LOCAL_URL_LS).replace(/"/g, '&quot;') + '">' +
+      '<input class="fi" id="aiLocalKeyInput" type="password" spellcheck="false" autocomplete="off" style="margin-bottom:6px;"' +
+      ' placeholder="API 키 (선택 — 9Router 키가 필요한 경우 입력, 기본값: 9router)"' +
+      ' value="' + lsGet(LOCAL_KEY_LS).replace(/"/g, '&quot;') + '">' +
       '<input class="fi" id="aiLocalModelInput" spellcheck="false" autocomplete="off"' +
-      ' placeholder="모델 이름 (비워두면 자동 감지 — 예: qwen3.5, exaone-3.5)"' +
+      ' placeholder="모델 이름 (비워두면 자동 감지 — 예: cc/claude-opus-4-7, qwen3.5)"' +
       ' value="' + lsGet(LOCAL_MODEL_LS).replace(/"/g, '&quot;') + '">' +
-      '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">LM Studio는 서버 설정에서 <b>Enable CORS</b>를 켜야 브라우저가 접근할 수 있습니다. 이 컴퓨터에서만 동작하고, 꺼져 있으면 자동으로 무료 API로 넘어갑니다.</div>' +
+      '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">9Router 터널 주소(https://...) 및 키를 넣으면 0순위로 9Router를 호출합니다. LM Studio는 Enable CORS가 필요합니다.</div>' +
       '</div>';
     var keyProviders = PROVIDER_CHAIN.filter(function (p) { return p.ls; });
     var fieldsHtml = keyProviders.map(function (p, i) {
@@ -717,8 +724,9 @@
       function () {
         var gwEl = $id('aiGatewayUrlInput');
         lsSet(GATEWAY_URL_LS, gwEl ? gwEl.value.trim() : '');
-        var luEl = $id('aiLocalUrlInput'), lmEl = $id('aiLocalModelInput');
+        var luEl = $id('aiLocalUrlInput'), lkEl = $id('aiLocalKeyInput'), lmEl = $id('aiLocalModelInput');
         lsSet(LOCAL_URL_LS, luEl ? luEl.value.trim() : '');
+        lsSet(LOCAL_KEY_LS, lkEl ? lkEl.value.trim() : '');
         lsSet(LOCAL_MODEL_LS, lmEl ? lmEl.value.trim() : '');
         _localModelCache = '';   // 주소·모델 바뀌었으니 자동 감지 캐시 초기화
         localFailHintShown = false;   // 설정을 바꿨으니 실패 안내를 다시 볼 수 있게
