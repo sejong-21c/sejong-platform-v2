@@ -4685,12 +4685,20 @@ document.addEventListener('mousedown', function(e){
   // 모달 배경(overlay) 위에서 mousedown이 시작된 경우만 기록 — click 이벤트는 DOM 재구성(render 등)에 의해
   // 가짜로 발생할 수 있어 mousedown→mouseup 양쪽 모두 overlay 위인 경우에만 닫는다.
   const m = document.getElementById('modal');
-  window._modalBackdropDown = (m && e.target === m);
+  window._modalBackdropClickTarget = (m && m.style.display !== 'none' && e.target === m) ? m : null;
 });
 document.addEventListener('mouseup', function(e){
   const m = document.getElementById('modal');
-  if (window._modalBackdropDown && m && e.target === m && m.style.display !== 'none') closeModal();
-  window._modalBackdropDown = false;
+  const target = window._modalBackdropClickTarget;
+  window._modalBackdropClickTarget = null;
+  if (!m || m.style.display === 'none') return;
+  // 1) 텍스트 드래그 선택 중이면 절대 모달을 닫지 않음
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  // 2) input/textarea/select 입력 필드에 포커스가 있으면 마우스가 바깥으로 튀어도 닫지 않음
+  const activeTag = document.activeElement && document.activeElement.tagName;
+  if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
+  // 3) mousedown과 mouseup 모두 순수 모달 배경(#modal)에서 이루어졌을 때만 닫기
+  if (target === m && e.target === m) closeModal();
 });
 document.addEventListener('keydown', function(e){
   if (e.key !== 'Escape') return;
@@ -7376,7 +7384,7 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.45.3"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.45.4"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

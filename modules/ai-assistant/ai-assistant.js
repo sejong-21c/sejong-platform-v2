@@ -499,9 +499,48 @@
     return decls;
   }
 
+  function parseOpenAiResponseText(text) {
+    var trimmed = (text || '').trim();
+    if (!trimmed) return {};
+    if (trimmed.startsWith('{')) {
+      try { return JSON.parse(trimmed); } catch (e) {}
+    }
+    var lines = trimmed.split('\n');
+    var fullContent = '';
+    var toolCallsMap = {};
+    var lastMsg = null;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line.startsWith('data:')) continue;
+      var jsonStr = line.slice(5).trim();
+      if (!jsonStr || jsonStr === '[DONE]') continue;
+      try {
+        var chunk = JSON.parse(jsonStr);
+        var choice = (chunk.choices || [])[0] || {};
+        var delta = choice.delta || choice.message || {};
+        if (choice.message) lastMsg = choice.message;
+        if (delta.content) fullContent += delta.content;
+        if (delta.tool_calls) {
+          delta.tool_calls.forEach(function (tc) {
+            var idx = tc.index || 0;
+            if (!toolCallsMap[idx]) toolCallsMap[idx] = { id: tc.id || ('call_' + idx), type: 'function', function: { name: '', arguments: '' } };
+            if (tc.function) {
+              if (tc.function.name) toolCallsMap[idx].function.name += tc.function.name;
+              if (tc.function.arguments) toolCallsMap[idx].function.arguments += tc.function.arguments;
+            }
+          });
+        }
+      } catch (e) {}
+    }
+    var tcList = Object.keys(toolCallsMap).map(function (k) { return toolCallsMap[k]; });
+    if (tcList.length > 0) return { choices: [{ message: { role: 'assistant', tool_calls: tcList } }] };
+    if (fullContent || lastMsg) return { choices: [{ message: { role: 'assistant', content: fullContent || (lastMsg && lastMsg.content) || '' } }] };
+    return JSON.parse(trimmed);
+  }
+
   async function callOpenAiCompatOnce(label, url, key, model, h, signal, extraHeaders) {
     var reqHeaders = Object.assign({ 'Content-Type': 'application/json' }, key ? { 'Authorization': 'Bearer ' + key } : {}, extraHeaders || {});
-    var reqBody = { model: model, max_tokens: 1024, messages: openAiMessagesFromHistory(h), tools: buildOpenAiTools() };
+    var reqBody = { model: model, max_tokens: 4096, messages: openAiMessagesFromHistory(h), tools: buildOpenAiTools() };
     var res = await fetch(url, {
       method: 'POST',
       signal: signal,
@@ -519,11 +558,16 @@
       }).catch(function () { return null; });
       if (retryRes && retryRes.ok) res = retryRes;
     }
+    var textRaw = await res.text().catch(function () { return ''; });
     if (!res.ok) {
-      var errText = await res.text().catch(function () { return ''; });
-      throw httpError(label, res.status, errText.slice(0, 300));
+      throw httpError(label, res.status, textRaw.slice(0, 300));
     }
-    var data = await res.json();
+    var data = {};
+    try {
+      data = parseOpenAiResponseText(textRaw);
+    } catch (e) {
+      throw httpError(label, 500, '파싱 실패: ' + e.message + ' (본문: ' + textRaw.slice(0, 100) + ')');
+    }
     var msg = ((data.choices || [])[0] || {}).message || {};
     var tc = (msg.tool_calls || [])[0];
     if (tc) {
