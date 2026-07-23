@@ -4681,12 +4681,28 @@ function closeBriefingModal() {
 }
 window.openBriefingModal = openBriefingModal;
 window.closeBriefingModal = closeBriefingModal;
-document.addEventListener('click', function(e){
+document.addEventListener('mousedown', function(e){
+  // 모달 배경(overlay) 위에서 mousedown이 시작된 경우만 기록 — click 이벤트는 DOM 재구성(render 등)에 의해
+  // 가짜로 발생할 수 있어 mousedown→mouseup 양쪽 모두 overlay 위인 경우에만 닫는다.
   const m = document.getElementById('modal');
-  if (m && e.target === m) closeModal();
+  window._modalBackdropDown = (m && e.target === m);
+});
+document.addEventListener('mouseup', function(e){
+  const m = document.getElementById('modal');
+  if (window._modalBackdropDown && m && e.target === m && m.style.display !== 'none') closeModal();
+  window._modalBackdropDown = false;
 });
 document.addEventListener('keydown', function(e){
-  if (e.key === 'Escape') closeModal();
+  if (e.key !== 'Escape') return;
+  const m = document.getElementById('modal');
+  if (!m || m.style.display === 'none') return;
+  // input/textarea에 포커스가 있으면 ESC로 모달을 닫지 않는다 — 키 입력 중 실수 방지
+  var tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+    document.activeElement.blur();   // 포커스만 해제 — 한 번 더 ESC를 눌러야 모달이 닫힘
+    return;
+  }
+  closeModal();
 });
 
 // 프로젝트 상태 필터
