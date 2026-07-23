@@ -2724,12 +2724,28 @@ function App(){
             if (activeItem.incoil) { hp.push(activeItem.incoil_double?"In-Coil #1":"In-Coil"); if(activeItem.incoil_double) hp.push("In-Coil #2"); }
             if (activeItem.halfcoil) { if(activeItem.halfcoil_partition){ hp.push("Half-Coil Upper"); hp.push("Half-Coil Lower"); } else hp.push("Half-Coil"); }
             const curPart = hp.includes(hydroPart) ? hydroPart : hp[0];
+            // v4.6 — 도면 자동인식(자켓/인코일/하프코일)이 안 됐을 때도 수동으로 가압부를 추가/해제.
+            // 아이템 플래그(jacket/incoil/halfcoil)를 그대로 토글 → 기존 hp 생성 로직이 부위 탭을
+            // 자동으로 만들고, items 저장으로 유지되며, 인쇄 보고서에도 그대로 반영됨.
+            const toggleHydroFlag = (flag) => setItems(prev => prev.map(it => it.id===activeItemId ? {...it, [flag]: !it[flag]} : it));
+            const extraFlags = [{flag:"jacket", label:"Jacket"}, {flag:"incoil", label:"In-Coil"}, {flag:"halfcoil", label:"Half-Coil"}];
             return <>
-              <div className="no-print" style={{display:"flex", gap:6, marginBottom:10, flexWrap:"wrap"}}>
+              <div className="no-print" style={{display:"flex", gap:6, marginBottom:8, flexWrap:"wrap"}}>
                 {hp.map(p => <button key={p} onClick={()=>sHydroPart(p)}
                   style={{padding:"6px 12px", fontSize:11, background: curPart===p?"#a32d2d":"#fff", color: curPart===p?"#fff":"#a32d2d", border:"1px solid #a32d2d", borderRadius:4, cursor:"pointer", fontWeight: curPart===p?700:500}}>
                   {p}
                 </button>)}
+              </div>
+              <div className="no-print" style={{display:"flex", gap:6, marginBottom:10, flexWrap:"wrap", alignItems:"center"}}>
+                <span style={{fontSize:10.5, color:"var(--sjp-text-sub)"}}>＋ 가압부 직접 추가/해제 (도면 자동인식 안 됐을 때):</span>
+                {extraFlags.map(f => {
+                  const on = !!activeItem[f.flag];
+                  return <button key={f.flag} onClick={()=>toggleHydroFlag(f.flag)}
+                    title={on?`${f.label} 가압부 제거`:`${f.label} 가압부 추가`}
+                    style={{padding:"4px 10px", fontSize:10.5, background: on?"#a32d2d":"#fff", color: on?"#fff":"#a32d2d", border:"1px solid #a32d2d", borderRadius:4, cursor:"pointer", fontWeight: on?700:500}}>
+                    {on?"✓ ":"＋ "}{f.label}
+                  </button>;
+                })}
               </div>
               <HydroPreview key={`HYDRO_${activeItem.id||activeItem.tag||""}_${curPart}_${loadNonce}`} doc={{...doc, part: curPart, partSeq: hp.indexOf(curPart)+1}}/>
             </>;
