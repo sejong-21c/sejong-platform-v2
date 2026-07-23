@@ -975,35 +975,38 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-07-23 07:39 (오전 정리 자동 실행)",
-    "newMails": 2,
-    "processed": 0,
-    "urgentReplies": 0,
-    "ncr": 0,
-    "car": 0,
+    "generatedAt": "2026-07-23 16:35 (오후 정리 자동 실행)",
+    "newMails": 4,
+    "processed": 4,
+    "urgentReplies": 1,
+    "ncr": 1,
+    "car": 1,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "가조립검사/Access Hole(AWS D1.1 Clause 7.16) 건 - Project 라벨 미확인, 수동 확인 필요",
-        "proj": "미확인",
-        "priority": "mid"
+        "text": "CKS 수정도면 발주 요청 공유 (황서윤 대리 → 송기남 차장, cwshin 참조)",
+        "proj": "SJ2026-040",
+        "priority": "low"
       },
       {
-        "text": "삼성전기 BT-6LINE 자동밸브 테스트(7/24 10:00) - 김철우 부장 확정 회신 아직 미확인",
-        "proj": "SJ435-26",
+        "text": "진양화성 NCR-016 관련 CAR 26-CAR-009 재발행, 회신기한 7/31 (품질관리부 조치계획 회신 완료 공유)",
+        "proj": "SJE437-26",
         "priority": "high"
+      },
+      {
+        "text": "신안건업 삼성전기(1F) 용접부 수정 보고서·RT성적서 검토 필요",
+        "proj": "SJ435-26",
+        "priority": "mid"
       }
     ],
-    "urgentList": [],
-    "schedule": [
+    "urgentList": [
       {
-        "title": "[SJ435-26] 삼성전기 BT-6LINE 자동밸브 작동 테스트 (확정대기)",
-        "date": "2026-07-24",
-        "time": "10:00",
-        "proj": "SJ435-26",
-        "color": "orange"
+        "subject": "신안건업 - 삼성전기(1F) 용접부 수정 보고서 및 RT성적서 송부의 건",
+        "from": "신안건업 이현문 (shinan9038@naver.com)",
+        "proj": "SJ435-26"
       }
-    ]
+    ],
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-07-16 (daily-mail-swkim 자동 실행)",
