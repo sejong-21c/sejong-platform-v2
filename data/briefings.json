@@ -975,38 +975,40 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-07-23 16:35 (오후 정리 자동 실행)",
-    "newMails": 4,
-    "processed": 4,
-    "urgentReplies": 1,
+    "generatedAt": "2026-07-24 07:59 (오전 정리 자동 실행)",
+    "newMails": 2,
+    "processed": 2,
+    "urgentReplies": 0,
     "ncr": 1,
     "car": 1,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "CKS 수정도면 발주 요청 공유 (황서윤 대리 → 송기남 차장, cwshin 참조)",
-        "proj": "SJ2026-040",
-        "priority": "low"
+        "text": "삼성전기 BT-6LINE 자동밸브 작동 테스트 확정 회신 필요(김철우 부장)",
+        "proj": "SJ435-26",
+        "priority": "mid"
       },
       {
-        "text": "진양화성 NCR-016 관련 CAR 26-CAR-009 재발행, 회신기한 7/31 (품질관리부 조치계획 회신 완료 공유)",
+        "text": "진양화성 자재 Heat No. 불일치 NCR/CAR 후속 확인 (SJ-NCR-2026-16, 26-CAR-009)",
         "proj": "SJE437-26",
         "priority": "high"
       },
       {
-        "text": "신안건업 삼성전기(1F) 용접부 수정 보고서·RT성적서 검토 필요",
-        "proj": "SJ435-26",
-        "priority": "mid"
+        "text": "ASK CHEMICALS A-1 PJT 냉각수 PUMP SUPPORT 도면 접수 확인(참조)",
+        "proj": "SJ433-25",
+        "priority": "low"
       }
     ],
-    "urgentList": [
+    "urgentList": [],
+    "schedule": [
       {
-        "subject": "신안건업 - 삼성전기(1F) 용접부 수정 보고서 및 RT성적서 송부의 건",
-        "from": "신안건업 이현문 (shinan9038@naver.com)",
-        "proj": "SJ435-26"
+        "title": "삼성전기 BT-6LINE 자동밸브 작동 테스트(잠정)",
+        "date": "2026-07-24",
+        "time": "10:00",
+        "proj": "SJ435-26",
+        "color": "blue"
       }
-    ],
-    "schedule": []
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-07-16 (daily-mail-swkim 자동 실행)",
