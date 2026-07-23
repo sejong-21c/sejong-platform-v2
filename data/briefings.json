@@ -1011,34 +1011,33 @@
     ]
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-07-16 (daily-mail-swkim 자동 실행)",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-07-16-morning.html",
-    "newMails": 9,
-    "processed": 6,
-    "urgentReplies": 1,
+    "generatedAt": "2026-07-23 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-07-23-morning.html",
+    "newMails": 5,
+    "processed": 1,
+    "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
-    "manday": 2,
+    "manday": 1.5,
     "keyActions": [
       {
-        "text": "SJ435-26 신안건업(외주) ITP 기준 품질보증기록 재촉 필요 — 7/14 긴급요청 이후 서명 회의록만 회수(7/15), 핵심 자료(ITP 기준 품질보증기록)는 여전히 미회신. 가조립 철골 검사·해체 일정에 영향. 상대측 회신에 명확한 기한 없어 확인 필요(캘린더 자동 등록 안 함)",
-        "proj": "SJ435-26",
-        "priority": "high"
+        "text": "SJE437-26 26-CAR-009 시정조치계획 회신 완료(7/23 06:05, 김철우 부장님 앞) — 특별품질교육 실시·구두승인 전면금지 및 서면인증 원칙 등. 후속 이행 여부 추적 필요",
+        "proj": "SJE437-26",
+        "priority": "mid"
       },
       {
-        "text": "삼성전기 BT-6LINE 자동밸브 검수일정 확정(참고) — 브이아이테크 회신(7/15): 7/27~29일 중 검수 가능, 담당 김대훈 대리 앞 회신·본인 CC 참고. 구체 날짜·시간 미확정으로 캘린더 미등록, 확인 필요. 기존 Project 라벨 매핑 없음",
-        "proj": "삼성전기 BT-6LINE",
+        "text": "SJE437-26 가조립 검사 관련 신안건업(이현문) 확인요청(참고) — 신채완 과장이 용접부 비드형상·기공부 수정, Structure Paint Spec, Notch/Reentrant corner 조치계획 요청(7/22). 본인은 CC 참고, 직접 회신 불요 — 조치계획 회신 오면 확인 권장",
+        "proj": "SJE437-26",
         "priority": "mid"
-      }
-    ],
-    "urgentList": [
+      },
       {
-        "subject": "SJ435-26 신안건업 ITP 기준 품질보증기록 — 서명 회의록만 회수, 핵심자료 미회신",
-        "from": "이현문(신안건업, shinan9038@naver.com) ← 본인 7/14 긴급요청",
-        "proj": "SJ435-26"
+        "text": "[확인 필요·의심 메일] 외부 개인계정(rornfl2559@gmail.com)이 \"품질보증전문가\" 문서 공유 알림 — 조직 외부 발신자, 업무 관련성 미확인으로 열람/라벨링하지 않음. 아는 발신자 아니면 열지 말 것",
+        "proj": "보안",
+        "priority": "low"
       }
     ],
+    "urgentList": [],
     "schedule": []
   }
 }
