@@ -234,10 +234,9 @@ body {
 }
 .msg-ch:hover { background: #e2e8f0; color: #0f172a; }
 .msg-ch.active {
-  background: #eff6ff;
+  background: #dbeafe;
   color: #1d4ed8;
   font-weight: 700;
-  border-left: 3px solid #2563eb;
 }
 
 .msg-ch-ico {
@@ -545,7 +544,7 @@ let searchFilter = '';
 let uploadingFiles = false;
 let pendingMessages = [];
 
-let collapsedSections = { announce: false, dept: false, project: false, group: false, dm: false };
+let collapsedSections = { announce: true, dept: true, project: true, group: true, dm: true };
 
 function toggleSection(key) {
   collapsedSections[key] = !collapsedSections[key];
@@ -811,12 +810,18 @@ function messenger() {
   const sectionBlock = (key, label, chs, emptyHtml) => {
     const collapsed = !!collapsedSections[key];
     const body = collapsed ? '' : (chs.length ? chs.map(chItem).join('') : (emptyHtml || ''));
+    let secUnread = 0;
+    if (collapsed && chs.length) {
+      chs.forEach(c => secUnread += getUnreadCount(c.id));
+    }
+    const badgeHtml = secUnread > 0 ? `<span class="msg-unread-badge" style="margin-left:6px;">${secUnread>99?'99+':secUnread}</span>` : '';
     return `
       <div class="msg-sec-toggle" onclick="toggleSection('${key}')">
-        <div class="sec-title-left">
+        <div class="sec-title-left" style="display:flex;align-items:center;">
           <span class="msg-sec-caret${collapsed?'':' open'}">${ICONS.chevron}</span>
           <span>${label}</span>
           ${chs.length?`<span class="msg-sec-count">${chs.length}</span>`:''}
+          ${badgeHtml}
         </div>
       </div>
       ${body}`;
