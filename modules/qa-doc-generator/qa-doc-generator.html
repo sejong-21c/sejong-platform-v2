@@ -1934,7 +1934,13 @@ function HydroPreview({doc}){
   const isTube=doc.part==="Tube Side";
   // Design Pressure 표시: 슬래시/하이폰 없이 해당 part 값만
   // v1.5 — 입력값에 이미 "MPa"가 있으면 중복 부착 안 함
-  const dpVal=isTube?(it.tube_side_p||""):(it.design_p||"");
+  // v2.3 — 가압부별 Design Pressure. 상하/상중하로 분할돼도 같은 부위는 동일 압력이므로 부위 단위로 매핑. 미입력 시 Shell(design_p)로 폴백.
+  const dpVal=(()=>{const P=String(doc.part||"");
+    if(P.startsWith("Tube")) return it.tube_side_p||"";
+    if(P.startsWith("Jacket")) return it.jacket_p||it.design_p||"";
+    if(P.startsWith("Half-Coil")) return it.halfcoil_p||it.design_p||"";
+    if(P.startsWith("In-Coil")) return it.incoil_p||it.design_p||"";
+    return it.design_p||"";})();
   const dpClean=String(dpVal).replace(/\s*M\s*Pa?\s*$/i,"").trim();  // 끝의 MPa/MPa 제거
   const dpStr=dpClean?(`${dpClean} MPa`):"—";
   // Test Pressure: 도면 파싱값 우선, 없으면 1.5×Design Pressure
@@ -2742,11 +2748,19 @@ function App(){
                 <input value={activeItem.shell_len||""} onChange={e=>patchActiveItem({shell_len:e.target.value})} placeholder="예: 2000" style={INP}/></div>
               <div style={CELL}><div style={LBL}>Shell 두께 t (mm)</div>
                 <input value={activeItem.shell_thk||""} onChange={e=>patchActiveItem({shell_thk:e.target.value})} placeholder="예: 6" style={INP}/></div>
-              <div style={CELL}><div style={LBL}>Design Pressure (MPa)</div>
+              <div style={CELL}><div style={LBL}>Design Press. — Shell (MPa)</div>
                 <input value={activeItem.design_p||""} onChange={e=>patchActiveItem({design_p:e.target.value})} placeholder="예: 0.5 / Full of Water" style={INP}/></div>
-              {isC && <div style={CELL}><div style={LBL}>Tube측 Design Press. (MPa)</div>
+              {isC && <div style={CELL}><div style={LBL}>Design Press. — Tube (MPa)</div>
                 <input value={activeItem.tube_side_p||""} onChange={e=>patchActiveItem({tube_side_p:e.target.value})} placeholder="Condenser Tube-side" style={INP}/></div>}
+              {activeItem.jacket && <div style={CELL}><div style={LBL}>Design Press. — Jacket (MPa)</div>
+                <input value={activeItem.jacket_p||""} onChange={e=>patchActiveItem({jacket_p:e.target.value})} placeholder="비우면 Shell값 사용" style={INP}/></div>}
+              {activeItem.halfcoil && <div style={CELL}><div style={LBL}>Design Press. — Half-Coil (MPa)</div>
+                <input value={activeItem.halfcoil_p||""} onChange={e=>patchActiveItem({halfcoil_p:e.target.value})} placeholder="비우면 Shell값 사용" style={INP}/></div>}
+              {activeItem.incoil && <div style={CELL}><div style={LBL}>Design Press. — In-Coil (MPa)</div>
+                <input value={activeItem.incoil_p||""} onChange={e=>patchActiveItem({incoil_p:e.target.value})} placeholder="비우면 Shell값 사용" style={INP}/></div>}
             </div>
+            {(activeItem.jacket||activeItem.halfcoil||activeItem.incoil) &&
+              <div style={{marginTop:4, fontSize:9.5, color:"var(--sjp-text-sub)"}}>※ 가압부(Jacket·Half-Coil·In-Coil)는 <b>Hydro 탭</b>에서 추가/분할(상하·상중하)합니다. 분할돼도 압력은 같으므로 <b>부위당 1칸</b>만 입력하세요.</div>}
 
             {/* v2.2 — Bevel Angle(Bending Design Dimension) + MAWP(Hydro). θ₁은 Joint(SL) 각도에서 자동 계산 */}
             {(() => {
@@ -2819,17 +2833,29 @@ function App(){
           if (activeDoc === "NOZZLE")  return <NozzlePreview key={dKey} doc={doc}/>;
           if (activeDoc === "HYDRO") {
             // HYDRO는 part별 별도 보고서. part 서브탭 표시.
+            // v2.3 — 가압부 분할(상하 2 / 상중하 3) 지원. jacket/halfcoil은 Upper·(Middle)·Lower, incoil은 #1·#2·(#3).
+            //        분할 수는 *_split (신규) 우선, 없으면 기존 bool(jacket_partition/halfcoil_partition/incoil_double)로 폴백.
+            const extraFlags = [
+              {flag:"jacket",   label:"Jacket",    splitField:"jacket_split",   legacy:"jacket_partition",   mode:"ul"},
+              {flag:"incoil",   label:"In-Coil",   splitField:"incoil_split",   legacy:"incoil_double",      mode:"num"},
+              {flag:"halfcoil", label:"Half-Coil", splitField:"halfcoil_split", legacy:"halfcoil_partition", mode:"ul"},
+            ];
+            const getSplit = (f) => { const v=parseInt(activeItem[f.splitField]); if(v>=1&&v<=3)return v; return activeItem[f.legacy]?2:1; };
+            const partsFor = (base, n, mode) => {
+              if (n<=1) return [base];
+              if (mode==="num") return Array.from({length:n},(_,i)=>`${base} #${i+1}`);
+              if (n===2) return [`${base} Upper`, `${base} Lower`];
+              return [`${base} Upper`, `${base} Middle`, `${base} Lower`];
+            };
             const hp = ["Shell"];
             if ((activeItem.type||"").includes("Condenser") || (activeItem.type||"").includes("Heat")) hp.push("Tube Side");
-            if (activeItem.jacket) { if(activeItem.jacket_partition){ hp.push("Jacket Upper"); hp.push("Jacket Lower"); } else hp.push("Jacket"); }
-            if (activeItem.incoil) { hp.push(activeItem.incoil_double?"In-Coil #1":"In-Coil"); if(activeItem.incoil_double) hp.push("In-Coil #2"); }
-            if (activeItem.halfcoil) { if(activeItem.halfcoil_partition){ hp.push("Half-Coil Upper"); hp.push("Half-Coil Lower"); } else hp.push("Half-Coil"); }
+            extraFlags.forEach(f => { if (activeItem[f.flag]) partsFor(f.label, getSplit(f), f.mode).forEach(p=>hp.push(p)); });
             const curPart = hp.includes(hydroPart) ? hydroPart : hp[0];
             // v4.6 — 도면 자동인식(자켓/인코일/하프코일)이 안 됐을 때도 수동으로 가압부를 추가/해제.
-            // 아이템 플래그(jacket/incoil/halfcoil)를 그대로 토글 → 기존 hp 생성 로직이 부위 탭을
-            // 자동으로 만들고, items 저장으로 유지되며, 인쇄 보고서에도 그대로 반영됨.
+            // 아이템 플래그(jacket/incoil/halfcoil)를 그대로 토글 → hp 생성 로직이 부위 탭을 자동으로 만들고,
+            // items 저장으로 유지되며, 인쇄 보고서에도 그대로 반영됨.
             const toggleHydroFlag = (flag) => setItems(prev => prev.map(it => it.id===activeItemId ? {...it, [flag]: !it[flag]} : it));
-            const extraFlags = [{flag:"jacket", label:"Jacket"}, {flag:"incoil", label:"In-Coil"}, {flag:"halfcoil", label:"Half-Coil"}];
+            const setHydroSplit = (splitField, n) => setItems(prev => prev.map(it => it.id===activeItemId ? {...it, [splitField]: n} : it));
             return <>
               <div className="no-print" style={{display:"flex", gap:6, marginBottom:8, flexWrap:"wrap"}}>
                 {hp.map(p => <button key={p} onClick={()=>sHydroPart(p)}
@@ -2837,15 +2863,25 @@ function App(){
                   {p}
                 </button>)}
               </div>
-              <div className="no-print" style={{display:"flex", gap:6, marginBottom:10, flexWrap:"wrap", alignItems:"center"}}>
-                <span style={{fontSize:10.5, color:"var(--sjp-text-sub)"}}>＋ 가압부 직접 추가/해제 (도면 자동인식 안 됐을 때):</span>
+              <div className="no-print" style={{display:"flex", gap:8, marginBottom:10, flexWrap:"wrap", alignItems:"center"}}>
+                <span style={{fontSize:10.5, color:"var(--sjp-text-sub)"}}>＋ 가압부 추가/해제 · 분할 (도면 자동인식 안 됐을 때):</span>
                 {extraFlags.map(f => {
                   const on = !!activeItem[f.flag];
-                  return <button key={f.flag} onClick={()=>toggleHydroFlag(f.flag)}
-                    title={on?`${f.label} 가압부 제거`:`${f.label} 가압부 추가`}
-                    style={{padding:"4px 10px", fontSize:10.5, background: on?"#a32d2d":"#fff", color: on?"#fff":"#a32d2d", border:"1px solid #a32d2d", borderRadius:4, cursor:"pointer", fontWeight: on?700:500}}>
-                    {on?"✓ ":"＋ "}{f.label}
-                  </button>;
+                  const cur = getSplit(f);
+                  return <span key={f.flag} style={{display:"inline-flex", gap:3, alignItems:"center", padding: on?"2px 4px":0, background: on?"#fbeeee":"transparent", borderRadius:4}}>
+                    <button onClick={()=>toggleHydroFlag(f.flag)}
+                      title={on?`${f.label} 가압부 제거`:`${f.label} 가압부 추가`}
+                      style={{padding:"4px 10px", fontSize:10.5, background: on?"#a32d2d":"#fff", color: on?"#fff":"#a32d2d", border:"1px solid #a32d2d", borderRadius:4, cursor:"pointer", fontWeight: on?700:500}}>
+                      {on?"✓ ":"＋ "}{f.label}
+                    </button>
+                    {on && <select value={cur} onChange={e=>setHydroSplit(f.splitField, parseInt(e.target.value))}
+                      title={`${f.label} 분할 수 (리포트 매수)`}
+                      style={{fontSize:10.5, padding:"3px 4px", border:"1px solid #a32d2d", borderRadius:4, color:"#a32d2d", background:"#fff", cursor:"pointer"}}>
+                      <option value={1}>분할 없음</option>
+                      <option value={2}>{f.mode==="num"?"2개 (#1·#2)":"상하 2분할"}</option>
+                      <option value={3}>{f.mode==="num"?"3개 (#1·#2·#3)":"상중하 3분할"}</option>
+                    </select>}
+                  </span>;
                 })}
               </div>
               <HydroPreview key={`HYDRO_${activeItem.id||activeItem.tag||""}_${curPart}_${loadNonce}`} doc={{...doc, part: curPart, partSeq: hp.indexOf(curPart)+1}}/>
