@@ -464,6 +464,9 @@ body {
 </div>
 
 <script>
+// 부모 인스턴스와 100% 동일한 Firebase 객체 자동 승계 (인증 세션 무손실 공유)
+const getFB = () => (window.parent && window.parent.fb) ? window.parent.fb : window.fb;
+
 // 전사 공식 부서 목록 (항상 전체 노출)
 const COMPANY_DEPTS = [
   '영업부', '기술부', '구매부', '생산부', '품질관리부',
@@ -519,22 +522,34 @@ let searchFilter = '';
 let uploadingFiles = false;
 let pendingMessages = [];
 
-// 기본적으로 섹션들은 모두 펼침(false) 상태로 유지
+// 기본적으로 세션들은 모두 펼침(false) 상태로 유지
 let collapsedSections = { announce: false, dept: false, project: false, group: false, dm: false };
-try {
-  const saved = JSON.parse(localStorage.getItem('sjMsgCollapsed') || '{}');
-  collapsedSections = { ...collapsedSections, ...saved };
-} catch (e) {}
 
 function toggleSection(key) {
   collapsedSections[key] = !collapsedSections[key];
-  try { localStorage.setItem('sjMsgCollapsed', JSON.stringify(collapsedSections)); } catch (e) {}
   render();
+}
+
+function getAllUsers() {
+  if (state.users && state.users.length) return state.users;
+  if (window.parent && window.parent.state && window.parent.state.users && window.parent.state.users.length) {
+    return window.parent.state.users;
+  }
+  return [];
 }
 
 function getU(idOrName) {
   if (!idOrName) return { name: '알 수 없음' };
-  return state.users.find(u => u.id === idOrName || u.name === idOrName || u.email === idOrName) || { name: String(idOrName) };
+  const users = getAllUsers();
+  return users.find(u => u.id === idOrName || u.name === idOrName || u.email === idOrName) || { name: String(idOrName) };
+}
+
+function getCurrentUserUid() {
+  if (state.currentUser) return state.currentUser;
+  if (window.parent && window.parent.state && window.parent.state.currentUser) return window.parent.state.currentUser;
+  const fb = getFB();
+  if (fb.auth && fb.auth.currentUser) return fb.auth.currentUser.uid;
+  return 'user_anon';
 }
 
 let activeCh = 'c1';
@@ -573,9 +588,10 @@ function renderPreservingMsgInput() {
 }
 
 async function loadChannelReads() {
-  const me = state.currentUser;
-  if (!me) return;
+  const me = getCurrentUserUid();
+  if (!me || me === 'user_anon') return;
   try {
+    const fb = getFB();
     const q = fb.query(fb.collection(fb.db, 'channelReads'), fb.where('uid', '==', me));
     const snaps = await fb.getDocs(q);
     const reads = {};
@@ -585,38 +601,86 @@ async function loadChannelReads() {
 }
 
 function getUnreadCount(channelId) {
-  const me = state.currentUser;
+  const me = getCurrentUserUid();
   const lastRead = state.channelReads[channelId] || 0;
   return state.messages.filter(m => m.channel === channelId && m.author !== me && (m.createdAt || 0) > lastRead).length;
 }
 
-// ══════════ 각 채널 타입별 정확한 참여 멤버 목록 구하기 ══════════
+// ══════════ 프로젝트 리스트 100% 통합 수집 함수 ══════════
+function getProjectChannels() {
+  const map = new Map();
+  
+  // 1. state.channels에서 type: 'project' 수집
+  (state.channels || []).filter(c => c.type === 'project').forEach(c => {
+    map.set(c.id, { ...c });
+  });
+  
+  // 2. state.projects + parent.state.projects + localStorage 수집
+  const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
+  let localProjs = [];
+  try { localProjs = JSON.parse(localStorage.getItem('sjProjects') || '[]'); } catch(e) {}
+  
+  const allProjs = [...state.projects, ...parentProjs, ...localProjs];
+  const uniqueProjsMap = new Map();
+  allProjs.forEach(p => { if (p && p.id && !uniqueProjsMap.has(p.id)) uniqueProjsMap.set(p.id, p); });
+  
+  uniqueProjsMap.forEach((p, pid) => {
+    const cid = 'proj_' + pid;
+    const existing = map.get(cid) || map.get(pid);
+    const pName = p.name || p.code || ('프로젝트 ' + pid);
+    const pm = p.pm || p.manager || '';
+    const team = p.members || p.assignees || p.users || p.team || [];
+    const members = Array.from(new Set([pm, ...team])).filter(Boolean);
+    
+    if (existing) {
+      existing.name = existing.name || pName;
+      existing.projectId = pid;
+      existing.members = Array.from(new Set([...(existing.members || []), ...members]));
+      map.set(existing.id, existing);
+    } else {
+      map.set(cid, {
+        id: cid,
+        name: pName,
+        type: 'project',
+        projectId: pid,
+        members
+      });
+    }
+  });
+  
+  return Array.from(map.values());
+}
+
+// ══════════ 각 채널 타입별 정확한 참여 멤버 목록 ══════════
 function getChannelMembers(ch) {
   if (!ch) return [];
+  const users = getAllUsers();
+  
   if (ch.type === 'announce') {
-    return state.users;
+    return users;
   }
   if (ch.type === 'dept') {
     const dName = ch.name || ch.id.replace('dept_', '');
-    const deptUsers = state.users.filter(u => u.dept === dName || u.deptId === dName);
+    const deptUsers = users.filter(u => u.dept === dName || u.deptId === dName);
     return deptUsers;
   }
   if (ch.type === 'project') {
     const pid = ch.projectId || ch.id.replace('proj_', '');
-    const p = state.projects.find(proj => proj.id === pid);
+    const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
+    const p = state.projects.find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
     if (p) {
       const pmId = p.pm || p.manager || p.pmUid;
       const teamList = p.members || p.assignees || p.users || p.team || [];
       const memberIds = Array.from(new Set([pmId, ...teamList])).filter(Boolean);
       const matched = memberIds.map(id => getU(id)).filter(u => u.name);
-      return matched.length ? matched : state.users.filter(u => u.dept === p.dept);
+      return matched.length ? matched : users.filter(u => u.dept === p.dept);
     }
   }
   if (ch.type === 'group' || ch.type === 'dm') {
     const memberIds = ch.members || [];
     return memberIds.map(id => getU(id)).filter(u => u.name);
   }
-  return state.users;
+  return users;
 }
 
 // ══════════ 채널 참여 멤버 팝업 뷰어 ══════════
@@ -627,16 +691,18 @@ function showChannelMembers(cid) {
   let pmId = null;
   if (ch.type === 'project') {
     const pid = ch.projectId || ch.id.replace('proj_', '');
-    const p = state.projects.find(proj => proj.id === pid);
+    const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
+    const p = state.projects.find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
     if (p) pmId = p.pm || p.manager || p.pmUid;
   }
 
   const memberUsers = getChannelMembers(ch);
+  const me = getCurrentUserUid();
 
   openModal(`👥 ${ch.name || '채널'} 참여 멤버 (${memberUsers.length}명)`, `
     <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
       ${memberUsers.length ? memberUsers.map(u => {
-        const isMe = u.id === state.currentUser;
+        const isMe = u.id === me || u.name === me;
         const isPm = pmId && (u.id === pmId || u.name === pmId);
         return `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
@@ -659,7 +725,7 @@ function showChannelMembers(cid) {
 }
 
 function messenger() {
-  const me = state.currentUser;
+  const me = getCurrentUserUid();
   const ch = getChannel(activeCh);
 
   // 1. 공지사항 (항상 '전사 공지' 보장)
@@ -674,19 +740,8 @@ function messenger() {
     return existing || { id: 'dept_' + dName, name: dName, type: 'dept' };
   });
 
-  // 3. 프로젝트 채널 (projects 데이터 기반 100% 노출 및 PM/팀원 연동)
-  const projChsMap = new Map();
-  state.channels.filter(c => c.type === 'project').forEach(c => projChsMap.set(c.id, c));
-  state.projects.forEach(p => {
-    const projChId = 'proj_' + p.id;
-    if (!projChsMap.has(projChId)) {
-      const pm = p.pm || p.manager;
-      const team = p.members || p.assignees || [];
-      const members = Array.from(new Set([pm, ...team])).filter(Boolean);
-      projChsMap.set(projChId, { id: projChId, name: p.name || ('프로젝트 ' + p.id), type: 'project', projectId: p.id, members });
-    }
-  });
-  const projChs = Array.from(projChsMap.values());
+  // 3. 프로젝트 채널 (getProjectChannels로 100% 노출 보장)
+  const projChs = getProjectChannels();
 
   // 4. 그룹 채팅 & DM
   const groupChs = state.channels.filter(c => c.type === 'group' && (c.members||[]).includes(me));
@@ -813,6 +868,7 @@ function messenger() {
 }
 
 function escapeHtmlMsg(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 function getChannel(cid){
   if (!cid) cid = 'c1';
   let found = state.channels.find(c => c.id === cid);
@@ -825,13 +881,14 @@ function getChannel(cid){
   }
   if (!found && cid && cid.startsWith('proj_')) {
     const pid = cid.replace('proj_', '');
-    const p = state.projects.find(p => p.id === pid);
-    found = { id: cid, name: (p ? p.name : ('프로젝트 ' + pid)), type: 'project', projectId: pid };
+    const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
+    const p = state.projects.find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
+    found = { id: cid, name: (p ? (p.name || p.code) : ('프로젝트 ' + pid)), type: 'project', projectId: pid };
   }
   return found || { id: 'c1', name: '전사 공지', type: 'announce' };
 }
 
-function dmTitle(ch){ const other=(ch.members||[]).find(id=>id!==state.currentUser); const ou=getU(other); return ou?`${ou.name} ${ou.title}`:''; }
+function dmTitle(ch){ const other=(ch.members||[]).find(id=>id!==getCurrentUserUid()); const ou=getU(other); return ou?`${ou.name} ${ou.title}`:''; }
 
 function renderMessages(ch) {
   if (!ch) return '';
@@ -842,9 +899,11 @@ function renderMessages(ch) {
       <div style="font-size:12px;color:#94a3b8;">팀원들과 실시간 업무 소통을 시작할 수 있습니다.</div>
     </div>`;
   
+  const me = getCurrentUserUid();
+  
   return msgs.map(m => {
     const u = getU(m.author);
-    const mine = m.author === state.currentUser;
+    const mine = m.author === me || m.author === state.currentUser;
     
     let contentHtml = '';
     if (m.file) {
@@ -892,23 +951,24 @@ function renderMessages(ch) {
 function setCh(cid) { activeCh = cid; markChannelRead(cid); render(); }
 
 async function markChannelRead(cid) {
-  const me = state.currentUser;
-  if (!me) return;
+  const me = getCurrentUserUid();
+  if (!me || me === 'user_anon') return;
   const now = Date.now();
   state.channelReads[cid] = now;
   try {
+    const fb = getFB();
     await fb.setDoc(fb.doc(fb.db, 'channelReads', cid + '_' + me), { channel: cid, uid: me, lastRead: now }, { merge: true });
   } catch (e) { console.error('[Firestore] 읽음 처리 오류:', e); }
 }
 
-// ══════════ 메시지 전송 (100% 검증된 페이로드 및 자동 채널 생성) ══════════
+// ══════════ 메시지 전송 (부모 인증 세션 100% 동기화 + 절대 실패 없는 페이로드) ══════════
 async function sendMsg() {
   const inp = document.getElementById('msgInput');
   const text = inp?.value.trim();
   if (!text) return;
   
   const chId = activeCh || 'c1';
-  const authorUid = state.currentUser || (fb.auth?.currentUser ? fb.auth.currentUser.uid : 'user_anon');
+  const authorUid = getCurrentUserUid();
   inp.value = '';
   
   const tempId = 'pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
@@ -927,7 +987,7 @@ async function sendMsg() {
   renderPreservingMsgInput();
   
   try {
-    // 1. 해당 채널 문서가 Firestore에 없으면 안전하게 자동 보장
+    const fb = getFB();
     const currentCh = getChannel(chId);
     if (currentCh) {
       await fb.setDoc(fb.doc(fb.db, 'channels', chId), {
@@ -936,7 +996,6 @@ async function sendMsg() {
       }, { merge: true }).catch(() => {});
     }
 
-    // 2. 메시지 문서 생성 (undefined 프로퍼티 무조건 배제)
     const docId = 'msg_' + createdTs + '_' + Math.random().toString(36).slice(2, 7);
     const payload = {
       channel: String(chId),
@@ -949,7 +1008,7 @@ async function sendMsg() {
     await fb.setDoc(fb.doc(fb.db, 'messages', docId), payload);
   } catch (e) {
     console.error('[Firestore] 메시지 전송 오류:', e);
-    alert('메시지 전송에 실패했습니다: ' + (e.message || e));
+    alert('메시지 전송 실패: ' + (e.message || e));
   } finally {
     pendingMessages = pendingMessages.filter(m => m.id !== tempId);
     renderPreservingMsgInput();
@@ -979,11 +1038,12 @@ async function sendFiles(fileList) {
     return;
   }
   const chId = activeCh || 'c1';
-  const authorUid = state.currentUser || (fb.auth?.currentUser ? fb.auth.currentUser.uid : 'user_anon');
+  const authorUid = getCurrentUserUid();
   uploadingFiles = true;
   renderPreservingMsgInput();
   
   try {
+    const fb = getFB();
     for (const f of files) {
       const kb = f.size / 1024;
       const size = kb >= 1024 ? (kb/1024).toFixed(1)+'MB' : kb.toFixed(0)+'KB';
@@ -1049,7 +1109,9 @@ function msgDrop(e) {
 }
 
 function openNewDM() {
-  const others = state.users.filter(u => u.id !== state.currentUser);
+  const users = getAllUsers();
+  const me = getCurrentUserUid();
+  const others = users.filter(u => u.id !== me);
   openModal('💬 1:1 대화 상대 선택', `
     <div style="max-height:340px;overflow-y:auto;">
       ${others.map(u=>`<div class="msg-pick" onclick="startDM('${u.id}')">
@@ -1064,11 +1126,12 @@ function openNewDM() {
 }
 
 function startDM(otherId) {
-  const me = state.currentUser;
+  const me = getCurrentUserUid();
   let dm = state.channels.find(c => c.type==='dm' && (c.members||[]).includes(me) && (c.members||[]).includes(otherId));
   if (!dm) {
     dm = { id:'dm'+Date.now(), name:'DM', type:'dm', members:[me, otherId] };
     state.channels.push(dm);
+    const fb = getFB();
     fb.setDoc(fb.doc(fb.db, 'channels', dm.id), { name: dm.name, type: dm.type, members: dm.members })
       .catch(e => alert('채팅방 생성 실패: ' + (e.message || e)));
   }
@@ -1078,7 +1141,9 @@ function startDM(otherId) {
 }
 
 function openNewGroup() {
-  const others = state.users.filter(u => u.id !== state.currentUser);
+  const users = getAllUsers();
+  const me = getCurrentUserUid();
+  const others = users.filter(u => u.id !== me);
   openModal('👥 새로운 그룹 채팅 생성', `
     <div class="fg">
       <label class="fl">그룹 이름</label>
@@ -1102,8 +1167,10 @@ function openNewGroup() {
     const members = Array.from(document.querySelectorAll('input[name="grpMember"]:checked')).map(c=>c.value);
     if (!name) { alert('그룹 이름을 입력하세요.'); return; }
     if (!members.length) { alert('멤버를 1명 이상 선택하세요.'); return; }
-    const grp = { id:'g'+Date.now(), name, type:'group', members:[state.currentUser, ...members] };
+    const me = getCurrentUserUid();
+    const grp = { id:'g'+Date.now(), name, type:'group', members:[me, ...members] };
     state.channels.push(grp);
+    const fb = getFB();
     fb.setDoc(fb.doc(fb.db, 'channels', grp.id), { name: grp.name, type: grp.type, members: grp.members })
       .catch(e => alert('그룹 생성 실패: ' + (e.message || e)));
     activeCh = grp.id;
@@ -1115,6 +1182,8 @@ function openNewGroup() {
 async function startSync() {
   _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
   _fsUnsubs = [];
+  
+  const fb = getFB();
   
   // 1. channels 동기화
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'channels'), snap => {
@@ -1137,14 +1206,19 @@ async function startSync() {
 }
 
 async function boot() {
+  const fb = getFB();
   const fu = await new Promise(resolve => {
     const unsub = fb.onAuthStateChanged(fb.auth, u => { unsub(); resolve(u); });
   });
-  if (!fu) {
+  
+  const currentUserUid = (fu && fu.uid) || (window.parent && window.parent.state && window.parent.state.currentUser) || null;
+  
+  if (!currentUserUid) {
     document.getElementById('app').innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;">로그인이 필요합니다.</div>';
     return;
   }
-  state.currentUser = fu.uid;
+  
+  state.currentUser = currentUserUid;
   try {
     const snaps = await fb.getDocs(fb.collection(fb.db, 'users'));
     state.users = snaps.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1156,7 +1230,8 @@ async function boot() {
 }
 
 function init() {
-  if (!window.fb) { setTimeout(init, 100); return; }
+  const fb = getFB();
+  if (!fb) { setTimeout(init, 100); return; }
   boot();
 }
 init();
