@@ -190,7 +190,7 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 .cal-weekday { padding: 8px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-light); }
 .cal-weekday:first-child { color: var(--danger); }
 .cal-weekday:last-child { color: var(--primary); }
-.cal-days { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(95px, 1fr); }
+.cal-days { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(135px, 1fr); }
 .cal-day { border-right: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); padding: 6px; cursor: pointer; font-size: 12px; overflow: hidden; }
 .cal-day:hover { background: var(--primary-lighter); }
 .cal-day.other { color: var(--text-lighter); background: #FAFAFA; }
@@ -731,14 +731,13 @@ const NAV = [
   { id: 'traveller', icon: '📋', li: 'clipboard-list', label: '제작 공정 관리', sub: 'Traveller' },
   { id: 'tasks',     icon: '✅', li: 'list-todo', label: '업무관리' },
   { id: 'messenger', icon: '💬', li: 'message-square', label: '메신저' },
-  { id: 'meeting',   icon: '🎙', li: 'mic', label: '회의실·회의록' },   // v1.0 전 직원 공용 — 예약·녹음·AI 회의록
-  { id: 'quotes',    icon: '💰', li: 'calculator', label: '견적', deptOnly: '영업부' },
-  { id: 'okr',       icon: '🎯', li: 'target', label: '목표(OKR)' },
-  { id: 'manday',    icon: '⏱', li: 'timer', label: 'Manday Tracker', superOnly: true },
-  { id: 'org',       icon: '👥', li: 'users', label: '조직/권한', superOnly: true },
-  // v29.44: 관리 탭 — superOnly와 달리 임원(exec)도 자동 노출되지 않음. super + 지정 사용자만.
-  { id: 'admin',     icon: '🛡️', li: 'shield', label: '관리', adminOnly: true },
-  { id: 'approval',  icon: '📝', li: 'file-check-2', label: '결재' },
+  { id: 'meeting',   icon: '🎙', li: 'mic', label: '회의실·회의록' },   // v1.0 전 직원 공용
+  { id: 'quotes',    icon: '💰', li: 'calculator', label: '견적', hidden: true, deptOnly: '영업부' }, // 당분간 숨김
+  { id: 'okr',       icon: '🎯', li: 'target', label: '목표(OKR)', hidden: true }, // 당분간 숨김
+  { id: 'manday',    icon: '⏱', li: 'timer', label: 'Manday Tracker', statusText: '(업데이트중)', superOnly: true },
+  { id: 'org',       icon: '👥', li: 'users', label: '조직/권한', statusText: '(업데이트중)', superOnly: true },
+  { id: 'admin',     icon: '🛡️', li: 'shield', label: '관리', statusText: '(업데이트중)', adminOnly: true },
+  { id: 'approval',  icon: '📝', li: 'file-check-2', label: '결재', statusText: '(업데이트중)' },
 ];
 // 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백)
 function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
@@ -1146,7 +1145,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b65';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b26';
+const MESSENGER_BUILD = 'b27';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b14';
 const CAR_BUILD = 'b13';
@@ -1158,7 +1157,7 @@ const ITPBUILDER_BUILD = 'c18';
 const QADOC_BUILD = 'c10';
 const MTOOLS_BUILD = 'b6';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MEETING_BUILD = 'b4';
+const MEETING_BUILD = 'b5';
 const ASSET_BUILD = 'a8';
 // v29.24: ITP/QA 조회 뷰어 (신규)
 const ITPVIEW_BUILD = 'a11';
@@ -1714,10 +1713,12 @@ function renderNav() {
   const html = [];
   html.push('<div class="sb-section-title">MENU</div>');
   NAV.forEach(n => {
+    if (n.hidden) return;        // 숨김 처리된 메뉴 스킵
     if (!canSeeNav(n)) return;   // 권한 없으면 메뉴 숨김
     const isActive = view.cur === n.id && !view.selectedTool;
     const subHtml = n.sub ? `<span class="nav-sub">${n.sub}</span>` : '';
     const wipHtml = n.wip ? `<span class="nav-wip">준비중</span>` : '';
+    const statusHtml = n.statusText ? `<span style="font-size:10.5px;color:#94a3b8;margin-left:4px;font-weight:400;">${n.statusText}</span>` : '';
     let badgeHtml = '';
     if (n.id === 'messenger') {
       let unread = 0;
@@ -1729,7 +1730,7 @@ function renderNav() {
       }
     }
     html.push(`<div class="nav-item${isActive?' active':''}${n.wip?' nav-wip-item':''}" onclick="switchMod('${n.id}')">
-      <span class="nav-icon">${LI(n.li, n.icon)}</span><span class="nav-label" style="display:flex;align-items:center;">${n.label}${subHtml}${wipHtml}${badgeHtml}</span>
+      <span class="nav-icon">${LI(n.li, n.icon)}</span><span class="nav-label" style="display:flex;align-items:center;">${n.label}${subHtml}${statusHtml}${wipHtml}${badgeHtml}</span>
     </div>`);
   });
   html.push('<div class="dept-group"><div class="sb-section-title">부서 도구함</div>');
@@ -1799,7 +1800,7 @@ function switchMod(id) {
   view.qaSelectedProj = null; view.mobileSelectedProj = null;
   // 콘텐츠 iframe 키 초기화 — 다음 render()가 반드시 새로 그리도록
   var _c = document.getElementById('content'); if (_c) _c.dataset.ifkey = '';
-  document.getElementById('hTitle').innerHTML = navItem ? navItem.label : '대시보드';
+  document.getElementById('hTitle').innerHTML = navItem ? `${LI(navItem.li, navItem.icon)} ${navItem.label}` : '🏠 대시보드';
   document.getElementById('sb').classList.remove('mobile-open');
   renderNav();
   render();
@@ -3727,13 +3728,13 @@ function dashboard() {
       <button class="btn btn-primary" onclick="switchMod('tasks')">+ 빠른 등록</button>
     </div>
     ${(b && b.dashboardHtmlPath) ? `
-      <div style="margin-bottom:16px;background:linear-gradient(135deg,#0b2545,#13315c);color:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 6px 20px rgba(11,37,69,.18);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="margin-bottom:16px;background:linear-gradient(135deg,#e0f2fe,#f0f9ff);color:#0369a1;border:1px solid #bae6fd;border-radius:14px;padding:20px 24px;box-shadow:0 4px 14px rgba(2,132,199,.08);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
         <div style="font-size:34px;line-height:1;">☀️</div>
         <div style="flex:1;min-width:200px;">
-          <div style="font-size:16px;font-weight:700;margin-bottom:3px;">오늘의 아침 브리핑이 준비됐습니다</div>
-          <div style="font-size:12px;opacity:.85;">${b.runAt||''} 기준 · Gmail·발주처·sejong-platform 통합 · 9개 섹션 자동 정리</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:3px;color:#075985;">오늘의 아침 브리핑이 준비됐습니다</div>
+          <div style="font-size:12px;color:#0369a1;opacity:.9;">${b.runAt||''} 기준 · Gmail·발주처·sejong-platform 통합 · 9개 섹션 자동 정리</div>
         </div>
-        <button onclick="window.open('${b.dashboardHtmlPath}', '_blank', 'noopener')" style="background:#fff;color:#0b2545;font-weight:700;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15);">브리핑 열기 (새 창)</button>
+        <button onclick="window.open('${b.dashboardHtmlPath}', '_blank', 'noopener')" style="background:#0284c7;color:#fff;font-weight:700;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;box-shadow:0 2px 6px rgba(2,132,199,.25);">브리핑 열기 (새 창)</button>
       </div>
     ` : ''}
     <div class="kpi-grid">${kpiCards}</div>
@@ -3840,11 +3841,8 @@ function calendar() {
   const today = new Date().toISOString().slice(0, 10);
   if (gcalConnected) loadGCalEvents(); // 월 바뀌었으면 조용히 새로 조회 (loadGCalEvents 내부에서 중복 방지)
   let h = `
-    <div class="mod-head">
-      <div>
-        <div class="mod-title">📅 캘린더</div>
-        <div class="mod-sub">개인+부서 일정 · 회의 · 마감 · 검사</div>
-      </div>
+    <div class="mod-head" style="margin-bottom:10px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">개인+부서 일정 · 회의 · 마감 · 검사</div>
       <div style="display:flex;gap:6px;align-items:center;">
         ${gcalConnected
           ? `<span style="font-size:11px;color:var(--success);display:flex;align-items:center;gap:4px;">🟢 구글 캘린더 연동됨</span><button class="btn btn-sm" onclick="disconnectGoogleCalendar()">연동 해제</button>`
@@ -4475,11 +4473,8 @@ function projects() {
     : '';
   
   return `
-    <div class="mod-head">
-      <div>
-        <div class="mod-title">📊 프로젝트 관리</div>
-        <div class="mod-sub">카드 클릭 → EPC Control로 WBS·간트·ITP 상세 관리</div>
-      </div>
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">카드 클릭 → EPC Control로 WBS·간트·ITP 상세 관리</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${hideToggleBtn}
         <button class="btn" onclick="openProjectFilter()">🔍 필터</button>
@@ -5232,8 +5227,8 @@ function tasks() {
   const myTasks = allKanbanTasks();
   const virtualCount = myTasks.filter(t => t.virtual).length;
   return `
-    <div class="mod-head">
-      <div><div class="mod-title">✅ 업무 관리</div><div class="mod-sub">칸반 보드 · 개인+부서 업무 · 자동 파싱 포함${virtualCount ? ` <span style="color:var(--text-light);">(자동 ${virtualCount}건)</span>` : ''}</div></div>
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">칸반 보드 · 개인+부서 업무 · 자동 파싱 포함${virtualCount ? ` (자동 ${virtualCount}건)` : ''}</div>
       <button class="btn btn-primary" onclick="openTask()">+ 업무 추가</button>
     </div>
     <div class="kanban">
@@ -5456,11 +5451,8 @@ function renderTravellerProjects() {
   });
   
   return `
-    <div class="mod-head">
-      <div>
-        <div class="mod-title">📋 제작 공정 관리 (Traveller)</div>
-        <div class="mod-sub">프로젝트 선택 → 장비별 ITP 9개 공정 진척 관리 · 검사관 합격 시 WBS 진도율 자동 갱신</div>
-      </div>
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">프로젝트 선택 → 장비별 ITP 9개 공정 진척 관리 · 검사관 합격 시 WBS 진도율 자동 갱신</div>
       <div style="display:flex;gap:6px;">${hideToggleBtn}</div>
     </div>
     
