@@ -1718,8 +1718,18 @@ function renderNav() {
     const isActive = view.cur === n.id && !view.selectedTool;
     const subHtml = n.sub ? `<span class="nav-sub">${n.sub}</span>` : '';
     const wipHtml = n.wip ? `<span class="nav-wip">준비중</span>` : '';
+    let badgeHtml = '';
+    if (n.id === 'messenger') {
+      let unread = 0;
+      (state.channels || []).forEach(c => {
+        unread += getUnreadCount(c.id);
+      });
+      if (unread > 0) {
+        badgeHtml = `<span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:2px 5px;margin-left:6px;">${unread>99?'99+':unread}</span>`;
+      }
+    }
     html.push(`<div class="nav-item${isActive?' active':''}${n.wip?' nav-wip-item':''}" onclick="switchMod('${n.id}')">
-      <span class="nav-icon">${LI(n.li, n.icon)}</span><span class="nav-label">${n.label}${subHtml}${wipHtml}</span>
+      <span class="nav-icon">${LI(n.li, n.icon)}</span><span class="nav-label" style="display:flex;align-items:center;">${n.label}${subHtml}${wipHtml}${badgeHtml}</span>
     </div>`);
   });
   html.push('<div class="dept-group"><div class="sb-section-title">부서 도구함</div>');
@@ -5303,7 +5313,15 @@ async function seedMissingChannels() {
 function getUnreadCount(channelId) {
   const me = state.currentUser;
   const lastRead = state.channelReads[channelId] || 0;
-  return state.messages.filter(m => m.channel === channelId && m.author !== me && (m.createdAt || 0) > lastRead).length;
+  return state.messages.filter(m => {
+    if (m.channel !== channelId || m.author === me) return false;
+    let ts = m.createdAt || 0;
+    if (!ts && m.at) {
+      const parsed = Date.parse(m.at.replace(' ', 'T'));
+      if (!isNaN(parsed)) ts = parsed;
+    }
+    return ts > lastRead;
+  }).length;
 }
 
 // 메신저 UI 자체는 modules/messenger/messenger.html로 이동됨 (renderMessengerFrame() 참고).
