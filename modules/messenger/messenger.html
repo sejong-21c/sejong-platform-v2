@@ -513,7 +513,9 @@ const ICONS = {
   send: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
   paperclip: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57a4 4 0 1 1 5.66 5.66l-8.59 8.58a2 4 0 0 1-2.83-2.83l8.49-8.48"/></svg>`,
   msgSquare: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
-  fileText: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`
+  fileText: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,
+  trash: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`,
+  logOut: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`
 };
 
 // ══════════ 모달 헬퍼 ══════════
@@ -865,6 +867,11 @@ function messenger() {
               <span style="display:flex;">${ICONS.users}</span>
               <span>${memberCount}명 참여 중</span>
             </div>
+            ${(ch.type === 'dm' || ch.type === 'group') ? `
+            <button class="btn btn-sm" style="padding:4px 8px;margin-left:8px;color:#ef4444;border-color:#fca5a5;" onclick="leaveChannel('${ch.id}')" title="대화방 나가기">
+              ${ICONS.logOut} 나가기
+            </button>
+            ` : ''}
           </div>
         </div>
         <div class="msg-body" id="msgBody" ondragover="msgDragOver(event)" ondragleave="msgDragLeave(event)" ondrop="msgDrop(event)">
@@ -952,7 +959,8 @@ function renderMessages(ch) {
       return `
         <div class="msg-row mine"${pendingStyle}>
           <div class="msg-bubble-wrap">
-            <div class="msg-meta" style="justify-content:flex-end;">
+            <div class="msg-meta" style="justify-content:flex-end;align-items:center;">
+              ${!m._pending ? `<button onclick="deleteMsg('${m.id}')" style="background:none;border:none;color:#cbd5e1;cursor:pointer;padding:0;margin-right:6px;display:flex;" title="메시지 삭제" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">${ICONS.trash}</button>` : ''}
               <span class="msg-time">${m._pending?'전송 중...':(m.at?.slice(11)||'')}</span>
             </div>
             <div class="msg-bubble mine">${contentHtml}</div>
@@ -988,6 +996,47 @@ async function markChannelRead(cid) {
     const payload = makeParentPlainObject({ channel: String(cid), uid: String(me), lastRead: Number(now) });
     await pFb.setDoc(pFb.doc(pFb.db, 'channelReads', cid + '_' + me), payload, { merge: true });
   } catch (e) { console.error('[Firestore] 읽음 처리 오류:', e); }
+}
+
+async function leaveChannel(cid) {
+  if (!confirm('이 대화방에서 나가시겠습니까?\n방을 나가면 더 이상 대화 목록에 표시되지 않습니다.')) return;
+  const ch = state.channels.find(c => c.id === cid);
+  if (!ch || !ch.members) return;
+  
+  const me = getCurrentUserUid();
+  const newMembers = ch.members.filter(id => id !== me);
+  
+  try {
+    const pFb = getFB();
+    if (!pFb || !pFb.db) return;
+    // 부모 객체 영역 문제 방지를 위해 makeParentPlainObject로 배열을 감싸서 업데이트
+    const payload = makeParentPlainObject({ members: newMembers });
+    await pFb.updateDoc(pFb.doc(pFb.db, 'channels', cid), payload);
+    
+    // 로컬 즉시 반영
+    ch.members = newMembers;
+    activeCh = 'c1'; // 기본 전사공지로 튕겨냄
+    render();
+  } catch (e) {
+    alert('대화방 나가기 실패: ' + (e.message || e));
+  }
+}
+
+async function deleteMsg(msgId) {
+  if (!confirm('이 메시지를 정말 삭제하시겠습니까? (삭제 후 복구할 수 없습니다)')) return;
+  try {
+    const pFb = getFB();
+    if (!pFb || !pFb.db) return;
+    
+    // Firestore 문서 삭제 (rules에서 author 본인인지 확인)
+    await pFb.deleteDoc(pFb.doc(pFb.db, 'messages', msgId));
+    
+    // UI 즉시 반영 (onSnapshot이 다시 덮어주겠지만 반응성을 위해)
+    state.messages = state.messages.filter(m => m.id !== msgId);
+    renderPreservingMsgInput();
+  } catch (e) {
+    alert('메시지 삭제 실패: ' + (e.message || e));
+  }
 }
 
 // ══════════ 메시지 전송 ══════════
