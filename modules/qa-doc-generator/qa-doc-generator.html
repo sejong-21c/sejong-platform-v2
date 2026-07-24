@@ -492,6 +492,25 @@ const generateDocNo = (projNo, type, seq) => {
 
 /* ── 이미지/핀/객체 메모리 캐시 (V25 표준) ── */
 const IMG_STORE = new Map();
+// v2.5 — IMG_STORE 변경을 App 자동저장에 알리는 훅.
+// 각 Preview(수압 압력·사진, Bending 그림, DIM/Nozzle 표 등)는 React state가 아닌
+// IMG_STORE.set으로 기록하는데, 이건 자동저장 useEffect(deps=[proj,items,docData,...])를
+// 트리거하지 못했음 → "수압 리포트에 사진·내용을 채워도 클라우드(t_qaGenDocs)에 안 올라가서
+// QA 조회에 안 보이는" 문제. set을 감싸 변경을 알리고, App이 구독해 저장 deps를 흔든다(트레일링 디바운스).
+const _imgListeners = new Set();
+let _imgNotifyTimer = null;
+function notifyImgStoreChange() {
+  clearTimeout(_imgNotifyTimer);
+  _imgNotifyTimer = setTimeout(() => { _imgListeners.forEach(fn => { try { fn(); } catch (e) {} }); }, 700);
+}
+const _imgStoreSet = IMG_STORE.set.bind(IMG_STORE);
+const _imgStoreGet = IMG_STORE.get.bind(IMG_STORE);
+IMG_STORE.set = (k, v) => {
+  const changed = !IMG_STORE.has(k) || _imgStoreGet(k) !== v;
+  const r = _imgStoreSet(k, v);
+  if (changed) notifyImgStoreChange();
+  return r;
+};
 
 /* ── window.storage 영속화 레이어 (V25 표준) ── */
 const STORAGE_OK = typeof window!=="undefined" && window.storage;
@@ -2272,6 +2291,9 @@ function App(){
   const [activeDoc, setActiveDoc] = useState("BOM");
   const [hydroPart, sHydroPart] = useState("Shell");
   const [docData, setDocData] = useState({}); // {itemId: {BOM:{rows:[]}, BENDING:{}, ...}}
+  // v2.5 — IMG_STORE(리포트 그림·사진·부위별 입력) 변경을 자동저장이 감지하도록 하는 tick.
+  const [imgTick, setImgTick] = useState(0);
+  useEffect(() => { const fn = () => setImgTick(t => t + 1); _imgListeners.add(fn); return () => _imgListeners.delete(fn); }, []);
   const [msg, setMsg] = useState("");
   // v3.0 — 저장/불러오기 상태
   const [currentProjId, setCurrentProjId] = useState(null);
@@ -2457,7 +2479,7 @@ function App(){
       pushQaGenDocFireAndForget(QAG_FS_COLL, QAG_PID, payload);
     }, 1000);
     return () => clearTimeout(t);
-  }, [proj, items, docData, activeItemId, activeDoc, currentProjId]);
+  }, [proj, items, docData, activeItemId, activeDoc, currentProjId, imgTick]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
   // v4.1 — 저장 실패(브라우저 저장공간 초과 등)를 화면에 알림. 1초마다 도는 자동저장에서
