@@ -481,14 +481,8 @@ const getFB = () => (window.parent && window.parent.fb) ? window.parent.fb : win
 // ══════════ 크로스 윈도우 객체 프로토타입 불일치(custom Object 오류) 해결 헬퍼 ══════════
 function makeParentPlainObject(obj) {
   try {
-    if (window.parent && window.parent.Object) {
-      const parentObj = new window.parent.Object();
-      for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-          parentObj[key] = obj[key];
-        }
-      }
-      return parentObj;
+    if (window.parent && window.parent.JSON) {
+      return window.parent.JSON.parse(JSON.stringify(obj));
     }
   } catch (e) { console.error('[makeParentPlainObject] 오류:', e); }
   return obj;

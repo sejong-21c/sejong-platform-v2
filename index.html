@@ -1721,7 +1721,7 @@ function renderNav() {
     let badgeHtml = '';
     if (n.id === 'messenger') {
       let unread = 0;
-      (state.channels || []).forEach(c => {
+      getVisibleChannels().forEach(c => {
         unread += getUnreadCount(c.id);
       });
       if (unread > 0) {
@@ -2458,6 +2458,36 @@ function _gmailUrl(subject) {
   var q = subject.replace(/[\[\]()]/g, '').trim().split(/\s+/).slice(0, 6).join(' ');
   return 'https://mail.google.com/mail/u/0/#search/' + encodeURIComponent(q);
 }
+function getVisibleChannels() {
+  if (!state.currentUser) return [];
+  var me = state.currentUser;
+  var meU = getU(me) || {};
+  
+  var announceChs = (state.channels || []).filter(function(c) { return c.type === 'announce'; });
+  if (!announceChs.length) announceChs = [{ id: 'c1', name: '전사 공지', type: 'announce' }];
+  
+  var deptChs = DEPTS.map(function(d) {
+    var dName = d.name;
+    var existing = (state.channels || []).find(function(c) { return c.type === 'dept' && (c.name === dName || c.deptId === dName); });
+    return existing || { id: 'dept_' + dName, name: dName, type: 'dept' };
+  }).filter(function(c) {
+    return meU.grade === 'super' || meU.grade === 'exec' || c.name === meU.dept;
+  });
+  
+  var projMap = {};
+  (state.channels || []).filter(function(c) { return c.type === 'project'; }).forEach(function(c) { projMap[c.id] = c; });
+  (state.projects || []).filter(function(p) { return !p.closed; }).forEach(function(p) {
+    var cid = 'p_' + p.id;
+    if (!projMap[cid]) projMap[cid] = { id: cid, name: p.name, type: 'project', refId: p.id };
+  });
+  var projChs = Object.keys(projMap).map(function(k) { return projMap[k]; });
+  
+  var groupChs = (state.channels || []).filter(function(c) { return c.type === 'group' && (c.members || []).indexOf(me) !== -1; });
+  var dmChs = (state.channels || []).filter(function(c) { return c.type === 'dm' && (c.members || []).indexOf(me) !== -1; });
+  
+  return announceChs.concat(deptChs).concat(projChs).concat(groupChs).concat(dmChs);
+}
+
 function getNotifications(includeAll) {
   if (!state.currentUser) return [];
   var dismissed = state.dismissedNotifs || [];
@@ -2468,16 +2498,8 @@ function getNotifications(includeAll) {
   if (b && b.nuclear && b.nuclear.items) b.nuclear.items.filter(function(it) { return it.priority === 'high'; }).forEach(function(it) { notifs.push({ type: 'nuclear', icon: '☢️', title: it.text, sub: it.category || '원자력', proj: it.proj, mail: true }); });
   var pendA = (state.approvals || []).filter(function(a) { return apIsMyTurn(a, state.currentUser); });
   pendA.forEach(function(a) { notifs.push({ type: 'approval', icon: '📝', title: a.title || '결재 요청', sub: (getU(a.author) || getU(a.from) || {}).name || '', proj: '', mail: false }); });
-  // 채널별 안읽음 메시지 집계 — 메시지 건별이 아니라 채널당 1개 알림으로 묶어 알림 패널 도배 방지
-  var visibleChannels = (state.channels || []).filter(function(c) {
-    if (c.type === 'group' || c.type === 'dm') return (c.members || []).indexOf(state.currentUser) !== -1;
-    // 부서 채널: 메신저 화면과 동일하게 슈퍼관리자만 전체, 일반 사용자는 본인 부서만 알림 대상
-    if (c.type === 'dept') {
-      var me = getU(state.currentUser);
-      return me.grade === 'super' || c.name === me.dept;
-    }
-    return true;
-  });
+  
+  var visibleChannels = getVisibleChannels();
   visibleChannels.forEach(function(c) {
     var unreadN = getUnreadCount(c.id);
     if (unreadN <= 0) return;
