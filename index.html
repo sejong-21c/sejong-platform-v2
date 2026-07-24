@@ -3293,7 +3293,7 @@ function renderDeptSelfGantt(rows, deptName) {
     return `
       <div class="utl-wrap" style="margin-top:0;cursor:pointer;" onclick="openDeptSchedProj('__self__')" title="클릭하면 편집 화면으로 이동합니다">
         <div class="utl-head">
-          <div class="utl-title">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년</span></div>
+          <div class="utl-title">${LI('calendar-range','📅')} ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년</span></div>
         </div>
         <div style="padding:24px;text-align:center;font-size:12px;color:var(--text-lighter);">등록된 자체 업무가 없습니다. 이 영역을 클릭해 편집 화면으로 이동한 뒤 업무를 추가해주세요.</div>
       </div>`;
@@ -3322,8 +3322,8 @@ function renderDeptSelfGantt(rows, deptName) {
     const promotedOkrId = okrByTitle[(w.name||'').trim()];
     const promoteBtn = meCanPromote
       ? (promotedOkrId
-          ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;background:#dcfce7;color:#166534;border-color:#86efac;" onclick="event.stopPropagation();demoteWbsRowFromOkr('${promotedOkrId}')" title="클릭하면 부서 목표에서 내림">🎯 등록됨 · ✕ 취소</button>`
-          : `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;" onclick="event.stopPropagation();promoteWbsRowToOkr('dept_${myDeptId}',${wi})">🎯 목표로 승격</button>`)
+          ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;background:#dcfce7;color:#166534;border-color:#86efac;" onclick="event.stopPropagation();demoteWbsRowFromOkr('${promotedOkrId}')" title="클릭하면 부서 목표에서 내림">${LI('target','🎯')} 등록됨 · ✕ 취소</button>`
+          : `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;" onclick="event.stopPropagation();promoteWbsRowToOkr('dept_${myDeptId}',${wi})">${LI('target','🎯')} 목표로 승격</button>`)
       : '';
     return `
       <div class="utl-row" onclick="openDeptSchedProj('__self__')">
@@ -3347,7 +3347,7 @@ function renderDeptSelfGantt(rows, deptName) {
   return `
     <div class="utl-wrap" style="margin-top:0;">
       <div class="utl-head">
-        <div class="utl-title" style="cursor:pointer;" onclick="openDeptSchedProj('__self__')" title="클릭하면 편집 화면으로 이동합니다">📅 ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년 · 제목 또는 막대 클릭 시 편집 화면</span></div>
+        <div class="utl-title" style="cursor:pointer;" onclick="openDeptSchedProj('__self__')" title="클릭하면 편집 화면으로 이동합니다">${LI('calendar-range','📅')} ${deptName} 자체 업무 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">${y}년 · 제목 또는 막대 클릭 시 편집 화면</span></div>
         <div class="utl-legend">
           <span><span class="utl-dot" style="background:#dc2626;"></span>지연</span>
           <span><span class="utl-dot" style="background:#22c55e;"></span>정상</span>
@@ -3453,19 +3453,19 @@ function renderDeptSchedProjects() {
       <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
     </div>
     <div style="margin-bottom:18px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏢 부서 자체 업무 (프로젝트 외)</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">${LI('building-2','🏢')} 부서 자체 업무 (프로젝트 외)</div>
       ${renderDeptSelfGantt(state.wbs[selfPid], dept)}
     </div>
     ${(() => {
       const bEvents = getDeptBriefingEvents(did).filter(e => e.date >= new Date().toISOString().slice(0,10)).sort((a,b) => a.date.localeCompare(b.date));
       if (!bEvents.length) return '';
-      return '<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">📬 Cowork 메일 자동 연동 일정 (' + bEvents.length + ')</div>' +
+      return '<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">' + LI('mail','📬') + ' Cowork 메일 자동 연동 일정 (' + bEvents.length + ')</div>' +
         '<div class="card">' + bEvents.map(function(e) {
           return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">' + e.title + '</div><div style="font-size:12px;color:' + (e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)') + ';font-weight:600;white-space:nowrap;margin-left:8px;">' + e.date + (e.time ? ' ' + e.time : '') + '</div></div>';
         }).join('') + '</div></div>';
     })()}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text-light);">📊 프로젝트별 ${dept} 스케줄 (${projs.length})</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);">${LI('chart-gantt','📊')} 프로젝트별 ${dept} 스케줄 (${projs.length})</div>
       <button class="btn btn-sm" onclick="toggleDeptSchedProjList('${dept}')" style="display:inline-flex;align-items:center;gap:4px;">${projListOpen ? '▼ 접기' : '▶ 펼치기'}</button>
     </div>
     ${projListOpen ? `<div class="proj-grid">${projCards || '<div style="color:var(--text-lighter);font-size:12px;padding:20px;">등록된 프로젝트가 없습니다.</div>'}</div>` : ''}
@@ -4561,7 +4561,7 @@ function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
   return `
     <div class="utl-wrap">
       <div class="utl-head">
-        <div class="utl-title">📅 전체 프로젝트 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">2026년 · 막대 클릭 시 상세 화면</span></div>
+        <div class="utl-title">${LI('calendar-range','📅')} 전체 프로젝트 일정 요약 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;margin-left:6px;">2026년 · 막대 클릭 시 상세 화면</span></div>
         <div class="utl-legend">
           <span><span class="utl-dot" style="background:#dc2626;"></span>지연</span>
           <span><span class="utl-dot" style="background:#22c55e;"></span>정상</span>
