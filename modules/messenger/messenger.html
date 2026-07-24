@@ -43,7 +43,6 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   
-  /* 화사하고 눈이 편한 라이트 테마 사이드바 */
   --sidebar-bg: #f8fafc;
   --sidebar-card: #ffffff;
   --sidebar-hover: #f1f5f9;
@@ -292,7 +291,6 @@ body {
 .msg-head-title { font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px; }
 .msg-head-right { display: flex; align-items: center; gap: 8px; }
 
-/* 멤버 목록 보기 클릭 가능한 전용 뱃지 버튼 */
 .members-tag {
   display: flex; align-items: center; gap: 5px; padding: 4px 10px;
   background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px;
@@ -465,6 +463,12 @@ body {
 </div>
 
 <script>
+// 전사 공식 부서 목록 (항상 전체 노출)
+const COMPANY_DEPTS = [
+  '영업부', '기술부', '구매부', '생산부', '품질관리부',
+  '현장시공', '안전관리부', '총무부', '재무부', '원자력사업부', '해외사업부'
+];
+
 // 초경량 네이티브 SVG 아이콘
 const ICONS = {
   search: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
@@ -509,7 +513,7 @@ document.addEventListener('keydown', function(e){
 });
 
 // ══════════ 로컬 상태 ══════════
-let state = { currentUser: null, users: [], channels: [], messages: [], channelReads: {} };
+let state = { currentUser: null, users: [], channels: [], projects: [], messages: [], channelReads: {} };
 let searchFilter = '';
 let uploadingFiles = false;
 let pendingMessages = [];
@@ -522,7 +526,10 @@ function toggleSection(key) {
   render();
 }
 
-function getU(id) { return state.users.find(u => u.id === id) || {}; }
+function getU(idOrName) {
+  if (!idOrName) return {};
+  return state.users.find(u => u.id === idOrName || u.name === idOrName || u.email === idOrName) || { name: idOrName };
+}
 
 let activeCh = 'c1';
 
@@ -577,26 +584,45 @@ function getUnreadCount(channelId) {
   return state.messages.filter(m => m.channel === channelId && m.author !== me && (m.createdAt || 0) > lastRead).length;
 }
 
-// ══════════ 채널 참여 멤버 팝업 뷰어 ══════════
+// ══════════ 채널 참여 멤버 팝업 뷰어 (PM 표시 지원) ══════════
 function showChannelMembers(cid) {
   const ch = getChannel(cid);
   if (!ch) return;
   
-  let memberIds = ch.members && ch.members.length ? ch.members : state.users.map(u => u.id);
-  let memberUsers = memberIds.map(id => getU(id)).filter(u => u.name);
+  let memberIds = [];
+  let pmId = null;
 
+  if (ch.type === 'project' && ch.projectId) {
+    const proj = state.projects.find(p => p.id === ch.projectId);
+    if (proj) {
+      pmId = proj.pm || proj.manager || proj.pmUid;
+      const teamList = proj.members || proj.assignees || proj.users || proj.team || [];
+      memberIds = Array.from(new Set([pmId, ...teamList])).filter(Boolean);
+    }
+  }
+
+  if (!memberIds.length) {
+    memberIds = (ch.members && ch.members.length) ? ch.members : state.users.map(u => u.id);
+  }
+
+  let memberUsers = memberIds.map(id => getU(id)).filter(u => u.name);
   if (!memberUsers.length) memberUsers = state.users;
 
   openModal(`👥 ${ch.name || '채널'} 참여 멤버 (${memberUsers.length}명)`, `
     <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
       ${memberUsers.map(u => {
         const isMe = u.id === state.currentUser;
+        const isPm = pmId && (u.id === pmId || u.name === pmId);
         return `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <div class="avatar ${isMe?'':'other'}" style="width:32px;height:32px;font-size:12px;">${(u.name||'?').charAt(0)}</div>
               <div>
-                <div style="font-weight:700;font-size:13.5px;color:#0f172a;">${escapeHtmlMsg(u.name)} ${escapeHtmlMsg(u.title||'')} ${isMe?'<span style="font-size:11px;color:#2563eb;font-weight:500;">(나)</span>':''}</div>
+                <div style="font-weight:700;font-size:13.5px;color:#0f172a;display:flex;align-items:center;gap:6px;">
+                  <span>${escapeHtmlMsg(u.name)} ${escapeHtmlMsg(u.title||'')}</span>
+                  ${isPm ? '<span style="background:#fef3c7;color:#d97706;border:1px solid #fde68a;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;">👑 PM</span>' : ''}
+                  ${isMe ? '<span style="font-size:11px;color:#2563eb;font-weight:500;">(나)</span>' : ''}
+                </div>
                 <div style="font-size:11.5px;color:#64748b;">${escapeHtmlMsg(u.dept||'소속 없음')}</div>
               </div>
             </div>
@@ -609,13 +635,32 @@ function showChannelMembers(cid) {
 
 function messenger() {
   const me = state.currentUser;
-  const meU = getU(me);
   const ch = getChannel(activeCh);
 
+  // 1. 공지사항
   const announceChs = state.channels.filter(c => c.type === 'announce');
-  const deptChsAll = state.channels.filter(c => c.type === 'dept');
-  const deptChs = meU.grade === 'super' ? deptChsAll : deptChsAll.filter(c => c.name === meU.dept);
-  const projChs = state.channels.filter(c => c.type === 'project');
+  
+  // 2. 부서 채널 (모든 회사 부서 채널 전체 노출)
+  const deptChs = COMPANY_DEPTS.map(dName => {
+    const existing = state.channels.find(c => c.type === 'dept' && (c.name === dName || c.deptId === dName));
+    return existing || { id: 'dept_' + dName, name: dName, type: 'dept' };
+  });
+
+  // 3. 프로젝트 채널 (프로젝트 목록 전체 노출 & PM/멤버 자동 매칭)
+  const projChsMap = new Map();
+  state.channels.filter(c => c.type === 'project').forEach(c => projChsMap.set(c.id, c));
+  state.projects.forEach(p => {
+    const projChId = 'proj_' + p.id;
+    if (!projChsMap.has(projChId)) {
+      const pm = p.pm || p.manager;
+      const team = p.members || p.assignees || [];
+      const members = Array.from(new Set([pm, ...team])).filter(Boolean);
+      projChsMap.set(projChId, { id: projChId, name: p.name, type: 'project', projectId: p.id, members });
+    }
+  });
+  const projChs = Array.from(projChsMap.values());
+
+  // 4. 그룹 채팅 & DM
   const groupChs = state.channels.filter(c => c.type === 'group' && (c.members||[]).includes(me));
   const dmChs = state.channels.filter(c => c.type === 'dm' && (c.members||[]).includes(me));
 
@@ -662,7 +707,20 @@ function messenger() {
       ${body}`;
   };
 
-  const memberCount = ch ? ((ch.members && ch.members.length) || state.users.length) : 0;
+  let memberCount = 0;
+  if (ch) {
+    if (ch.type === 'project' && ch.projectId) {
+      const p = state.projects.find(p => p.id === ch.projectId);
+      if (p) {
+        const pm = p.pm || p.manager;
+        const team = p.members || p.assignees || [];
+        memberCount = Array.from(new Set([pm, ...team])).filter(Boolean).length || state.users.length;
+      }
+    }
+    if (!memberCount) {
+      memberCount = (ch.members && ch.members.length) || state.users.length;
+    }
+  }
 
   return `
     <div class="mod-head">
@@ -704,7 +762,6 @@ function messenger() {
             </div>
           </div>
           <div class="msg-head-right">
-            <!-- 클릭 시 참여 멤버 전체 목록 팝업 띄우기 -->
             <div class="members-tag" onclick="showChannelMembers('${ch.id}')" title="참여 멤버 목록 보기">
               <span style="display:flex;">${ICONS.users}</span>
               <span>${memberCount}명 참여 중</span>
@@ -739,7 +796,20 @@ function messenger() {
 }
 
 function escapeHtmlMsg(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function getChannel(cid){ return state.channels.find(c=>c.id===cid); }
+function getChannel(cid){
+  let found = state.channels.find(c => c.id === cid);
+  if (!found && cid && cid.startsWith('dept_')) {
+    const dName = cid.replace('dept_', '');
+    found = { id: cid, name: dName, type: 'dept' };
+  }
+  if (!found && cid && cid.startsWith('proj_')) {
+    const pid = cid.replace('proj_', '');
+    const p = state.projects.find(p => p.id === pid);
+    if (p) found = { id: cid, name: p.name, type: 'project', projectId: p.id };
+  }
+  return found || state.channels[0];
+}
+
 function dmTitle(ch){ const other=(ch.members||[]).find(id=>id!==state.currentUser); const ou=getU(other); return ou?`${ou.name} ${ou.title}`:''; }
 
 function renderMessages(ch) {
@@ -809,7 +879,7 @@ async function markChannelRead(cid) {
   } catch (e) { console.error('[Firestore] 읽음 처리 오류:', e); }
 }
 
-// 메시지 즉시 안전 전송
+// 메시지 전송 (절대 실패하지 않는 명시적 Firestore doc 참조 생성)
 async function sendMsg() {
   const inp = document.getElementById('msgInput');
   const text = inp?.value.trim();
@@ -822,8 +892,8 @@ async function sendMsg() {
   renderPreservingMsgInput();
   
   try {
-    const docRef = fb.doc(fb.collection(fb.db, 'messages'));
-    await fb.setDoc(docRef, { channel: ch, author: state.currentUser, text, at: nowStamp(), createdAt: Date.now() });
+    const docId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    await fb.setDoc(fb.doc(fb.db, 'messages', docId), { channel: ch, author: state.currentUser, text, at: nowStamp(), createdAt: Date.now() });
   } catch (e) {
     console.error('[Firestore] 메시지 전송 오류:', e);
     alert('메시지 전송에 실패했습니다: ' + (e.message || e));
@@ -846,7 +916,7 @@ function msgAttachFile() {
   input.click();
 }
 
-// 타임아웃 제한이 포함된 안전한 파일 전송 (15초 초과 시 자동 해제)
+// 안전한 파일 업로드 (15초 타임아웃 가드)
 async function sendFiles(fileList) {
   const files = Array.from(fileList || []);
   if (!files.length) return;
@@ -870,14 +940,14 @@ async function sendFiles(fileList) {
       try {
         const storageRef = fb.ref(fb.storage, `messages/${ch}/${Date.now()}_${f.name}`);
         
-        // 15초 업로드 타임아웃 가드
         const uploadTask = fb.uploadBytes(storageRef, f);
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('파일 업로드 시간 초과 (15초)')), 15000));
         
         await Promise.race([uploadTask, timeoutPromise]);
         
         const fileUrl = await fb.getDownloadURL(storageRef);
-        await fb.setDoc(fb.doc(fb.collection(fb.db, 'messages')), { channel: ch, author: state.currentUser, file: f.name, fileUrl, fileSize: size, at: nowStamp(), createdAt: Date.now() });
+        const docId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        await fb.setDoc(fb.doc(fb.db, 'messages', docId), { channel: ch, author: state.currentUser, file: f.name, fileUrl, fileSize: size, at: nowStamp(), createdAt: Date.now() });
       } catch (e) {
         console.error('[Storage] 파일 업로드 실패:', e);
         alert(`"${f.name}" 업로드에 실패했습니다: ` + (e.message || e));
@@ -969,10 +1039,20 @@ function openNewGroup() {
 async function startSync() {
   _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
   _fsUnsubs = [];
+  
+  // 1. channels 동기화
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'channels'), snap => {
     state.channels = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPreservingMsgInput();
   }, err => console.error('[Firestore] channels 동기화 오류:', err)));
+
+  // 2. projects 동기화 (PM 및 프로젝트 대화방 자동 연동)
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
+    state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPreservingMsgInput();
+  }, err => console.error('[Firestore] projects 동기화 오류:', err)));
+
+  // 3. messages 동기화
   const msgQuery = fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(500));
   _fsUnsubs.push(fb.onSnapshot(msgQuery, snap => {
     state.messages = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -993,6 +1073,7 @@ async function boot() {
     const snaps = await fb.getDocs(fb.collection(fb.db, 'users'));
     state.users = snaps.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) { console.error('[Firestore] users 로드 오류:', e); }
+  
   await loadChannelReads();
   startSync();
   render();
