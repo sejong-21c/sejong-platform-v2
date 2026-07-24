@@ -469,15 +469,17 @@ const getFB = () => (window.parent && window.parent.fb) ? window.parent.fb : win
 
 // ══════════ 크로스 윈도우 객체 프로토타입 불일치(custom Object 오류) 해결 헬퍼 ══════════
 function makeParentPlainObject(obj) {
-  if (window.parent && window.parent.Object) {
-    const parentObj = new window.parent.Object();
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        parentObj[key] = obj[key];
+  try {
+    if (window.parent && window.parent.Object) {
+      const parentObj = new window.parent.Object();
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          parentObj[key] = obj[key];
+        }
       }
+      return parentObj;
     }
-    return parentObj;
-  }
+  } catch (e) { console.error('[makeParentPlainObject] 오류:', e); }
   return obj;
 }
 
@@ -560,8 +562,8 @@ function getU(idOrName) {
 function getCurrentUserUid() {
   if (state.currentUser) return state.currentUser;
   if (window.parent && window.parent.state && window.parent.state.currentUser) return window.parent.state.currentUser;
-  const fb = getFB();
-  if (fb.auth && fb.auth.currentUser) return fb.auth.currentUser.uid;
+  const pFb = getFB();
+  if (pFb && pFb.auth && pFb.auth.currentUser) return pFb.auth.currentUser.uid;
   return 'cwkim';
 }
 
@@ -570,7 +572,10 @@ let activeCh = 'c1';
 function render() {
   const side = document.querySelector('.side-scroll');
   const sideScroll = side ? side.scrollTop : null;
-  document.getElementById('app').innerHTML = `<div class="msg-wrapper">${messenger()}</div>`;
+  const appEl = document.getElementById('app');
+  if (appEl) {
+    appEl.innerHTML = `<div class="msg-wrapper">${messenger()}</div>`;
+  }
   const b = document.getElementById('msgBody');
   if (b) b.scrollTop = b.scrollHeight;
   const side2 = document.querySelector('.side-scroll');
@@ -605,6 +610,7 @@ async function loadChannelReads() {
   if (!me) return;
   try {
     const pFb = getFB();
+    if (!pFb || !pFb.db) return;
     const q = pFb.query(pFb.collection(pFb.db, 'channelReads'), pFb.where('uid', '==', me));
     const snaps = await pFb.getDocs(q);
     const reads = {};
@@ -623,12 +629,10 @@ function getUnreadCount(channelId) {
 function getProjectChannels() {
   const map = new Map();
   
-  // 1. state.channels에서 type: 'project' 수집
   (state.channels || []).filter(c => c.type === 'project').forEach(c => {
     map.set(c.id, { ...c });
   });
   
-  // 2. state.projects + parent.state.projects + localStorage(sj_projects / sjProjects) 수집
   const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
   let localProjs1 = [], localProjs2 = [];
   try { localProjs1 = JSON.parse(localStorage.getItem('sj_projects') || '[]'); } catch(e) {}
@@ -744,22 +748,17 @@ function messenger() {
   const me = getCurrentUserUid();
   const ch = getChannel(activeCh);
 
-  // 1. 공지사항 (항상 '전사 공지' 보장)
   let announceChs = state.channels.filter(c => c.type === 'announce');
   if (!announceChs.length) {
     announceChs = [{ id: 'c1', name: '전사 공지', type: 'announce' }];
   }
   
-  // 2. 부서 채널 (모든 회사 부서 채널 100% 전체 노출)
   const deptChs = COMPANY_DEPTS.map(dName => {
     const existing = state.channels.find(c => c.type === 'dept' && (c.name === dName || c.deptId === dName));
     return existing || { id: 'dept_' + dName, name: dName, type: 'dept' };
   });
 
-  // 3. 프로젝트 채널 (getProjectChannels로 100% 노출 보장)
   const projChs = getProjectChannels();
-
-  // 4. 그룹 채팅 & DM
   const groupChs = state.channels.filter(c => c.type === 'group' && (c.members||[]).includes(me));
   const dmChs = state.channels.filter(c => c.type === 'dm' && (c.members||[]).includes(me));
 
@@ -849,7 +848,6 @@ function messenger() {
             </div>
           </div>
           <div class="msg-head-right">
-            <!-- 클릭 시 해당 채널의 정확한 참여 멤버 목록 팝업 -->
             <div class="members-tag" onclick="showChannelMembers('${ch.id}')" title="참여 멤버 목록 보기">
               <span style="display:flex;">${ICONS.users}</span>
               <span>${memberCount}명 참여 중</span>
@@ -973,12 +971,13 @@ async function markChannelRead(cid) {
   state.channelReads[cid] = now;
   try {
     const pFb = getFB();
+    if (!pFb || !pFb.db) return;
     const payload = makeParentPlainObject({ channel: String(cid), uid: String(me), lastRead: Number(now) });
     await pFb.setDoc(pFb.doc(pFb.db, 'channelReads', cid + '_' + me), payload, { merge: true });
   } catch (e) { console.error('[Firestore] 읽음 처리 오류:', e); }
 }
 
-// ══════════ 메시지 전송 (makeParentPlainObject 로 parent Object 생성) ══════════
+// ══════════ 메시지 전송 ══════════
 async function sendMsg() {
   const inp = document.getElementById('msgInput');
   const text = inp?.value.trim();
@@ -1014,10 +1013,11 @@ async function sendMsg() {
       createdAt: Number(createdTs)
     };
     
-    // iframe <-> parent 간 Object.prototype 불일치(custom Object 오류) 100% 원천 차단
     const payload = makeParentPlainObject(rawPayload);
     
-    await pFb.setDoc(pFb.doc(pFb.db, 'messages', docId), payload);
+    if (pFb && pFb.db) {
+      await pFb.setDoc(pFb.doc(pFb.db, 'messages', docId), payload);
+    }
   } catch (e) {
     console.error('[Firestore] 메시지 전송 오류:', e);
     alert('메시지 전송 실패: ' + (e.message || e));
@@ -1055,6 +1055,7 @@ async function sendFiles(fileList) {
   
   try {
     const pFb = getFB();
+    if (!pFb || !pFb.storage || !pFb.db) return;
     for (const f of files) {
       const kb = f.size / 1024;
       const size = kb >= 1024 ? (kb/1024).toFixed(1)+'MB' : kb.toFixed(0)+'KB';
@@ -1143,9 +1144,11 @@ function startDM(otherId) {
     dm = { id:'dm'+Date.now(), name:'DM', type:'dm', members:[me, otherId] };
     state.channels.push(dm);
     const pFb = getFB();
-    const payload = makeParentPlainObject({ name: dm.name, type: dm.type, members: dm.members });
-    pFb.setDoc(pFb.doc(pFb.db, 'channels', dm.id), payload)
-      .catch(e => alert('채팅방 생성 실패: ' + (e.message || e)));
+    if (pFb && pFb.db) {
+      const payload = makeParentPlainObject({ name: dm.name, type: dm.type, members: dm.members });
+      pFb.setDoc(pFb.doc(pFb.db, 'channels', dm.id), payload)
+        .catch(e => alert('채팅방 생성 실패: ' + (e.message || e)));
+    }
   }
   activeCh = dm.id;
   closeModal();
@@ -1169,7 +1172,7 @@ function openNewGroup() {
           <div class="avatar other" style="width:26px;height:26px;font-size:11px;">${(u.name||'?').charAt(0)}</div>
           <div>
             <span style="font-weight:600;font-size:13px;color:#0f172a;">${escapeHtmlMsg(u.name)} ${escapeHtmlMsg(u.title||'')}</span>
-            <span style="font-size:11px;color:#64748b;margin-left:4px;">${escapeHtmlMsg(u.dept||'')}</span>
+            <span style="font-size:11.5px;color:#64748b;margin-left:4px;">${escapeHtmlMsg(u.dept||'')}</span>
           </div>
         </label>`).join('')}
       </div>
@@ -1183,20 +1186,24 @@ function openNewGroup() {
     const grp = { id:'g'+Date.now(), name, type:'group', members:[me, ...members] };
     state.channels.push(grp);
     const pFb = getFB();
-    const payload = makeParentPlainObject({ name: grp.name, type: grp.type, members: grp.members });
-    pFb.setDoc(pFb.doc(pFb.db, 'channels', grp.id), payload)
-      .catch(e => alert('그룹 생성 실패: ' + (e.message || e)));
+    if (pFb && pFb.db) {
+      const payload = makeParentPlainObject({ name: grp.name, type: grp.type, members: grp.members });
+      pFb.setDoc(pFb.doc(pFb.db, 'channels', grp.id), payload)
+        .catch(e => alert('그룹 생성 실패: ' + (e.message || e)));
+    }
     activeCh = grp.id;
     closeModal();
     render();
   });
 }
 
+let _fsUnsubs = [];
 async function startSync() {
   _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
   _fsUnsubs = [];
   
   const pFb = getFB();
+  if (!pFb || !pFb.db) return;
   
   _fsUnsubs.push(pFb.onSnapshot(pFb.collection(pFb.db, 'channels'), snap => {
     state.channels = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1216,24 +1223,37 @@ async function startSync() {
 }
 
 async function boot() {
-  const pFb = getFB();
+  // 1. 부모 윈도우 상태 동기화 및 0ms 즉시 렌더링 (빈 화면 방지)
+  if (window.parent && window.parent.state) {
+    if (window.parent.state.currentUser) state.currentUser = window.parent.state.currentUser;
+    if (window.parent.state.users && window.parent.state.users.length) state.users = window.parent.state.users;
+    if (window.parent.state.projects && window.parent.state.projects.length) state.projects = window.parent.state.projects;
+  }
   state.currentUser = getCurrentUserUid();
-  try {
-    const snaps = await pFb.getDocs(pFb.collection(pFb.db, 'users'));
-    state.users = snaps.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch (e) { console.error('[Firestore] users 로드 오류:', e); }
-  
-  await loadChannelReads();
-  startSync();
-  render();
+  render(); // 즉시 화면 표시
+
+  // 2. 백그라운드 실시간 동기화
+  const pFb = getFB();
+  if (pFb && pFb.db) {
+    try {
+      const snaps = await pFb.getDocs(pFb.collection(pFb.db, 'users'));
+      if (snaps && snaps.docs) state.users = snaps.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) { console.error('[Firestore] users 로드 오류:', e); }
+    
+    await loadChannelReads();
+    startSync();
+  }
 }
 
 function init() {
-  const pFb = getFB();
-  if (!pFb || !pFb.db) { setTimeout(init, 100); return; }
   boot();
 }
-init();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 </script>
 </body>
 </html>
