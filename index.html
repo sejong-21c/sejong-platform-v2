@@ -1933,12 +1933,12 @@ function showLogin() {
   } catch (e) {}
 }
 
-// v29.46.1: 데스크톱/일반 브라우저에서는 팝업 로그인(0.5초) 시도, 차단 환경에서는 리디렉션으로 자동 전환
+// v29.46.3: 계정 선택 창(prompt=select_account)을 팝업 방식으로 즉시 띄워 다중 계정 선택 지원 + 전체 페이지 리로드 없는 초고속 로그인
 async function doGoogleLoginFast() {
   showAuthLoading();
   try {
     const provider = new fb.GoogleAuthProvider();
-    provider.setCustomParameters({ hd: 'sejong-21c.com' });
+    provider.setCustomParameters({ hd: 'sejong-21c.com', prompt: 'select_account' });
     await fb.signInWithPopup(fb.auth, provider);
   } catch (e) {
     console.warn('[로그인] 팝업 로그인 차단/실패 -> 리디렉션 방식으로 전환', e);
@@ -1961,6 +1961,7 @@ function doGoogleLoginRedirect() {
     response_type: 'id_token token',
     scope: 'openid email profile',
     hd: 'sejong-21c.com',
+    prompt: 'select_account',
     include_granted_scopes: 'true',
     nonce,
   });
