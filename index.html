@@ -735,9 +735,9 @@ const NAV = [
   { id: 'quotes',    icon: '💰', li: 'calculator', label: '견적', hidden: true, deptOnly: '영업부' }, // 당분간 숨김
   { id: 'okr',       icon: '🎯', li: 'target', label: '목표(OKR)', hidden: true }, // 당분간 숨김
   { id: 'manday',    icon: '⏱', li: 'timer', label: 'Manday Tracker', statusText: '(업데이트중)', superOnly: true },
-  { id: 'org',       icon: '👥', li: 'users', label: '조직/권한', statusText: '(업데이트중)', superOnly: true },
-  { id: 'admin',     icon: '🛡️', li: 'shield', label: '관리', statusText: '(업데이트중)', adminOnly: true },
-  { id: 'approval',  icon: '📝', li: 'file-check-2', label: '결재', statusText: '(업데이트중)' },
+  { id: 'org',       icon: '👥', li: 'users', label: '조직/권한', superOnly: true },
+  { id: 'admin',     icon: '🛡️', li: 'shield', label: '관리', adminOnly: true },
+  { id: 'approval',  icon: '📝', li: 'file-check-2', label: '결재' },
 ];
 // 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백)
 function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
@@ -1831,7 +1831,7 @@ function openTool(tid, deptName) {
   var _ct = document.getElementById('content'); if (_ct) _ct.dataset.ifkey = '';
   const t = TOOLS[tid];
   const deptLabel = deptName || ((tid === 'asset') ? '총무부' : '품질관리부');
-  document.getElementById('hTitle').innerHTML = `<span style="color:var(--text-light);font-size:14px;">부서 도구함 / ${deptLabel}</span> <span style="color:var(--text-lighter);">›</span> ${t.icon} ${t.name} <span style="font-size:11px;color:var(--text-light);font-weight:400;">${t.ver}</span>`;
+  document.getElementById('hTitle').innerHTML = `<span style="color:var(--text-light);font-size:14px;">부서 도구함 / ${deptLabel}</span> <span style="color:var(--text-lighter);">›</span> ${LI(t.li, t.icon)} ${t.name} <span style="font-size:11px;color:var(--text-light);font-weight:400;">${t.ver}</span>`;
   document.getElementById('sb').classList.remove('mobile-open');
   renderNav();
   render();
@@ -2982,11 +2982,8 @@ function renderITPProjects() {
     </div>
   ` : '';
   return `
-    <div class="mod-head">
-      <div>
-        <div class="mod-title">📋 ITP Builder <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.4</span></div>
-        <div class="mod-sub">프로젝트를 선택하세요 · ASME · TEMA 기반 ITP 자동 생성</div>
-      </div>
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">프로젝트를 선택하세요 · ASME · TEMA 기반 ITP 자동 생성</div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-primary btn-sm" onclick="createManualDraft('itp')" title="프로젝트 등록 전/계약 전에 ITP를 먼저 작성해두고, 나중에 프로젝트가 생기면 연동합니다">🆕 ITP 수동 작성</button>
         ${hideToggleBtn}
@@ -3209,11 +3206,8 @@ function renderQAProjects() {
     </div>
   ` : '';
   return `
-    <div class="mod-head">
-      <div>
-        <div class="mod-title">📄 QA Doc Generator <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.4</span></div>
-        <div class="mod-sub">프로젝트를 선택하세요 · 8가지 QA/QC 문서 자동 생성</div>
-      </div>
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">프로젝트를 선택하세요 · 8가지 QA/QC 문서 자동 생성</div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-primary btn-sm" onclick="createManualDraft('qa')" title="프로젝트 등록 전/계약 전에 QA 문서를 먼저 작성해두고, 나중에 프로젝트가 생기면 연동합니다">🆕 QC Gen 수동 작성</button>
         ${hideToggleBtn}
@@ -3253,11 +3247,8 @@ function renderMobileProjects() {
     ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>`
     : '';
   return `
-    <div class="mod-head">
-      <div>
-        <div class="mod-title">📱 Mobile Inspection <span style="font-size:13px;color:var(--text-light);font-weight:400;">v1.0</span></div>
-        <div class="mod-sub">프로젝트를 선택하세요 · 현장 검사 사진 등록</div>
-      </div>
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">프로젝트를 선택하세요 · 현장 검사 사진 등록</div>
       <div style="display:flex;gap:8px;">
         ${hideToggleBtn}
         <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
@@ -3457,11 +3448,8 @@ function renderDeptSchedProjects() {
   const selfPid = `dept_${did}`;
   const projListOpen = !!(view.deptSchedProjListOpenByDept && view.deptSchedProjListOpenByDept[dept]);
   return `
-    <div class="mod-head">
-      <div>
-        <div class="mod-title">📅 ${dept} 스케줄</div>
-        <div class="mod-sub">프로젝트를 선택하면 ${dept} 담당 WBS만 필터해서 편집합니다 · ${canEdit ? '편집 가능' : '조회 전용(부서장·관리자급만 편집)'}</div>
-      </div>
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">프로젝트를 선택하면 ${dept} 담당 WBS만 필터해서 편집합니다 · ${canEdit ? '편집 가능' : '조회 전용(부서장·관리자급만 편집)'}</div>
       <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
     </div>
     <div style="margin-bottom:18px;">
@@ -6395,8 +6383,7 @@ function admin() {
   setTimeout(loadAdminTab, 0);
   const tabs = [['ai','🤖 AI 사용량'], ['err','🐞 시스템 오류'], ['acc','🚪 접속 기록'], ['act','🛠 작업 활동'], ['perm','🔐 접근 권한']];
   return `<div class="mod-head">
-      <div><div class="mod-title">🛡️ 관리</div>
-        <div class="mod-sub">AI 사용량 · 시스템 오류 · 접속/작업 기록 (최근 30일)</div></div>
+      <div style="font-size:12px;color:var(--text-light);">AI 사용량 · 시스템 오류 · 접속/작업 기록 (최근 30일)</div>
       <button class="back-btn" onclick="loadAdminTab()">↺ 새로고침</button>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
@@ -6658,8 +6645,8 @@ function org() {
       </table>
     </div>` : '';
 
-  return `<div class="mod-head">
-    <div><div class="mod-title">👥 조직 / 권한 관리</div><div class="mod-sub">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (부서/직급 수정·권한 부여·비활성화 가능)':'조회 전용'} · 계정은 Google 로그인으로 본인이 직접 생성</div></div>
+  return `<div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+    <div style="font-size:12px;color:var(--text-light);">총 ${state.users.length}명 · ${isSuper?'슈퍼관리자 (부서/직급 수정·권한 부여·비활성화 가능)':'조회 전용'} · 계정은 Google 로그인으로 본인이 직접 생성</div>
     ${isSuper ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-sm" onclick="openWorkspaceImport()" title="Workspace 사용자 목록을 자동으로 불러와 일괄 사전 등록">👥 Workspace에서 가져오기</button>
       <button class="btn btn-primary btn-sm" onclick="openPendingUser()">+ 계정 미리 등록</button>
@@ -7128,8 +7115,8 @@ function approval() {
   const tblHead = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재선 진행</th><th>금액</th><th>상태</th><th>기안일</th></tr></thead>`;
   const tblHeadA = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재선 진행</th><th>금액</th><th>상태</th><th>기안일</th><th>관리</th></tr></thead>`;
   return `
-    <div class="mod-head">
-      <div><div class="mod-title">📝 결재 관리</div><div class="mod-sub">WBS 변경 · 목표 변경 · 출장 · 구매 · 경비 · 품의 (문서 클릭 시 상세)</div></div>
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">WBS 변경 · 목표 변경 · 출장 · 구매 · 경비 · 품의 (문서 클릭 시 상세)</div>
       <button class="btn btn-primary" onclick="openApproval()">+ 신규 기안</button>
     </div>
     <div class="kpi-grid">
