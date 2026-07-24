@@ -12,7 +12,7 @@
   // docData[itemId][docKey] 형태로 7가지 QA/QC 문서 데이터를 포함한다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, onSnapshot, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -23,7 +23,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, getDoc, doc };
 </script>
 <style>
 :root {
@@ -92,6 +92,19 @@ body { font-family:-apple-system,"Malgun Gothic","맑은 고딕",sans-serif; bac
 .breadcrumb span.sep { margin:0 6px; color:var(--text-lighter); }
 
 .empty { text-align:center; padding:40px; color:var(--text-lighter); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
+
+/* v2.0 — imgStore 기반 리포트 렌더 */
+.rb-block { margin-bottom:16px; }
+.rb-title { font-size:12px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.hydro-part { border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:14px; background:#fff; }
+.hydro-part-hd { font-size:13px; font-weight:800; margin-bottom:8px; }
+.kv-table { width:100%; border-collapse:collapse; font-size:12px; }
+.kv-table th { text-align:left; width:150px; font-weight:600; color:var(--text-light); padding:6px 8px; border-bottom:1px solid var(--border-light); white-space:nowrap; background:var(--primary-lighter); }
+.kv-table td { padding:6px 8px; border-bottom:1px solid var(--border-light); color:var(--text); word-break:break-all; }
+.photo-wrap { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+.photo-slot { flex:1 1 260px; min-width:220px; min-height:60px; display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-lighter); background:var(--primary-lighter); border:1px dashed var(--border); border-radius:6px; padding:8px; }
+.photo-slot img { max-width:100%; }
+.ph-fail { flex:1 1 260px; font-size:11px; color:#b45309; background:#fffbeb; border:1px dashed #fcd34d; border-radius:6px; padding:10px; }
 </style>
 </head>
 <body>
@@ -144,6 +157,154 @@ function projInfo(doc) {
     client: proj.client || p?.client || ''
   };
 }
+// ── v2.0 — 리포트 데이터는 QA Doc Generator가 docData가 아니라 imgStore(+imgStoreChunks)에 저장한다.
+//   docData는 실제로 비어 있어 이전 뷰어는 항상 "문서 없음"으로 표시됐음. imgStore 키 패턴으로
+//   아이템별 문서 존재/내용을 판별·렌더한다. (사진은 imgStoreChunks 청크에서 지연 로드)
+const iidOf = it => it.id || it.tag;
+const imgOf = d => d.imgStore || {};
+const chunksOf = d => d.imgStoreChunks || {};
+function _nonEmpty(d, k) {
+  if (chunksOf(d)[k]) return true; // 사진(청크) 존재
+  const v = imgOf(d)[k];
+  if (v == null) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.values(v).some(x => x !== '' && x != null && !(Array.isArray(x) && x.length === 0));
+  return String(v).trim() !== '';
+}
+// 아이템 iid에 대해 각 문서유형이 데이터를 갖는지 Set으로 반환
+function docPresence(d, iid) {
+  const allKeys = new Set([...Object.keys(imgOf(d)), ...Object.keys(chunksOf(d))]);
+  const present = new Set();
+  const exact = {
+    BOM: [`bom_${iid}`],
+    BENDING: [`bend_bv_${iid}`, `bend_sh_${iid}`, `bend_set_${iid}`, `bend_eq_${iid}`, `bend_av_${iid}`],
+    FITUP: [`fitup_${iid}`],
+    DIM: [`dim_${iid}`, `dim_set_${iid}`, `dim_rows_${iid}`, `dim_mf_${iid}`],
+    NOZZLE: [`noz_set_${iid}`],
+    FINAL: [`vi_set_${iid}`],
+  };
+  for (const [dk, keys] of Object.entries(exact)) if (keys.some(k => allKeys.has(k) && _nonEmpty(d, k))) present.add(dk);
+  for (const k of allKeys) if ((k.startsWith(`hydro_set_${iid}_`) || k.startsWith(`hyro_${iid}_`)) && _nonEmpty(d, k)) { present.add('HYDRO'); break; }
+  return present;
+}
+// Hydro 부위별 Design Pressure (Generator와 동일 규칙)
+function partDesignP(it, part) {
+  const P = String(part || '');
+  const clean = v => String(v == null ? '' : v).replace(/\s*M\s*Pa?\s*$/i, '').trim();
+  let raw;
+  if (P.startsWith('Tube')) raw = it.tube_side_p;
+  else if (P.startsWith('Jacket')) raw = it.jacket_p || it.design_p;
+  else if (P.startsWith('Half-Coil')) raw = it.halfcoil_p || it.design_p;
+  else if (P.startsWith('In-Coil')) raw = it.incoil_p || it.design_p;
+  else raw = it.design_p;
+  const c = clean(raw);
+  if (!c) return '—';
+  const numeric = !isNaN(parseFloat(c)) && /^[\d.\s]+$/.test(c);
+  return numeric ? c + ' MPa' : c;
+}
+// 청크 이미지 로드 (렌더 후 지연 실행). coll은 문서 출처(live→t_qaGenDocs / snap→t_qaGenProjIndex).
+async function hydratePhotos(coll) {
+  const slots = document.querySelectorAll('.photo-slot[data-chunkid]');
+  for (const el of slots) {
+    const chunkId = el.getAttribute('data-chunkid');
+    const total = parseInt(el.getAttribute('data-total')) || 0;
+    if (!chunkId || !total) continue;
+    try {
+      const jobs = [];
+      for (let i = 0; i < total; i++) jobs.push(fb.getDoc(fb.doc(fb.db, coll, `${chunkId}__${i}`)));
+      const snaps = await Promise.all(jobs);
+      const dataUrl = snaps.map(s => (s.data && s.data()) ? (s.data().data || '') : '').join('');
+      if (dataUrl) { el.innerHTML = `<img src="${dataUrl}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/>`; }
+      else { el.className = 'ph-fail'; el.textContent = '사진을 불러오지 못했습니다'; }
+    } catch (e) {
+      el.className = 'ph-fail'; el.textContent = '사진 로드 실패(오프라인일 수 있음)';
+    }
+  }
+}
+function photoSlots(d, keys) {
+  const out = [];
+  for (const k of keys) {
+    const inline = imgOf(d)[k];
+    if (typeof inline === 'string' && inline.startsWith('data:')) { out.push(`<div class="photo-slot"><img src="${inline}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/></div>`); continue; }
+    const ptr = chunksOf(d)[k];
+    if (ptr && ptr.chunkId) out.push(`<div class="photo-slot" data-chunkid="${esc(ptr.chunkId)}" data-total="${ptr.totalChunks||0}">📷 사진 불러오는 중…</div>`);
+  }
+  return out.join('');
+}
+function rowsTable(rows, color) {
+  if (!Array.isArray(rows) || !rows.length) return '';
+  const cols = [...new Set(rows.flatMap(r => Object.keys(r || {})))];
+  return `<div style="overflow-x:auto;"><table class="itp-table" style="width:100%;border-collapse:collapse;font-size:11.5px;">
+    <thead><tr>${cols.map(c => `<th style="background:${color}15;color:${color};padding:8px 10px;text-align:left;font-size:10.5px;font-weight:700;border-bottom:1px solid ${color}30;">${esc(c)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${cols.map(c => `<td style="padding:7px 10px;border-bottom:1px solid var(--border-light);">${esc((r && r[c]) || '')}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+function kvList(obj, skip = []) {
+  const entries = Object.entries(obj || {}).filter(([k, v]) => !skip.includes(k) && v != null && v !== '' && !(typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) && !(Array.isArray(v) && v.length === 0));
+  if (!entries.length) return '';
+  return `<dl class="kv-list">${entries.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${typeof v === 'object' ? esc(JSON.stringify(v)) : esc(v)}</dd>`).join('')}</dl>`;
+}
+// 문서유형별 본문 HTML을 imgStore에서 구성
+function reportBody(d, it, docKey, color) {
+  const iid = iidOf(it), img = imgOf(d);
+  if (docKey === 'HYDRO') {
+    const parts = [];
+    for (const k of Object.keys(img)) { const m = k.match(new RegExp(`^hydro_set_${iid.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}_(.+)$`)); if (m) parts.push(m[1]); }
+    // 사진만 있고 hydro_set이 없는 파트도 포함
+    for (const k of Object.keys(chunksOf(d))) { const m = k.match(new RegExp(`^hyro_${iid.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}_(.+)_[12]$`)); if (m && !parts.includes(m[1])) parts.push(m[1]); }
+    if (!parts.length) return '<div class="empty">수압 시험 데이터가 없습니다.</div>';
+    const order = ['Shell','Tube Side','Jacket','Jacket Upper','Jacket Middle','Jacket Lower','In-Coil','In-Coil #1','In-Coil #2','In-Coil #3','Half-Coil','Half-Coil Upper','Half-Coil Middle','Half-Coil Lower'];
+    parts.sort((a,b) => { const ia=order.indexOf(a), ib=order.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
+    return parts.map(part => {
+      const s = img[`hydro_set_${iid}_${part}`] || {};
+      const fluidLabel = s.fluid === '기타 (직접 입력)' ? (s.fluidCustom || '기타') : (s.fluid || '');
+      const rows = [
+        ['Design Pressure', partDesignP(it, part)],
+        ['Test Pressure', s.tpcVal || '—'],
+        ['Actual Pressure', s.ap || '—'],
+        ['Test Type', s.testType || '—'],
+        ['Fluid', fluidLabel || '—'],
+        ['Test Temp.', s.tTemp || '—'],
+        ['Test Date', s.dt || '—'],
+        ['Holding (min)', s.holdMin || '—'],
+        ['Measuring Eq.', s.mEqH || '—'],
+      ];
+      const photos = photoSlots(d, [`hyro_${iid}_${part}_1`, `hyro_${iid}_${part}_2`]);
+      return `<div class="hydro-part">
+        <div class="hydro-part-hd" style="color:${color};">🔧 ${esc(part)}</div>
+        <table class="kv-table"><tbody>${rows.map(([k,v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>
+        ${photos ? `<div class="photo-wrap">${photos}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+  const blocks = [];
+  const add = (title, html) => { if (html) blocks.push(`<div class="rb-block"><div class="rb-title">${esc(title)}</div>${html}</div>`); };
+  if (docKey === 'BOM') add('Bill of Materials', rowsTable(img[`bom_${iid}`], color));
+  else if (docKey === 'BENDING') {
+    add('설정', kvList(img[`bend_set_${iid}`]));
+    add('실측값 (Actual)', kvList(img[`bend_av_${iid}`]));
+    add('사용 장비', kvList(img[`bend_eq_${iid}`]));
+    const ph = photoSlots(d, [`bend_bv_${iid}`, `bend_sh_${iid}`]);
+    if (ph) add('첨부 도면/사진', `<div class="photo-wrap">${ph}</div>`);
+  } else if (docKey === 'FITUP') {
+    const f = img[`fitup_${iid}`] || {};
+    add('Joints', rowsTable(f.joints, color));
+    add('기타', kvList(f, ['joints']));
+  } else if (docKey === 'DIM') {
+    add('측정값', rowsTable(img[`dim_rows_${iid}`], color));
+    const mf = img[`dim_mf_${iid}`]; if (mf) add('수동 항목', rowsTable(mf.rows, color) || kvList(mf, ['rows']));
+    add('설정', kvList(img[`dim_set_${iid}`]));
+    const ph = photoSlots(d, [`dim_${iid}`]); if (ph) add('첨부 사진', `<div class="photo-wrap">${ph}</div>`);
+  } else if (docKey === 'NOZZLE') {
+    const n = img[`noz_set_${iid}`] || {};
+    add('Nozzle', rowsTable(n.noz, color));
+    add('기타', kvList(n, ['noz']));
+  } else if (docKey === 'FINAL') {
+    add('Final Visual', kvList(img[`vi_set_${iid}`]));
+  }
+  return blocks.length ? blocks.join('') : '<div class="empty">이 문서에는 아직 저장된 세부 항목이 없습니다.</div>';
+}
+function currentDocColl() { return state.selectedSrc === 'snap' ? 't_qaGenProjIndex' : 't_qaGenDocs'; }
 function currentDoc() {
   if (!state.selectedId) return null;
   const arr = state.selectedSrc === 'snap' ? state.snapDocs : state.liveDocs;
@@ -213,8 +374,8 @@ function renderProj() {
   const savedAt = (doc.updatedAt || doc.savedAt) ? new Date(doc.updatedAt || doc.savedAt).toISOString().replace('T',' ').slice(0,16) : '';
 
   const rows = items.map(it => {
-    const perItem = docData[it.id] || {};
-    const filled = DOC_TYPES.filter(dt => perItem[dt.key] && Object.keys(perItem[dt.key]).length > 0);
+    const present = docPresence(doc, iidOf(it));
+    const filled = DOC_TYPES.filter(dt => present.has(dt.key));
     const badges = filled.length ? filled.map(dt => `<span class="badge" style="background:${dt.color}18;color:${dt.color};">${dt.key}</span>`).join('')
                                  : `<span class="badge gray">문서 없음</span>`;
     return `<div class="item-row" onclick="goItem('${esc(it.id)}')">
@@ -251,16 +412,14 @@ function renderItem() {
   const it = items.find(x => x.id === state.selectedItem);
   if (!it) return renderProj();
   const lbl = projInfo(doc);
-  const perItem = (doc.docData || {})[it.id] || {};
+  const present = docPresence(doc, iidOf(it));
 
   const docCards = DOC_TYPES.map(dt => {
-    const d = perItem[dt.key];
-    const has = d && Object.keys(d).length > 0;
-    const rowCount = has && Array.isArray(d.rows) ? d.rows.length : (has ? Object.keys(d).length : 0);
+    const has = present.has(dt.key);
     return `<div class="doc-card ${has?'':'empty'}" style="--dcolor:${dt.color};" ${has?`onclick="goDoc('${dt.key}')"`:''}>
       <div class="k">${dt.key}</div>
       <div class="l">${esc(dt.label)}</div>
-      <div class="s">${has ? `데이터 ${rowCount}개 · 클릭하여 조회` : '아직 데이터 없음'}</div>
+      <div class="s">${has ? '작성됨 · 클릭하여 조회' : '아직 데이터 없음'}</div>
     </div>`;
   }).join('');
 
@@ -293,22 +452,8 @@ function renderDoc() {
   const it = (doc.items || []).find(x => x.id === state.selectedItem);
   if (!it) return renderProj();
   const dt = DOC_TYPES.find(x => x.key === state.selectedDoc);
-  const data = ((doc.docData || {})[it.id] || {})[state.selectedDoc] || {};
   const lbl = projInfo(doc);
-
-  // 데이터가 rows 배열을 갖는지 여부에 따라 표 또는 key-value로 렌더
-  let body;
-  if (Array.isArray(data.rows) && data.rows.length) {
-    const cols = [...new Set(data.rows.flatMap(r => Object.keys(r || {})))];
-    body = `<div style="overflow-x:auto;"><table class="itp-table" style="width:100%;border-collapse:collapse;font-size:11.5px;">
-      <thead><tr>${cols.map(c => `<th style="background:${dt.color}15;color:${dt.color};padding:8px 10px;text-align:left;font-size:10.5px;font-weight:700;border-bottom:1px solid ${dt.color}30;position:sticky;top:0;">${esc(c)}</th>`).join('')}</tr></thead>
-      <tbody>${data.rows.map(r => `<tr>${cols.map(c => `<td style="padding:7px 10px;border-bottom:1px solid var(--border-light);">${esc(r[c] || '')}</td>`).join('')}</tr>`).join('')}</tbody>
-    </table></div>`;
-  } else {
-    const entries = Object.entries(data).filter(([k,v]) => k !== 'rows' && v != null && (typeof v !== 'object' || (Array.isArray(v) && v.length===0)));
-    if (!entries.length) body = '<div class="empty">이 문서에는 아직 저장된 세부 항목이 없습니다.<br>QA Doc Generator에서 데이터를 입력해주세요.</div>';
-    else body = `<dl class="kv-list">${entries.map(([k,v]) => `<dt>${esc(k)}</dt><dd>${typeof v==='object' ? esc(JSON.stringify(v)) : esc(v)}</dd>`).join('')}</dl>`;
-  }
+  const body = reportBody(doc, it, state.selectedDoc, dt?.color || 'var(--primary)');
 
   return `
     <div class="breadcrumb">
@@ -333,7 +478,7 @@ function renderDoc() {
 
 function render() {
   const app = document.getElementById('app');
-  if (state.selectedId && state.selectedItem && state.selectedDoc) app.innerHTML = renderDoc();
+  if (state.selectedId && state.selectedItem && state.selectedDoc) { app.innerHTML = renderDoc(); hydratePhotos(currentDocColl()); }
   else if (state.selectedId && state.selectedItem) app.innerHTML = renderItem();
   else if (state.selectedId) app.innerHTML = renderProj();
   else app.innerHTML = renderList();
