@@ -464,7 +464,7 @@ body {
 </div>
 
 <script>
-// 부모 인스턴스와 100% 동일한 Firebase 객체 자동 승계 (인증 세션 무손실 공유)
+// 부모 인스턴스와 100% 동일한 Firebase 객체 사용 (단일 소스)
 const getFB = () => (window.parent && window.parent.fb) ? window.parent.fb : window.fb;
 
 // 전사 공식 부서 목록 (항상 전체 노출)
@@ -522,7 +522,6 @@ let searchFilter = '';
 let uploadingFiles = false;
 let pendingMessages = [];
 
-// 기본적으로 세션들은 모두 펼침(false) 상태로 유지
 let collapsedSections = { announce: false, dept: false, project: false, group: false, dm: false };
 
 function toggleSection(key) {
@@ -549,7 +548,7 @@ function getCurrentUserUid() {
   if (window.parent && window.parent.state && window.parent.state.currentUser) return window.parent.state.currentUser;
   const fb = getFB();
   if (fb.auth && fb.auth.currentUser) return fb.auth.currentUser.uid;
-  return 'user_anon';
+  return 'cwkim';
 }
 
 let activeCh = 'c1';
@@ -589,7 +588,7 @@ function renderPreservingMsgInput() {
 
 async function loadChannelReads() {
   const me = getCurrentUserUid();
-  if (!me || me === 'user_anon') return;
+  if (!me) return;
   try {
     const fb = getFB();
     const q = fb.query(fb.collection(fb.db, 'channelReads'), fb.where('uid', '==', me));
@@ -620,11 +619,13 @@ function getProjectChannels() {
   let localProjs = [];
   try { localProjs = JSON.parse(localStorage.getItem('sjProjects') || '[]'); } catch(e) {}
   
-  const allProjs = [...state.projects, ...parentProjs, ...localProjs];
-  const uniqueProjsMap = new Map();
-  allProjs.forEach(p => { if (p && p.id && !uniqueProjsMap.has(p.id)) uniqueProjsMap.set(p.id, p); });
+  const combined = [...(state.projects || []), ...parentProjs, ...localProjs];
+  const uniqueMap = new Map();
+  combined.forEach(p => {
+    if (p && p.id && !uniqueMap.has(p.id)) uniqueMap.set(p.id, p);
+  });
   
-  uniqueProjsMap.forEach((p, pid) => {
+  uniqueMap.forEach((p, pid) => {
     const cid = 'proj_' + pid;
     const existing = map.get(cid) || map.get(pid);
     const pName = p.name || p.code || ('프로젝트 ' + pid);
@@ -667,7 +668,7 @@ function getChannelMembers(ch) {
   if (ch.type === 'project') {
     const pid = ch.projectId || ch.id.replace('proj_', '');
     const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
-    const p = state.projects.find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
+    const p = (state.projects || []).find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
     if (p) {
       const pmId = p.pm || p.manager || p.pmUid;
       const teamList = p.members || p.assignees || p.users || p.team || [];
@@ -692,7 +693,7 @@ function showChannelMembers(cid) {
   if (ch.type === 'project') {
     const pid = ch.projectId || ch.id.replace('proj_', '');
     const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
-    const p = state.projects.find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
+    const p = (state.projects || []).find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
     if (p) pmId = p.pm || p.manager || p.pmUid;
   }
 
@@ -882,7 +883,7 @@ function getChannel(cid){
   if (!found && cid && cid.startsWith('proj_')) {
     const pid = cid.replace('proj_', '');
     const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
-    const p = state.projects.find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
+    const p = (state.projects || []).find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
     found = { id: cid, name: (p ? (p.name || p.code) : ('프로젝트 ' + pid)), type: 'project', projectId: pid };
   }
   return found || { id: 'c1', name: '전사 공지', type: 'announce' };
@@ -952,23 +953,24 @@ function setCh(cid) { activeCh = cid; markChannelRead(cid); render(); }
 
 async function markChannelRead(cid) {
   const me = getCurrentUserUid();
-  if (!me || me === 'user_anon') return;
+  if (!me) return;
   const now = Date.now();
   state.channelReads[cid] = now;
   try {
-    const fb = getFB();
-    await fb.setDoc(fb.doc(fb.db, 'channelReads', cid + '_' + me), { channel: cid, uid: me, lastRead: now }, { merge: true });
+    const pFb = getFB();
+    await pFb.setDoc(pFb.doc(pFb.db, 'channelReads', cid + '_' + me), { channel: cid, uid: me, lastRead: now }, { merge: true });
   } catch (e) { console.error('[Firestore] 읽음 처리 오류:', e); }
 }
 
-// ══════════ 메시지 전송 (부모 인증 세션 100% 동기화 + 절대 실패 없는 페이로드) ══════════
+// ══════════ 메시지 전송 (순수 단일 Firebase 인스턴스 전송) ══════════
 async function sendMsg() {
   const inp = document.getElementById('msgInput');
   const text = inp?.value.trim();
   if (!text) return;
   
+  const pFb = getFB();
+  const me = getCurrentUserUid();
   const chId = activeCh || 'c1';
-  const authorUid = getCurrentUserUid();
   inp.value = '';
   
   const tempId = 'pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
@@ -978,7 +980,7 @@ async function sendMsg() {
   pendingMessages.push({
     id: tempId,
     channel: chId,
-    author: authorUid,
+    author: me,
     text: text,
     at: nowStr,
     createdAt: createdTs,
@@ -987,25 +989,16 @@ async function sendMsg() {
   renderPreservingMsgInput();
   
   try {
-    const fb = getFB();
-    const currentCh = getChannel(chId);
-    if (currentCh) {
-      await fb.setDoc(fb.doc(fb.db, 'channels', chId), {
-        name: String(currentCh.name || chId),
-        type: String(currentCh.type || 'announce')
-      }, { merge: true }).catch(() => {});
-    }
-
     const docId = 'msg_' + createdTs + '_' + Math.random().toString(36).slice(2, 7);
     const payload = {
       channel: String(chId),
-      author: String(authorUid),
+      author: String(me),
       text: String(text),
       at: String(nowStr),
       createdAt: Number(createdTs)
     };
     
-    await fb.setDoc(fb.doc(fb.db, 'messages', docId), payload);
+    await pFb.setDoc(pFb.doc(pFb.db, 'messages', docId), payload);
   } catch (e) {
     console.error('[Firestore] 메시지 전송 오류:', e);
     alert('메시지 전송 실패: ' + (e.message || e));
@@ -1028,7 +1021,6 @@ function msgAttachFile() {
   input.click();
 }
 
-// 안전한 파일 업로드 (15초 타임아웃 가드)
 async function sendFiles(fileList) {
   const files = Array.from(fileList || []);
   if (!files.length) return;
@@ -1038,12 +1030,12 @@ async function sendFiles(fileList) {
     return;
   }
   const chId = activeCh || 'c1';
-  const authorUid = getCurrentUserUid();
+  const me = getCurrentUserUid();
   uploadingFiles = true;
   renderPreservingMsgInput();
   
   try {
-    const fb = getFB();
+    const pFb = getFB();
     for (const f of files) {
       const kb = f.size / 1024;
       const size = kb >= 1024 ? (kb/1024).toFixed(1)+'MB' : kb.toFixed(0)+'KB';
@@ -1054,7 +1046,7 @@ async function sendFiles(fileList) {
       pendingMessages.push({
         id: tempId,
         channel: chId,
-        author: authorUid,
+        author: me,
         file: f.name,
         fileSize: size,
         at: nowStr,
@@ -1064,26 +1056,25 @@ async function sendFiles(fileList) {
       renderPreservingMsgInput();
       
       try {
-        const storageRef = fb.ref(fb.storage, `messages/${chId}/${createdTs}_${f.name}`);
-        
-        const uploadTask = fb.uploadBytes(storageRef, f);
+        const storageRef = pFb.ref(pFb.storage, `messages/${chId}/${createdTs}_${f.name}`);
+        const uploadTask = pFb.uploadBytes(storageRef, f);
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('파일 업로드 시간 초과 (15초)')), 15000));
         
         await Promise.race([uploadTask, timeoutPromise]);
         
-        const fileUrl = await fb.getDownloadURL(storageRef);
+        const fileUrl = await pFb.getDownloadURL(storageRef);
         const docId = 'msg_' + createdTs + '_' + Math.random().toString(36).slice(2, 7);
         
         const payload = {
           channel: String(chId),
-          author: String(authorUid),
+          author: String(me),
           file: String(f.name),
           fileUrl: String(fileUrl),
           fileSize: String(size),
           at: String(nowStr),
           createdAt: Number(createdTs)
         };
-        await fb.setDoc(fb.doc(fb.db, 'messages', docId), payload);
+        await pFb.setDoc(pFb.doc(pFb.db, 'messages', docId), payload);
       } catch (e) {
         console.error('[Storage] 파일 업로드 실패:', e);
         alert(`"${f.name}" 업로드 실패: ` + (e.message || e));
@@ -1131,8 +1122,8 @@ function startDM(otherId) {
   if (!dm) {
     dm = { id:'dm'+Date.now(), name:'DM', type:'dm', members:[me, otherId] };
     state.channels.push(dm);
-    const fb = getFB();
-    fb.setDoc(fb.doc(fb.db, 'channels', dm.id), { name: dm.name, type: dm.type, members: dm.members })
+    const pFb = getFB();
+    pFb.setDoc(pFb.doc(pFb.db, 'channels', dm.id), { name: dm.name, type: dm.type, members: dm.members })
       .catch(e => alert('채팅방 생성 실패: ' + (e.message || e)));
   }
   activeCh = dm.id;
@@ -1170,8 +1161,8 @@ function openNewGroup() {
     const me = getCurrentUserUid();
     const grp = { id:'g'+Date.now(), name, type:'group', members:[me, ...members] };
     state.channels.push(grp);
-    const fb = getFB();
-    fb.setDoc(fb.doc(fb.db, 'channels', grp.id), { name: grp.name, type: grp.type, members: grp.members })
+    const pFb = getFB();
+    pFb.setDoc(pFb.doc(pFb.db, 'channels', grp.id), { name: grp.name, type: grp.type, members: grp.members })
       .catch(e => alert('그룹 생성 실패: ' + (e.message || e)));
     activeCh = grp.id;
     closeModal();
@@ -1183,44 +1174,30 @@ async function startSync() {
   _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
   _fsUnsubs = [];
   
-  const fb = getFB();
+  const pFb = getFB();
   
-  // 1. channels 동기화
-  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'channels'), snap => {
+  _fsUnsubs.push(pFb.onSnapshot(pFb.collection(pFb.db, 'channels'), snap => {
     state.channels = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPreservingMsgInput();
   }, err => console.error('[Firestore] channels 동기화 오류:', err)));
 
-  // 2. projects 동기화
-  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
+  _fsUnsubs.push(pFb.onSnapshot(pFb.collection(pFb.db, 'projects'), snap => {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPreservingMsgInput();
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
 
-  // 3. messages 동기화
-  const msgQuery = fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(500));
-  _fsUnsubs.push(fb.onSnapshot(msgQuery, snap => {
+  const msgQuery = pFb.query(pFb.collection(pFb.db, 'messages'), pFb.orderBy('createdAt', 'desc'), pFb.limit(500));
+  _fsUnsubs.push(pFb.onSnapshot(msgQuery, snap => {
     state.messages = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     renderPreservingMsgInput();
   }, err => console.error('[Firestore] messages 동기화 오류:', err)));
 }
 
 async function boot() {
-  const fb = getFB();
-  const fu = await new Promise(resolve => {
-    const unsub = fb.onAuthStateChanged(fb.auth, u => { unsub(); resolve(u); });
-  });
-  
-  const currentUserUid = (fu && fu.uid) || (window.parent && window.parent.state && window.parent.state.currentUser) || null;
-  
-  if (!currentUserUid) {
-    document.getElementById('app').innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;">로그인이 필요합니다.</div>';
-    return;
-  }
-  
-  state.currentUser = currentUserUid;
+  const pFb = getFB();
+  state.currentUser = getCurrentUserUid();
   try {
-    const snaps = await fb.getDocs(fb.collection(fb.db, 'users'));
+    const snaps = await pFb.getDocs(pFb.collection(pFb.db, 'users'));
     state.users = snaps.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) { console.error('[Firestore] users 로드 오류:', e); }
   
@@ -1230,8 +1207,8 @@ async function boot() {
 }
 
 function init() {
-  const fb = getFB();
-  if (!fb) { setTimeout(init, 100); return; }
+  const pFb = getFB();
+  if (!pFb || !pFb.db) { setTimeout(init, 100); return; }
   boot();
 }
 init();
