@@ -1146,7 +1146,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b65';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b19';
+const MESSENGER_BUILD = 'b20';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b14';
 const CAR_BUILD = 'b13';
@@ -1179,6 +1179,7 @@ if (!state.users || !state.users.length || !state.users[0].email) {
   });
   if (changed) { localStorage.setItem(KEY, JSON.stringify(state)); console.info('[SJ FLOW] 신규 필드 보강 완료'); }
 })();
+window.state = state;
 // v29.9.1: localStorage 소유권 분리 — NCR/CAR iframe이 소유·기록하는 키 목록.
 // 부모(index.html)의 save()는 이 키들에 대해 "디스크(=iframe이 마지막으로 쓴 값)"를
 // 항상 진실로 받아들이고, 부모 메모리의 (페이지 로드 시점 그대로인) stale 사본으로

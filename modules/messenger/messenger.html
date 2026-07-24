@@ -467,6 +467,20 @@ body {
 // 부모 인스턴스와 100% 동일한 Firebase 객체 사용 (단일 소스)
 const getFB = () => (window.parent && window.parent.fb) ? window.parent.fb : window.fb;
 
+// ══════════ 크로스 윈도우 객체 프로토타입 불일치(custom Object 오류) 해결 헬퍼 ══════════
+function makeParentPlainObject(obj) {
+  if (window.parent && window.parent.Object) {
+    const parentObj = new window.parent.Object();
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        parentObj[key] = obj[key];
+      }
+    }
+    return parentObj;
+  }
+  return obj;
+}
+
 // 전사 공식 부서 목록 (항상 전체 노출)
 const COMPANY_DEPTS = [
   '영업부', '기술부', '구매부', '생산부', '품질관리부',
@@ -590,9 +604,9 @@ async function loadChannelReads() {
   const me = getCurrentUserUid();
   if (!me) return;
   try {
-    const fb = getFB();
-    const q = fb.query(fb.collection(fb.db, 'channelReads'), fb.where('uid', '==', me));
-    const snaps = await fb.getDocs(q);
+    const pFb = getFB();
+    const q = pFb.query(pFb.collection(pFb.db, 'channelReads'), pFb.where('uid', '==', me));
+    const snaps = await pFb.getDocs(q);
     const reads = {};
     snaps.forEach(s => { const d = s.data(); reads[d.channel] = d.lastRead; });
     state.channelReads = reads;
@@ -614,12 +628,13 @@ function getProjectChannels() {
     map.set(c.id, { ...c });
   });
   
-  // 2. state.projects + parent.state.projects + localStorage 수집
+  // 2. state.projects + parent.state.projects + localStorage(sj_projects / sjProjects) 수집
   const parentProjs = (window.parent && window.parent.state && window.parent.state.projects) || [];
-  let localProjs = [];
-  try { localProjs = JSON.parse(localStorage.getItem('sjProjects') || '[]'); } catch(e) {}
+  let localProjs1 = [], localProjs2 = [];
+  try { localProjs1 = JSON.parse(localStorage.getItem('sj_projects') || '[]'); } catch(e) {}
+  try { localProjs2 = JSON.parse(localStorage.getItem('sjProjects') || '[]'); } catch(e) {}
   
-  const combined = [...(state.projects || []), ...parentProjs, ...localProjs];
+  const combined = [...(state.projects || []), ...parentProjs, ...localProjs1, ...localProjs2];
   const uniqueMap = new Map();
   combined.forEach(p => {
     if (p && p.id && !uniqueMap.has(p.id)) uniqueMap.set(p.id, p);
@@ -958,11 +973,12 @@ async function markChannelRead(cid) {
   state.channelReads[cid] = now;
   try {
     const pFb = getFB();
-    await pFb.setDoc(pFb.doc(pFb.db, 'channelReads', cid + '_' + me), { channel: cid, uid: me, lastRead: now }, { merge: true });
+    const payload = makeParentPlainObject({ channel: String(cid), uid: String(me), lastRead: Number(now) });
+    await pFb.setDoc(pFb.doc(pFb.db, 'channelReads', cid + '_' + me), payload, { merge: true });
   } catch (e) { console.error('[Firestore] 읽음 처리 오류:', e); }
 }
 
-// ══════════ 메시지 전송 (순수 단일 Firebase 인스턴스 전송) ══════════
+// ══════════ 메시지 전송 (makeParentPlainObject 로 parent Object 생성) ══════════
 async function sendMsg() {
   const inp = document.getElementById('msgInput');
   const text = inp?.value.trim();
@@ -990,13 +1006,16 @@ async function sendMsg() {
   
   try {
     const docId = 'msg_' + createdTs + '_' + Math.random().toString(36).slice(2, 7);
-    const payload = {
+    const rawPayload = {
       channel: String(chId),
       author: String(me),
       text: String(text),
       at: String(nowStr),
       createdAt: Number(createdTs)
     };
+    
+    // iframe <-> parent 간 Object.prototype 불일치(custom Object 오류) 100% 원천 차단
+    const payload = makeParentPlainObject(rawPayload);
     
     await pFb.setDoc(pFb.doc(pFb.db, 'messages', docId), payload);
   } catch (e) {
@@ -1065,7 +1084,7 @@ async function sendFiles(fileList) {
         const fileUrl = await pFb.getDownloadURL(storageRef);
         const docId = 'msg_' + createdTs + '_' + Math.random().toString(36).slice(2, 7);
         
-        const payload = {
+        const rawPayload = {
           channel: String(chId),
           author: String(me),
           file: String(f.name),
@@ -1074,6 +1093,7 @@ async function sendFiles(fileList) {
           at: String(nowStr),
           createdAt: Number(createdTs)
         };
+        const payload = makeParentPlainObject(rawPayload);
         await pFb.setDoc(pFb.doc(pFb.db, 'messages', docId), payload);
       } catch (e) {
         console.error('[Storage] 파일 업로드 실패:', e);
@@ -1123,7 +1143,8 @@ function startDM(otherId) {
     dm = { id:'dm'+Date.now(), name:'DM', type:'dm', members:[me, otherId] };
     state.channels.push(dm);
     const pFb = getFB();
-    pFb.setDoc(pFb.doc(pFb.db, 'channels', dm.id), { name: dm.name, type: dm.type, members: dm.members })
+    const payload = makeParentPlainObject({ name: dm.name, type: dm.type, members: dm.members });
+    pFb.setDoc(pFb.doc(pFb.db, 'channels', dm.id), payload)
       .catch(e => alert('채팅방 생성 실패: ' + (e.message || e)));
   }
   activeCh = dm.id;
@@ -1162,7 +1183,8 @@ function openNewGroup() {
     const grp = { id:'g'+Date.now(), name, type:'group', members:[me, ...members] };
     state.channels.push(grp);
     const pFb = getFB();
-    pFb.setDoc(pFb.doc(pFb.db, 'channels', grp.id), { name: grp.name, type: grp.type, members: grp.members })
+    const payload = makeParentPlainObject({ name: grp.name, type: grp.type, members: grp.members });
+    pFb.setDoc(pFb.doc(pFb.db, 'channels', grp.id), payload)
       .catch(e => alert('그룹 생성 실패: ' + (e.message || e)));
     activeCh = grp.id;
     closeModal();
