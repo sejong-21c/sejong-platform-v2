@@ -405,9 +405,8 @@
   }
 
   // key가 null이면 회사 게이트웨이 호출(인증 헤더 없이 — 키는 서버가 붙임), base는 게이트웨이 주소
-  async function callGeminiOnce(key, model, h, signal, base) {
-    var headers = { 'Content-Type': 'application/json' };
-    if (key) headers['x-goog-api-key'] = key;
+  async function callGeminiOnce(key, model, h, signal, base, extraHeaders, onToken) {
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, key ? { 'x-goog-api-key': key } : {}, extraHeaders || {});
     var res = await fetch((base || 'https://generativelanguage.googleapis.com/v1beta') + '/models/' + model + ':generateContent', {
       method: 'POST',
       signal: signal,
@@ -428,6 +427,7 @@
     var fnPart = parts.find(function (p) { return p.functionCall; });
     if (fnPart) return { type: 'function_call', name: fnPart.functionCall.name, args: fnPart.functionCall.args || {} };
     var text = parts.map(function (p) { return p.text || ''; }).join('').trim() || '(응답 없음)';
+    if (text && onToken) onToken(text);
     return { type: 'text', text: text };
   }
 
@@ -440,9 +440,8 @@
     });
   }
 
-  async function callClaudeOnce(key, model, h, signal, base) {
-    var headers = { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' };
-    if (key) { headers['x-api-key'] = key; headers['anthropic-dangerous-direct-browser-access'] = 'true'; }
+  async function callClaudeOnce(key, model, h, signal, base, extraHeaders, onToken) {
+    var headers = Object.assign({ 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' }, key ? { 'x-api-key': key, 'anthropic-dangerous-direct-browser-access': 'true' } : {}, extraHeaders || {});
     var res = await fetch((base || 'https://api.anthropic.com/v1') + '/messages', {
       method: 'POST',
       signal: signal,
@@ -464,6 +463,7 @@
     var toolUse = blocks.find(function (b) { return b.type === 'tool_use'; });
     if (toolUse) return { type: 'function_call', name: toolUse.name, args: toolUse.input || {}, callId: toolUse.id };
     var text = blocks.filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join('').trim() || '(응답 없음)';
+    if (text && onToken) onToken(text);
     return { type: 'text', text: text };
   }
 
@@ -538,15 +538,16 @@
     return JSON.parse(trimmed);
   }
 
-  async function callOpenAiCompatOnce(label, url, key, model, h, signal, extraHeaders) {
+  async function callOpenAiCompatOnce(label, url, key, model, h, signal, extraHeaders, onToken) {
     var reqHeaders = Object.assign({ 'Content-Type': 'application/json' }, key ? { 'Authorization': 'Bearer ' + key } : {}, extraHeaders || {});
-    var reqBody = { model: model, max_tokens: 4096, messages: openAiMessagesFromHistory(h), tools: buildOpenAiTools() };
+    var reqBody = { model: model, max_tokens: 4096, messages: openAiMessagesFromHistory(h), tools: buildOpenAiTools(), stream: true };
     var res = await fetch(url, {
       method: 'POST',
       signal: signal,
       headers: reqHeaders,
       body: JSON.stringify(reqBody)
-    });
+    }).catch(function (err) { throw err; });
+
     // 400 Bad Request / 422 Unprocessable Entity 일 경우 tools(함수호출) 미지원 모델/프록시일 수 있으므로 tools 제거 후 1회 재시도
     if (!res.ok && (res.status === 400 || res.status === 422)) {
       delete reqBody.tools;
@@ -558,25 +559,141 @@
       }).catch(function () { return null; });
       if (retryRes && retryRes.ok) res = retryRes;
     }
-    var textRaw = await res.text().catch(function () { return ''; });
-    if (!res.ok) {
-      throw httpError(label, res.status, textRaw.slice(0, 300));
+    // 400/405/415 등 스트리밍 미지원 프록시일 경우 stream: false 로 재시도
+    if (!res.ok && (res.status === 400 || res.status === 405 || res.status === 415)) {
+      delete reqBody.stream;
+      var nonStreamRes = await fetch(url, {
+        method: 'POST',
+        signal: signal,
+        headers: reqHeaders,
+        body: JSON.stringify(reqBody)
+      }).catch(function () { return null; });
+      if (nonStreamRes && nonStreamRes.ok) res = nonStreamRes;
     }
+
+    if (!res.ok) {
+      var errText = await res.text().catch(function () { return ''; });
+      throw httpError(label, res.status, errText.slice(0, 300));
+    }
+
+    // 스트리밍 본문 파싱 (ReadableStream)
+    if (res.body && typeof res.body.getReader === 'function') {
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder('utf-8');
+      var buffer = '';
+      var fullContent = '';
+      var toolCallsMap = {};
+      var isStreamFormat = false;
+
+      while (true) {
+        var doneResult = await reader.read();
+        if (doneResult.done) break;
+        buffer += decoder.decode(doneResult.value, { stream: true });
+        
+        var lines = buffer.split('\n');
+        buffer = lines.pop(); // incomplete line back to buffer
+
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (!line.startsWith('data:')) continue;
+          isStreamFormat = true;
+          var jsonStr = line.slice(5).trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+          try {
+            var chunk = JSON.parse(jsonStr);
+            var choice = (chunk.choices || [])[0] || {};
+            var delta = choice.delta || choice.message || {};
+            if (delta.content) {
+              fullContent += delta.content;
+              if (onToken) onToken(delta.content);
+            }
+            if (delta.tool_calls) {
+              delta.tool_calls.forEach(function (tc) {
+                var idx = tc.index || 0;
+                if (!toolCallsMap[idx]) toolCallsMap[idx] = { id: tc.id || ('call_' + idx), type: 'function', function: { name: '', arguments: '' } };
+                if (tc.function) {
+                  if (tc.function.name) toolCallsMap[idx].function.name += tc.function.name;
+                  if (tc.function.arguments) toolCallsMap[idx].function.arguments += tc.function.arguments;
+                }
+              });
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (buffer && buffer.trim()) {
+        var lineRem = buffer.trim();
+        if (lineRem.startsWith('data:')) {
+          isStreamFormat = true;
+          var jsonStrRem = lineRem.slice(5).trim();
+          if (jsonStrRem && jsonStrRem !== '[DONE]') {
+            try {
+              var chunkRem = JSON.parse(jsonStrRem);
+              var choiceRem = (chunkRem.choices || [])[0] || {};
+              var deltaRem = choiceRem.delta || choiceRem.message || {};
+              if (deltaRem.content) {
+                fullContent += deltaRem.content;
+                if (onToken) onToken(deltaRem.content);
+              }
+              if (deltaRem.tool_calls) {
+                deltaRem.tool_calls.forEach(function (tc) {
+                  var idx = tc.index || 0;
+                  if (!toolCallsMap[idx]) toolCallsMap[idx] = { id: tc.id || ('call_' + idx), type: 'function', function: { name: '', arguments: '' } };
+                  if (tc.function) {
+                    if (tc.function.name) toolCallsMap[idx].function.name += tc.function.name;
+                    if (tc.function.arguments) toolCallsMap[idx].function.arguments += tc.function.arguments;
+                  }
+                });
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+      var tcList = Object.keys(toolCallsMap).map(function (k) { return toolCallsMap[k]; });
+      if (tcList.length > 0) {
+        var args = {};
+        try { args = JSON.parse(tcList[0].function.arguments || '{}'); } catch (e) {}
+        return { type: 'function_call', name: tcList[0].function.name, args: args, callId: tcList[0].id };
+      }
+
+      if (isStreamFormat || fullContent) {
+        return { type: 'text', text: fullContent.trim() || '(응답 없음)' };
+      }
+
+      // 스트림 형식이 아니고 일반 JSON 본문인 경우
+      try {
+        var parsedJson = JSON.parse(buffer);
+        var msg = ((parsedJson.choices || [])[0] || {}).message || {};
+        var tc = (msg.tool_calls || [])[0];
+        if (tc) {
+          var argsParsed = {};
+          try { argsParsed = JSON.parse(tc.function.arguments || '{}'); } catch (e) {}
+          return { type: 'function_call', name: tc.function.name, args: argsParsed, callId: tc.id };
+        }
+        var textParsed = (typeof msg.content === 'string' ? msg.content : '').trim() || '(응답 없음)';
+        if (textParsed && onToken) onToken(textParsed);
+        return { type: 'text', text: textParsed };
+      } catch (e) {}
+    }
+
+    var textRaw = await res.text().catch(function () { return ''; });
     var data = {};
     try {
       data = parseOpenAiResponseText(textRaw);
     } catch (e) {
       throw httpError(label, 500, '파싱 실패: ' + e.message + ' (본문: ' + textRaw.slice(0, 100) + ')');
     }
-    var msg = ((data.choices || [])[0] || {}).message || {};
-    var tc = (msg.tool_calls || [])[0];
-    if (tc) {
-      var args = {};
-      try { args = JSON.parse(tc.function.arguments || '{}'); } catch (e) {}
-      return { type: 'function_call', name: tc.function.name, args: args, callId: tc.id };
+    var msgFb = ((data.choices || [])[0] || {}).message || {};
+    var tcFb = (msgFb.tool_calls || [])[0];
+    if (tcFb) {
+      var argsFb = {};
+      try { argsFb = JSON.parse(tcFb.function.arguments || '{}'); } catch (e) {}
+      return { type: 'function_call', name: tcFb.function.name, args: argsFb, callId: tcFb.id };
     }
-    var text = (typeof msg.content === 'string' ? msg.content : '').trim() || '(응답 없음)';
-    return { type: 'text', text: text };
+    var textFb = (typeof msgFb.content === 'string' ? msgFb.content : '').trim() || '(응답 없음)';
+    if (textFb && onToken) onToken(textFb);
+    return { type: 'text', text: textFb };
   }
 
   // ── 게이트웨이 체인: 키가 있는 회사를 순서대로, 실패하면 자동으로 다음 회사 ──
@@ -587,22 +704,22 @@
     return { Authorization: 'Bearer ' + await fb.auth.currentUser.getIdToken() };
   }
 
-  async function callOneModel(p, key, model, h, signal) {
+  async function callOneModel(p, key, model, h, signal, onToken) {
     // key === null 이면 회사 게이트웨이 경유. 9Router는 로그인 토큰까지 붙여 Worker가 직원 계정만 확인한다.
     var gw = key === null ? getGatewayUrl() + '/v1/' + p.id : null;
     var gatewayHeaders = key === null ? await gatewayAuthHeaders() : null;
-    if (p.id === 'gemini') return callGeminiOnce(key, model, h, signal, gw, gatewayHeaders);
-    if (p.id === 'claude') return callClaudeOnce(key, model, h, signal, gw, gatewayHeaders);
-    if (p.id === '9router') return callOpenAiCompatOnce('9Router', gw + '/chat/completions', key, model, h, signal, gatewayHeaders);
-    if (p.id === 'groq') return callOpenAiCompatOnce('Groq', (gw || 'https://api.groq.com/openai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders);
-    if (p.id === 'cerebras') return callOpenAiCompatOnce('Cerebras', (gw || 'https://api.cerebras.ai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders);
-    if (p.id === 'nvidia') return callOpenAiCompatOnce('NVIDIA', (gw || 'https://integrate.api.nvidia.com/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders);
-    if (p.id === 'mistral') return callOpenAiCompatOnce('Mistral', (gw || 'https://api.mistral.ai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders);
-    return callOpenAiCompatOnce('OpenRouter', (gw || 'https://openrouter.ai/api/v1') + '/chat/completions', key, model, h, signal, Object.assign({ 'X-Title': 'Sejong Platform' }, gatewayHeaders || {}));
+    if (p.id === 'gemini') return callGeminiOnce(key, model, h, signal, gw, gatewayHeaders, onToken);
+    if (p.id === 'claude') return callClaudeOnce(key, model, h, signal, gw, gatewayHeaders, onToken);
+    if (p.id === '9router') return callOpenAiCompatOnce('9Router', gw + '/chat/completions', key, model, h, signal, gatewayHeaders, onToken);
+    if (p.id === 'groq') return callOpenAiCompatOnce('Groq', (gw || 'https://api.groq.com/openai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders, onToken);
+    if (p.id === 'cerebras') return callOpenAiCompatOnce('Cerebras', (gw || 'https://api.cerebras.ai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders, onToken);
+    if (p.id === 'nvidia') return callOpenAiCompatOnce('NVIDIA', (gw || 'https://integrate.api.nvidia.com/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders, onToken);
+    if (p.id === 'mistral') return callOpenAiCompatOnce('Mistral', (gw || 'https://api.mistral.ai/v1') + '/chat/completions', key, model, h, signal, gatewayHeaders, onToken);
+    return callOpenAiCompatOnce('OpenRouter', (gw || 'https://openrouter.ai/api/v1') + '/chat/completions', key, model, h, signal, Object.assign({ 'X-Title': 'Sejong Platform' }, gatewayHeaders || {}), onToken);
   }
 
   // 한 회사 안에서: 소스(회사 게이트웨이 → 내 키들)를 교대하고, 소스마다 모델 목록을 시도한다.
-  async function tryProvider(p, h) {
+  async function tryProvider(p, h, onToken) {
     // v29.45: 로컬 LLM은 게이트웨이/키가 아니라 이 컴퓨터 주소로 직접 호출. 첫 응답이 느릴 수 있어 120초.
     if (p.localOnly) {
       var base = getLocalUrl();
@@ -612,7 +729,7 @@
       try {
         var keyL = getLocalKey();
         var model = await resolveLocalModel(base, ctlL.signal, keyL);
-        var rL = await callOpenAiCompatOnce('로컬 LLM', base + '/chat/completions', keyL, model, h, ctlL.signal);
+        var rL = await callOpenAiCompatOnce('로컬 LLM', base + '/chat/completions', keyL, model, h, ctlL.signal, null, onToken);
         clearTimeout(timerL);
         return { result: rL, viaGateway: false };
       } catch (e) { clearTimeout(timerL); throw e; }
@@ -629,7 +746,7 @@
         const ctl = new AbortController();
         const timer = setTimeout(function () { ctl.abort(); }, 45000);
         try {
-          var r = await callOneModel(p, src, p.models[mi], h, ctl.signal);
+          var r = await callOneModel(p, src, p.models[mi], h, ctl.signal, onToken);
           clearTimeout(timer);
           setCursor(p.id, idx); // 이 소스가 살아있음 — 다음 질문도 여기부터
           return { result: r, viaGateway: src === null };
@@ -649,7 +766,7 @@
 
   var lastLocalFail = '';   // v29.45.1: 로컬 LLM이 설정됐지만 실패한 사유 (진단 안내용)
 
-  async function callProviderOnce(h, onStatus) {
+  async function callProviderOnce(h, onStatus, onToken) {
     lastLocalFail = '';
     var gw = getGatewayUrl();
     var avail = PROVIDER_CHAIN.filter(function (p) {
@@ -664,7 +781,7 @@
       var p = avail[i];
       if (onStatus) onStatus(p.label + ' 응답 대기 중…');
       try {
-        var r = await tryProvider(p, h);
+        var r = await tryProvider(p, h, onToken);
         lastProviderLabel = p.label + (r.viaGateway ? ' · 회사공용' : '');
         return r.result;
       } catch (e) {
@@ -699,10 +816,10 @@
     return { status: '"' + def.description + '" 입력 폼을 열고 값을 채워놨습니다. 사용자가 확인 후 저장 버튼을 눌러야 실제로 저장됩니다.' };
   }
 
-  async function runConversation(userText, onStatus) {
+  async function runConversation(userText, onStatus, onToken) {
     history.push({ role: 'user', text: userText });
     for (var i = 0; i < 5; i++) {
-      var result = await callProviderOnce(history, onStatus);
+      var result = await callProviderOnce(history, onStatus, onToken);
       if (result.type === 'function_call') {
         history.push({ role: 'model', functionCall: { name: result.name, args: result.args, id: result.callId } });
         var execResult = await executeFunctionCall(result.name, result.args);
@@ -723,6 +840,7 @@
     div.textContent = text;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
+    return div;
   }
 
   function renderConfirmCard(actionName, def, resolved) {
@@ -864,10 +982,34 @@
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     appendMsg('system', '생각 중...');
     var thinkingEl = $id('aiMessages').lastChild;
+    var assistantMsgEl = null;
+
     try {
-      var reply = await runConversation(text, function (t) { thinkingEl.textContent = t; });
-      thinkingEl.remove();
-      appendMsg('assistant', reply);
+      var reply = await runConversation(
+        text,
+        function (statusText) {
+          if (thinkingEl) thinkingEl.textContent = statusText;
+        },
+        function (tokenChunk) {
+          if (thinkingEl) {
+            thinkingEl.remove();
+            thinkingEl = null;
+          }
+          if (!assistantMsgEl) {
+            assistantMsgEl = appendMsg('assistant', '');
+          }
+          assistantMsgEl.textContent += tokenChunk;
+          var box = $id('aiMessages');
+          if (box) box.scrollTop = box.scrollHeight;
+        }
+      );
+
+      if (thinkingEl) thinkingEl.remove();
+      if (!assistantMsgEl && reply) {
+        appendMsg('assistant', reply);
+      } else if (assistantMsgEl && reply) {
+        assistantMsgEl.textContent = reply;
+      }
       if (lastProviderLabel) appendMsg('system', '— ' + lastProviderLabel);
       logAiUsage(true, lastProviderLabel);
       // v29.45.1: 로컬 LLM을 설정했는데 실패해서 다른 곳으로 넘어갔으면, 원인을 세션당 1회 안내
