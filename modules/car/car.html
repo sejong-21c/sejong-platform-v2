@@ -26,6 +26,7 @@
   const fbApp = initializeApp(firebaseConfig);
   window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot };
 </script>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
 <style>
 :root {
   --primary: #1976D2; --primary-hover: #1565C0; --primary-light: #E3F2FD;
@@ -38,6 +39,12 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ── Lucide 아이콘 (main app(index.html)와 동일 패턴 — 깜빡임 방지: SVG 변환 전 폴백 이모지 숨김) ── */
+i[data-lucide] { font-size: 0; color: transparent; display: inline-flex; align-items: center; }
+i[data-lucide] > svg { width: 14px; height: 14px; stroke-width: 2; color: initial; }
+.mod-title i[data-lucide] > svg { width: 18px; height: 18px; }
+.org-ico-btn i[data-lucide] > svg, .btn-sm i[data-lucide] > svg { width: 13px; height: 13px; }
 
 .btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--white); cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
 .btn:hover { background: var(--bg); }
@@ -157,14 +164,14 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 <!-- CAR 경향분석 팝업 -->
 <div id="car-trend-modal">
   <div class="ctr-head">
-    <h3>📊 CAR 품질 경향분석</h3>
+    <h3><i data-lucide="chart-column">📊</i> CAR 품질 경향분석</h3>
     <div style="display:flex;gap:8px;align-items:center;">
-      <button onclick="printCARTrend()" style="background:#fff;color:var(--car);border:none;padding:6px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">🖨️ 보고서 출력</button>
+      <button onclick="printCARTrend()" style="background:#fff;color:var(--car);border:none;padding:6px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;"><i data-lucide="printer">🖨️</i> 보고서 출력</button>
       <button onclick="closeCARTrend()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1;">×</button>
     </div>
   </div>
   <div class="ctr-toolbar">
-    <span style="font-size:12px;font-weight:700;color:var(--car);">📅 기간</span>
+    <span style="font-size:12px;font-weight:700;color:var(--car);"><i data-lucide="calendar-days">📅</i> 기간</span>
     <select id="ctr-year" onchange="renderCARTrend()"><option value="">전체 연도</option></select>
     <select id="ctr-month" onchange="renderCARTrend()">
       <option value="">전체 월</option>
@@ -173,14 +180,14 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
       <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
       <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
     </select>
-    <span style="font-size:12px;font-weight:700;color:var(--car);margin-left:8px;">📁 프로젝트</span>
+    <span style="font-size:12px;font-weight:700;color:var(--car);margin-left:8px;"><i data-lucide="folder">📁</i> 프로젝트</span>
     <select id="ctr-proj" onchange="renderCARTrend()"><option value="">전체 프로젝트</option></select>
     <span id="ctr-count" style="font-size:12px;color:var(--car);font-weight:600;margin-left:8px;"></span>
   </div>
   <div class="ctr-body" id="ctr-body"></div>
   <div class="ctr-footer">
     <button class="btn" onclick="closeCARTrend()" style="background:var(--bg);color:var(--text);">닫기</button>
-    <button class="btn" onclick="printCARTrend()" style="background:var(--car);color:#fff;border-color:var(--car);">🖨️ 보고서 출력</button>
+    <button class="btn" onclick="printCARTrend()" style="background:var(--car);color:#fff;border-color:var(--car);"><i data-lucide="printer">🖨️</i> 보고서 출력</button>
   </div>
 </div>
 
@@ -188,12 +195,12 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 <div id="car-parse-modal">
   <div class="cpm-box">
     <div class="cpm-head">
-      <h3>📎 CAR 파일 파싱 결과</h3>
+      <h3><i data-lucide="paperclip">📎</i> CAR 파일 파싱 결과</h3>
       <button onclick="closeCARParseModal()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">×</button>
     </div>
     <div class="cpm-content">
       <div class="cpm-left">
-        <div class="cpm-left-head">📄 원본 문서</div>
+        <div class="cpm-left-head"><i data-lucide="file-text">📄</i> 원본 문서</div>
         <div id="car-parse-file" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
           <div style="padding:16px;color:var(--text-light);font-size:13px;">파일을 불러오는 중...</div>
         </div>
@@ -204,7 +211,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
     </div>
     <div class="cpm-footer">
       <button class="btn" onclick="closeCARParseModal()" style="background:var(--bg);color:var(--text);">취소</button>
-      <button id="car-parse-confirm-btn" class="btn btn-primary" onclick="confirmCARParse()">✅ CAR 등록</button>
+      <button id="car-parse-confirm-btn" class="btn btn-primary" onclick="confirmCARParse()"><i data-lucide="circle-check">✅</i> CAR 등록</button>
     </div>
   </div>
 </div>
@@ -212,6 +219,9 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 <input type="file" id="car-file-input" accept=".pdf,.docx" style="display:none" onchange="handleCARFile(this)">
 
 <script>
+// 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백). index.html/ncr.html과 동일 패턴.
+function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
+
 const KEY = 'SJ_FLOW_V04';
 const CAR_STATUS = { 'in-progress':['orange','조치중'], 'closed':['green','완료'] };
 const CAR_QUAL_REQ = [
@@ -546,13 +556,13 @@ function render() {
   document.getElementById('app').innerHTML = `
     <div class="mod-head">
       <div>
-        <div class="mod-title">🔧 CAR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">시정조치 요청서</span></div>
+        <div class="mod-title">${LI('wrench','🔧')} CAR 관리 <span style="font-size:13px;color:var(--text-light);font-weight:400;">시정조치 요청서</span></div>
         <div class="mod-sub">NCR 연계 또는 단독 발행 · 시정조치 요청 · 회신 · 완료 추적</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="back-btn" onclick="try{window.parent.closeTool();}catch(e){}">← 도구함 닫기</button>
-        <button class="btn" onclick="openCARTrend()">📊 경향분석</button>
-        <button class="btn" onclick="document.getElementById('car-file-input').click()">📎 파일로 등록</button>
+        <button class="btn" onclick="openCARTrend()">${LI('chart-column','📊')} 경향분석</button>
+        <button class="btn" onclick="document.getElementById('car-file-input').click()">${LI('paperclip','📎')} 파일로 등록</button>
         <button class="btn btn-primary" onclick="openNewCAR()">+ CAR 발행</button>
       </div>
     </div>
@@ -565,7 +575,7 @@ function render() {
 
     ${(isQualityHead && deleteReqs.length) ? `
     <div class="card" style="margin-bottom:14px;">
-      <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);">🗑️ CAR 삭제 승인 요청 (${deleteReqs.length}건)</h3>
+      <h3 style="font-size:14px;margin-bottom:10px;color:var(--danger);">${LI('trash-2','🗑️')} CAR 삭제 승인 요청 (${deleteReqs.length}건)</h3>
       ${deleteReqs.map(r => {
         const c = cars.find(x => x.id === r.carId);
         const ru = (state.users||[]).find(u => u.id === r.requestedBy) || {};
@@ -574,7 +584,7 @@ function render() {
             <div style="font-size:13px;font-weight:600;">${r.carId}</div>
             <div style="font-size:11px;color:var(--text-light);">요청: ${ru?.name||'-'} · ${r.requestedAt} · 사유: ${r.reason||'-'}</div>
             <div style="font-size:11px;color:var(--text-light);margin-top:2px;">${c?.action||''}</div>
-            <div style="font-size:11px;color:var(--danger);margin-top:2px;">⏳ ${fmtCARRemain((r.scheduledDeleteAt||0) - Date.now())}</div>
+            <div style="font-size:11px;color:var(--danger);margin-top:2px;">${LI('hourglass','⏳')} ${fmtCARRemain((r.scheduledDeleteAt||0) - Date.now())}</div>
           </div>
           <div style="display:flex;gap:6px;">
             <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" onclick="approveCARDelete('${r.id}')">조기승인(즉시삭제)</button>
@@ -624,17 +634,17 @@ function render() {
               <td style="font-size:11px;white-space:nowrap;color:var(--success);">${c.closedAt||'-'}</td>
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
               <td style="white-space:nowrap;">
-                <button class="org-ico-btn" onclick="openCARMgr('${c.id}')" title="상세/수정">📋</button>
-                ${(c.meta?.fileChunkId || c.meta?.fileUrl || c.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewCARFile('${c.id}')" title="파일 보기">📄</button>` : ''}
+                <button class="org-ico-btn" onclick="openCARMgr('${c.id}')" title="상세/수정">${LI('clipboard-list','📋')}</button>
+                ${(c.meta?.fileChunkId || c.meta?.fileUrl || c.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewCARFile('${c.id}')" title="파일 보기">${LI('file-text','📄')}</button>` : ''}
                 ${(()=>{
                   // v29.10: CAR 삭제는 즉시 실행되지 않고 항상 24시간 대기 요청으로만 처리된다.
                   const pendingReq = (state.carDeleteReqs||[]).find(r => r.carId === c.id && r.status === 'pending');
                   if (pendingReq) {
                     const canCancel = pendingReq.requestedBy === state.currentUser || canDeleteCAR;
                     return `<span style="font-size:10px;color:var(--danger);white-space:nowrap;" title="${fmtCARRemain((pendingReq.scheduledDeleteAt||0) - Date.now())}">삭제대기</span>`
-                      + (canCancel ? `<button class="org-ico-btn" onclick="cancelCARDelete('${pendingReq.id}')" title="삭제 요청 취소" style="color:var(--text-light);">↩</button>` : '');
+                      + (canCancel ? `<button class="org-ico-btn" onclick="cancelCARDelete('${pendingReq.id}')" title="삭제 요청 취소" style="color:var(--text-light);">${LI('corner-up-left','↩')}</button>` : '');
                   }
-                  if (canDeleteCAR || canRegisterCAR) return `<button class="org-ico-btn" onclick="requestCARDelete('${c.id}')" title="삭제 요청 (24시간 대기 후 삭제)" style="color:var(--danger);">🗑️</button>`;
+                  if (canDeleteCAR || canRegisterCAR) return `<button class="org-ico-btn" onclick="requestCARDelete('${c.id}')" title="삭제 요청 (24시간 대기 후 삭제)" style="color:var(--danger);">${LI('trash-2','🗑️')}</button>`;
                   return '';
                 })()}
               </td>
@@ -766,9 +776,9 @@ function openCARMgr(carId) {
     <div class="fg">
       <label class="fl">첨부파일 업데이트</label>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button type="button" class="btn btn-sm" onclick="document.getElementById('mgr-car-file-input').click()">📎 파일 선택</button>
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('mgr-car-file-input').click()">${LI('paperclip','📎')} 파일 선택</button>
         <span id="mgr-car-file-name" style="font-size:12px;color:var(--text-light);">${c.meta?.fileName||'없음'}</span>
-        ${(c.meta?.fileChunkId || c.meta?.fileUrl || c.meta?.fileDataUrl) ? `<button type="button" class="btn btn-sm" onclick="viewCARFile('${c.id}')">📄 현재 파일 보기</button>` : ''}
+        ${(c.meta?.fileChunkId || c.meta?.fileUrl || c.meta?.fileDataUrl) ? `<button type="button" class="btn btn-sm" onclick="viewCARFile('${c.id}')">${LI('file-text','📄')} 현재 파일 보기</button>` : ''}
       </div>
       <input type="file" id="mgr-car-file-input" accept=".pdf,.docx" style="display:none" onchange="(function(inp){
         const f=inp.files[0]; if(!f) return;
@@ -805,7 +815,7 @@ function openCARMgr(carId) {
     let attach = { ok: true, chunkId: null, totalChunks: 0, name: null };
     if (window._mgrCARUploadPromise) {
       const btn = document.getElementById('modal-confirm');
-      if (btn) { btn.disabled = true; btn.textContent = '⏳ 업로드 중...'; }
+      if (btn) { btn.disabled = true; btn.innerHTML = LI('hourglass','⏳') + ' 업로드 중...'; }
       attach = await resolveAttachmentOrNull('car', window._mgrCARUploadPromise);
       if (btn) { btn.disabled = false; btn.textContent = '확인'; }
       if (!attach.ok) return;
@@ -1260,7 +1270,7 @@ function renderCARTrend() {
       ? `onclick="viewCARFile('${_drillEsc(c.id)}')" title="클릭하면 등록된 보고서를 새 탭으로 엽니다"`
       : `onclick="closeCARTrend();openCARMgr('${_drillEsc(c.id)}')" title="첨부 보고서가 없어 상세 화면을 엽니다"`;
     return `<tr style="cursor:pointer;" ${clickAttr}>
-      <td style="font-weight:700;color:var(--primary);">${c.id} ${hasFile?'📄':'↗'}</td>
+      <td style="font-weight:700;color:var(--primary);">${c.id} ${hasFile?LI('file-text','📄'):LI('arrow-up-right','↗')}</td>
       <td>${_fmtDept(c.reqDept)}</td>
       <td>${c.qualReq||'-'}</td>
       <td>${c.field||'-'}</td>
@@ -1291,7 +1301,7 @@ function renderCARTrend() {
     </div>
 
     <div class="ctr-section">
-      <h4>📋 상세 목록</h4>
+      <h4>${LI('clipboard-list','📋')} 상세 목록</h4>
       <div style="overflow-x:auto;">
         <table class="ctr-table">
           <thead><tr><th>CAR No.</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
@@ -1336,7 +1346,11 @@ function printCARTrend() {
   }).join('');
 
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CAR 품질 경향분석 보고서</title><style>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CAR 품질 경향분석 보고서</title>
+    <script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"><\/script>
+    <style>
+    i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;}
+    i[data-lucide]>svg{width:11px;height:11px;color:initial;vertical-align:-1px;}
     @page{size:A4 landscape;margin:8mm 10mm;}
     *{box-sizing:border-box;}
     body{font-family:'Malgun Gothic',sans-serif;margin:0;padding:0;color:#222;font-size:10px;background:#fff;}
@@ -1363,28 +1377,28 @@ function printCARTrend() {
     .pagebreak{page-break-before:always;break-before:page;}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
-    <div class="hdr"><h1>📊 CAR 품질 경향분석 보고서</h1>
+    <div class="hdr"><h1>${LI('chart-column','📊')} CAR 품질 경향분석 보고서</h1>
       <span class="meta">작성일: ${today} &nbsp;|&nbsp; 기간: ${yr}년 ${mo}월 &nbsp;|&nbsp; 프로젝트: ${proj}${drillDesc ? ` &nbsp;|&nbsp; 선택 필터: ${drillDesc}` : ''} &nbsp;|&nbsp; 세종기술 품질관리부</span></div>
     <div class="kpi-row">
       <div class="kpi"><div class="v">${cars.length}</div><div class="l">전체 건수</div></div>
       <div class="kpi"><div class="v" style="color:#d97706;">${cars.filter(c=>c.status==='in-progress').length}</div><div class="l">조치 중</div></div>
       <div class="kpi"><div class="v" style="color:#059669;">${cars.filter(c=>c.status==='closed').length}</div><div class="l">완료</div></div>
     </div>
-    <div class="card"><div class="card-title">📊 항목별 분포</div>
+    <div class="card"><div class="card-title">${LI('chart-column','📊')} 항목별 분포</div>
       <div class="grid3">
-        <div class="ch"><div class="ch-title">📈 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
+        <div class="ch"><div class="ch-title">${LI('trending-up','📈')} 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
         <div class="ch"><div class="ch-title">품질요건별</div>${_barSvg(qualEntries,COLORS)}</div>
         <div class="ch"><div class="ch-title">발생분야별</div>${_barSvg(fieldEntries,COLORS)}</div>
         <div class="ch"><div class="ch-title">원인별</div>${_donutSvg(causeEntries,COLORS)}</div>
         <div class="ch"><div class="ch-title">상태별</div>${_donutSvg(statusEntries,COLORS)}</div>
       </div>
     </div>
-    <div class="card pagebreak"><div class="card-title">📋 상세 목록</div>
+    <div class="card pagebreak"><div class="card-title">${LI('clipboard-list','📋')} 상세 목록</div>
       <table><thead><tr><th>CAR No.</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
         <tbody>${tableRows||'<tr><td colspan="11" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
       </table>
     </div>
-    <script>window.onload=()=>{window.print();}<\/script>
+    <script>window.onload=()=>{try{if(window.lucide)lucide.createIcons();}catch(e){}window.print();}<\/script>
   </body></html>`);
   w.document.close();
 }
@@ -1569,12 +1583,12 @@ function showCARParseModal(p) {
   const filePanel = document.getElementById('car-parse-file');
   if (filePanel) {
     if (p.ocrFailed && p.imgDataUrl) {
-      filePanel.innerHTML = `<div style="padding:6px 10px;background:#fff3e0;font-size:11px;color:#e65100;font-weight:600;flex-shrink:0;">⚠️ 스캔본 — OCR 인식 불가, 직접 입력하세요</div>
+      filePanel.innerHTML = `<div style="padding:6px 10px;background:#fff3e0;font-size:11px;color:#e65100;font-weight:600;flex-shrink:0;">${LI('triangle-alert','⚠️')} 스캔본 — OCR 인식 불가, 직접 입력하세요</div>
         <div class="cpm-left-img-wrap"><img src="${p.imgDataUrl}" style="width:100%;border-radius:4px;"></div>`;
     } else if (p.fileDataUrl?.startsWith('data:application/pdf')) {
       filePanel.innerHTML = `<iframe src="${_toBlobUrl(p.fileDataUrl)}" style="flex:1;border:none;width:100%;height:100%;"></iframe>`;
     } else if (p.fileDataUrl) {
-      filePanel.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-light);">📄 ${p.fileName||'파일'}</div>`;
+      filePanel.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-light);">${LI('file-text','📄')} ${p.fileName||'파일'}</div>`;
     }
   }
   window._carParseFileDataUrl = p.fileDataUrl || null;
@@ -1584,7 +1598,7 @@ function showCARParseModal(p) {
   document.getElementById('car-parse-modal').classList.add('open');
   document.getElementById('car-parse-body').innerHTML = `
     <div style="background:${p.ocrFailed?'#fff3e0':'#e8f5e9'};border-radius:8px;padding:8px 12px;font-size:12px;color:${p.ocrFailed?'#e65100':'#2e7d32'};font-weight:600;">
-      ${p.ocrFailed?'⚠️ 스캔본 자동 인식 불가 — 직접 입력하세요':'✅ 문서 파싱 완료 — 확인 후 등록하세요'}
+      ${p.ocrFailed?LI('triangle-alert','⚠️')+' 스캔본 자동 인식 불가 — 직접 입력하세요':LI('circle-check','✅')+' 문서 파싱 완료 — 확인 후 등록하세요'}
     </div>
     <div class="cpm-row">
       <div class="cpm-field"><label>CAR No. ${badge(p.carNo)}</label><input id="cp-carno" value="${p.carNo||''}" placeholder="예: CAR-2026-001"></div>
@@ -1640,9 +1654,9 @@ async function confirmCARParse() {
   const uploadPromise = window._carParseUploadPromise || null;
   let attach = { ok: true, chunkId: null, totalChunks: 0, name: null };
   if (uploadPromise) {
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ 파일 저장 중...'; } // 대부분 이미 끝나있어 순간적으로만 보임
+    if (btn) { btn.disabled = true; btn.innerHTML = LI('hourglass','⏳') + ' 파일 저장 중...'; } // 대부분 이미 끝나있어 순간적으로만 보임
     attach = await resolveAttachmentOrNull('car', uploadPromise);
-    if (btn) { btn.disabled = false; btn.textContent = '✅ CAR 등록'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = LI('circle-check','✅') + ' CAR 등록'; }
   }
   if (!attach.ok) return;
   if (!state.cars) state.cars = [];
@@ -1688,6 +1702,20 @@ function notifySyncError(msg){
   _lastSyncErrorToastAt = now;
   showToast('❌ '+msg);
 }
+
+// innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환 (index.html과 동일 패턴)
+(function () {
+  var scheduled = false;
+  function run() {
+    scheduled = false;
+    if (!window.lucide) return;
+    if (!document.querySelector('i[data-lucide]:not(:has(svg))')) return;
+    try { lucide.createIcons(); } catch (e) {}
+  }
+  function schedule() { if (scheduled) return; scheduled = true; queueMicrotask(run); }
+  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('load', run);
+})();
 
 /* ═══ 초기화 ═══ */
 loadState();

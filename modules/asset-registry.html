@@ -20,6 +20,7 @@
   const fbApp = initializeApp(firebaseConfig);
   window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, writeBatch };
 </script>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
 <style>
 :root {
   --bg: #F5F7FA; --card: #FFFFFF; --card-soft: #F8FAFC;
@@ -63,6 +64,19 @@ body {
 .tab .cnt { font-size: 10.5px; color: var(--ink-3); font-weight: 600; margin-left: 4px; }
 .tab.on .cnt { color: var(--accent); }
 .tab .lock-lbl { font-size: 9.5px; color: var(--ink-3); font-weight: 600; margin-left: 4px; border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; }
+
+/* 깜빡임 방지: SVG로 변환되기 전 <i data-lucide> 안의 폴백(이모지/텍스트)을 숨김 → 변환 후 svg만 표시 */
+i[data-lucide] { font-size: 0; color: transparent; display: inline-flex; align-items: center; }
+i[data-lucide] > svg { font-size: 13px; color: initial; }
+.mod-title i[data-lucide] > svg { width: 18px; height: 18px; stroke-width: 2; vertical-align: -3px; }
+.tab i[data-lucide] > svg { width: 14px; height: 14px; stroke-width: 2; vertical-align: -2px; }
+.tab .lock-lbl i[data-lucide] > svg { width: 10px; height: 10px; stroke-width: 2; vertical-align: -1px; }
+.btn i[data-lucide] > svg { width: 13px; height: 13px; stroke-width: 2; vertical-align: -2px; }
+.btn-sm i[data-lucide] > svg { width: 12px; height: 12px; stroke-width: 2; vertical-align: -2px; }
+.modal .m-head h3 i[data-lucide] > svg { width: 14px; height: 14px; stroke-width: 2; vertical-align: -2px; }
+.linked-block .head i[data-lucide] > svg { width: 11px; height: 11px; stroke-width: 2; vertical-align: -1px; }
+.section-note i[data-lucide] > svg { width: 12px; height: 12px; stroke-width: 2; vertical-align: -2px; }
+.empty-state .icon i[data-lucide] > svg { width: 40px; height: 40px; stroke-width: 1.5; }
 
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 10px; margin-bottom: 14px; }
 .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
@@ -174,20 +188,20 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
   <div class="mod-head">
     <div>
       <div class="eyebrow">총무부 · Asset Registry</div>
-      <h1 class="mod-title">🖥️ 자산 관리 대장 <span style="font-size:12px;color:var(--ink-3);font-weight:400;" id="verBadge">v1.0</span></h1>
+      <h1 class="mod-title"><i data-lucide="monitor">🖥️</i> 자산 관리 대장 <span style="font-size:12px;color:var(--ink-3);font-weight:400;" id="verBadge">v1.0</span></h1>
       <p class="mod-sub">PC · 노트북 · 소프트웨어 라이선스 통합 관리 · 자동 채번(SJPC-XX) · Firestore 실시간</p>
     </div>
     <div class="mod-head-actions">
-      <button class="btn" id="btnExcel" title="현재 화면(탭·필터 반영)을 Excel로 저장" onclick="exportExcel()">📥 Excel</button>
-      <button class="btn" id="btnPdf" title="현재 화면을 PDF로 인쇄" onclick="exportPdf()">📄 PDF</button>
+      <button class="btn" id="btnExcel" title="현재 화면(탭·필터 반영)을 Excel로 저장" onclick="exportExcel()"><i data-lucide="download">📥</i> Excel</button>
+      <button class="btn" id="btnPdf" title="현재 화면을 PDF로 인쇄" onclick="exportPdf()"><i data-lucide="file-text">📄</i> PDF</button>
       <button class="btn btn-primary" id="btnNew" onclick="openDeviceModal()">+ 신규 자산</button>
     </div>
   </div>
 
   <div class="tabs">
-    <div class="tab on" data-tab="devices" onclick="switchTab('devices')">🖥️ PC / 노트북 <span class="cnt" id="cntDevices">0</span></div>
-    <div class="tab" data-tab="licenses" data-license-only onclick="switchTab('licenses')">🔑 라이선스 <span class="cnt" id="cntLicenses">0</span> <span class="lock-lbl">🔒 총무부·슈퍼</span></div>
-    <div class="tab" data-tab="stats" onclick="switchTab('stats')">📊 통계</div>
+    <div class="tab on" data-tab="devices" onclick="switchTab('devices')"><i data-lucide="monitor">🖥️</i> PC / 노트북 <span class="cnt" id="cntDevices">0</span></div>
+    <div class="tab" data-tab="licenses" data-license-only onclick="switchTab('licenses')"><i data-lucide="key">🔑</i> 라이선스 <span class="cnt" id="cntLicenses">0</span> <span class="lock-lbl"><i data-lucide="lock">🔒</i> 총무부·슈퍼</span></div>
+    <div class="tab" data-tab="stats" onclick="switchTab('stats')"><i data-lucide="chart-column">📊</i> 통계</div>
   </div>
 
   <div id="tabDevices">
@@ -201,7 +215,7 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
     </div>
     <div class="table-wrap" id="deviceTableWrap"></div>
     <div class="section-note" id="permNote" style="display:none;">
-      🔒 <b>라이선스 정보는 총무부·슈퍼관리자·임원만 조회 가능</b>합니다. 소프트웨어 목록만 표시되며 Serial/제품키는 접근 불가.
+      <i data-lucide="lock">🔒</i> <b>라이선스 정보는 총무부·슈퍼관리자·임원만 조회 가능</b>합니다. 소프트웨어 목록만 표시되며 Serial/제품키는 접근 불가.
     </div>
   </div>
 
@@ -230,7 +244,7 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
 <div class="modal-mask" id="devModal" onclick="if(event.target===this)closeDeviceModal()">
   <div class="modal">
     <div class="m-head">
-      <h3 id="devModalTitle">🖥️ 자산 상세</h3>
+      <h3 id="devModalTitle"><i data-lucide="monitor">🖥️</i> 자산 상세</h3>
       <button class="close-btn" onclick="closeDeviceModal()">×</button>
     </div>
     <div class="m-body">
@@ -261,7 +275,7 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
       <div class="linked-block" id="linkedLicenses" data-license-only></div>
     </div>
     <div class="m-foot">
-      <button class="btn btn-danger btn-sm" id="btnDelete" onclick="deleteDevice()">🗑 삭제</button>
+      <button class="btn btn-danger btn-sm" id="btnDelete" onclick="deleteDevice()"><i data-lucide="trash-2">🗑</i> 삭제</button>
       <div style="display:flex;gap:6px;">
         <button class="btn" onclick="closeDeviceModal()">취소</button>
         <button class="btn btn-primary" onclick="saveDevice()">저장</button>
@@ -274,7 +288,7 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
 <div class="modal-mask" id="licModal" onclick="if(event.target===this)closeLicenseModal()">
   <div class="modal">
     <div class="m-head">
-      <h3 id="licModalTitle">🔑 라이선스 상세</h3>
+      <h3 id="licModalTitle"><i data-lucide="key">🔑</i> 라이선스 상세</h3>
       <button class="close-btn" onclick="closeLicenseModal()">×</button>
     </div>
     <div class="m-body">
@@ -292,7 +306,7 @@ td.sw { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; max-width: 200
       </div>
     </div>
     <div class="m-foot">
-      <button class="btn btn-danger btn-sm" onclick="deleteLicense()">🗑 삭제</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteLicense()"><i data-lucide="trash-2">🗑</i> 삭제</button>
       <div style="display:flex;gap:6px;">
         <button class="btn" onclick="closeLicenseModal()">취소</button>
         <button class="btn btn-primary" onclick="saveLicense()">저장</button>
@@ -335,6 +349,8 @@ function toast(msg, err=false) {
   setTimeout(() => t.classList.remove('on'), 2500);
 }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백)
+function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
 function typeName(t) { return {desktop:'Desktop', laptop:'Laptop', tablet:'Tablet', mini:'Mini PC'}[t] || t; }
 function typeClass(t) { return {desktop:'type-desk', laptop:'type-lap', tablet:'type-tab', mini:'type-mini'}[t] || 'type-desk'; }
 function statusName(s) { return {active:'사용중', aged:'노후', retireRec:'폐기 추천', retired:'폐기', lost:'유실'}[s] || s; }
@@ -459,15 +475,15 @@ function renderDevices() {
   const filtered = filteredDevices();
   if (state.devices.length === 0) {
     wrap.innerHTML = `<div class="empty-state">
-      <div class="icon">🖥️</div>
+      <div class="icon">${LI('monitor','🖥️')}</div>
       <div class="title">자산 대장이 비어있습니다</div>
       <div class="desc">엑셀 데이터를 가져와 시작하거나 새 자산을 등록하세요.</div>
-      ${fullAccess ? `<button class="btn btn-primary" onclick="importSeed()">📥 엑셀 초기 데이터 가져오기 (54 devices + 92 licenses)</button>` : ''}
+      ${fullAccess ? `<button class="btn btn-primary" onclick="importSeed()">${LI('download','📥')} 엑셀 초기 데이터 가져오기 (54 devices + 92 licenses)</button>` : ''}
     </div>`;
     return;
   }
   if (filtered.length === 0) {
-    wrap.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><div class="desc">검색 결과가 없습니다.</div></div>`;
+    wrap.innerHTML = `<div class="empty-state"><div class="icon">${LI('search','🔍')}</div><div class="desc">검색 결과가 없습니다.</div></div>`;
     return;
   }
   const rows = filtered.map(d => {
@@ -545,7 +561,7 @@ function renderLicenses() {
   }).sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.no || 0) - (b.no || 0));
 
   if (list.length === 0) {
-    wrap.innerHTML = `<div class="empty-state"><div class="icon">🔑</div><div class="desc">라이선스 없음. 오른쪽 상단 [+ 신규 자산] 옆에서 등록 가능 (준비중).</div></div>`;
+    wrap.innerHTML = `<div class="empty-state"><div class="icon">${LI('key','🔑')}</div><div class="desc">라이선스 없음. 오른쪽 상단 [+ 신규 자산] 옆에서 등록 가능 (준비중).</div></div>`;
     return;
   }
   const rows = list.map(l => {
@@ -629,7 +645,7 @@ window.renderLicenses = renderLicenses;
 async function openDeviceModal(id) {
   state.editingDeviceId = id || null;
   const d = id ? state.devices.find(x => x.id === id) : null;
-  document.getElementById('devModalTitle').textContent = d ? `🖥️ ${d.code} 편집` : '🖥️ 신규 자산 등록';
+  document.getElementById('devModalTitle').innerHTML = d ? `${LI('monitor','🖥️')} ${esc(d.code)} 편집` : `${LI('monitor','🖥️')} 신규 자산 등록`;
   document.getElementById('dfCode').value = d ? d.code : await nextCode();
   document.getElementById('dfType').value = d?.type || 'desktop';
   document.getElementById('dfYear').value = d?.purchaseYear || new Date().getFullYear();
@@ -656,7 +672,7 @@ async function openDeviceModal(id) {
   if (fullAccess && d) {
     const linked = state.licenses.filter(l => l.assignedDeviceCode === d.code);
     if (linked.length) {
-      lb.innerHTML = `<div class="head">🔑 연결된 라이선스 (${linked.length})</div>
+      lb.innerHTML = `<div class="head">${LI('key','🔑')} 연결된 라이선스 (${linked.length})</div>
         ${linked.map(l => `<div class="linked-item"><span class="k">${esc(l.category)} · ${esc(l.programName)}</span><span class="v">${esc(l.serialNumber || l.serialLabel || '─')}</span></div>`).join('')}`;
       lb.style.display = '';
     } else {
@@ -755,7 +771,7 @@ function openLicenseModal(id) {
   if (!fullAccess) return;
   state.editingLicenseId = id || null;
   const l = id ? state.licenses.find(x => x.id === id) : null;
-  document.getElementById('licModalTitle').textContent = l ? `🔑 ${l.programName} 편집` : '🔑 신규 라이선스';
+  document.getElementById('licModalTitle').innerHTML = l ? `${LI('key','🔑')} ${esc(l.programName)} 편집` : `${LI('key','🔑')} 신규 라이선스`;
   document.getElementById('lfCat').value = l?.category || 'CAD';
   document.getElementById('lfName').value = l?.programName || '';
   document.getElementById('lfYear').value = l?.acquiredYear || '';
@@ -1096,6 +1112,21 @@ function exportPdf() {
   }
 }
 window.exportPdf = exportPdf;
+
+// v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
+// 렌더 함수가 여러 곳이라 개별 호출 대신 body 전체를 관찰 — 이미 변환된 svg는 재처리 안 됨.
+(function () {
+  var scheduled = false;
+  function run() {
+    scheduled = false;
+    if (!window.lucide) return;
+    if (!document.querySelector('i[data-lucide]:not(:has(svg))')) return;
+    try { lucide.createIcons(); } catch (e) {}
+  }
+  function schedule() { if (scheduled) return; scheduled = true; queueMicrotask(run); }
+  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('load', run);
+})();
 </script>
 
 </body>

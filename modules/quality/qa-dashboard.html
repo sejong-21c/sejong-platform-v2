@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>품질종합분석표</title>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
 <script type="module">
   // Firebase Firestore — NCR/CAR/프로젝트 데이터를 index.html과 공유 (같은 오리진).
   // 이 대시보드는 읽기 전용(never writes ncrs/cars) — 실시간 구독만 한다.
@@ -32,6 +33,9 @@
   --radius: 8px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+i[data-lucide] { font-size: 0; color: transparent; display: inline-flex; align-items: center; }
+i[data-lucide] > svg { font-size: 13px; color: initial; }
+.mod-title i[data-lucide] > svg, .qd-section h4 i[data-lucide] > svg, h4 i[data-lucide] > svg { width: 14px; height: 14px; }
 body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 #app { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
 
@@ -97,6 +101,8 @@ const NCR_STATUS = { open:['red','진행중'], closed:['green','종결'], pendin
 const CAR_STATUS = { 'in-progress':['orange','조치중'], 'replied':['blue','회신완료'], 'closed':['green','완료'] };
 const DISPOSITION_DEFECT = ['재작업','수리','폐기','반송']; // '현상태사용'은 실질 불량으로 안 침
 const COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
+
+function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
 
 let state = {};
 let qf = { year: '', quarter: '', proj: '' }; // 품질분석 필터
@@ -401,7 +407,7 @@ function render() {
   app.innerHTML = `
     <div class="mod-head">
       <div>
-        <div class="mod-title">📊 품질종합분석표 <span style="font-size:13px;color:var(--text-light);font-weight:400;">전사 NCR·CAR 종합 분석</span></div>
+        <div class="mod-title">${LI('chart-column','📊')} 품질종합분석표 <span style="font-size:13px;color:var(--text-light);font-weight:400;">전사 NCR·CAR 종합 분석</span></div>
         <div class="mod-sub">프로젝트·연도·분기별 부적합/시정조치 현황 및 불량 경향 분석</div>
       </div>
       <button class="back-btn" onclick="try{window.parent.closeTool()}catch(e){}">← 도구함 닫기</button>
@@ -433,25 +439,25 @@ function render() {
     </div>
 
     <div class="qd-section">
-      <h4>🚢 종합 불량 영향률 (추정) — ${defectRate!=null?defectRate+'%':'데이터 없음'}</h4>
+      <h4>${LI('ship','🚢')} 종합 불량 영향률 (추정) — ${defectRate!=null?defectRate+'%':'데이터 없음'}</h4>
       <div style="font-size:12px;color:var(--text-light);">처리방안이 입력된 NCR ${withDisposition.length}건 중 재작업·수리·폐기·반송으로 이어진 비율입니다.</div>
-      <div class="caveat">⚠️ 실제 "출고 불량률"(생산·출고 수량 대비 불량 수량)을 계산하려면 프로젝트별 생산/출고 수량 데이터가 필요한데, 현재 시스템에는 이 데이터가 없습니다. 위 수치는 NCR의 처리방안을 기준으로 한 근사치이며, 정확한 출고 불량률을 원하시면 WBS 또는 프로젝트에 "출고 수량" 항목을 추가하는 걸 권장드립니다.</div>
+      <div class="caveat">${LI('triangle-alert','⚠️')} 실제 "출고 불량률"(생산·출고 수량 대비 불량 수량)을 계산하려면 프로젝트별 생산/출고 수량 데이터가 필요한데, 현재 시스템에는 이 데이터가 없습니다. 위 수치는 NCR의 처리방안을 기준으로 한 근사치이며, 정확한 출고 불량률을 원하시면 WBS 또는 프로젝트에 "출고 수량" 항목을 추가하는 걸 권장드립니다.</div>
     </div>
 
     <div class="qd-section">
-      <h4>${issues.length ? '🚨' : '✅'} 데이터 정합성 검사 (${issues.length}건) <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 필터와 무관하게 전체 NCR/CAR 대상, 자동 점검</span></h4>
+      <h4>${issues.length ? LI('siren','🚨') : LI('circle-check','✅')} 데이터 정합성 검사 (${issues.length}건) <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 필터와 무관하게 전체 NCR/CAR 대상, 자동 점검</span></h4>
       ${issues.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
-        ${issues.map(i => `<div style="font-size:12px;padding:6px 10px;border-radius:6px;background:${i.sev==='red'?'#FFEBEE':'#FFF3E0'};color:${i.sev==='red'?'#C62828':'#E65100'};">${i.sev==='red'?'⛔':'⚠️'} ${i.text}</div>`).join('')}
+        ${issues.map(i => `<div style="font-size:12px;padding:6px 10px;border-radius:6px;background:${i.sev==='red'?'#FFEBEE':'#FFF3E0'};color:${i.sev==='red'?'#C62828':'#E65100'};">${i.sev==='red'?LI('ban','⛔'):LI('triangle-alert','⚠️')} ${i.text}</div>`).join('')}
       </div>` : `<div style="font-size:12px;color:var(--text-light);">깨진 참조·누락 항목이 발견되지 않았습니다.</div>`}
     </div>
 
     <div class="qd-section">
-      <h4>📈 기간별 NCR 발생 추이 ${qf.year ? '(월별)' : '(연도-분기별)'}</h4>
+      <h4>${LI('trending-up','📈')} 기간별 NCR 발생 추이 ${qf.year ? '(월별)' : '(연도-분기별)'}</h4>
       ${lineSvg(periodData)}
     </div>
 
     <div class="qd-section">
-      <h4>🏗️ 프로젝트별 종합 현황</h4>
+      <h4>${LI('hard-hat','🏗️')} 프로젝트별 종합 현황</h4>
       <div style="overflow-x:auto;">
       <table class="org-table">
         <thead><tr><th>프로젝트</th><th>NCR 전체</th><th>중대</th><th>일반</th><th>경미</th><th>진행중</th><th>종결</th><th>CAR</th><th>CAR 진행중</th><th>최근 발생일</th></tr></thead>
@@ -477,7 +483,7 @@ function render() {
       </div>
     </div>
 
-    <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">💡 상단 <b>KPI 카드</b>·차트 막대·조각·프로젝트 행을 클릭하면 이 화면 하단에 해당 조건의 <b>상세 목록</b>이 표시됩니다 (다시 클릭하면 해제).</div>
+    <div style="font-size:11px;color:var(--text-lighter);margin-bottom:8px;">${LI('lightbulb','💡')} 상단 <b>KPI 카드</b>·차트 막대·조각·프로젝트 행을 클릭하면 이 화면 하단에 해당 조건의 <b>상세 목록</b>이 표시됩니다 (다시 클릭하면 해제).</div>
     <div class="qd-grid">
       <div class="qd-chart-wrap">
         <div class="qd-chart-title">발생장소별</div>
@@ -506,12 +512,12 @@ function render() {
     </div>
 
     <div class="qd-section">
-      <h4>🔧 제작단계(검사공정)별 부적합 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— Traveller 검사부적합으로 등록된 NCR ${stageNcrs.length}건 기준</span></h4>
+      <h4>${LI('wrench','🔧')} 제작단계(검사공정)별 부적합 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— Traveller 검사부적합으로 등록된 NCR ${stageNcrs.length}건 기준</span></h4>
       ${stageEntries.length ? barSvg(stageEntries, COLORS) : '<div class="empty-note">검사부적합(Traveller) 경로로 등록된 NCR이 없습니다</div>'}
     </div>
 
     <div class="qd-section">
-      <h4>⏰ 회신기한 초과 CAR ${(() => {
+      <h4>${LI('clock','⏰')} 회신기한 초과 CAR ${(() => {
         const today = new Date().toISOString().slice(0,10);
         const overdue = cars.filter(c => c.status !== 'closed' && c.replyDue && c.replyDue < today);
         return `(${overdue.length}건)`;
@@ -520,7 +526,7 @@ function render() {
         const today = new Date().toISOString().slice(0,10);
         const overdue = cars.filter(c => c.status !== 'closed' && c.replyDue && c.replyDue < today)
           .sort((a,b) => a.replyDue.localeCompare(b.replyDue));
-        if (!overdue.length) return '<div class="empty-note">회신기한 초과된 CAR이 없습니다 👍</div>';
+        if (!overdue.length) return `<div class="empty-note">회신기한 초과된 CAR이 없습니다 ${LI('thumbs-up','👍')}</div>`;
         return `<div style="overflow-x:auto;"><table class="org-table">
           <thead><tr><th>CAR No.</th><th>연계 NCR</th><th>프로젝트</th><th>시정조치요구부서</th><th>발생분야</th><th>회신기한</th><th>지연일</th><th>상태</th></tr></thead>
           <tbody>${overdue.map(c => {
@@ -619,7 +625,7 @@ function qdRenderDrillSection(ncrs, cars) {
     const p = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (getP(n.proj)?.code||'-');
     const hasFile = !!(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl);
     return `<tr style="cursor:pointer;" onclick="qdOpenReport('ncr','${_qdEsc(n.id)}')" title="${hasFile?'클릭하면 등록된 보고서를 새 탭으로 엽니다':'첨부 보고서가 없습니다'}">
-      <td style="font-weight:700;color:var(--primary);">${_qdHtmlEsc(n.id)} ${hasFile?'📄':'—'}</td>
+      <td style="font-weight:700;color:var(--primary);">${_qdHtmlEsc(n.id)} ${hasFile?LI('file-text','📄'):'—'}</td>
       <td>${_qdHtmlEsc(p)}</td>
       <td>${_qdHtmlEsc(n.item||'-')}</td>
       <td>${_qdHtmlEsc(n.location||'-')}</td>
@@ -635,7 +641,7 @@ function qdRenderDrillSection(ncrs, cars) {
     const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
     const hasFile = !!(c.meta?.fileChunkId || c.meta?.fileUrl || c.meta?.fileDataUrl);
     return `<tr style="cursor:pointer;" onclick="qdOpenReport('car','${_qdEsc(c.id)}')" title="${hasFile?'클릭하면 등록된 보고서를 새 탭으로 엽니다':'첨부 보고서가 없습니다'}">
-      <td style="font-weight:700;color:var(--primary);">${_qdHtmlEsc(c.id)} ${hasFile?'📄':'—'}</td>
+      <td style="font-weight:700;color:var(--primary);">${_qdHtmlEsc(c.id)} ${hasFile?LI('file-text','📄'):'—'}</td>
       <td>${_qdHtmlEsc(c.ncrId||'단독')}</td>
       <td>${_qdHtmlEsc(c.reqDept||'-')}</td>
       <td>${_qdHtmlEsc(c.field||'-')}</td>
@@ -648,19 +654,19 @@ function qdRenderDrillSection(ncrs, cars) {
   }).join('');
   return `<div id="qd-drill-section" class="qd-section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-      <h4 style="margin:0;">🔎 드릴다운 상세 목록 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 아래 필터 조건에 해당하는 NCR/CAR입니다. 행을 클릭하면 등록된 보고서가 새 탭으로 열립니다.</span></h4>
+      <h4 style="margin:0;">${LI('search','🔎')} 드릴다운 상세 목록 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 아래 필터 조건에 해당하는 NCR/CAR입니다. 행을 클릭하면 등록된 보고서가 새 탭으로 열립니다.</span></h4>
       <button class="btn" onclick="qdDrillClear()" style="font-size:11px;padding:4px 10px;">✕ 전체 필터 해제</button>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">${_qdDrillChips()}</div>
     ${hasNcrDrill ? `
-      <div style="font-size:12px;font-weight:700;margin:8px 0;color:var(--text-light);">📋 NCR (${filteredN.length}건)</div>
+      <div style="font-size:12px;font-weight:700;margin:8px 0;color:var(--text-light);">${LI('clipboard-list','📋')} NCR (${filteredN.length}건)</div>
       <div style="overflow-x:auto;"><table class="org-table">
         <thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
         <tbody>${ncrRows || '<tr><td colspan="10" class="empty-note">해당 조건의 NCR이 없습니다</td></tr>'}</tbody>
       </table></div>
     ` : ''}
     ${hasCarDrill ? `
-      <div style="font-size:12px;font-weight:700;margin:14px 0 8px;color:var(--text-light);">📋 CAR (${filteredC.length}건)</div>
+      <div style="font-size:12px;font-weight:700;margin:14px 0 8px;color:var(--text-light);">${LI('clipboard-list','📋')} CAR (${filteredC.length}건)</div>
       <div style="overflow-x:auto;"><table class="org-table">
         <thead><tr><th>CAR No.</th><th>연계 NCR</th><th>시정조치요구부서</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>종결일</th><th>상태</th></tr></thead>
         <tbody>${carRows || '<tr><td colspan="9" class="empty-note">해당 조건의 CAR이 없습니다</td></tr>'}</tbody>
@@ -714,6 +720,19 @@ function _qdToBlobUrl(dataUrl) {
 loadState();
 render();
 startFirestoreSync();
+
+(function () {
+  var scheduled = false;
+  function run() {
+    scheduled = false;
+    if (!window.lucide) return;
+    if (!document.querySelector('i[data-lucide]:not(:has(svg))')) return;
+    try { lucide.createIcons(); } catch (e) {}
+  }
+  function schedule() { if (scheduled) return; scheduled = true; queueMicrotask(run); }
+  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('load', run);
+})();
 </script>
 </body>
 </html>

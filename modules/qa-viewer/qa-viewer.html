@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QA Doc 조회</title>
+<!-- 이모지 → Lucide 선 아이콘 (index.html과 동일 패턴) -->
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
 <script type="module">
   // QA Doc Generator(v4.0+)가 저장한 두 컬렉션을 읽기 전용으로 조회:
   //   t_qaGenDocs         — 프로젝트별 최신 작업 스냅샷(자동 저장)
@@ -93,6 +95,10 @@ body { font-family:-apple-system,"Malgun Gothic","맑은 고딕",sans-serif; bac
 
 .empty { text-align:center; padding:40px; color:var(--text-lighter); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
 
+/* 이모지 → Lucide 변환 전 폴백(이모지) 숨김 → svg만 표시 (index.html과 동일 규칙) */
+i[data-lucide] { font-size:0; color:transparent; display:inline-flex; align-items:center; }
+i[data-lucide] > svg { font-size:13px; color:initial; width:13px; height:13px; }
+
 /* v2.0 — imgStore 기반 리포트 렌더 */
 .rb-block { margin-bottom:16px; }
 .rb-title { font-size:12px; font-weight:700; color:var(--text); margin-bottom:6px; }
@@ -129,6 +135,9 @@ const state = {
   selectedItem: null, selectedDoc: null,
   filter: '',
 };
+
+// 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백). index.html과 동일 패턴.
+function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
 
 function startSync() {
   if (!window.fb || !fb.db) { setTimeout(startSync, 300); return; }
@@ -227,7 +236,7 @@ function photoSlots(d, keys) {
     const inline = imgOf(d)[k];
     if (typeof inline === 'string' && inline.startsWith('data:')) { out.push(`<div class="photo-slot"><img src="${inline}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/></div>`); continue; }
     const ptr = chunksOf(d)[k];
-    if (ptr && ptr.chunkId) out.push(`<div class="photo-slot" data-chunkid="${esc(ptr.chunkId)}" data-total="${ptr.totalChunks||0}">📷 사진 불러오는 중…</div>`);
+    if (ptr && ptr.chunkId) out.push(`<div class="photo-slot" data-chunkid="${esc(ptr.chunkId)}" data-total="${ptr.totalChunks||0}">${LI('camera','📷')} 사진 불러오는 중…</div>`);
   }
   return out.join('');
 }
@@ -271,7 +280,7 @@ function reportBody(d, it, docKey, color) {
       ];
       const photos = photoSlots(d, [`hyro_${iid}_${part}_1`, `hyro_${iid}_${part}_2`]);
       return `<div class="hydro-part">
-        <div class="hydro-part-hd" style="color:${color};">🔧 ${esc(part)}</div>
+        <div class="hydro-part-hd" style="color:${color};">${LI('wrench','🔧')} ${esc(part)}</div>
         <table class="kv-table"><tbody>${rows.map(([k,v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>
         ${photos ? `<div class="photo-wrap">${photos}</div>` : ''}
       </div>`;
@@ -351,7 +360,7 @@ function renderList() {
   return `
     <div class="hd">
       <div>
-        <h1>📚 QA Doc 조회</h1>
+        <h1>${LI('book-open','📚')} QA Doc 조회</h1>
         <div class="sub">QA Doc Generator로 생성한 문서를 프로젝트·아이템·문서 유형별로 조회합니다 (읽기 전용)</div>
       </div>
     </div>
@@ -387,7 +396,7 @@ function renderProj() {
   }).join('');
 
   return `
-    <div class="breadcrumb"><a onclick="goBack()">📚 QA Doc 조회</a><span class="sep">›</span><b>${esc(lbl.code)} ${esc(lbl.name)}</b></div>
+    <div class="breadcrumb"><a onclick="goBack()">${LI('book-open','📚')} QA Doc 조회</a><span class="sep">›</span><b>${esc(lbl.code)} ${esc(lbl.name)}</b></div>
     <div class="hd">
       <div>
         <h1>${esc(lbl.code)} · ${esc(lbl.name)} <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">[${doc._src==='live'?'LIVE':'스냅샷'}]</span></h1>
@@ -395,11 +404,11 @@ function renderProj() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 목록</button>
-        <button class="btn btn-primary" onclick="openGenerator('${esc(doc.pid)}')">📄 Generator 열기</button>
+        <button class="btn btn-primary" onclick="openGenerator('${esc(doc.pid)}')">${LI('file-text','📄')} Generator 열기</button>
       </div>
     </div>
     <div class="section">
-      <h3>📦 아이템 (${items.length}개)</h3>
+      <h3>${LI('package','📦')} 아이템 (${items.length}개)</h3>
       ${items.length ? `<div class="item-list">${rows}</div>` : '<div class="empty">이 프로젝트에는 등록된 아이템이 없습니다.</div>'}
     </div>
   `;
@@ -425,7 +434,7 @@ function renderItem() {
 
   return `
     <div class="breadcrumb">
-      <a onclick="state.selectedId=null;state.selectedSrc=null;state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">📚 QA Doc 조회</a><span class="sep">›</span>
+      <a onclick="state.selectedId=null;state.selectedSrc=null;state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">${LI('book-open','📚')} QA Doc 조회</a><span class="sep">›</span>
       <a onclick="state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">${esc(lbl.code)}</a><span class="sep">›</span>
       <b>${esc(it.tag || it.id)} · ${esc(it.name || '')}</b>
     </div>
@@ -436,11 +445,11 @@ function renderItem() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 아이템 목록</button>
-        <button class="btn btn-primary" onclick="openGenerator('${esc(doc.pid)}')">📄 Generator 편집</button>
+        <button class="btn btn-primary" onclick="openGenerator('${esc(doc.pid)}')">${LI('file-text','📄')} Generator 편집</button>
       </div>
     </div>
     <div class="section">
-      <h3>📄 QA/QC 문서 (${DOC_TYPES.length}종)</h3>
+      <h3>${LI('file-text','📄')} QA/QC 문서 (${DOC_TYPES.length}종)</h3>
       <div class="doc-grid">${docCards}</div>
     </div>
   `;
@@ -457,7 +466,7 @@ function renderDoc() {
 
   return `
     <div class="breadcrumb">
-      <a onclick="state.selectedId=null;state.selectedSrc=null;state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">📚 QA Doc 조회</a><span class="sep">›</span>
+      <a onclick="state.selectedId=null;state.selectedSrc=null;state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">${LI('book-open','📚')} QA Doc 조회</a><span class="sep">›</span>
       <a onclick="state.selectedItem=null;state.selectedDoc=null;render();scrollTop()">${esc(lbl.code)}</a><span class="sep">›</span>
       <a onclick="state.selectedDoc=null;render();scrollTop()">${esc(it.tag || it.id)}</a><span class="sep">›</span>
       <b>${esc(dt?.label || state.selectedDoc)}</b>
@@ -469,7 +478,7 @@ function renderDoc() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 문서 목록</button>
-        <button class="btn btn-primary" style="background:${dt?.color||'var(--primary)'};border-color:${dt?.color||'var(--primary)'};" onclick="openGenerator('${esc(doc.pid)}')">📄 Generator에서 편집</button>
+        <button class="btn btn-primary" style="background:${dt?.color||'var(--primary)'};border-color:${dt?.color||'var(--primary)'};" onclick="openGenerator('${esc(doc.pid)}')">${LI('file-text','📄')} Generator에서 편집</button>
       </div>
     </div>
     <div class="section">${body}</div>
@@ -486,6 +495,20 @@ function render() {
 
 window.goProj = goProj; window.goItem = goItem; window.goDoc = goDoc; window.goBack = goBack;
 window.openGenerator = openGenerator; window.state = state; window.render = render; window.scrollTop = scrollTop;
+
+// 이모지 → Lucide 아이콘 자동 변환 (index.html과 동일 패턴)
+(function () {
+  var scheduled = false;
+  function run() {
+    scheduled = false;
+    if (!window.lucide) return;
+    if (!document.querySelector('i[data-lucide]:not(:has(svg))')) return;
+    try { lucide.createIcons(); } catch (e) {}
+  }
+  function schedule() { if (scheduled) return; scheduled = true; queueMicrotask(run); }
+  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('load', run);
+})();
 
 startSync();
 </script>
