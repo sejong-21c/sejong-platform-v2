@@ -766,13 +766,20 @@ function _itpContentSig(payload){
   } catch(e) { return ""; }
 }
 
+// v1.14: ★ 로드-전-저장 레이스 가드 ★ — 클라우드 첫 로드가 끝나기 전엔 어떤 Firestore 저장도 금지.
+//   마운트 직후 자동저장(1초 디바운스)이 클라우드 로드(인증 대기+getDoc, 수백ms~수초)보다 먼저
+//   발화하면, 이 PC의 낡은 localStorage 상태가 savedAt=Date.now()(최신!)로 클라우드의 진짜 데이터를
+//   덮어썼다 → 내용이 승인본과 달라져 재승인 정책이 draft로 강등 → 승인 ITP가 조회에서 사라짐.
+//   (2026-07-23~24 SJ435-26 ITP 2회 유실의 근본 원인. WBS _wbsMasterLoaded(v30.3)와 동일한 페일세이프)
+let _itpCloudSynced = false;
 function pushToFirestore(payload) {
+  if (!_itpCloudSynced) { console.warn("[ITP Builder] 클라우드 로드 완료 전 — 저장 보류 (데이터 보호)"); return; }
   writeItpDocToFirestore(payload).catch(e => console.error("[ITP Builder 클라우드 저장]", e));
 }
 
 async function loadFromFirestoreOrSkip(applyFn) {
-  if (!window.fb || !fb.db) { setTimeout(() => loadFromFirestoreOrSkip(applyFn), 300); return; }
-  if (!fb.auth?.currentUser) { setTimeout(() => loadFromFirestoreOrSkip(applyFn), 400); return; }
+  // 준비될 때까지 대기 (재귀 setTimeout 대신 루프 — 완료 시점을 한 곳에서 확정하기 위함)
+  while (!window.fb || !fb.db || !fb.auth?.currentUser) { await new Promise(r => setTimeout(r, 300)); }
   try {
     const snap = await fb.getDoc(fb.doc(fb.db, ITP_FS_COLL, PID));
     if (!snap.exists()) return; // 클라우드에 아직 없음(신규 프로젝트거나 이 기능 이전 데이터) — 로컬 상태 유지
@@ -785,6 +792,12 @@ async function loadFromFirestoreOrSkip(applyFn) {
     }));
     applyFn({...cloud, items});
   } catch (e) { console.error("[ITP Builder 클라우드 불러오기]", e); }
+  finally {
+    // 성공(적용)·스킵(문서 없음/로컬이 최신)·실패 모두 "로드 시도 완료" — 이후부터 저장 허용.
+    // 실패 시에도 열어주는 이유: 여기서 영영 잠그면 오프라인 편집 내용이 클라우드에 못 올라감.
+    // 대신 writeItpDocToFirestore의 빈-저장 가드가 2차 방어선으로 남는다.
+    _itpCloudSynced = true;
+  }
 }
 
 // ════════ 4. UI 헬퍼 ════════
