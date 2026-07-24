@@ -14,7 +14,7 @@
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged
+    getAuth, GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
@@ -33,7 +33,7 @@
   const fbApp = initializeApp(firebaseConfig);
   window.fb = {
     auth: getAuth(fbApp), db: getFirestore(fbApp),
-    GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged,
+    GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged,
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit,
   };
@@ -1905,7 +1905,7 @@ function showLogin() {
           <h2>로그인</h2>
           <p class="login-sub">${COMPANY_DOMAIN} 사내 Google 계정으로 로그인하세요.</p>
           <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0 14px;text-align:center;"></div>
-          <button class="login-btn" onclick="doGoogleLoginRedirect()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
+          <button class="login-btn" onclick="doGoogleLoginFast()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
             ${GOOGLE_G_SVG}<span>Google 계정으로 로그인</span>
           </button>
           <div class="login-quick">
@@ -1933,18 +1933,26 @@ function showLogin() {
   } catch (e) {}
 }
 
-// v29.7.2: 팝업 기반(Firebase popup/redirect, GIS 토큰 클라이언트 popup) 방식 둘 다
-// 아이폰 사파리/크롬에서 팝업창-원래창 간 통신이 막히며 "깜빡이고 여러 번 눌러야
-// 로그인되는" 문제가 반복됨. sessionStorage/팝업 통신에 전혀 의존하지 않는 순수
-// URL 이동(리디렉션) 방식으로 교체 — 정보는 URL 자체(해시)에 담아 돌아오므로
-// 브라우저 저장소 정책의 영향을 받지 않음. 이게 현재 로그인의 기본 방식.
+// v29.46.1: 데스크톱/일반 브라우저에서는 팝업 로그인(0.5초) 시도, 차단 환경에서는 리디렉션으로 자동 전환
+async function doGoogleLoginFast() {
+  showAuthLoading();
+  try {
+    const provider = new fb.GoogleAuthProvider();
+    provider.setCustomParameters({ hd: 'sejong-21c.com', prompt: 'select_account' });
+    await fb.signInWithPopup(fb.auth, provider);
+  } catch (e) {
+    console.warn('[로그인] 팝업 로그인 차단/실패 -> 리디렉션 방식으로 전환', e);
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+      showLogin();
+    } else {
+      doGoogleLoginRedirect();
+    }
+  }
+}
+
 function doGoogleLoginRedirect() {
-  // v29.7.3: 리디렉션 중임을 즉시 표시 (Google 도메인으로 넘어가기 전 UI 잔상 방지)
   showAuthLoading();
   const redirectUri = location.origin + '/';
-  // v29.7.3: response_type을 'id_token token'으로 확장 — id_token은 Firebase가 서명 검증까지
-  // 하므로 signInWithCredential이 더 빠르고 확실하게 동작함(access token만 넘길 때보다 안정적).
-  // nonce는 CSRF/replay 방지용으로 랜덤 값을 생성해 sessionStorage에 저장 후 회수 시 검증.
   const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
   try { sessionStorage.setItem('sjLoginNonce', nonce); } catch(e) {}
   const params = new URLSearchParams({
@@ -1959,29 +1967,23 @@ function doGoogleLoginRedirect() {
   });
   location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
 }
+
 // 구글에서 #access_token=...으로 돌아왔을 때 처리 — init()에서 가장 먼저 호출됨
 async function processRedirectLogin() {
   const hash = location.hash || '';
   if (hash.indexOf('access_token=') === -1) return false;
   const p = new URLSearchParams(hash.slice(1));
   const accessToken = p.get('access_token');
-  const idToken = p.get('id_token'); // v29.7.3: response_type=id_token token 도입으로 함께 옴
+  const idToken = p.get('id_token');
   const oauthError = p.get('error');
   history.replaceState(null, '', location.pathname + location.search); // URL에 토큰 남기지 않기
-  if (oauthError || !accessToken) return false;
+  if (oauthError || (!accessToken && !idToken)) return false;
   try {
-    const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } });
-    const info = await infoRes.json();
-    if (!info.email || !info.email.toLowerCase().endsWith('@sejong-21c.com')) {
-      setTimeout(() => alert(`${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.`), 50);
-      return false;
-    }
-    // v29.7.3: id_token이 있으면 그걸 우선 사용 — Firebase가 서명 검증까지 하므로 더 안전
+    // v29.46.1: 불필요한 구글 userinfo HTTP 추가 요청 제거 -> signInWithCredential로 직접 빠른 로그인
     const credential = idToken
       ? fb.GoogleAuthProvider.credential(idToken, accessToken)
       : fb.GoogleAuthProvider.credential(null, accessToken);
     await fb.signInWithCredential(fb.auth, credential);
-    // 이후 화면 전환은 onAuthStateChanged(handleAuthChange)가 담당
     return true;
   } catch (e) {
     console.error('[로그인] 리디렉션 처리 실패', e);
@@ -1989,11 +1991,7 @@ async function processRedirectLogin() {
   }
 }
 
-// v29.7.3: 리디렉션 처리 중 (userinfo 조회 + signInWithCredential, 약 0.7~1초 소요) 로그인
-// 화면이 잠깐 보이는 "깜빡임"을 방지하기 위해 로딩 스피너를 대신 표시. onAuthStateChanged를
-// 이 사이 등록해두면 아직 sign-in 되기 전의 null 상태로 handleAuthChange가 호출되어 showLogin이
-// 실행됨 → 사용자는 "로그인 실패"로 오인해 버튼을 다시 누르고, 그 클릭이 진행 중인 signInWithCredential을
-// abort시켜 왕복이 반복되는 문제가 있었음.
+// v29.7.3: 리디렉션 처리 중 (signInWithCredential 소요) 로그인 화면이 잠깐 보이는 "깜빡임" 방지
 function showAuthLoading() {
   const ov = document.getElementById('authOverlay');
   if (!ov) return;
@@ -2055,20 +2053,31 @@ async function doProfileSetup(uid) {
 
 // Firestore users 컬렉션 전체를 state.users로 채우고 로그인 완료 처리
 async function hydrateUsersAndEnter(uid) {
-  const snaps = await fb.getDocs(fb.collection(fb.db, 'users'));
-  const users = [];
-  snaps.forEach(s => users.push({ id: s.id, ...s.data() }));
-  state.users = users;
   state.currentUser = uid;
   state.lastActive = Date.now();
-  gcalConnected = !!getU(uid).gcalConnected; // 이전에 구글 캘린더 연동한 적 있으면 상태 표시 + 조용한 토큰 갱신 시도
+
+  // v29.46.1: users 컬렉션 및 adminAccess 구성을 병렬(Parallel) 조회하여 로그인 대기시간 최소화
+  const [snaps, adminSnap] = await Promise.all([
+    fb.getDocs(fb.collection(fb.db, 'users')).catch(err => { console.error('[Hydrate] users 조회 오류:', err); return null; }),
+    fb.getDoc(fb.doc(fb.db, 'adminAccess', 'config')).catch(() => null)
+  ]);
+
+  if (snaps) {
+    const users = [];
+    snaps.forEach(s => users.push({ id: s.id, ...s.data() }));
+    state.users = users;
+  }
+  if (adminSnap && adminSnap.exists && adminSnap.exists()) {
+    state.adminAccess = adminSnap.data();
+  } else if (!state.adminAccess) {
+    state.adminAccess = { uids: [] };
+  }
+
+  gcalConnected = !!getU(uid).gcalConnected;
   save();
+
   startFirestoreSync();
-  loadAdminAccess();   // v29.44: 관리 탭 접근 지정자 목록 (메뉴 노출 판단용)
-  logAccess(uid);      // v29.44: 접속 기록 — 세션당 1회
-  // v29.9: 슈퍼관리자 세션 진입 후 잔재 프로젝트가 있으면 조용히 정리 (한 번만).
-  //   startFirestoreSync가 projects onSnapshot을 걸어 state.projects를 채운 뒤 실행되어야 하므로
-  //   짧게 지연을 두고 호출. 이후엔 재발할 여지가 없어 세션당 1회만 시도.
+  logAccess(uid);
   setTimeout(() => cleanupGhostProjects().catch(() => {}), 1500);
   finishLogin();
 }
@@ -2427,6 +2436,7 @@ function doLogout() {
   state.currentUser = null;
   save();
   stopFirestoreSync();
+  try { sessionStorage.removeItem('SJ_ACCESS_LOGGED'); } catch(e) {}
   if (window.fb) fb.signOut(fb.auth).catch(()=>{});
   showLogin();
 }
