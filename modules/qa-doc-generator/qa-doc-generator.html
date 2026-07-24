@@ -1942,7 +1942,9 @@ function HydroPreview({doc}){
     if(P.startsWith("In-Coil")) return it.incoil_p||it.design_p||"";
     return it.design_p||"";})();
   const dpClean=String(dpVal).replace(/\s*M\s*Pa?\s*$/i,"").trim();  // 끝의 MPa/MPa 제거
-  const dpStr=dpClean?(`${dpClean} MPa`):"—";
+  // v2.4 — Full of Water 등 비숫자 값이면 MPa 단위 안 붙임(숫자일 때만 MPa)
+  const dpNumeric=dpClean!==""&&!isNaN(parseFloat(dpClean))&&/^[\d.\s]+$/.test(dpClean);
+  const dpStr=dpClean?(dpNumeric?`${dpClean} MPa`:dpClean):"—";
   // Test Pressure: 도면 파싱값 우선, 없으면 1.5×Design Pressure
   const tpFromDwg=isTube?(it.test_p_tube||""):(it.test_p_shell||"");
   const dpNum=parseFloat(dpVal)||0;
