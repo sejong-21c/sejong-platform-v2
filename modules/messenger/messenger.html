@@ -292,10 +292,14 @@ body {
 .msg-head-title { font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px; }
 .msg-head-right { display: flex; align-items: center; gap: 8px; }
 
+/* 멤버 목록 보기 클릭 가능한 전용 뱃지 버튼 */
 .members-tag {
-  display: flex; align-items: center; gap: 4px; padding: 3px 8px;
-  background: #f1f5f9; border-radius: 10px; font-size: 11px; color: #475569; font-weight: 500;
+  display: flex; align-items: center; gap: 5px; padding: 4px 10px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px;
+  font-size: 12px; color: #1d4ed8; font-weight: 600; cursor: pointer;
+  transition: all 0.15s ease;
 }
+.members-tag:hover { background: #dbeafe; border-color: #93c5fd; }
 
 /* Message List */
 .msg-body {
@@ -461,7 +465,7 @@ body {
 </div>
 
 <script>
-// 초경량 초고속 네이티브 SVG 아이콘 맵 (0ms 렌더링)
+// 초경량 네이티브 SVG 아이콘
 const ICONS = {
   search: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
   chevron: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
@@ -474,7 +478,7 @@ const ICONS = {
   send: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
   paperclip: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57a4 4 0 1 1 5.66 5.66l-8.59 8.58a2 4 0 0 1-2.83-2.83l8.49-8.48"/></svg>`,
   msgSquare: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
-  fileText: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`
+  fileText: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`
 };
 
 // ══════════ 모달 헬퍼 ══════════
@@ -532,7 +536,6 @@ function render() {
   if (side2 && sideScroll != null) side2.scrollTop = sideScroll;
 }
 
-// 0ms 순수 DOM 기반 즉시 검색 필터링 (전체 HTML 리렌더링 없음 -> 60fps 극강 속도)
 function filterChannelsDOM(keyword) {
   searchFilter = (keyword || '').trim().toLowerCase();
   const items = document.querySelectorAll('.msg-ch');
@@ -572,6 +575,36 @@ function getUnreadCount(channelId) {
   const me = state.currentUser;
   const lastRead = state.channelReads[channelId] || 0;
   return state.messages.filter(m => m.channel === channelId && m.author !== me && (m.createdAt || 0) > lastRead).length;
+}
+
+// ══════════ 채널 참여 멤버 팝업 뷰어 ══════════
+function showChannelMembers(cid) {
+  const ch = getChannel(cid);
+  if (!ch) return;
+  
+  let memberIds = ch.members && ch.members.length ? ch.members : state.users.map(u => u.id);
+  let memberUsers = memberIds.map(id => getU(id)).filter(u => u.name);
+
+  if (!memberUsers.length) memberUsers = state.users;
+
+  openModal(`👥 ${ch.name || '채널'} 참여 멤버 (${memberUsers.length}명)`, `
+    <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+      ${memberUsers.map(u => {
+        const isMe = u.id === state.currentUser;
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="avatar ${isMe?'':'other'}" style="width:32px;height:32px;font-size:12px;">${(u.name||'?').charAt(0)}</div>
+              <div>
+                <div style="font-weight:700;font-size:13.5px;color:#0f172a;">${escapeHtmlMsg(u.name)} ${escapeHtmlMsg(u.title||'')} ${isMe?'<span style="font-size:11px;color:#2563eb;font-weight:500;">(나)</span>':''}</div>
+                <div style="font-size:11.5px;color:#64748b;">${escapeHtmlMsg(u.dept||'소속 없음')}</div>
+              </div>
+            </div>
+            ${!isMe ? `<button class="btn btn-sm" onclick="startDM('${u.id}')" style="padding:4px 10px;">💬 1:1 대화</button>` : ''}
+          </div>`;
+      }).join('')}
+    </div>
+  `);
 }
 
 function messenger() {
@@ -629,6 +662,8 @@ function messenger() {
       ${body}`;
   };
 
+  const memberCount = ch ? ((ch.members && ch.members.length) || state.users.length) : 0;
+
   return `
     <div class="mod-head">
       <div class="mod-title-group">
@@ -669,9 +704,10 @@ function messenger() {
             </div>
           </div>
           <div class="msg-head-right">
-            <div class="members-tag">
+            <!-- 클릭 시 참여 멤버 전체 목록 팝업 띄우기 -->
+            <div class="members-tag" onclick="showChannelMembers('${ch.id}')" title="참여 멤버 목록 보기">
               <span style="display:flex;">${ICONS.users}</span>
-              <span>${(ch.members||[]).length || state.users.length}명 참여 중</span>
+              <span>${memberCount}명 참여 중</span>
             </div>
           </div>
         </div>
@@ -684,7 +720,7 @@ function messenger() {
         <div class="msg-input-container">
           <div class="msg-input-box">
             <button class="input-tool-btn" onclick="msgAttachFile()" title="파일 첨부" ${uploadingFiles?'disabled style="opacity:.5;"':''}>
-              ${ICONS.paperclip}
+              ${uploadingFiles ? '<span style="font-size:12px;">⏳</span>' : ICONS.paperclip}
             </button>
             <input type="text" id="msgInput" class="msg-input" placeholder="메시지를 입력하세요... (Enter 전송)" onkeydown="if(event.key==='Enter')sendMsg()">
             <button class="msg-send-btn" onclick="sendMsg()" title="전송">
@@ -773,18 +809,23 @@ async function markChannelRead(cid) {
   } catch (e) { console.error('[Firestore] 읽음 처리 오류:', e); }
 }
 
+// 메시지 즉시 안전 전송
 async function sendMsg() {
   const inp = document.getElementById('msgInput');
   const text = inp?.value.trim();
   if (!text) return;
   const ch = activeCh;
   inp.value = '';
+  
   const tempId = 'pending' + Date.now() + Math.random().toString(36).slice(2, 5);
   pendingMessages.push({ id: tempId, channel: ch, author: state.currentUser, text, at: nowStamp(), createdAt: Date.now(), _pending: true });
   renderPreservingMsgInput();
+  
   try {
-    await fb.setDoc(fb.doc(fb.collection(fb.db, 'messages')), { channel: ch, author: state.currentUser, text, at: nowStamp(), createdAt: Date.now() });
+    const docRef = fb.doc(fb.collection(fb.db, 'messages'));
+    await fb.setDoc(docRef, { channel: ch, author: state.currentUser, text, at: nowStamp(), createdAt: Date.now() });
   } catch (e) {
+    console.error('[Firestore] 메시지 전송 오류:', e);
     alert('메시지 전송에 실패했습니다: ' + (e.message || e));
   } finally {
     pendingMessages = pendingMessages.filter(m => m.id !== tempId);
@@ -805,9 +846,10 @@ function msgAttachFile() {
   input.click();
 }
 
+// 타임아웃 제한이 포함된 안전한 파일 전송 (15초 초과 시 자동 해제)
 async function sendFiles(fileList) {
   const files = Array.from(fileList || []);
-  if (!files.length || uploadingFiles) return;
+  if (!files.length) return;
   const oversized = files.filter(f => f.size > MSG_FILE_MAX_MB * 1024 * 1024);
   if (oversized.length) {
     alert(`파일당 최대 ${MSG_FILE_MAX_MB}MB까지 첨부할 수 있습니다: ` + oversized.map(f => f.name).join(', '));
@@ -816,25 +858,38 @@ async function sendFiles(fileList) {
   const ch = activeCh;
   uploadingFiles = true;
   renderPreservingMsgInput();
-  for (const f of files) {
-    const kb = f.size / 1024;
-    const size = kb >= 1024 ? (kb/1024).toFixed(1)+'MB' : kb.toFixed(0)+'KB';
-    const tempId = 'pending' + Date.now() + Math.random().toString(36).slice(2, 5);
-    pendingMessages.push({ id: tempId, channel: ch, author: state.currentUser, file: f.name, fileSize: size, at: nowStamp(), createdAt: Date.now(), _pending: true });
-    renderPreservingMsgInput();
-    try {
-      const storageRef = fb.ref(fb.storage, `messages/${ch}/${Date.now()}_${f.name}`);
-      await fb.uploadBytes(storageRef, f);
-      const fileUrl = await fb.getDownloadURL(storageRef);
-      await fb.setDoc(fb.doc(fb.collection(fb.db, 'messages')), { channel: ch, author: state.currentUser, file: f.name, fileUrl, fileSize: size, at: nowStamp(), createdAt: Date.now() });
-    } catch (e) {
-      alert(`"${f.name}" 업로드에 실패했습니다: ` + (e.message || e));
-    } finally {
-      pendingMessages = pendingMessages.filter(m => m.id !== tempId);
+  
+  try {
+    for (const f of files) {
+      const kb = f.size / 1024;
+      const size = kb >= 1024 ? (kb/1024).toFixed(1)+'MB' : kb.toFixed(0)+'KB';
+      const tempId = 'pending' + Date.now() + Math.random().toString(36).slice(2, 5);
+      pendingMessages.push({ id: tempId, channel: ch, author: state.currentUser, file: f.name, fileSize: size, at: nowStamp(), createdAt: Date.now(), _pending: true });
+      renderPreservingMsgInput();
+      
+      try {
+        const storageRef = fb.ref(fb.storage, `messages/${ch}/${Date.now()}_${f.name}`);
+        
+        // 15초 업로드 타임아웃 가드
+        const uploadTask = fb.uploadBytes(storageRef, f);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('파일 업로드 시간 초과 (15초)')), 15000));
+        
+        await Promise.race([uploadTask, timeoutPromise]);
+        
+        const fileUrl = await fb.getDownloadURL(storageRef);
+        await fb.setDoc(fb.doc(fb.collection(fb.db, 'messages')), { channel: ch, author: state.currentUser, file: f.name, fileUrl, fileSize: size, at: nowStamp(), createdAt: Date.now() });
+      } catch (e) {
+        console.error('[Storage] 파일 업로드 실패:', e);
+        alert(`"${f.name}" 업로드에 실패했습니다: ` + (e.message || e));
+      } finally {
+        pendingMessages = pendingMessages.filter(m => m.id !== tempId);
+        renderPreservingMsgInput();
+      }
     }
+  } finally {
+    uploadingFiles = false;
+    renderPreservingMsgInput();
   }
-  uploadingFiles = false;
-  renderPreservingMsgInput();
 }
 
 function msgDragOver(e) { e.preventDefault(); const h=document.getElementById('msgDropHint'); if(h) h.classList.add('show'); }
