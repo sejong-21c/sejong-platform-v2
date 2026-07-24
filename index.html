@@ -6965,6 +6965,41 @@ function apIsMyTurn(a, uid) {
   if (a.status !== 'pending' && a.status !== 'review') return false;
   return apCurrentApprover(a) === uid;
 }
+// v30.10: 전결(상위 결재권자 우선 승인) — 내가 결재선의 '뒤 단계(waiting)'에 있고 앞에 대기자가
+//   있으면, 중간 단계를 '전결 생략(skipped)' 처리하고 내가 바로 승인할 수 있다.
+//   (예: 작성 김시원 → 검토 신과장 → 승인 부장: 신과장이 바빠도 부장이 바로 전결 승인)
+function apCanJeonGyeol(a, uid) {
+  if (a.status !== 'pending' && a.status !== 'review') return false;
+  const line = apLine(a); if (!line) return false;
+  const myIdx = line.findIndex(s => s.uid === uid && s.status === 'waiting');
+  if (myIdx < 0) return false;
+  return line.some((s, i) => i < myIdx && s.status === 'pending');
+}
+async function jeonGyeolApproval(aid) {
+  const a = (state.approvals || []).find(x => x.id === aid);
+  if (!a) return;
+  const uid = state.currentUser;
+  if (!apCanJeonGyeol(a, uid)) return alert('전결 대상이 아닙니다. (내가 결재선의 뒤 단계에 있고, 앞 단계가 대기 중일 때만 가능)');
+  const line = apLine(a);
+  const myIdx = line.findIndex(s => s.uid === uid && s.status === 'waiting');
+  const skipped = line.filter((s, i) => i < myIdx && (s.status === 'pending' || s.status === 'waiting'));
+  const names = skipped.map(s => `${s.role} ${(getU(s.uid)||{}).name||'-'}`).join(', ');
+  if (!confirm(`⚡ 전결 승인\n\n중간 결재 단계를 건너뛰고 지금 바로 승인합니다.\n생략되는 단계: ${names}\n\n(생략된 단계는 결재 기록에 '전결 생략'으로 남습니다)\n계속할까요?`)) return;
+  const now = Date.now();
+  const newLine = line.map((s, i) => {
+    if (i < myIdx && (s.status === 'pending' || s.status === 'waiting'))
+      return { ...s, status: 'skipped', decidedAt: now, note: ((s.note||'') ? s.note + ' · ' : '') + '전결 승인으로 생략' };
+    if (i === myIdx) return { ...s, status: 'pending' };  // 내 차례로 당김 → decideApproval이 승인 처리
+    return { ...s };
+  });
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'approvals', aid), { approvalLine: newLine, approver: uid, to: uid }, { merge: true });
+  } catch (e) { return alert('전결 처리 중 오류: ' + (e.message || e)); }
+  // 로컬 상태도 갱신해 decideApproval의 차례 검사(apIsMyTurn)를 통과시킴 —
+  //   이후 로직(다음 단계 진행/최종 확정/ITP 스탬프·Rev 증가/wbs-shadow 자동 반영)을 전부 재사용.
+  a.approvalLine = newLine; a.approver = uid; a.to = uid;
+  await decideApproval(aid, 'approved');
+}
 
 // ── 결재자 자동 추천 (같은 부서 직급 기준) ──
 function _deptUsers(dept) { return (state.users || []).filter(u => u.dept === dept); }
@@ -7014,6 +7049,7 @@ function _renderStampBox(line) {
     let stamp;
     if (s.status === 'approved')      stamp = `<div style="border:1.5px solid var(--success);color:var(--success);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
     else if (s.status === 'rejected') stamp = `<div style="border:1.5px solid var(--danger);color:var(--danger);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">반려</div>`;
+    else if (s.status === 'skipped')  stamp = `<div style="color:var(--text-lighter);font-size:10px;padding:12px 0;" title="상위 결재권자 전결 승인으로 생략됨">전결<br>생략</div>`;
     else if (s.status === 'pending')  stamp = `<div style="color:var(--warning);font-size:11px;padding:12px 0;">대기중</div>`;
     else                              stamp = `<div style="color:var(--text-lighter);font-size:11px;padding:12px 0;">예정</div>`;
     const dt = s.decidedAt ? new Date(s.decidedAt).toLocaleDateString('ko-KR',{month:'2-digit',day:'2-digit'}) : '';
@@ -7036,6 +7072,7 @@ function _renderLineFlow(line) {
     let bg='var(--white)', col='var(--text)', bd='1px solid var(--border)', ic='●';
     if (s.status==='approved'){ bg='#dcfce7'; col='#166534'; bd='none'; ic='✓'; }
     else if (s.status==='rejected'){ bg='#fee2e2'; col='#991b1b'; bd='none'; ic='✕'; }
+    else if (s.status==='skipped'){ bg='#f3f4f6'; col='#9ca3af'; bd='none'; ic='⤼'; }
     else if (s.status==='pending'){ bg='#fef3c7'; col='#92400e'; bd='none'; ic='⏳'; }
     else { col='var(--text-lighter)'; ic='…'; }
     const arrow = i>0 ? `<span style="color:var(--text-lighter);">→</span>` : '';
@@ -7052,7 +7089,8 @@ function _renderApprovalRow(a, mode) {
     const done = line.filter(x => x.status === 'approved').length;
     const cur = apPendingStep(a);
     progress = `<span style="color:var(--text-light);">${done}/${line.length}</span>`
-      + (cur ? ` · <b>${(getU(cur.uid)||{}).name||''}</b> 차례` : (a.status==='approved'?' · 완결':''));
+      + (cur ? ` · <b>${(getU(cur.uid)||{}).name||''}</b> 차례` : (a.status==='approved'?' · 완결':''))
+      + (apCanJeonGyeol(a, state.currentUser) ? ' <span style="font-size:10px;background:#fffbeb;color:#b45309;border:1px solid #fbbf24;border-radius:8px;padding:1px 6px;" title="중간 단계를 건너뛰고 바로 승인 가능">⚡ 전결 가능</span>' : '');
   } else {
     progress = (getU(a.approver || a.to) || {}).name || '-';
   }
@@ -7108,7 +7146,8 @@ async function deleteApproval(aid) {
 function approval() {
   const uid = state.currentUser;
   const all = (state.approvals || []).slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-  const toReview = all.filter(a => apIsMyTurn(a, uid));
+  // v30.10: 내 차례인 것 + 전결 가능한 것(내가 뒤 단계 결재권자, 앞 단계 대기 중)을 함께 표시
+  const toReview = all.filter(a => apIsMyTurn(a, uid) || apCanJeonGyeol(a, uid));
   const mine     = all.filter(a => a.author === uid && (a.status === 'pending' || a.status === 'review'));
   const done     = all.filter(a => a.status === 'approved' || a.status === 'rejected');
   const cnt = k => all.filter(a => a.status === k).length;
@@ -7188,6 +7227,17 @@ function openApprovalDetail(aid) {
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px;">
         <button class="btn" style="background:var(--danger);color:#fff;" onclick="decideApproval('${a.id}','rejected')">✕ 반려</button>
         <button class="btn btn-primary" onclick="decideApproval('${a.id}','approved')">✓ 승인</button>
+      </div>
+    `:''}
+    ${apCanJeonGyeol(a, uid)?`
+      <div style="margin-top:12px;padding:10px 12px;background:#fffbeb;border:1px solid #fbbf24;border-radius:6px;">
+        <div style="font-size:12px;color:#92400e;margin-bottom:8px;">
+          <b>⚡ 전결 승인</b> — 아직 내 차례가 아니지만(앞 단계 대기 중), 상위 결재권자 권한으로 중간 단계를 건너뛰고 바로 승인할 수 있습니다. 생략된 단계는 기록에 '전결 생략'으로 남습니다.
+        </div>
+        <div class="fg"><label class="fl">결재 의견 (선택)</label><input class="fi" id="apDecNote" placeholder="예: 긴급 건 전결 처리"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+          <button class="btn" style="background:#d97706;color:#fff;border-color:#d97706;" onclick="jeonGyeolApproval('${a.id}')">⚡ 전결 승인 (중간 단계 생략)</button>
+        </div>
       </div>
     `:''}
     ${(a.author===uid && (a.status==='pending'||a.status==='review'))?`
