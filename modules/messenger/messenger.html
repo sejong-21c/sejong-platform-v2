@@ -660,7 +660,8 @@ function getProjectChannels() {
     const existing = map.get(cid) || map.get(pid);
     const pName = p.name || p.code || ('프로젝트 ' + pid);
     const pm = p.pm || p.manager || '';
-    const team = p.members || p.assignees || p.users || p.team || [];
+    let teamRaw = p.members || p.assignees || p.users || p.team || [];
+    const team = Array.isArray(teamRaw) ? teamRaw : (typeof teamRaw === 'string' ? [teamRaw] : []);
     const members = Array.from(new Set([pm, ...team])).filter(Boolean);
     
     if (existing) {
@@ -701,7 +702,8 @@ function getChannelMembers(ch) {
     const p = (state.projects || []).find(x => x.id === pid) || parentProjs.find(x => x.id === pid);
     if (p) {
       const pmId = p.pm || p.manager || p.pmUid;
-      const teamList = p.members || p.assignees || p.users || p.team || [];
+      let teamRaw = p.members || p.assignees || p.users || p.team || [];
+      const teamList = Array.isArray(teamRaw) ? teamRaw : (typeof teamRaw === 'string' ? [teamRaw] : []);
       const memberIds = Array.from(new Set([pmId, ...teamList])).filter(Boolean);
       const matched = memberIds.map(id => getU(id)).filter(u => u.name);
       return matched.length ? matched : users.filter(u => u.dept === p.dept);
