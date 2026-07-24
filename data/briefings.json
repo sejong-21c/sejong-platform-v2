@@ -975,38 +975,48 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-07-24 07:59 (오전 정리 자동 실행)",
-    "newMails": 2,
-    "processed": 2,
+    "generatedAt": "2026-07-24 16:35 (오후 정리 자동 실행)",
+    "newMails": 13,
+    "processed": 13,
     "urgentReplies": 0,
-    "ncr": 1,
-    "car": 1,
+    "ncr": 0,
+    "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "삼성전기 BT-6LINE 자동밸브 작동 테스트 확정 회신 필요(김철우 부장)",
-        "proj": "SJ435-26",
+        "text": "CKS 락너트용 볼트, 너트업체 확정 후 재발주 필요",
+        "proj": "SJ2026-040",
         "priority": "mid"
       },
       {
-        "text": "진양화성 자재 Heat No. 불일치 NCR/CAR 후속 확인 (SJ-NCR-2026-16, 26-CAR-009)",
+        "text": "진양화성 사일로 STAIR 수정도면 검토 및 회신",
         "proj": "SJE437-26",
+        "priority": "mid"
+      },
+      {
+        "text": "BT-6LINE 자동밸브 테스트 결과 확정 회신 확인",
+        "proj": "SJ435-26",
         "priority": "high"
       },
       {
-        "text": "ASK CHEMICALS A-1 PJT 냉각수 PUMP SUPPORT 도면 접수 확인(참조)",
-        "proj": "SJ433-25",
+        "text": "장우기계 건조기 PSM 도면 수신 확인",
+        "proj": "SJE437-26",
+        "priority": "low"
+      },
+      {
+        "text": "주간 작업일보 6건(CKS/HAK/VDS/진양화성/삼성전기) 검토",
+        "proj": "다중",
         "priority": "low"
       }
     ],
     "urgentList": [],
     "schedule": [
       {
-        "title": "삼성전기 BT-6LINE 자동밸브 작동 테스트(잠정)",
+        "title": "삼성전기 BT-6LINE 자동밸브 작동 테스트(확정대기)",
         "date": "2026-07-24",
         "time": "10:00",
         "proj": "SJ435-26",
-        "color": "blue"
+        "color": "orange"
       }
     ]
   },
