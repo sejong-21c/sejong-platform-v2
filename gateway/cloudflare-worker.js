@@ -1,5 +1,5 @@
 /*
- * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v1, 2026-07-19)
+ * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v2, 2026-07-26)
  *
  * 역할:
  *  1) 회사 공용 API 키를 이 서버에 숨겨두고, 직원들은 키 입력 없이 AI 비서를 사용
@@ -130,6 +130,28 @@ async function verifyCompanyFirebaseToken(request, env) {
   }
 }
 
+// v2: 9Router 동적 설정 — 부장님이 플랫폼 🔑에서 '전 직원 공용 공유'한 터널 주소/키/모델
+// (Firestore t_aiSharedConfig/config)을 호출한 직원의 Firebase 토큰으로 그대로 읽는다.
+// → 터널 주소가 바뀌어도 Cloudflare 대시보드 수정 불필요 (플랫폼에서 공유 갱신만 하면 됨).
+// Firestore 규칙상 t_* 컬렉션은 사내 계정 토큰이면 read 허용이므로 별도 서비스 계정이 필요 없다.
+async function fetchSharedNineRouter(env, request) {
+  try {
+    const projectId = (env.FIREBASE_PROJECT_ID || '').trim();
+    const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i);
+    if (!projectId || !match) return null;
+    const r = await fetch(
+      'https://firestore.googleapis.com/v1/projects/' + projectId + '/databases/(default)/documents/t_aiSharedConfig/config',
+      { headers: { Authorization: 'Bearer ' + match[1] } }
+    );
+    if (!r.ok) return null;
+    const f = ((await r.json()) || {}).fields || {};
+    const sv = k => (f[k] && f[k].stringValue) ? String(f[k].stringValue).trim() : '';
+    const base = sv('localUrl').replace(/\/+$/, '');
+    if (!base) return null;
+    return { base, key: sv('localKey'), model: sv('localModel') };
+  } catch (e) { return null; }
+}
+
 function corsHeaders(origin, allowed) {
   const h = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -174,21 +196,29 @@ export default {
       if (authError) return json(authError.status, { error: authError.error }, cors);
     }
 
-    const keys = (env[provider.envKey] || '').split(/[\s,;]+/).filter(Boolean);
+    // v2: 9router는 플랫폼에서 공유한 동적 설정(터널 주소/키/모델)을 먼저 쓰고, env를 폴백으로.
+    const dyn = m[1] === '9router' ? await fetchSharedNineRouter(env, request) : null;
+
+    let keys = (env[provider.envKey] || '').split(/[\s,;]+/).filter(Boolean);
+    if (dyn && dyn.key) keys = [dyn.key];
+    if (!keys.length && m[1] === '9router' && dyn) keys = ['9router'];   // 9Router 기본 키 관례
     if (!keys.length) return json(501, { error: m[1] + ' keys not configured on gateway' }, cors);
 
     let body = await request.text();
-    const baseUrl = (provider.baseEnv ? (env[provider.baseEnv] || '') : provider.base || '').trim().replace(/\/+$/, '');
-    if (!baseUrl) return json(501, { error: m[1] + ' base URL not configured on gateway' }, cors);
+    let baseUrl = (provider.baseEnv ? (env[provider.baseEnv] || '') : provider.base || '').trim().replace(/\/+$/, '');
+    if (dyn && dyn.base) baseUrl = dyn.base;
+    if (!baseUrl) return json(501, { error: m[1] + ' base URL not configured on gateway (플랫폼 🔑에서 로컬 LLM 공용 공유를 하거나 NINEROUTER_BASE를 설정하세요)' }, cors);
     if (provider.modelEnv) {
-      const model = (env[provider.modelEnv] || '').trim();
-      if (!model) return json(501, { error: m[1] + ' model not configured on gateway' }, cors);
-      try {
-        const payload = JSON.parse(body);
-        payload.model = model;
-        body = JSON.stringify(payload);
-      } catch (error) {
-        return json(400, { error: 'invalid JSON request body for ' + m[1] }, cors);
+      // v2: 모델 우선순위 — 공유 설정 > env > 클라이언트가 보낸 model 그대로 (없어도 501 내지 않음)
+      const model = (dyn && dyn.model) || (env[provider.modelEnv] || '').trim();
+      if (model) {
+        try {
+          const payload = JSON.parse(body);
+          payload.model = model;
+          body = JSON.stringify(payload);
+        } catch (error) {
+          return json(400, { error: 'invalid JSON request body for ' + m[1] }, cors);
+        }
       }
     }
     const upstreamUrl = baseUrl + '/' + m[2] + url.search;
