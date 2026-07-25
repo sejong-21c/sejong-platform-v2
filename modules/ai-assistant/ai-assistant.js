@@ -54,9 +54,34 @@
   var LOCAL_URL_LS = 'sjp_ai_local_url';       // 예: http://localhost:1234/v1  (LM Studio) / http://localhost:11434/v1 (Ollama) / https://... (9Router)
   var LOCAL_KEY_LS = 'sjp_ai_local_key';       // 9Router 등 인증이 필요한 로컬/터널 프록시 API 키
   var LOCAL_MODEL_LS = 'sjp_ai_local_model';   // 비우면 서버에 로드된 모델을 자동 감지
-  function getLocalUrl() { var u = lsGet(LOCAL_URL_LS).trim(); return u ? u.replace(/\/+$/, '') : ''; }
-  function getLocalKey() { var k = lsGet(LOCAL_KEY_LS).trim(); return k || '9router'; }
-  function getLocalModel() { return lsGet(LOCAL_MODEL_LS).trim(); }
+  // v29.48: 전 직원 공용 로컬 LLM/9Router 설정 — 부장님이 한 번 공유하면(Firestore
+  // t_aiSharedConfig/config) 모든 직원이 각자 입력 없이 자동 사용. 기기별 localStorage
+  // 값이 있으면 그게 우선(개인 재정의), 없으면 공용값 사용.
+  var sharedLocal = null;
+  function loadSharedAiCfg() {
+    if (!window.fb || !fb.db || !fb.getDoc || !fb.auth || !fb.auth.currentUser) { setTimeout(loadSharedAiCfg, 1200); return; }
+    fb.getDoc(fb.doc(fb.db, 't_aiSharedConfig', 'config')).then(function (snap) {
+      if (snap && snap.exists()) { var d = snap.data(); if (d && d.localUrl) sharedLocal = d; }
+    }).catch(function () {});
+  }
+  loadSharedAiCfg();
+  function getLocalUrl() {
+    var u = lsGet(LOCAL_URL_LS).trim();
+    if (u) return u.replace(/\/+$/, '');
+    var sv = (sharedLocal && sharedLocal.localUrl) ? String(sharedLocal.localUrl).trim() : '';
+    return sv ? sv.replace(/\/+$/, '') : '';
+  }
+  function getLocalKey() {
+    var k = lsGet(LOCAL_KEY_LS).trim();
+    if (k) return k;
+    if (sharedLocal && sharedLocal.localKey) return sharedLocal.localKey;
+    return '9router';
+  }
+  function getLocalModel() {
+    var m = lsGet(LOCAL_MODEL_LS).trim();
+    if (m) return m;
+    return (sharedLocal && sharedLocal.localModel) || '';
+  }
   var _localModelCache = '';
   async function resolveLocalModel(base, signal, key) {
     var explicit = getLocalModel();
@@ -921,6 +946,13 @@
       ' placeholder="모델 이름 (비워두면 자동 감지 — 예: cc/claude-opus-4-7, qwen3.5)"' +
       ' value="' + lsGet(LOCAL_MODEL_LS).replace(/"/g, '&quot;') + '">' +
       '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">9Router 터널 주소(https://...) 및 키를 넣으면 0순위로 9Router를 호출합니다. LM Studio는 Enable CORS가 필요합니다.</div>' +
+      // v29.48: 전 직원 공용 공유 — 체크하고 저장하면 모든 직원이 각자 입력 없이 이 설정을 사용
+      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-top:8px;cursor:pointer;font-weight:600;">' +
+      '<input type="checkbox" id="aiLocalShareChk"' + (sharedLocal && sharedLocal.localUrl ? ' checked' : '') + '>' +
+      ' 이 주소·키·모델을 <b style="color:var(--primary);">전 직원 공용</b>으로 공유 (다른 직원은 입력 불필요)</label>' +
+      (sharedLocal && sharedLocal.localUrl
+        ? '<div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">현재 공용 설정: ' + String(sharedLocal.localUrl).replace(/&/g, '&amp;').replace(/</g, '&lt;') + (sharedLocal.byName ? ' · ' + String(sharedLocal.byName).replace(/</g, '&lt;') + ' 공유' : '') + '</div>'
+        : '') +
       '</div>';
     var keyProviders = PROVIDER_CHAIN.filter(function (p) { return p.ls; });
     var fieldsHtml = keyProviders.map(function (p, i) {
@@ -948,6 +980,34 @@
         lsSet(LOCAL_URL_LS, luEl ? luEl.value.trim() : '');
         lsSet(LOCAL_KEY_LS, lkEl ? lkEl.value.trim() : '');
         lsSet(LOCAL_MODEL_LS, lmEl ? lmEl.value.trim() : '');
+        // v29.48: 전 직원 공용 공유 저장/해제
+        (function () {
+          var chk = $id('aiLocalShareChk');
+          if (!chk || !window.fb || !fb.db) return;
+          var lu = luEl ? luEl.value.trim().replace(/\/+$/, '') : '';
+          var me = (window.state && state.users || []).find(function (x) { return x.id === (window.state && state.currentUser); });
+          if (chk.checked && lu) {
+            fb.setDoc(fb.doc(fb.db, 't_aiSharedConfig', 'config'), {
+              localUrl: lu,
+              localKey: lkEl ? lkEl.value.trim() : '',
+              localModel: lmEl ? lmEl.value.trim() : '',
+              updatedAt: Date.now(), byUid: (window.state && state.currentUser) || null, byName: (me && me.name) || ''
+            }).then(function () {
+              sharedLocal = { localUrl: lu, localKey: lkEl ? lkEl.value.trim() : '', localModel: lmEl ? lmEl.value.trim() : '', byUid: (window.state && state.currentUser) || null, byName: (me && me.name) || '' };
+              appendMsg('system', '✓ 로컬 LLM/9Router 설정이 전 직원 공용으로 공유됐습니다 — 다른 직원은 입력 없이 바로 사용합니다.');
+            }).catch(function (e) { appendMsg('system', '공용 공유 저장 실패: ' + (e.message || e)); });
+          } else if (!chk.checked && sharedLocal && sharedLocal.localUrl) {
+            // 해제는 공유한 본인 또는 super만 — 다른 직원이 실수로 회사 공용을 끄는 것 방지
+            var isOwner = sharedLocal.byUid && window.state && sharedLocal.byUid === state.currentUser;
+            var isSuper = me && me.grade === 'super';
+            if (isOwner || isSuper) {
+              fb.setDoc(fb.doc(fb.db, 't_aiSharedConfig', 'config'), { localUrl: '', localKey: '', localModel: '', updatedAt: Date.now(), byUid: (window.state && state.currentUser) || null }).then(function () {
+                sharedLocal = null;
+                appendMsg('system', '전 직원 공용 로컬 LLM 설정을 해제했습니다.');
+              }).catch(function () {});
+            }
+          }
+        })();
         _localModelCache = '';   // 주소·모델 바뀌었으니 자동 감지 캐시 초기화
         localFailHintShown = false;   // 설정을 바꿨으니 실패 안내를 다시 볼 수 있게
         keyProviders.forEach(function (p) {
