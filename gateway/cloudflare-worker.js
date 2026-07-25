@@ -109,8 +109,12 @@ async function firebaseSigningKey(kid) {
   return crypto.subtle.importKey('spki', pemToBytes(cert), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
 }
 
+// v2.1: 프로젝트 ID는 비밀값이 아니므로(플랫폼 index.html에 공개) 코드에 기본값 내장.
+// 대시보드 변수(FIREBASE_PROJECT_ID)를 설정하면 그 값이 우선한다.
+const DEFAULT_FIREBASE_PROJECT_ID = 'sejong-platform';
+
 async function verifyCompanyFirebaseToken(request, env) {
-  const projectId = (env.FIREBASE_PROJECT_ID || '').trim();
+  const projectId = (env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID).trim();
   if (!projectId) return { status: 501, error: 'FIREBASE_PROJECT_ID not configured for 9Router access' };
   const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i);
   if (!match) return { status: 401, error: 'Firebase login token required for 9Router access' };
@@ -136,7 +140,7 @@ async function verifyCompanyFirebaseToken(request, env) {
 // Firestore 규칙상 t_* 컬렉션은 사내 계정 토큰이면 read 허용이므로 별도 서비스 계정이 필요 없다.
 async function fetchSharedNineRouter(env, request) {
   try {
-    const projectId = (env.FIREBASE_PROJECT_ID || '').trim();
+    const projectId = (env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID).trim();
     const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i);
     if (!projectId || !match) return null;
     const r = await fetch(
