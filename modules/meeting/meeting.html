@@ -29,7 +29,7 @@
   window.fb = { auth: getAuth(app), db: getFirestore(app), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, onAuthStateChanged };
   window.dispatchEvent(new Event("fb-ready"));
 </script>
-<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js" defer onload="try{lucide.createIcons()}catch(e){}"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;background:#f0f4f8;color:#1a2332;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}

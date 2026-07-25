@@ -27,7 +27,7 @@
   const fbApp = initializeApp(firebaseConfig);
   window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot };
 </script>
-<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js" defer onload="try{lucide.createIcons()}catch(e){}"></script>
 <style>
 /* ── CSS 변수 (main app 동일) ── */
 :root {
@@ -408,15 +408,17 @@ async function startNcrFirestoreSync() {
   // 이후 실시간 동기화가 조용히 죽음 → 로그인 사용자 확인될 때까지 대기 후 구독.
   // (로컬 테스트 모드처럼 Firebase 로그인이 없으면 구독하지 않음 — 오류 스팸 방지)
   if (!fb.auth || !fb.auth.currentUser) { setTimeout(startNcrFirestoreSync, 400); return; }
-  await Promise.all([
-    migrateLegacyCollection('ncrs', 't_ncrs'),
-    migrateLegacyCollection('ncrDeleteReqs', 't_ncrDeleteReqs'),
-    migrateLegacyCollection('cars', 't_cars'),
-  ]);
+  // v29.49: 구독을 먼저 건다 — 레거시 마이그레이션(1회성, 대부분 no-op)이 느릴 때
+  //   목록 표시까지 함께 늦어지던 문제. 마이그레이션은 백그라운드로.
   subscribeNcrsColl();
   subscribeNcrDeleteReqsColl();
   subscribeCarsRefColl();
   setTimeout(checkQdHandoff, 500);
+  Promise.all([
+    migrateLegacyCollection('ncrs', 't_ncrs'),
+    migrateLegacyCollection('ncrDeleteReqs', 't_ncrDeleteReqs'),
+    migrateLegacyCollection('cars', 't_cars'),
+  ]).catch(e => console.warn('[레거시 마이그레이션]', e));
 }
 // v29.20: 품질종합분석표에서 차트를 클릭하면 localStorage 핸드오프로 이 모듈에
 // 진입하며, 경향분석을 해당 드릴다운 필터가 걸린 상태로 자동으로 연다.
@@ -1540,7 +1542,7 @@ function printNCRTrend() {
 
   const w = window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NCR 품질 경향분석 보고서</title>
-    <script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js" defer onload="try{lucide.createIcons()}catch(e){}"><\/script>
     <style>
     i[data-lucide]{font-size:0;color:transparent;display:inline-flex;align-items:center;}
     i[data-lucide]>svg{width:11px;height:11px;color:initial;vertical-align:-1px;}

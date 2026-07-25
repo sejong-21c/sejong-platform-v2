@@ -2109,6 +2109,13 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
             ipatch.itpRevByItem = rev;
           }
           await fb.setDoc(iref, ipatch, { merge: true });
+          // v1.15 ★ 승인본 스냅샷 ★ — 승인 시점 내용을 t_itpApproved/{pid}에 보관.
+          //   ITP 조회는 스냅샷을 보므로 이후 편집으로 라이브가 draft가 되어도 조회에서 안 사라진다.
+          try {
+            const snapDoc = { ...icur, ...ipatch, snapshotAt: Date.now() };
+            delete snapDoc.contentSig; delete snapDoc.approvedSig;
+            await fb.setDoc(fb.doc(fb.db, "t_itpApproved", PID), snapDoc);
+          } catch (e) { console.warn("승인본 스냅샷 저장 실패:", e.message); }
         } catch (e) { console.warn("자가승인 스탬프 실패:", e.message); }
         await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
         showMsg("✅ 작성자 본인 권한으로 즉시 승인 완료 — ITP 조회에 바로 등록됩니다.", 8000);

@@ -452,10 +452,20 @@ async function applyApprovedItpToItem(iid, opts){
   let mit=null; for(const p in MITEM){const f=(MITEM[p]||[]).find(i=>i.id===iid); if(f){mit=f;break;}}
   if(!mit) return {ok:false,reason:"noitem"};
   const tag=(mit.tagNo||"").trim();
-  let doc;
-  try{ const s=await fb.getDoc(fb.doc(fb.db,"t_itpBuilderDocs",pid)); if(!s.exists()) return {ok:false,reason:"noitp"}; doc=s.data(); }
-  catch(e){ return {ok:false,reason:"err",msg:e.message}; }
-  if(doc.approvalStatus!=="approved") return {ok:false,reason:"notapproved"};
+  // v30.11: 승인본 스냅샷(t_itpApproved) 우선 — 빌더에서 개정 편집 중이어도 마지막 승인본으로 연동.
+  //   스냅샷이 없으면(레거시) 라이브 문서의 approved 상태로 폴백.
+  let doc=null;
+  try{
+    const snap=await fb.getDoc(fb.doc(fb.db,"t_itpApproved",pid));
+    if(snap.exists()){ doc=snap.data(); }
+    else{
+      const live=await fb.getDoc(fb.doc(fb.db,"t_itpBuilderDocs",pid));
+      if(!live.exists()) return {ok:false,reason:"noitp"};
+      const ld=live.data();
+      if(ld.approvalStatus!=="approved") return {ok:false,reason:"notapproved"};
+      doc=ld;
+    }
+  }catch(e){ return {ok:false,reason:"err",msg:e.message}; }
   const items=doc.items||[];
   const aItem=items.find(x=>((x.tag||"").trim()===tag && tag!=="")) || (items.length===1?items[0]:null);
   if(!aItem) return {ok:false,reason:"nomatch"};

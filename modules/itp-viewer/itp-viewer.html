@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ITP 조회</title>
 <!-- 이모지 → Lucide 선 아이콘 (index.html과 동일 패턴) -->
-<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js" defer onload="try{lucide.createIcons()}catch(e){}"></script>
 <script type="module">
   // ITP Builder(v2.1+)가 저장한 t_itpBuilderDocs 컬렉션을 읽기 전용으로 조회한다.
   // 각 문서 = 프로젝트 1개, 문서 안 items[]에 각 아이템의 ITP rows·설계 데이터가 들어있다.
@@ -113,7 +113,37 @@ i[data-lucide] > svg { font-size:13px; color:initial; width:13px; height:13px; }
 
 <script>
 const ITP_LOGO = "data:image/jpeg;base64,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";
-const state = { itpDocs: [], projects: [], selectedPid: null, selectedItem: null, filter: '' };
+// v2.0 ★ 승인본 스냅샷 구조 ★
+//   조회는 t_itpApproved(승인 시점 스냅샷)를 본다 — 이후 ITP Builder에서 누가 편집해도
+//   (재승인 정책으로 라이브 문서가 draft/pending이 되어도) 승인본은 여기서 절대 사라지지 않는다.
+//   재승인되면 decideApproval/즉시승인 이 스냅샷을 갱신한다.
+//   liveDocs(t_itpBuilderDocs)는 ① 레거시 승인 문서 자가복구(스냅샷 생성) ② '개정 작업 중' 배지용.
+const state = { itpDocs: [], snapDocs: [], liveDocs: [], projects: [], selectedPid: null, selectedItem: null, filter: '' };
+const _healed = new Set();   // 세션 중 자가복구 중복 쓰기 방지
+function _mergeDocs() {
+  const snapByPid = {};
+  state.snapDocs.forEach(d => { snapByPid[d.pid] = d; });
+  // 라이브 문서 상태 배지 매핑 + 레거시 승인(스냅샷 없음/구버전) 자가복구
+  const merged = state.snapDocs.map(d => {
+    const live = state.liveDocs.find(x => x.pid === d.pid);
+    return { ...d, approvalStatus: 'approved', _liveStatus: live ? live.approvalStatus : null };
+  });
+  state.liveDocs.forEach(live => {
+    if (live.approvalStatus !== 'approved') return;
+    const snap = snapByPid[live.pid];
+    const needHeal = !snap || (Number(live.approvedAt)||0) > (Number(snap.approvedAt)||0);
+    if (!snap) merged.push({ ...live, _liveStatus: 'approved' });   // 스냅샷 생기기 전에도 조회엔 보이게
+    if (needHeal && !_healed.has(live.pid) && fb.auth && fb.auth.currentUser) {
+      _healed.add(live.pid);
+      const { contentSig, approvedSig, ...copy } = live;
+      const { pid, ...fields } = copy;
+      fb.setDoc(fb.doc(fb.db, 't_itpApproved', live.pid), { ...fields, snapshotAt: Date.now() })
+        .then(() => console.log('[ITP조회] 승인본 스냅샷 자가복구:', live.pid))
+        .catch(e => { _healed.delete(live.pid); console.warn('[ITP조회] 스냅샷 자가복구 실패:', e.message); });
+    }
+  });
+  state.itpDocs = merged;
+}
 
 // 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백). index.html과 동일 패턴.
 function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
@@ -137,14 +167,24 @@ function _applyDeepLink() {
 function startSync() {
   if (!window.fb || !fb.db) { setTimeout(startSync, 300); return; }
   if (!fb.auth || !fb.auth.currentUser) { setTimeout(startSync, 400); return; }
-  fb.onSnapshot(fb.collection(fb.db, 't_itpBuilderDocs'), snap => {
-    // v29.24: 첨부/도면 조각 문서(chunk__로 시작하는 id)와 dwg_로 시작하는 임시 캐시는 제외.
-    state.itpDocs = snap.docs
+  // v2.0: 승인본 스냅샷(t_itpApproved)이 조회의 원본
+  fb.onSnapshot(fb.collection(fb.db, 't_itpApproved'), snap => {
+    state.snapDocs = snap.docs
       .filter(d => !d.id.startsWith('chunk__') && !d.id.startsWith('dwg_'))
       .map(d => ({ pid: d.id, ...d.data() }));
+    _mergeDocs();
     _applyDeepLink();
     render();
   }, e => { document.getElementById('app').innerHTML = `<div class="empty">불러오기 실패: ${e.message||e}<br><small>페이지를 새로고침해 주세요.</small></div>`; });
+  // 라이브 문서: 레거시 승인분 자가복구 + '개정 작업 중' 배지
+  fb.onSnapshot(fb.collection(fb.db, 't_itpBuilderDocs'), snap => {
+    state.liveDocs = snap.docs
+      .filter(d => !d.id.startsWith('chunk__') && !d.id.startsWith('dwg_'))
+      .map(d => ({ pid: d.id, ...d.data() }));
+    _mergeDocs();
+    _applyDeepLink();
+    render();
+  }, e => console.warn('[liveDocs]', e));
   fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     render();
@@ -185,14 +225,16 @@ function renderList() {
 
   const cards = docs.map(d => {
     const items = d.items || [];
-    const savedAt = d.savedAt ? new Date(d.savedAt).toISOString().slice(0,10) : '';
+    const savedAt = d.approvedAt ? new Date(Number(d.approvedAt)).toISOString().slice(0,10) : (d.savedAt ? new Date(d.savedAt).toISOString().slice(0,10) : '');
+    const editing = (d._liveStatus === 'draft' || d._liveStatus === 'pending')
+      ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:9px;padding:1px 7px;margin-left:6px;" title="ITP Builder에서 개정 편집 중 — 재승인되면 이 승인본이 갱신됩니다">✏ 개정 작업 중</span>` : '';
     return `<div class="proj-card" onclick="goProj('${esc(d.pid)}')">
-      <div class="code">${esc(d.code)}</div>
+      <div class="code">${esc(d.code)}${editing}</div>
       <div class="name">${esc(d.name)}</div>
       ${d.client ? `<div class="client">${esc(d.client)}</div>` : ''}
       <div class="meta">
         <div class="item-cnt">아이템 <b>${items.length}</b>개</div>
-        <div class="stamp">${savedAt}</div>
+        <div class="stamp">승인 ${savedAt}</div>
       </div>
     </div>`;
   }).join('');
@@ -240,7 +282,10 @@ function renderProj() {
   // v1.1: 결재 상태 배지
   const AP = { pending:['결재중','#fef3c7','#92400e'], approved:[LI('circle-check','✅')+' 승인 완료','#dcfce7','#166534'], rejected:['반려됨','#fee2e2','#b91c1c'] };
   const apInfo = AP[doc.approvalStatus];
-  const apBadge = apInfo ? `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:11px;background:${apInfo[1]};color:${apInfo[2]};margin-left:8px;vertical-align:middle;">${apInfo[0]}</span>` : '';
+  let apBadge = apInfo ? `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:11px;background:${apInfo[1]};color:${apInfo[2]};margin-left:8px;vertical-align:middle;">${apInfo[0]}</span>` : '';
+  // v2.0: 라이브 문서가 개정 편집 중이면 승인본 옆에 안내 배지 (승인본 자체는 계속 표시됨)
+  if (doc._liveStatus === 'draft' || doc._liveStatus === 'pending')
+    apBadge += `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:11px;background:#fef3c7;color:#92400e;margin-left:6px;vertical-align:middle;" title="ITP Builder에서 개정 편집 중 — 재승인되면 이 승인본이 갱신됩니다">✏ 개정 작업 중</span>`;
 
   return `
     <div class="breadcrumb"><a onclick="goBack()">${LI('library','📚')} ITP 조회</a><span class="sep">›</span><b>${esc(lbl.code)} ${esc(lbl.name)}</b></div>
@@ -388,16 +433,23 @@ async function deleteItpItem(pid, itemId, idx, label){
   if(!fb.auth || !fb.auth.currentUser){ alert('로그인 후 삭제할 수 있습니다.'); return; }
   if(!confirm(`"${label}" 아이템 1개를 이 ITP에서 삭제합니다.\n\n· 이 아이템의 검사항목만 지워집니다 (다른 아이템은 유지)\n· 되돌릴 수 없습니다\n\n계속할까요?`)) return;
   try{
-    const snap = await fb.getDoc(fb.doc(fb.db, 't_itpBuilderDocs', pid));
-    if(!snap.exists()){ alert('ITP 문서를 찾지 못했습니다. 이미 삭제된 것 같습니다.'); render(); return; }
-    const d = snap.data();
-    const items = Array.isArray(d.items) ? d.items.slice() : [];
-    // id 우선 매칭, 실패 시 인덱스
-    let rm = itemId ? items.findIndex(x => x && x.id === itemId) : -1;
-    if(rm < 0) rm = idx;
-    if(rm < 0 || rm >= items.length){ alert('삭제할 아이템을 찾지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
-    items.splice(rm, 1);
-    await fb.setDoc(fb.doc(fb.db, 't_itpBuilderDocs', pid), { items, savedAt: Date.now() }, { merge: true });
+    // v2.0: 라이브 문서 + 승인본 스냅샷 양쪽에서 삭제 (조회는 스냅샷을 보므로 둘 다 반영해야 함)
+    const rmFrom = async (coll) => {
+      const snap = await fb.getDoc(fb.doc(fb.db, coll, pid));
+      if(!snap.exists()) return null;
+      const d = snap.data();
+      const items = Array.isArray(d.items) ? d.items.slice() : [];
+      let rm = itemId ? items.findIndex(x => x && x.id === itemId) : -1;
+      if(rm < 0) rm = idx;
+      if(rm < 0 || rm >= items.length) return null;
+      items.splice(rm, 1);
+      await fb.setDoc(fb.doc(fb.db, coll, pid), { items, savedAt: Date.now() }, { merge: true });
+      return items;
+    };
+    const liveItems = await rmFrom('t_itpBuilderDocs');
+    const snapItems = await rmFrom('t_itpApproved');
+    const items = snapItems || liveItems;
+    if(items === null){ alert('삭제할 아이템을 찾지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
     // 로컬 상태 즉시 반영 (onSnapshot이 곧 덮어쓰지만 UX상 바로 갱신)
     const localDoc = state.itpDocs.find(x => x.pid === pid);
     if(localDoc) localDoc.items = items;
