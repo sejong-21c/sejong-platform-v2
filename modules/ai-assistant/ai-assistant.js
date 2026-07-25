@@ -797,6 +797,12 @@
         fails.push(p.label + '(' + why + ')');
       }
     }
+    // v29.47: 전부 '연결 실패'(네트워크 단)이고 게이트웨이를 쓰는 중이면 → 게이트웨이 차단이 원인.
+    // 신채완 과장 사례(2026-07-24): 사내망에서 workers.dev 접속이 막혀 모든 회사공용 호출이 동시 실패.
+    var _allNetFail = gw && fails.length && fails.every(function (f) { return f.indexOf('연결 실패') !== -1; });
+    if (_allNetFail) {
+      throw new Error('회사 AI 게이트웨이에 연결할 수 없습니다 — 이 PC의 네트워크/보안 프로그램이 workers.dev 접속을 차단하는 것 같아요. 🔑 설정의 [🔌 연결 테스트]로 확인하고, 차단이 맞으면 전산 담당에게 게이트웨이 주소 허용을 요청하거나 개인 API 키를 등록해주세요.');
+    }
     throw new Error('모든 AI 호출 실패: ' + fails.join(', ') + ' — 잠시 후 다시 시도하거나 🔑에서 키를 확인해주세요.');
   }
   window.SJP_AI_lastLocalFail = function () { return lastLocalFail; };
@@ -865,6 +871,26 @@
     box.scrollTop = box.scrollHeight;
   }
 
+  // v29.47: 게이트웨이 연결 진단 — 응답이 오면(상태코드 무관) 연결 OK,
+  // fetch 자체가 실패하면 이 PC에서 workers.dev가 차단된 것 (사내 방화벽/백신 등).
+  window.testAiGateway = async function () {
+    var el = $id('aiGwTestResult'); if (!el) return;
+    var inp = $id('aiGatewayUrlInput');
+    var url = ((inp && inp.value.trim()) || getGatewayUrl() || '').replace(/\/+$/, '');
+    if (!url) { el.textContent = '게이트웨이 주소가 비어 있습니다'; return; }
+    el.textContent = '테스트 중...'; el.style.color = 'var(--text-light)';
+    try {
+      var ctl = new AbortController(); var t = setTimeout(function () { ctl.abort(); }, 8000);
+      await fetch(url + '/health', { method: 'GET', signal: ctl.signal });
+      clearTimeout(t);
+      el.textContent = '✓ 게이트웨이 연결 정상 — 개인 키 없이 회사 공용 키로 사용 가능합니다';
+      el.style.color = 'var(--success)';
+    } catch (e) {
+      el.textContent = '✗ 연결 안 됨 — 이 PC에서 게이트웨이(workers.dev) 접속이 차단돼 있습니다. 사내 방화벽/보안 프로그램의 차단 여부를 확인하거나, 아래에 개인 API 키를 등록해주세요.';
+      el.style.color = 'var(--danger)';
+    }
+  };
+
   window.openAiKeyModal = function () {
     // 공용 모달(z1000)이 AI 패널(z1700) 뒤에 깔리지 않게 잠시 올렸다가, 닫힐 때 원복
     var m = document.getElementById('modal');
@@ -877,6 +903,10 @@
       '<input class="fi" id="aiGatewayUrlInput" spellcheck="false" autocomplete="off"' +
       ' placeholder="https://sejong-ai-gateway.____.workers.dev"' +
       ' value="' + lsGet(GATEWAY_URL_LS).replace(/"/g, '&quot;') + '">' +
+      // v29.47: 연결 진단 — '모든 AI 호출 실패(연결 실패)'가 게이트웨이 차단인지 즉석 확인 (신채완 과장 사례)
+      '<div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap;">' +
+      '<button type="button" onclick="testAiGateway()" style="font-size:11px;padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;">🔌 연결 테스트</button>' +
+      '<span id="aiGwTestResult" style="font-size:11px;color:var(--text-light);"></span></div>' +
       '</div>';
     // v29.45: 로컬 LLM (LM Studio / Ollama / 9Router) — 설정한 기기에서만 0순위로 사용. 다른 직원 PC엔 영향 없음.
     var localHtml = '<div class="fg" style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">' +
