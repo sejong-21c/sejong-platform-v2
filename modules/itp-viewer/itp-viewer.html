@@ -11,7 +11,7 @@
   // 각 문서 = 프로젝트 1개, 문서 안 items[]에 각 아이템의 ITP rows·설계 데이터가 들어있다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -22,7 +22,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId };
 </script>
 <style>
 :root {
@@ -167,8 +167,12 @@ function _applyDeepLink() {
 function startSync() {
   if (!window.fb || !fb.db) { setTimeout(startSync, 300); return; }
   if (!fb.auth || !fb.auth.currentUser) { setTimeout(startSync, 400); return; }
+  // v2.1 ★ 성능 ★ — 컬렉션 전체 구독은 도면 청크 문서(chunk__*/dwg_*, base64 수백KB짜리)까지
+  //   전부 다운로드해 탭 열림이 느렸다. 실제 프로젝트 문서 id는 전부 'p'로 시작하므로
+  //   documentId 범위 쿼리로 프로젝트 문서만 받는다 (청크는 네트워크에서 아예 제외).
+  const _projOnly = (coll) => fb.query(fb.collection(fb.db, coll), fb.where(fb.documentId(), '>=', 'p'), fb.where(fb.documentId(), '<', 'q'));
   // v2.0: 승인본 스냅샷(t_itpApproved)이 조회의 원본
-  fb.onSnapshot(fb.collection(fb.db, 't_itpApproved'), snap => {
+  fb.onSnapshot(_projOnly('t_itpApproved'), snap => {
     state.snapDocs = snap.docs
       .filter(d => !d.id.startsWith('chunk__') && !d.id.startsWith('dwg_'))
       .map(d => ({ pid: d.id, ...d.data() }));
@@ -177,7 +181,7 @@ function startSync() {
     render();
   }, e => { document.getElementById('app').innerHTML = `<div class="empty">불러오기 실패: ${e.message||e}<br><small>페이지를 새로고침해 주세요.</small></div>`; });
   // 라이브 문서: 레거시 승인분 자가복구 + '개정 작업 중' 배지
-  fb.onSnapshot(fb.collection(fb.db, 't_itpBuilderDocs'), snap => {
+  fb.onSnapshot(_projOnly('t_itpBuilderDocs'), snap => {
     state.liveDocs = snap.docs
       .filter(d => !d.id.startsWith('chunk__') && !d.id.startsWith('dwg_'))
       .map(d => ({ pid: d.id, ...d.data() }));

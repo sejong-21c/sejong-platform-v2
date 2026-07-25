@@ -14,7 +14,7 @@
   // docData[itemId][docKey] 형태로 7가지 QA/QC 문서 데이터를 포함한다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, onSnapshot, getDoc, doc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -25,7 +25,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, getDoc, doc };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, getDoc, doc, query, where, documentId };
 </script>
 <style>
 :root {
@@ -142,11 +142,16 @@ function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>`
 function startSync() {
   if (!window.fb || !fb.db) { setTimeout(startSync, 300); return; }
   if (!fb.auth || !fb.auth.currentUser) { setTimeout(startSync, 400); return; }
-  fb.onSnapshot(fb.collection(fb.db, 't_qaGenDocs'), snap => {
+  // ★ 성능 ★ — 컬렉션 전체 구독은 리포트 사진 청크 문서(chunk__*, base64 수백KB×다수)까지
+  //   전부 다운로드해 QA Doc 조회 열림이 매우 느렸다. 프로젝트 문서 id는 'p'로 시작하므로
+  //   documentId 범위 쿼리로 프로젝트 문서만 받는다 (사진 청크는 네트워크에서 아예 제외 —
+  //   개별 리포트를 열 때 필요한 청크만 따로 로드).
+  const _projOnly = (coll) => fb.query(fb.collection(fb.db, coll), fb.where(fb.documentId(), '>=', 'p'), fb.where(fb.documentId(), '<', 'q'));
+  fb.onSnapshot(_projOnly('t_qaGenDocs'), snap => {
     state.liveDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => ({ pid: d.id, _src:'live', ...d.data() }));
     render();
   }, e => { document.getElementById('app').innerHTML = `<div class="empty">불러오기 실패: ${e.message||e}<br><small>페이지를 새로고침해 주세요.</small></div>`; });
-  fb.onSnapshot(fb.collection(fb.db, 't_qaGenProjIndex'), snap => {
+  fb.onSnapshot(_projOnly('t_qaGenProjIndex'), snap => {
     state.snapDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => ({ pid: d.id, _src:'snap', ...d.data() }));
     render();
   }, e => console.warn('[qaGenProjIndex]', e));
