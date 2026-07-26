@@ -1172,7 +1172,7 @@ const ITPBUILDER_BUILD = 'c20';
 const QADOC_BUILD = 'c10';
 const MTOOLS_BUILD = 'b7';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MEETING_BUILD = 'b5';
+const MEETING_BUILD = 'b6'; // b6: v29.60 AI 예약 프리필 수신
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
 const ITPVIEW_BUILD = 'a14';
@@ -1832,7 +1832,8 @@ window.openItpViewerFor = function(pid, tag) {
 let _aiPrefillTarget = null;
 window.openModuleWithPrefill = function(tool, data) {
   _aiPrefillTarget = { tool: tool, data: data || {} };
-  openTool(tool);
+  // v29.60: 회의(meeting)는 부서 도구가 아니라 대메뉴 — switchMod로 연다
+  if (tool === 'meeting') switchMod('meeting'); else openTool(tool);
 };
 function openTool(tid, deptName) {
   view.selectedTool = tid;
@@ -2798,7 +2799,10 @@ function render() {
   }
   // v1.0 회의 모듈 (대메뉴) — 녹음(실시간 전사)을 위해 allow="microphone" 필수
   if (view.cur === 'meeting') {
-    content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/meeting/meeting.html?v=${MEETING_BUILD}" allow="microphone" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="회의실 예약·회의록"></iframe></div>`;
+    // v29.60: AI 예약 프리필 — ncr/car와 동일한 일회성 소비 관례
+    const _apM = (_aiPrefillTarget && _aiPrefillTarget.tool === 'meeting') ? _aiPrefillTarget : null; if (_apM) _aiPrefillTarget = null;
+    const _apqM = _apM ? `&aiPrefill=${encodeURIComponent(JSON.stringify(_apM.data))}` : '';
+    content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/meeting/meeting.html?v=${MEETING_BUILD}${_apqM}" allow="microphone" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="회의실 예약·회의록"></iframe></div>`;
     return;
   }
   const renderers = { dashboard, calendar, projects, tasks, quotes, okr, org, approval, admin };
@@ -7511,7 +7515,7 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.59.0"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.60.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

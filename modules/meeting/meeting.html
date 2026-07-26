@@ -472,6 +472,24 @@ function renderModal(){
   document.body.appendChild(ov);
 }
 
+// v29.60(b6): AI 비서 프리필 — ?aiPrefill=<json>이 오면 예약 등록 모달을 열고 값만 채운다.
+// 저장(예약하기)은 여전히 사람이 버튼을 눌러야 한다 — ncr.html의 aiPrefill과 동일 관례.
+(function(){
+  try{
+    const raw=qs.get('aiPrefill');if(!raw)return;
+    const p=JSON.parse(raw);
+    const rm=ROOMS.find(r=>r.id===p.room||r.name===p.room||(p.room&&(r.name.includes(p.room)||String(p.room).includes(r.name))))||ROOMS[0];
+    const clamp=m=>Math.max(DAY_S,Math.min(DAY_E,Math.round(m/SLOT)*SLOT));
+    const s=clamp(p.start?t2m(p.start):t2m('09:00'));
+    const e=clamp(p.end?t2m(p.end):Math.min(s+60,DAY_E));
+    setTimeout(()=>{
+      S.modal={type:'new',title:p.title||'',room:rm.id,date:p.date||todayStr(),s,e:e>s?e:Math.min(s+SLOT,DAY_E),note:p.note||''};
+      renderModal();
+      try{if(window.lucide)lucide.createIcons();}catch(err){}
+    },450); // 첫 렌더·로그인 브리지가 자리잡은 뒤 모달을 띄운다
+  }catch(e){console.warn('[meeting] aiPrefill 파싱 실패:',e);}
+})();
+
 // ═══════════════ 액션 ═══════════════
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;

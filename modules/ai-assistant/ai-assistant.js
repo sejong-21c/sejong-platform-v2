@@ -42,6 +42,9 @@
  * assets(t_devices)·licenses(t_licenses), itpDocs(t_itpBuilderDocs — 도면 조각 dwg_* 제외를
  * 위해 문서 id p~q 범위 쿼리 + 승인상태·아이템만 남긴 슬림 변환), mobileDrafts(임시저장).
  * stripHeavyFields에 배열 40개 상한 추가(ITP rows 같은 대형 배열 토큰 폭탄 방지).
+ * v29.60: (로드맵 3기 15단계) 등록 확장 — create_okr(부모 openOkrModal 프리필),
+ * create_meeting_reservation(회의 모듈을 aiPrefill로 열어 예약 모달 자동 오픈+채움).
+ * 저장·예약 확정은 늘 그렇듯 사람이 버튼을 눌러야 한다.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -365,6 +368,42 @@
         setValue($id('tgSpec'), v.spec);
         setValue($id('tgMat'), v.material);
       }, 0);
+    }
+  });
+
+  // v29.60(로드맵 15단계): 목표(OKR) 등록 — 부모 openOkrModal을 열고 값만 채운다
+  registerAction('create_okr', {
+    description: '목표(OKR) 등록',
+    params: {
+      title: '목표 제목', why: '왜 이 목표인지 (선택)',
+      period: "기간 표기 — 예: '2026 Q3', '2026 연간' (선택)",
+      end: '마감일 YYYY-MM-DD (선택)', scope: 'personal(개인, 기본) 또는 dept(부서)'
+    },
+    fill: function (v) {
+      if (typeof openOkrModal !== 'function') return { error: '이 화면에서는 목표 등록을 열 수 없습니다.' };
+      openOkrModal(null, v.scope === 'dept' ? 'dept' : 'personal');
+      setTimeout(function () {
+        setValue($id('okrTitle'), v.title);
+        setValue($id('okrWhy'), v.why);
+        setValue($id('okrPeriod'), v.period);
+        setValue($id('okrEnd'), v.end);
+      }, 0);
+    }
+  });
+
+  // v29.60(로드맵 15단계): 회의실 예약 — 회의 모듈(iframe)을 aiPrefill로 열어
+  // 예약 등록 모달을 자동으로 띄우고 값만 채운다. 예약 확정은 사람이 "예약하기" 버튼.
+  registerAction('create_meeting_reservation', {
+    description: '회의실 예약 등록 — 회의 모듈을 열고 예약 폼을 미리 채운다',
+    params: {
+      title: '회의 제목', room: '회의실 이름 — 대회의실, 소회의실, 접객실, 구동부 슈퍼바이저룸, 3공장 중 하나',
+      date: '날짜 YYYY-MM-DD', start: '시작 시간 HH:MM (08:00~19:00, 30분 단위)',
+      end: '종료 시간 HH:MM (선택, 기본 1시간)', note: '목적/비고 (선택)'
+    },
+    fill: function (v) {
+      if (typeof openModuleWithPrefill !== 'function') return { error: '이 화면에서는 회의실 예약을 열 수 없습니다.' };
+      openModuleWithPrefill('meeting', { title: v.title, room: v.room, date: v.date, start: v.start, end: v.end, note: v.note });
+      return { status: '회의실 예약 폼을 열고 값을 채워놨습니다. 예약 확정은 사용자가 "예약하기" 버튼을 눌러야 합니다.' };
     }
   });
 
