@@ -45,6 +45,9 @@
  * v29.60: (로드맵 3기 15단계) 등록 확장 — create_okr(부모 openOkrModal 프리필),
  * create_meeting_reservation(회의 모듈을 aiPrefill로 열어 예약 모달 자동 오픈+채움).
  * 저장·예약 확정은 늘 그렇듯 사람이 버튼을 눌러야 한다.
+ * v29.61: (로드맵 3기 16단계) 업무 완료 처리 — complete_task. 유일한 '수정' 액션이라
+ * send_message처럼 채팅 안 확인 카드로 처리: 어떤 업무를 완료로 바꾸는지 보여주고
+ * 사람이 [완료 처리]를 눌러야 부모 moveTask(id,'done')가 실행된다.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -404,6 +407,40 @@
       if (typeof openModuleWithPrefill !== 'function') return { error: '이 화면에서는 회의실 예약을 열 수 없습니다.' };
       openModuleWithPrefill('meeting', { title: v.title, room: v.room, date: v.date, start: v.start, end: v.end, note: v.note });
       return { status: '회의실 예약 폼을 열고 값을 채워놨습니다. 예약 확정은 사용자가 "예약하기" 버튼을 눌러야 합니다.' };
+    }
+  });
+
+  // v29.61(로드맵 16단계): 업무 완료 처리 — 유일한 '수정' 액션. 확인 카드 필수.
+  // 부모 moveTask()가 실제 tasks 문서/부서 WBS/브리핑 가상 업무를 유형별로 알아서 저장한다.
+  registerAction('complete_task', {
+    description: '업무(할 일)를 완료 상태로 변경 — 확인 카드에서 사용자가 [완료 처리]를 눌러야 실제 반영된다',
+    params: { title: '완료 처리할 업무 이름 (일부만 입력해도 됨)' },
+    direct: true,
+    resolve: function (v) {
+      var t = String(v.title || '').toLowerCase().trim();
+      if (!t) return { error: '어떤 업무인지 이름을 알려주세요.' };
+      var pool = (typeof allKanbanTasks === 'function' ? allKanbanTasks() : (state.tasks || []))
+        .filter(function (x) { return x.status !== 'done'; });
+      var hits = pool.filter(function (x) { return (x.title || '').toLowerCase().indexOf(t) !== -1; });
+      if (!hits.length) return { error: '"' + v.title + '" 업무를 찾지 못했습니다 (완료되지 않은 업무에서 검색).' };
+      if (hits.length > 1) {
+        return { error: '해당하는 업무가 ' + hits.length + '개입니다. 정확한 이름을 알려주세요: ' + hits.slice(0, 5).map(function (x) { return '"' + x.title + '"'; }).join(', ') + (hits.length > 5 ? ' 외' : '') };
+      }
+      var x = hits[0];
+      var u = (state.users || []).find(function (z) { return z.id === x.assignee; });
+      return {
+        taskId: x.id,
+        cardLines: [
+          '업무: ' + (x.title || ''),
+          (u ? '담당: ' + u.name + ' · ' : '') + (x.due ? '마감: ' + x.due + ' · ' : '') + '현재 상태: ' + (x.status || ''),
+          '→ 완료(done)로 변경합니다'
+        ],
+        confirmLabel: '완료 처리'
+      };
+    },
+    commit: function (resolved) {
+      if (typeof moveTask !== 'function') throw new Error('이 화면에서는 업무 상태를 바꿀 수 없습니다.');
+      return moveTask(resolved.taskId, 'done');
     }
   });
 
@@ -971,6 +1008,7 @@
     '"OO 열어줘/보여줘/이동해줘"처럼 특정 화면으로 가고 싶다는 요청은 open_module 도구로 처리한다.',
     '"오늘 뭐 해야 해", "브리핑" 같은 요청은 get_briefing 도구로 처리한다 — 지연 업무와 오늘 마감을 맨 앞에 강조하고, 일정→결재→알림 순으로 간결히 요약해라.',
     '"엑셀로/PDF로 뽑아줘·저장해줘" 요청은 export_result 도구로 처리한다 — 직전 query_state 결과가 파일이 되므로, 아직 조회 전이면 먼저 query_state를 호출해라.',
+    '"OO 업무 끝났어/완료 처리해줘" 요청은 complete_task 도구로 처리한다 — 채팅에 확인 카드가 뜨고 사용자가 [완료 처리]를 눌러야 실제 반영된다는 것을 답변에 알려줘라.',
     '품질 매뉴얼·절차서·규정 등 사내 문서 내용 질문은 search_docs로 검색해서 답하고, 반드시 출처(문서명)를 함께 표시해라. 검색 결과가 비었거나 오류면 그 사실을 그대로 알리고 지어내지 마라.',
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
@@ -1630,17 +1668,22 @@
     var box = $id('aiMessages');
     var card = document.createElement('div');
     card.className = 'ai-confirm-card';
-    card.innerHTML = '<div>' + def.description + '</div>' +
-      '<div style="margin:6px 0;color:var(--text-light);">' + (resolved.channelName ? '채널: ' + resolved.channelName + '<br>' : '') + (resolved.text || '') + '</div>' +
-      '<button class="btn btn-primary" data-act="confirm">전송</button> ' +
+    // v29.61: cardLines(줄 배열)를 주면 범용 카드로 렌더. 모델 출력이 innerHTML에 들어가므로 반드시 이스케이프
+    var bodyHtml = resolved.cardLines
+      ? resolved.cardLines.map(escHtml).join('<br>')
+      : (resolved.channelName ? '채널: ' + escHtml(resolved.channelName) + '<br>' : '') + escHtml(resolved.text || '');
+    var label = resolved.confirmLabel || '전송';
+    card.innerHTML = '<div>' + escHtml(def.description) + '</div>' +
+      '<div style="margin:6px 0;color:var(--text-light);">' + bodyHtml + '</div>' +
+      '<button class="btn btn-primary" data-act="confirm">' + escHtml(label) + '</button> ' +
       '<button class="btn" data-act="cancel">취소</button>';
     card.querySelector('[data-act="confirm"]').onclick = async function () {
       card.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
       try {
         await def.commit(resolved);
-        appendMsg('system', '✓ 전송 완료');
+        appendMsg('system', '✓ ' + label + ' 완료');
       } catch (e) {
-        appendMsg('system', '전송 실패: ' + (e.message || e));
+        appendMsg('system', label + ' 실패: ' + (e.message || e));
       }
     };
     card.querySelector('[data-act="cancel"]').onclick = function () { card.remove(); };
