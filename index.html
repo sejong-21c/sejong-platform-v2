@@ -18,7 +18,7 @@
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
-    query, where, orderBy, limit
+    query, where, orderBy, limit, documentId
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -35,7 +35,7 @@
     auth: getAuth(fbApp), db: getFirestore(fbApp),
     GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged,
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
-    query, where, orderBy, limit,
+    query, where, orderBy, limit, documentId, // documentId: v29.59 AI 비서 ITP 문서 범위 쿼리용
   };
 </script>
 <!-- v29.5: 개인 구글 캘린더 연동용 — Firebase Auth(로그인)와는 완전히 별개의 OAuth 클라이언트.
@@ -7511,7 +7511,7 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.58.0"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.59.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

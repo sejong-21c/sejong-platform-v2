@@ -38,6 +38,10 @@
  * v29.58: (로드맵 11단계, 2기) 화면 문맥 인식 — 매 요청의 시스템 프롬프트에 현재
  * 사용자(이름·부서)·오늘 날짜(요일)·현재 화면·보고 있는 프로젝트를 자동 첨부.
  * "이 프로젝트 NCR 보여줘", "이번 주 일정" 같은 지시어가 통하게 된다.
+ * v29.59: (로드맵 3기 14단계) 조회 사각지대 해소 — messages(메신저 메시지, 채널명 치환),
+ * assets(t_devices)·licenses(t_licenses), itpDocs(t_itpBuilderDocs — 도면 조각 dwg_* 제외를
+ * 위해 문서 id p~q 범위 쿼리 + 승인상태·아이템만 남긴 슬림 변환), mobileDrafts(임시저장).
+ * stripHeavyFields에 배열 40개 상한 추가(ITP rows 같은 대형 배열 토큰 폭탄 방지).
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -502,16 +506,36 @@
   var LOCAL_ONLY = ['quotes']; // 이 브라우저에만 저장(전사 공유 아님)
 
   // v29.49: 분리 모듈 컬렉션 — 부모 state에 없어 질문 시점에 Firestore에서 1회 조회한다.
-  // 별칭(모델에 노출) → 실제 컬렉션명. 상시 구독(onSnapshot)은 하지 않는다 — AI 질문은
-  // 가끔이라 실시간성보다 읽기 비용 절약이 우선.
+  // 별칭(모델에 노출) → { coll: 실제 컬렉션명, projOnly: 문서 id p~q 범위 쿼리, slim: 문서 축약 }.
+  // 상시 구독(onSnapshot)은 하지 않는다 — AI 질문은 가끔이라 실시간성보다 읽기 비용 절약이 우선.
+  // v29.59: itpDocs는 도면 조각 문서(dwg_*, base64 수백KB)가 섞여 있어 projOnly 범위 쿼리로
+  // 네트워크에서부터 제외한다 (itp-viewer.html v2.1과 동일 수법).
   var REMOTE_QUERYABLE = {
-    ncrs: 't_ncrs',                              // 부적합보고서 (modules/ncr)
-    cars: 't_cars',                              // 시정조치요구서 (modules/car)
-    measurementTools: 'measurementTools',        // 측정기구 대장
-    measurementCheckouts: 'measurementCheckouts',// 측정기구 반출/반납
-    meetingReservations: 'meetingReservations',  // 회의실 예약
-    meetingMinutes: 'meetingMinutes'             // 회의록
+    ncrs: { coll: 't_ncrs' },                               // 부적합보고서 (modules/ncr)
+    cars: { coll: 't_cars' },                               // 시정조치요구서 (modules/car)
+    measurementTools: { coll: 'measurementTools' },         // 측정기구 대장
+    measurementCheckouts: { coll: 'measurementCheckouts' }, // 측정기구 반출/반납
+    meetingReservations: { coll: 'meetingReservations' },   // 회의실 예약
+    meetingMinutes: { coll: 'meetingMinutes' },             // 회의록
+    assets: { coll: 't_devices' },                          // 자산 기기 대장 (modules/asset-registry)
+    licenses: { coll: 't_licenses' },                       // 소프트웨어 라이선스
+    itpDocs: { coll: 't_itpBuilderDocs', projOnly: true, slim: slimItpDoc } // ITP/QA 생성 문서 상태
   };
+  // ITP 문서는 items[].rows가 수백 줄이라 통째로 넘기면 토큰 폭탄 — 상태 확인에 필요한 것만 남긴다
+  function slimItpDoc(d) {
+    var items = Array.isArray(d.items) ? d.items : [];
+    var p = (state.projects || []).find(function (x) { return x.id === d.id; });
+    return {
+      id: d.id,
+      project: p ? ((p.code ? p.code + ' ' : '') + p.name) : d.id,
+      approvalStatus: d.approvalStatus || '(없음)',
+      approvedAt: d.approvedAt || null,
+      itemCount: items.length,
+      items: items.slice(0, 60).map(function (it) {
+        return { tag: it.tag || '', name: it.name || it.itemName || '', rowCount: Array.isArray(it.rows) ? it.rows.length : undefined };
+      })
+    };
+  }
   var _remoteCache = {}; // { 별칭: { at, data } } — 한 대화에서 같은 컬렉션 반복 조회 방지
   var REMOTE_CACHE_MS = 60000;
 
@@ -521,7 +545,13 @@
   function stripHeavyFields(v, depth) {
     if (depth > 8) return v;
     if (typeof v === 'string') return v.length > 2000 ? v.slice(0, 200) + '…(총 ' + v.length + '자, 생략)' : v;
-    if (Array.isArray(v)) return v.map(function (x) { return stripHeavyFields(x, depth + 1); });
+    if (Array.isArray(v)) {
+      // v29.59: 대형 배열 상한 — ITP rows·점검 사진 목록 같은 수백 개짜리 배열 토큰 폭탄 방지
+      var arr = v.length > 40 ? v.slice(0, 40) : v;
+      var out = arr.map(function (x) { return stripHeavyFields(x, depth + 1); });
+      if (v.length > 40) out.push('…외 ' + (v.length - 40) + '개 항목 생략');
+      return out;
+    }
     if (v && typeof v === 'object') {
       var o = {};
       Object.keys(v).forEach(function (k) { o[k] = stripHeavyFields(v[k], depth + 1); });
@@ -533,10 +563,16 @@
   async function fetchRemoteCollection(alias) {
     var cached = _remoteCache[alias];
     if (cached && Date.now() - cached.at < REMOTE_CACHE_MS) return cached.data;
-    var snap = await fb.getDocs(fb.collection(fb.db, REMOTE_QUERYABLE[alias]));
+    var def = REMOTE_QUERYABLE[alias];
+    // projOnly: 프로젝트 문서 id는 전부 'p'로 시작 — 범위 쿼리로 조각 문서를 네트워크에서 제외
+    var src = (def.projOnly && fb.documentId)
+      ? fb.query(fb.collection(fb.db, def.coll), fb.where(fb.documentId(), '>=', 'p'), fb.where(fb.documentId(), '<', 'q'))
+      : fb.collection(fb.db, def.coll);
+    var snap = await fb.getDocs(src);
     var docs = snap.docs
-      .filter(function (d) { return d.id.indexOf('chunk__') !== 0; })
+      .filter(function (d) { return d.id.indexOf('chunk__') !== 0 && d.id.indexOf('dwg_') !== 0; })
       .map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    if (def.slim) docs = docs.map(def.slim);
     _remoteCache[alias] = { at: Date.now(), data: docs };
     return docs;
   }
@@ -639,8 +675,27 @@
       rememberQuery(collection, finalR);
       return finalR;
     }
+    // v29.59: 메신저 메시지 — 부모가 최근 500개를 이미 구독 중. 채널 id → 채널명 치환해서 제공
+    if (collection === 'messages') {
+      var chMap = {};
+      (state.channels || []).forEach(function (c) { chMap[c.id] = c.name; });
+      var msgs = (state.messages || []).map(function (m) {
+        return Object.assign({}, m, { channelName: chMap[m.channel] || m.channel });
+      });
+      var mOut = applyFilters(msgs, 'messages', opts);
+      var mFinal = mOut.length > 200
+        ? { truncated: true, totalCount: mOut.length, note: '최신 200개만 표시', sample: mOut.slice(-200) }
+        : mOut;
+      mFinal = resolveUserIds(mFinal, map, 0);
+      rememberQuery(collection, mFinal);
+      return mFinal;
+    }
+    // v29.59: 모바일 점검 임시저장 — 사진(base64)이 섞일 수 있어 반드시 무거운 필드 절단
+    if (collection === 'mobileDrafts') {
+      return resolveUserIds(stripHeavyFields(applyFilters(state.mobileInspectionDrafts || [], collection, opts), 0), map, 0);
+    }
     if (QUERYABLE.indexOf(collection) === -1) {
-      return { error: '"' + collection + '"은(는) 조회할 수 없습니다. 사용 가능: ' + QUERYABLE.join(', ') + ', wbsData, wbsRec, ' + Object.keys(REMOTE_QUERYABLE).join(', ') };
+      return { error: '"' + collection + '"은(는) 조회할 수 없습니다. 사용 가능: ' + QUERYABLE.join(', ') + ', wbsData, wbsRec, messages, mobileDrafts, ' + Object.keys(REMOTE_QUERYABLE).join(', ') };
     }
     var data = applyFilters(state[collection] || [], collection, opts);
     var out = Array.isArray(data) && data.length > 200
@@ -820,10 +875,11 @@
 
   // ── 4. 모델(Gemini/Claude) 공용 function-calling 루프 ────────────
   var QUERY_STATE_DESC = '세종플랫폼 데이터 조회. 기간·프로젝트·상태 조건이 있는 질문은 필터 파라미터를 함께 넘겨라(전체를 받아서 직접 거르지 말 것). collection에는 다음 중 하나만: '
-    + 'projects(프로젝트), tasks(업무), users(직원), channels(메신저 채널), quotes(견적), '
-    + 'approvals(기안/결재), events(일정), okrs(목표), wbsData(WBS 공정표), wbsRec(제작공정 검사실적), '
+    + 'projects(프로젝트), tasks(업무), users(직원), channels(메신저 채널), messages(메신저 메시지 최근 500개), '
+    + 'quotes(견적), approvals(기안/결재), events(일정), okrs(목표), wbsData(WBS 공정표), wbsRec(제작공정 검사실적), '
     + 'ncrs(부적합보고서 NCR), cars(시정조치요구서 CAR), measurementTools(측정기구 대장), '
-    + 'measurementCheckouts(측정기구 반출/반납), meetingReservations(회의실 예약), meetingMinutes(회의록)';
+    + 'measurementCheckouts(측정기구 반출/반납), meetingReservations(회의실 예약), meetingMinutes(회의록), '
+    + 'assets(자산 기기 대장 PC·노트북), licenses(소프트웨어 라이선스), itpDocs(ITP·QA 생성 문서 승인상태), mobileDrafts(모바일 점검 임시저장)';
   // v29.54: 공용 필터 파라미터 정의 — 세 provider 형식(Gemini/Claude/OpenAI)이 같이 쓴다
   var QUERY_STATE_PARAMS = {
     collection: '조회할 컬렉션 (필수)',
@@ -881,7 +937,7 @@
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
     'NCR·CAR는 query_state로 조회하고, 발행(등록) 요청은 create_ncr/create_car 도구로 처리한다 — 모듈이 열리고 폼이 채워질 뿐 발행은 사용자가 직접 하며, 발행 권한은 품질관리부에 있다는 것을 답변에 명시해라. 기존 NCR/CAR의 수정·삭제는 아직 미지원이다.',
     '측정기구·회의실 예약·회의록은 query_state로 조회만 가능하다(등록·수정은 아직 미지원 — 등록 요청을 받으면 해당 모듈을 직접 열어달라고 안내해라).',
-    'ITP Builder, QA 문서생성, 모바일 점검 관련 작업(도면/사진 업로드, 검사 문서 작성 등)은 아직 AI로 지원되지 않는다 — 그런 요청을 받으면 아직 지원되지 않는다고 명확히 답하고 해당 모듈을 직접 열어달라고 안내해라.',
+    'ITP/QA 문서의 승인 상태·아이템 목록은 itpDocs로 조회할 수 있다. 단 문서 생성·도면/사진 업로드·검사 수행 자체는 아직 AI로 지원되지 않는다 — 그런 요청은 해당 모듈을 직접 열어달라고 안내해라.',
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
   ].join(' ');
 
