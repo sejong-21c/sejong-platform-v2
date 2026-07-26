@@ -23,6 +23,9 @@
  * v29.53: (로드맵 5단계) 브리핑 — get_briefing 도구가 내 업무(지연·마감 임박)·이번 주
  * 일정·내가 결재할 항목(전결 포함)·미읽음 알림을 state에서 조립해 반환(서버 호출 없음).
  * 패널 첫 오픈 시 "오늘 브리핑 보기" 추천 버튼 노출.
+ * v29.54: (로드맵 6단계) 조회 필터 — query_state에 date_from/date_to·proj·status·
+ * text·limit 파라미터. 원본을 통째로 모델에 넘기지 않고 클라이언트에서 걸러 토큰 절약.
+ * "이번 분기 OO프로젝트 NCR 현황" 같은 교차 질문이 정확해진다.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -542,8 +545,58 @@
     return v;
   }
 
+  // ── v29.54(로드맵 6단계): 조회 필터 — 걸러서 넘겨야 토큰이 안 샌다 ──
+  // 컬렉션별 대표 날짜 필드. 없으면 문서 안의 모든 YYYY-MM-DD 문자열·epoch(ms) 숫자로 판정.
+  var DATE_FIELD = {
+    tasks: 'due', events: 'date', ncrs: 'issuedAt', cars: 'issuedAt',
+    meetingReservations: 'date', meetingMinutes: 'date', measurementCheckouts: 'checkedOutAt'
+  };
+  function docDates(doc, field) {
+    if (field && typeof doc[field] === 'string' && doc[field]) return [doc[field].slice(0, 10)];
+    var out = [];
+    Object.keys(doc).forEach(function (k) {
+      var v = doc[k];
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) out.push(v.slice(0, 10));
+      else if (typeof v === 'number' && v > 1e12 && v < 2e12) out.push(localISO(new Date(v)));
+    });
+    return out;
+  }
+  function applyFilters(docs, collection, opts) {
+    if (!Array.isArray(docs) || !opts) return docs;
+    var from = (opts.date_from || '').slice(0, 10), to = (opts.date_to || '').slice(0, 10);
+    var proj = opts.proj ? String(opts.proj).toLowerCase() : '';
+    var projObj = opts.proj ? findProject(opts.proj) : null;
+    var status = opts.status ? String(opts.status).toLowerCase() : '';
+    var text = opts.text ? String(opts.text).toLowerCase() : '';
+    var out = docs.filter(function (d) {
+      if (!d || typeof d !== 'object') return true;
+      if (from || to) {
+        var dates = docDates(d, DATE_FIELD[collection]);
+        if (!dates.length) return false;
+        if (!dates.some(function (dt) { return (!from || dt >= from) && (!to || dt <= to); })) return false;
+      }
+      if (proj) {
+        var vals = [d.proj, d.projectId, d.pid, d.project].filter(Boolean).map(String);
+        var hit = vals.some(function (v) {
+          var lv = v.toLowerCase();
+          return (projObj && v === projObj.id) || lv.indexOf(proj) !== -1 || proj.indexOf(lv) !== -1;
+        });
+        if (!hit) return false;
+      }
+      if (status && String(d.status || '').toLowerCase() !== status) return false;
+      if (text) {
+        var s = ''; try { s = JSON.stringify(d).toLowerCase(); } catch (e) {}
+        if (s.indexOf(text) === -1) return false;
+      }
+      return true;
+    });
+    var lim = parseInt(opts.limit, 10);
+    if (lim > 0 && out.length > lim) out = out.slice(0, lim);
+    return out;
+  }
+
   // v29.49: 분리 모듈 컬렉션 조회가 비동기(getDocs)라 async — 호출부(executeFunctionCall)는 await 중이라 그대로 동작
-  async function queryState(collection) {
+  async function queryState(collection, opts) {
     var map = userNameMap();
     if (collection === 'wbsData') return resolveUserIds(state.wbs || {}, map, 0);
     if (collection === 'wbsRec') return resolveUserIds(state.wbsRec || {}, map, 0);
@@ -551,15 +604,19 @@
       var docs;
       try { docs = await fetchRemoteCollection(collection); }
       catch (e) { return { error: '"' + collection + '" 조회 실패: ' + (e.message || e) }; }
+      var total = docs.length;
+      docs = applyFilters(docs, collection, opts);
       var outR = docs.length > 200
         ? { truncated: true, totalCount: docs.length, sample: docs.slice(0, 200) }
-        : docs;
+        : (opts && (opts.date_from || opts.date_to || opts.proj || opts.status || opts.text)
+            ? { filtered: true, totalBeforeFilter: total, matched: docs.length, data: docs }
+            : docs);
       return resolveUserIds(stripHeavyFields(outR, 0), map, 0);
     }
     if (QUERYABLE.indexOf(collection) === -1) {
       return { error: '"' + collection + '"은(는) 조회할 수 없습니다. 사용 가능: ' + QUERYABLE.join(', ') + ', wbsData, wbsRec, ' + Object.keys(REMOTE_QUERYABLE).join(', ') };
     }
-    var data = state[collection] || [];
+    var data = applyFilters(state[collection] || [], collection, opts);
     var out = Array.isArray(data) && data.length > 200
       ? { truncated: true, totalCount: data.length, sample: data.slice(0, 200) }
       : data;
@@ -573,11 +630,21 @@
   ai.queryState = queryState;
 
   // ── 4. 모델(Gemini/Claude) 공용 function-calling 루프 ────────────
-  var QUERY_STATE_DESC = '세종플랫폼 데이터 조회. collection에는 다음 중 하나만: '
+  var QUERY_STATE_DESC = '세종플랫폼 데이터 조회. 기간·프로젝트·상태 조건이 있는 질문은 필터 파라미터를 함께 넘겨라(전체를 받아서 직접 거르지 말 것). collection에는 다음 중 하나만: '
     + 'projects(프로젝트), tasks(업무), users(직원), channels(메신저 채널), quotes(견적), '
     + 'approvals(기안/결재), events(일정), okrs(목표), wbsData(WBS 공정표), wbsRec(제작공정 검사실적), '
     + 'ncrs(부적합보고서 NCR), cars(시정조치요구서 CAR), measurementTools(측정기구 대장), '
     + 'measurementCheckouts(측정기구 반출/반납), meetingReservations(회의실 예약), meetingMinutes(회의록)';
+  // v29.54: 공용 필터 파라미터 정의 — 세 provider 형식(Gemini/Claude/OpenAI)이 같이 쓴다
+  var QUERY_STATE_PARAMS = {
+    collection: '조회할 컬렉션 (필수)',
+    date_from: '이 날짜부터만 포함 YYYY-MM-DD (선택)',
+    date_to: '이 날짜까지만 포함 YYYY-MM-DD (선택)',
+    proj: '프로젝트명/코드로 거르기 (선택)',
+    status: '상태값으로 거르기 — 예: open, closed, done, pending (선택)',
+    text: '이 텍스트가 포함된 문서만 (선택)',
+    limit: '최대 반환 건수 (선택, 숫자)'
+  };
 
   function buildGeminiTools() {
     var decls = Object.keys(ai.actions).map(function (name) {
@@ -586,10 +653,12 @@
       Object.keys(def.params).forEach(function (k) { props[k] = { type: 'STRING', description: def.params[k] }; });
       return { name: name, description: def.description, parameters: { type: 'OBJECT', properties: props } };
     });
+    var qProps = {};
+    Object.keys(QUERY_STATE_PARAMS).forEach(function (k) { qProps[k] = { type: 'STRING', description: QUERY_STATE_PARAMS[k] }; });
     decls.push({
       name: 'query_state',
       description: QUERY_STATE_DESC,
-      parameters: { type: 'OBJECT', properties: { collection: { type: 'STRING' } }, required: ['collection'] }
+      parameters: { type: 'OBJECT', properties: qProps, required: ['collection'] }
     });
     return [{ functionDeclarations: decls }];
   }
@@ -601,10 +670,12 @@
       Object.keys(def.params).forEach(function (k) { props[k] = { type: 'string', description: def.params[k] }; });
       return { name: name, description: def.description, input_schema: { type: 'object', properties: props } };
     });
+    var qProps = {};
+    Object.keys(QUERY_STATE_PARAMS).forEach(function (k) { qProps[k] = { type: 'string', description: QUERY_STATE_PARAMS[k] }; });
     decls.push({
       name: 'query_state',
       description: QUERY_STATE_DESC,
-      input_schema: { type: 'object', properties: { collection: { type: 'string' } }, required: ['collection'] }
+      input_schema: { type: 'object', properties: qProps, required: ['collection'] }
     });
     return decls;
   }
@@ -774,9 +845,11 @@
       Object.keys(def.params).forEach(function (k) { props[k] = { type: 'string', description: def.params[k] }; });
       return { type: 'function', function: { name: name, description: def.description, parameters: { type: 'object', properties: props } } };
     });
+    var qProps = {};
+    Object.keys(QUERY_STATE_PARAMS).forEach(function (k) { qProps[k] = { type: 'string', description: QUERY_STATE_PARAMS[k] }; });
     decls.push({
       type: 'function',
-      function: { name: 'query_state', description: QUERY_STATE_DESC, parameters: { type: 'object', properties: { collection: { type: 'string' } }, required: ['collection'] } }
+      function: { name: 'query_state', description: QUERY_STATE_DESC, parameters: { type: 'object', properties: qProps, required: ['collection'] } }
     });
     return decls;
   }
@@ -1090,7 +1163,7 @@
   window.SJP_AI_lastLocalFail = function () { return lastLocalFail; };
 
   async function executeFunctionCall(name, args) {
-    if (name === 'query_state') return queryState(args.collection);
+    if (name === 'query_state') return queryState(args.collection, args); // v29.54: 필터 파라미터 전달
     var def = ai.actions[name];
     if (!def) return { error: '알 수 없는 액션: ' + name };
     if (def.query) { // v29.53: 조회형 액션 — 폼 없이 데이터만 반환
