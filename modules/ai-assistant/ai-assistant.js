@@ -9,6 +9,9 @@
  * v29.45: 로컬 LLM(LM Studio / Ollama) 연동 — 이 컴퓨터 주소가 설정되면 0순위로 먼저 시도,
  * 꺼져 있거나 실패하면 자동으로 무료 API 체인으로 폴백. 주소는 기기별 localStorage 저장.
  * 우선순위: 로컬 LLM → Gemini → Groq → Cerebras → NVIDIA → OpenRouter → Mistral → Claude(유료).
+ * v29.49: (로드맵 1단계) 조회 범위 확대 — NCR·CAR·측정기구·회의실처럼 부모 state에 없는
+ * 분리 모듈 컬렉션을 Firestore 1회 조회(getDocs)로 읽는다. 상시 구독은 하지 않음(비용).
+ * 첨부파일 조각 문서(chunk__*)와 대용량 문자열 필드는 걸러서 토큰 낭비를 막는다.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -327,7 +330,48 @@
   // ── 3. 범용 조회 도구 ───────────────────────────────────────────
   // 데이터 종류별 전용 함수를 계속 늘리는 대신, 컬렉션 하나를 통째로 넘기고 모델이 스스로 요약/판단하게 함.
   var QUERYABLE = ['projects', 'tasks', 'users', 'channels', 'quotes', 'approvals', 'events', 'okrs'];
-  var LOCAL_ONLY = ['quotes', 'approvals', 'events', 'okrs']; // 이 브라우저에만 저장(전사 공유 아님)
+  // v29.49: approvals/events/okrs/tasks는 v29.11부터 Firestore 동기화됨 — 로컬 한정은 quotes뿐
+  var LOCAL_ONLY = ['quotes']; // 이 브라우저에만 저장(전사 공유 아님)
+
+  // v29.49: 분리 모듈 컬렉션 — 부모 state에 없어 질문 시점에 Firestore에서 1회 조회한다.
+  // 별칭(모델에 노출) → 실제 컬렉션명. 상시 구독(onSnapshot)은 하지 않는다 — AI 질문은
+  // 가끔이라 실시간성보다 읽기 비용 절약이 우선.
+  var REMOTE_QUERYABLE = {
+    ncrs: 't_ncrs',                              // 부적합보고서 (modules/ncr)
+    cars: 't_cars',                              // 시정조치요구서 (modules/car)
+    measurementTools: 'measurementTools',        // 측정기구 대장
+    measurementCheckouts: 'measurementCheckouts',// 측정기구 반출/반납
+    meetingReservations: 'meetingReservations',  // 회의실 예약
+    meetingMinutes: 'meetingMinutes'             // 회의록
+  };
+  var _remoteCache = {}; // { 별칭: { at, data } } — 한 대화에서 같은 컬렉션 반복 조회 방지
+  var REMOTE_CACHE_MS = 60000;
+
+  // t_ncrs/t_cars에는 첨부파일이 chunk__* id의 base64 조각 문서(개당 최대 700KB)로 섞여
+  // 저장된다(ncr.html v29.13.4) — 목록 화면들과 동일하게 반드시 걸러낸다.
+  // 그 외에도 대용량 문자열 필드(dataUrl, OCR 원문 등)는 모델에 넘겨봐야 토큰만 태우므로 자른다.
+  function stripHeavyFields(v, depth) {
+    if (depth > 8) return v;
+    if (typeof v === 'string') return v.length > 2000 ? v.slice(0, 200) + '…(총 ' + v.length + '자, 생략)' : v;
+    if (Array.isArray(v)) return v.map(function (x) { return stripHeavyFields(x, depth + 1); });
+    if (v && typeof v === 'object') {
+      var o = {};
+      Object.keys(v).forEach(function (k) { o[k] = stripHeavyFields(v[k], depth + 1); });
+      return o;
+    }
+    return v;
+  }
+
+  async function fetchRemoteCollection(alias) {
+    var cached = _remoteCache[alias];
+    if (cached && Date.now() - cached.at < REMOTE_CACHE_MS) return cached.data;
+    var snap = await fb.getDocs(fb.collection(fb.db, REMOTE_QUERYABLE[alias]));
+    var docs = snap.docs
+      .filter(function (d) { return d.id.indexOf('chunk__') !== 0; })
+      .map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    _remoteCache[alias] = { at: Date.now(), data: docs };
+    return docs;
+  }
 
   // v29.40: 조회 결과 속 사용자 ID(Firebase UID, pu_... 등)를 사람 이름으로 치환해서 모델에 넘긴다.
   // — PM/구성원이 "RWqHYJnIdm..." 같은 코드 그대로 답변에 나오던 문제 수정.
@@ -348,11 +392,22 @@
     return v;
   }
 
-  function queryState(collection) {
+  // v29.49: 분리 모듈 컬렉션 조회가 비동기(getDocs)라 async — 호출부(executeFunctionCall)는 await 중이라 그대로 동작
+  async function queryState(collection) {
     var map = userNameMap();
     if (collection === 'wbsData') return resolveUserIds(state.wbs || {}, map, 0);
+    if (collection === 'wbsRec') return resolveUserIds(state.wbsRec || {}, map, 0);
+    if (REMOTE_QUERYABLE[collection]) {
+      var docs;
+      try { docs = await fetchRemoteCollection(collection); }
+      catch (e) { return { error: '"' + collection + '" 조회 실패: ' + (e.message || e) }; }
+      var outR = docs.length > 200
+        ? { truncated: true, totalCount: docs.length, sample: docs.slice(0, 200) }
+        : docs;
+      return resolveUserIds(stripHeavyFields(outR, 0), map, 0);
+    }
     if (QUERYABLE.indexOf(collection) === -1) {
-      return { error: '"' + collection + '"은(는) 조회할 수 없습니다. 사용 가능: ' + QUERYABLE.join(', ') + ', wbsData' };
+      return { error: '"' + collection + '"은(는) 조회할 수 없습니다. 사용 가능: ' + QUERYABLE.join(', ') + ', wbsData, wbsRec, ' + Object.keys(REMOTE_QUERYABLE).join(', ') };
     }
     var data = state[collection] || [];
     var out = Array.isArray(data) && data.length > 200
@@ -368,7 +423,11 @@
   ai.queryState = queryState;
 
   // ── 4. 모델(Gemini/Claude) 공용 function-calling 루프 ────────────
-  var QUERY_STATE_DESC = '세종플랫폼 데이터 조회. collection에는 다음 중 하나만: ' + QUERYABLE.join(', ') + ', wbsData';
+  var QUERY_STATE_DESC = '세종플랫폼 데이터 조회. collection에는 다음 중 하나만: '
+    + 'projects(프로젝트), tasks(업무), users(직원), channels(메신저 채널), quotes(견적), '
+    + 'approvals(기안/결재), events(일정), okrs(목표), wbsData(WBS 공정표), wbsRec(제작공정 검사실적), '
+    + 'ncrs(부적합보고서 NCR), cars(시정조치요구서 CAR), measurementTools(측정기구 대장), '
+    + 'measurementCheckouts(측정기구 반출/반납), meetingReservations(회의실 예약), meetingMinutes(회의록)';
 
   function buildGeminiTools() {
     var decls = Object.keys(ai.actions).map(function (name) {
@@ -404,9 +463,10 @@
     '너는 세종기술의 사내 플랫폼 "세종플랫폼"의 AI 비서다. 한국어로 간결하게 답한다.',
     '조회는 query_state 도구로 처리한다. 등록/생성 요청은 해당 액션 도구를 호출한다 — 네가 직접 저장하는 게 아니라, ',
     '실제 입력 폼을 열고 값을 미리 채워주는 것뿐이며 최종 저장은 사용자가 화면에서 직접 확인 버튼을 눌러야 한다는 것을 답변에 명시해라.',
-    'ncrs/cars/quotes/approvals/events/okrs 데이터는 사용자 브라우저에만 저장되어 다른 직원 화면과 다를 수 있다 — 관련 질문에는 이 점을 알려줘라.',
+    'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
-    'ITP Builder, QA 문서생성, 모바일 점검, NCR 관리, CAR 관리 관련 작업(도면/사진 업로드, 검사 문서 작성, 부적합/시정조치 등록·조회 등)은 아직 AI로 지원되지 않는다 — 그런 요청을 받으면 아직 지원되지 않는다고 명확히 답하고 해당 모듈을 직접 열어달라고 안내해라.',
+    'NCR(부적합보고서)·CAR(시정조치요구서)·측정기구·회의실 예약·회의록은 query_state로 조회만 가능하다(등록·수정은 아직 미지원 — 등록 요청을 받으면 해당 모듈을 직접 열어달라고 안내해라).',
+    'ITP Builder, QA 문서생성, 모바일 점검 관련 작업(도면/사진 업로드, 검사 문서 작성 등)은 아직 AI로 지원되지 않는다 — 그런 요청을 받으면 아직 지원되지 않는다고 명확히 답하고 해당 모듈을 직접 열어달라고 안내해라.',
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
   ].join(' ');
 
