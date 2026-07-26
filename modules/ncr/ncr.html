@@ -1881,6 +1881,51 @@ loadState();
 render();
 startNcrFirestoreSync();
 setInterval(finalizeExpiredNCRDeletes, 60000);
+
+// ═══ AI 비서 프리필 (v29.52, 로드맵 4단계) ═══
+// 부모가 ?aiPrefill=<json>으로 열면: 데이터 로드를 기다렸다가 발행 폼을 열고 값만 채운다.
+// 저장(발행)은 사람이 직접 확인 버튼을 눌러야 한다 — AI 직접 저장 금지 원칙.
+(function () {
+  let data = null;
+  try {
+    const q = new URLSearchParams(location.search).get('aiPrefill');
+    if (q) data = JSON.parse(q);
+  } catch (e) {}
+  if (!data) return;
+  let tries = 0;
+  const timer = setInterval(() => {
+    if (++tries > 100) { clearInterval(timer); return; }   // ~30초 내 준비 안 되면 포기
+    // state는 이 모듈의 let 전역(window.state 아님) — loadState()가 부모가 저장한
+    // localStorage 스냅샷을 읽으면 currentUser가 채워진다. 그때까지 대기.
+    if (!state || !state.currentUser) return;
+    clearInterval(timer);
+    openNewNCR();
+    setTimeout(() => {
+      const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+      const selByText = (id, v) => {
+        if (!v) return;
+        const s = document.getElementById(id); if (!s) return;
+        const n = String(v).toLowerCase();
+        const o = Array.from(s.options).find(x => { const t = x.textContent.trim().toLowerCase(); return t && (t.includes(n) || n.includes(t)); });
+        if (o && o.value) s.value = o.value;
+      };
+      if (data.proj) { // 이름/코드 → 프로젝트 옵션 매칭, 실패하면 직접 입력으로
+        const sel = document.getElementById('ncrProj');
+        const needle = String(data.proj).toLowerCase();
+        const hit = Array.from(sel ? sel.options : []).find(o => o.value !== '__direct__' && o.textContent.toLowerCase().includes(needle));
+        if (hit) sel.value = hit.value;
+        else if (sel) { sel.value = '__direct__'; set('ncrProjDirect', data.proj); }
+      }
+      set('ncrClient', data.client); set('ncrIssuedAt', data.issuedAt);
+      set('ncrDwg', data.dwgNo); set('ncrWr', data.wrNo); set('ncrItem', data.item);
+      set('ncrGrade', { '중대': 'major', '일반': 'minor', '경미': 'obs' }[data.grade] || data.grade);
+      selByText('ncrLoc', data.location); selByText('ncrCause', data.cause);
+      selByText('ncrDetail', data.causeDetail); selByText('ncrDisp', data.disposition);
+      set('ncrDesc', data.desc);
+      showToast('🤖 AI 비서가 채운 값입니다 — 내용 확인 후 저장해주세요');
+    }, 150);
+  }, 300);
+})();
 </script>
 </body>
 </html>

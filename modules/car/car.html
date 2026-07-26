@@ -1723,6 +1723,50 @@ loadState();
 render();
 startCarFirestoreSync();
 setInterval(finalizeExpiredCARDeletes, 60000);
+
+// ═══ AI 비서 프리필 (v29.52, 로드맵 4단계) ═══
+// 부모가 ?aiPrefill=<json>으로 열면: 데이터 로드를 기다렸다가 발행 폼을 열고 값만 채운다.
+// 저장(발행)은 사람이 직접 확인 버튼을 눌러야 한다 — AI 직접 저장 금지 원칙.
+(function () {
+  let data = null;
+  try {
+    const q = new URLSearchParams(location.search).get('aiPrefill');
+    if (q) data = JSON.parse(q);
+  } catch (e) {}
+  if (!data) return;
+  let tries = 0;
+  const timer = setInterval(() => {
+    if (++tries > 100) { clearInterval(timer); return; }   // ~30초 내 준비 안 되면 포기
+    // state는 이 모듈의 let 전역(window.state 아님) — loadState()가 부모가 저장한
+    // localStorage 스냅샷을 읽으면 currentUser가 채워진다. 그때까지 대기.
+    if (!state || !state.currentUser) return;
+    clearInterval(timer);
+    openNewCAR();
+    setTimeout(() => {
+      const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+      const selByText = (id, v) => {
+        if (!v) return;
+        const s = document.getElementById(id); if (!s) return;
+        const n = String(v).toLowerCase();
+        const o = Array.from(s.options).find(x => { const t = x.textContent.trim().toLowerCase(); return t && (t.includes(n) || n.includes(t)); });
+        if (o && o.value) s.value = o.value;
+      };
+      set('carIssuedAt', data.issuedAt);
+      selByText('carQualReq', data.qualReq); selByText('carField', data.field); selByText('carCause', data.cause);
+      set('carReqContent', data.reqContent); set('carCauseDetail', data.causeDetail);
+      set('carAction', data.action); set('carResult', data.result);
+      set('carReplyDue', data.replyDue);
+      if (data.reqDept) { // 시정조치요구부서 — 부서명(쉼표 구분 가능)으로 체크박스 매칭
+        const names = String(data.reqDept).split(/[,;/]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+        document.querySelectorAll('#carReqDeptGrid input[type="checkbox"]').forEach(cb => {
+          const label = (cb.closest('label') || cb.parentElement || {}).textContent || '';
+          if (names.some(n => label.toLowerCase().includes(n))) cb.checked = true;
+        });
+      }
+      showToast('🤖 AI 비서가 채운 값입니다 — 내용 확인 후 저장해주세요');
+    }, 150);
+  }, 300);
+})();
 </script>
 </body>
 </html>

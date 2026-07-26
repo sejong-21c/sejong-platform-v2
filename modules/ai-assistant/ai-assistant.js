@@ -17,6 +17,9 @@
  * v29.51: (로드맵 3단계) 대화 기록 유지 — 새로고침해도 대화가 이어진다. 사용자별
  * localStorage 저장(최근 40턴, 조회 결과는 1,000자 절단), 패널 열 때 복원, 새 대화(🧹) 버튼.
  * localStorage는 기록 '저장'에만 쓴다 — 중복 방지 게이트로 쓰지 않음(2026-07-17 교훈).
+ * v29.52: (로드맵 4단계) NCR/CAR 발행 연동 — create_ncr/create_car가 부모
+ * openModuleWithPrefill()로 모듈을 열면서 ?aiPrefill=<json>을 전달, 모듈 수신 코드가
+ * 발행 폼을 열고 값만 채운다. 발행(저장)은 사람이 직접 — AI 직접 저장 금지 원칙 유지.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -237,7 +240,37 @@
   });
 
   // NCR/CAR는 v29.8 리팩터로 index.html 밖 별도 모듈(modules/ncr, modules/car)로 이동해서
-  // 더 이상 openNewNCR() 같은 부모 함수가 없다 — ITP Builder 등과 같은 Layer 4 취급으로 내림.
+  // 더 이상 openNewNCR() 같은 부모 함수가 없다.
+  // v29.52(로드맵 4단계): 부모 openModuleWithPrefill()이 모듈을 iframe으로 열면서
+  // ?aiPrefill=<json>을 넘기고, 모듈 안 수신 코드가 발행 폼을 열고 값만 채운다. 저장은 사람이.
+
+  registerAction('create_ncr', {
+    description: 'NCR(부적합보고서) 발행 — NCR 관리 모듈을 열고 발행 폼에 값을 미리 채운다 (발행 권한은 품질관리부, 저장은 사용자가 직접)',
+    params: {
+      proj: '프로젝트명/코드', item: '대상 장비/부위 (예: T-8405 N-9 노즐)', desc: '부적합 내용(필수)',
+      grade: '중대 또는 일반 또는 경미', client: '고객사(선택)', location: '발생장소(선택)',
+      cause: '불량원인(선택)', disposition: '처리방안(선택)', issuedAt: '발행일 YYYY-MM-DD(선택)'
+    },
+    fill: function (v) {
+      if (typeof window.openModuleWithPrefill !== 'function') return { error: '이 화면 버전에서는 지원되지 않습니다 — 새로고침 후 다시 시도해주세요.' };
+      window.openModuleWithPrefill('ncr', v);
+      return { status: 'NCR 관리 모듈을 열고 발행 폼에 값을 채워두었습니다. 사용자가 내용을 확인하고 저장 버튼을 직접 눌러야 발행됩니다.' };
+    }
+  });
+
+  registerAction('create_car', {
+    description: 'CAR(시정조치요구서) 발행 — CAR 관리 모듈을 열고 발행 폼에 값을 미리 채운다 (발행 권한은 품질관리부, 저장은 사용자가 직접)',
+    params: {
+      reqContent: '시정조치 요구내용(필수)', causeDetail: '발생원인(선택)', qualReq: '품질요건(선택)',
+      field: '발생분야(선택)', cause: '원인 구분(선택)', reqDept: '시정조치요구부서 — 부서명, 여러 개면 쉼표 구분(선택)',
+      replyDue: '회신기한 YYYY-MM-DD(선택)', issuedAt: '발행일 YYYY-MM-DD(선택)'
+    },
+    fill: function (v) {
+      if (typeof window.openModuleWithPrefill !== 'function') return { error: '이 화면 버전에서는 지원되지 않습니다 — 새로고침 후 다시 시도해주세요.' };
+      window.openModuleWithPrefill('car', v);
+      return { status: 'CAR 관리 모듈을 열고 발행 폼에 값을 채워두었습니다. 사용자가 내용을 확인하고 저장 버튼을 직접 눌러야 발행됩니다.' };
+    }
+  });
 
   registerAction('create_project', {
     description: '신규 프로젝트 등록',
@@ -539,7 +572,8 @@
     '"OO 열어줘/보여줘/이동해줘"처럼 특정 화면으로 가고 싶다는 요청은 open_module 도구로 처리한다.',
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
-    'NCR(부적합보고서)·CAR(시정조치요구서)·측정기구·회의실 예약·회의록은 query_state로 조회만 가능하다(등록·수정은 아직 미지원 — 등록 요청을 받으면 해당 모듈을 직접 열어달라고 안내해라).',
+    'NCR·CAR는 query_state로 조회하고, 발행(등록) 요청은 create_ncr/create_car 도구로 처리한다 — 모듈이 열리고 폼이 채워질 뿐 발행은 사용자가 직접 하며, 발행 권한은 품질관리부에 있다는 것을 답변에 명시해라. 기존 NCR/CAR의 수정·삭제는 아직 미지원이다.',
+    '측정기구·회의실 예약·회의록은 query_state로 조회만 가능하다(등록·수정은 아직 미지원 — 등록 요청을 받으면 해당 모듈을 직접 열어달라고 안내해라).',
     'ITP Builder, QA 문서생성, 모바일 점검 관련 작업(도면/사진 업로드, 검사 문서 작성 등)은 아직 AI로 지원되지 않는다 — 그런 요청을 받으면 아직 지원되지 않는다고 명확히 답하고 해당 모듈을 직접 열어달라고 안내해라.',
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
   ].join(' ');

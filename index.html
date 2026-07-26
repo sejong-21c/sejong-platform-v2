@@ -1148,8 +1148,8 @@ const WBS_BUILD = 'b66';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b27';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const NCR_BUILD = 'b16';
-const CAR_BUILD = 'b15';
+const NCR_BUILD = 'b17'; // v29.52: AI 프리필 수신 추가
+const CAR_BUILD = 'b16'; // v29.52: AI 프리필 수신 추가
 const QADASH_BUILD = 'b15';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
@@ -1812,6 +1812,13 @@ let _itpViewTarget = null;
 window.openItpViewerFor = function(pid, tag) {
   _itpViewTarget = { pid: pid || '', tag: tag || '' };
   openTool('itpview');
+};
+// v29.52: AI 비서 프리필 — NCR/CAR 모듈을 열면서 등록 폼에 채울 값을 iframe 쿼리로 전달.
+// _itpViewTarget과 동일한 일회성 소비 관례. 저장은 여전히 모듈 안에서 사람이 직접 한다.
+let _aiPrefillTarget = null;
+window.openModuleWithPrefill = function(tool, data) {
+  _aiPrefillTarget = { tool: tool, data: data || {} };
+  openTool(tool);
 };
 function openTool(tid, deptName) {
   view.selectedTool = tid;
@@ -2733,8 +2740,8 @@ function render() {
   }
   // v29.9-fix: 원래대로 innerHTML로 설정하되, iframeViewKey()가 이제 ncr/car/qadash를 반환하므로
   // 위쪽의 dataset.ifkey 가드가 재render를 스킵해 iframe이 재로드되지 않음.
-  if (view.selectedTool === 'ncr') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html?v=${NCR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
-  if (view.selectedTool === 'car') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html?v=${CAR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
+  if (view.selectedTool === 'ncr') { const _apN=(_aiPrefillTarget&&_aiPrefillTarget.tool==='ncr')?_aiPrefillTarget:null; if(_apN)_aiPrefillTarget=null; const _apqN=_apN?`&aiPrefill=${encodeURIComponent(JSON.stringify(_apN.data))}`:''; content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/ncr/ncr.html?v=${NCR_BUILD}${_apqN}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="NCR 관리"></iframe></div>`; return; }
+  if (view.selectedTool === 'car') { const _apC=(_aiPrefillTarget&&_aiPrefillTarget.tool==='car')?_aiPrefillTarget:null; if(_apC)_aiPrefillTarget=null; const _apqC=_apC?`&aiPrefill=${encodeURIComponent(JSON.stringify(_apC.data))}`:''; content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/car/car.html?v=${CAR_BUILD}${_apqC}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="CAR 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'qadash') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/quality/qa-dashboard.html?v=${QADASH_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="품질종합분석표"></iframe></div>`; return; }
   if (view.selectedTool === 'itpview') { const _t=_itpViewTarget; _itpViewTarget=null; const _q=(_t&&_t.pid)?`&pid=${encodeURIComponent(_t.pid)}${_t.tag?`&tag=${encodeURIComponent(_t.tag)}`:''}`:''; content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/itp-viewer/itp-viewer.html?v=${ITPVIEW_BUILD}${_q}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="ITP 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'qaview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/qa-viewer/qa-viewer.html?v=${QAVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="QA Doc 조회"></iframe></div>`; return; }
@@ -7490,7 +7497,7 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.51.0"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.52.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.
