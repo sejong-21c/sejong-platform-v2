@@ -481,6 +481,20 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 .ai-msg.user { text-align: right; color: var(--primary); }
 .ai-msg.assistant { color: var(--text); }
 .ai-msg.system { color: var(--text-lighter); font-size: 11px; }
+/* v29.57(로드맵 10단계): 마크다운 렌더링 + 복사 버튼 */
+.ai-msg.assistant { position: relative; padding-right: 26px; }
+.ai-msg.assistant .md { white-space: normal; }
+.ai-msg.assistant .md > div { min-height: 1em; }
+.ai-msg.assistant .md .md-gap { height: 7px; min-height: 0; }
+.ai-msg.assistant .md .md-h { font-weight: 700; margin: 8px 0 3px; }
+.ai-msg.assistant .md ul, .ai-msg.assistant .md ol { margin: 4px 0 4px 20px; white-space: normal; }
+.ai-msg.assistant .md li { margin: 2px 0; }
+.ai-msg.assistant .md table { border-collapse: collapse; margin: 7px 0; font-size: 12px; }
+.ai-msg.assistant .md th, .ai-msg.assistant .md td { border: 1px solid var(--border); padding: 3px 8px; text-align: left; }
+.ai-msg.assistant .md th { background: var(--bg); }
+.ai-msg.assistant .md code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 12px; }
+.ai-copy-btn { position: absolute; top: 2px; right: 0; border: none; background: transparent; cursor: pointer; font-size: 12px; opacity: .35; padding: 2px; }
+.ai-copy-btn:hover { opacity: 1; }
 .ai-confirm-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin: 6px 0; background: var(--bg); font-size: 12px; }
 .ai-confirm-card .btn { margin-top: 8px; }
 .ai-panel-foot { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
@@ -7497,7 +7511,7 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.56.0"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.57.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

@@ -32,6 +32,9 @@
  * v29.56: (로드맵 8단계) 사내 문서 검색(RAG) — search_docs 도구가 게이트웨이
  * /rag/search(Vectorize+Workers AI)를 호출해 등록된 절차서·매뉴얼에서 관련 대목을 찾는다.
  * 🔑 모달에 관리자용 문서 등록 섹션(청크 분할 → /rag/upload). 게이트웨이 v3 필요.
+ * v29.57: (로드맵 10단계, 2기) 대화 UI 품질 — 답변 마크다운 렌더링(굵게·표·목록·코드,
+ * HTML 이스케이프 후 변환이라 스크립트 주입 불가), 도구 사용 중 상태 표시
+ * ("데이터 조회 중…"), 완성된 답변에 복사(📋) 버튼.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -1363,11 +1366,24 @@
     return { status: '"' + def.description + '" 입력 폼을 열고 값을 채워놨습니다. 사용자가 확인 후 저장 버튼을 눌러야 실제로 저장됩니다.' };
   }
 
+  // v29.57: 도구 실행 중임을 사용자에게 보여줄 라벨
+  var TOOL_STATUS = {
+    query_state: '📊 데이터 조회 중', get_briefing: '📋 브리핑 준비 중', search_docs: '📚 사내 문서 검색 중',
+    export_result: '📄 파일 생성 중', open_module: '🧭 화면 이동 중', send_message: '💬 메시지 준비 중',
+    create_ncr: '⚠️ NCR 폼 준비 중', create_car: '🔧 CAR 폼 준비 중'
+  };
+  function toolStatusLabel(name, args) {
+    var base = TOOL_STATUS[name] || ('🔧 ' + name + ' 실행 중');
+    if (name === 'query_state' && args && args.collection) base += ' (' + args.collection + ')';
+    return base + '…';
+  }
+
   async function runConversation(userText, onStatus, onToken) {
     history.push({ role: 'user', text: userText });
     for (var i = 0; i < 5; i++) {
       var result = await callProviderOnce(history, onStatus, onToken);
       if (result.type === 'function_call') {
+        if (onStatus) onStatus(toolStatusLabel(result.name, result.args)); // v29.57: 도구 사용 표시
         history.push({ role: 'model', functionCall: { name: result.name, args: result.args, id: result.callId } });
         var execResult = await executeFunctionCall(result.name, result.args);
         history.push({ role: 'function', name: result.name, result: execResult, callId: result.callId });
@@ -1380,14 +1396,98 @@
   }
 
   // ── 5. 채팅 UI ──────────────────────────────────────────────────
+  // v29.57(로드맵 10단계): 답변 마크다운 렌더링. 반드시 HTML 이스케이프를 먼저 하고
+  // 안전한 태그만 조립하므로 모델 출력에 스크립트가 섞여도 실행되지 않는다.
+  function escHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function mdInline(s) {
+    return s
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/__([^_]+)__/g, '<b>$1</b>');
+  }
+  function renderMarkdown(text) {
+    var lines = escHtml(text || '').split('\n');
+    var html = [], i = 0, inUl = false, inOl = false;
+    function closeLists() {
+      if (inUl) { html.push('</ul>'); inUl = false; }
+      if (inOl) { html.push('</ol>'); inOl = false; }
+    }
+    while (i < lines.length) {
+      var ln = lines[i];
+      // 표: | a | b | 형태 + 다음 줄이 |---|---| 구분선
+      if (/^\s*\|.*\|\s*$/.test(ln) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+        closeLists();
+        var head = ln.replace(/^\s*\||\|\s*$/g, '').split('|').map(function (c) { return '<th>' + mdInline(c.trim()) + '</th>'; }).join('');
+        html.push('<table><thead><tr>' + head + '</tr></thead><tbody>');
+        i += 2;
+        while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+          var cells = lines[i].replace(/^\s*\||\|\s*$/g, '').split('|').map(function (c) { return '<td>' + mdInline(c.trim()) + '</td>'; }).join('');
+          html.push('<tr>' + cells + '</tr>');
+          i++;
+        }
+        html.push('</tbody></table>');
+        continue;
+      }
+      var h = ln.match(/^(#{1,4})\s+(.*)$/);
+      if (h) { closeLists(); html.push('<div class="md-h">' + mdInline(h[2]) + '</div>'); i++; continue; }
+      var ul = ln.match(/^\s*[-*·]\s+(.*)$/);
+      if (ul) {
+        if (inOl) { html.push('</ol>'); inOl = false; }
+        if (!inUl) { html.push('<ul>'); inUl = true; }
+        html.push('<li>' + mdInline(ul[1]) + '</li>'); i++; continue;
+      }
+      var ol = ln.match(/^\s*(\d+)[.)]\s+(.*)$/);
+      if (ol) {
+        if (inUl) { html.push('</ul>'); inUl = false; }
+        if (!inOl) { html.push('<ol>'); inOl = true; }
+        html.push('<li>' + mdInline(ol[2]) + '</li>'); i++; continue;
+      }
+      closeLists();
+      if (ln.trim() === '') html.push('<div class="md-gap"></div>');
+      else html.push('<div>' + mdInline(ln) + '</div>');
+      i++;
+    }
+    closeLists();
+    return html.join('');
+  }
+
   function appendMsg(role, text) {
     var box = $id('aiMessages');
     var div = document.createElement('div');
     div.className = 'ai-msg ' + role;
-    div.textContent = text;
+    if (role === 'assistant') {
+      var content = document.createElement('div');
+      content.className = 'md';
+      content.innerHTML = renderMarkdown(text);
+      div._md = content;
+      div._raw = text || '';
+      div.appendChild(content);
+      var cp = document.createElement('button');
+      cp.className = 'ai-copy-btn';
+      cp.title = '답변 복사';
+      cp.textContent = '📋';
+      cp.onclick = function () {
+        try {
+          navigator.clipboard.writeText(div._raw || '');
+          cp.textContent = '✓';
+          setTimeout(function () { cp.textContent = '📋'; }, 1200);
+        } catch (e) {}
+      };
+      div.appendChild(cp);
+    } else {
+      div.textContent = text;
+    }
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
     return div;
+  }
+  function appendAssistantChunk(el, chunk) {
+    el._raw = (el._raw || '') + chunk;
+    if (el._md) el._md.innerHTML = renderMarkdown(el._raw);
+  }
+  function setAssistantFinal(el, text) {
+    el._raw = text;
+    if (el._md) el._md.innerHTML = renderMarkdown(text);
   }
 
   function renderConfirmCard(actionName, def, resolved) {
@@ -1620,35 +1720,35 @@
     aiBusy = true;
     var btn = $id('aiSendBtn');
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
-    appendMsg('system', '생각 중...');
-    var thinkingEl = $id('aiMessages').lastChild;
+    // v29.57: 상태 줄 — 토큰이 오면 지워지고, 도구 호출이 시작되면 다시 맨 아래 생긴다
+    var statusEl = appendMsg('system', '생각 중...');
     var assistantMsgEl = null;
+    function setStatus(t) {
+      if (statusEl) statusEl.textContent = t;
+      else { statusEl = appendMsg('system', t); }
+      var box = $id('aiMessages');
+      if (box) box.scrollTop = box.scrollHeight;
+    }
+    function clearStatus() { if (statusEl) { statusEl.remove(); statusEl = null; } }
 
     try {
       var reply = await runConversation(
         text,
-        function (statusText) {
-          if (thinkingEl) thinkingEl.textContent = statusText;
-        },
+        setStatus,
         function (tokenChunk) {
-          if (thinkingEl) {
-            thinkingEl.remove();
-            thinkingEl = null;
-          }
-          if (!assistantMsgEl) {
-            assistantMsgEl = appendMsg('assistant', '');
-          }
-          assistantMsgEl.textContent += tokenChunk;
+          clearStatus();
+          if (!assistantMsgEl) assistantMsgEl = appendMsg('assistant', '');
+          appendAssistantChunk(assistantMsgEl, tokenChunk);
           var box = $id('aiMessages');
           if (box) box.scrollTop = box.scrollHeight;
         }
       );
 
-      if (thinkingEl) thinkingEl.remove();
+      clearStatus();
       if (!assistantMsgEl && reply) {
         appendMsg('assistant', reply);
       } else if (assistantMsgEl && reply) {
-        assistantMsgEl.textContent = reply;
+        setAssistantFinal(assistantMsgEl, reply);
       }
       if (lastProviderLabel) appendMsg('system', '— ' + lastProviderLabel);
       logAiUsage(true, lastProviderLabel);
@@ -1658,7 +1758,7 @@
         appendMsg('system', '🖥 내 컴퓨터 LLM / 9Router로 답하지 못해 다른 AI로 넘어갔어요 (' + lastLocalFail + ').\n확인: ① 9Router/LM Studio 서버가 켜졌는지 ② 주소/API 키가 맞는지 ③ 9Router에 등록된 모델명(예: fable-5, cc/claude-opus-4-7)과 대소문자/하이픈이 일치하는지.');
       }
     } catch (e) {
-      thinkingEl.remove();
+      clearStatus();
       appendMsg('system', '오류: ' + (e.message || e));
       logAiUsage(false, lastProviderLabel, e.message || e);
     } finally {
