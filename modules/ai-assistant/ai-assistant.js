@@ -20,6 +20,9 @@
  * v29.52: (로드맵 4단계) NCR/CAR 발행 연동 — create_ncr/create_car가 부모
  * openModuleWithPrefill()로 모듈을 열면서 ?aiPrefill=<json>을 전달, 모듈 수신 코드가
  * 발행 폼을 열고 값만 채운다. 발행(저장)은 사람이 직접 — AI 직접 저장 금지 원칙 유지.
+ * v29.53: (로드맵 5단계) 브리핑 — get_briefing 도구가 내 업무(지연·마감 임박)·이번 주
+ * 일정·내가 결재할 항목(전결 포함)·미읽음 알림을 state에서 조립해 반환(서버 호출 없음).
+ * 패널 첫 오픈 시 "오늘 브리핑 보기" 추천 버튼 노출.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -365,6 +368,47 @@
     }
   });
 
+  // ── 2.4 브리핑 (v29.53, 로드맵 5단계) ─────────────────────────
+  // 이미 구독 중인 state에서 조립 — 서버 호출 없음. 결재 판정은 부모의
+  // apIsMyTurn/apCanJeonGyeol(v30.10 전결), 알림은 getNotifications()를 그대로 재사용.
+  function localISO(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  registerAction('get_briefing', {
+    description: '오늘의 브리핑 — 현재 사용자의 지연/마감 임박 업무, 오늘·이번 주 일정, 내가 결재할 항목, 미읽음 알림을 한 번에 반환. "오늘 뭐 해야 해?", "브리핑 보여줘" 같은 요청에 사용',
+    params: {},
+    query: true,
+    run: function () {
+      var uid = state.currentUser;
+      var today = localISO(new Date());
+      var week = localISO(new Date(Date.now() + 7 * 86400000));
+      var myTasks = (state.tasks || []).filter(function (t) { return t.assignee === uid && t.status !== 'done'; });
+      var overdue = myTasks.filter(function (t) { return t.due && t.due < today; });
+      var dueSoon = myTasks.filter(function (t) { return t.due && t.due >= today && t.due <= week; });
+      var events = (state.events || []).filter(function (e) { return e.date && e.date >= today && e.date <= week; })
+        .sort(function (a, b) { return (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')); });
+      var approvals = [];
+      try {
+        approvals = (state.approvals || []).filter(function (a) {
+          return (typeof apIsMyTurn === 'function' && apIsMyTurn(a, uid))
+              || (typeof apCanJeonGyeol === 'function' && apCanJeonGyeol(a, uid));
+        }).map(function (a) { return { title: a.title, type: a.type, author: a.author, createdAt: a.createdAt }; });
+      } catch (e) {}
+      var notifs = [];
+      try { notifs = (typeof getNotifications === 'function' ? getNotifications() : []).slice(0, 8).map(function (n) { return n.title || ''; }); } catch (e) {}
+      var pick = function (t) { return { title: t.title, proj: t.proj, due: t.due, priority: t.priority }; };
+      return resolveUserIds({
+        today: today,
+        overdueTasks: overdue.map(pick),
+        tasksDueThisWeek: dueSoon.map(pick),
+        myOpenTaskCount: myTasks.length,
+        eventsThisWeek: events.slice(0, 20).map(function (e) { return { title: e.title, date: e.date, time: e.time || '', dept: e.dept || '' }; }),
+        approvalsWaitingForMe: approvals,
+        unreadNotifications: notifs
+      }, userNameMap(), 0);
+    }
+  });
+
   // ── 2.5 화면 이동 (v29.50, 로드맵 2단계) ───────────────────────
   // 부모 index.html의 NAV(switchMod)·TOOLS(openTool)를 그대로 호출한다.
   // names: 사용자가 부를 만한 별칭 — 정규화(소문자·공백 제거) 후 완전일치 우선, 부분일치 보조.
@@ -570,6 +614,7 @@
     '조회는 query_state 도구로 처리한다. 등록/생성 요청은 해당 액션 도구를 호출한다 — 네가 직접 저장하는 게 아니라, ',
     '실제 입력 폼을 열고 값을 미리 채워주는 것뿐이며 최종 저장은 사용자가 화면에서 직접 확인 버튼을 눌러야 한다는 것을 답변에 명시해라.',
     '"OO 열어줘/보여줘/이동해줘"처럼 특정 화면으로 가고 싶다는 요청은 open_module 도구로 처리한다.',
+    '"오늘 뭐 해야 해", "브리핑" 같은 요청은 get_briefing 도구로 처리한다 — 지연 업무와 오늘 마감을 맨 앞에 강조하고, 일정→결재→알림 순으로 간결히 요약해라.',
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
     'NCR·CAR는 query_state로 조회하고, 발행(등록) 요청은 create_ncr/create_car 도구로 처리한다 — 모듈이 열리고 폼이 채워질 뿐 발행은 사용자가 직접 하며, 발행 권한은 품질관리부에 있다는 것을 답변에 명시해라. 기존 NCR/CAR의 수정·삭제는 아직 미지원이다.',
@@ -1048,6 +1093,10 @@
     if (name === 'query_state') return queryState(args.collection);
     var def = ai.actions[name];
     if (!def) return { error: '알 수 없는 액션: ' + name };
+    if (def.query) { // v29.53: 조회형 액션 — 폼 없이 데이터만 반환
+      try { return def.run(args || {}); }
+      catch (e) { return { error: '조회 실패: ' + (e.message || e) }; }
+    }
     if (def.direct) {
       var resolved = def.resolve(args);
       if (resolved.error) return resolved;
@@ -1236,6 +1285,26 @@
     );
   };
 
+  // v29.53: 패널 첫 오픈 시 브리핑 추천 버튼 — 눌러보기 전엔 브리핑 기능이 있는지 모르니 안내
+  function showBriefingSuggest() {
+    if (document.getElementById('aiBriefBtn')) return;
+    var box = $id('aiMessages'); if (!box) return;
+    var div = document.createElement('div');
+    div.className = 'ai-msg system';
+    var btn = document.createElement('button');
+    btn.id = 'aiBriefBtn';
+    btn.className = 'btn btn-sm';
+    btn.textContent = '📋 오늘 브리핑 보기';
+    btn.onclick = function () {
+      var i = $id('aiInput');
+      if (i) i.value = '오늘 브리핑 보여줘';
+      window.sendAiMessage();
+    };
+    div.appendChild(btn);
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
   var keyHintShown = false;
   window.toggleAiPanel = function () {
     var p = $id('aiPanel');
@@ -1244,6 +1313,7 @@
       if (window._positionAiPanel) window._positionAiPanel(); // v29.35 FAB 드래그 위치 따라 패널 배치
       updateDot();
       restoreHistory(); // v29.51: 이전 대화 복원 (로그인 후 최초 1회)
+      if (hasAnyKey()) showBriefingSuggest(); // v29.53
       if (!hasAnyKey() && !keyHintShown) {
         keyHintShown = true;
         appendMsg('system', '아직 API 키가 없습니다 — 우측 상단 🔑 버튼을 눌러 무료 API 키(Gemini·Groq·OpenRouter)를 등록해주세요.');
