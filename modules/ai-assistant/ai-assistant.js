@@ -14,6 +14,9 @@
  * 첨부파일 조각 문서(chunk__*)와 대용량 문자열 필드는 걸러서 토큰 낭비를 막는다.
  * v29.50: (로드맵 2단계) 화면 이동 — open_module 액션. "NCR 열어줘" 같은 요청에
  * 부모의 switchMod(대메뉴)/openTool(부서 도구)을 그대로 호출해 해당 화면으로 이동한다.
+ * v29.51: (로드맵 3단계) 대화 기록 유지 — 새로고침해도 대화가 이어진다. 사용자별
+ * localStorage 저장(최근 40턴, 조회 결과는 1,000자 절단), 패널 열 때 복원, 새 대화(🧹) 버튼.
+ * localStorage는 기록 '저장'에만 쓴다 — 중복 방지 게이트로 쓰지 않음(2026-07-17 교훈).
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -544,6 +547,50 @@
   // 대화 기록은 제공사 중립 형식으로 보관하고, 각 provider 호출부에서만 변환한다.
   // { role:'user', text } | { role:'model', text } | { role:'model', functionCall:{name,args,id} } | { role:'function', name, result, callId }
   var history = [];
+
+  // ── 대화 기록 유지 (v29.51, 로드맵 3단계) ────────────────────────
+  // 사용자별 localStorage에 저장/복원. 조회 결과(function 턴)는 커서 1,000자로 절단하고
+  // 최근 40턴만 남긴다. 자른 뒤 첫 턴이 함수호출 짝이 깨진 상태로 시작하지 않게 user 턴부터 시작.
+  var HIST_LS_PREFIX = 'sjp_ai_chat_history_';
+  var HIST_MAX_TURNS = 40;
+  function histKey() { return (window.state && state.currentUser) ? HIST_LS_PREFIX + state.currentUser : ''; }
+  function trimHistoryForSave(h) {
+    var t = h.slice(-HIST_MAX_TURNS);
+    while (t.length && t[0].role !== 'user') t.shift();
+    return t.map(function (turn) {
+      if (turn.role !== 'function') return turn;
+      var rs = ''; try { rs = JSON.stringify(turn.result); } catch (e) { rs = String(turn.result); }
+      return rs.length > 1000
+        ? { role: 'function', name: turn.name, callId: turn.callId, result: rs.slice(0, 1000) + '…(절단됨)' }
+        : turn;
+    });
+  }
+  function saveHistory() {
+    var k = histKey(); if (!k) return;
+    try { localStorage.setItem(k, JSON.stringify(trimHistoryForSave(history))); } catch (e) {}
+  }
+  var _histRestored = false;
+  function restoreHistory() {
+    if (_histRestored) return;
+    var k = histKey(); if (!k) return; // 아직 로그인 전 — 다음에 다시 시도
+    _histRestored = true;
+    var saved = [];
+    try { saved = JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (e) {}
+    if (!Array.isArray(saved) || !saved.length) return;
+    history = saved;
+    saved.forEach(function (t) {
+      if (t.role === 'user') appendMsg('user', t.text);
+      else if (t.role === 'model' && t.text) appendMsg('assistant', t.text);
+    });
+    appendMsg('system', '— 이전 대화를 불러왔습니다. 이어서 질문하거나, 🧹(새 대화)로 비울 수 있어요 —');
+  }
+  window.clearAiChat = function () {
+    history = [];
+    var k = histKey(); if (k) { try { localStorage.removeItem(k); } catch (e) {} }
+    var box = $id('aiMessages');
+    if (box) Array.prototype.slice.call(box.querySelectorAll('.ai-msg, .ai-confirm-card')).forEach(function (el) { el.remove(); });
+    appendMsg('system', '새 대화를 시작합니다.');
+  };
 
   function geminiContentsFromHistory(h) {
     return h.map(function (t) {
@@ -1162,6 +1209,7 @@
     if (p.classList.contains('open')) {
       if (window._positionAiPanel) window._positionAiPanel(); // v29.35 FAB 드래그 위치 따라 패널 배치
       updateDot();
+      restoreHistory(); // v29.51: 이전 대화 복원 (로그인 후 최초 1회)
       if (!hasAnyKey() && !keyHintShown) {
         keyHintShown = true;
         appendMsg('system', '아직 API 키가 없습니다 — 우측 상단 🔑 버튼을 눌러 무료 API 키(Gemini·Groq·OpenRouter)를 등록해주세요.');
@@ -1245,6 +1293,7 @@
     } finally {
       aiBusy = false;
       if (btn) { btn.disabled = false; btn.textContent = '전송'; }
+      saveHistory(); // v29.51: 성공/실패 무관하게 여기까지의 대화를 저장
     }
   };
 })();

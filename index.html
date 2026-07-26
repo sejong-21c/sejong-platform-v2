@@ -707,6 +707,7 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
   <div class="ai-panel-head">
     <div><span class="dot"></span>AI 비서</div>
     <div>
+      <button class="icon-btn" title="새 대화 (기록 비우기)" onclick="if(window.clearAiChat)clearAiChat()">🧹</button>
       <button class="icon-btn" title="크게/작게" onclick="toggleAiPanelMax()">⤢</button>
       <button class="icon-btn" title="API 키 설정" onclick="openAiKeyModal()">🔑</button>
       <button class="icon-btn" onclick="toggleAiPanel()">✕</button>
@@ -7489,7 +7490,7 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.50.0"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.51.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.
