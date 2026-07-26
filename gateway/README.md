@@ -88,6 +88,30 @@ https://sejong-ai-gateway.<계정이름>.workers.dev
   → AI가 그 대목을 근거로 답변 + 출처 표시
 ```
 
+## 5단계. 능동 알림 켜기 — 로드맵 9단계 (10분, 선택)
+
+매일 아침 9시에 AI가 **① 내일 마감 업무 ② 3일 이상 대기 결재**를 찾아
+메신저 **"🤖 AI 알림"** 채널로 알려주는 기능입니다. 같은 건은 두 번 알리지 않습니다
+(Firestore `aiNotifMarkers` 마커로 중복 방지).
+
+1. **서비스 계정 키 만들기**: [Firebase 콘솔](https://console.firebase.google.com) → 프로젝트 설정(⚙️) →
+   **서비스 계정** 탭 → **새 비공개 키 생성** → JSON 파일 다운로드
+2. **워커에 키 등록**: 워커 → Settings → **Variables and Secrets** → Add
+   - 이름 `FIREBASE_SA_KEY`, Type **Secret**, 값에 **JSON 파일 내용 전체** 붙여넣기
+   - (선택) `ALERT_CHANNEL_ID` 일반 변수 — 기본값 `ai-alerts`
+3. **크론 걸기**: 워커 → Settings → **Triggers** → **Cron Triggers** → Add
+   - `0 0 * * *` (UTC 00:00 = **한국 오전 9시**)
+4. 최신 `cloudflare-worker.js`(v3.1)를 붙여넣고 **Deploy**
+5. **즉시 테스트**: 크론을 기다릴 필요 없이, 관리자 계정으로 로그인한 플랫폼에서
+   브라우저 콘솔(F12)에 아래 한 줄 실행:
+   ```js
+   fb.auth.currentUser.getIdToken().then(t => fetch('https://sejong-ai-gateway.cwkim-65d.workers.dev/cron/run', { method: 'POST', headers: { Authorization: 'Bearer ' + t } }).then(r => r.json()).then(console.log))
+   ```
+   `{d1: N, stale: M}`이 나오고 메신저에 "🤖 AI 알림" 채널이 생기면 성공.
+
+참고: 서비스 계정은 Firestore 보안 규칙을 우회(Admin)하므로 **firestore.rules 변경이 필요 없습니다.**
+`FIREBASE_SA_KEY`를 등록하지 않으면 크론이 돌아도 아무 일도 하지 않습니다(안전 기본값).
+
 ## 문제 해결
 
 - **"OO keys not configured on gateway"** — 2단계에서 해당 회사 키를 안 넣은 것. 넣거나 무시(자동으로 다음 회사로 넘어감)

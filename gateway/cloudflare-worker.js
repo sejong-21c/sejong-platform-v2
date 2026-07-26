@@ -10,6 +10,12 @@
  *     POST /rag/search  {query, topK}            — 유사 대목 검색 (사내 계정 전체)
  *     필요 바인딩: AI(Workers AI), VECTORIZE(인덱스, 예: sejong-docs @1024차원 cosine)
  *     — gateway/README.md의 배포 안내 참고. 바인딩이 없으면 501을 반환한다.
+ *  5) v3.1(로드맵 9단계): 능동 알림 — Cron Trigger(매일 0 0 * * * = 한국 09:00)가
+ *     ① 내일 마감(D-1) 업무 ② 3일 이상 대기 결재를 찾아 메신저 'ai-alerts' 채널에
+ *     SYSTEM 메시지로 알린다(검교정 알림과 동일 형태). 중복 방지는 Firestore
+ *     aiNotifMarkers 마커 문서(localStorage 금지 원칙 — 2026-07-17 교훈).
+ *     필요 Secret: FIREBASE_SA_KEY(서비스 계정 JSON 전체 — 규칙 우회 Admin 권한이라
+ *     firestore.rules 변경 불필요). 미설정이면 cron은 조용히 아무것도 안 한다.
  *
  * 요청 경로 규칙 (플랫폼 ai-assistant.js가 이 규칙으로 호출):
  *  POST /v1/gemini/models/<model>:generateContent  →  generativelanguage.googleapis.com/v1beta/...
@@ -226,6 +232,172 @@ async function fetchSharedNineRouter(env, request) {
   } catch (e) { return null; }
 }
 
+// ── v3.1: 능동 알림 (Cron) — Firestore REST + 서비스 계정 ─────────
+// 서비스 계정 키(FIREBASE_SA_KEY)로 액세스 토큰을 만들어 Firestore를 읽고 쓴다.
+// 서비스 계정은 보안 규칙을 우회(Admin)하므로 규칙 변경이 필요 없다.
+const saTokenCache = { token: '', exp: 0 };
+
+function b64urlFromBytes(bytes) {
+  let s = '';
+  bytes.forEach(b => { s += String.fromCharCode(b); });
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlFromJson(obj) {
+  return b64urlFromBytes(new TextEncoder().encode(JSON.stringify(obj)));
+}
+function pemKeyToBytes(pem) {
+  const clean = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
+  return Uint8Array.from(atob(clean), c => c.charCodeAt(0));
+}
+async function saAccessToken(env) {
+  if (saTokenCache.token && Date.now() < saTokenCache.exp - 60000) return saTokenCache.token;
+  const sa = JSON.parse(env.FIREBASE_SA_KEY);
+  const now = Math.floor(Date.now() / 1000);
+  const unsigned = b64urlFromJson({ alg: 'RS256', typ: 'JWT' }) + '.' + b64urlFromJson({
+    iss: sa.client_email, scope: 'https://www.googleapis.com/auth/datastore',
+    aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600,
+  });
+  const key = await crypto.subtle.importKey('pkcs8', pemKeyToBytes(sa.private_key), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned)));
+  const jwt = unsigned + '.' + b64urlFromBytes(sig);
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt,
+  });
+  if (!r.ok) throw new Error('service account token failed: ' + r.status);
+  const d = await r.json();
+  saTokenCache.token = d.access_token;
+  saTokenCache.exp = Date.now() + Math.min(d.expires_in || 3600, 3600) * 1000;
+  return saTokenCache.token;
+}
+
+function fsProjectId(env) { return (env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID).trim(); }
+function fsBase(env) { return 'https://firestore.googleapis.com/v1/projects/' + fsProjectId(env) + '/databases/(default)/documents'; }
+function fsVal(v) {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === 'string') return { stringValue: v };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(fsVal) } };
+  return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fsVal(x)])) } };
+}
+function fsParseVal(v) {
+  if (!v || typeof v !== 'object') return v;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return Number(v.integerValue);
+  if ('doubleValue' in v) return v.doubleValue;
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('nullValue' in v) return null;
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fsParseVal);
+  if ('mapValue' in v) return Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, fsParseVal(x)]));
+  return v;
+}
+function fsParseDoc(doc) {
+  const out = Object.fromEntries(Object.entries(doc.fields || {}).map(([k, v]) => [k, fsParseVal(v)]));
+  out.__id = doc.name.split('/').pop();
+  return out;
+}
+async function fsQueryEqual(env, token, collectionId, field, value, limit) {
+  const r = await fetch(fsBase(env) + ':runQuery', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery: {
+      from: [{ collectionId }],
+      where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: fsVal(value) } },
+      limit: limit || 300,
+    } }),
+  });
+  if (!r.ok) throw new Error(collectionId + ' query failed: ' + r.status);
+  return (await r.json()).filter(x => x.document).map(x => fsParseDoc(x.document));
+}
+async function fsListAll(env, token, collectionId, limit) {
+  const r = await fetch(fsBase(env) + '/' + collectionId + '?pageSize=' + (limit || 300), {
+    headers: { Authorization: 'Bearer ' + token },
+  });
+  if (!r.ok) throw new Error(collectionId + ' list failed: ' + r.status);
+  return ((await r.json()).documents || []).map(fsParseDoc);
+}
+async function fsGetDoc(env, token, path) {
+  const r = await fetch(fsBase(env) + '/' + path, { headers: { Authorization: 'Bearer ' + token } });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(path + ' get failed: ' + r.status);
+  return fsParseDoc(await r.json());
+}
+async function fsSetDoc(env, token, path, obj) {
+  const r = await fetch(fsBase(env) + '/' + path, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fsVal(v)])) }),
+  });
+  if (!r.ok) throw new Error(path + ' set failed: ' + r.status);
+}
+async function fsAddDoc(env, token, collectionId, obj) {
+  const r = await fetch(fsBase(env) + '/' + collectionId, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fsVal(v)])) }),
+  });
+  if (!r.ok) throw new Error(collectionId + ' add failed: ' + r.status);
+}
+
+async function postAlertMessage(env, token, channelId, text) {
+  // 채널 문서 보장 (있으면 그대로 둠 — 통째 PATCH로 members를 지우지 않도록 GET 먼저)
+  if (!(await fsGetDoc(env, token, 'channels/' + channelId))) {
+    await fsSetDoc(env, token, 'channels/' + channelId, { name: '🤖 AI 알림', type: 'system', members: [] });
+  }
+  await fsAddDoc(env, token, 'messages', {
+    channel: channelId, author: 'SYSTEM', system: true,
+    text, at: new Date().toISOString(), createdAt: Date.now(),
+  });
+}
+
+async function runDailyAlerts(env) {
+  if (!env.FIREBASE_SA_KEY) return { skipped: 'FIREBASE_SA_KEY not set' };
+  const token = await saAccessToken(env);
+  const channelId = (env.ALERT_CHANNEL_ID || 'ai-alerts').trim();
+  const kstNow = new Date(Date.now() + 9 * 3600e3);
+  const tomorrow = new Date(kstNow.getTime() + 86400e3).toISOString().slice(0, 10);
+  const users = await fsListAll(env, token, 'users');
+  const nameOf = uid => { const u = users.find(x => x.__id === uid); return (u && u.name) || '(미확인)'; };
+  const result = { d1: 0, stale: 0 };
+
+  // ① 내일 마감(D-1) 업무 — due 완전일치로 조회하고 완료 여부는 코드에서 거른다(복합 인덱스 불필요)
+  const d1 = (await fsQueryEqual(env, token, 'tasks', 'due', tomorrow)).filter(t => t.status !== 'done');
+  const freshD1 = [];
+  for (const t of d1) {
+    if (!(await fsGetDoc(env, token, 'aiNotifMarkers/taskD1_' + t.__id + '_' + tomorrow))) freshD1.push(t);
+  }
+  if (freshD1.length) {
+    const lines = freshD1.map(t => '· ' + (t.title || '(제목 없음)') + ' — 담당 ' + nameOf(t.assignee) + ', 마감 ' + t.due);
+    await postAlertMessage(env, token, channelId, '🔔 내일 마감 업무 ' + freshD1.length + '건\n' + lines.join('\n'));
+    for (const t of freshD1) {
+      await fsSetDoc(env, token, 'aiNotifMarkers/taskD1_' + t.__id + '_' + tomorrow, { type: 'taskD1', at: Date.now() });
+    }
+    result.d1 = freshD1.length;
+  }
+
+  // ② 3일 이상 대기 결재 — 결재 1건당 1회만 알림 (마커에 날짜 없음)
+  const pending = (await fsQueryEqual(env, token, 'approvals', 'status', 'pending'))
+    .filter(a => (a.createdAt || 0) > 0 && a.createdAt < Date.now() - 3 * 86400e3);
+  const freshStale = [];
+  for (const a of pending) {
+    if (!(await fsGetDoc(env, token, 'aiNotifMarkers/apStale_' + a.__id))) freshStale.push(a);
+  }
+  if (freshStale.length) {
+    const lines = freshStale.map(a => {
+      const days = Math.floor((Date.now() - a.createdAt) / 86400e3);
+      return '· ' + (a.title || '(제목 없음)') + ' — 기안 ' + nameOf(a.author) + ', ' + days + '일째 대기';
+    });
+    await postAlertMessage(env, token, channelId, '⏳ 3일 이상 대기 중인 결재 ' + freshStale.length + '건\n' + lines.join('\n'));
+    for (const a of freshStale) {
+      await fsSetDoc(env, token, 'aiNotifMarkers/apStale_' + a.__id, { type: 'apStale', at: Date.now() });
+    }
+    result.stale = freshStale.length;
+  }
+  return result;
+}
+
 function corsHeaders(origin, allowed) {
   const h = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -245,6 +417,10 @@ function json(status, obj, cors) {
 }
 
 export default {
+  // v3.1: Cron Trigger(대시보드 Settings → Triggers → Cron, 예: "0 0 * * *" = 한국 09:00)
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runDailyAlerts(env).catch(e => console.error('[ai-alerts]', e && e.message)));
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
@@ -256,6 +432,17 @@ export default {
     // 허용 목록이 설정돼 있으면, 목록에 없는 사이트의 브라우저 요청은 거부
     if (allowed.length && origin && !allowed.includes(origin)) {
       return json(403, { error: 'origin not allowed' }, cors);
+    }
+
+    // v3.1: 능동 알림 수동 실행(테스트용) — 관리자 계정으로 POST /cron/run
+    if (url.pathname === '/cron/run') {
+      if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
+      const auth = await verifyCompanyFirebaseToken(request, env);
+      if (auth.status) return json(auth.status, { error: auth.error }, cors);
+      const admins = (env.RAG_ADMIN_EMAILS || DEFAULT_RAG_ADMIN_EMAILS).toLowerCase().split(/[\s,;]+/).filter(Boolean);
+      if (!admins.includes(auth.email)) return json(403, { error: '관리자만 실행할 수 있습니다' }, cors);
+      try { return json(200, await runDailyAlerts(env), cors); }
+      catch (e) { return json(500, { error: '알림 실행 실패: ' + (e.message || e) }, cors); }
     }
 
     // v3: 사내 문서 검색(RAG) — /rag/search, /rag/upload
