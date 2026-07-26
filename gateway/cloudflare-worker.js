@@ -1,10 +1,15 @@
 /*
- * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v2, 2026-07-26)
+ * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3, 2026-07-26)
  *
  * 역할:
  *  1) 회사 공용 API 키를 이 서버에 숨겨두고, 직원들은 키 입력 없이 AI 비서를 사용
  *  2) 브라우저 직접 호출이 차단된 회사(NVIDIA)도 이 서버를 거쳐 사용 가능
  *  3) 회사당 키 여러 개 등록 시 한도 초과(429)·키 오류(401/403)면 자동으로 다음 키로 교대
+ *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
+ *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
+ *     POST /rag/search  {query, topK}            — 유사 대목 검색 (사내 계정 전체)
+ *     필요 바인딩: AI(Workers AI), VECTORIZE(인덱스, 예: sejong-docs @1024차원 cosine)
+ *     — gateway/README.md의 배포 안내 참고. 바인딩이 없으면 501을 반환한다.
  *
  * 요청 경로 규칙 (플랫폼 ai-assistant.js가 이 규칙으로 호출):
  *  POST /v1/gemini/models/<model>:generateContent  →  generativelanguage.googleapis.com/v1beta/...
@@ -113,11 +118,12 @@ async function firebaseSigningKey(kid) {
 // 대시보드 변수(FIREBASE_PROJECT_ID)를 설정하면 그 값이 우선한다.
 const DEFAULT_FIREBASE_PROJECT_ID = 'sejong-platform';
 
+// v3: 성공 시 { email } 반환 (RAG 업로드 관리자 판별에 사용), 실패 시 { status, error }
 async function verifyCompanyFirebaseToken(request, env) {
   const projectId = (env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID).trim();
   if (!projectId) return { status: 501, error: 'FIREBASE_PROJECT_ID not configured for 9Router access' };
   const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i);
-  if (!match) return { status: 401, error: 'Firebase login token required for 9Router access' };
+  if (!match) return { status: 401, error: 'Firebase login token required' };
   try {
     const parts = match[1].split('.');
     if (parts.length !== 3) throw new Error('Malformed Firebase token');
@@ -128,10 +134,74 @@ async function verifyCompanyFirebaseToken(request, env) {
     const now = Math.floor(Date.now() / 1000);
     const isCompanyEmail = typeof payload.email === 'string' && /@sejong-21c[.]com$/i.test(payload.email);
     if (!valid || payload.aud !== projectId || payload.iss !== 'https://securetoken.google.com/' + projectId || payload.exp <= now || !payload.email_verified || !isCompanyEmail) throw new Error('Firebase token is not an active company account');
-    return null;
+    return { email: payload.email.toLowerCase() };
   } catch (error) {
     return { status: 401, error: 'Invalid Firebase login token: ' + (error.message || error) };
   }
+}
+
+// ── v3: 사내 문서 검색(RAG) ─────────────────────────────────────
+// 임베딩: Workers AI bge-m3 (다국어·1024차원). 저장/검색: Vectorize 인덱스.
+const RAG_EMBED_MODEL = '@cf/baai/bge-m3';
+const DEFAULT_RAG_ADMIN_EMAILS = 'cwkim@sejong-21c.com';
+
+async function ragEmbed(env, texts) {
+  const r = await env.AI.run(RAG_EMBED_MODEL, { text: texts });
+  return r.data; // [[...1024], ...]
+}
+
+async function handleRag(request, env, path, cors) {
+  if (!env.AI || !env.VECTORIZE) {
+    return json(501, { error: 'RAG not configured — Worker에 AI·VECTORIZE 바인딩을 추가하세요 (gateway/README.md 참고)' }, cors);
+  }
+  const auth = await verifyCompanyFirebaseToken(request, env);
+  if (auth.status) return json(auth.status, { error: auth.error }, cors);
+  let body;
+  try { body = await request.json(); } catch (e) { return json(400, { error: 'invalid JSON body' }, cors); }
+
+  if (path === 'search') {
+    const query = String(body.query || '').trim();
+    if (!query) return json(400, { error: 'query required' }, cors);
+    const topK = Math.min(Math.max(parseInt(body.topK, 10) || 5, 1), 10);
+    const [vec] = await ragEmbed(env, [query]);
+    const res = await env.VECTORIZE.query(vec, { topK, returnMetadata: 'all' });
+    const matches = (res.matches || []).map(m => ({
+      score: Math.round((m.score || 0) * 1000) / 1000,
+      docName: (m.metadata || {}).docName || '',
+      chunkIndex: (m.metadata || {}).chunkIndex,
+      text: (m.metadata || {}).text || '',
+    }));
+    return json(200, { matches }, cors);
+  }
+
+  if (path === 'upload') {
+    const admins = (env.RAG_ADMIN_EMAILS || DEFAULT_RAG_ADMIN_EMAILS).toLowerCase().split(/[\s,;]+/).filter(Boolean);
+    if (!admins.includes(auth.email)) return json(403, { error: '문서 등록 권한이 없습니다 (RAG_ADMIN_EMAILS에 등록된 계정만)' }, cors);
+    const docName = String(body.docName || '').trim();
+    const chunks = Array.isArray(body.chunks) ? body.chunks.map(c => String(c).trim()).filter(Boolean) : [];
+    if (!docName || !chunks.length) return json(400, { error: 'docName과 chunks가 필요합니다' }, cors);
+    if (chunks.length > 500) return json(400, { error: '청크는 최대 500개까지 (문서를 나눠 등록하세요)' }, cors);
+    // 같은 문서 재등록(replace): 예전 조각이 더 길었을 수 있어 500개 id를 전부 지운다
+    await env.VECTORIZE.deleteByIds(Array.from({ length: 500 }, (_, i) => docName + '::' + i));
+    // Workers AI 임베딩은 한 번에 100개 제한 — 나눠서 처리
+    const vectors = [];
+    for (let i = 0; i < chunks.length; i += 100) {
+      const batch = chunks.slice(i, i + 100);
+      const embs = await ragEmbed(env, batch);
+      embs.forEach((values, j) => {
+        const idx = i + j;
+        vectors.push({
+          id: docName + '::' + idx,
+          values,
+          metadata: { docName, chunkIndex: idx, text: chunks[idx].slice(0, 2000) },
+        });
+      });
+    }
+    await env.VECTORIZE.upsert(vectors);
+    return json(200, { ok: true, docName, chunkCount: vectors.length }, cors);
+  }
+
+  return json(404, { error: 'usage: POST /rag/search 또는 /rag/upload' }, cors);
 }
 
 // v2: 9Router 동적 설정 — 부장님이 플랫폼 🔑에서 '전 직원 공용 공유'한 터널 주소/키/모델
@@ -188,6 +258,14 @@ export default {
       return json(403, { error: 'origin not allowed' }, cors);
     }
 
+    // v3: 사내 문서 검색(RAG) — /rag/search, /rag/upload
+    const ragMatch = url.pathname.match(/^\/rag\/([a-z]+)$/);
+    if (ragMatch) {
+      if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
+      try { return await handleRag(request, env, ragMatch[1], cors); }
+      catch (e) { return json(500, { error: 'RAG 처리 실패: ' + (e.message || e) }, cors); }
+    }
+
     // 경로: /v1/<provider>/<나머지 경로>
     const m = url.pathname.match(/^\/v1\/([a-z0-9]+)\/(.+)$/);
     if (!m) return json(404, { error: 'usage: POST /v1/<provider>/<path>' }, cors);
@@ -196,8 +274,8 @@ export default {
     if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
 
     if (provider.requireCompanyAuth) {
-      const authError = await verifyCompanyFirebaseToken(request, env);
-      if (authError) return json(authError.status, { error: authError.error }, cors);
+      const auth = await verifyCompanyFirebaseToken(request, env);
+      if (auth.status) return json(auth.status, { error: auth.error }, cors);
     }
 
     // v2: 9router는 플랫폼에서 공유한 동적 설정(터널 주소/키/모델)을 먼저 쓰고, env를 폴백으로.

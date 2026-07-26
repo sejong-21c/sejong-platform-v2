@@ -61,6 +61,33 @@ https://sejong-ai-gateway.<계정이름>.workers.dev
 
 ---
 
+## 4단계. 사내 문서 검색(RAG) 켜기 — 로드맵 8단계 (10분, 선택)
+
+"용접 검사 기준이 뭐야?" 같은 질문에 **품질 매뉴얼·절차서를 근거로** 답하게 하는 기능입니다.
+워커 v3 코드에 이미 들어 있고, 아래 **바인딩 2개**만 추가하면 켜집니다. 비용: 무료 한도로 충분.
+
+1. **벡터 인덱스 만들기**: 대시보드 왼쪽 메뉴 **Storage & Databases → Vectorize** → **Create Index**
+   - 이름: `sejong-docs` / Dimensions: `1024` / Metric: `cosine`
+2. **워커에 바인딩 연결**: 워커 → **Settings** 탭 → **Bindings** → **Add**
+   - **Workers AI** 선택 → Variable name: `AI`
+   - **Vectorize** 선택 → Variable name: `VECTORIZE` → 인덱스 `sejong-docs` 선택
+3. (선택) 문서 등록 권한자 지정 — **Variables and Secrets**에 일반 변수 추가:
+
+| 변수 이름 | 값 | 기본값 |
+|---|---|---|
+| `RAG_ADMIN_EMAILS` | `cwkim@sejong-21c.com,quality@sejong-21c.com` | cwkim@sejong-21c.com |
+
+4. 최신 `cloudflare-worker.js`(v3)를 붙여넣고 **Deploy**
+5. **문서 등록**: 플랫폼 → 🤖 AI 비서 → 🔑 → 맨 위 **"📚 사내 문서 등록"** 섹션에
+   문서 이름과 본문 텍스트를 붙여넣고 등록 (같은 이름으로 재등록하면 교체됨, 관리자 계정만 보임)
+6. 아무 직원이나 AI 비서에게 문서 내용을 질문 → 답변에 출처(문서명)가 표시되면 성공
+
+```
+직원: "용접 검사 기준 알려줘"
+  → Worker /rag/search: 질문을 임베딩(Workers AI bge-m3) → Vectorize에서 유사 대목 5개
+  → AI가 그 대목을 근거로 답변 + 출처 표시
+```
+
 ## 문제 해결
 
 - **"OO keys not configured on gateway"** — 2단계에서 해당 회사 키를 안 넣은 것. 넣거나 무시(자동으로 다음 회사로 넘어감)

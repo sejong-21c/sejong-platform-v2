@@ -29,6 +29,9 @@
  * v29.55: (로드맵 7단계) 문서 출력 — export_result 액션이 직전 query_state 결과를
  * Excel(xlsx-js-style) 또는 PDF(html2canvas+jsPDF, DOM→이미지라 한글 폰트 임베드 불필요)로
  * 다운로드. 라이브러리는 WBS 모듈과 같은 CDN에서 요청 시에만 lazy 로드.
+ * v29.56: (로드맵 8단계) 사내 문서 검색(RAG) — search_docs 도구가 게이트웨이
+ * /rag/search(Vectorize+Workers AI)를 호출해 등록된 절차서·매뉴얼에서 관련 대목을 찾는다.
+ * 🔑 모달에 관리자용 문서 등록 섹션(청크 분할 → /rag/upload). 게이트웨이 v3 필요.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -644,6 +647,69 @@
   }
   ai.queryState = queryState;
 
+  // ── 3.4 사내 문서 검색 RAG (v29.56, 로드맵 8단계) ──────────────
+  // 게이트웨이 /rag/search 호출 — 로그인 토큰 필수(사내 계정 확인). 게이트웨이에
+  // AI/VECTORIZE 바인딩이 없으면 501이 오고, 그 안내를 모델이 사용자에게 전달한다.
+  registerAction('search_docs', {
+    description: '사내 문서(품질 매뉴얼·절차서·규정 등) 검색 — 등록된 문서에서 질문과 관련된 대목을 찾아 반환. "용접 검사 기준이 뭐야?" 같은 사내 문서 내용 질문에 사용',
+    params: { query: '검색할 질문 또는 키워드' },
+    query: true,
+    run: async function (v) {
+      var gw = getGatewayUrl();
+      if (!gw) return { error: '회사 게이트웨이 주소가 설정되지 않아 문서 검색을 사용할 수 없습니다.' };
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, await gatewayAuthHeaders());
+      var res = await fetch(gw + '/rag/search', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({ query: v.query, topK: 5 })
+      });
+      if (!res.ok) {
+        var t = await res.text().catch(function () { return ''; });
+        return { error: '문서 검색 실패 (' + res.status + '): ' + t.slice(0, 200) };
+      }
+      var d = await res.json();
+      if (!d.matches || !d.matches.length) return { matches: [], note: '등록된 문서에서 관련 내용을 찾지 못했습니다. 문서가 아직 등록되지 않았을 수 있습니다.' };
+      return d;
+    }
+  });
+
+  // 관리자용 문서 등록 — 긴 텍스트를 ~700자 청크(문단 경계 우선)로 나눠 게이트웨이에 업로드
+  function chunkDocText(text) {
+    var paras = String(text).split(/\n{2,}/).map(function (p) { return p.trim(); }).filter(Boolean);
+    var chunks = [], cur = '';
+    paras.forEach(function (p) {
+      if ((cur + '\n\n' + p).length > 700 && cur) { chunks.push(cur); cur = p; }
+      else cur = cur ? cur + '\n\n' + p : p;
+      while (cur.length > 1400) { chunks.push(cur.slice(0, 700)); cur = cur.slice(600); } // 초장문 문단은 100자 겹침 분할
+    });
+    if (cur) chunks.push(cur);
+    return chunks;
+  }
+  window.SJP_AI_uploadDoc = async function () {
+    var nameEl = $id('aiDocNameInput'), textEl = $id('aiDocTextInput'), btn = $id('aiDocUploadBtn');
+    var docName = nameEl ? nameEl.value.trim() : '';
+    var text = textEl ? textEl.value.trim() : '';
+    if (!docName || !text) { alert('문서 이름과 내용을 모두 입력하세요.'); return; }
+    var gw = getGatewayUrl();
+    if (!gw) { alert('회사 게이트웨이 주소가 설정되지 않았습니다.'); return; }
+    var chunks = chunkDocText(text);
+    if (btn) { btn.disabled = true; btn.textContent = '등록 중… (' + chunks.length + '조각)'; }
+    try {
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, await gatewayAuthHeaders());
+      var res = await fetch(gw + '/rag/upload', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({ docName: docName, chunks: chunks })
+      });
+      var d = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(d.error || ('오류 ' + res.status));
+      alert('✓ "' + docName + '" 등록 완료 (' + d.chunkCount + '조각) — 이제 AI 비서에게 내용을 물어볼 수 있습니다.');
+      if (textEl) textEl.value = '';
+    } catch (e) {
+      alert('문서 등록 실패: ' + (e.message || e));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📚 문서 등록'; }
+    }
+  };
+
   // ── 3.5 문서 출력 (v29.55, 로드맵 7단계) ───────────────────────
   // WBS 모듈과 같은 CDN·같은 방식: Excel은 xlsx-js-style, PDF는 html2canvas로 표를
   // 이미지로 떠서 jsPDF에 얹는다(한글 폰트 임베드 불필요). 요청 시에만 lazy 로드.
@@ -801,6 +867,7 @@
     '"OO 열어줘/보여줘/이동해줘"처럼 특정 화면으로 가고 싶다는 요청은 open_module 도구로 처리한다.',
     '"오늘 뭐 해야 해", "브리핑" 같은 요청은 get_briefing 도구로 처리한다 — 지연 업무와 오늘 마감을 맨 앞에 강조하고, 일정→결재→알림 순으로 간결히 요약해라.',
     '"엑셀로/PDF로 뽑아줘·저장해줘" 요청은 export_result 도구로 처리한다 — 직전 query_state 결과가 파일이 되므로, 아직 조회 전이면 먼저 query_state를 호출해라.',
+    '품질 매뉴얼·절차서·규정 등 사내 문서 내용 질문은 search_docs로 검색해서 답하고, 반드시 출처(문서명)를 함께 표시해라. 검색 결과가 비었거나 오류면 그 사실을 그대로 알리고 지어내지 마라.',
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
     'NCR·CAR는 query_state로 조회하고, 발행(등록) 요청은 create_ncr/create_car 도구로 처리한다 — 모듈이 열리고 폼이 채워질 뿐 발행은 사용자가 직접 하며, 발행 권한은 품질관리부에 있다는 것을 답변에 명시해라. 기존 NCR/CAR의 수정·삭제는 아직 미지원이다.',
@@ -1281,8 +1348,8 @@
     if (name === 'query_state') return queryState(args.collection, args); // v29.54: 필터 파라미터 전달
     var def = ai.actions[name];
     if (!def) return { error: '알 수 없는 액션: ' + name };
-    if (def.query) { // v29.53: 조회형 액션 — 폼 없이 데이터만 반환
-      try { return def.run(args || {}); }
+    if (def.query) { // v29.53: 조회형 액션 — 폼 없이 데이터만 반환 (v29.56: async run 지원)
+      try { return await def.run(args || {}); }
       catch (e) { return { error: '조회 실패: ' + (e.message || e) }; }
     }
     if (def.direct) {
@@ -1403,6 +1470,17 @@
         ? '<div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">현재 공용 설정: ' + String(sharedLocal.localUrl).replace(/&/g, '&amp;').replace(/</g, '&lt;') + (sharedLocal.byName ? ' · ' + String(sharedLocal.byName).replace(/</g, '&lt;') + ' 공유' : '') + '</div>'
         : '') +
       '</div>';
+    // v29.56: 관리자용 사내 문서 등록(RAG) — 워커가 RAG_ADMIN_EMAILS로 최종 검증하므로
+    // 여기 노출 조건(super/admin)은 UI 정리 목적일 뿐 보안 경계가 아니다.
+    var me = null; try { me = (typeof getU === 'function') ? getU(state.currentUser) : null; } catch (e) {}
+    var isDocAdmin = me && (me.grade === 'super' || me.grade === 'admin' || me.grade === 'exec');
+    var docHtml = !isDocAdmin ? '' : '<div class="fg" style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">' +
+      '<label class="fl">📚 사내 문서 등록 (관리자) — 등록하면 전 직원이 AI 비서에게 내용을 물어볼 수 있습니다</label>' +
+      '<input class="fi" id="aiDocNameInput" spellcheck="false" style="margin-bottom:6px;" placeholder="문서 이름 — 예: 용접검사 절차서 WPS-001">' +
+      '<textarea class="fi" id="aiDocTextInput" rows="4" spellcheck="false" style="resize:vertical;font-size:11px;" placeholder="문서 본문 텍스트를 붙여넣으세요 (PDF는 내용을 복사해서). 같은 이름으로 다시 등록하면 교체됩니다."></textarea>' +
+      '<button type="button" class="btn" id="aiDocUploadBtn" style="margin-top:6px;" onclick="SJP_AI_uploadDoc()">📚 문서 등록</button>' +
+      '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">게이트웨이 v3(AI·VECTORIZE 바인딩) 배포가 필요합니다 — gateway/README.md 참고</div>' +
+      '</div>';
     var keyProviders = PROVIDER_CHAIN.filter(function (p) { return p.ls; });
     var fieldsHtml = keyProviders.map(function (p, i) {
       var n = keysOf(p).length;
@@ -1417,6 +1495,7 @@
         '</div>';
     }).join('');
     openModal('🔑 AI 비서 — API 키 설정', '' +
+      docHtml +
       localHtml +
       gwHtml +
       '<div style="font-size:12px;color:var(--text-light);margin:10px 0;line-height:1.6;">개인 키 사용 시: 위에서부터 순서대로 자동 사용하고, 한도 초과·오류 시 다음으로 자동 전환됩니다.<br><b>계정을 여러 개 만들어 받은 키는 한 칸에 줄바꿈으로 전부 붙여넣으세요</b> — 키 단위로도 자동 교대되어 무료 한도가 키 수만큼 늘어납니다.</div>' +
