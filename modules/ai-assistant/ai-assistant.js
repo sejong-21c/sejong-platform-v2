@@ -35,6 +35,9 @@
  * v29.57: (로드맵 10단계, 2기) 대화 UI 품질 — 답변 마크다운 렌더링(굵게·표·목록·코드,
  * HTML 이스케이프 후 변환이라 스크립트 주입 불가), 도구 사용 중 상태 표시
  * ("데이터 조회 중…"), 완성된 답변에 복사(📋) 버튼.
+ * v29.58: (로드맵 11단계, 2기) 화면 문맥 인식 — 매 요청의 시스템 프롬프트에 현재
+ * 사용자(이름·부서)·오늘 날짜(요일)·현재 화면·보고 있는 프로젝트를 자동 첨부.
+ * "이 프로젝트 NCR 보여줘", "이번 주 일정" 같은 지시어가 통하게 된다.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -461,8 +464,11 @@
     return null;
   }
   function moduleLabel(m) {
-    if (m.nav) { var n = (window.NAV || []).find(function (x) { return x.id === m.nav; }); return n ? n.label : m.nav; }
-    var tl = (window.TOOLS || {})[m.tool]; return tl ? tl.name : m.tool;
+    // v29.58 fix: NAV/TOOLS는 const 전역이라 window.NAV가 아니라 bare 접근이어야 잡힌다
+    var nav = (typeof NAV !== 'undefined' && NAV) || [];
+    var tools = (typeof TOOLS !== 'undefined' && TOOLS) || {};
+    if (m.nav) { var n = nav.find(function (x) { return x.id === m.nav; }); return n ? n.label : m.nav; }
+    var tl = tools[m.tool]; return tl ? tl.name : m.tool;
   }
   ai.findModuleTarget = findModuleTarget; // 콘솔/테스트에서 매핑 확인용
 
@@ -879,6 +885,41 @@
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
   ].join(' ');
 
+  // ── v29.58(로드맵 11단계): 화면 문맥 — 매 요청 시스템 프롬프트에 현재 상황을 붙인다 ──
+  function currentScreenContext() {
+    var parts = [];
+    try {
+      var u = (typeof getU === 'function') ? getU(state.currentUser) : null;
+      if (u && u.name) parts.push('현재 사용자: ' + u.name + (u.dept ? ' (' + u.dept + ')' : ''));
+    } catch (e) {}
+    var now = new Date();
+    parts.push('오늘: ' + localISO(now) + ' (' + ['일', '월', '화', '수', '목', '금', '토'][now.getDay()] + ')');
+    try {
+      // view/NAV/TOOLS는 index.html의 let/const 전역 — window.X가 아니라 같은 스코프의 bare 접근만 가능
+      var v = (typeof view !== 'undefined' && view) || {};
+      var tools = (typeof TOOLS !== 'undefined' && TOOLS) || {};
+      var nav = (typeof NAV !== 'undefined' && NAV) || [];
+      var screen = '';
+      if (v.selectedTool && tools[v.selectedTool]) screen = tools[v.selectedTool].name;
+      else if (v.cur) {
+        var n = nav.find(function (x) { return x.id === v.cur; });
+        screen = n ? n.label : String(v.cur);
+      }
+      if (screen) parts.push('현재 화면: ' + screen);
+      var p = v.selectedProj;
+      if (p && p.name) parts.push('보고 있는 프로젝트: ' + (p.code ? p.code + ' ' : '') + p.name);
+    } catch (e) {}
+    return parts.join(' · ');
+  }
+  ai.currentScreenContext = currentScreenContext; // 테스트/콘솔 확인용
+  function buildSystemInstruction() {
+    var ctx = '';
+    try { ctx = currentScreenContext(); } catch (e) {}
+    return SYSTEM_INSTRUCTION + (ctx
+      ? ' [현재 상황] ' + ctx + ' — "이 프로젝트", "여기", "오늘", "이번 주" 같은 지시어는 이 상황을 기준으로 해석해라.'
+      : '');
+  }
+
   // 대화 기록은 제공사 중립 형식으로 보관하고, 각 provider 호출부에서만 변환한다.
   // { role:'user', text } | { role:'model', text } | { role:'model', functionCall:{name,args,id} } | { role:'function', name, result, callId }
   var history = [];
@@ -950,7 +991,7 @@
       signal: signal,
       headers: headers,
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+        systemInstruction: { parts: [{ text: buildSystemInstruction() }] }, // v29.58: 화면 문맥 포함
         contents: geminiContentsFromHistory(h),
         tools: buildGeminiTools()
       })
@@ -987,7 +1028,7 @@
       body: JSON.stringify({
         model: model,
         max_tokens: 1024,
-        system: SYSTEM_INSTRUCTION,
+        system: buildSystemInstruction(), // v29.58: 화면 문맥 포함
         messages: claudeMessagesFromHistory(h),
         tools: buildClaudeTools()
       })
@@ -1009,7 +1050,7 @@
   // 대화 기록을 OpenAI 메시지 형식으로 변환. Gemini에서 넘어온 함수호출 턴에는 id가 없으므로
   // 히스토리 인덱스로 id를 만들어 붙인다(호출 턴 i ↔ 결과 턴 i+1이 'call_i'로 짝을 이룸).
   function openAiMessagesFromHistory(h) {
-    var msgs = [{ role: 'system', content: SYSTEM_INSTRUCTION }];
+    var msgs = [{ role: 'system', content: buildSystemInstruction() }]; // v29.58: 화면 문맥 포함
     h.forEach(function (t, i) {
       if (t.role === 'user') msgs.push({ role: 'user', content: t.text });
       else if (t.role === 'model' && t.functionCall) msgs.push({
