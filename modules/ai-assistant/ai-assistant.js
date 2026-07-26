@@ -12,6 +12,8 @@
  * v29.49: (로드맵 1단계) 조회 범위 확대 — NCR·CAR·측정기구·회의실처럼 부모 state에 없는
  * 분리 모듈 컬렉션을 Firestore 1회 조회(getDocs)로 읽는다. 상시 구독은 하지 않음(비용).
  * 첨부파일 조각 문서(chunk__*)와 대용량 문자열 필드는 걸러서 토큰 낭비를 막는다.
+ * v29.50: (로드맵 2단계) 화면 이동 — open_module 액션. "NCR 열어줘" 같은 요청에
+ * 부모의 switchMod(대메뉴)/openTool(부서 도구)을 그대로 호출해 해당 화면으로 이동한다.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -327,6 +329,74 @@
     }
   });
 
+  // ── 2.5 화면 이동 (v29.50, 로드맵 2단계) ───────────────────────
+  // 부모 index.html의 NAV(switchMod)·TOOLS(openTool)를 그대로 호출한다.
+  // names: 사용자가 부를 만한 별칭 — 정규화(소문자·공백 제거) 후 완전일치 우선, 부분일치 보조.
+  var MODULE_TARGETS = [
+    { nav: 'dashboard',  names: ['대시보드', '홈', '메인', 'dashboard'] },
+    { nav: 'calendar',   names: ['캘린더', '일정', '달력', 'calendar'] },
+    { nav: 'projects',   names: ['프로젝트', 'wbs', '공정표', '간트'] },
+    { nav: 'traveller',  names: ['제작공정관리', '제작공정', '트래블러', 'traveller'] },
+    { nav: 'tasks',      names: ['업무관리', '업무', '할일', '할 일', 'task'] },
+    { nav: 'messenger',  names: ['메신저', '채팅', '메시지'] },
+    { nav: 'meeting',    names: ['회의실', '회의록', '회의'] },
+    { nav: 'okr',        names: ['목표', 'okr', '목표관리'] },
+    { nav: 'approval',   names: ['결재', '기안', '전자결재'] },
+    { nav: 'org',        names: ['조직권한', '조직/권한', '조직'] },
+    { nav: 'admin',      names: ['관리자', '관리 탭', '관리'] },
+    { tool: 'itpview',   names: ['itp 조회', 'itp조회', 'itp 뷰어'] },
+    { tool: 'itp',       names: ['itp builder', 'itp 빌더', 'itp'] },
+    { tool: 'qaview',    names: ['qa 조회', 'qa doc 조회', 'qa문서 조회'] },
+    { tool: 'qa',        names: ['qa doc generator', 'qa 문서생성', 'qa문서', 'qa'] },
+    { tool: 'ncr',       names: ['ncr', '부적합', '부적합보고서'] },
+    { tool: 'car',       names: ['car', '시정조치', '시정조치요구서'] },
+    { tool: 'qadash',    names: ['품질종합분석표', '품질종합분석', '품질분석'] },
+    { tool: 'mobile',    names: ['모바일 점검', '모바일점검', '현장 검사', 'mobile inspection'] },
+    { tool: 'mtools',    names: ['측정기구', '측정기구 반입출', '계측기'] },
+    { tool: 'asset',     names: ['자산관리', '자산 관리 대장', '자산'] },
+    { tool: 'deptsch',   names: ['부서 스케줄', '부서스케줄', '부서 일정'] }
+  ];
+  function normName(s) { return String(s || '').toLowerCase().replace(/[\s\-_·]/g, ''); }
+  function findModuleTarget(text) {
+    var t = normName(text);
+    if (!t) return null;
+    for (var i = 0; i < MODULE_TARGETS.length; i++) {           // 1차: 별칭 완전일치
+      if (MODULE_TARGETS[i].names.some(function (n) { return normName(n) === t; })) return MODULE_TARGETS[i];
+    }
+    for (var j = 0; j < MODULE_TARGETS.length; j++) {           // 2차: 부분일치 (긴 이름을 줄여 말한 경우)
+      if (MODULE_TARGETS[j].names.some(function (n) { var nn = normName(n); return nn.indexOf(t) !== -1 || t.indexOf(nn) !== -1; })) return MODULE_TARGETS[j];
+    }
+    return null;
+  }
+  function moduleLabel(m) {
+    if (m.nav) { var n = (window.NAV || []).find(function (x) { return x.id === m.nav; }); return n ? n.label : m.nav; }
+    var tl = (window.TOOLS || {})[m.tool]; return tl ? tl.name : m.tool;
+  }
+  ai.findModuleTarget = findModuleTarget; // 콘솔/테스트에서 매핑 확인용
+
+  registerAction('open_module', {
+    description: '플랫폼 화면(모듈) 열기 — 사용자를 해당 화면으로 이동시킨다',
+    params: { module: '열 화면 이름. 가능: 대시보드, 캘린더, 프로젝트(WBS), 제작공정관리, 업무관리, 메신저, 회의실·회의록, 목표(OKR), 결재, NCR, CAR, ITP Builder, ITP 조회, QA 문서생성, QA 조회, 품질종합분석표, 모바일 점검, 측정기구, 자산관리, 부서 스케줄' },
+    fill: function (v) {
+      var m = findModuleTarget(v.module);
+      if (!m) {
+        return { error: '"' + (v.module || '') + '" 화면을 찾지 못했습니다. 가능한 화면: 대시보드, 캘린더, 프로젝트, 제작공정관리, 업무관리, 메신저, 회의실·회의록, 목표(OKR), 결재, NCR, CAR, ITP Builder/조회, QA 문서생성/조회, 품질종합분석표, 모바일 점검, 측정기구, 자산관리, 부서 스케줄' };
+      }
+      var label = moduleLabel(m);
+      if (m.nav) {
+        var navItem = (window.NAV || []).find(function (x) { return x.id === m.nav; });
+        // switchMod 내부의 권한 alert() 대신 채팅 답변으로 안내
+        if (navItem && typeof canSeeNav === 'function' && !canSeeNav(navItem)) {
+          return { error: '"' + label + '" 화면은 현재 사용자에게 접근 권한이 없습니다.' };
+        }
+        switchMod(m.nav);
+      } else {
+        openTool(m.tool);
+      }
+      return { status: '"' + label + '" 화면을 열었습니다.' };
+    }
+  });
+
   // ── 3. 범용 조회 도구 ───────────────────────────────────────────
   // 데이터 종류별 전용 함수를 계속 늘리는 대신, 컬렉션 하나를 통째로 넘기고 모델이 스스로 요약/판단하게 함.
   var QUERYABLE = ['projects', 'tasks', 'users', 'channels', 'quotes', 'approvals', 'events', 'okrs'];
@@ -463,6 +533,7 @@
     '너는 세종기술의 사내 플랫폼 "세종플랫폼"의 AI 비서다. 한국어로 간결하게 답한다.',
     '조회는 query_state 도구로 처리한다. 등록/생성 요청은 해당 액션 도구를 호출한다 — 네가 직접 저장하는 게 아니라, ',
     '실제 입력 폼을 열고 값을 미리 채워주는 것뿐이며 최종 저장은 사용자가 화면에서 직접 확인 버튼을 눌러야 한다는 것을 답변에 명시해라.',
+    '"OO 열어줘/보여줘/이동해줘"처럼 특정 화면으로 가고 싶다는 요청은 open_module 도구로 처리한다.',
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
     'NCR(부적합보고서)·CAR(시정조치요구서)·측정기구·회의실 예약·회의록은 query_state로 조회만 가능하다(등록·수정은 아직 미지원 — 등록 요청을 받으면 해당 모듈을 직접 열어달라고 안내해라).',
@@ -903,7 +974,7 @@
       return { status: '채팅창에 확인 카드를 띄웠습니다 — 사용자가 확인을 눌러야 실제로 실행됩니다.' };
     }
     var r = def.fill(args);
-    if (r && r.error) return r;
+    if (r && (r.error || r.status)) return r; // v29.50: 액션이 자체 결과 문구를 주면 그대로 사용 (open_module 등)
     return { status: '"' + def.description + '" 입력 폼을 열고 값을 채워놨습니다. 사용자가 확인 후 저장 버튼을 눌러야 실제로 저장됩니다.' };
   }
 
