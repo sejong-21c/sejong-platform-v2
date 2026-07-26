@@ -26,6 +26,9 @@
  * v29.54: (로드맵 6단계) 조회 필터 — query_state에 date_from/date_to·proj·status·
  * text·limit 파라미터. 원본을 통째로 모델에 넘기지 않고 클라이언트에서 걸러 토큰 절약.
  * "이번 분기 OO프로젝트 NCR 현황" 같은 교차 질문이 정확해진다.
+ * v29.55: (로드맵 7단계) 문서 출력 — export_result 액션이 직전 query_state 결과를
+ * Excel(xlsx-js-style) 또는 PDF(html2canvas+jsPDF, DOM→이미지라 한글 폰트 임베드 불필요)로
+ * 다운로드. 라이브러리는 WBS 모듈과 같은 CDN에서 요청 시에만 lazy 로드.
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -595,6 +598,15 @@
     return out;
   }
 
+  // v29.55(로드맵 7단계): 직전 조회 결과를 기억해 export_result가 파일로 출력할 수 있게 한다
+  var lastQuery = null; // { collection, rows:[...] } — 이름 치환·필터 적용 후의 표 형태 데이터
+  function rememberQuery(collection, out) {
+    var rows = Array.isArray(out) ? out : (out && (out.data || out.sample));
+    if (Array.isArray(rows) && rows.length && typeof rows[0] === 'object') {
+      lastQuery = { collection: collection, rows: rows };
+    }
+  }
+
   // v29.49: 분리 모듈 컬렉션 조회가 비동기(getDocs)라 async — 호출부(executeFunctionCall)는 await 중이라 그대로 동작
   async function queryState(collection, opts) {
     var map = userNameMap();
@@ -611,7 +623,9 @@
         : (opts && (opts.date_from || opts.date_to || opts.proj || opts.status || opts.text)
             ? { filtered: true, totalBeforeFilter: total, matched: docs.length, data: docs }
             : docs);
-      return resolveUserIds(stripHeavyFields(outR, 0), map, 0);
+      var finalR = resolveUserIds(stripHeavyFields(outR, 0), map, 0);
+      rememberQuery(collection, finalR);
+      return finalR;
     }
     if (QUERYABLE.indexOf(collection) === -1) {
       return { error: '"' + collection + '"은(는) 조회할 수 없습니다. 사용 가능: ' + QUERYABLE.join(', ') + ', wbsData, wbsRec, ' + Object.keys(REMOTE_QUERYABLE).join(', ') };
@@ -622,12 +636,112 @@
       : data;
     // users 컬렉션은 이미 이름이 들어있고 id 필드를 이름으로 덮으면 오히려 혼란 — 치환 제외
     if (collection !== 'users') out = resolveUserIds(out, map, 0);
+    rememberQuery(collection, out);
     if (LOCAL_ONLY.indexOf(collection) !== -1) {
       return { note: '이 데이터는 현재 브라우저에만 저장되어 있어 다른 사람 화면과 다를 수 있습니다.', data: out };
     }
     return out;
   }
   ai.queryState = queryState;
+
+  // ── 3.5 문서 출력 (v29.55, 로드맵 7단계) ───────────────────────
+  // WBS 모듈과 같은 CDN·같은 방식: Excel은 xlsx-js-style, PDF는 html2canvas로 표를
+  // 이미지로 떠서 jsPDF에 얹는다(한글 폰트 임베드 불필요). 요청 시에만 lazy 로드.
+  var _libPromises = {};
+  function loadScriptOnce(src) {
+    if (!_libPromises[src]) {
+      _libPromises[src] = new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = function () { resolve(); };
+        s.onerror = function () { delete _libPromises[src]; reject(new Error('라이브러리 로드 실패: ' + src)); };
+        document.head.appendChild(s);
+      });
+    }
+    return _libPromises[src];
+  }
+  var XLSX_CDN = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+  var H2C_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  var JSPDF_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+
+  // 행 배열 → 표: 컬럼은 등장 순서 기준 합집합, 객체/배열 값은 짧은 JSON 문자열로
+  function buildTable(rows) {
+    var cols = [];
+    rows.forEach(function (r) {
+      Object.keys(r).forEach(function (k) { if (cols.indexOf(k) === -1) cols.push(k); });
+    });
+    var body = rows.map(function (r) {
+      return cols.map(function (c) {
+        var v = r[c];
+        if (v === undefined || v === null) return '';
+        if (typeof v === 'object') { try { v = JSON.stringify(v); } catch (e) { v = String(v); } }
+        v = String(v);
+        return v.length > 300 ? v.slice(0, 300) + '…' : v;
+      });
+    });
+    return { cols: cols, body: body };
+  }
+  function exportFileName(title, collection) {
+    var day = localISO(new Date());
+    return (title || ('세종플랫폼_' + collection)) + '_' + day;
+  }
+  async function exportExcel(title) {
+    await loadScriptOnce(XLSX_CDN);
+    var t = buildTable(lastQuery.rows);
+    var aoa = [t.cols].concat(t.body);
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = t.cols.map(function (c, i) {
+      var w = c.length;
+      t.body.forEach(function (row) { var l = String(row[i] || '').length; if (l > w) w = l; });
+      return { wch: Math.min(Math.max(w + 2, 8), 60) };
+    });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '조회결과');
+    XLSX.writeFile(wb, exportFileName(title, lastQuery.collection) + '.xlsx');
+  }
+  async function exportPdf(title) {
+    await loadScriptOnce(H2C_CDN);
+    await loadScriptOnce(JSPDF_CDN);
+    var t = buildTable(lastQuery.rows);
+    var el = document.createElement('div');
+    el.style.cssText = 'position:absolute;left:-10000px;top:0;width:1100px;background:#fff;padding:24px;font-family:sans-serif;';
+    var th = t.cols.map(function (c) { return '<th style="border:1px solid #999;padding:4px 6px;background:#eef;font-size:11px;">' + c + '</th>'; }).join('');
+    var trs = t.body.map(function (row) {
+      return '<tr>' + row.map(function (v) { return '<td style="border:1px solid #bbb;padding:3px 6px;font-size:10px;word-break:break-all;">' + String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    el.innerHTML = '<h3 style="margin:0 0 10px;font-size:15px;">' + (title || '세종플랫폼 조회결과 — ' + lastQuery.collection) + ' (' + localISO(new Date()) + ')</h3>'
+      + '<table style="border-collapse:collapse;width:100%;"><thead><tr>' + th + '</tr></thead><tbody>' + trs + '</tbody></table>';
+    document.body.appendChild(el);
+    try {
+      var canvas = await html2canvas(el, { scale: 2 });
+      var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      var pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+      var imgH = canvas.height * pw / canvas.width; // 폭 맞춤 시 전체 이미지 높이(mm)
+      var y = 0;
+      while (y < imgH) {
+        if (y > 0) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, -y, pw, imgH);
+        y += ph;
+      }
+      pdf.save(exportFileName(title, lastQuery.collection) + '.pdf');
+    } finally { el.remove(); }
+  }
+
+  registerAction('export_result', {
+    description: '직전 query_state 조회 결과를 Excel 또는 PDF 파일로 다운로드. "엑셀로 뽑아줘", "PDF로 저장해줘" 요청에 사용 — 반드시 먼저 query_state로 조회한 뒤 호출',
+    params: { format: 'excel 또는 pdf', title: '파일 제목 (선택)' },
+    fill: function (v) {
+      if (!lastQuery || !lastQuery.rows || !lastQuery.rows.length) {
+        return { error: '출력할 조회 결과가 없습니다 — 먼저 query_state로 데이터를 조회해주세요.' };
+      }
+      var fmt = String(v.format || '').toLowerCase().indexOf('pdf') !== -1 ? 'pdf' : 'excel';
+      var n = lastQuery.rows.length;
+      (fmt === 'pdf' ? exportPdf(v.title) : exportExcel(v.title))
+        .then(function () { appendMsg('system', '✓ ' + (fmt === 'pdf' ? 'PDF' : 'Excel') + ' 다운로드 완료 (' + n + '건)'); })
+        .catch(function (e) { appendMsg('system', '파일 생성 실패: ' + (e.message || e)); });
+      return { status: (fmt === 'pdf' ? 'PDF' : 'Excel') + ' 파일 생성을 시작했습니다 (' + n + '건) — 잠시 후 다운로드됩니다.' };
+    }
+  });
 
   // ── 4. 모델(Gemini/Claude) 공용 function-calling 루프 ────────────
   var QUERY_STATE_DESC = '세종플랫폼 데이터 조회. 기간·프로젝트·상태 조건이 있는 질문은 필터 파라미터를 함께 넘겨라(전체를 받아서 직접 거르지 말 것). collection에는 다음 중 하나만: '
@@ -686,6 +800,7 @@
     '실제 입력 폼을 열고 값을 미리 채워주는 것뿐이며 최종 저장은 사용자가 화면에서 직접 확인 버튼을 눌러야 한다는 것을 답변에 명시해라.',
     '"OO 열어줘/보여줘/이동해줘"처럼 특정 화면으로 가고 싶다는 요청은 open_module 도구로 처리한다.',
     '"오늘 뭐 해야 해", "브리핑" 같은 요청은 get_briefing 도구로 처리한다 — 지연 업무와 오늘 마감을 맨 앞에 강조하고, 일정→결재→알림 순으로 간결히 요약해라.',
+    '"엑셀로/PDF로 뽑아줘·저장해줘" 요청은 export_result 도구로 처리한다 — 직전 query_state 결과가 파일이 되므로, 아직 조회 전이면 먼저 query_state를 호출해라.',
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
     'NCR·CAR는 query_state로 조회하고, 발행(등록) 요청은 create_ncr/create_car 도구로 처리한다 — 모듈이 열리고 폼이 채워질 뿐 발행은 사용자가 직접 하며, 발행 권한은 품질관리부에 있다는 것을 답변에 명시해라. 기존 NCR/CAR의 수정·삭제는 아직 미지원이다.',
