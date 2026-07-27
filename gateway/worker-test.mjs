@@ -67,6 +67,10 @@ globalThis.fetch = async (input, init) => {
   }
   if (url.startsWith(FS)) {
     const rest = url.slice(FS.length);
+    if (rest === ':listCollectionIds') { // v3.2 백업: 루트 컬렉션 동적 열거
+      const ids = [...new Set(Object.keys(fsStore).map(p => p.split('/')[0]))];
+      return Response.json({ collectionIds: ids });
+    }
     if (rest === ':runQuery') {
       const sq = body.structuredQuery;
       const coll = sq.from[0].collectionId;
@@ -179,8 +183,9 @@ const post = (path, token, obj) => worker.fetch(new Request('https://gw.test' + 
 
 // ── 5. 크론 알림 시나리오 ───────────────────────────────────────
 {
-  let p; await worker.scheduled({}, env, { waitUntil: x => { p = x; } });
-  await p;
+  // v3.2부터 scheduled가 waitUntil을 여러 번(알림+백업) 호출 — 전부 기다려야 경합이 없다
+  const ps = []; await worker.scheduled({}, env, { waitUntil: x => ps.push(x) });
+  await Promise.all(ps.map(p => p.catch(() => {})));
   check('크론 1회차: 메시지 2건(D-1 업무 1건 + 지연 결재 1건)', postedMessages.length === 2, postedMessages.map(m => (m.text || {}).stringValue && m.text.stringValue.split('\n')[0]).join(' | '));
   const d1Msg = postedMessages.find(m => m.text.stringValue.includes('내일 마감'));
   const stMsg = postedMessages.find(m => m.text.stringValue.includes('대기 중인 결재'));
@@ -193,8 +198,8 @@ const post = (path, token, obj) => worker.fetch(new Request('https://gw.test' + 
 }
 {
   const before = postedMessages.length;
-  let p; await worker.scheduled({}, env, { waitUntil: x => { p = x; } });
-  await p;
+  const ps = []; await worker.scheduled({}, env, { waitUntil: x => ps.push(x) });
+  await Promise.all(ps.map(p => p.catch(() => {})));
   check('크론 2회차: 마커 덕에 중복 발송 0건', postedMessages.length === before);
 }
 {
@@ -203,6 +208,38 @@ const post = (path, token, obj) => worker.fetch(new Request('https://gw.test' + 
   const r2 = await post('/cron/run', adminToken, {});
   const d2 = await r2.json();
   check('/cron/run: 관리자 → 200 + 결과(중복 없음 {d1:0,stale:0})', r2.status === 200 && d2.d1 === 0 && d2.stale === 0, JSON.stringify(d2));
+}
+
+// ── 6. 야간 백업(v3.2) 시나리오 ─────────────────────────────────
+{
+  // BACKUP 바인딩 없으면 안전 스킵
+  const rSkip = await post('/backup/run', adminToken, {});
+  const dSkip = await rSkip.json();
+  check('백업: R2 바인딩 없음 → 안전 스킵', rSkip.status === 200 && /BACKUP/.test(dSkip.skipped || ''), JSON.stringify(dSkip));
+
+  // 모의 R2 + 첨부 조각 시드
+  fsStore['tasks/chunk__att1'] = { data: { stringValue: 'x'.repeat(100) } };
+  fsStore['tasks/dwg_1'] = { data: { stringValue: 'y'.repeat(100) } };
+  const r2Store = new Map();
+  r2Store.set('backup/2026-01-01/tasks.json', '[]'); // 31일 넘은 백업 — 정리돼야 함
+  env.BACKUP = {
+    put: async (k, v) => { r2Store.set(k, String(v)); },
+    delete: async (k) => { r2Store.delete(k); },
+    list: async ({ prefix }) => ({ objects: [...r2Store.keys()].filter(k => k.startsWith(prefix)).map(key => ({ key })), truncated: false }),
+  };
+
+  const rGate = await post('/backup/run', staffToken, {});
+  check('백업: 일반직원 수동 실행 → 403', rGate.status === 403);
+
+  const r = await post('/backup/run', adminToken, {});
+  const d = await r.json();
+  const day = d.day;
+  check('백업: 관리자 실행 → 요약 반환(컬렉션·문서 수)', r.status === 200 && d.collections >= 5 && d.docs > 0, JSON.stringify({ collections: d.collections, docs: d.docs, kb: d.kb }));
+  check('백업: tasks에서 첨부 조각(chunk__/dwg_) 제외', d.summary.tasks === 3, 'tasks=' + d.summary.tasks);
+  const tasksJson = JSON.parse(r2Store.get('backup/' + day + '/tasks.json') || '[]');
+  check('백업: R2에 날짜/컬렉션.json 저장 + 문서 내용 보존', tasksJson.length === 3 && tasksJson.some(t => t.title === '내일 마감·미완료'), 'keys=' + [...r2Store.keys()].filter(k => k.includes(day)).length);
+  check('백업: 30일 지난 백업 자동 정리', !r2Store.has('backup/2026-01-01/tasks.json'));
+  check('백업: users·approvals·messages도 포함', !!r2Store.get('backup/' + day + '/users.json') && !!r2Store.get('backup/' + day + '/approvals.json') && !!r2Store.get('backup/' + day + '/messages.json'));
 }
 
 // ── 결과 출력 ───────────────────────────────────────────────────

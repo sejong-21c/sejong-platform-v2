@@ -16,6 +16,12 @@
  *     aiNotifMarkers 마커 문서(localStorage 금지 원칙 — 2026-07-17 교훈).
  *     필요 Secret: FIREBASE_SA_KEY(서비스 계정 JSON 전체 — 규칙 우회 Admin 권한이라
  *     firestore.rules 변경 불필요). 미설정이면 cron은 조용히 아무것도 안 한다.
+ *  6) v3.2: Firestore 야간 백업 — 같은 크론에서 전 컬렉션을 R2(BACKUP 바인딩)에
+ *     backup/YYYY-MM-DD/<컬렉션>.json 으로 저장. 코드(git 태그)와 달리 데이터는
+ *     백업이 없었음 — 2026-07-17 WBS 덮어쓰기류 사고의 데이터판 보험.
+ *     컬렉션 목록은 listCollectionIds로 동적 열거(새 컬렉션 자동 포함).
+ *     첨부 조각(chunk__·dwg_ 문서)은 용량·CPU 한도 때문에 제외(README 명시). 30일 보존.
+ *     수동 실행: POST /backup/run (RAG_ADMIN_EMAILS 계정만). BACKUP 미설정 시 조용히 스킵.
  *
  * 요청 경로 규칙 (플랫폼 ai-assistant.js가 이 규칙으로 호출):
  *  POST /v1/gemini/models/<model>:generateContent  →  generativelanguage.googleapis.com/v1beta/...
@@ -398,6 +404,70 @@ async function runDailyAlerts(env) {
   return result;
 }
 
+// ── v3.2: Firestore 야간 백업 → R2 ──────────────────────────────
+async function fsListCollections(env, token) {
+  const r = await fetch('https://firestore.googleapis.com/v1/projects/' + fsProjectId(env) + '/databases/(default)/documents:listCollectionIds', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pageSize: 200 }),
+  });
+  if (!r.ok) throw new Error('listCollectionIds failed: ' + r.status);
+  return (await r.json()).collectionIds || [];
+}
+
+const BACKUP_KEEP_DAYS = 30;
+
+async function cleanupOldBackups(env, todayKst) {
+  const cutoff = new Date(new Date(todayKst).getTime() - BACKUP_KEEP_DAYS * 86400e3).toISOString().slice(0, 10);
+  let cursor;
+  do {
+    const l = await env.BACKUP.list({ prefix: 'backup/', cursor });
+    for (const obj of l.objects) {
+      const m = obj.key.match(/^backup\/(\d{4}-\d{2}-\d{2})\//);
+      if (m && m[1] < cutoff) await env.BACKUP.delete(obj.key);
+    }
+    cursor = l.truncated ? l.cursor : null;
+  } while (cursor);
+}
+
+async function runDailyBackup(env) {
+  if (!env.FIREBASE_SA_KEY) return { skipped: 'FIREBASE_SA_KEY not set' };
+  if (!env.BACKUP) return { skipped: 'BACKUP(R2) binding not set' };
+  const token = await saAccessToken(env);
+  const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const collections = await fsListCollections(env, token);
+  const summary = {};
+  let totalDocs = 0, totalKb = 0;
+  for (const coll of collections) {
+    const docs = [];
+    let pageToken = '';
+    do {
+      const url = fsBase(env) + '/' + encodeURIComponent(coll) + '?pageSize=300'
+        + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error(coll + ' backup list failed: ' + r.status);
+      const d = await r.json();
+      (d.documents || []).forEach(doc => {
+        const id = doc.name.split('/').pop();
+        // 첨부 조각(base64 수백KB×수백 개)은 워커 메모리·CPU 한도를 넘길 수 있어 제외.
+        // 구조 데이터(업무·결재·WBS 등) 복구가 이 백업의 목적이다.
+        if (id.startsWith('chunk__') || id.startsWith('dwg_')) return;
+        docs.push(fsParseDoc(doc));
+      });
+      pageToken = d.nextPageToken || '';
+    } while (pageToken);
+    const body = JSON.stringify(docs);
+    await env.BACKUP.put('backup/' + day + '/' + coll + '.json', body, {
+      httpMetadata: { contentType: 'application/json' },
+    });
+    summary[coll] = docs.length;
+    totalDocs += docs.length;
+    totalKb += Math.round(body.length / 1024);
+  }
+  try { await cleanupOldBackups(env, day); } catch (e) { console.warn('[backup] cleanup:', e && e.message); }
+  return { day, collections: collections.length, docs: totalDocs, kb: totalKb, summary };
+}
+
 function corsHeaders(origin, allowed) {
   const h = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -420,6 +490,7 @@ export default {
   // v3.1: Cron Trigger(대시보드 Settings → Triggers → Cron, 예: "0 0 * * *" = 한국 09:00)
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runDailyAlerts(env).catch(e => console.error('[ai-alerts]', e && e.message)));
+    ctx.waitUntil(runDailyBackup(env).catch(e => console.error('[backup]', e && e.message))); // v3.2
   },
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -435,14 +506,16 @@ export default {
     }
 
     // v3.1: 능동 알림 수동 실행(테스트용) — 관리자 계정으로 POST /cron/run
-    if (url.pathname === '/cron/run') {
+    // v3.2: 백업 수동 실행 — POST /backup/run (같은 관리자 게이트)
+    if (url.pathname === '/cron/run' || url.pathname === '/backup/run') {
       if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
       const auth = await verifyCompanyFirebaseToken(request, env);
       if (auth.status) return json(auth.status, { error: auth.error }, cors);
       const admins = (env.RAG_ADMIN_EMAILS || DEFAULT_RAG_ADMIN_EMAILS).toLowerCase().split(/[\s,;]+/).filter(Boolean);
       if (!admins.includes(auth.email)) return json(403, { error: '관리자만 실행할 수 있습니다' }, cors);
-      try { return json(200, await runDailyAlerts(env), cors); }
-      catch (e) { return json(500, { error: '알림 실행 실패: ' + (e.message || e) }, cors); }
+      try {
+        return json(200, url.pathname === '/backup/run' ? await runDailyBackup(env) : await runDailyAlerts(env), cors);
+      } catch (e) { return json(500, { error: '실행 실패: ' + (e.message || e) }, cors); }
     }
 
     // v3: 사내 문서 검색(RAG) — /rag/search, /rag/upload

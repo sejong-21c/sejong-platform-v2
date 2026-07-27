@@ -112,6 +112,30 @@ https://sejong-ai-gateway.<계정이름>.workers.dev
 참고: 서비스 계정은 Firestore 보안 규칙을 우회(Admin)하므로 **firestore.rules 변경이 필요 없습니다.**
 `FIREBASE_SA_KEY`를 등록하지 않으면 크론이 돌아도 아무 일도 하지 않습니다(안전 기본값).
 
+## 6단계. Firestore 야간 백업 켜기 (5분, 강력 권장)
+
+코드는 git 태그로 백업되지만 **데이터(업무·결재·프로젝트·WBS)는 지금까지 백업이 없었습니다.**
+버그나 실수로 컬렉션이 날아가면 복구 불가 — 이 기능이 그 보험입니다.
+매일 아침 9시(알림 크론과 같은 시각) 전 컬렉션을 R2에 JSON으로 저장하고 30일 보관합니다.
+
+1. **R2 버킷 만들기**: 대시보드 **R2 Object Storage** → **Create bucket** → 이름 `sejong-backup`
+   (R2 무료: 10GB 저장 — 첨부 제외 구조 데이터라 수 MB/일 수준이라 충분)
+2. **워커에 바인딩**: 워커 → Settings → **Bindings** → **Add** → **R2 bucket** 선택
+   → Variable name: `BACKUP` → 버킷 `sejong-backup` 선택
+3. 최신 `cloudflare-worker.js`(v3.2)를 붙여넣고 **Deploy**
+   (크론과 `FIREBASE_SA_KEY`는 5단계에서 이미 설정 — 추가 설정 없음)
+4. **즉시 테스트**: 관리자 계정으로 로그인한 플랫폼 콘솔(F12)에서:
+   ```js
+   fb.auth.currentUser.getIdToken().then(t => fetch('https://sejong-ai-gateway.cwkim-65d.workers.dev/backup/run', { method: 'POST', headers: { Authorization: 'Bearer ' + t } }).then(r => r.json()).then(console.log))
+   ```
+   `{day, collections: N, docs: M, kb: ...}`가 나오고 R2 버킷에 `backup/<날짜>/` 폴더가 생기면 성공.
+
+**알아둘 것**
+- 첨부파일 조각(chunk__·dwg_ 문서, NCR/CAR/ITP 첨부·도면)은 용량 때문에 백업에서 제외됩니다
+  — 이 백업의 목적은 구조 데이터(업무·결재·WBS·측정기구 등) 복구입니다.
+- **복구 방법**: R2에서 해당 날짜의 `<컬렉션>.json`을 내려받아 개발 담당(Claude 세션)에게
+  "이 파일로 OO 컬렉션 복구해줘"라고 요청 — 각 문서의 `__id` 필드가 원래 문서 id입니다.
+
 ## 문제 해결
 
 - **"OO keys not configured on gateway"** — 2단계에서 해당 회사 키를 안 넣은 것. 넣거나 무시(자동으로 다음 회사로 넘어감)
