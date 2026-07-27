@@ -15,9 +15,9 @@ const keyPair = await wc.subtle.generateKey(
   { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
   true, ['sign', 'verify']
 );
-const spki = new Uint8Array(await wc.subtle.exportKey('spki', keyPair.publicKey));
 const b64 = bytes => Buffer.from(bytes).toString('base64');
-const certPem = '-----BEGIN CERTIFICATE-----\n' + b64(spki).match(/.{1,64}/g).join('\n') + '\n-----END CERTIFICATE-----\n';
+// v3.2.2: 워커가 Google JWK로 토큰을 검증 — 테스트 공개키도 JWK로 노출한다
+const pubJwk = { ...(await wc.subtle.exportKey('jwk', keyPair.publicKey)), kid: 'testkid', alg: 'RS256', use: 'sig' };
 const b64url = bytes => Buffer.from(bytes).toString('base64url');
 async function makeToken(email) {
   const now = Math.floor(Date.now() / 1000);
@@ -59,8 +59,8 @@ globalThis.fetch = async (input, init) => {
   const method = (init && init.method) || 'GET';
   let body = null;
   if (init && init.body) { try { body = JSON.parse(init.body); } catch (e) {} } // OAuth 본문은 폼 형식 — JSON 아님
-  if (url.startsWith('https://www.googleapis.com/robot/')) {
-    return Response.json({ testkid: certPem });
+  if (url.includes('googleapis.com/service_accounts/v1/jwk/')) {
+    return Response.json({ keys: [pubJwk] });
   }
   if (url.startsWith('https://oauth2.googleapis.com/token')) {
     return Response.json({ access_token: 'fake-sa-token', expires_in: 3600 });

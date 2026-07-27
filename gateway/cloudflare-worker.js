@@ -97,7 +97,9 @@ const PROVIDERS = {
 
 // 키 교대 위치 기억 (워커 인스턴스가 살아있는 동안만 — 사라져도 첫 키부터 다시 돌 뿐이라 무해)
 const keyCursor = {};
-const FIREBASE_CERT_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+// v3.2.2: x509 인증서 URL → JWK URL로 교체. 이전 코드는 x509 인증서 DER을 SPKI로
+// importKey해서 "Invalid SPKI input"으로 죽었다(실전 첫 사용에서 발각). JWK는 바로 임포트 가능.
+const FIREBASE_JWK_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 const firebaseCertCache = { expiresAt: 0, keys: new Map() };
 
 function base64UrlToBytes(value) {
@@ -109,21 +111,17 @@ function decodeJwtPart(value) {
   return JSON.parse(new TextDecoder().decode(base64UrlToBytes(value)));
 }
 
-function pemToBytes(pem) {
-  const clean = pem.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s/g, '');
-  return Uint8Array.from(atob(clean), char => char.charCodeAt(0));
-}
-
 async function firebaseSigningKey(kid) {
   if (Date.now() >= firebaseCertCache.expiresAt || !firebaseCertCache.keys.has(kid)) {
-    const response = await fetch(FIREBASE_CERT_URL);
-    if (!response.ok) throw new Error('Firebase signing certificate lookup failed');
-    firebaseCertCache.keys = new Map(Object.entries(await response.json()));
+    const response = await fetch(FIREBASE_JWK_URL);
+    if (!response.ok) throw new Error('Firebase signing key lookup failed');
+    const jwks = (await response.json()).keys || [];
+    firebaseCertCache.keys = new Map(jwks.map(k => [k.kid, k]));
     firebaseCertCache.expiresAt = Date.now() + 60 * 60 * 1000;
   }
-  const cert = firebaseCertCache.keys.get(kid);
-  if (!cert) throw new Error('Unknown Firebase token key id');
-  return crypto.subtle.importKey('spki', pemToBytes(cert), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const jwk = firebaseCertCache.keys.get(kid);
+  if (!jwk) throw new Error('Unknown Firebase token key id');
+  return crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
 }
 
 // v2.1: 프로젝트 ID는 비밀값이 아니므로(플랫폼 index.html에 공개) 코드에 기본값 내장.
