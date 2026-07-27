@@ -48,6 +48,8 @@
  * v29.61: (로드맵 3기 16단계) 업무 완료 처리 — complete_task. 유일한 '수정' 액션이라
  * send_message처럼 채팅 안 확인 카드로 처리: 어떤 업무를 완료로 바꾸는지 보여주고
  * 사람이 [완료 처리]를 눌러야 부모 moveTask(id,'done')가 실행된다.
+ * v29.62: 운영 잔손질 — Claude 직접 경로 max_tokens 1024→4096(긴 브리핑 잘림 방지),
+ * 5회 도구 루프 한계 도달을 aiUsage에 loopLimit로 기록(에이전트 모드 필요성 판단 데이터).
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -1160,7 +1162,7 @@
       headers: headers,
       body: JSON.stringify({
         model: model,
-        max_tokens: 1024,
+        max_tokens: 4096, // v29.62: 1024는 긴 브리핑·표가 잘림 — OpenAI 호환 경로와 통일
         system: buildSystemInstruction(), // v29.58: 화면 문맥 포함
         messages: claudeMessagesFromHistory(h),
         tools: buildClaudeTools()
@@ -1552,7 +1554,9 @@
     return base + '…';
   }
 
+  var lastLoopLimit = false; // v29.62: 이번 질문이 5회 루프 한계에 걸렸는지 (aiUsage 계측용)
   async function runConversation(userText, onStatus, onToken) {
+    lastLoopLimit = false;
     history.push({ role: 'user', text: userText });
     for (var i = 0; i < 5; i++) {
       var result = await callProviderOnce(history, onStatus, onToken);
@@ -1566,6 +1570,7 @@
       history.push({ role: 'model', text: result.text });
       return result.text;
     }
+    lastLoopLimit = true; // 이 빈도가 높으면 에이전트 모드(로드맵 12단계)를 검토할 근거가 된다
     return '요청을 처리하는 데 단계가 너무 많이 필요합니다. 질문을 조금 더 구체적으로 나눠서 다시 시도해주세요.';
   }
 
@@ -1878,7 +1883,8 @@
       fb.setDoc(fb.doc(fb.collection(fb.db, 'aiUsage')), {
         day: day, at: Date.now(),
         uid: state.currentUser, user: (u && u.name) || '(미확인)', dept: (u && u.dept) || '',
-        provider: provider || '', ok: !!ok, err: errMsg ? String(errMsg).slice(0, 120) : ''
+        provider: provider || '', ok: !!ok, err: errMsg ? String(errMsg).slice(0, 120) : '',
+        loopLimit: lastLoopLimit // v29.62: 도구 루프 5회 한계 도달 여부 — 에이전트 모드 필요성 판단용
       }).catch(function () {});
     } catch (e) {}
   }
