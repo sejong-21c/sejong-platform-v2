@@ -140,6 +140,16 @@ const post = (path, token, obj) => worker.fetch(new Request('https://gw.test' + 
   body: JSON.stringify(obj || {}),
 }), env);
 
+// ── 3.5 CORS 프리플라이트 (v3.2.1) ──────────────────────────────
+{
+  const r = await worker.fetch(new Request('https://gw.test/rag/upload', {
+    method: 'OPTIONS',
+    headers: { Origin: 'https://sejong21c.com', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization,content-type' },
+  }), env);
+  const allow = r.headers.get('Access-Control-Allow-Headers') || '';
+  check('CORS 프리플라이트: 204 + Authorization 헤더 허용', r.status === 204 && /authorization/i.test(allow), 'status=' + r.status + ' allow=' + allow);
+}
+
 // ── 4. RAG 시나리오 ─────────────────────────────────────────────
 {
   const r = await post('/rag/upload', null, { docName: 'X', chunks: ['a'] });

@@ -471,7 +471,9 @@ async function runDailyBackup(env) {
 function corsHeaders(origin, allowed) {
   const h = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, anthropic-version, anthropic-dangerous-direct-browser-access, x-title',
+    // v3.2.1: Authorization 추가 — RAG/9router/cron 수동 실행이 Firebase 로그인 토큰을
+    // 이 헤더로 보낸다. 빠져 있으면 브라우저 preflight가 차단돼 "Failed to fetch".
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, anthropic-version, anthropic-dangerous-direct-browser-access, x-title',
     'Access-Control-Max-Age': '86400',
   };
   if (!allowed.length) { h['Access-Control-Allow-Origin'] = '*'; return h; }
