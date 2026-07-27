@@ -1,0 +1,27 @@
+# 세종 AI 게이트웨이 — wrangler 배포 설정 (2026-07-27부터 CLI 배포 병행)
+# 배포: cd gateway && npx wrangler deploy
+# 주의: keep_vars=true 필수 — 대시보드에서 넣은 일반 변수(ALLOWED_ORIGINS, NINEROUTER_* 등)를
+#       배포가 지우지 않게 한다. Secret(GEMINI_KEYS, FIREBASE_SA_KEY 등)은 원래 유지됨.
+name = "sejong-ai-gateway"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-07-01"
+keep_vars = true
+
+# Workers AI — RAG 임베딩(bge-m3)용
+[ai]
+binding = "AI"
+
+# Vectorize — 사내 문서 벡터 인덱스
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "sejong-docs"
+
+# 능동 알림 + 야간 백업 크론 (UTC 00:00 = 한국 09:00)
+[triggers]
+crons = ["0 0 * * *"]
+
+# Firestore 야간 백업용 R2 — 계정에 R2 활성화(약관 동의) 후 주석 해제하고 재배포:
+#   npx wrangler r2 bucket create sejong-backup && npx wrangler deploy
+# [[r2_buckets]]
+# binding = "BACKUP"
+# bucket_name = "sejong-backup"
