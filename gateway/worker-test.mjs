@@ -122,8 +122,15 @@ const env = {
   FIREBASE_SA_KEY: SA_KEY,
   AI: { run: async (model, { text }) => ({ data: text.map(fakeEmbed) }) },
   VECTORIZE: {
-    upsert: async vectors => { vectors.forEach(v => vecStore.set(v.id, v)); },
-    deleteByIds: async ids => { ids.forEach(id => vecStore.delete(id)); },
+    // 실제 Vectorize의 배치 제한을 그대로 재현 — 넘기면 워커 코드가 실전에서 죽는다
+    upsert: async vectors => {
+      if (vectors.length > 1000) throw new Error('VECTOR_UPSERT_ERROR: max batch is 1000, got ' + vectors.length);
+      vectors.forEach(v => vecStore.set(v.id, v));
+    },
+    deleteByIds: async ids => {
+      if (ids.length > 100) throw new Error('VECTOR_DELETE_ERROR (code = 40007): too many ids in payload; max id count is 100, got ' + ids.length);
+      ids.forEach(id => vecStore.delete(id));
+    },
     query: async (vec, { topK }) => {
       const scored = [...vecStore.values()].map(v => ({
         id: v.id, metadata: v.metadata,

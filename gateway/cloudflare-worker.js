@@ -191,8 +191,12 @@ async function handleRag(request, env, path, cors) {
     const chunks = Array.isArray(body.chunks) ? body.chunks.map(c => String(c).trim()).filter(Boolean) : [];
     if (!docName || !chunks.length) return json(400, { error: 'docName과 chunks가 필요합니다' }, cors);
     if (chunks.length > 500) return json(400, { error: '청크는 최대 500개까지 (문서를 나눠 등록하세요)' }, cors);
-    // 같은 문서 재등록(replace): 예전 조각이 더 길었을 수 있어 500개 id를 전부 지운다
-    await env.VECTORIZE.deleteByIds(Array.from({ length: 500 }, (_, i) => docName + '::' + i));
+    // 같은 문서 재등록(replace): 예전 조각이 더 길었을 수 있어 500개 id를 전부 지운다.
+    // v3.2.3: Vectorize deleteByIds는 호출당 100개 제한(40007) — 100개씩 나눠 삭제
+    const delIds = Array.from({ length: 500 }, (_, i) => docName + '::' + i);
+    for (let i = 0; i < delIds.length; i += 100) {
+      await env.VECTORIZE.deleteByIds(delIds.slice(i, i + 100));
+    }
     // Workers AI 임베딩은 한 번에 100개 제한 — 나눠서 처리
     const vectors = [];
     for (let i = 0; i < chunks.length; i += 100) {
