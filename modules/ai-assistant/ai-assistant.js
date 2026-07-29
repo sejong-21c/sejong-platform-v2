@@ -50,6 +50,8 @@
  * 사람이 [완료 처리]를 눌러야 부모 moveTask(id,'done')가 실행된다.
  * v29.62: 운영 잔손질 — Claude 직접 경로 max_tokens 1024→4096(긴 브리핑 잘림 방지),
  * 5회 도구 루프 한계 도달을 aiUsage에 loopLimit로 기록(에이전트 모드 필요성 판단 데이터).
+ * v29.63: 🔑 관리자 도구 버튼 — 능동 알림(/cron/run)·백업(/backup/run)을 브라우저 콘솔
+ * 없이 클릭 한 번으로 즉시 실행 (게이트웨이가 관리자 계정인지 검증).
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -826,6 +828,23 @@
     if (cur) chunks.push(cur);
     return chunks;
   }
+  // v29.63: 관리자 도구 — 크론 잡(알림/백업) 즉시 실행. 게이트웨이가 RAG_ADMIN_EMAILS로 재검증한다.
+  window.SJP_AI_runCron = async function (kind) {
+    var gw = getGatewayUrl();
+    if (!gw) { alert('회사 게이트웨이 주소가 설정되지 않았습니다.'); return; }
+    var label = kind === 'backup' ? '백업' : '알림';
+    try {
+      var headers = await gatewayAuthHeaders();
+      var res = await fetch(gw + (kind === 'backup' ? '/backup/run' : '/cron/run'), { method: 'POST', headers: headers });
+      var d = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(d.error || ('오류 ' + res.status));
+      alert('✓ ' + label + ' 실행 완료:\n' + JSON.stringify(d, null, 2)
+        + (kind === 'backup' ? '' : '\n\n(d1: 내일 마감 업무 알림 수 · stale: 지연 결재 알림 수 — 메신저의 "🤖 AI 알림" 채널을 확인하세요)'));
+    } catch (e) {
+      alert(label + ' 실행 실패: ' + (e.message || e));
+    }
+  };
+
   window.SJP_AI_uploadDoc = async function () {
     var nameEl = $id('aiDocNameInput'), textEl = $id('aiDocTextInput'), btn = $id('aiDocUploadBtn');
     var docName = nameEl ? nameEl.value.trim() : '';
@@ -1764,6 +1783,12 @@
       '<textarea class="fi" id="aiDocTextInput" rows="4" spellcheck="false" style="resize:vertical;font-size:11px;" placeholder="문서 본문 텍스트를 붙여넣으세요 (PDF는 내용을 복사해서). 같은 이름으로 다시 등록하면 교체됩니다."></textarea>' +
       '<button type="button" class="btn" id="aiDocUploadBtn" style="margin-top:6px;" onclick="SJP_AI_uploadDoc()">📚 문서 등록</button>' +
       '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">게이트웨이 v3(AI·VECTORIZE 바인딩) 배포가 필요합니다 — gateway/README.md 참고</div>' +
+      // v29.63: 크론 잡 즉시 실행 버튼 — 브라우저 콘솔 없이 알림·백업 테스트
+      '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);">' +
+      '<label class="fl">🛠 관리자 도구 — 매일 아침 9시 자동 실행되는 작업을 지금 바로 돌려봅니다</label>' +
+      '<button type="button" class="btn" onclick="SJP_AI_runCron(\'cron\')">🔔 알림 지금 실행</button> ' +
+      '<button type="button" class="btn" onclick="SJP_AI_runCron(\'backup\')">💾 백업 지금 실행</button>' +
+      '</div>' +
       '</div>';
     var keyProviders = PROVIDER_CHAIN.filter(function (p) { return p.ls; });
     var fieldsHtml = keyProviders.map(function (p, i) {
