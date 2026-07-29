@@ -1,5 +1,5 @@
 /*
- * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3, 2026-07-26)
+ * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.2.4, 2026-07-30)
  *
  * 역할:
  *  1) 회사 공용 API 키를 이 서버에 숨겨두고, 직원들은 키 입력 없이 AI 비서를 사용
@@ -191,12 +191,8 @@ async function handleRag(request, env, path, cors) {
     const chunks = Array.isArray(body.chunks) ? body.chunks.map(c => String(c).trim()).filter(Boolean) : [];
     if (!docName || !chunks.length) return json(400, { error: 'docName과 chunks가 필요합니다' }, cors);
     if (chunks.length > 500) return json(400, { error: '청크는 최대 500개까지 (문서를 나눠 등록하세요)' }, cors);
-    // 같은 문서 재등록(replace): 예전 조각이 더 길었을 수 있어 500개 id를 전부 지운다.
-    // v3.2.3: Vectorize deleteByIds는 호출당 100개 제한(40007) — 100개씩 나눠 삭제
-    const delIds = Array.from({ length: 500 }, (_, i) => docName + '::' + i);
-    for (let i = 0; i < delIds.length; i += 100) {
-      await env.VECTORIZE.deleteByIds(delIds.slice(i, i + 100));
-    }
+    // v3.2.4: 순서 중요 — 임베딩을 '먼저' 전부 만들어 성공한 뒤에 삭제→업서트한다.
+    // (예전엔 삭제를 먼저 해서, 임베딩이 중간에 실패하면 기존 문서가 통째로 증발했음)
     // Workers AI 임베딩은 한 번에 100개 제한 — 나눠서 처리
     const vectors = [];
     for (let i = 0; i < chunks.length; i += 100) {
@@ -210,6 +206,12 @@ async function handleRag(request, env, path, cors) {
           metadata: { docName, chunkIndex: idx, text: chunks[idx].slice(0, 2000) },
         });
       });
+    }
+    // 재등록(replace): 예전 조각이 더 길었을 수 있어 500개 id를 전부 지운다.
+    // v3.2.3: Vectorize deleteByIds는 호출당 100개 제한(40007) — 100개씩 나눠 삭제
+    const delIds = Array.from({ length: 500 }, (_, i) => docName + '::' + i);
+    for (let i = 0; i < delIds.length; i += 100) {
+      await env.VECTORIZE.deleteByIds(delIds.slice(i, i + 100));
     }
     await env.VECTORIZE.upsert(vectors);
     return json(200, { ok: true, docName, chunkCount: vectors.length }, cors);
@@ -313,18 +315,26 @@ async function fsQueryEqual(env, token, collectionId, field, value, limit) {
     body: JSON.stringify({ structuredQuery: {
       from: [{ collectionId }],
       where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: fsVal(value) } },
-      limit: limit || 300,
+      limit: limit || 1000, // v3.2.4: 300→1000 (같은 날 마감 대량 발생 시 무통보 누락 방지)
     } }),
   });
   if (!r.ok) throw new Error(collectionId + ' query failed: ' + r.status);
   return (await r.json()).filter(x => x.document).map(x => fsParseDoc(x.document));
 }
+// v3.2.4: 페이지네이션 추가 — 300건 넘는 컬렉션(users 등)도 전부 읽는다 (백업 루프와 동일 패턴)
 async function fsListAll(env, token, collectionId, limit) {
-  const r = await fetch(fsBase(env) + '/' + collectionId + '?pageSize=' + (limit || 300), {
-    headers: { Authorization: 'Bearer ' + token },
-  });
-  if (!r.ok) throw new Error(collectionId + ' list failed: ' + r.status);
-  return ((await r.json()).documents || []).map(fsParseDoc);
+  const docs = [];
+  let pageToken = '';
+  do {
+    const url = fsBase(env) + '/' + collectionId + '?pageSize=' + (limit || 300)
+      + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    if (!r.ok) throw new Error(collectionId + ' list failed: ' + r.status);
+    const d = await r.json();
+    (d.documents || []).forEach(doc => docs.push(fsParseDoc(doc)));
+    pageToken = d.nextPageToken || '';
+  } while (pageToken);
+  return docs;
 }
 async function fsGetDoc(env, token, path) {
   const r = await fetch(fsBase(env) + '/' + path, { headers: { Authorization: 'Bearer ' + token } });
@@ -590,6 +600,18 @@ export default {
       if (resp.status === 429 || resp.status === 401 || resp.status === 402 || resp.status === 403) {
         lastResp = resp; // 이 키 소진/불량/플랜 미설정(402) → 다음 키
         continue;
+      }
+      // v3.2.4: Gemini는 불량 키를 401이 아니라 400("API key not valid")으로 돌려준다 —
+      // 이 경우도 키 교대를 해야 다음 키의 무료 용량을 쓸 수 있다.
+      if (m[1] === 'gemini' && resp.status === 400) {
+        const bodyText = await resp.text().catch(() => '');
+        if (/api[ _]?key.{0,20}not valid/i.test(bodyText)) {
+          lastResp = new Response(bodyText, { status: 400, headers: { 'Content-Type': 'application/json' } });
+          continue; // 불량 키 → 다음 키
+        }
+        // 키 문제가 아닌 400(모델명 등)은 본문을 되살려 그대로 반환
+        const out400 = new Response(bodyText, { status: 400, headers: { 'Content-Type': 'application/json', ...cors } });
+        return out400;
       }
       keyCursor[m[1]] = idx; // 이 키가 살아있음
       const out = new Response(resp.body, resp);

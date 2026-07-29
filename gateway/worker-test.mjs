@@ -197,6 +197,15 @@ const post = (path, token, obj) => worker.fetch(new Request('https://gw.test' + 
   const r = await post('/rag/upload', adminToken, { docName: 'Y', chunks: Array(501).fill('x') });
   check('RAG 업로드: 501조각 → 400 거부', r.status === 400);
 }
+{
+  // v3.2.4: 재등록 중 임베딩이 실패해도 기존 문서가 증발하지 않아야 한다 (임베딩→삭제→업서트 순서)
+  const before = vecStore.has('검사절차서::0');
+  const origRun = env.AI.run;
+  env.AI.run = async () => { throw new Error('임베딩 일시 실패'); };
+  const r = await post('/rag/upload', adminToken, { docName: '검사절차서', chunks: ['새 내용'] });
+  env.AI.run = origRun;
+  check('RAG 재등록: 임베딩 실패 시 기존 조각 보존 (500 + 생존)', r.status === 500 && before && vecStore.has('검사절차서::0'), 'status=' + r.status);
+}
 
 // ── 5. 크론 알림 시나리오 ───────────────────────────────────────
 {
