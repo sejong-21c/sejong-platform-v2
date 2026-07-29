@@ -720,11 +720,11 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
   <div class="ai-panel-resizer" id="aiPanelResizer" title="드래그해서 크기 조절"></div>
   <div class="ai-panel-head">
     <div><span class="dot"></span>AI 비서</div>
-    <div>
+    <div style="display:flex; align-items:center; gap:6px;">
       <button class="icon-btn" title="새 대화 (기록 비우기)" onclick="if(window.clearAiChat)clearAiChat()">🧹</button>
-      <button class="icon-btn" title="크게/작게" onclick="toggleAiPanelMax()">⤢</button>
       <button class="icon-btn" title="API 키 설정" onclick="openAiKeyModal()">🔑</button>
-      <button class="icon-btn" onclick="toggleAiPanel()">✕</button>
+      <button class="icon-btn" title="크게/작게" onclick="toggleAiPanelMax()">⤢</button>
+      <button class="icon-btn" title="닫기" onclick="toggleAiPanel()">✕</button>
     </div>
   </div>
   <div class="ai-panel-body" id="aiMessages">
