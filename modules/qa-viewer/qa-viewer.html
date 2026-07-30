@@ -14,7 +14,7 @@
   // docData[itemId][docKey] 형태로 7가지 QA/QC 문서 데이터를 포함한다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot, getDoc, doc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, getDoc, doc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -25,7 +25,9 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, getDoc, doc, query, where, documentId };
+  // v1.1(점검 A3): IndexedDB 영속 캐시 — itp-viewer와 동일. 재방문 시 변경분만 수신.
+  const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  window.fb = { auth: getAuth(fbApp), db, collection, onSnapshot, getDoc, doc, query, where, documentId };
 </script>
 <style>
 :root {

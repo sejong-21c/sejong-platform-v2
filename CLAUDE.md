@@ -49,6 +49,7 @@
 - AI 비서 로드맵·진행 현황: modules/ai-assistant/ROADMAP.md (1~3기 완료 기록)
 - RAG 문서고 로드맵: modules/ai-assistant/RAG-ROADMAP.md (feature/rag-docs)
 - 게이트웨이 설치·운영: gateway/README.md
+- 전면 점검 보고·수정 계획: PLATFORM-CHECKUP.md (2026-07-30 — 성능·버그 A/B/C 묶음)
 - AI 비서 실구현은 modules/ai-assistant/ai-assistant.js — index.html 쪽 동명 함수는 스텁.
 - t_ncrs/t_cars/t_itpBuilderDocs에는 첨부 조각 문서(chunk__*, dwg_*)가 섞여 있다 —
   조회·백업 시 반드시 걸러낼 것 (base64 수백 KB, 토큰·용량 폭탄).

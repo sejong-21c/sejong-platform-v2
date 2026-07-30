@@ -10,6 +10,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SJ FLOW v1.0 - 세종기술 통합 협업 플랫폼</title>
+<!-- v30.12(점검 A6): favicon — 파일·추가 요청 없이 data URI 한 줄. 없으면 매 로드마다 /favicon.ico 404 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f6fba'/%3E%3Ctext x='32' y='45' font-size='30' font-weight='bold' text-anchor='middle' fill='white' font-family='Arial'%3ESJ%3C/text%3E%3C/svg%3E">
 <script type="module">
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -731,7 +733,7 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
     <div class="ai-hint">세종플랫폼 데이터 조회/등록을 대화로 처리합니다. 🔑에서 무료 API 키를 등록하면 바로 사용!<br>예) "지연된 업무 알려줘", "OO현장 배관설치 다음주 금요일까지 김철수한테 등록해줘"</div>
   </div>
   <div class="ai-panel-foot">
-    <input type="text" id="aiInput" placeholder="질문이나 명령을 입력하세요" onkeydown="if(event.key==='Enter') sendAiMessage();">
+    <input type="text" id="aiInput" placeholder="질문이나 명령을 입력하세요" onkeydown="if(event.key==='Enter' && !event.isComposing) sendAiMessage();">
     <button class="btn btn-primary" id="aiSendBtn" onclick="sendAiMessage()">전송</button>
   </div>
 </div>
@@ -1169,14 +1171,14 @@ const QADASH_BUILD = 'b15';
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
 const ITPBUILDER_BUILD = 'c20';
-const QADOC_BUILD = 'c10';
+const QADOC_BUILD = 'c11'; // c11: 불러오기 범위 쿼리(점검 A2)
 const MTOOLS_BUILD = 'b7';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MEETING_BUILD = 'b6'; // b6: v29.60 AI 예약 프리필 수신
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a14';
-const QAVIEW_BUILD = 'a6';
+const ITPVIEW_BUILD = 'a15'; // a15: 영속 캐시(점검 A3)
+const QAVIEW_BUILD = 'a7'; // a7: 영속 캐시(점검 A3)
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -1833,7 +1835,15 @@ let _aiPrefillTarget = null;
 window.openModuleWithPrefill = function(tool, data) {
   _aiPrefillTarget = { tool: tool, data: data || {} };
   // v29.60: 회의(meeting)는 부서 도구가 아니라 대메뉴 — switchMod로 연다
-  if (tool === 'meeting') switchMod('meeting'); else openTool(tool);
+  if (tool === 'meeting') {
+    switchMod('meeting');
+    // v30.12(점검 A17): 권한 거부 등으로 이동이 안 됐으면 프리필을 회수 —
+    // 안 그러면 나중에 회의 화면을 직접 열 때 옛 값으로 예약 모달이 불쑥 뜬다
+    if (view.cur !== 'meeting') { _aiPrefillTarget = null; return false; }
+    return true;
+  }
+  openTool(tool);
+  return true;
 };
 function openTool(tid, deptName) {
   view.selectedTool = tid;
@@ -2194,24 +2204,37 @@ async function cleanupGhostProjects() {
   }
 }
 let _channelsSeeded = false;
+// v30.12(점검 A5): 부팅 렌더 폭풍 방지 — 스냅샷 콜백들의 전체 리렌더를 프레임당 1회로 병합.
+// 초기 로드에서 스냅샷 10여 개가 순차 도착하며 각각 render()를 불러 화면이 10번 넘게
+// 다시 그려지던 것을 합친다 (lucide 재변환·히스토리 동기화도 그만큼 줄어듦).
+let _renderQueued = false;
+function scheduleRender() {
+  if (_renderQueued) return;
+  _renderQueued = true;
+  requestAnimationFrame(() => { _renderQueued = false; render(); });
+}
+
 function startFirestoreSync() {
   stopFirestoreSync();
   _channelsSeeded = false;
+  state._channelsSynced = false; // v30.12: 재로그인 시 채널 준비 표시 초기화
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     reconcileProjectProgress();
-    if (!_channelsSeeded) { _channelsSeeded = true; seedMissingChannels().catch(() => {}); }
+    // v30.12(점검 A4): channels 스냅샷이 도착한 뒤에만 시드 — 빈 채널 목록으로 판단하면
+    // '이미 있으면 스킵' 가드가 헛돌아 매 로그인 N건 쓰기가 그대로 나갔음
+    if (!_channelsSeeded && state._channelsSynced) { _channelsSeeded = true; seedMissingChannels().catch(() => {}); }
     // v29.9-fix: 전체 save() 대신 이 키만 부분 저장 — iframe이 자기 소유 데이터(ncrs/cars 등)를
     // localStorage에 쓴 걸 부모의 save()가 덮어써 iframe의 새 데이터가 사라지던 race 방지.
     savePartial('projects', state.projects);
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
   // v29.9: 사전 등록 대기 계정 목록 (슈퍼관리자만 조직/권한 화면에서 관리)
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'pendingUsers'), snap => {
     state.pendingUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     // v29.18: 승계 미완 pending 문서가 있으면 슈퍼관리자 세션이 마저 정리
     reconcilePendingPromotions().catch(() => {});
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] pendingUsers 동기화 오류:', err)));
   // v29.9: 캘린더 이벤트 (직접 만든 일정)를 Firestore에 실시간 동기화.
   // 이전엔 localStorage에만 저장돼 다른 기기·사용자한테 안 보였고, 그 결과 캘린더의
@@ -2219,12 +2242,12 @@ function startFirestoreSync() {
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'events'), snap => {
     state.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     savePartial('events', state.events);
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] events 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
     state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     savePartial('tasks', state.tasks);
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] tasks 동기화 오류:', err)));
   // v29.10: 자동 파싱 가상 업무의 개인별 진행상태(taskOverrides)를 여러 기기에서 동일하게 보이도록 동기화.
   if (state.currentUser) {
@@ -2232,20 +2255,20 @@ function startFirestoreSync() {
       const d = snap.exists() ? snap.data() : {};
       state.taskOverrides = d.taskOverrides || {};
       savePartial('taskOverrides', state.taskOverrides);
-      render();
+      scheduleRender();
     }, err => console.warn('[Firestore] userState 동기화 오류:', err.message)));
   }
   // v29.11: 목표 관리 (okrs 컬렉션) 실시간 동기화. 부서/개인 필터는 클라이언트 side에서 처리.
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'okrs'), snap => {
     state.okrs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     savePartial('okrs', state.okrs);
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] okrs 동기화 오류:', err)));
   // v29.11: 결재 문서(approvals) 실시간 동기화. 스케줄 변경 요청·기존 기안·앞으로 추가될 유형 모두 여기.
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'approvals'), snap => {
     state.approvals = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     savePartial('approvals', state.approvals);
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] approvals 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
     snap.docChanges().forEach(ch => {
@@ -2259,7 +2282,7 @@ function startFirestoreSync() {
     // v29.9-fix: 전체 save() 대신 wbs+items만 부분 저장 (race 방지)
     savePartial('wbs', state.wbs);
     savePartial('items', state.items);
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
   // v: 제작공정관리(Traveller) 공정률 계산용 검사 실적(wbsRec) 구독.
   //   wbs.html(MM 모드)이 아이템별 ITP 검사항목 결과를 wbsRec/{pid}_{itemId} 문서(rec 맵)에 저장한다.
@@ -2271,19 +2294,24 @@ function startFirestoreSync() {
       if (ch.type === 'removed') { delete state.wbsRec[iid]; return; }
       state.wbsRec[iid] = d.rec || null;
     });
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] wbsRec 동기화 오류:', err)));
   // Mobile Inspection 임시저장(t_mobileInspectionDrafts) — 프로젝트 선택 화면에
   // "임시저장 N건" 배지로 보여주기 위해 목록만 가볍게 구독한다(문서 내용은
   // 필요 없고 pid만 세면 되지만, 별도 count-only 쿼리가 없어 그냥 전체를 받음).
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 't_mobileInspectionDrafts'), snap => {
     state.mobileInspectionDrafts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    render();
+    scheduleRender();
   }, err => console.error('[Firestore] t_mobileInspectionDrafts 동기화 오류:', err)));
   // 메신저 UI는 modules/messenger/messenger.html(iframe)로 이동했지만, 상단 알림배지는
   // 메신저를 열지 않아도 실시간으로 보여야 하므로 channels/messages/channelReads를 여기서도 독립 구독한다.
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'channels'), snap => {
     state.channels = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // v30.12(점검 A4): 채널 목록이 준비됐다는 표시 — projects 쪽 시드가 이걸 기다린다
+    if (!state._channelsSynced) {
+      state._channelsSynced = true;
+      if (!_channelsSeeded && (state.projects || []).length) { _channelsSeeded = true; seedMissingChannels().catch(() => {}); }
+    }
     updateNotifBadge();
   }, err => console.error('[Firestore] channels 동기화 오류:', err)));
   // 최근 500개만 구독 — 무제한 증가 방지용 최소 가드 (오래된 메시지는 배지 계산에서 빠짐, MVP 트레이드오프)
@@ -5310,6 +5338,9 @@ async function ensureDeptChannel(deptName) {
 // 프로젝트 등록 시 프로젝트 채널 자동 생성
 async function ensureProjectChannel(projectId, name) {
   if (!projectId) return;
+  // v30.12(점검 A4): 이미 채널이 있으면 스킵 — dept와 동일한 가드. 이 가드가 없어서
+  // 매 로그인마다 프로젝트 수만큼 무조건 setDoc이 나가고 있었음 (쓰기 과금 + 부팅 잠식)
+  if (state.channels.some(c => c.id === 'proj_' + projectId)) return;
   // v29.9: name 없이 호출되면 Firestore가 `undefined` 값 저장을 거부하고 오류 로그를 뿌려
   // 화면 리렌더에 영향 줌. 이런 데이터는 스킵. (원인: 옛 버전에서 저장된 name 필드 없는
   // 프로젝트가 state.projects에 남아있을 수 있음)
@@ -7515,7 +7546,7 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.63.0"></script>
+<script src="modules/ai-assistant/ai-assistant.js?v=29.64.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

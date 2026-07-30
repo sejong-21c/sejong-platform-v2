@@ -13,7 +13,7 @@
   // NCR/CAR와 동일하게 Firestore 문서-청크 방식으로 사진까지 포함해 클라우드 동기화.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -24,7 +24,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where, documentId };
 </script>
 <style>
 /* ═══════════════════════════════════════════════════════════
@@ -2310,7 +2310,10 @@ function App(){
     setSavedList(local);
     if (!window.fb || !fb.db || !fb.auth?.currentUser) return;
     try {
-      const snap = await fb.getDocs(fb.collection(fb.db, QAG_PROJ_INDEX_COLL));
+      // v4.1(점검 A2): 문서 id p~q 범위 쿼리 — 사진 청크(chunk__*, base64 700KB×N)를 받아서
+      // 버리던 것을 네트워크에서부터 제외 (f038168 성능 수정에서 이 버튼만 누락됐었음)
+      const snap = await fb.getDocs(fb.query(fb.collection(fb.db, QAG_PROJ_INDEX_COLL),
+        fb.where(fb.documentId(), ">=", "p"), fb.where(fb.documentId(), "<", "q")));
       const cloudEntries = snap.docs.filter(d => !d.id.startsWith("chunk__")).map(d => ({
         id: d.id, name: d.data().name || d.id, projNo: d.data().projNo || "",
         itemCount: (d.data().items||[]).length, updatedAt: d.data().updatedAt || "", createdAt: d.data().createdAt || "", _cloudOnly: true,

@@ -11,7 +11,7 @@
   // 각 문서 = 프로젝트 1개, 문서 안 items[]에 각 아이템의 ITP rows·설계 데이터가 들어있다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -22,7 +22,11 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId };
+  // v2.2(점검 A3): IndexedDB 영속 캐시 — 조회 탭을 다시 열어도 캐시에서 즉시 그리고 서버에선
+  // 변경분만 받는다 (전에는 메모리 캐시뿐이라 iframe 재생성 때마다 전 문서 재다운로드).
+  // 같은 오리진에 iframe이 여러 개 떠서 multi-tab 매니저 필수 — 아니면 캐시가 조용히 꺼짐.
+  const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  window.fb = { auth: getAuth(fbApp), db, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId };
 </script>
 <style>
 :root {

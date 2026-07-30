@@ -52,6 +52,10 @@
  * 5회 도구 루프 한계 도달을 aiUsage에 loopLimit로 기록(에이전트 모드 필요성 판단 데이터).
  * v29.63: 🔑 관리자 도구 버튼 — 능동 알림(/cron/run)·백업(/backup/run)을 브라우저 콘솔
  * 없이 클릭 한 번으로 즉시 실행 (게이트웨이가 관리자 계정인지 검증).
+ * v29.64: 전면 점검(PLATFORM-CHECKUP.md) A묶음 수정 — ① 원격 조회 40건 잘림 회귀(A8)
+ * ② exportPdf 제목·컬럼 XSS(A9) ③ open_module 죽은 권한 체크(A10) ④ 죽은 9Router 터널
+ * 5분 쿨다운+5초 프리플라이트(A1) ⑤ Gemini 불량 키 400 분류(A7) ⑥ 스트리밍 중 45초
+ * 강제 중단 완화(A12) ⑦ 날짜 필터 폴백 오탐(A13) ⑧ 루프 한계 시 history 짝 맞춤(A14).
  * Groq/Cerebras/NVIDIA/OpenRouter/Mistral은 OpenAI 호환 형식(tool_calls)이라 함수호출(조회/등록)도 그대로 동작.
  *
  * index.html 맨 마지막 <script>(전역 state/openTask/openModal 등이 정의된 블록) 바로 뒤에
@@ -170,7 +174,8 @@
       models: ['cc/claude-opus-4-7'] },
     { id: 'gemini', label: 'Gemini', ls: GEMINI_KEY_LS, signup: 'https://aistudio.google.com/apikey',
       note: 'Gemini — 키 1개당 하루 1,500회',
-      models: ['gemini-flash-latest', 'gemini-2.5-flash'] },
+      // v29.64(A7): gemini-2.5-flash는 v1beta에서 404(은퇴) — 제거. -latest 별칭이 현행을 추적
+      models: ['gemini-flash-latest'] },
     { id: 'groq', label: 'Groq', ls: GROQ_KEY_LS, signup: 'https://console.groq.com/keys',
       note: 'Groq — 키 1개당 하루 1,000회',
       models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'] },
@@ -409,7 +414,8 @@
     },
     fill: function (v) {
       if (typeof openModuleWithPrefill !== 'function') return { error: '이 화면에서는 회의실 예약을 열 수 없습니다.' };
-      openModuleWithPrefill('meeting', { title: v.title, room: v.room, date: v.date, start: v.start, end: v.end, note: v.note });
+      var ok = openModuleWithPrefill('meeting', { title: v.title, room: v.room, date: v.date, start: v.start, end: v.end, note: v.note });
+      if (ok === false) return { error: '회의 화면으로 이동하지 못했습니다(접근 권한 등) — 예약 폼을 열 수 없습니다.' }; // v29.64(A17)
       return { status: '회의실 예약 폼을 열고 값을 채워놨습니다. 예약 확정은 사용자가 "예약하기" 버튼을 눌러야 합니다.' };
     }
   });
@@ -566,7 +572,9 @@
       }
       var label = moduleLabel(m);
       if (m.nav) {
-        var navItem = (window.NAV || []).find(function (x) { return x.id === m.nav; });
+        // v29.64(A10): NAV는 const 전역 — window.NAV는 항상 undefined라 권한 체크가 죽어 있었음
+        var navList = (typeof NAV !== 'undefined' && NAV) || [];
+        var navItem = navList.find(function (x) { return x.id === m.nav; });
         // switchMod 내부의 권한 alert() 대신 채팅 답변으로 안내
         if (navItem && typeof canSeeNav === 'function' && !canSeeNav(navItem)) {
           return { error: '"' + label + '" 화면은 현재 사용자에게 접근 권한이 없습니다.' };
@@ -626,10 +634,13 @@
     if (depth > 8) return v;
     if (typeof v === 'string') return v.length > 2000 ? v.slice(0, 200) + '…(총 ' + v.length + '자, 생략)' : v;
     if (Array.isArray(v)) {
-      // v29.59: 대형 배열 상한 — ITP rows·점검 사진 목록 같은 수백 개짜리 배열 토큰 폭탄 방지
-      var arr = v.length > 40 ? v.slice(0, 40) : v;
+      // v29.59: 대형 배열 상한 — ITP rows·점검 사진 목록 같은 '중첩' 배열 토큰 폭탄 방지
+      // v29.64(A8) fix: 최상위(depth 0) 결과 배열에는 상한을 걸지 않는다 — 조회 200건 상한을
+      // 40건으로 잘라먹고 잘림 마커 문자열이 행으로 섞여 엑셀/PDF 출력을 오염시키던 회귀.
+      var cap = depth > 0 && v.length > 40;
+      var arr = cap ? v.slice(0, 40) : v;
       var out = arr.map(function (x) { return stripHeavyFields(x, depth + 1); });
-      if (v.length > 40) out.push('…외 ' + (v.length - 40) + '개 항목 생략');
+      if (cap) out.push('…외 ' + (v.length - 40) + '개 항목 생략');
       return out;
     }
     if (v && typeof v === 'object') {
@@ -683,7 +694,11 @@
     meetingReservations: 'date', meetingMinutes: 'date', measurementCheckouts: 'checkedOutAt'
   };
   function docDates(doc, field) {
-    if (field && typeof doc[field] === 'string' && doc[field]) return [doc[field].slice(0, 10)];
+    if (field) {
+      // v29.64(A13): 대표 날짜 필드가 지정된 컬렉션은 폴백 스캔을 하지 않는다 —
+      // 마감일 없는 업무가 createdAt(생성일)으로 기간 필터를 통과하던 오탐 수정
+      return (typeof doc[field] === 'string' && doc[field]) ? [doc[field].slice(0, 10)] : [];
+    }
     var out = [];
     Object.keys(doc).forEach(function (k) {
       var v = doc[k];
@@ -730,6 +745,8 @@
   var lastQuery = null; // { collection, rows:[...] } — 이름 치환·필터 적용 후의 표 형태 데이터
   function rememberQuery(collection, out) {
     var rows = Array.isArray(out) ? out : (out && (out.data || out.sample));
+    // v29.64(A8): 잘림 마커 같은 문자열 원소가 섞여도 표 출력이 오염되지 않게 객체만 남긴다
+    if (Array.isArray(rows)) rows = rows.filter(function (r) { return r && typeof r === 'object'; });
     if (Array.isArray(rows) && rows.length && typeof rows[0] === 'object') {
       lastQuery = { collection: collection, rows: rows };
     }
@@ -932,11 +949,12 @@
     var t = buildTable(lastQuery.rows);
     var el = document.createElement('div');
     el.style.cssText = 'position:absolute;left:-10000px;top:0;width:1100px;background:#fff;padding:24px;font-family:sans-serif;';
-    var th = t.cols.map(function (c) { return '<th style="border:1px solid #999;padding:4px 6px;background:#eef;font-size:11px;">' + c + '</th>'; }).join('');
+    // v29.64(A9): 제목·컬럼명도 반드시 이스케이프 — 모델 인자/문서 필드 키 경유 DOM XSS 차단
+    var th = t.cols.map(function (c) { return '<th style="border:1px solid #999;padding:4px 6px;background:#eef;font-size:11px;">' + escHtml(c) + '</th>'; }).join('');
     var trs = t.body.map(function (row) {
-      return '<tr>' + row.map(function (v) { return '<td style="border:1px solid #bbb;padding:3px 6px;font-size:10px;word-break:break-all;">' + String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</td>'; }).join('') + '</tr>';
+      return '<tr>' + row.map(function (v) { return '<td style="border:1px solid #bbb;padding:3px 6px;font-size:10px;word-break:break-all;">' + escHtml(String(v)) + '</td>'; }).join('') + '</tr>';
     }).join('');
-    el.innerHTML = '<h3 style="margin:0 0 10px;font-size:15px;">' + (title || '세종플랫폼 조회결과 — ' + lastQuery.collection) + ' (' + localISO(new Date()) + ')</h3>'
+    el.innerHTML = '<h3 style="margin:0 0 10px;font-size:15px;">' + escHtml(title || '세종플랫폼 조회결과 — ' + lastQuery.collection) + ' (' + localISO(new Date()) + ')</h3>'
       + '<table style="border-collapse:collapse;width:100%;"><thead><tr>' + th + '</tr></thead><tbody>' + trs + '</tbody></table>';
     document.body.appendChild(el);
     try {
@@ -1453,16 +1471,34 @@
     return callOpenAiCompatOnce('OpenRouter', (gw || 'https://openrouter.ai/api/v1') + '/chat/completions', key, model, h, signal, Object.assign({ 'X-Title': 'Sejong Platform' }, gatewayHeaders || {}), onToken);
   }
 
+  // v29.64(A1): 죽은 로컬 LLM/9Router 터널 5분 쿨다운 — 메모리 변수만 사용
+  // (localStorage 게이트 금지 원칙 준수. 새로고침하면 초기화되고, 그게 맞는 동작)
+  var _localCooldownUntil = 0;
+
   // 한 회사 안에서: 소스(회사 게이트웨이 → 내 키들)를 교대하고, 소스마다 모델 목록을 시도한다.
   async function tryProvider(p, h, onToken) {
     // v29.45: 로컬 LLM은 게이트웨이/키가 아니라 이 컴퓨터 주소로 직접 호출. 첫 응답이 느릴 수 있어 120초.
     if (p.localOnly) {
       var base = getLocalUrl();
       if (!base) throw new Error('로컬 LLM 주소가 없습니다');
+      // v29.64(A1): 최근 연결 실패했으면 5분간 건너뛴다 — 죽은 터널을 매 질문마다 두드리지 않게
+      if (Date.now() < _localCooldownUntil) throw new Error('로컬 LLM 일시 중지(최근 연결 실패, 5분 후 자동 재시도)');
+      var keyL = getLocalKey();
+      // 5초 프리플라이트: 터널이 죽어 있으면(530/무응답) 120초 기다리지 않고 즉시 다음으로
+      var ctlP = new AbortController();
+      var timerP = setTimeout(function () { ctlP.abort(); }, 5000);
+      try {
+        var probe = await fetch(base + '/models', { headers: keyL ? { 'Authorization': 'Bearer ' + keyL } : {}, signal: ctlP.signal });
+        clearTimeout(timerP);
+        if (!probe.ok && probe.status >= 500) throw httpError('로컬 LLM', probe.status, '');
+      } catch (ePr) {
+        clearTimeout(timerP);
+        _localCooldownUntil = Date.now() + 5 * 60000;
+        throw new Error('로컬 LLM 연결 실패 — 5분간 건너뜁니다 (' + (ePr.message || ePr) + ')');
+      }
       var ctlL = new AbortController();
       var timerL = setTimeout(function () { ctlL.abort(); }, 120000);
       try {
-        var keyL = getLocalKey();
         var model = await resolveLocalModel(base, ctlL.signal, keyL);
         var rL = await callOpenAiCompatOnce('로컬 LLM', base + '/chat/completions', keyL, model, h, ctlL.signal, null, onToken);
         clearTimeout(timerL);
@@ -1479,16 +1515,26 @@
       var src = sources[idx];
       for (var mi = 0; mi < p.models.length; mi++) {
         const ctl = new AbortController();
-        const timer = setTimeout(function () { ctl.abort(); }, 45000);
+        // v29.64(A12): 45초는 '첫 응답까지'만 — 토큰이 흐르기 시작하면 '무응답 30초' 기준으로
+        // 전환한다. 긴 답변이 45초를 넘어도 스트리밍 중이면 끊지 않는다.
+        let timer = setTimeout(function () { ctl.abort(); }, 45000);
+        const onTokenIdle = function (t) {
+          clearTimeout(timer);
+          timer = setTimeout(function () { ctl.abort(); }, 30000);
+          if (onToken) onToken(t);
+        };
         try {
-          var r = await callOneModel(p, src, p.models[mi], h, ctl.signal, onToken);
+          var r = await callOneModel(p, src, p.models[mi], h, ctl.signal, onTokenIdle);
           clearTimeout(timer);
           setCursor(p.id, idx); // 이 소스가 살아있음 — 다음 질문도 여기부터
           return { result: r, viaGateway: src === null };
         } catch (e) {
           clearTimeout(timer);
           lastErr = e;
-          if (e.status === 400 || e.status === 404) continue;      // 모델 문제(또는 Gemini 불량 키의 400) → 다음 모델
+          // v29.64(A7): Gemini는 불량 키를 400으로 반환 — 모델 문제로 오인해 같은 키로
+          // 다음 모델을 두드리지 말고, 다음 소스(키)로 넘어간다
+          if (p.id === 'gemini' && e.status === 400 && /api[ _]?key.{0,30}not valid/i.test(e.message || '')) break;
+          if (e.status === 400 || e.status === 404) continue;      // 모델 문제 → 다음 모델
           if (e.status === 429 || e.status === 401 || e.status === 402 || e.status === 403 || e.status === 501) break; // 이 소스 소진/불량/플랜 미설정/게이트웨이 미설정 → 다음 소스
           if (src === null && !e.status && e.name !== 'AbortError') break; // 게이트웨이 연결 실패 → 내 키로 폴백
           throw e; // 서버 오류·시간 초과·직접 연결 실패 → 회사 자체를 포기하고 다음 회사로
@@ -1590,7 +1636,9 @@
       return result.text;
     }
     lastLoopLimit = true; // 이 빈도가 높으면 에이전트 모드(로드맵 12단계)를 검토할 근거가 된다
-    return '요청을 처리하는 데 단계가 너무 많이 필요합니다. 질문을 조금 더 구체적으로 나눠서 다시 시도해주세요.';
+    var loopMsg = '요청을 처리하는 데 단계가 너무 많이 필요합니다. 질문을 조금 더 구체적으로 나눠서 다시 시도해주세요.';
+    history.push({ role: 'model', text: loopMsg }); // v29.64(A14): history 짝 맞춤 — 안 남기면 다음 턴이 function 턴 뒤 user 턴으로 깨짐
+    return loopMsg;
   }
 
   // ── 5. 채팅 UI ──────────────────────────────────────────────────
@@ -1846,6 +1894,7 @@
           }
         })();
         _localModelCache = '';   // 주소·모델 바뀌었으니 자동 감지 캐시 초기화
+        _localCooldownUntil = 0; // v29.64: 설정을 바꿨으니 쿨다운도 해제 — 바로 재시도 가능
         localFailHintShown = false;   // 설정을 바꿨으니 실패 안내를 다시 볼 수 있게
         keyProviders.forEach(function (p) {
           var el = $id('aiKeys_' + p.id);
