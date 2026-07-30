@@ -8,7 +8,7 @@
 | 묶음 | 내용 | 상태 |
 |---|---|---|
 | A | 즉시 수정 17건 (A1~A17) | ✅ 2026-07-30 완료 — 워커 v3.2.4 배포 + 클라이언트 v29.64/v30.12 |
-| B | 1세션급 5건 (B1~B5) | ⬜ 다음 세션
+| B | 1세션급 5건 (B1~B5) | ✅ 2026-07-30 완료 — v29.65 / v30.13 (검증 통과)
 | C | 구조 공사 3건 (승인 후 별도 단계) | ⬜ 승인 대기
 | D | 무해 판정 3건 (조치 안 함) | ✅ 판정 완료 |
 
@@ -30,10 +30,10 @@
 
 | # | 항목 | 내용 |
 |---|---|---|
-| B1 | localStorage 키 분리 저장 | savePartial이 매번 전체 state(수 MB)를 parse+stringify — 키별 분리 또는 wbs/messages 캐시 제외 + 디바운스. **부팅 블로킹의 2위 원인** |
-| B2 | 로그인 첫 화면 체감 | 정적 '불러오는 중' 스피너 + gstatic preconnect/modulepreload + ai-assistant.js defer |
-| B3 | itp-viewer 이중 구독 제거 | 승인본+라이브 2배 다운로드 → t_itpApproved에 liveStatus 필드 merge로 단일화 |
-| B4 | 배지용 통구독 다이어트 | messages 500→50, mobileDrafts count 집계, pendingUsers는 관리자만 구독 |
+| B1 | ✅ localStorage 대형 캐시 제외 + 쓰기 합치기 | `CACHE_SKIP_KEYS`(wbs·items·wbsRec·messages·mobileInspectionDrafts)는 로그인 시 Firestore가 항상 새로 채우므로 저장하지 않음. 쓰기는 150ms 합치기 + 탭 숨김 시 확정. 예전 대형 캐시는 부팅 시 1회 청소. **검증: 저장요청 6회→실제 쓰기 1회, 265KB→1KB, iframe 소유키(NCR/CAR) 보존 확인** |
+| B2 | ✅ 로그인 첫 화면 체감 | 정적 스피너를 HTML에 직접 배치(SDK 로딩 전에도 보임) + gstatic preconnect/modulepreload 3종 + ai-assistant.js `defer` + 20초 지연 시 새로고침 안내. **검증: defer 후에도 스텁 덮어쓰기 순서 정상** |
+| B3 | ✅ itp-viewer 이중 구독 제거 | 라이브 문서 실시간 구독 → 목록 렌더 1.2초 후 1회 조회(자가복구 안전망 유지). 배지는 승인본에 함께 기록되는 `liveStatus`로. 기록 지점 3곳(빌더 pending·즉시승인, decideApproval 승인/반려) |
+| B4 | ✅ 배지용 통구독 다이어트 | messages 500→**200**, mobileInspectionDrafts는 부팅 구독 제거 → 모바일 점검 화면 열 때 지연 구독. **pendingUsers는 제외** — `selectableUsers()`(담당자 선택)에서 전 직원이 쓰므로 관리자 한정 구독은 기능 파손 |
 
 ## C. 구조 공사 (스키마 변경 — 승인 후 별도 로드맵)
 
@@ -66,7 +66,32 @@
 | A16 | low | AI 입력창 Enter가 한글 조합(IME) 중에도 전송 | index.html:734 |
 | A17 | low | 회의 예약 프리필이 이동 실패 시 잔존 — 나중에 모달 불쑥 | index.html:1833 |
 
-**B 묶음에 추가:** B5 대화 기록 다중 탭 경합 + 사용자 전환 시 키 오염 가능성 (ai-assistant.js:1098) — histKey를 인증 uid 기준으로 + 사용자 변경 감지 리셋.
+**B5 ✅ 완료**: 대화 기록 키를 `state.currentUser`(localStorage 부팅값) → **Firebase 인증 uid** 기준으로 변경 + 로그인 사용자 변경 감지 시 화면·메모리 기록 교체. **검증: 공용 PC 시나리오(stale 사용자 무시), 사용자 전환 시 이전 대화 누출 없음, 로그아웃 상태에선 저장·복원 안 함** — 다중 탭 last-writer-wins는 남김(탭별 대화가 독립적인 게 오히려 자연스러워 과잉 설계 회피).
+
+## B6 (신규 발견, 2026-07-30 사용자 지적) — Traveller 검사 사인이 로컬 전용 ⚠️
+
+**증상**: 제작공정관리 화면에서 9단계 칸을 눌러 "✍ 검사 사인"을 하면 **본인 브라우저에만** 저장되어
+다른 직원 화면에는 안 보인다. 사람마다 공정률이 다르게 보일 수 있다.
+
+**구조 (검사 실적이 두 갈래로 이원화됨)**:
+| 경로 | 저장 위치 | 공유 | 비고 |
+|---|---|---|---|
+| WBS 제작관리(MM) 모드 입력 | Firestore `wbsRec/{pid}_{itemId}` | ✅ 전 직원 실시간 | wbs.html:3776 저장 · index.html:2352 구독 — **현행** |
+| 제작공정관리 ✍검사 사인 모달 | localStorage `state.travellers` | ❌ 내 브라우저만 | index.html:5809 `openSignModal` — **레거시** |
+
+- 공정률 계산 `getItemInspProgress`(index.html:5491)는 **wbsRec 우선, 없으면 travellers 폴백** —
+  그래서 wbsRec가 있는 아이템은 정상 공유되고, 없는 아이템만 각자 로컬 사인이 보여 혼란이 생긴다.
+- 그 모달은 합격 시 `state.wbs`의 pct도 로컬로만 바꾼다(5846~5858) — Firestore 쓰기가 없어
+  다음 로그인 시 서버 값으로 덮여 사라진다. (여기서 wbsData를 직접 쓰는 것은 CLAUDE.md 금지 규칙 —
+  2026-07-17 WBS 덮어쓰기 사고 영역이라 우회 설계 필요)
+
+**선택지 (사용자 결정 필요)**:
+- (가) **권장** — 사인 모달 저장을 `wbsRec` 문서로 이관해 전 직원 공유. 구조 매핑(travellers의
+  stageId/status ↔ wbsRec의 tid/result) 설계 + 기존 로컬 데이터 마이그레이션 판단 필요
+- (나) 사인 모달을 읽기 전용으로 바꾸고 "검사 실적 입력은 WBS 제작관리 화면에서"로 유도 — 이원화 제거, 가장 안전
+- (다) 현행 유지 (폴백 표시라는 점만 UI에 명시)
+
+**주의**: B1은 travellers를 로컬 캐시에 그대로 유지했으므로 이 기능의 동작을 바꾸지 않았다.
 
 **무혐의 확인:** renderMarkdown/mdInline 이스케이프 우회, 워커 KST 계산·백업 페이지네이션·saTokenCache 만료·RAG 잔여 조각(상한 500=삭제 범위 일치) — 문제 없음 확인.
 

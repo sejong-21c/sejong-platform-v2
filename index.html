@@ -12,6 +12,13 @@
 <title>SJ FLOW v1.0 - 세종기술 통합 협업 플랫폼</title>
 <!-- v30.12(점검 A6): favicon — 파일·추가 요청 없이 data URI 한 줄. 없으면 매 로드마다 /favicon.ico 404 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f6fba'/%3E%3Ctext x='32' y='45' font-size='30' font-weight='bold' text-anchor='middle' fill='white' font-family='Arial'%3ESJ%3C/text%3E%3C/svg%3E">
+<!-- v30.13(점검 B2): Firebase SDK(gstatic) 연결·다운로드를 HTML 파싱과 병렬로 시작.
+     로그인 화면은 SDK 3개가 다 받아진 뒤에야 뜨므로(showLogin ← onAuthStateChanged),
+     이 힌트만으로 첫 화면 표시가 눈에 띄게 빨라진다. -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
 <script type="module">
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -529,7 +536,31 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 </style>
 </head>
 <body>
-<div id="authOverlay" style="display:none;position:fixed;inset:0;z-index:5000;"></div>
+<!-- v30.13(점검 B2): 부팅 스피너를 '정적 HTML'로 미리 넣는다 — 이 화면은 Firebase SDK가
+     다 받아지기 전(=JS가 아무것도 못 하는 구간)에도 즉시 보인다. 예전에는 display:none이라
+     사이드바만 있는 빈 껍데기가 수 초 보였다. showLogin/showAuthLoading이 innerHTML을
+     교체하고, finishLogin이 display:none으로 숨기므로 이후 흐름은 그대로다. -->
+<div id="authOverlay" style="display:block;position:fixed;inset:0;z-index:5000;">
+  <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;">
+    <div style="text-align:center;padding:20px;">
+      <div style="width:46px;height:46px;margin:0 auto 22px;border:3px solid rgba(255,255,255,.22);border-top-color:#fff;border-radius:50%;animation:sjAuthSpin .85s linear infinite;"></div>
+      <div style="font-size:16px;font-weight:600;letter-spacing:.2px;">SJ FLOW 불러오는 중…</div>
+      <div id="bootSlowHint" style="font-size:12px;opacity:.72;margin-top:8px;">잠시만 기다려 주세요.</div>
+    </div>
+  </div>
+  <style>@keyframes sjAuthSpin{to{transform:rotate(360deg)}}</style>
+</div>
+<script>
+  // 20초 넘게 준비가 안 끝나면(SDK 차단·네트워크 문제 등) 무한 스피너로 보이지 않게 안내한다.
+  setTimeout(function () {
+    var h = document.getElementById('bootSlowHint');
+    var ov = document.getElementById('authOverlay');
+    // bootSlowHint는 정적 스피너 안에만 있으므로, showLogin이 innerHTML을 교체했으면 이미 null이다
+    if (h && ov && ov.style.display !== 'none') {
+      h.innerHTML = '연결이 오래 걸립니다. 새로고침(Ctrl+F5)해 보시고, 계속되면 관리자에게 알려주세요.';
+    }
+  }, 20000);
+</script>
 <div class="app">
   <aside class="sidebar" id="sb">
     <div class="sb-head">
@@ -1170,14 +1201,14 @@ const QADASH_BUILD = 'b15';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c20';
+const ITPBUILDER_BUILD = 'c21'; // c21: liveStatus 기록(점검 B3)
 const QADOC_BUILD = 'c11'; // c11: 불러오기 범위 쿼리(점검 A2)
 const MTOOLS_BUILD = 'b7';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MEETING_BUILD = 'b6'; // b6: v29.60 AI 예약 프리필 수신
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a15'; // a15: 영속 캐시(점검 A3)
+const ITPVIEW_BUILD = 'a16'; // a16: 라이브 문서 실시간 구독 제거(점검 B3)
 const QAVIEW_BUILD = 'a7'; // a7: 영속 캐시(점검 A3)
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
@@ -1187,13 +1218,30 @@ if (!state.users || !state.users.length || !state.users[0].email) {
   localStorage.setItem(KEY, JSON.stringify(state));
 }
 // 신규 필드 보강: 기능 추가 전 저장된 데이터에 없는 키를 defaultState에서 채움
+// v30.13(점검 B1): wbs·items·mobileInspectionDrafts를 목록에 추가 — 이제 이 키들은 로컬
+// 캐시에 저장하지 않으므로(CACHE_SKIP_KEYS) 디스크에 없는 게 정상이고, 여기서 빈 값으로
+// 반드시 초기화해야 로그인 전 렌더에서 state.wbs[pid] 같은 접근이 죽지 않는다.
 (function migrateFields() {
   const def = defaultState();
   let changed = false;
-  ['ncrs','cars','briefings','reports','channels','messages','channelReads','approvals','events','tasks','travellers','wbsRec','quotes','okrs','dismissedNotifs','taskOverrides'].forEach(k => {
+  ['ncrs','cars','briefings','reports','channels','messages','channelReads','approvals','events','tasks','travellers','wbsRec','quotes','okrs','dismissedNotifs','taskOverrides','wbs','items','mobileInspectionDrafts','projects','users','depts'].forEach(k => {
     if (state[k] === undefined && def[k] !== undefined) { state[k] = def[k]; changed = true; }
   });
-  if (changed) { localStorage.setItem(KEY, JSON.stringify(state)); console.info('[SJ FLOW] 신규 필드 보강 완료'); }
+  if (changed) { console.info('[SJ FLOW] 신규 필드 보강 완료'); }
+})();
+// v30.13(점검 B1): 예전 버전이 남긴 대형 캐시(wbs·items·messages 등)를 1회 청소한다.
+// 이후 부팅부터는 이 블록의 JSON.parse(위 1182줄) 비용이 크게 줄어든다.
+(function purgeHeavyLocalCache() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return;
+    const disk = JSON.parse(raw);
+    const hit = ['wbs', 'items', 'wbsRec', 'messages', 'mobileInspectionDrafts'].filter(k => disk[k] !== undefined);
+    if (!hit.length) return;
+    hit.forEach(k => { delete disk[k]; });
+    localStorage.setItem(KEY, JSON.stringify(disk));
+    console.info('[SJ FLOW] 로컬 캐시 정리 — Firestore가 항상 새로 채우는 대형 데이터 제외:', hit.join(', '));
+  } catch (e) { /* 정리는 실패해도 무해 */ }
 })();
 window.state = state;
 // v29.9.1: localStorage 소유권 분리 — NCR/CAR iframe이 소유·기록하는 키 목록.
@@ -1202,6 +1250,54 @@ window.state = state;
 // 절대 덮어쓰지 않는다. touchSession(마우스만 움직여도 20초마다 full save) 등
 // 부모의 모든 save() 경로가 iframe이 방금 등록한 NCR/CAR를 지워버리던 근본 원인 수정.
 const IFRAME_OWNED_KEYS = ['ncrs', 'ncrDeleteReqs', 'cars', 'carDeleteReqs'];
+
+// v30.13(점검 B1): 로컬 캐시에서 제외하는 키 — 로그인 시 Firestore 구독이 항상 새로 채우므로
+// 저장할 이유가 없다. 이 대형 데이터(프로젝트 전체 WBS·메시지 500건·점검 임시저장)를 매
+// 저장마다 JSON 직렬화하던 것이 부팅 중 메인스레드 블로킹의 주요 원인이었다(점검 2위).
+//   주의: travellers·briefings·channelReads 등은 Firestore 구독이 없는 로컬 전용이라 제외 금지.
+const CACHE_SKIP_KEYS = ['wbs', 'items', 'wbsRec', 'messages', 'mobileInspectionDrafts'];
+function stripSkipped(obj) {
+  CACHE_SKIP_KEYS.forEach(k => { delete obj[k]; });
+  return obj;
+}
+
+// 디스크 쓰기 합치기 — 부팅 중 스냅샷 8~10개가 각각 저장을 요청해도 실제 쓰기는 1~2회.
+// iframe(NCR/CAR)이 같은 localStorage 키에 직접 쓰므로, 쓰기 직전에 항상 디스크를 다시 읽어
+// 병합한다(부모 메모리의 stale 사본으로 덮어쓰지 않기 — v29.9.1 규칙 유지).
+let _diskTimer = null, _diskFull = false, _diskPartial = null;
+function flushDiskWrite() {
+  if (_diskTimer) { clearTimeout(_diskTimer); _diskTimer = null; }
+  if (!_diskFull && !_diskPartial) return;
+  const wantFull = _diskFull, partial = _diskPartial;
+  _diskFull = false; _diskPartial = null;
+  try {
+    let disk = {};
+    try { disk = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { disk = {}; }
+    let next;
+    if (wantFull) {
+      next = stripSkipped(Object.assign({}, state));
+      IFRAME_OWNED_KEYS.forEach(k => { if (disk[k] !== undefined) next[k] = disk[k]; });
+    } else {
+      next = disk;
+      Object.keys(partial).forEach(k => {
+        if (CACHE_SKIP_KEYS.indexOf(k) === -1) next[k] = partial[k];
+      });
+      stripSkipped(next); // 예전 버전이 남긴 대형 캐시는 이 기회에 청소
+    }
+    localStorage.setItem(KEY, JSON.stringify(next));
+  } catch (e) {
+    // v29.24: 저장 실패(용량 초과 등)가 로그인 흐름을 끊지 않도록 여기서 막는다
+    console.error('[SJ FLOW 로컬 저장 실패]', e);
+  }
+}
+function queueDiskWrite() {
+  if (_diskTimer) return;
+  _diskTimer = setTimeout(flushDiskWrite, 150);
+}
+// 탭을 닫거나 숨길 때 남은 쓰기를 확정 (디바운스로 유실되지 않게)
+window.addEventListener('pagehide', flushDiskWrite);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushDiskWrite(); });
+
 function save() {
   try {
     const raw = localStorage.getItem(KEY);
@@ -1216,20 +1312,17 @@ function save() {
   // "로그인 정보 읽어오다가 다시 로그인 화면으로 튕기는" 심각한 사고로 이어짐(실사용 중 발견 —
   // ITP Builder/QA Doc Generator 쪽 대용량 로컬 캐시가 저장공간을 채운 게 근본 원인).
   // 로컬 캐시 저장은 실패해도 로그인 등 앱 동작 자체는 끊기지 않아야 하므로 여기서 막는다.
-  try {
-    localStorage.setItem(KEY, JSON.stringify(state));
-  } catch (e) {
-    console.error('[SJ FLOW 로컬 저장 실패]', e);
-  }
+  // v30.13(B1): 실제 쓰기는 flushDiskWrite가 담당(150ms 합치기 + 탭 숨김 시 확정).
+  _diskFull = true;
+  queueDiskWrite();
 }
 // 특정 키 하나만 갱신하는 부분 저장 — 부모의 onSnapshot 핸들러가 사용 (다른 키 불간섭).
+// v30.13(B1): 캐시 제외 키는 아예 저장하지 않고, 쓰기는 합쳐서 1회로.
 function savePartial(key, value) {
-  try {
-    const raw = localStorage.getItem(KEY);
-    const disk = raw ? JSON.parse(raw) : {};
-    disk[key] = value;
-    localStorage.setItem(KEY, JSON.stringify(disk));
-  } catch (e) { console.warn('[savePartial]', key, e); }
+  if (CACHE_SKIP_KEYS.indexOf(key) !== -1) return;
+  _diskPartial = _diskPartial || {};
+  _diskPartial[key] = value;
+  queueDiskWrite();
 }
 function resetData() {
   if (!confirm('프로젝트·업무·일정 등 작업 데이터를 초기화합니다.\n(로그인·사용자 정보는 유지됩니다)\n계속할까요?')) return;
@@ -2132,6 +2225,7 @@ let _fsUnsubs = [];
 function stopFirestoreSync() {
   _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
   _fsUnsubs = [];
+  _draftsSyncStarted = false; // v30.13(B4): 지연 구독도 해제됐으므로 다음 로그인 때 다시 시작할 수 있게
 }
 // WBS 행 하나의 진척률 계산 — wbs.html의 wCS()를 간이 포팅 (ITP 연동 부분 제외).
 // pctManual 우선 → 자식(소단락) 롤업 → 상태 문자열 → 시작/완료일 경과율 순.
@@ -2296,13 +2390,9 @@ function startFirestoreSync() {
     });
     scheduleRender();
   }, err => console.error('[Firestore] wbsRec 동기화 오류:', err)));
-  // Mobile Inspection 임시저장(t_mobileInspectionDrafts) — 프로젝트 선택 화면에
-  // "임시저장 N건" 배지로 보여주기 위해 목록만 가볍게 구독한다(문서 내용은
-  // 필요 없고 pid만 세면 되지만, 별도 count-only 쿼리가 없어 그냥 전체를 받음).
-  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 't_mobileInspectionDrafts'), snap => {
-    state.mobileInspectionDrafts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    scheduleRender();
-  }, err => console.error('[Firestore] t_mobileInspectionDrafts 동기화 오류:', err)));
+  // v30.13(점검 B4): Mobile Inspection 임시저장 구독을 부팅 경로에서 제거 —
+  //   이 데이터는 '모바일 점검' 프로젝트 선택 화면의 "임시저장 N건" 배지 한 곳(renderMobileProjects)에서만
+  //   쓰이는데, 부팅마다 전 직원이 폼 데이터 전체를 받고 있었다. → 그 화면을 열 때 1회 구독(ensureMobileDraftsSync).
   // 메신저 UI는 modules/messenger/messenger.html(iframe)로 이동했지만, 상단 알림배지는
   // 메신저를 열지 않아도 실시간으로 보여야 하므로 channels/messages/channelReads를 여기서도 독립 구독한다.
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'channels'), snap => {
@@ -2315,7 +2405,9 @@ function startFirestoreSync() {
     updateNotifBadge();
   }, err => console.error('[Firestore] channels 동기화 오류:', err)));
   // 최근 500개만 구독 — 무제한 증가 방지용 최소 가드 (오래된 메시지는 배지 계산에서 빠짐, MVP 트레이드오프)
-  const msgQuery = fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(500));
+  // v30.13(점검 B4): 500→200 — 이 구독은 '상단 알림 배지'(미읽음 수) 계산 전용이고 메신저 본문은
+  //   messenger.html이 따로 받는다. 200건이면 실사용 미읽음 계산에 충분하고 부팅 전송량이 60% 줄어든다.
+  const msgQuery = fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(200));
   _fsUnsubs.push(fb.onSnapshot(msgQuery, snap => {
     state.messages = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     updateNotifBadge();
@@ -3293,7 +3385,21 @@ function openQAProj(pid) { view.qaSelectedProj = pid; render(); }
 function closeQAProj() { view.qaSelectedProj = null; render(); }
 
 // Mobile Inspection 프로젝트 선택 화면
+// v30.13(점검 B4): 모바일 점검 임시저장 지연 구독 — 그 화면을 처음 열 때만 시작한다.
+// 한 번 시작하면 로그아웃(stopFirestoreSync)까지 유지되므로 배지는 실시간으로 갱신된다.
+let _draftsSyncStarted = false;
+function ensureMobileDraftsSync() {
+  if (_draftsSyncStarted) return;
+  if (!window.fb || !fb.db || !state.currentUser) return;
+  _draftsSyncStarted = true;
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 't_mobileInspectionDrafts'), snap => {
+    state.mobileInspectionDrafts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    scheduleRender();
+  }, err => console.error('[Firestore] t_mobileInspectionDrafts 동기화 오류:', err)));
+}
+
 function renderMobileProjects() {
+  ensureMobileDraftsSync();
   const showHidden = view.showHiddenProj || false;
   const hiddenCount = state.projects.filter(p => p.hidden).length;
   const projs = showHidden ? state.projects : state.projects.filter(p => !p.hidden);
@@ -7421,10 +7527,15 @@ async function decideApproval(aid, decision) {
       //   되어도 승인 ITP가 조회에서 사라지지 않는다. 재승인 시 여기서 갱신.
       if (finalApproved) {
         try {
-          const _snap = { ..._icur, ..._ipatch, snapshotAt: Date.now() };
+          // v30.13(점검 B3): liveStatus를 함께 남긴다 — ITP 조회가 라이브 문서를 실시간 구독하지
+          //   않고도 '개정 작업 중/결재중' 배지를 그릴 수 있게 (조회 다운로드량 절반)
+          const _snap = { ..._icur, ..._ipatch, snapshotAt: Date.now(), liveStatus: 'approved' };
           delete _snap.contentSig; delete _snap.approvedSig;   // 서명은 라이브 문서 전용 (스냅샷엔 불필요·용량 절약)
           await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), _snap);
         } catch (e) { console.warn('ITP 승인본 스냅샷 저장 실패:', e.message); }
+      } else if (decision === 'rejected') {
+        // 반려는 스냅샷 본문을 건드리지 않고 배지 상태만 (승인본은 그대로 보존)
+        try { await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), { liveStatus: 'rejected' }, { merge: true }); } catch (e) {}
       }
     } catch (e) { console.warn('ITP 승인 스탬프 실패:', e.message); }
   }
@@ -7546,7 +7657,9 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<script src="modules/ai-assistant/ai-assistant.js?v=29.64.0"></script>
+<!-- v30.13(점검 B2): defer — 119KB 파싱이 HTML 파싱·첫 화면 표시를 막지 않게.
+     이 파일 뒤에 오는 인라인 스크립트(lucide 옵저버)는 AI 함수를 참조하지 않으므로 순서 안전. -->
+<script defer src="modules/ai-assistant/ai-assistant.js?v=29.65.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

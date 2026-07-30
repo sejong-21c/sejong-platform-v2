@@ -52,6 +52,8 @@
  * 5회 도구 루프 한계 도달을 aiUsage에 loopLimit로 기록(에이전트 모드 필요성 판단 데이터).
  * v29.63: 🔑 관리자 도구 버튼 — 능동 알림(/cron/run)·백업(/backup/run)을 브라우저 콘솔
  * 없이 클릭 한 번으로 즉시 실행 (게이트웨이가 관리자 계정인지 검증).
+ * v29.65: (점검 B5) 대화 기록 키를 인증 uid 기준으로 — 공용 PC에서 이전 사용자 대화가
+ * 복원·오염되던 경로 차단. 로그인 사용자가 바뀌면 화면·메모리 기록을 갈아끼운다.
  * v29.64: 전면 점검(PLATFORM-CHECKUP.md) A묶음 수정 — ① 원격 조회 40건 잘림 회귀(A8)
  * ② exportPdf 제목·컬럼 XSS(A9) ③ open_module 죽은 권한 체크(A10) ④ 죽은 9Router 터널
  * 5분 쿨다운+5초 프리플라이트(A1) ⑤ Gemini 불량 키 400 분류(A7) ⑥ 스트리밍 중 45초
@@ -1101,7 +1103,15 @@
   // 최근 40턴만 남긴다. 자른 뒤 첫 턴이 함수호출 짝이 깨진 상태로 시작하지 않게 user 턴부터 시작.
   var HIST_LS_PREFIX = 'sjp_ai_chat_history_';
   var HIST_MAX_TURNS = 40;
-  function histKey() { return (window.state && state.currentUser) ? HIST_LS_PREFIX + state.currentUser : ''; }
+  // v29.65(점검 B5): 기록 키는 '인증된' 사용자 기준으로 잡는다.
+  //   예전엔 state.currentUser(localStorage에서 부팅되는 값)를 썼는데, 공용 PC에서 이전 사용자
+  //   id가 남은 채로 다른 사람이 접속하면 이전 사람의 대화가 복원되고 그 대화가 새 사용자 키로
+  //   저장될 수 있었다. 인증 uid가 준비되기 전(로그인 전)에는 빈 문자열 → 저장·복원 모두 건너뜀.
+  function authUid() {
+    try { return (window.fb && fb.auth && fb.auth.currentUser && fb.auth.currentUser.uid) || ''; } catch (e) { return ''; }
+  }
+  function histKey() { var u = authUid(); return u ? HIST_LS_PREFIX + u : ''; }
+  var _histOwner = ''; // 복원해 둔 기록의 주인 — 로그인 사용자가 바뀌면 기록을 갈아끼운다
   function trimHistoryForSave(h) {
     var t = h.slice(-HIST_MAX_TURNS);
     while (t.length && t[0].role !== 'user') t.shift();
@@ -1117,13 +1127,19 @@
     var k = histKey(); if (!k) return;
     try { localStorage.setItem(k, JSON.stringify(trimHistoryForSave(history))); } catch (e) {}
   }
-  var _histRestored = false;
   function restoreHistory() {
-    if (_histRestored) return;
-    var k = histKey(); if (!k) return; // 아직 로그인 전 — 다음에 다시 시도
-    _histRestored = true;
+    var u = authUid();
+    if (!u) return;             // 아직 로그인 전 — 패널을 다시 열 때 재시도
+    if (_histOwner === u) return; // 이미 이 사용자 기록을 복원해 둠
+    // v29.65(B5): 로그인 사용자가 바뀌었으면 화면·메모리의 이전 대화를 먼저 비운다
+    if (_histOwner && _histOwner !== u) {
+      history = [];
+      var box0 = $id('aiMessages');
+      if (box0) Array.prototype.slice.call(box0.querySelectorAll('.ai-msg, .ai-confirm-card')).forEach(function (el) { el.remove(); });
+    }
+    _histOwner = u;
     var saved = [];
-    try { saved = JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (e) {}
+    try { saved = JSON.parse(localStorage.getItem(HIST_LS_PREFIX + u) || '[]') || []; } catch (e) {}
     if (!Array.isArray(saved) || !saved.length) return;
     history = saved;
     saved.forEach(function (t) {

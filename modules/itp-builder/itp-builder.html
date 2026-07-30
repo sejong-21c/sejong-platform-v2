@@ -2112,7 +2112,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
           // v1.15 ★ 승인본 스냅샷 ★ — 승인 시점 내용을 t_itpApproved/{pid}에 보관.
           //   ITP 조회는 스냅샷을 보므로 이후 편집으로 라이브가 draft가 되어도 조회에서 안 사라진다.
           try {
-            const snapDoc = { ...icur, ...ipatch, snapshotAt: Date.now() };
+            const snapDoc = { ...icur, ...ipatch, snapshotAt: Date.now(), liveStatus: "approved" }; // liveStatus: 점검 B3
             delete snapDoc.contentSig; delete snapDoc.approvedSig;
             await fb.setDoc(fb.doc(fb.db, "t_itpApproved", PID), snapDoc);
           } catch (e) { console.warn("승인본 스냅샷 저장 실패:", e.message); }
@@ -2153,6 +2153,9 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
       // v3.3: ITP 조회에서 '결재중' 배지가 뜨도록 상태 스탬프 (승인/반려 시 index.html decideApproval이 갱신)
       try { await fb.setDoc(fb.doc(fb.db, "t_itpBuilderDocs", PID), { approvalStatus: "pending", approvalId: id, approvedBy: null, approvedAt: null }, { merge: true }); } catch(e) {}
+      // v3.5(점검 B3): 같은 상태를 승인본 스냅샷에도 liveStatus로 남긴다 — ITP 조회가 라이브 문서를
+      //   실시간 구독하지 않고도 '개정 작업 중' 배지를 그릴 수 있게 (조회 다운로드량 절반).
+      try { await fb.setDoc(fb.doc(fb.db, "t_itpApproved", PID), { liveStatus: "pending" }, { merge: true }); } catch(e) {}
       await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
       showMsg(m.includeReview
         ? "✅ 검토 → 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)"

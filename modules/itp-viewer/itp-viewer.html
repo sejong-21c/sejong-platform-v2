@@ -130,7 +130,9 @@ function _mergeDocs() {
   // 라이브 문서 상태 배지 매핑 + 레거시 승인(스냅샷 없음/구버전) 자가복구
   const merged = state.snapDocs.map(d => {
     const live = state.liveDocs.find(x => x.pid === d.pid);
-    return { ...d, approvalStatus: 'approved', _liveStatus: live ? live.approvalStatus : null };
+    // v2.2(점검 B3): 라이브 문서를 아직 안 받았어도 스냅샷에 기록된 liveStatus로 배지를 그린다
+    // (빌더 pending 스탬프·decideApproval이 승인본에 liveStatus를 함께 merge해 준다)
+    return { ...d, approvalStatus: 'approved', _liveStatus: live ? live.approvalStatus : (d.liveStatus || null) };
   });
   state.liveDocs.forEach(live => {
     if (live.approvalStatus !== 'approved') return;
@@ -184,15 +186,21 @@ function startSync() {
     _applyDeepLink();
     render();
   }, e => { document.getElementById('app').innerHTML = `<div class="empty">불러오기 실패: ${e.message||e}<br><small>페이지를 새로고침해 주세요.</small></div>`; });
-  // 라이브 문서: 레거시 승인분 자가복구 + '개정 작업 중' 배지
-  fb.onSnapshot(_projOnly('t_itpBuilderDocs'), snap => {
-    state.liveDocs = snap.docs
-      .filter(d => !d.id.startsWith('chunk__') && !d.id.startsWith('dwg_'))
-      .map(d => ({ pid: d.id, ...d.data() }));
-    _mergeDocs();
-    _applyDeepLink();
-    render();
-  }, e => console.warn('[liveDocs]', e));
+  // v2.2 ★ 성능(점검 B3) ★ — 라이브 문서(t_itpBuilderDocs)는 ① 레거시 승인분 자가복구
+  //   ② '개정 작업 중' 배지, 이 두 가지에만 쓰인다. 그런데 예전엔 이걸 실시간 구독해서
+  //   승인본과 '같은 본문을 두 번' 받았고(검사행 수백 개 × 프로젝트 수), 누가 빌더에서
+  //   저장할 때마다 조회 화면에도 문서 전체가 재전송됐다.
+  //   → 목록이 먼저 뜨고 난 뒤(1.2초 후) 1회만 조회하는 안전망으로 격하. 배지는 위 liveStatus로.
+  setTimeout(() => {
+    fb.getDocs(_projOnly('t_itpBuilderDocs')).then(snap => {
+      state.liveDocs = snap.docs
+        .filter(d => !d.id.startsWith('chunk__') && !d.id.startsWith('dwg_'))
+        .map(d => ({ pid: d.id, ...d.data() }));
+      _mergeDocs();
+      _applyDeepLink();
+      render();
+    }).catch(e => console.warn('[liveDocs]', e));
+  }, 1200);
   fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     render();
