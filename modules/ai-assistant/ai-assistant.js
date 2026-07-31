@@ -834,6 +834,7 @@
       }
       var d = await res.json();
       if (!d.matches || !d.matches.length) return { matches: [], note: '등록된 문서에서 관련 내용을 찾지 못했습니다. 문서가 아직 등록되지 않았을 수 있습니다.' };
+      lastRagMatches = d.matches;   // v29.70: 자비스 그래픽이 근거 노드에 불을 켜는 데 쓴다
       return d;
     }
   });
@@ -1329,6 +1330,165 @@
   }
   // 패널이 이미 DOM에 있으므로 로드 즉시 연결 (defer 스크립트라 DOM 준비됨)
   try { wirePersonaBar(); } catch (e) {}
+
+  // ── v29.70 (로드맵 9-7): 자비스 그래픽 ────────────────────────────
+  // AI가 생각하는 동안 회사 지식 그물(실제 프로젝트·NCR·CAR 노드)에 빛이 흐르고,
+  // 답이 나오면 '실제로 근거로 쓴 기록'의 노드에 불이 들어온다 — 장식이 아니라
+  // /rag/search가 돌려주는 kind·recId(워커 v3.3)를 그대로 그리는 진짜 계기판.
+  // 실패해도 대화에 영향 없어야 하므로 모든 진입점이 try로 감싸져 호출된다.
+  var lastRagMatches = null;   // search_docs가 채운다 — 질문마다 리셋
+  var SJP_Brain = (function () {
+    var cv, ctx, W = 0, H = 0, nodes = [], edges = [], pulses = [], mode = 'off', raf = 0, hideTimer = 0, lastT = 0;
+    var REDUCED = false;
+    try { REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    var NCOLOR = { project: '#60a5fa', ncr: '#f87171', car: '#fb923c', meeting: '#c084fc', cause: '#fbbf24', dept: '#34d399', doc: '#a5b4fc', etc: '#7dd3fc' };
+    function box() { return $id('aiBrain'); }
+    function ensure() {
+      var b = box(); if (!b) return false;
+      if (!cv) { cv = $id('aiBrainCanvas'); if (!cv) return false; ctx = cv.getContext('2d'); }
+      var r = b.getBoundingClientRect();
+      if (r.width < 10) return false;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = r.width; H = r.height;
+      cv.width = W * dpr; cv.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return true;
+    }
+    var idx = {};
+    function add(key, type, label) {
+      if (idx[key] != null) return idx[key];
+      idx[key] = nodes.length;
+      nodes.push({ key: key, type: type, label: label || '', hot: 0,
+        x: 18 + Math.random() * (W - 36), y: 12 + Math.random() * (H - 32),
+        vx: (Math.random() - .5) * .14, vy: (Math.random() - .5) * .14 });
+      return idx[key];
+    }
+    function link(a, b) { if (a != null && b != null && a !== b) edges.push([a, b]); }
+    function build() {
+      nodes = []; edges = []; pulses = []; idx = {};
+      try {
+        (window.state && state.projects || []).slice(0, 5).forEach(function (p) { add('proj:' + p.id, 'project', p.code || p.name || ''); });
+        (window.state && state.ncrs || []).slice(-6).forEach(function (n) {
+          if (!n || !n.id || String(n.id).indexOf('chunk__') === 0) return;
+          var a = add('ncr:' + n.id, 'ncr', n.id);
+          if (idx['proj:' + n.proj] != null) link(a, idx['proj:' + n.proj]);
+          if (n.cause) link(a, add('cause:' + n.cause, 'cause', n.cause));
+        });
+        (window.state && state.cars || []).slice(-5).forEach(function (c) {
+          if (!c || !c.id || String(c.id).indexOf('chunk__') === 0) return;
+          var a = add('car:' + c.id, 'car', c.id);
+          if (idx['proj:' + c.proj] != null) link(a, idx['proj:' + c.proj]);
+          if (c.ncrId && idx['ncr:' + c.ncrId] != null) link(a, idx['ncr:' + c.ncrId]);
+          if (c.reqDept) link(a, add('dept:' + c.reqDept, 'dept', c.reqDept));
+        });
+      } catch (e) {}
+      // 데이터가 아직 없으면(첫 부팅 등) 대표 개념 노드로 채운다 — 빈 화면 방지
+      if (nodes.length < 8) ['NCR', 'CAR', 'ITP', 'WBS', '회의록', '절차서', '검사', '인증서'].forEach(function (l) { add('x:' + l, 'etc', l); });
+      // 고아 노드는 하나씩 이어주고, 밀도용 크로스 링크 몇 개
+      var deg = nodes.map(function () { return 0; });
+      edges.forEach(function (e) { deg[e[0]]++; deg[e[1]]++; });
+      nodes.forEach(function (n, i) { if (!deg[i]) link(i, (i + 1) % nodes.length); });
+      for (var k = 0; k < Math.min(6, nodes.length); k++) link((Math.random() * nodes.length) | 0, (Math.random() * nodes.length) | 0);
+    }
+    function spawnPulse(biasHot) {
+      if (!edges.length) return;
+      var cand = edges;
+      if (biasHot) {
+        var he = edges.filter(function (e) { return nodes[e[0]].hot || nodes[e[1]].hot; });
+        if (he.length) cand = he;
+      }
+      var e = cand[(Math.random() * cand.length) | 0];
+      pulses.push({ a: e[0], b: e[1], t: 0, sp: .008 + Math.random() * .014 });
+    }
+    function frame(ts) {
+      raf = requestAnimationFrame(frame);
+      if (ts - lastT < 33) return;   // ~30fps 상한 — 배터리 배려
+      lastT = ts;
+      if (document.hidden || mode === 'off') return;
+      ctx.clearRect(0, 0, W, H);
+      nodes.forEach(function (n) {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 12 || n.x > W - 12) n.vx *= -1;
+        if (n.y < 10 || n.y > H - 20) n.vy *= -1;
+      });
+      ctx.lineWidth = 1;
+      edges.forEach(function (e) {
+        var a = nodes[e[0]], b = nodes[e[1]];
+        ctx.strokeStyle = 'rgba(125,211,252,' + ((a.hot || b.hot) ? .38 : .11) + ')';
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      });
+      var maxP = mode === 'think' ? 8 : 4;
+      if (pulses.length < maxP && Math.random() < .35) spawnPulse(mode === 'reveal');
+      pulses = pulses.filter(function (p) { p.t += p.sp; return p.t <= 1; });
+      pulses.forEach(function (p) {
+        var a = nodes[p.a], b = nodes[p.b];
+        ctx.fillStyle = 'rgba(56,189,248,.95)'; ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 9;
+        ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t, 1.6, 0, 7); ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      nodes.forEach(function (n) {
+        var r = n.type === 'project' ? 3.4 : 2.2;
+        var c = NCOLOR[n.type] || NCOLOR.etc;
+        if (n.hot) { ctx.shadowColor = c; ctx.shadowBlur = 15; r += 2.4 + Math.sin(ts / 170) * .9; }
+        ctx.globalAlpha = n.hot ? 1 : .82;
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+        if (n.type === 'project' || n.hot) {
+          ctx.font = (n.hot ? '700 ' : '') + '9px ui-monospace,Consolas,monospace';
+          ctx.fillStyle = n.hot ? '#e0f2fe' : 'rgba(148,197,255,.7)';
+          ctx.fillText(String(n.label).slice(0, 20), Math.min(n.x + 6, W - 60), n.y + 3);
+        }
+      });
+    }
+    function caption(t, onClick) {
+      var c = $id('aiBrainCaption'); if (!c) return;
+      c.textContent = t || '';
+      c.style.cursor = onClick ? 'pointer' : '';
+      c.onclick = onClick || null;
+    }
+    function off() {
+      mode = 'off'; clearTimeout(hideTimer);
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      var b = box(); if (b) b.style.display = 'none';
+      pulses = [];
+    }
+    return {
+      think: function () {
+        if (REDUCED) return;                    // 모션 최소화 설정 존중
+        clearTimeout(hideTimer);
+        var b = box(); if (!b) return;
+        b.style.display = 'block';
+        if (!ensure()) { b.style.display = 'none'; return; }
+        build(); mode = 'think';
+        caption('회사 지식 그물을 살피는 중…');
+        if (!raf) raf = requestAnimationFrame(frame);
+      },
+      reveal: function (matches) {
+        if (mode === 'off') return;
+        var names = [];
+        (matches || []).slice(0, 5).forEach(function (m) {
+          var key = (m.kind && m.recId) ? m.kind + ':' + m.recId : null;
+          var i = key && idx[key] != null ? idx[key] : null;
+          if (i == null) {   // 그물에 없던 기록·수동 문서는 노드를 만들어 붙인다
+            var label = m.recId || String(m.docName || '').replace(/^\[자동\]\s*/, '').slice(0, 22);
+            if (!label) return;
+            i = add((key || 'doc:' + label), (m.kind || 'doc'), label);
+            link(i, (Math.random() * Math.max(1, nodes.length - 1)) | 0);
+          }
+          nodes[i].hot = 1;
+          if (names.indexOf(nodes[i].label) === -1) names.push(nodes[i].label);
+        });
+        if (!names.length) { off(); return; }
+        mode = 'reveal';
+        caption('근거: ' + names.join(' · ') + '  → 지식 지도에서 보기', function () {
+          try { if (typeof switchMod === 'function') switchMod('knowledge'); } catch (e) {}
+        });
+        hideTimer = setTimeout(off, 10000);   // 10초 보여주고 접는다
+      },
+      off: off,
+    };
+  })();
 
   // ── v29.58(로드맵 11단계): 화면 문맥 — 매 요청 시스템 프롬프트에 현재 상황을 붙인다 ──
   function currentScreenContext() {
@@ -2372,6 +2532,8 @@
       return;
     }
     aiBusy = true;
+    lastRagMatches = null;                          // v29.70: 질문마다 근거 리셋
+    try { SJP_Brain.think(); } catch (e) {}         // 자비스 그래픽 — 실패해도 대화엔 무해
     var btn = $id('aiSendBtn');
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     // v29.57: 상태 줄 — 토큰이 오면 지워지고, 도구 호출이 시작되면 다시 맨 아래 생긴다
@@ -2418,6 +2580,8 @@
     } finally {
       aiBusy = false;
       if (btn) { btn.disabled = false; btn.textContent = '전송'; }
+      // v29.70: 근거(RAG)를 썼으면 그 노드에 불을 켜고, 아니면 그래픽을 접는다
+      try { (lastRagMatches && lastRagMatches.length) ? SJP_Brain.reveal(lastRagMatches) : SJP_Brain.off(); } catch (e) {}
       saveHistory(); // v29.51: 성공/실패 무관하게 여기까지의 대화를 저장
     }
   };
