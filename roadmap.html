@@ -197,7 +197,7 @@ footer{margin-top:44px;padding-top:15px;border-top:1px solid var(--grid);font-fa
 
   <footer>
     <span>SJ FLOW · 세종기술 품질관리부</span>
-    <span>항목 목록 v1.0 · 2026-07-31 기준</span>
+    <span>항목 목록 v1.1 · 2026-07-31 기준 (Phase 9 추가)</span>
   </footer>
 </div>
 
@@ -287,6 +287,16 @@ const ROADMAP = [
   {id:"p7-5", t:"C1 wbsData 지연 구독", d:"로그인 느림 1위 원인. 전 프로젝트 통구독 → 보는 프로젝트만. 부팅 수MB → 수십KB. 스키마 변경 승인 필요", ev:"승인 대기", base:"todo"},
   {id:"p7-6", t:"C2 ITP/QA 요약 인덱스 + lazy 본문", d:"목록은 요약만, 본문은 클릭 시 1건 조회. 기록 지점 4곳 + 1회성 백필", ev:"승인 대기", base:"todo"},
   {id:"p7-7", t:"C3 qa-viewer 스냅샷 사본 분리", d:"수동 저장본 전체 사본×N을 요약+본문 분리", ev:"승인 대기", base:"todo"},
+]},
+{ id:"p9", n:"PHASE 9", t:"지식 플랫폼화 — 제2 두뇌", s:"2026-07-31 검토 · 옵시디언 안내서 반영", items:[
+  {id:"p9-0", t:"[확인됨] Vector DB · RAG 지식 엔진", d:"안내서 Phase 1에 해당 — 이미 구축·실사용 검증 완료. Cloudflare Vectorize + 워커 v3.2.3", ev:"v29.56 · 중복 착수 불필요", base:"done"},
+  {id:"p9-01", t:"[확인됨] 웹 상주 AI 에이전트 위젯", d:"안내서 Phase 2에 해당 — 이미 구축. 우측 하단 상주, 조회·등록·브리핑·문서출력·파일첨부", ev:"v29.49~66 · 중복 착수 불필요", base:"done"},
+  {id:"p9-1", t:"RAG 자동 학습 파이프라인", d:"NCR·Inspection Report를 웹에서 저장하면 즉시 벡터 색인(현재는 문서 수동 등록). 워커에 색인 훅 추가", ev:"안내서 Phase 1 잔여", base:"todo"},
+  {id:"p9-2", t:"웹 지식 지도 (Graph View)", d:"[장비:펌프]-[담당:김시원]-[문서:NCR-2026-01] 형태 노드·엣지 시각화. Vis.js/D3.js CDN. 데이터는 이미 Firestore에 전부 존재", ev:"안내서 Phase 3 · 핵심 신규", base:"todo"},
+  {id:"p9-3", t:"지식 지도 필터·집중 뷰", d:"WBS 521행+NCR/CAR/ITP를 한 화면에 그리면 털뭉치가 됨 — 프로젝트·부서·기간 필터 + 선택 노드 2단계 이웃만 표시 필수", ev:"9-2 전제조건", base:"todo"},
+  {id:"p9-4", t:"노드 클릭 → 측면 상세 패널", d:"장비 노드 클릭 시 연관 ITP·NCR 이력·ASME Code 조항을 우측 패널에 표시", ev:"안내서 Phase 3", base:"todo"},
+  {id:"p9-5", t:"AI 페르소나 모드 분리", d:"품질관리 / 원자력사업 / 회사관리 3개 모드. 화면 문맥 인식(11단계)이 일부 대체 중", ev:"안내서 Phase 2 잔여", base:"todo"},
+  {id:"p9-6", t:"모바일 현장검사 → 지식 지도 연결", d:"현장 사진·리포트를 해당 장비 노드에 자동 연결", ev:"안내서 Phase 4", base:"todo"},
 ]},
 { id:"p8", n:"PHASE 8", t:"앞으로 할 일", s:"미착수 · 우선순위 검토", items:[
   {id:"p8-1", t:"RAG 문서고 확충", d:"사내 절차서·매뉴얼 계속 등록. feature/rag-docs 브랜치에서 작업 중(main +11커밋), 단계 완성 시 병합", ev:"진행 중", base:"wip"},
