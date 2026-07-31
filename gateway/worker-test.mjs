@@ -131,6 +131,11 @@ const env = {
       if (ids.length > 100) throw new Error('VECTOR_DELETE_ERROR (code = 40007): too many ids in payload; max id count is 100, got ' + ids.length);
       ids.forEach(id => vecStore.delete(id));
     },
+    // v3.4: 색인 상태 조회용. 실제 Vectorize도 없는 id는 결과에서 그냥 빠지고, 한도는 100.
+    getByIds: async ids => {
+      if (ids.length > 100) throw new Error('VECTOR_QUERY_ERROR: max id count is 100, got ' + ids.length);
+      return ids.map(id => vecStore.get(id)).filter(Boolean);
+    },
     query: async (vec, { topK }) => {
       const scored = [...vecStore.values()].map(v => ({
         id: v.id, metadata: v.metadata,
@@ -273,6 +278,53 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   const r = await post('/rag/record', staffToken, { kind: 'car', id: 'C-9', text: '새 내용' });
   env.AI.run = orig;
   check('자동색인: 임베딩 실패 시 기존 벡터 보존', r.status === 500 && before && vecStore.has('auto:car:C-9::0'), 'status=' + r.status);
+}
+
+// ── 4.6 색인 상태 조회 (v3.4 / 로드맵 9-1d) ─────────────────────
+// 관리 탭의 '누락분 일괄 재색인'이 이 결과만 믿고 동작한다 — 여기서 틀리면
+// 이미 학습된 걸 또 학습하거나(비용), 누락분을 놓친다(AI가 모름).
+{
+  await post('/rag/record', staffToken, { kind: 'ncr', id: 'ST-1', text: '색인된 부적합' });
+  await post('/rag/record', staffToken, { kind: 'ncr', id: 'ST-2', text: '색인된 부적합 2' });
+  const r = await post('/rag/record-status', staffToken, { kind: 'ncr', ids: ['ST-1', 'ST-2', 'ST-없음'] });
+  const d = await r.json();
+  check('색인상태: 색인된 것/누락된 것을 정확히 가른다',
+    r.status === 200 && !!d.indexed['ST-1'] && !!d.indexed['ST-2']
+    && d.missing.length === 1 && d.missing[0] === 'ST-없음',
+    JSON.stringify(d));
+}
+{
+  // 색인 시각(at)을 함께 줘야 관리 탭에서 '언제 학습했는지'를 보여줄 수 있다
+  const r = await post('/rag/record-status', staffToken, { kind: 'ncr', ids: ['ST-1'] });
+  const d = await r.json();
+  check('색인상태: 색인 시각(at)을 함께 반환', typeof d.indexed['ST-1'] === 'string' && /^\d{4}-/.test(d.indexed['ST-1']), JSON.stringify(d.indexed));
+}
+{
+  // remove 후에는 missing으로 떨어져야 한다 — 안 그러면 삭제된 기록이 계속 '학습됨'으로 보인다
+  await post('/rag/record', staffToken, { kind: 'ncr', id: 'ST-1', remove: true });
+  const d = await (await post('/rag/record-status', staffToken, { kind: 'ncr', ids: ['ST-1'] })).json();
+  check('색인상태: 삭제된 기록은 누락으로 보고', d.missing.includes('ST-1') && !d.indexed['ST-1'], JSON.stringify(d));
+}
+{
+  // 정규화되는 id(공백·특수문자)도 원본 키로 되돌려줘야 클라이언트가 매칭할 수 있다
+  await post('/rag/record', staffToken, { kind: 'car', id: 'CAR 2026/001', text: '정규화 대상' });
+  const d = await (await post('/rag/record-status', staffToken, { kind: 'car', ids: ['CAR 2026/001'] })).json();
+  check('색인상태: 정규화된 id를 원본 키로 반환', !!d.indexed['CAR 2026/001'], JSON.stringify(d));
+}
+{
+  // Vectorize getByIds 한도(100) — 넘겨도 예외가 아니라 잘라서 처리해야 한다
+  const many = Array.from({ length: 150 }, (_, i) => 'BULK-' + i);
+  const r = await post('/rag/record-status', staffToken, { kind: 'ncr', ids: many });
+  const d = await r.json();
+  check('색인상태: 100건 초과는 잘라서 처리(예외 없음)', r.status === 200 && d.checked === 100, 'status=' + r.status + ' checked=' + d.checked);
+}
+{
+  const r1 = await post('/rag/record-status', staffToken, { kind: 'bogus', ids: ['A'] });
+  const r2 = await post('/rag/record-status', staffToken, { kind: 'ncr', ids: [] });
+  const r3 = await post('/rag/record-status', null, { kind: 'ncr', ids: ['A'] });
+  check('색인상태: 잘못된 kind·빈 ids 거부 · 외부인 401',
+    r1.status === 400 && r2.status === 400 && r3.status === 401,
+    [r1.status, r2.status, r3.status].join('/'));
 }
 
 // ── 5. 크론 알림 시나리오 ───────────────────────────────────────

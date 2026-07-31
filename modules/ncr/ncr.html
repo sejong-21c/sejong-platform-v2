@@ -283,45 +283,16 @@ function canDoLocal(moduleId, action, user) {
 // v29.67 (로드맵 9-1c): 저장 성공 직후 그 기록을 AI에 색인한다.
 // 부모(index.html)의 SJP_indexRecord가 게이트웨이를 호출 — 실패해도 저장은 그대로 성공.
 // 색인은 '실제로 바뀐 항목'에만 걸어야 하므로 syncArrayToFirestore의 diff를 그대로 재사용한다.
-const NCR_FIELD_LABELS = {
-  proj:'프로젝트', item:'아이템', grade:'등급', status:'상태',
-  desc:'부적합 내용', location:'발생장소', cause:'불량원인', causeDetail:'원인 상세',
-  disposition:'처리방안',
-  issuedAt:'발행일', closedAt:'종결일', carId:'연계 CAR',
-};
-function ncrIndexText(n) {
-  const lines = [];
-  const projLabel = n.proj === '__direct__' ? (n.meta?.projDirect || '직접입력') : (getP(n.proj)?.code || n.proj || '');
-  const projName = n.proj === '__direct__' ? '' : (getP(n.proj)?.name || '');
-  lines.push('부적합 보고서(NCR) ' + n.id);
-  if (projLabel) lines.push('프로젝트: ' + projLabel + (projName ? ' ' + projName : ''));
-  Object.keys(NCR_FIELD_LABELS).forEach(k => {
-    if (k === 'proj') return;
-    const v = n[k];
-    if (v == null || v === '' ) return;
-    let out = v;
-    if (k === 'grade')  out = (NCR_GRADE[v] || [])[1] || v;
-    if (k === 'status') out = (NCR_STATUS[v] || [])[1] || v;
-    lines.push(NCR_FIELD_LABELS[k] + ': ' + out);
-  });
-  const m = n.meta || {};
-  if (m.client) lines.push('발주처: ' + m.client);
-  if (m.dwgNo)  lines.push('도면번호: ' + m.dwgNo);
-  if (m.wrNo)   lines.push('W/R번호: ' + m.wrNo);
-  const who = getU(n.issuedBy);
-  if (who && who.name) lines.push('발행자: ' + who.name + (who.title ? ' ' + who.title : ''));
-  return lines.join(String.fromCharCode(10));
-}
+// v29.68: 색인 텍스트 생성은 부모의 SJP_buildRecordText 한 곳에만 둔다 — 여기선 원본만 넘긴다.
+// (관리 탭의 '일괄 재색인'도 같은 함수를 쓰므로 결과가 갈라지지 않는다)
 function autoIndexNcrs(items) {
   const fn = (window.parent && window.parent.SJP_indexRecord) || null;
   if (!fn || !items || !items.length) return;
   items.forEach(n => {
-    if (!n || !n.id || String(n.id).startsWith('chunk__')) return;
-    const title = [n.item, (NCR_GRADE[n.grade] || [])[1]].filter(Boolean).join(' · ');
-    fn('ncr', n.id, title, ncrIndexText(n));   // 던져놓기 — 결과를 기다리지 않는다
+    if (!n || !n.id || String(n.id).startsWith('chunk__') || String(n.id).startsWith('dwg_')) return;
+    fn('ncr', n.id, '', '', { rec: n });   // 던져놓기 — 결과를 기다리지 않는다
   });
 }
-
 // FIX: '유령 삭제' 방지 로직 적용됨!
 const _lastSynced = { t_ncrs: [], t_ncrDeleteReqs: [], t_cars: [] };
 async function syncArrayToFirestore(coll, arr) {

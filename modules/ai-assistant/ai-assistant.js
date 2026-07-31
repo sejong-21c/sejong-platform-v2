@@ -875,6 +875,62 @@
   //  · 15초 타임아웃 — 게이트웨이가 막힌 환경(신과장 PC 등)에서 저장이 멈추지 않게
   //  · 게이트웨이 미설정·비로그인은 조용히 스킵
   // (2026-07-16 교훈: 로컬 캐시 실패가 클라우드 저장까지 막아 데이터가 남에게 안 보이던 사고)
+  //
+  // v29.68 (9-1d): 색인 텍스트를 만드는 코드는 여기 한 곳에만 둔다. iframe(ncr.html 등)은
+  // 레코드 원본만 {rec:...}로 넘기고, 관리 탭의 일괄 재색인도 같은 함수를 쓴다 —
+  // 두 곳에 같은 로직을 두면 한쪽만 고쳐져서 저장 색인과 재색인 결과가 달라진다.
+  var REC_NCR_GRADE  = { major: '중대', minor: '일반', obs: '경미' };
+  var REC_NCR_STATUS = { open: '진행중', closed: '종결' };
+  var REC_CAR_STATUS = { 'in-progress': '조치중', closed: '완료' };
+  function recProj(rec) {
+    if (rec.proj === '__direct__') return ((rec.meta || {}).projDirect) || '직접입력';
+    var p = (state.projects || []).find(function (x) { return x.id === rec.proj; });
+    return p ? (p.code || '') + (p.name ? ' ' + p.name : '') : '';
+  }
+  function recUserName(id) {
+    var u = (state.users || []).find(function (x) { return x.id === id; });
+    return u ? (u.name || '') + (u.title ? ' ' + u.title : '') : '';
+  }
+  var REC_SPECS = {
+    ncr: {
+      head: '부적합 보고서(NCR) ', titleOf: function (n) { return [n.item, REC_NCR_GRADE[n.grade]].filter(Boolean).join(' · '); },
+      fields: [
+        ['item', '아이템'], ['grade', '등급', REC_NCR_GRADE], ['status', '상태', REC_NCR_STATUS],
+        ['desc', '부적합 내용'], ['location', '발생장소'], ['cause', '불량원인'], ['causeDetail', '원인 상세'],
+        ['disposition', '처리방안'], ['issuedAt', '발행일'], ['closedAt', '종결일'], ['carId', '연계 CAR'],
+      ],
+      meta: [['client', '발주처'], ['dwgNo', '도면번호'], ['wrNo', 'W/R번호']],
+      who: 'issuedBy', whoLabel: '발행자',
+    },
+    car: {
+      head: '시정조치 요구서(CAR) ', titleOf: function (c) { return String(c.reqContent || '').slice(0, 80); },
+      fields: [
+        ['ncrId', '연계 NCR'], ['reqDept', '요청부서'], ['status', '상태', REC_CAR_STATUS],
+        ['field', '분야'], ['cause', '원인 분류'], ['reqContent', '시정 요구사항'], ['causeDetail', '원인 상세'],
+        ['action', '시정 조치'], ['result', '조치 결과'], ['issuedAt', '발행일'], ['replyDue', '회신 기한'],
+        ['repliedAt', '회신일'], ['actionAt', '조치일'], ['closedAt', '완료일'], ['qualReq', '품질 요구사항'],
+      ],
+      meta: [],
+    },
+  };
+  window.SJP_buildRecordText = function (kind, rec) {
+    var spec = REC_SPECS[kind];
+    if (!spec || !rec) return '';
+    var lines = [spec.head + rec.id];
+    var pj = recProj(rec);
+    if (pj) lines.push('프로젝트: ' + pj);
+    spec.fields.forEach(function (f) {
+      var v = rec[f[0]];
+      if (v == null || v === '') return;
+      if (Array.isArray(v)) { if (!v.length) return; v = v.join(', '); }
+      lines.push(f[1] + ': ' + (f[2] ? (f[2][v] || v) : v));
+    });
+    var m = rec.meta || {};
+    spec.meta.forEach(function (f) { if (m[f[0]]) lines.push(f[1] + ': ' + m[f[0]]); });
+    if (spec.who) { var w = recUserName(rec[spec.who]); if (w) lines.push(spec.whoLabel + ': ' + w); }
+    return lines.join('\n');
+  };
+
   window.SJP_indexRecord = function (kind, id, title, text, opts) {
     opts = opts || {};
     return (async function () {
@@ -883,6 +939,12 @@
         if (!gw) return { skipped: 'no-gateway' };
         if (!window.fb || !fb.auth || !fb.auth.currentUser) return { skipped: 'not-logged-in' };
         if (!id) return { skipped: 'no-id' };
+        // 레코드 원본을 받았으면 제목·본문을 여기서 만든다 (호출부마다 만들면 로직이 갈라진다)
+        if (opts.rec && !opts.remove) {
+          var sp = REC_SPECS[kind];
+          title = sp ? sp.titleOf(opts.rec) : title;
+          text = window.SJP_buildRecordText(kind, opts.rec);
+        }
         var body = opts.remove
           ? { kind: kind, id: id, remove: true }
           : { kind: kind, id: id, title: String(title || ''), text: String(text || '') };
@@ -905,6 +967,85 @@
         return { error: String(e.message || e) };
       }
     })();
+  };
+
+  // v29.68 (로드맵 9-1d): 색인 상태 점검 · 누락분 일괄 보충.
+  // 자동 색인은 v29.67부터라, 그 전에 쌓인 NCR·CAR은 AI가 모른다. 이 버튼이 그걸 메운다.
+  // "실패를 조용히 넘기지 않는다"가 이 기능의 존재 이유 — 건수와 실패 내역을 반드시 보여준다.
+  var REINDEX_GROUPS = [
+    { kind: 'ncr', label: 'NCR', key: 'ncrs' },
+    { kind: 'car', label: 'CAR', key: 'cars' },
+  ];
+  function reindexList(g) {
+    // 첨부 조각 문서(chunk__·dwg_)는 기록이 아니다 — 섞이면 토큰·용량 폭탄 (CLAUDE.md)
+    return ((window.state && state[g.key]) || []).filter(function (r) {
+      return r && r.id && !String(r.id).startsWith('chunk__') && !String(r.id).startsWith('dwg_');
+    });
+  }
+  function reindexSay(html) { var el = $id('aiReindexStatus'); if (el) el.innerHTML = html; }
+
+  // 게이트웨이에 100건씩 나눠 물어본다 (Vectorize getByIds 한도)
+  async function reindexStatus(kind, ids) {
+    var gw = getGatewayUrl(), out = { indexed: {}, missing: [] };
+    for (var i = 0; i < ids.length; i += 100) {
+      var part = ids.slice(i, i + 100);
+      var res = await fetch(gw + '/rag/record-status', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, await gatewayAuthHeaders()),
+        body: JSON.stringify({ kind: kind, ids: part }),
+      });
+      var d = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(d.error || ('상태 조회 오류 ' + res.status));
+      Object.keys(d.indexed || {}).forEach(function (k) { out.indexed[k] = d.indexed[k]; });
+      out.missing = out.missing.concat(d.missing || []);
+    }
+    return out;
+  }
+
+  window.SJP_AI_checkIndex = async function (mode) {
+    var gw = getGatewayUrl();
+    if (!gw) { alert('게이트웨이 주소가 설정되지 않았습니다.'); return; }
+    if (!window.fb || !fb.auth || !fb.auth.currentUser) { alert('로그인이 필요합니다.'); return; }
+    var all = mode === 'all';
+    try {
+      reindexSay('<span style="color:var(--text-light);">확인 중…</span>');
+      var plan = [], report = [];
+      for (var gi = 0; gi < REINDEX_GROUPS.length; gi++) {
+        var g = REINDEX_GROUPS[gi], list = reindexList(g);
+        if (!list.length) { report.push(g.label + ' 0건'); continue; }
+        var st = await reindexStatus(g.kind, list.map(function (r) { return r.id; }));
+        var miss = all ? list : list.filter(function (r) { return st.missing.indexOf(r.id) !== -1; });
+        report.push(g.label + ' ' + list.length + '건 중 <b>' + (list.length - st.missing.length) + '건 학습됨</b>'
+          + (st.missing.length ? ', <b style="color:var(--danger);">' + st.missing.length + '건 누락</b>' : ''));
+        miss.forEach(function (r) { plan.push({ kind: g.kind, label: g.label, rec: r }); });
+      }
+      reindexSay(report.join(' · '));
+      if (!plan.length) { reindexSay(report.join(' · ') + ' — <b style="color:var(--success);">보충할 것이 없습니다.</b>'); return; }
+      if (!confirm((all ? '전체 다시 색인' : '누락분 색인') + ': ' + plan.length + '건을 AI에 학습시킵니다.\n\n계속할까요?')) {
+        reindexSay(report.join(' · ') + ' — 취소됨'); return;
+      }
+      // 순차 처리 — 무료 임베딩 한도를 한 번에 때리지 않도록 3건씩만 동시에
+      var done = 0, fails = [];
+      for (var i = 0; i < plan.length; i += 3) {
+        var batch = plan.slice(i, i + 3);
+        var rs = await Promise.all(batch.map(function (j) {
+          return window.SJP_indexRecord(j.kind, j.rec.id, '', '', { rec: j.rec });
+        }));
+        rs.forEach(function (r, k) {
+          if (r && (r.error || r.skipped)) fails.push(batch[k].label + ' ' + batch[k].rec.id + ' (' + (r.error || r.skipped) + ')');
+          done++;
+        });
+        reindexSay(report.join(' · ') + '<br>색인 중… ' + done + '/' + plan.length
+          + (fails.length ? ' · <span style="color:var(--danger);">실패 ' + fails.length + '</span>' : ''));
+      }
+      var ok = done - fails.length;
+      reindexSay(report.join(' · ') + '<br><b style="color:' + (fails.length ? 'var(--danger)' : 'var(--success)') + ';">완료: '
+        + ok + '건 학습' + (fails.length ? ' · ' + fails.length + '건 실패' : '') + '</b>'
+        + (fails.length ? '<div style="font-size:10px;margin-top:3px;">' + fails.slice(0, 5).join('<br>').replace(/</g, '&lt;') + (fails.length > 5 ? '<br>…' : '') + '</div>' : ''));
+      if (fails.length) console.warn('[일괄색인] 실패 목록:', fails);
+    } catch (e) {
+      reindexSay('<span style="color:var(--danger);">실패: ' + String(e.message || e).replace(/</g, '&lt;') + '</span>');
+    }
   };
 
   window.SJP_AI_uploadDoc = async function () {
@@ -1921,6 +2062,13 @@
       '<label class="fl">🛠 관리자 도구 — 매일 아침 9시 자동 실행되는 작업을 지금 바로 돌려봅니다</label>' +
       '<button type="button" class="btn" onclick="SJP_AI_runCron(\'cron\')">🔔 알림 지금 실행</button> ' +
       '<button type="button" class="btn" onclick="SJP_AI_runCron(\'backup\')">💾 백업 지금 실행</button>' +
+      '</div>' +
+      // v29.68: 기록 색인 점검 — 자동 색인(v29.67) 전에 쌓인 NCR·CAR을 AI가 모르는 문제를 메운다
+      '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);">' +
+      '<label class="fl">🧠 기록 학습 상태 — NCR·CAR을 AI가 얼마나 알고 있는지 확인하고, 빠진 것만 채웁니다</label>' +
+      '<button type="button" class="btn" onclick="SJP_AI_checkIndex(\'missing\')">🧠 점검 · 누락분 학습</button> ' +
+      '<button type="button" class="btn" onclick="SJP_AI_checkIndex(\'all\')">♻ 전체 다시 학습</button>' +
+      '<div id="aiReindexStatus" style="font-size:11px;color:var(--text-light);margin-top:5px;line-height:1.6;">버튼을 누르면 현재 상태를 확인합니다.</div>' +
       '</div>' +
       '</div>';
     var keyProviders = PROVIDER_CHAIN.filter(function (p) { return p.ls; });

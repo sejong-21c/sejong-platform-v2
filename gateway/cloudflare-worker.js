@@ -1,5 +1,5 @@
 /*
- * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.3, 2026-07-31)
+ * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.4, 2026-07-31)
  *
  * 역할:
  *  1) 회사 공용 API 키를 이 서버에 숨겨두고, 직원들은 키 입력 없이 AI 비서를 사용
@@ -11,6 +11,9 @@
  *     POST /rag/record  {kind,id,title,text}     — v3.3(로드맵 9-1): 기록 자동 색인.
  *          NCR·CAR·검사보고서·ITP·회의록을 저장하는 즉시 직원 본인이 색인한다(사내 계정 전체).
  *          {remove:true}면 해당 기록의 벡터를 삭제 — 지워진 NCR을 AI가 근거로 쓰지 않게.
+ *     POST /rag/record-status {kind, ids:[...]}   — v3.4(로드맵 9-1d): 색인 여부 일괄 조회.
+ *          {indexed:{id:색인시각}, missing:[...]} 반환. 관리 탭의 '누락분 일괄 재색인'이 쓴다.
+ *          Vectorize getByIds 한도 때문에 한 번에 100건까지 — 클라이언트가 나눠 보낸다.
  *     필요 바인딩: AI(Workers AI), VECTORIZE(인덱스, 예: sejong-docs @1024차원 cosine)
  *     — gateway/README.md의 배포 안내 참고. 바인딩이 없으면 501을 반환한다.
  *  5) v3.1(로드맵 9단계): 능동 알림 — Cron Trigger(매일 0 0 * * * = 한국 09:00)가
@@ -235,23 +238,50 @@ async function handleRag(request, env, path, cors) {
   //  · docName에 '[자동]' 접두 → 수동 등록 문서와 이름이 겹쳐 서로 지우는 일 방지.
   //  · 삭제 지원(remove:true): 레코드가 지워지면 벡터도 지운다. 안 지우면 AI가 없는 NCR을 근거로 답한다.
   //  · 순서: 임베딩 먼저 → 성공 후 삭제 → 업서트 (v3.2.4에서 배운 것 — 중간 실패 시 기존 색인 증발 방지)
+  const REC_KINDS = {
+    ncr:        'NCR',
+    car:        'CAR',
+    inspection: '검사보고서',
+    itp:        'ITP',
+    meeting:    '회의록',
+  };
+  // 벡터 id에 들어가므로 구분자(:)와 공백을 막는다
+  const normRecId = (v) => String(v || '').trim().replace(/[^A-Za-z0-9가-힣._-]/g, '_').slice(0, 80);
+  const REC_MAX_CHUNKS = 20;
+
+  // ── v3.4: 색인 상태 조회 (로드맵 9-1d) ──────────────────────────
+  // 관리 탭에서 "이미 쌓인 NCR·CAR 중 아직 학습 안 된 게 몇 건인가"를 알아야 일괄 보충이 가능하다.
+  // 각 레코드의 첫 청크(::0)만 확인하면 색인 여부는 판정된다 (::0이 없으면 색인 자체가 없음).
+  // Vectorize getByIds 한도가 100이므로 클라이언트가 100건씩 나눠 보내게 하고, 여기서도 잘라낸다.
+  if (path === 'record-status') {
+    const kind = String(body.kind || '').trim().toLowerCase();
+    if (!REC_KINDS[kind]) {
+      return json(400, { error: 'kind는 ' + Object.keys(REC_KINDS).join('/') + ' 중 하나여야 합니다' }, cors);
+    }
+    const ids = Array.isArray(body.ids) ? body.ids.slice(0, 100) : [];
+    if (!ids.length) return json(400, { error: 'ids 배열이 필요합니다 (최대 100건)' }, cors);
+    const keyOf = new Map();   // 벡터 id → 원본 id (정규화 때문에 되돌려줘야 한다)
+    ids.forEach((raw) => { const n = normRecId(raw); if (n) keyOf.set('auto:' + kind + ':' + n + '::0', raw); });
+    const found = await env.VECTORIZE.getByIds(Array.from(keyOf.keys()));
+    const indexed = {};
+    (found || []).forEach((v) => {
+      const orig = keyOf.get(v.id);
+      if (orig != null) indexed[orig] = ((v.metadata || {}).at) || true;   // 색인 시각을 같이 준다
+    });
+    const missing = ids.filter((raw) => !(raw in indexed));
+    return json(200, { ok: true, kind, indexed, missing, checked: ids.length }, cors);
+  }
+
   if (path === 'record') {
-    const KINDS = {
-      ncr:        'NCR',
-      car:        'CAR',
-      inspection: '검사보고서',
-      itp:        'ITP',
-      meeting:    '회의록',
-    };
+    const KINDS = REC_KINDS;
     const kind = String(body.kind || '').trim().toLowerCase();
     if (!KINDS[kind]) {
       return json(400, { error: 'kind는 ' + Object.keys(KINDS).join('/') + ' 중 하나여야 합니다' }, cors);
     }
-    // id 정규화 — 벡터 id에 들어가므로 구분자(:)와 공백을 막는다
-    const recId = String(body.id || '').trim().replace(/[^A-Za-z0-9가-힣._-]/g, '_').slice(0, 80);
+    const recId = normRecId(body.id);
     if (!recId) return json(400, { error: 'id가 필요합니다' }, cors);
 
-    const MAX_CHUNKS = 20;
+    const MAX_CHUNKS = REC_MAX_CHUNKS;
     const slot = 'auto:' + kind + ':' + recId;
     const delIds = Array.from({ length: MAX_CHUNKS }, (_, i) => slot + '::' + i);
 
@@ -304,7 +334,7 @@ async function handleRag(request, env, path, cors) {
     return json(200, { ok: true, docName, slot, chunkCount: vectors.length }, cors);
   }
 
-  return json(404, { error: 'usage: POST /rag/search · /rag/upload · /rag/record' }, cors);
+  return json(404, { error: 'usage: POST /rag/search · /rag/upload · /rag/record · /rag/record-status' }, cors);
 }
 
 // v2: 9Router 동적 설정 — 부장님이 플랫폼 🔑에서 '전 직원 공용 공유'한 터널 주소/키/모델
@@ -619,8 +649,9 @@ export default {
       } catch (e) { return json(500, { error: '실행 실패: ' + (e.message || e) }, cors); }
     }
 
-    // v3: 사내 문서 검색(RAG) — /rag/search, /rag/upload
-    const ragMatch = url.pathname.match(/^\/rag\/([a-z]+)$/);
+    // v3: 사내 문서 검색(RAG) — /rag/search, /rag/upload, /rag/record, /rag/record-status
+    // v3.4: 하이픈 허용 ([a-z]+만 받아 record-status가 404로 떨어지던 것 수정)
+    const ragMatch = url.pathname.match(/^\/rag\/([a-z-]+)$/);
     if (ragMatch) {
       if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
       try { return await handleRag(request, env, ragMatch[1], cors); }

@@ -1200,8 +1200,8 @@ const WBS_BUILD = 'b66';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MESSENGER_BUILD = 'b27';
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const NCR_BUILD = 'b18'; // v29.67: 저장 직후 AI 자동 색인
-const CAR_BUILD = 'b17'; // v29.67: 저장 직후 AI 자동 색인
+const NCR_BUILD = 'b19'; // v29.68: 색인 텍스트 생성을 부모로 통합
+const CAR_BUILD = 'b18'; // v29.68: 색인 텍스트 생성을 부모로 통합
 const QADASH_BUILD = 'b15';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
@@ -1211,7 +1211,7 @@ const QADOC_BUILD = 'c11'; // c11: 불러오기 범위 쿼리(점검 A2)
 const MTOOLS_BUILD = 'b7';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MEETING_BUILD = 'b6'; // b6: v29.60 AI 예약 프리필 수신
-const ROADMAP_BUILD = 'a2'; // v30.14 전사 공용 로드맵·진척 (9-1 완료 반영)
+const ROADMAP_BUILD = 'a3'; // v30.14 전사 공용 로드맵·진척 (9-1 전체 완료)
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
 const ITPVIEW_BUILD = 'a16'; // a16: 라이브 문서 실시간 구독 제거(점검 B3)
@@ -7671,7 +7671,7 @@ window.addEventListener('resize', () => {
 </script>
 <!-- v30.13(점검 B2): defer — 119KB 파싱이 HTML 파싱·첫 화면 표시를 막지 않게.
      이 파일 뒤에 오는 인라인 스크립트(lucide 옵저버)는 AI 함수를 참조하지 않으므로 순서 안전. -->
-<script defer src="modules/ai-assistant/ai-assistant.js?v=29.67.0"></script>
+<script defer src="modules/ai-assistant/ai-assistant.js?v=29.68.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.
