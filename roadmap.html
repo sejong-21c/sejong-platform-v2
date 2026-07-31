@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<title>SJ FLOW 로드맵 · 진척 관리</title>
+<script type="module">
+  // v1.0: 전사 공용 로드맵 — 체크 상태를 Firestore(t_roadmapState)에 저장해
+  // 누가 어느 컴퓨터에서 체크해도 전원에게 즉시 반영된다.
+  // t_ 네임스페이스라 기존 보안 규칙(사내 계정 read/write)이 그대로 적용됨 — 규칙 추가 불필요.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const app = initializeApp({
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf"
+  });
+  window.fb = { auth:getAuth(app), db:getFirestore(app), GoogleAuthProvider, signInWithPopup,
+                signInWithRedirect, onAuthStateChanged, signOut, collection, onSnapshot, doc, setDoc, getDoc };
+  window.dispatchEvent(new Event("fb-ready"));
+</script>
+<style>
+:root{
+  --paper:#f6f7f9; --card:#fff; --card-2:#fbfcfd;
+  --ink:#101a26; --ink-2:#4a5a6e; --ink-3:#8494a6;
+  --grid:#dfe5ee; --grid-2:#eef2f7;
+  --navy:#0b2545; --blue:#1d4ed8; --blue-soft:#e8eefc;
+  --done:#15803d; --done-bg:#e6f4ea;
+  --wip:#b45309; --wip-bg:#fdf3e3;
+  --todo-bg:#eef2f7;
+  --hold:#6b7280; --hold-bg:#f1f3f6;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"D2Coding",monospace;
+  --sans:"Pretendard",-apple-system,BlinkMacSystemFont,"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#0c1219; --card:#131c26; --card-2:#18222e;
+  --ink:#e8eef5; --ink-2:#9fb0c4; --ink-3:#6b7d92;
+  --grid:#22303f; --grid-2:#1b2632;
+  --navy:#8fb3e0; --blue:#6d9bf5; --blue-soft:#1a2740;
+  --done:#4ade80; --done-bg:#12291c;
+  --wip:#fbbf24; --wip-bg:#2c2211;
+  --todo-bg:#1b2632; --hold:#8494a6; --hold-bg:#1a2129;
+}}
+:root[data-theme="light"]{
+  --paper:#f6f7f9; --card:#fff; --card-2:#fbfcfd;
+  --ink:#101a26; --ink-2:#4a5a6e; --ink-3:#8494a6;
+  --grid:#dfe5ee; --grid-2:#eef2f7; --navy:#0b2545; --blue:#1d4ed8; --blue-soft:#e8eefc;
+  --done:#15803d; --done-bg:#e6f4ea; --wip:#b45309; --wip-bg:#fdf3e3;
+  --todo-bg:#eef2f7; --hold:#6b7280; --hold-bg:#f1f3f6;
+}
+:root[data-theme="dark"]{
+  --paper:#0c1219; --card:#131c26; --card-2:#18222e;
+  --ink:#e8eef5; --ink-2:#9fb0c4; --ink-3:#6b7d92;
+  --grid:#22303f; --grid-2:#1b2632; --navy:#8fb3e0; --blue:#6d9bf5; --blue-soft:#1a2740;
+  --done:#4ade80; --done-bg:#12291c; --wip:#fbbf24; --wip-bg:#2c2211;
+  --todo-bg:#1b2632; --hold:#8494a6; --hold-bg:#1a2129;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 20px 80px}
+
+/* 헤더 */
+.hdr{border:1.5px solid var(--ink);background:var(--card);position:relative;overflow:hidden}
+.hdr::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(var(--grid-2) 1px,transparent 1px),linear-gradient(90deg,var(--grid-2) 1px,transparent 1px);background-size:22px 22px}
+.hdr-top{position:relative;padding:22px 22px 18px;border-bottom:1.5px solid var(--ink);display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.hdr-txt{flex:1;min-width:240px}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:600}
+h1{margin:6px 0 3px;font-size:clamp(22px,3.6vw,31px);font-weight:800;letter-spacing:-.03em;line-height:1.15;text-wrap:balance}
+.hdr-sub{color:var(--ink-2);font-size:13.5px}
+/* 진척 링 */
+.ring{position:relative;width:112px;height:112px;flex-shrink:0}
+.ring svg{transform:rotate(-90deg)}
+.ring-txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-n{font-family:var(--mono);font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ring-l{font-family:var(--mono);font-size:9px;color:var(--ink-3);margin-top:3px}
+.hdr-meta{position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.hm{padding:10px 15px;border-right:1px solid var(--grid)}
+.hm:last-child{border-right:none}
+.hm-k{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.hm-v{font-family:var(--mono);font-size:14px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* 로그인 바 */
+.authbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding:11px 15px;
+  border:1px solid var(--grid);background:var(--card);font-size:13px}
+.authbar .who{font-weight:700}
+.authbar .msg{color:var(--ink-2)}
+.btn{font-family:inherit;font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:6px;border:1px solid var(--grid);
+  background:var(--card-2);color:var(--ink);cursor:pointer}
+.btn:hover{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
+.btn-p{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-p:hover{filter:brightness(1.1);color:#fff}
+.btn:focus-visible,.st:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.push{margin-left:auto}
+
+/* 필터 */
+.tools{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.chip{font-family:var(--mono);font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:14px;
+  border:1px solid var(--grid);background:var(--card);color:var(--ink-2);cursor:pointer}
+.chip.on{background:var(--navy);color:var(--paper);border-color:var(--navy)}
+@media (prefers-color-scheme:dark){.chip.on{background:var(--blue-soft);color:var(--ink)}}
+:root[data-theme="dark"] .chip.on{background:var(--blue-soft);color:var(--ink)}
+
+/* 단계 */
+.phase{margin-top:26px;border:1px solid var(--grid);background:var(--card)}
+.ph-h{display:flex;align-items:center;gap:13px;padding:12px 16px;background:var(--card-2);border-bottom:1px solid var(--grid);flex-wrap:wrap}
+.ph-n{font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--blue);letter-spacing:.08em;white-space:nowrap}
+.ph-t{font-size:16px;font-weight:800;letter-spacing:-.01em}
+.ph-s{font-size:12px;color:var(--ink-3)}
+.ph-bar{margin-left:auto;display:flex;align-items:center;gap:9px;min-width:150px}
+.track{flex:1;height:7px;background:var(--grid-2);border-radius:4px;overflow:hidden;min-width:70px}
+.fill{height:100%;background:var(--done);border-radius:4px;transition:width .35s ease}
+.ph-pct{font-family:var(--mono);font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:56px;text-align:right}
+
+/* 항목 */
+.item{display:grid;grid-template-columns:96px 1fr;gap:0;border-bottom:1px solid var(--grid-2)}
+.item:last-child{border-bottom:none}
+.item.hidden{display:none}
+.st{margin:11px 10px 11px 14px;align-self:start;font-family:var(--mono);font-size:10.5px;font-weight:700;
+  padding:4px 0;border-radius:12px;border:1px solid transparent;cursor:pointer;text-align:center;width:72px}
+.st[disabled]{cursor:not-allowed;opacity:.75}
+.st-done{background:var(--done-bg);color:var(--done)}
+.st-wip{background:var(--wip-bg);color:var(--wip)}
+.st-todo{background:var(--todo-bg);color:var(--ink-3)}
+.st-hold,.st-cancel{background:var(--hold-bg);color:var(--hold)}
+.it-body{padding:11px 16px 11px 2px}
+.it-t{font-size:14px;font-weight:700;line-height:1.45}
+.it-d{font-size:13px;color:var(--ink-2);margin-top:3px}
+.it-m{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:5px;display:flex;gap:9px;flex-wrap:wrap}
+.it-m .ev{color:var(--blue)}
+.it-m .log{color:var(--ink-3)}
+
+.note{margin-top:18px;border-left:3px solid var(--blue);background:var(--card);padding:13px 17px;font-size:13px;color:var(--ink-2)}
+.note b{color:var(--ink)}
+footer{margin-top:44px;padding-top:15px;border-top:1px solid var(--grid);font-family:var(--mono);font-size:10.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+@media (max-width:600px){
+  .item{grid-template-columns:1fr}
+  .st{margin:11px 0 0 14px}
+  .it-body{padding:6px 16px 12px 14px}
+  .ph-bar{width:100%;margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hdr">
+    <div class="hdr-top">
+      <div class="hdr-txt">
+        <div class="eyebrow">Sejong Technology · Roadmap &amp; Progress</div>
+        <h1>SJ FLOW 로드맵 · 진척 관리</h1>
+        <p class="hdr-sub">항목의 상태 버튼을 눌러 <b>대기 → 진행중 → 완료</b>로 바꿉니다. 바꾼 내용은 즉시 저장되어 <b>모든 직원·모든 컴퓨터</b>에 반영됩니다.</p>
+      </div>
+      <div class="ring">
+        <svg width="112" height="112" viewBox="0 0 112 112" aria-hidden="true">
+          <circle cx="56" cy="56" r="47" fill="none" stroke="var(--grid-2)" stroke-width="11"/>
+          <circle id="ringArc" cx="56" cy="56" r="47" fill="none" stroke="var(--done)" stroke-width="11"
+                  stroke-linecap="round" stroke-dasharray="295.3" stroke-dashoffset="295.3" style="transition:stroke-dashoffset .5s ease"/>
+        </svg>
+        <div class="ring-txt"><div class="ring-n" id="ringPct">–</div><div class="ring-l">전체 진척</div></div>
+      </div>
+    </div>
+    <div class="hdr-meta">
+      <div class="hm"><div class="hm-k">Document</div><div class="hm-v">SJ-FLOW-RM-001</div></div>
+      <div class="hm"><div class="hm-k">Done</div><div class="hm-v" id="mDone">–</div></div>
+      <div class="hm"><div class="hm-k">In Progress</div><div class="hm-v" id="mWip">–</div></div>
+      <div class="hm"><div class="hm-k">Remaining</div><div class="hm-v" id="mTodo">–</div></div>
+      <div class="hm"><div class="hm-k">Updated</div><div class="hm-v" id="mUpd">–</div></div>
+    </div>
+  </div>
+
+  <div class="authbar" id="authbar">
+    <span class="msg">로그인 상태 확인 중…</span>
+  </div>
+
+  <div class="tools">
+    <button class="chip on" data-f="all">전체</button>
+    <button class="chip" data-f="todo">대기</button>
+    <button class="chip" data-f="wip">진행중</button>
+    <button class="chip" data-f="done">완료</button>
+    <button class="chip" data-f="open">미완료만</button>
+  </div>
+
+  <div id="phases"></div>
+
+  <div class="note">
+    <b>이 페이지가 기록되는 곳</b> — 체크 상태는 Firestore <span style="font-family:var(--mono)">t_roadmapState</span> 컬렉션에 저장됩니다. 누가 언제 바꿨는지 항목 아래에 남고, 사내 계정으로 로그인한 사람만 변경할 수 있습니다. 항목 목록 자체는 저장소의 <span style="font-family:var(--mono)">roadmap.html</span>에 있어, 항목을 추가·수정하려면 파일을 고쳐 배포하면 됩니다.
+  </div>
+
+  <footer>
+    <span>SJ FLOW · 세종기술 품질관리부</span>
+    <span>항목 목록 v1.0 · 2026-07-31 기준</span>
+  </footer>
+</div>
+
+<script>
+/* ═══════════ 로드맵 항목 정의 ═══════════
+   base = 코드에 기록된 기준 상태(git 이력 근거). Firestore에 값이 있으면 그것이 우선.
+   status: done | wip | todo | hold | cancel   (hold·cancel은 진척 분모에서 제외) */
+const ROADMAP = [
+{ id:"p0", n:"PHASE 0", t:"전사 — EPC Control 단독 도구", s:"2026-05 · 플랫폼 이전", items:[
+  {id:"p0-1", t:"EPC Control v26.3 기준선 확립", d:"932줄·99KB 단일 HTML. 분할/트리/간트 3뷰, 사이드바·수정패널·모달 구조 확정", ev:"v26.3", base:"done"},
+  {id:"p0-2", t:"간트 진척률·주간 자동정리·JSON·localStorage", d:"원본을 1줄도 지우지 않고 7개 영역만 외과수술식 패치", ev:"v28.0 · 05-21", base:"done"},
+  {id:"p0-3", t:"반응형 달력 (6~15칸 자동 조정)", d:"모바일 6 / 노트북 13 / 데스크탑 15칸. AI 검사 어시스턴트는 이때 제거 (7월에 부활)", ev:"v28.1 · 05-22", base:"done"},
+  {id:"p0-4", t:"1차 플랫폼 저장소 + Phase 1~5 로드맵 문서", d:"GitHub 조직 생성, 폴더 구조, architecture.md·CHANGELOG 작성. 10커밋 후 중단", ev:"sejong-platform · 05-22", base:"done"},
+]},
+{ id:"p1", n:"PHASE 1", t:"기반 공사 — 클라우드 전환", s:"2026-07-01 ~ 07-04", items:[
+  {id:"p1-1", t:"GitHub Pages + 커스텀 도메인 가동", d:"sejong21c.com 개설, 정적 사이트 배포 파이프라인", ev:"07-01", base:"done"},
+  {id:"p1-2", t:"Firebase Google 인증 전환", d:"사내 계정(@sejong-21c.com) 전용, 첫 로그인 시 계정 자동 생성", ev:"07-01", base:"done"},
+  {id:"p1-3", t:"데이터를 Firestore로 이관", d:"프로젝트·WBS·업무가 기기별로 따로 놀던 문제 해결 — 실제 공유 시작", ev:"07-01", base:"done"},
+  {id:"p1-4", t:"데모 데이터 전량 제거", d:"실데이터 입력 준비", ev:"07-01", base:"done"},
+  {id:"p1-5", t:"push마다 자동 백업 태그 안전망", d:"main 푸시 전 상태를 backup/날짜-SHA 태그로 보존 — 사고 복구용", ev:"07-03", base:"done"},
+]},
+{ id:"p2", n:"PHASE 2", t:"품질관리부 도구 통합", s:"2026-07-01 ~ 07-16", items:[
+  {id:"p2-1", t:"ITP Builder 통합", d:"ASME·TEMA ITP 자동 생성, 엑셀 붙여넣기, 17항목 확장, 도면 파싱", ev:"v1.12 · 신채완 과장", base:"done"},
+  {id:"p2-2", t:"QA Doc Generator 통합", d:"8종 QA/QC 문서 자동 생성, 수압·굽힘 설계기준치, 가압부 분할", ev:"v1.4 · 신채완 과장", base:"done"},
+  {id:"p2-3", t:"NCR 관리 모듈", d:"부적합 발행·추적·종결 + 경향분석 차트 + 24시간 삭제 승인제", ev:"07-03 · 김시원 대리", base:"done"},
+  {id:"p2-4", t:"CAR 관리 모듈", d:"시정조치 요청·회신·완료, 연계 NCR 관리", ev:"07-03 · 김시원 대리", base:"done"},
+  {id:"p2-5", t:"품질종합분석표", d:"연도·분기·프로젝트별 종합 분석 + 데이터 정합성 자동 검사 + 드릴다운", ev:"07-03", base:"done"},
+  {id:"p2-6", t:"모바일 현장검사", d:"현장에서 검사 결과 입력, ITP Builder 연동", ev:"07-04 · 김시원 대리", base:"done"},
+  {id:"p2-7", t:"측정기구 반입출 관리", d:"QR 스캔 반출·반입, 검교정 만기 알림, SJ-EGMR-001 대장 출력", ev:"07-10", base:"done"},
+  {id:"p2-8", t:"ITP 조회 · QA Doc 조회 뷰어", d:"만들어진 문서를 프로젝트·아이템별로 열람. 공식 문서 양식으로 렌더", ev:"07-16 / v1.5", base:"done"},
+  {id:"p2-9", t:"Manday Tracker", d:"프로젝트별 공수 집계", ev:"모듈 편입", base:"done"},
+]},
+{ id:"p3", n:"PHASE 3", t:"협업 기반 구축", s:"2026-07-02 ~ 07-24", items:[
+  {id:"p3-1", t:"사내 메신저", d:"Firestore 실시간. 공지·부서·프로젝트 채널 자동 생성, 권한 필터", ev:"07-03", base:"done"},
+  {id:"p3-2", t:"메신저 전면 개편", d:"라이트 테마, 실시간 채널 검색, 안읽음 배지, 메시지 삭제·나가기, 전사 11부서", ev:"07-24 · b26", base:"done"},
+  {id:"p3-3", t:"구글 캘린더 양방향 연동", d:"개인 일정 읽기·쓰기·삭제 반영 + 대한민국 공휴일 자동 표시", ev:"07-03 / 07-15", base:"done"},
+  {id:"p3-4", t:"알림 벨 시스템", d:"결재·긴급메일·원자력 이슈 통합, 클릭 시 해당 위치·Gmail로 이동", ev:"07-02 / 07-10", base:"done"},
+  {id:"p3-5", t:"업무관리 칸반 + 자동 파싱", d:"브리핑 액션을 업무로, 개인별 진행상태 기기간 동기화", ev:"07-03", base:"done"},
+  {id:"p3-6", t:"목표(OKR) 관리", d:"부서/개인 목표, 마일스톤별 진행률 자동 합산, 캘린더·칸반 연동", ev:"07-06~09", base:"done"},
+  {id:"p3-7", t:"회의실 예약 · 회의록", d:"5개 회의실 주간 예약 + 녹음·실시간 전사 + AI 회의록. 전 직원 자유 사용", ev:"07-20 · v1.0", base:"done"},
+  {id:"p3-8", t:"아침 브리핑 대시보드 연동", d:"메일 자동 분류 결과를 대시보드 상단에 표시, 브리핑 전체 화면", ev:"07-01~", base:"done"},
+]},
+{ id:"p4", n:"PHASE 4", t:"권한 · 승인 체계", s:"2026-07-04 ~ 07-22", items:[
+  {id:"p4-1", t:"등급 체계 + 도구별·액션별 세분화 권한", d:"PERM_MODULES + canDo. 개별 오버라이드가 등급보다 우선", ev:"07-04", base:"done"},
+  {id:"p4-2", t:"계정 사전 등록 + Workspace 일괄 임포트", d:"입사 전 이메일로 미리 등록 → 첫 로그인 시 자동 승격. 대기 계정도 PM 지정 가능", ev:"07-04 / 07-16", base:"done"},
+  {id:"p4-3", t:"다단계 전자결재", d:"결재선 템플릿, 결재란, 순차 결재, 상신 취소, 작성자 즉시 승인", ev:"07-11~12 / 07-21", base:"done"},
+  {id:"p4-4", t:"WBS shadow 편집 → PM 결재", d:"부서원 수정은 격리 문서에 저장, PM 승인 시 마스터 반영 + Rev 증가", ev:"07-12", base:"done"},
+  {id:"p4-5", t:"ITP 승인 워크플로", d:"결재선 직접 지정, 승인본 스냅샷 분리, 재승인 시 Rev.No 자동 증가, 본인 지정 차단", ev:"07-20~21 / v1.12", base:"done"},
+  {id:"p4-6", t:"전 부서 조회 개방", d:"품질 도구를 타부서도 열람(발행·삭제는 품질관리부). crossDept 플래그 체계", ev:"07-16 · v29.26", base:"done"},
+  {id:"p4-7", t:"WBS·Traveller·ITP 단일 원본 연동", d:"장비명·규격·재질을 한 곳에서 고치면 전 모듈 반영. 승인 ITP → 검사항목 자동", ev:"07-21~22 · v30.6", base:"done"},
+]},
+{ id:"p5", n:"PHASE 5", t:"타 부서 확장", s:"2026-07-02 ~ 진행", items:[
+  {id:"p5-1", t:"부서 11개 체계 + 부서별 스케줄 도구", d:"WBS 행 부서 태그, 부서 필터 뷰, 부서 권한, 부서별 PDF/Excel 출력", ev:"07-02 / 07-17", base:"done"},
+  {id:"p5-2", t:"총무부 자산 관리 대장", d:"PC·노트북·라이선스, 자동 채번, 노후 판정(7년/10년), Excel·PDF 원본 양식 재현", ev:"07-10 · v1.1", base:"done"},
+  {id:"p5-3", t:"영업부 견적 도구", d:"견적 메뉴 (영업부 + 개별 권한자)", ev:"메뉴 가동", base:"done"},
+  {id:"p5-4", t:"자산 대장 고도화", d:"엑셀 임포트 · 반출입 이력 · 라이선스 만기 알림", ev:"", base:"todo"},
+  {id:"p5-5", t:"기술부·생산부 전용 도구", d:"부서 요구사항 수집 후 설계 — 현재는 부서 스케줄만 사용", ev:"", base:"todo"},
+]},
+{ id:"p6", n:"PHASE 6", t:"AI 비서 — 게이트웨이 · 1~3기", s:"2026-07-19 ~ 07-31", items:[
+  {id:"p6-g1", t:"무료 API 게이트웨이", d:"Gemini→Groq→Cerebras→NVIDIA→OpenRouter→Mistral 자동 전환. 키 한도 소진 시 교대", ev:"07-19 · v29.38~39", base:"done"},
+  {id:"p6-g2", t:"Cloudflare Worker 연동", d:"키를 서버에만 보관, 전 직원 무설정 사용. Firebase 토큰 검증", ev:"07-19 · v29.41~42", base:"done"},
+  {id:"p6-g3", t:"로컬 LLM(LM Studio/Ollama) 연동", d:"0순위 자동 전환 + 전 직원 공용 설정 공유", ev:"07-22 / 07-26 · v29.45/48", base:"done"},
+  {id:"p6-g4", t:"응답 실시간 스트리밍(SSE)", d:"답변이 타이핑되듯 표시", ev:"07-24 · v29.46", base:"done"},
+  {id:"p6-1", t:"1단계 조회 범위 확대", d:"NCR·CAR·측정기구·회의실·회의록·검사실적", ev:"v29.49", base:"done"},
+  {id:"p6-2", t:"2단계 화면 이동 액션", d:"\"NCR 열어줘\"로 모듈 바로 이동", ev:"v29.50", base:"done"},
+  {id:"p6-3", t:"3단계 대화 기록 유지", d:"새로고침해도 이어지는 대화 + 새 대화 버튼", ev:"v29.51", base:"done"},
+  {id:"p6-4", t:"4단계 NCR·CAR 발행 연동", d:"말로 요청하면 모듈 열고 발행 폼 자동 채움", ev:"v29.52", base:"done"},
+  {id:"p6-5", t:"5단계 브리핑", d:"\"오늘 뭐 해야 해?\" 업무·일정·결재·알림 요약", ev:"v29.53", base:"done"},
+  {id:"p6-6", t:"6단계 조회 필터", d:"기간·프로젝트·상태·텍스트 조건으로 걸러 조회", ev:"v29.54", base:"done"},
+  {id:"p6-7", t:"7단계 문서 출력", d:"\"엑셀로 뽑아줘\" 한 마디로 Excel/PDF 다운로드", ev:"v29.55", base:"done"},
+  {id:"p6-8", t:"8단계 사내 문서 검색(RAG)", d:"절차서·매뉴얼 근거로 답변 + 출처 표시. 실사용 검증 통과", ev:"v29.56 · 워커 v3.2.3", base:"done"},
+  {id:"p6-9", t:"9단계 능동 알림", d:"매일 9시 마감 D-1 업무·3일 대기 결재를 메신저로. 코드·크론 배포 완료 — 서비스 계정 키 등록 대기(조직 정책 해제 필요)", ev:"워커 v3.1", base:"wip"},
+  {id:"p6-10", t:"10단계 대화 UI 품질", d:"마크다운 렌더링·도구 사용 표시·답변 복사", ev:"v29.57", base:"done"},
+  {id:"p6-11", t:"11단계 화면 문맥 인식", d:"\"이 프로젝트\", \"이번 주\"가 통함", ev:"v29.58", base:"done"},
+  {id:"p6-12", t:"12단계 에이전트 모드", d:"복합 명령 다단계 처리. 사용 기록에서 5회 루프 한계 빈도 확인 후 착수 결정", ev:"보류", base:"hold"},
+  {id:"p6-13", t:"13단계 개인화 기억", d:"12단계 없이는 의미 없다고 판단 — 2026-07-27 취소 결정", ev:"취소", base:"cancel"},
+  {id:"p6-14", t:"14단계 조회 사각지대 해소", d:"메신저 메시지·자산·라이선스·ITP 문서 상태·점검 임시저장", ev:"v29.59", base:"done"},
+  {id:"p6-15", t:"15단계 등록 확장", d:"목표(OKR)·회의실 예약을 말로 등록", ev:"v29.60", base:"done"},
+  {id:"p6-16", t:"16단계 업무 완료 처리", d:"\"보고서 끝났어\" 확인 카드로 완료 전환", ev:"v29.61", base:"done"},
+  {id:"p6-17", t:"파일 첨부", d:"PDF·이미지·엑셀을 읽고 NCR 등록까지 연결", ev:"07-31 · v29.66", base:"done"},
+]},
+{ id:"p7", n:"PHASE 7", t:"운영 안정화 · 백업", s:"2026-07-26 ~ 진행", items:[
+  {id:"p7-1", t:"Firestore 야간 자동 백업", d:"전 컬렉션을 R2에 매일 저장, 30일 보관", ev:"워커 v3.2", base:"done"},
+  {id:"p7-2", t:"CLAUDE.md 개발 규칙 확립", d:"어느 컴퓨터에서 작업하든 동일 규칙 — 버전·캐시버스터·검증·금지사항·문서 지도", ev:"07-28", base:"done"},
+  {id:"p7-3", t:"전면 점검 A묶음 17건", d:"성능·버그·보안 즉시 수정 — 워커 v3.2.4 + 클라이언트 v29.64/v30.12", ev:"07-30", base:"done"},
+  {id:"p7-4", t:"전면 점검 B묶음 5건", d:"localStorage 대형 캐시 제외, 로그인 첫 화면 체감, 이중 구독 제거, 통구독 다이어트", ev:"07-30 · v29.65/v30.13", base:"done"},
+  {id:"p7-5", t:"C1 wbsData 지연 구독", d:"로그인 느림 1위 원인. 전 프로젝트 통구독 → 보는 프로젝트만. 부팅 수MB → 수십KB. 스키마 변경 승인 필요", ev:"승인 대기", base:"todo"},
+  {id:"p7-6", t:"C2 ITP/QA 요약 인덱스 + lazy 본문", d:"목록은 요약만, 본문은 클릭 시 1건 조회. 기록 지점 4곳 + 1회성 백필", ev:"승인 대기", base:"todo"},
+  {id:"p7-7", t:"C3 qa-viewer 스냅샷 사본 분리", d:"수동 저장본 전체 사본×N을 요약+본문 분리", ev:"승인 대기", base:"todo"},
+]},
+{ id:"p8", n:"PHASE 8", t:"앞으로 할 일", s:"미착수 · 우선순위 검토", items:[
+  {id:"p8-1", t:"RAG 문서고 확충", d:"사내 절차서·매뉴얼 계속 등록. feature/rag-docs 브랜치에서 작업 중(main +11커밋), 단계 완성 시 병합", ev:"진행 중", base:"wip"},
+  {id:"p8-2", t:"주간·월간 보고 자동화", d:"아침 브리핑과 같은 방식으로 주간/월간/분기/연간 보고서 자동 생성", ev:"", base:"todo"},
+  {id:"p8-3", t:"브리핑 실행 환경 통일", d:"로컬 루틴(PC 켜져 있어야 함)과 Cowork(상시) 공존 → Cowork 3회(07:00/12:00/16:30)로 정리", ev:"", base:"todo"},
+  {id:"p8-4", t:"신채완 과장 게이트웨이 접속 문제 해결", d:"workers.dev 사내 차단 추정. 연결 테스트 결과 확인 후 방화벽 허용 또는 커스텀 도메인 우회", ev:"확인 대기", base:"todo"},
+  {id:"p8-5", t:"모바일 사용성 점검", d:"현장에서 태블릿·휴대폰 사용 빈도가 늘어남 — 전 화면 반응형 재점검", ev:"", base:"todo"},
+]},
+];
+
+/* ═══════════ 상태 관리 ═══════════ */
+const COLL = "t_roadmapState";
+const LABEL = { done:"완료", wip:"진행중", todo:"대기", hold:"보류", cancel:"취소" };
+const CYCLE = { todo:"wip", wip:"done", done:"todo", hold:"wip", cancel:"todo" };
+const COUNTED = s => s !== "hold" && s !== "cancel";
+let remote = {};          // itemId -> {status, byName, at}
+let me = null;            // 로그인 사용자
+let filter = "all";
+
+const ALL = ROADMAP.flatMap(p => p.items);
+const byId = Object.fromEntries(ALL.map(i => [i.id, i]));
+const statusOf = id => (remote[id] && remote[id].status) || (byId[id] ? byId[id].base : "todo");
+const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const fmt = ms => { if(!ms) return ""; const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+
+function render(){
+  const host = document.getElementById("phases");
+  host.innerHTML = ROADMAP.map(p => {
+    const counted = p.items.filter(i => COUNTED(statusOf(i.id)));
+    const done = counted.filter(i => statusOf(i.id) === "done").length;
+    const pct = counted.length ? Math.round(done / counted.length * 100) : 0;
+    const rows = p.items.map(i => {
+      const st = statusOf(i.id);
+      const r = remote[i.id];
+      const show = filter === "all" || (filter === "open" ? (st === "todo" || st === "wip") : st === filter);
+      return `<div class="item${show ? "" : " hidden"}">
+        <button class="st st-${st}" data-id="${i.id}" ${me ? "" : "disabled"}
+          title="${me ? "클릭하면 다음 상태로 바뀝니다" : "로그인하면 변경할 수 있습니다"}"
+          aria-label="${esc(i.t)} 상태 ${LABEL[st]}">${LABEL[st]}</button>
+        <div class="it-body">
+          <div class="it-t">${esc(i.t)}</div>
+          ${i.d ? `<div class="it-d">${esc(i.d)}</div>` : ""}
+          <div class="it-m">
+            ${i.ev ? `<span class="ev">${esc(i.ev)}</span>` : ""}
+            ${r && r.byName ? `<span class="log">${esc(r.byName)} · ${fmt(r.at)} 변경</span>` : ""}
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+    return `<section class="phase">
+      <div class="ph-h">
+        <span class="ph-n">${esc(p.n)}</span>
+        <span class="ph-t">${esc(p.t)}</span>
+        <span class="ph-s">${esc(p.s)}</span>
+        <span class="ph-bar"><span class="track"><span class="fill" style="width:${pct}%"></span></span>
+          <span class="ph-pct">${done}/${counted.length} · ${pct}%</span></span>
+      </div>
+      ${rows}
+    </section>`;
+  }).join("");
+
+  // 전체 진척
+  const counted = ALL.filter(i => COUNTED(statusOf(i.id)));
+  const nDone = counted.filter(i => statusOf(i.id) === "done").length;
+  const nWip  = ALL.filter(i => statusOf(i.id) === "wip").length;
+  const nTodo = ALL.filter(i => statusOf(i.id) === "todo").length;
+  const pct = counted.length ? Math.round(nDone / counted.length * 100) : 0;
+  document.getElementById("ringPct").textContent = pct + "%";
+  document.getElementById("ringArc").style.strokeDashoffset = String(295.3 * (1 - pct / 100));
+  document.getElementById("mDone").textContent = `${nDone} / ${counted.length}`;
+  document.getElementById("mWip").textContent  = nWip;
+  document.getElementById("mTodo").textContent = nTodo;
+  const last = Object.values(remote).map(r => r.at || 0).sort((a,b)=>b-a)[0];
+  document.getElementById("mUpd").textContent = last ? fmt(last) : "2026-07-31";
+}
+
+async function toggle(id){
+  if(!me) return;
+  const next = CYCLE[statusOf(id)] || "wip";
+  remote[id] = { status: next, byName: me.name, at: Date.now() };   // 낙관적 반영
+  render();
+  try{
+    await fb.setDoc(fb.doc(fb.db, COLL, id),
+      { status: next, by: me.uid, byName: me.name, at: Date.now() });
+  }catch(e){
+    alert("저장 실패: " + (e.message || e) + "\n(사내 계정으로 로그인했는지 확인해주세요)");
+  }
+}
+
+function authbar(){
+  const el = document.getElementById("authbar");
+  if(me){
+    el.innerHTML = `<span class="who">${esc(me.name)}</span>
+      <span class="msg">님으로 로그인 — 상태 버튼을 눌러 변경할 수 있습니다.</span>
+      <button class="btn push" id="btnOut">로그아웃</button>`;
+    document.getElementById("btnOut").onclick = () => fb.signOut(fb.auth);
+  }else{
+    el.innerHTML = `<span class="msg">지금은 <b>읽기 전용</b>입니다. 사내 Google 계정으로 로그인하면 진척을 체크할 수 있습니다.</span>
+      <button class="btn btn-p push" id="btnIn">Google 계정으로 로그인</button>`;
+    document.getElementById("btnIn").onclick = async () => {
+      const p = new fb.GoogleAuthProvider();
+      try{ await fb.signInWithPopup(fb.auth, p); }
+      catch(e){ try{ await fb.signInWithRedirect(fb.auth, p); }catch(_){ alert("로그인 실패: " + (e.message||e)); } }
+    };
+  }
+}
+
+function boot(){
+  render(); authbar();
+  document.getElementById("phases").addEventListener("click", e => {
+    const b = e.target.closest(".st"); if(b && !b.disabled) toggle(b.dataset.id);
+  });
+  document.querySelectorAll(".chip").forEach(c => c.onclick = () => {
+    filter = c.dataset.f;
+    document.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === c));
+    render();
+  });
+  fb.onAuthStateChanged(fb.auth, async u => {
+    if(u && u.email && /@sejong-21c\.com$/i.test(u.email)){
+      let name = u.displayName || u.email.split("@")[0];
+      try{ const s = await fb.getDoc(fb.doc(fb.db, "users", u.uid)); if(s.exists() && s.data().name) name = s.data().name; }catch(_){}
+      me = { uid:u.uid, name };
+      // 실시간 구독 — 다른 사람이 체크하면 즉시 반영
+      fb.onSnapshot(fb.collection(fb.db, COLL), snap => {
+        remote = {}; snap.forEach(d => remote[d.id] = d.data()); render();
+      }, err => console.warn("[roadmap] 구독 실패", err.message));
+    }else{
+      me = null;
+      if(u) { fb.signOut(fb.auth); alert("@sejong-21c.com 사내 계정으로만 로그인할 수 있습니다."); }
+    }
+    authbar(); render();
+  });
+}
+if(window.fb) boot(); else window.addEventListener("fb-ready", boot);
+</script>
+</body>
+</html>

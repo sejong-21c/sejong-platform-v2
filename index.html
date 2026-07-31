@@ -789,6 +789,8 @@ const NAV = [
   { id: 'org',       icon: '👥', li: 'users', label: '조직/권한', superOnly: true },
   { id: 'admin',     icon: '🛡️', li: 'shield', label: '관리', adminOnly: true },
   { id: 'approval',  icon: '📝', li: 'file-check-2', label: '결재' },
+  // v30.14: 전사 공용 로드맵 — 체크 상태는 t_roadmapState에 저장돼 전 직원·전 기기 공유
+  { id: 'roadmap',   icon: '🗺', li: 'route', label: '로드맵·진척' },
 ];
 // 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백)
 function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
@@ -1209,6 +1211,7 @@ const QADOC_BUILD = 'c11'; // c11: 불러오기 범위 쿼리(점검 A2)
 const MTOOLS_BUILD = 'b7';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MEETING_BUILD = 'b6'; // b6: v29.60 AI 예약 프리필 수신
+const ROADMAP_BUILD = 'a1'; // v30.14 전사 공용 로드맵·진척
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
 const ITPVIEW_BUILD = 'a16'; // a16: 라이브 문서 실시간 구독 제거(점검 B3)
@@ -2811,6 +2814,7 @@ function iframeViewKey() {
   if (v.cur === 'manday') return 'manday';
   if (v.cur === 'messenger') return 'messenger';
   if (v.cur === 'meeting') return 'meeting';
+  if (v.cur === 'roadmap') return 'roadmap';
   if (v.travProj && !v.selectedTraveller) return 'travtag:' + v.travProj;
   return null;
 }
@@ -2926,6 +2930,11 @@ function render() {
     const _apM = (_aiPrefillTarget && _aiPrefillTarget.tool === 'meeting') ? _aiPrefillTarget : null; if (_apM) _aiPrefillTarget = null;
     const _apqM = _apM ? `&aiPrefill=${encodeURIComponent(JSON.stringify(_apM.data))}` : '';
     content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/meeting/meeting.html?v=${MEETING_BUILD}${_apqM}" allow="microphone" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="회의실 예약·회의록"></iframe></div>`;
+    return;
+  }
+  // v30.14: 로드맵·진척 — 같은 오리진이라 iframe 안에서 로그인 세션이 그대로 승계됨
+  if (view.cur === 'roadmap') {
+    content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="roadmap.html?v=${ROADMAP_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="로드맵·진척 관리"></iframe></div>`;
     return;
   }
   const renderers = { dashboard, calendar, projects, tasks, quotes, okr, org, approval, admin };
