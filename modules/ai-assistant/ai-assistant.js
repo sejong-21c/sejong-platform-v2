@@ -1338,20 +1338,24 @@
   // 실패해도 대화에 영향 없어야 하므로 모든 진입점이 try로 감싸져 호출된다.
   var lastRagMatches = null;   // search_docs가 채운다 — 질문마다 리셋
   var SJP_Brain = (function () {
-    var cv, ctx, W = 0, H = 0, nodes = [], edges = [], pulses = [], mode = 'off', raf = 0, hideTimer = 0, lastT = 0;
+    // v29.71: 흰 배경 계기판 — 패널이 열려 있는 동안 항상 잔잔히 살아 있고(idle),
+    // 질문 중엔 활발해지고(think), 답의 근거 노드에 불이 들어온다(reveal).
+    var cv, ctx, W = 0, H = 0, nodes = [], edges = [], pulses = [], mode = 'idle', raf = 0, hideTimer = 0, lastT = 0, built = false;
     var REDUCED = false;
     try { REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-    var NCOLOR = { project: '#60a5fa', ncr: '#f87171', car: '#fb923c', meeting: '#c084fc', cause: '#fbbf24', dept: '#34d399', doc: '#a5b4fc', etc: '#7dd3fc' };
+    var NCOLOR = { project: '#2563eb', ncr: '#dc2626', car: '#ea580c', meeting: '#7c3aed', cause: '#ca8a04', dept: '#059669', doc: '#6366f1', etc: '#0ea5e9' };
     function box() { return $id('aiBrain'); }
+    function visible() { var b = box(); return !!(b && b.offsetWidth > 10); }
     function ensure() {
-      var b = box(); if (!b) return false;
+      var b = box(); if (!b || !visible()) return false;
       if (!cv) { cv = $id('aiBrainCanvas'); if (!cv) return false; ctx = cv.getContext('2d'); }
       var r = b.getBoundingClientRect();
-      if (r.width < 10) return false;
-      var dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = r.width; H = r.height;
-      cv.width = W * dpr; cv.height = H * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (Math.abs(r.width - W) > 2 || Math.abs(r.height - H) > 2) {   // 패널 리사이즈 추적
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = r.width; H = r.height;
+        cv.width = W * dpr; cv.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
       return true;
     }
     var idx = {};
@@ -1360,7 +1364,7 @@
       idx[key] = nodes.length;
       nodes.push({ key: key, type: type, label: label || '', hot: 0,
         x: 18 + Math.random() * (W - 36), y: 12 + Math.random() * (H - 32),
-        vx: (Math.random() - .5) * .14, vy: (Math.random() - .5) * .14 });
+        vx: (Math.random() - .5) * .12, vy: (Math.random() - .5) * .12 });
       return idx[key];
     }
     function link(a, b) { if (a != null && b != null && a !== b) edges.push([a, b]); }
@@ -1382,13 +1386,13 @@
           if (c.reqDept) link(a, add('dept:' + c.reqDept, 'dept', c.reqDept));
         });
       } catch (e) {}
-      // 데이터가 아직 없으면(첫 부팅 등) 대표 개념 노드로 채운다 — 빈 화면 방지
+      // 데이터가 아직 없으면(부팅 직후 등) 대표 개념 노드로 채운다 — 빈 화면 방지
       if (nodes.length < 8) ['NCR', 'CAR', 'ITP', 'WBS', '회의록', '절차서', '검사', '인증서'].forEach(function (l) { add('x:' + l, 'etc', l); });
-      // 고아 노드는 하나씩 이어주고, 밀도용 크로스 링크 몇 개
       var deg = nodes.map(function () { return 0; });
       edges.forEach(function (e) { deg[e[0]]++; deg[e[1]]++; });
       nodes.forEach(function (n, i) { if (!deg[i]) link(i, (i + 1) % nodes.length); });
       for (var k = 0; k < Math.min(6, nodes.length); k++) link((Math.random() * nodes.length) | 0, (Math.random() * nodes.length) | 0);
+      built = true;
     }
     function spawnPulse(biasHot) {
       if (!edges.length) return;
@@ -1400,46 +1404,51 @@
       var e = cand[(Math.random() * cand.length) | 0];
       pulses.push({ a: e[0], b: e[1], t: 0, sp: .008 + Math.random() * .014 });
     }
-    function frame(ts) {
-      raf = requestAnimationFrame(frame);
-      if (ts - lastT < 33) return;   // ~30fps 상한 — 배터리 배려
-      lastT = ts;
-      if (document.hidden || mode === 'off') return;
+    function render(ts) {
       ctx.clearRect(0, 0, W, H);
+      var speed = mode === 'idle' ? .45 : 1;   // 대기 중엔 느긋하게
       nodes.forEach(function (n) {
-        n.x += n.vx; n.y += n.vy;
+        n.x += n.vx * speed; n.y += n.vy * speed;
         if (n.x < 12 || n.x > W - 12) n.vx *= -1;
         if (n.y < 10 || n.y > H - 20) n.vy *= -1;
       });
       ctx.lineWidth = 1;
       edges.forEach(function (e) {
         var a = nodes[e[0]], b = nodes[e[1]];
-        ctx.strokeStyle = 'rgba(125,211,252,' + ((a.hot || b.hot) ? .38 : .11) + ')';
+        ctx.strokeStyle = 'rgba(37,99,235,' + ((a.hot || b.hot) ? .40 : .10) + ')';
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       });
-      var maxP = mode === 'think' ? 8 : 4;
-      if (pulses.length < maxP && Math.random() < .35) spawnPulse(mode === 'reveal');
-      pulses = pulses.filter(function (p) { p.t += p.sp; return p.t <= 1; });
+      var maxP = mode === 'think' ? 8 : (mode === 'reveal' ? 5 : 3);
+      var prob = mode === 'think' ? .35 : (mode === 'reveal' ? .3 : .10);
+      if (pulses.length < maxP && Math.random() < prob) spawnPulse(mode === 'reveal');
+      pulses = pulses.filter(function (p) { p.t += p.sp * (mode === 'idle' ? .6 : 1); return p.t <= 1; });
       pulses.forEach(function (p) {
         var a = nodes[p.a], b = nodes[p.b];
-        ctx.fillStyle = 'rgba(56,189,248,.95)'; ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 9;
+        ctx.fillStyle = 'rgba(37,99,235,.9)'; ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 8;
         ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t, 1.6, 0, 7); ctx.fill();
         ctx.shadowBlur = 0;
       });
       nodes.forEach(function (n) {
         var r = n.type === 'project' ? 3.4 : 2.2;
         var c = NCOLOR[n.type] || NCOLOR.etc;
-        if (n.hot) { ctx.shadowColor = c; ctx.shadowBlur = 15; r += 2.4 + Math.sin(ts / 170) * .9; }
-        ctx.globalAlpha = n.hot ? 1 : .82;
+        if (n.hot) { ctx.shadowColor = c; ctx.shadowBlur = 13; r += 2.4 + Math.sin(ts / 170) * .9; }
+        ctx.globalAlpha = n.hot ? 1 : .85;
         ctx.fillStyle = c;
         ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
         ctx.shadowBlur = 0; ctx.globalAlpha = 1;
         if (n.type === 'project' || n.hot) {
           ctx.font = (n.hot ? '700 ' : '') + '9px ui-monospace,Consolas,monospace';
-          ctx.fillStyle = n.hot ? '#e0f2fe' : 'rgba(148,197,255,.7)';
+          ctx.fillStyle = n.hot ? '#1e3a8a' : 'rgba(30,64,175,.55)';
           ctx.fillText(String(n.label).slice(0, 20), Math.min(n.x + 6, W - 60), n.y + 3);
         }
       });
+    }
+    function frame(ts) {
+      raf = requestAnimationFrame(frame);
+      if (ts - lastT < 33) return;   // ~30fps 상한
+      lastT = ts;
+      if (document.hidden || !ensure()) return;   // 패널 닫힘·탭 숨김이면 그리지 않음
+      render(ts);
     }
     function caption(t, onClick) {
       var c = $id('aiBrainCaption'); if (!c) return;
@@ -1447,25 +1456,26 @@
       c.style.cursor = onClick ? 'pointer' : '';
       c.onclick = onClick || null;
     }
-    function off() {
-      mode = 'off'; clearTimeout(hideTimer);
-      if (raf) { cancelAnimationFrame(raf); raf = 0; }
-      var b = box(); if (b) b.style.display = 'none';
-      pulses = [];
+    function start() {
+      if (!ensure()) return;
+      if (!built) build();
+      if (REDUCED) { render(0); return; }   // 모션 최소화: 정지 화면 1장만
+      if (!raf) raf = requestAnimationFrame(frame);
+    }
+    function toIdle() {
+      clearTimeout(hideTimer);
+      nodes.forEach(function (n) { n.hot = 0; });
+      mode = 'idle'; caption('');
+      start();
     }
     return {
+      idle: toIdle,
       think: function () {
-        if (REDUCED) return;                    // 모션 최소화 설정 존중
         clearTimeout(hideTimer);
-        var b = box(); if (!b) return;
-        b.style.display = 'block';
-        if (!ensure()) { b.style.display = 'none'; return; }
-        build(); mode = 'think';
-        caption('회사 지식 그물을 살피는 중…');
-        if (!raf) raf = requestAnimationFrame(frame);
+        mode = 'think';
+        if (ensure()) { build(); caption('회사 지식 그물을 살피는 중…'); start(); }
       },
       reveal: function (matches) {
-        if (mode === 'off') return;
         var names = [];
         (matches || []).slice(0, 5).forEach(function (m) {
           var key = (m.kind && m.recId) ? m.kind + ':' + m.recId : null;
@@ -1479,15 +1489,28 @@
           nodes[i].hot = 1;
           if (names.indexOf(nodes[i].label) === -1) names.push(nodes[i].label);
         });
-        if (!names.length) { off(); return; }
+        if (!names.length) { toIdle(); return; }
         mode = 'reveal';
         caption('근거: ' + names.join(' · ') + '  → 지식 지도에서 보기', function () {
           try { if (typeof switchMod === 'function') switchMod('knowledge'); } catch (e) {}
         });
-        hideTimer = setTimeout(off, 10000);   // 10초 보여주고 접는다
+        if (REDUCED) render(0);
+        hideTimer = setTimeout(toIdle, 12000);   // 12초 보여주고 잔잔한 대기로
       },
-      off: off,
+      off: toIdle,   // 하위 호환 — 이제 '끄기'는 대기 모드로 돌아가는 것
     };
+  })();
+  // 패널을 열 때마다 지식 그물을 깨운다 (열기 전엔 캔버스 크기가 0이라 idle이 조용히 스킵됨)
+  (function () {
+    var orig = window.toggleAiPanel;
+    if (typeof orig === 'function') {
+      window.toggleAiPanel = function () {
+        var r = orig.apply(this, arguments);
+        try { SJP_Brain.idle(); } catch (e) {}
+        return r;
+      };
+    }
+    try { SJP_Brain.idle(); } catch (e) {}   // 이미 열려 있던 경우
   })();
 
   // ── v29.58(로드맵 11단계): 화면 문맥 — 매 요청 시스템 프롬프트에 현재 상황을 붙인다 ──
