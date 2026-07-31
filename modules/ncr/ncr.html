@@ -280,6 +280,48 @@ function canDoLocal(moduleId, action, user) {
   return false;
 }
 
+// v29.67 (로드맵 9-1c): 저장 성공 직후 그 기록을 AI에 색인한다.
+// 부모(index.html)의 SJP_indexRecord가 게이트웨이를 호출 — 실패해도 저장은 그대로 성공.
+// 색인은 '실제로 바뀐 항목'에만 걸어야 하므로 syncArrayToFirestore의 diff를 그대로 재사용한다.
+const NCR_FIELD_LABELS = {
+  proj:'프로젝트', item:'아이템', grade:'등급', status:'상태',
+  desc:'부적합 내용', location:'발생장소', cause:'불량원인', causeDetail:'원인 상세',
+  disposition:'처리방안',
+  issuedAt:'발행일', closedAt:'종결일', carId:'연계 CAR',
+};
+function ncrIndexText(n) {
+  const lines = [];
+  const projLabel = n.proj === '__direct__' ? (n.meta?.projDirect || '직접입력') : (getP(n.proj)?.code || n.proj || '');
+  const projName = n.proj === '__direct__' ? '' : (getP(n.proj)?.name || '');
+  lines.push('부적합 보고서(NCR) ' + n.id);
+  if (projLabel) lines.push('프로젝트: ' + projLabel + (projName ? ' ' + projName : ''));
+  Object.keys(NCR_FIELD_LABELS).forEach(k => {
+    if (k === 'proj') return;
+    const v = n[k];
+    if (v == null || v === '' ) return;
+    let out = v;
+    if (k === 'grade')  out = (NCR_GRADE[v] || [])[1] || v;
+    if (k === 'status') out = (NCR_STATUS[v] || [])[1] || v;
+    lines.push(NCR_FIELD_LABELS[k] + ': ' + out);
+  });
+  const m = n.meta || {};
+  if (m.client) lines.push('발주처: ' + m.client);
+  if (m.dwgNo)  lines.push('도면번호: ' + m.dwgNo);
+  if (m.wrNo)   lines.push('W/R번호: ' + m.wrNo);
+  const who = getU(n.issuedBy);
+  if (who && who.name) lines.push('발행자: ' + who.name + (who.title ? ' ' + who.title : ''));
+  return lines.join(String.fromCharCode(10));
+}
+function autoIndexNcrs(items) {
+  const fn = (window.parent && window.parent.SJP_indexRecord) || null;
+  if (!fn || !items || !items.length) return;
+  items.forEach(n => {
+    if (!n || !n.id || String(n.id).startsWith('chunk__')) return;
+    const title = [n.item, (NCR_GRADE[n.grade] || [])[1]].filter(Boolean).join(' · ');
+    fn('ncr', n.id, title, ncrIndexText(n));   // 던져놓기 — 결과를 기다리지 않는다
+  });
+}
+
 // FIX: '유령 삭제' 방지 로직 적용됨!
 const _lastSynced = { t_ncrs: [], t_ncrDeleteReqs: [], t_cars: [] };
 async function syncArrayToFirestore(coll, arr) {
@@ -288,10 +330,11 @@ async function syncArrayToFirestore(coll, arr) {
   const prevMap = new Map((_lastSynced[coll]||[]).map(x => [x.id, x]));
   const currMap = new Map(current.map(x => [x.id, x]));
   const jobs = [];
-  
+  const changed = [];   // v29.67: 색인 대상 — 실제로 내용이 바뀐 것만
   currMap.forEach((x, id) => {
     const prev = prevMap.get(id);
     if (!prev || JSON.stringify(prev) !== JSON.stringify(x)) {
+      changed.push(x);
       jobs.push(
         fb.setDoc(fb.doc(fb.db, coll, id), x).catch(e => { 
           console.error(`[${coll} 동기화]`, e); 
@@ -308,6 +351,8 @@ async function syncArrayToFirestore(coll, arr) {
       await Promise.all(jobs);
       // 모든 저장이 완벽하게 성공했을 때만 동기화 기준선(Snapshot) 갱신
       _lastSynced[coll] = JSON.parse(JSON.stringify(current));
+      // v29.67: 클라우드 저장이 확정된 뒤에만 색인 (저장 실패한 걸 AI가 학습하면 안 됨)
+      if (coll === 't_ncrs') autoIndexNcrs(changed);
     } catch (err) {
       // 하나라도 실패하면 기준선을 갱신하지 않음 -> 다음 스냅샷 때 로컬 데이터 증발(유령 삭제) 방지
       console.error(`[${coll}] 클라우드 저장 실패로 인해 동기화 기준선 갱신을 취소합니다.`);
@@ -334,6 +379,10 @@ function writeOwnedKeysToDisk() {
 function deleteFirestoreDoc(coll, id) {
   if (!window.fb || !fb.db) return;
   fb.deleteDoc(fb.doc(fb.db, coll, id)).catch(e => console.error(`[${coll} 삭제]`, e));
+  // v29.67: 지워진 기록의 색인도 제거 — 없는 NCR을 AI가 근거로 인용하는 것 방지
+  const fn = (window.parent && window.parent.SJP_indexRecord) || null;
+  if (fn && coll === 't_ncrs') fn('ncr', id, '', '', { remove: true });
+  if (fn && coll === 't_cars') fn('car', id, '', '', { remove: true });
 }
 // v29.11 fix: 연달아 여러 건을 빠르게 등록하면, 방금 등록한 항목이 서버에 아직
 // 반영되기 전에 onSnapshot이 옛 스냅샷으로 state.ncrs를 통째로 교체해버려 그 항목이

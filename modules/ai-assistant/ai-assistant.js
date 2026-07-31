@@ -867,6 +867,46 @@
     }
   };
 
+  // v29.67 (로드맵 9-1c): 기록 저장 직후 자동 색인 — NCR·CAR 등을 저장하면 AI가 즉시 학습한다.
+  // iframe 모듈(ncr.html 등)은 window.parent.SJP_indexRecord(...)로 호출한다.
+  //
+  // 절대 원칙: 색인이 실패해도 저장 흐름을 막지 않는다. 그래서
+  //  · 예외를 밖으로 던지지 않고 항상 resolve (호출부는 await 없이 던져놓기만 해도 됨)
+  //  · 15초 타임아웃 — 게이트웨이가 막힌 환경(신과장 PC 등)에서 저장이 멈추지 않게
+  //  · 게이트웨이 미설정·비로그인은 조용히 스킵
+  // (2026-07-16 교훈: 로컬 캐시 실패가 클라우드 저장까지 막아 데이터가 남에게 안 보이던 사고)
+  window.SJP_indexRecord = function (kind, id, title, text, opts) {
+    opts = opts || {};
+    return (async function () {
+      try {
+        var gw = getGatewayUrl();
+        if (!gw) return { skipped: 'no-gateway' };
+        if (!window.fb || !fb.auth || !fb.auth.currentUser) return { skipped: 'not-logged-in' };
+        if (!id) return { skipped: 'no-id' };
+        var body = opts.remove
+          ? { kind: kind, id: id, remove: true }
+          : { kind: kind, id: id, title: String(title || ''), text: String(text || '') };
+        if (!opts.remove && !body.text.trim()) return { skipped: 'empty-text' };
+        var ctl = new AbortController();
+        var timer = setTimeout(function () { ctl.abort(); }, 15000);
+        var headers = Object.assign({ 'Content-Type': 'application/json' }, await gatewayAuthHeaders());
+        var res = await fetch(gw + '/rag/record', {
+          method: 'POST', headers: headers, body: JSON.stringify(body), signal: ctl.signal
+        });
+        clearTimeout(timer);
+        var d = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+          console.warn('[자동색인] ' + kind + ' ' + id + ' 실패(저장은 정상):', res.status, d.error || '');
+          return { error: d.error || ('오류 ' + res.status) };
+        }
+        return d;
+      } catch (e) {
+        console.warn('[자동색인] ' + kind + ' ' + id + ' 실패(저장은 정상):', e.message || e);
+        return { error: String(e.message || e) };
+      }
+    })();
+  };
+
   window.SJP_AI_uploadDoc = async function () {
     var nameEl = $id('aiDocNameInput'), textEl = $id('aiDocTextInput'), btn = $id('aiDocUploadBtn');
     var docName = nameEl ? nameEl.value.trim() : '';
