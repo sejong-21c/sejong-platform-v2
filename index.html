@@ -760,6 +760,13 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
       <button class="icon-btn" title="닫기" onclick="toggleAiPanel()">✕</button>
     </div>
   </div>
+  <!-- v29.69 (로드맵 9-5): 페르소나 모드 — 선택은 이 기기(localStorage)에만 저장, 각자 따로 -->
+  <div id="aiModeBar" style="display:flex;gap:5px;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg);flex-wrap:wrap;">
+    <button type="button" class="ai-mode" data-mode="" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--card);cursor:pointer;">기본</button>
+    <button type="button" class="ai-mode" data-mode="quality" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--card);cursor:pointer;">🔍 품질</button>
+    <button type="button" class="ai-mode" data-mode="nuclear" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--card);cursor:pointer;">⚛ 원자력</button>
+    <button type="button" class="ai-mode" data-mode="mgmt" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--card);cursor:pointer;">📊 관리</button>
+  </div>
   <div class="ai-panel-body" id="aiMessages">
     <div class="ai-hint">세종플랫폼 데이터 조회/등록을 대화로 처리합니다. 🔑에서 무료 API 키를 등록하면 바로 사용!<br>예) "지연된 업무 알려줘", "업무 등록해줘" · 📎로 검사서·사진·엑셀을 첨부하면 읽고 부적합(NCR) 등록까지 도와줍니다</div>
   </div>
@@ -791,6 +798,8 @@ const NAV = [
   { id: 'approval',  icon: '📝', li: 'file-check-2', label: '결재' },
   // v30.14: 전사 공용 로드맵 — 체크 상태는 t_roadmapState에 저장돼 전 직원·전 기기 공유
   { id: 'roadmap',   icon: '🗺', li: 'route', label: '로드맵·진척' },
+  // v30.15 (로드맵 9-2b): 회사 지식 지도 — 프로젝트·NCR·CAR·회의록·사람의 관계를 그래프로 (전 직원, 읽기 전용)
+  { id: 'knowledge', icon: '🕸', li: 'waypoints', label: '지식 지도' },
 ];
 // 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백)
 function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
@@ -1210,8 +1219,9 @@ const ITPBUILDER_BUILD = 'c21'; // c21: liveStatus 기록(점검 B3)
 const QADOC_BUILD = 'c11'; // c11: 불러오기 범위 쿼리(점검 A2)
 const MTOOLS_BUILD = 'b7';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MEETING_BUILD = 'b6'; // b6: v29.60 AI 예약 프리필 수신
-const ROADMAP_BUILD = 'a4'; // 문자열 따옴표 오류로 부팅 사망하던 것 수정
+const MEETING_BUILD = 'b7'; // b7: v29.69 회의록 저장 시 AI 자동 학습
+const ROADMAP_BUILD = 'a5'; // 9-5·9-2·9-3·9-4a 완료 반영
+const KNOWMAP_BUILD = 'a1'; // v30.15 회사 지식 지도 (로드맵 9-2·9-3·9-4)
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
 const ITPVIEW_BUILD = 'a16'; // a16: 라이브 문서 실시간 구독 제거(점검 B3)
@@ -2815,6 +2825,7 @@ function iframeViewKey() {
   if (v.cur === 'messenger') return 'messenger';
   if (v.cur === 'meeting') return 'meeting';
   if (v.cur === 'roadmap') return 'roadmap';
+  if (v.cur === 'knowledge') return 'knowledge';
   if (v.travProj && !v.selectedTraveller) return 'travtag:' + v.travProj;
   return null;
 }
@@ -2935,6 +2946,11 @@ function render() {
   // v30.14: 로드맵·진척 — 같은 오리진이라 iframe 안에서 로그인 세션이 그대로 승계됨
   if (view.cur === 'roadmap') {
     content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="roadmap.html?v=${ROADMAP_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="로드맵·진척 관리"></iframe></div>`;
+    return;
+  }
+  // v30.15: 회사 지식 지도 (로드맵 9-2a·9-2b)
+  if (view.cur === 'knowledge') {
+    content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/knowledge-map/knowledge-map.html?v=${KNOWMAP_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="회사 지식 지도"></iframe></div>`;
     return;
   }
   const renderers = { dashboard, calendar, projects, tasks, quotes, okr, org, approval, admin };
@@ -7671,7 +7687,7 @@ window.addEventListener('resize', () => {
 </script>
 <!-- v30.13(점검 B2): defer — 119KB 파싱이 HTML 파싱·첫 화면 표시를 막지 않게.
      이 파일 뒤에 오는 인라인 스크립트(lucide 옵저버)는 AI 함수를 참조하지 않으므로 순서 안전. -->
-<script defer src="modules/ai-assistant/ai-assistant.js?v=29.68.0"></script>
+<script defer src="modules/ai-assistant/ai-assistant.js?v=29.69.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

@@ -204,9 +204,13 @@ async function saveResv(r){ if(DEMO){const i=S.resv.findIndex(x=>x.id===r.id);if
 async function delResv(id){ if(DEMO){S.resv=S.resv.filter(x=>x.id!==id);R();return;}
   await fb.deleteDoc(fb.doc(fb.db,'meetingReservations',id));}
 async function saveMin(m){ if(DEMO){const i=S.mins.findIndex(x=>x.id===m.id);if(i>=0)S.mins[i]=m;else S.mins.push(m);return;}
-  await fb.setDoc(fb.doc(fb.db,'meetingMinutes',m.id),m);}
+  await fb.setDoc(fb.doc(fb.db,'meetingMinutes',m.id),m);
+  // v29.69 (로드맵 9-1c 확장): 저장 성공 후 AI 자동 학습 — 실패해도 저장은 이미 끝났다(결과 안 기다림)
+  try{const fn=window.parent&&window.parent.SJP_indexRecord;if(fn)fn('meeting',m.id,'','',{rec:m});}catch(e){}}
 async function delMin(id){ if(DEMO){S.mins=S.mins.filter(x=>x.id!==id);return;}
-  await fb.deleteDoc(fb.doc(fb.db,'meetingMinutes',id));}
+  await fb.deleteDoc(fb.doc(fb.db,'meetingMinutes',id));
+  // v29.69: 지워진 회의록은 AI 학습분도 제거
+  try{const fn=window.parent&&window.parent.SJP_indexRecord;if(fn)fn('meeting',id,'','',{remove:true});}catch(e){}}
 
 // ═══════════════ 데모 시드 ═══════════════
 function seedDemo(){

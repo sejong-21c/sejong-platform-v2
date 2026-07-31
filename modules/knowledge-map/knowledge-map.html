@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>회사 지식 지도</title>
+<!--
+  회사 지식 지도 v1.0 (로드맵 9-2·9-3·9-4, 옵시디언 '제2 두뇌' 안내서 Phase 3)
+  프로젝트·NCR·CAR·회의록·사람·부서·불량원인을 노드로, 실제 기록의 관계를 선으로 그린다.
+
+  설계 원칙 (9-3a에서 확정):
+   · 노드 타입 7종 — project / ncr / car / meeting / person / dept / cause
+   · 엣지 규칙 — project—ncr(발생), ncr—car(연계), ncr—cause(원인), ncr—person(발행),
+                 car—dept(요청부서), project—meeting(회의)
+   · 필터가 없으면 SJ435-26 하나만으로도 털뭉치가 된다(9-3c가 필수 전제) —
+     기본 화면은 '프로젝트+부서+원인'의 뼈대만, NCR/CAR 개별 노드는 프로젝트를
+     선택했을 때만 펼친다. 노드 클릭 → 2단계 이웃만 하이라이트.
+   · 데이터는 읽기 전용 — 이 화면은 절대 아무것도 저장하지 않는다.
+   · chunk__/dwg_ 조각 문서는 기록이 아니다 — 조회 즉시 걸러낸다 (CLAUDE.md).
+-->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const app = initializeApp({
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf"
+  });
+  window.fb = { auth: getAuth(app), db: getFirestore(app), collection, getDocs, onAuthStateChanged };
+  window.dispatchEvent(new Event("fb-ready"));
+</script>
+<script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+<style>
+:root{
+  --bg:#f5f7fa; --card:#fff; --border:#dfe5ee; --ink:#101a26; --ink2:#4a5a6e; --ink3:#8494a6;
+  --primary:#1d4ed8;
+  /* 노드 타입 색 — 범례와 그래프가 같은 변수를 쓴다 */
+  --c-project:#1d4ed8; --c-ncr:#dc2626; --c-car:#ea580c; --c-meeting:#7c3aed;
+  --c-person:#059669; --c-dept:#0891b2; --c-cause:#a16207;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Segoe UI','Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.top{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.top h1{font-size:15px;margin-right:6px}
+.top select,.top input{font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--ink)}
+.top input{width:150px}
+.chk{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--ink2);cursor:pointer;white-space:nowrap}
+.legend{display:flex;gap:9px;flex-wrap:wrap;padding:5px 14px;background:var(--card);border-bottom:1px solid var(--border);font-size:11px;color:var(--ink2)}
+.lg{display:flex;align-items:center;gap:4px}
+.lg i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.main{flex:1;display:flex;min-height:0}
+#graph{flex:1;background:var(--bg)}
+.side{width:0;transition:width .15s;background:var(--card);border-left:1px solid var(--border);overflow-y:auto;overflow-x:hidden}
+.side.open{width:300px}
+.side .inner{padding:14px;width:300px}
+.side h2{font-size:14px;margin-bottom:4px;word-break:break-all}
+.side .tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;color:#fff;margin-bottom:10px}
+.kv{font-size:12px;line-height:1.7;color:var(--ink2);word-break:break-all}
+.kv b{color:var(--ink)}
+.rel{margin-top:12px;border-top:1px dashed var(--border);padding-top:9px}
+.rel h3{font-size:12px;color:var(--ink3);margin-bottom:5px}
+.rel a{display:block;font-size:12px;color:var(--primary);cursor:pointer;padding:2px 0;text-decoration:none}
+.hintbar{position:absolute;left:14px;bottom:12px;font-size:11px;color:var(--ink3);background:rgba(255,255,255,.85);padding:5px 10px;border-radius:8px;pointer-events:none}
+#loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink2);background:var(--bg)}
+.btn{font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;color:var(--ink2)}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>🕸 회사 지식 지도</h1>
+  <select id="fProj"><option value="">전체 프로젝트 (요약)</option></select>
+  <label class="chk"><input type="checkbox" id="tNcr" checked> NCR</label>
+  <label class="chk"><input type="checkbox" id="tCar" checked> CAR</label>
+  <label class="chk"><input type="checkbox" id="tMeeting" checked> 회의록</label>
+  <label class="chk"><input type="checkbox" id="tPerson" checked> 사람</label>
+  <label class="chk"><input type="checkbox" id="tCause" checked> 원인</label>
+  <input id="fSearch" placeholder="노드 검색 (Enter)">
+  <button class="btn" id="btnFit">전체 보기</button>
+</div>
+<div class="legend">
+  <span class="lg"><i style="background:var(--c-project)"></i>프로젝트</span>
+  <span class="lg"><i style="background:var(--c-ncr)"></i>NCR</span>
+  <span class="lg"><i style="background:var(--c-car)"></i>CAR</span>
+  <span class="lg"><i style="background:var(--c-meeting)"></i>회의록</span>
+  <span class="lg"><i style="background:var(--c-person)"></i>사람</span>
+  <span class="lg"><i style="background:var(--c-dept)"></i>부서</span>
+  <span class="lg"><i style="background:var(--c-cause)"></i>불량원인</span>
+  <span style="margin-left:auto;color:var(--ink3)" id="stat"></span>
+</div>
+<div class="main" style="position:relative">
+  <div id="graph"></div>
+  <div class="hintbar">노드 클릭 = 상세 + 2단계 이웃 강조 · 빈 곳 클릭 = 해제 · 휠 = 확대/축소</div>
+  <div id="loading">데이터 불러오는 중…</div>
+  <div class="side" id="side"><div class="inner" id="sideBody"></div></div>
+</div>
+
+<script>
+/* ═══ 데이터 로드 (9-3b) — 읽기 전용, 병렬 getDocs 1회 ═══ */
+const S = { projects:[], ncrs:[], cars:[], minutes:[], users:[], net:null, nodes:null, edges:null, raw:{} };
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COLORS = {};
+const TYPE_LABEL = { project:'프로젝트', ncr:'NCR', car:'CAR', meeting:'회의록', person:'사람', dept:'부서', cause:'불량원인' };
+const NCR_GRADE = { major:'중대', minor:'일반', obs:'경미' };
+const NCR_STATUS = { open:'진행중', closed:'종결' };
+const CAR_STATUS = { 'in-progress':'조치중', closed:'완료' };
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const notChunk = d => d.id && !d.id.startsWith('chunk__') && !d.id.startsWith('dwg_');
+
+async function loadAll(){
+  const g = async name => {
+    try{ const snap = await fb.getDocs(fb.collection(fb.db, name));
+      const out=[]; snap.forEach(d=>{ const v=d.data(); v.id=v.id||d.id; out.push(v); }); return out.filter(notChunk);
+    }catch(e){ console.warn('[지식지도] '+name+' 조회 실패:', e.message); return []; }
+  };
+  const [projects, ncrs, cars, minutes, users] = await Promise.all([
+    g('projects'), g('t_ncrs'), g('t_cars'), g('meetingMinutes'), g('users')
+  ]);
+  S.projects=projects; S.ncrs=ncrs; S.cars=cars; S.minutes=minutes; S.users=users;
+}
+
+/* ═══ 그래프 빌드 (9-3a 스키마 · 9-3c 필터) ═══ */
+const userName = id => { const u=S.users.find(x=>x.id===id); return u ? (u.name||'')+(u.title?' '+u.title:'') : ''; };
+const projLabel = p => (p.code?p.code+' ':'')+(p.name||'');
+function ncrProjKey(n){ return n.proj==='__direct__' ? 'projd:'+((n.meta||{}).projDirect||'직접입력') : 'proj:'+n.proj; }
+
+function build(){
+  const selProj = document.getElementById('fProj').value;
+  const show = {
+    ncr: document.getElementById('tNcr').checked,
+    car: document.getElementById('tCar').checked,
+    meeting: document.getElementById('tMeeting').checked,
+    person: document.getElementById('tPerson').checked,
+    cause: document.getElementById('tCause').checked,
+  };
+  const nodes=new Map(), edges=[]; S.raw={};
+  const addNode=(id,type,label,rec)=>{ if(!nodes.has(id)){ nodes.set(id,{id,type,label}); S.raw[id]={type,rec}; } return id; };
+  const addEdge=(a,b,label)=>{ if(a&&b) edges.push({from:a,to:b,label}); };
+
+  // 프로젝트 노드 — 전체 모드에선 요약(건수 라벨), 선택 모드에선 그 프로젝트만
+  S.projects.forEach(p=>{
+    if(selProj && p.id!==selProj) return;
+    addNode('proj:'+p.id,'project',projLabel(p),p);
+  });
+
+  // 전체 모드에서 개별 NCR/CAR/회의록을 다 그리면 털뭉치(9-3c) — 선택 시에만 펼친다
+  const expand = !!selProj;
+
+  S.ncrs.forEach(n=>{
+    const pk=ncrProjKey(n);
+    if(selProj && pk!=='proj:'+selProj) return;
+    if(n.proj==='__direct__' && !selProj) return;  // 직접입력 건은 전체 모드에서 생략
+    if(expand && show.ncr){
+      const nid=addNode('ncr:'+n.id,'ncr',n.id,n);
+      addEdge(pk,nid,'');
+      if(show.cause && n.cause) addEdge(nid, addNode('cause:'+n.cause,'cause',n.cause,{name:n.cause}), '원인');
+      if(show.person && n.issuedBy){ const nm=userName(n.issuedBy); if(nm) addEdge(nid, addNode('user:'+n.issuedBy,'person',nm,{name:nm}), '발행'); }
+    }else if(!expand && show.cause && n.cause && nodes.has(pk)){
+      // 요약 모드: 프로젝트—원인 뼈대만 (같은 쌍은 vis가 겹쳐 그림 — 중복 제거)
+      const cid=addNode('cause:'+n.cause,'cause',n.cause,{name:n.cause});
+      if(!edges.some(e=>e.from===pk&&e.to===cid)) addEdge(pk,cid,'');
+    }
+  });
+
+  S.cars.forEach(c=>{
+    if(selProj && c.proj!==selProj) return;
+    if(!expand || !show.car) {
+      if(!expand && show.person===false) return;
+      if(!expand){ // 요약 모드: 프로젝트—부서 뼈대
+        const pk='proj:'+c.proj;
+        if(c.reqDept && nodes.has(pk)){
+          const did=addNode('dept:'+c.reqDept,'dept',c.reqDept,{name:c.reqDept});
+          if(!edges.some(e=>e.from===pk&&e.to===did)) addEdge(pk,did,'');
+        }
+      }
+      return;
+    }
+    const cid=addNode('car:'+c.id,'car',c.id,c);
+    if(show.ncr && c.ncrId && nodes.has('ncr:'+c.ncrId)) addEdge('ncr:'+c.ncrId,cid,'연계');
+    else addEdge('proj:'+c.proj,cid,'');
+    if(c.reqDept) addEdge(cid, addNode('dept:'+c.reqDept,'dept',c.reqDept,{name:c.reqDept}), '요청부서');
+  });
+
+  if(show.meeting) S.minutes.forEach(m=>{
+    // 회의록엔 프로젝트 필드가 없어 제목·주제에서 프로젝트 코드를 찾는다 (근사 매칭)
+    const txt=((m.topic||'')+' '+(m.title||'')).toUpperCase();
+    const p=S.projects.find(x=>x.code && txt.indexOf(String(x.code).toUpperCase())!==-1);
+    if(selProj && (!p || p.id!==selProj)) return;
+    if(!expand) return;                     // 요약 모드에선 생략
+    const mid=addNode('min:'+m.id,'meeting',(m.topic||m.title||'회의록').slice(0,24),m);
+    if(p) addEdge('proj:'+p.id,mid,'회의');
+    if(show.person && m.byName) addEdge(mid, addNode('userN:'+m.byName,'person',m.byName,{name:m.byName}), '작성');
+  });
+
+  // 고아 노드 정리 — 프로젝트 노드는 남기고, 연결 없는 보조 노드만 제거
+  const used=new Set(); edges.forEach(e=>{used.add(e.from);used.add(e.to);});
+  const arr=[...nodes.values()].filter(n=>n.type==='project'||used.has(n.id));
+
+  const visNodes = arr.map(n=>({
+    id:n.id, label:n.label, shape:'dot',
+    size: n.type==='project'?22 : n.type==='dept'||n.type==='cause'?14 : 9,
+    color:{ background:COLORS[n.type], border:COLORS[n.type] },
+    font:{ size: n.type==='project'?14:11, color:cssVar('--ink') },
+  }));
+  const visEdges = edges.map((e,i)=>({ id:'e'+i, from:e.from, to:e.to, label:e.label||undefined,
+    font:{size:9,color:cssVar('--ink3'),strokeWidth:0}, color:{color:'#b6c2d4',highlight:cssVar('--primary')}, width:1 }));
+
+  S.nodes=new vis.DataSet(visNodes); S.edges=new vis.DataSet(visEdges);
+  document.getElementById('stat').textContent='노드 '+visNodes.length+' · 관계 '+visEdges.length;
+
+  if(S.net){ S.net.setData({nodes:S.nodes,edges:S.edges}); return; }
+  S.net=new vis.Network(document.getElementById('graph'),{nodes:S.nodes,edges:S.edges},{
+    physics:{ solver:'forceAtlas2Based', forceAtlas2Based:{gravitationalConstant:-40,springLength:95}, stabilization:{iterations:120} },
+    interaction:{ hover:true },
+  });
+  S.net.on('click', p=>{ p.nodes.length ? focusNode(p.nodes[0]) : clearFocus(); });
+}
+
+/* ═══ 2단계 이웃 하이라이트 (9-3c) + 측면 패널 (9-4a) ═══ */
+function neighborhood(id,depth){
+  const keep=new Set([id]); let frontier=[id];
+  for(let d=0; d<depth; d++){
+    const next=[];
+    S.edges.forEach(e=>{
+      if(frontier.includes(e.from)&&!keep.has(e.to)){keep.add(e.to);next.push(e.to);}
+      if(frontier.includes(e.to)&&!keep.has(e.from)){keep.add(e.from);next.push(e.from);}
+    });
+    frontier=next;
+  }
+  return keep;
+}
+function focusNode(id){
+  const keep=neighborhood(id,2);
+  S.nodes.forEach(n=>{ S.nodes.update({id:n.id, opacity:keep.has(n.id)?1:0.12}); });
+  sidePanel(id, keep);
+}
+function clearFocus(){
+  S.nodes.forEach(n=>S.nodes.update({id:n.id,opacity:1}));
+  document.getElementById('side').classList.remove('open');
+}
+function sidePanel(id, keep){
+  const info=S.raw[id]; if(!info) return;
+  const rec=info.rec||{}; const t=info.type;
+  let kv='';
+  const row=(k,v)=>v?`<b>${esc(k)}</b> — ${esc(v)}<br>`:'';
+  if(t==='ncr'){
+    kv=row('프로젝트', rec.proj==='__direct__'?((rec.meta||{}).projDirect||'직접입력'):projLabel(S.projects.find(p=>p.id===rec.proj)||{}))
+      +row('아이템',rec.item)+row('등급',NCR_GRADE[rec.grade]||rec.grade)+row('상태',NCR_STATUS[rec.status]||rec.status)
+      +row('부적합 내용',rec.desc)+row('원인',rec.cause)+row('처리방안',rec.disposition)
+      +row('발행일',rec.issuedAt)+row('발행자',userName(rec.issuedBy))+row('연계 CAR',rec.carId);
+  }else if(t==='car'){
+    kv=row('프로젝트',projLabel(S.projects.find(p=>p.id===rec.proj)||{}))
+      +row('연계 NCR',rec.ncrId)+row('요청부서',rec.reqDept)+row('상태',CAR_STATUS[rec.status]||rec.status)
+      +row('시정 요구사항',rec.reqContent)+row('조치',rec.action)+row('발행일',rec.issuedAt)+row('회신기한',rec.replyDue);
+  }else if(t==='meeting'){
+    kv=row('주제',rec.topic||rec.title)+row('문서번호',rec.docNo)+row('일자',rec.date)+row('작성자',rec.byName)
+      +row('참석',(rec.attendees||[]).map(a=>a.name).filter(Boolean).join(', '));
+  }else if(t==='project'){
+    kv=row('코드',rec.code)+row('이름',rec.name)+row('PM',userName(rec.pm))+row('상태',rec.status);
+  }else{
+    kv=row('이름',rec.name||info.rec&&info.rec.label||'');
+  }
+  // 연결된 기록 목록 (9-4a) — 클릭하면 그 노드로 초점 이동
+  const rels=[]; keep.forEach(k=>{ if(k!==id&&S.raw[k]&&(S.raw[k].type==='ncr'||S.raw[k].type==='car'||S.raw[k].type==='meeting')) rels.push(k); });
+  const relHtml=rels.length?`<div class="rel"><h3>연결된 기록 ${rels.length}건</h3>${rels.slice(0,30).map(k=>
+    `<a data-jump="${esc(k)}">${esc(TYPE_LABEL[S.raw[k].type])} · ${esc((S.nodes.get(k)||{}).label||k)}</a>`).join('')}</div>`:'';
+  document.getElementById('sideBody').innerHTML=
+    `<h2>${esc((S.nodes.get(id)||{}).label||id)}</h2>`
+    +`<span class="tag" style="background:${COLORS[t]}">${TYPE_LABEL[t]}</span>`
+    +`<div class="kv">${kv||'<i>추가 정보 없음</i>'}</div>`+relHtml;
+  document.getElementById('side').classList.add('open');
+  document.getElementById('sideBody').querySelectorAll('[data-jump]').forEach(a=>{
+    a.onclick=()=>{ const k=a.getAttribute('data-jump'); S.net.focus(k,{scale:1.2,animation:true}); focusNode(k); };
+  });
+}
+
+/* ═══ 검색·필터 배선 ═══ */
+function wire(){
+  const sel=document.getElementById('fProj');
+  S.projects.slice().sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''))).forEach(p=>{
+    const o=document.createElement('option'); o.value=p.id; o.textContent=projLabel(p); sel.appendChild(o);
+  });
+  ['fProj','tNcr','tCar','tMeeting','tPerson','tCause'].forEach(id=>{
+    document.getElementById(id).addEventListener('change',()=>{ clearFocus(); build(); });
+  });
+  document.getElementById('btnFit').onclick=()=>{ clearFocus(); S.net&&S.net.fit({animation:true}); };
+  document.getElementById('fSearch').addEventListener('keydown',e=>{
+    if(e.key!=='Enter')return;
+    const q=e.target.value.trim().toLowerCase(); if(!q)return;
+    let hit=null; S.nodes.forEach(n=>{ if(!hit&&String(n.label||'').toLowerCase().indexOf(q)!==-1) hit=n.id; });
+    if(hit){ S.net.focus(hit,{scale:1.3,animation:true}); focusNode(hit); }
+    else alert('"'+e.target.value+'" 노드를 찾지 못했습니다.');
+  });
+}
+
+async function boot(){
+  ['project','ncr','car','meeting','person','dept','cause'].forEach(t=>COLORS[t]=cssVar('--c-'+t));
+  // 로그인 확인 — 부모 창 세션이 같은 오리진 IndexedDB로 승계된다
+  await new Promise(res=>{ let done=false;
+    fb.onAuthStateChanged(fb.auth,u=>{ if(!done){done=true;res(u);} });
+    setTimeout(()=>{ if(!done){done=true;res(null);} },7000);
+  });
+  await loadAll();
+  document.getElementById('loading').style.display='none';
+  if(typeof vis==='undefined'){
+    document.getElementById('graph').innerHTML='<div style="padding:30px;font-size:13px;color:#b42318">그래프 라이브러리(vis-network) 로드 실패 — 네트워크 차단 여부를 확인해주세요.</div>';
+    return;
+  }
+  wire(); build();
+}
+if(window.fb) boot(); else window.addEventListener('fb-ready',boot);
+</script>
+</body>
+</html>

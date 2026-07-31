@@ -912,6 +912,25 @@
       ],
       meta: [],
     },
+    // v29.69: 회의록 — 안건·참석자가 중첩 배열이라 extra 훅으로 푼다
+    meeting: {
+      head: '회의록 ', titleOf: function (m) { return String(m.topic || m.title || '').slice(0, 80); },
+      fields: [['docNo', '문서번호'], ['topic', '회의 주제'], ['date', '회의일'], ['byName', '작성자'], ['dept', '부서'], ['summary', '요약']],
+      meta: [],
+      extra: function (m, lines) {
+        var att = (m.attendees || []).map(function (a) { return (a.name || '').trim(); }).filter(Boolean);
+        if (att.length) lines.push('참석자: ' + att.join(', '));
+        (m.agendas || []).forEach(function (ag, i) {
+          if (ag.title) lines.push('안건 ' + (i + 1) + ': ' + ag.title);
+          (ag.items || []).forEach(function (it) {
+            if (!it.content) return;
+            lines.push(it.content + (it.owner ? ' (담당: ' + it.owner + (it.deadline ? ', 기한: ' + it.deadline : '') + ')' : ''));
+          });
+        });
+        // 전사본은 길다 — 워커 상한(20,000자) 안에서 앞부분만
+        if (m.transcript) lines.push('녹취 요지: ' + String(m.transcript).slice(0, 8000));
+      },
+    },
   };
   window.SJP_buildRecordText = function (kind, rec) {
     var spec = REC_SPECS[kind];
@@ -928,7 +947,8 @@
     var m = rec.meta || {};
     spec.meta.forEach(function (f) { if (m[f[0]]) lines.push(f[1] + ': ' + m[f[0]]); });
     if (spec.who) { var w = recUserName(rec[spec.who]); if (w) lines.push(spec.whoLabel + ': ' + w); }
-    return lines.join('\n');
+    if (spec.extra) { try { spec.extra(rec, lines); } catch (e) {} }
+    return lines.join('\n').slice(0, 19000);   // 워커 상한(20,000자) 안전 여유
   };
 
   window.SJP_indexRecord = function (kind, id, title, text, opts) {
@@ -975,10 +995,14 @@
   var REINDEX_GROUPS = [
     { kind: 'ncr', label: 'NCR', key: 'ncrs' },
     { kind: 'car', label: 'CAR', key: 'cars' },
+    { kind: 'meeting', label: '회의록', remote: 'meetingMinutes' },   // v29.69: 부모 state에 없어 원격 조회
   ];
-  function reindexList(g) {
+  async function reindexList(g) {
     // 첨부 조각 문서(chunk__·dwg_)는 기록이 아니다 — 섞이면 토큰·용량 폭탄 (CLAUDE.md)
-    return ((window.state && state[g.key]) || []).filter(function (r) {
+    var arr = g.remote
+      ? await fetchRemoteCollection(g.remote).catch(function () { return []; })
+      : ((window.state && state[g.key]) || []);
+    return arr.filter(function (r) {
       return r && r.id && !String(r.id).startsWith('chunk__') && !String(r.id).startsWith('dwg_');
     });
   }
@@ -1011,7 +1035,7 @@
       reindexSay('<span style="color:var(--text-light);">확인 중…</span>');
       var plan = [], report = [];
       for (var gi = 0; gi < REINDEX_GROUPS.length; gi++) {
-        var g = REINDEX_GROUPS[gi], list = reindexList(g);
+        var g = REINDEX_GROUPS[gi], list = await reindexList(g);
         if (!list.length) { report.push(g.label + ' 0건'); continue; }
         var st = await reindexStatus(g.kind, list.map(function (r) { return r.id; }));
         var miss = all ? list : list.filter(function (r) { return st.missing.indexOf(r.id) !== -1; });
@@ -1244,6 +1268,68 @@
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
   ].join(' ');
 
+  // ── v29.69 (로드맵 9-5): 페르소나 모드 ────────────────────────────
+  // 현재 사용 부서가 품질관리부 중심이라 품질/원자력/관리 3모드로 시작 (부장님 결정, 2026-07-31).
+  // 다른 부서로 확산되면 모드 구성을 다시 잡는다. 선택은 기기별(localStorage) — 남에게 영향 없음.
+  var PERSONA_LS = 'sjp_ai_persona';
+  var PERSONAS = {
+    quality: {
+      label: '🔍 품질', hint: 'NCR·CAR·ITP·검사 기록을 우선 근거로 답합니다',
+      prompt: '지금은 [품질 모드]다. 사용자는 품질관리부 실무자다. '
+        + 'NCR(부적합보고서)·CAR(시정조치요구서)·ITP(검사 및 시험계획서)·검사성적서 업무 관점으로 답해라. '
+        + '질문이 모호해도 품질 기록(ncrs/cars/itpDocs/wbsRec) 조회와 search_docs(절차서·매뉴얼)를 우선 활용해라. '
+        + '용어는 현장 관례대로: 등급은 중대/일반/경미, 처리방안은 재작업/수리/특채/폐기, 상태는 진행중/종결. '
+        + '부적합 경향을 물으면 원인 분류(용접·치수·자재 등)와 프로젝트별 건수를 함께 짚어라. '
+        + '답변 끝에 관련 NCR/CAR 번호를 근거로 남겨라.',
+    },
+    nuclear: {
+      label: '⚛ 원자력', hint: '입찰·인증·규제 관점으로 답합니다',
+      prompt: '지금은 [원자력 모드]다. 사용자는 원자력 사업(입찰·인증·품질보증) 담당자다. '
+        + 'KEPIC·ASME 등 원자력 품질보증 요건과 인증서 관리, 입찰 일정 관점으로 답해라. '
+        + '사내 문서(search_docs)에서 원자력 관련 절차·인증 기록을 우선 검색하고, 없으면 없다고 말해라. '
+        + '규제 요건은 반드시 출처(문서명·조항)를 붙이고, 출처가 없으면 일반론임을 명시해라 — 지어내면 절대 안 된다.',
+    },
+    mgmt: {
+      label: '📊 관리', hint: '일정·결재·목표 현황을 요약 보고합니다',
+      prompt: '지금은 [관리 모드]다. 사용자는 부서장급 관리자다. '
+        + '개별 건보다 현황 요약을 원한다 — 업무(tasks)·결재(approvals)·일정(events)·목표(okrs)를 조합해 '
+        + '지연/임박/대기 순으로 보고체 요약을 만들어라. 숫자를 먼저(예: "지연 3건, 오늘 마감 2건"), 상세는 그 다음. '
+        + '부서·담당자별로 묶어 보여주고, 조치가 필요한 항목은 맨 위에 올려라.',
+    },
+  };
+  function getPersona() { try { return localStorage.getItem(PERSONA_LS) || ''; } catch (e) { return ''; } }
+  window.SJP_AI_setPersona = function (mode) {
+    if (mode && !PERSONAS[mode]) mode = '';
+    try { localStorage.setItem(PERSONA_LS, mode); } catch (e) {}
+    paintPersonaBar();
+    var p = PERSONAS[mode];
+    appendMsg('system', p ? (p.label + ' 모드로 전환 — ' + p.hint) : '기본 모드로 전환');
+  };
+  function paintPersonaBar() {
+    var bar = $id('aiModeBar');
+    if (!bar) return;
+    var cur = getPersona();
+    Array.prototype.forEach.call(bar.querySelectorAll('.ai-mode'), function (b) {
+      var on = (b.getAttribute('data-mode') || '') === cur;
+      b.style.background = on ? 'var(--primary)' : 'var(--card)';
+      b.style.color = on ? '#fff' : '';
+      b.style.borderColor = on ? 'var(--primary)' : 'var(--border)';
+      b.style.fontWeight = on ? '700' : '';
+    });
+  }
+  function wirePersonaBar() {
+    var bar = $id('aiModeBar');
+    if (!bar || bar.__wired) return;
+    bar.__wired = true;
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('.ai-mode');
+      if (b) window.SJP_AI_setPersona(b.getAttribute('data-mode') || '');
+    });
+    paintPersonaBar();
+  }
+  // 패널이 이미 DOM에 있으므로 로드 즉시 연결 (defer 스크립트라 DOM 준비됨)
+  try { wirePersonaBar(); } catch (e) {}
+
   // ── v29.58(로드맵 11단계): 화면 문맥 — 매 요청 시스템 프롬프트에 현재 상황을 붙인다 ──
   function currentScreenContext() {
     var parts = [];
@@ -1274,9 +1360,13 @@
   function buildSystemInstruction() {
     var ctx = '';
     try { ctx = currentScreenContext(); } catch (e) {}
-    return SYSTEM_INSTRUCTION + (ctx
-      ? ' [현재 상황] ' + ctx + ' — "이 프로젝트", "여기", "오늘", "이번 주" 같은 지시어는 이 상황을 기준으로 해석해라.'
-      : '');
+    // v29.69: 페르소나는 시스템 프롬프트 뒤에 덧붙인다 — 기본 규칙(저장 금지 등)은 모드와 무관하게 유지
+    var persona = PERSONAS[getPersona()];
+    return SYSTEM_INSTRUCTION
+      + (persona ? ' ' + persona.prompt : '')
+      + (ctx
+        ? ' [현재 상황] ' + ctx + ' — "이 프로젝트", "여기", "오늘", "이번 주" 같은 지시어는 이 상황을 기준으로 해석해라.'
+        : '');
   }
 
   // 대화 기록은 제공사 중립 형식으로 보관하고, 각 provider 호출부에서만 변환한다.
