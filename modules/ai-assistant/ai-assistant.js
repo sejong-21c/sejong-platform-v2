@@ -1500,18 +1500,8 @@
       off: toIdle,   // 하위 호환 — 이제 '끄기'는 대기 모드로 돌아가는 것
     };
   })();
-  // 패널을 열 때마다 지식 그물을 깨운다 (열기 전엔 캔버스 크기가 0이라 idle이 조용히 스킵됨)
-  (function () {
-    var orig = window.toggleAiPanel;
-    if (typeof orig === 'function') {
-      window.toggleAiPanel = function () {
-        var r = orig.apply(this, arguments);
-        try { SJP_Brain.idle(); } catch (e) {}
-        return r;
-      };
-    }
-    try { SJP_Brain.idle(); } catch (e) {}   // 이미 열려 있던 경우
-  })();
+  // 지식 그물 깨우기는 아래 window.toggleAiPanel(진짜 정의) 안에서 한다 —
+  // 여기서 래핑하면 뒤에 오는 재정의에 덮어써져 조용히 무력화된다.
 
   // ── v29.58(로드맵 11단계): 화면 문맥 — 매 요청 시스템 프롬프트에 현재 상황을 붙인다 ──
   function currentScreenContext() {
@@ -2442,6 +2432,7 @@
     p.classList.toggle('open');
     if (p.classList.contains('open')) {
       if (window._positionAiPanel) window._positionAiPanel(); // v29.35 FAB 드래그 위치 따라 패널 배치
+      try { SJP_Brain.idle(); } catch (e) {}   // v29.71: 열리는 순간 지식 그물 시동 (크기 확정 후)
       updateDot();
       restoreHistory(); // v29.51: 이전 대화 복원 (로그인 후 최초 1회)
       if (hasAnyKey()) showBriefingSuggest(); // v29.53
