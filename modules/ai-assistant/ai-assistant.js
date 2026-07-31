@@ -1,6 +1,9 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.66: 파일 첨부(📎) — PDF/이미지는 Gemini·Claude 멀티모달로, Excel/CSV/TXT는
+ * 텍스트 변환해 동봉. 부적합 내용이면 create_ncr(폼 프리필)로 연결 — AI 직접 저장 금지
+ * 원칙 유지, WBS 자동 조작 금지 규칙에 따라 WBS 쓰기는 미지원(추출·정리까지만).
  * v29.38: 무료 API 게이트웨이 — 키가 있는 회사를 순서대로 자동 시도하고,
  * 한도 초과(429)·키 오류·서버 오류·시간 초과면 다음 회사로 넘어간다.
  * v29.39: 회사당 키 여러 개(여러 계정) 등록 + 키 자동 교대. Cerebras·Mistral 추가.
@@ -1054,6 +1057,7 @@
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
     'NCR·CAR는 query_state로 조회하고, 발행(등록) 요청은 create_ncr/create_car 도구로 처리한다 — 모듈이 열리고 폼이 채워질 뿐 발행은 사용자가 직접 하며, 발행 권한은 품질관리부에 있다는 것을 답변에 명시해라. 기존 NCR/CAR의 수정·삭제는 아직 미지원이다.',
+    '사용자가 📎 버튼으로 파일(검사서·성적서·사진·PDF·엑셀 등)을 첨부할 수 있다. 첨부 내용을 읽고 요약·질의응답하고, 부적합 정보가 담겨 있으면 필드를 추출해 create_ncr 도구를 호출해라 — 폼이 채워질 뿐 발행은 사용자가 직접 한다. WBS(마스터 스케줄) 자동 수정은 안전 규칙상 지원되지 않는다 — 파일에서 일정 변경사항을 추출해 표로 정리해주고, 반영은 프로젝트 관리 > WBS 화면에서 직접 하도록 안내해라.',
     '측정기구·회의실 예약·회의록은 query_state로 조회만 가능하다(등록·수정은 아직 미지원 — 등록 요청을 받으면 해당 모듈을 직접 열어달라고 안내해라).',
     'ITP/QA 문서의 승인 상태·아이템 목록은 itpDocs로 조회할 수 있다. 단 문서 생성·도면/사진 업로드·검사 수행 자체는 아직 AI로 지원되지 않는다 — 그런 요청은 해당 모듈을 직접 열어달라고 안내해라.',
     '프로젝트/담당자를 찾지 못했다는 응답을 받으면 사용자에게 정확한 이름을 다시 물어봐라.'
@@ -1116,6 +1120,10 @@
     var t = h.slice(-HIST_MAX_TURNS);
     while (t.length && t[0].role !== 'user') t.shift();
     return t.map(function (turn) {
+      // v29.66: 첨부 파일 base64·대용량 변환 텍스트는 저장 제외 (localStorage 5MB 한도 보호)
+      if (turn.role === 'user' && (turn.file || (turn.text || '').length > 4000)) {
+        return { role: 'user', text: (turn.text || '').slice(0, 4000) + ((turn.text || '').length > 4000 ? '…(첨부 내용 절단됨)' : '') };
+      }
       if (turn.role !== 'function') return turn;
       var rs = ''; try { rs = JSON.stringify(turn.result); } catch (e) { rs = String(turn.result); }
       return rs.length > 1000
@@ -1158,7 +1166,11 @@
 
   function geminiContentsFromHistory(h) {
     return h.map(function (t) {
-      if (t.role === 'user') return { role: 'user', parts: [{ text: t.text }] };
+      if (t.role === 'user') {
+        var parts = [{ text: t.text }];
+        if (t.file) parts.push({ inline_data: { mime_type: t.file.mime, data: t.file.data } });   // v29.66: PDF/이미지 첨부
+        return { role: 'user', parts: parts };
+      }
       if (t.role === 'model' && t.functionCall) return { role: 'model', parts: [{ functionCall: { name: t.functionCall.name, args: t.functionCall.args } }] };
       if (t.role === 'model') return { role: 'model', parts: [{ text: t.text }] };
       return { role: 'function', parts: [{ functionResponse: { name: t.name, response: { result: t.result } } }] };
@@ -1200,7 +1212,15 @@
 
   function claudeMessagesFromHistory(h) {
     return h.map(function (t) {
-      if (t.role === 'user') return { role: 'user', content: t.text };
+      if (t.role === 'user') {
+        if (t.file) {   // v29.66: PDF는 document 블록, 이미지는 image 블록
+          var blk = t.file.mime === 'application/pdf'
+            ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: t.file.data } }
+            : { type: 'image', source: { type: 'base64', media_type: t.file.mime, data: t.file.data } };
+          return { role: 'user', content: [blk, { type: 'text', text: t.text }] };
+        }
+        return { role: 'user', content: t.text };
+      }
       if (t.role === 'model' && t.functionCall) return { role: 'assistant', content: [{ type: 'tool_use', id: t.functionCall.id, name: t.functionCall.name, input: t.functionCall.args }] };
       if (t.role === 'model') return { role: 'assistant', content: t.text };
       return { role: 'user', content: [{ type: 'tool_result', tool_use_id: t.callId, content: JSON.stringify(t.result) }] };
@@ -1240,7 +1260,7 @@
   function openAiMessagesFromHistory(h) {
     var msgs = [{ role: 'system', content: buildSystemInstruction() }]; // v29.58: 화면 문맥 포함
     h.forEach(function (t, i) {
-      if (t.role === 'user') msgs.push({ role: 'user', content: t.text });
+      if (t.role === 'user') msgs.push({ role: 'user', content: t.text + (t.file ? '\n[파일 "' + t.file.name + '" 첨부됨 — 이 모델은 파일을 직접 읽을 수 없습니다]' : '') });
       else if (t.role === 'model' && t.functionCall) msgs.push({
         role: 'assistant', content: null,
         tool_calls: [{ id: t.functionCall.id || ('call_' + i), type: 'function',
@@ -1570,6 +1590,13 @@
       if (p.localOnly) return !!getLocalUrl();          // 로컬 LLM은 이 컴퓨터에 주소가 설정됐을 때만
       return gw ? true : (!p.gatewayOnly && keysOf(p).length);
     });
+    // v29.66: PDF/이미지가 첨부된 대화는 멀티모달 지원 provider(Gemini·Claude)로만
+    var hasBinaryFile = h.some(function (t) { return t.role === 'user' && t.file; });
+    if (hasBinaryFile) {
+      var mm = avail.filter(function (p) { return p.id === 'gemini' || p.id === 'claude'; });
+      if (!mm.length) throw new Error('PDF/이미지 분석은 Gemini 또는 Claude로만 가능합니다 — 회사 게이트웨이(Gemini) 또는 개인 Gemini 키가 필요해요.');
+      avail = mm;
+    }
     if (!avail.length) {
       throw new Error('아직 API 키가 없습니다 — 우측 상단 🔑 버튼을 눌러 무료 API 키를 등록해주세요.');
     }
@@ -1636,9 +1663,11 @@
   }
 
   var lastLoopLimit = false; // v29.62: 이번 질문이 5회 루프 한계에 걸렸는지 (aiUsage 계측용)
-  async function runConversation(userText, onStatus, onToken) {
+  async function runConversation(userText, file, onStatus, onToken) {
     lastLoopLimit = false;
-    history.push({ role: 'user', text: userText });
+    var entry = { role: 'user', text: userText };
+    if (file) entry.file = file;   // v29.66: PDF/이미지 멀티모달 첨부
+    history.push(entry);
     for (var i = 0; i < 5; i++) {
       var result = await callProviderOnce(history, onStatus, onToken);
       if (result.type === 'function_call') {
@@ -1979,14 +2008,86 @@
     } catch (e) {}
   }
 
+  // ── v29.66: 파일 첨부 — PDF·이미지는 멀티모달(Gemini/Claude), Excel/CSV/TXT는 텍스트 변환 ──
+  var pendingFile = null;   // {kind:'binary',mime,data,name} | {kind:'text',text,name}
+  function renderFileChip() {
+    var chip = $id('aiFileChip'); if (!chip) return;
+    if (!pendingFile) { chip.style.display = 'none'; chip.innerHTML = ''; return; }
+    chip.style.display = 'flex';
+    chip.innerHTML = '📎 <b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">' +
+      pendingFile.name.replace(/</g, '&lt;') + '</b>' +
+      (pendingFile.kind === 'text' ? ' <span style="color:var(--text-lighter);">(텍스트 변환)</span>' : '') +
+      ' <button onclick="aiClearFile()" style="border:none;background:none;cursor:pointer;color:var(--danger);font-weight:700;font-size:12px;margin-left:auto;">✕ 제거</button>';
+  }
+  window.aiPickFile = function () { var i = $id('aiFileInput'); if (i) { i.value = ''; i.click(); } };
+  window.aiClearFile = function () { pendingFile = null; renderFileChip(); };
+  function loadXlsxLib() {
+    return new Promise(function (res, rej) {
+      if (window.XLSX) return res();
+      var sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      sc.onload = res;
+      sc.onerror = function () { rej(new Error('Excel 라이브러리 로드 실패 (인터넷 연결 확인)')); };
+      document.head.appendChild(sc);
+    });
+  }
+  window.aiFileChanged = async function (inp) {
+    var f = inp.files && inp.files[0];
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) { appendMsg('system', '파일이 10MB를 넘어 첨부할 수 없습니다.'); return; }
+    var ext = (f.name.split('.').pop() || '').toLowerCase();
+    try {
+      if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'pdf'].indexOf(ext) !== -1) {
+        var b64 = await new Promise(function (res, rej) {
+          var r = new FileReader();
+          r.onload = function () { res(String(r.result).split(',')[1] || ''); };
+          r.onerror = rej;
+          r.readAsDataURL(f);
+        });
+        var mime = f.type || (ext === 'pdf' ? 'application/pdf' : 'image/' + (ext === 'jpg' ? 'jpeg' : ext));
+        pendingFile = { kind: 'binary', mime: mime, data: b64, name: f.name };
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        appendMsg('system', 'Excel 변환 중...');
+        await loadXlsxLib();
+        var buf = await f.arrayBuffer();
+        var wb = XLSX.read(buf, { type: 'array' });
+        var out = [];
+        wb.SheetNames.forEach(function (sn) { out.push('### 시트: ' + sn + '\n' + XLSX.utils.sheet_to_csv(wb.Sheets[sn])); });
+        var text = out.join('\n\n');
+        if (text.length > 120000) text = text.slice(0, 120000) + '\n...(길어서 이하 생략)';
+        pendingFile = { kind: 'text', text: text, name: f.name };
+      } else {
+        var t = await f.text();
+        if (t.length > 120000) t = t.slice(0, 120000) + '\n...(길어서 이하 생략)';
+        pendingFile = { kind: 'text', text: t, name: f.name };
+      }
+      renderFileChip();
+      appendMsg('system', '📎 "' + f.name + '" 첨부됨 — "요약해줘", "이걸로 부적합(NCR) 등록해줘"처럼 질문해보세요.');
+    } catch (e) { appendMsg('system', '파일 읽기 실패: ' + (e.message || e)); }
+  };
+
   var aiBusy = false;
   var localFailHintShown = false;   // v29.45.1: 로컬 LLM 실패 안내는 세션당 1회
   window.sendAiMessage = async function () {
     var input = $id('aiInput');
     var text = input.value.trim();
+    if (!text && pendingFile) text = '이 파일을 분석해줘.';   // 파일만 첨부하고 전송한 경우
     if (!text || aiBusy) return;
     input.value = '';
-    appendMsg('user', text);
+    // v29.66: 첨부 파일 처리 — 텍스트 변환본은 질문 앞에 붙이고, PDF/이미지는 멀티모달로 동봉
+    var fileForSend = null;
+    var shownText = text;
+    if (pendingFile) {
+      shownText = '📎 ' + pendingFile.name + '\n' + text;
+      if (pendingFile.kind === 'text') {
+        text = '[첨부 파일: ' + pendingFile.name + ']\n' + pendingFile.text + '\n\n' + text;
+      } else {
+        fileForSend = { mime: pendingFile.mime, data: pendingFile.data, name: pendingFile.name };
+      }
+      pendingFile = null;
+      renderFileChip();
+    }
+    appendMsg('user', shownText);
     if (!hasAnyKey()) {
       appendMsg('system', '아직 API 키가 없습니다 — 우측 상단 🔑 버튼을 눌러 무료 API 키를 등록해주세요.');
       window.openAiKeyModal();
@@ -2008,7 +2109,7 @@
 
     try {
       var reply = await runConversation(
-        text,
+        text, fileForSend,
         setStatus,
         function (tokenChunk) {
           clearStatus();
