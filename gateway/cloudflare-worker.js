@@ -1,5 +1,5 @@
 /*
- * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.2.4, 2026-07-30)
+ * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.3, 2026-07-31)
  *
  * 역할:
  *  1) 회사 공용 API 키를 이 서버에 숨겨두고, 직원들은 키 입력 없이 AI 비서를 사용
@@ -8,6 +8,9 @@
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
  *     POST /rag/search  {query, topK}            — 유사 대목 검색 (사내 계정 전체)
+ *     POST /rag/record  {kind,id,title,text}     — v3.3(로드맵 9-1): 기록 자동 색인.
+ *          NCR·CAR·검사보고서·ITP·회의록을 저장하는 즉시 직원 본인이 색인한다(사내 계정 전체).
+ *          {remove:true}면 해당 기록의 벡터를 삭제 — 지워진 NCR을 AI가 근거로 쓰지 않게.
  *     필요 바인딩: AI(Workers AI), VECTORIZE(인덱스, 예: sejong-docs @1024차원 cosine)
  *     — gateway/README.md의 배포 안내 참고. 바인딩이 없으면 501을 반환한다.
  *  5) v3.1(로드맵 9단계): 능동 알림 — Cron Trigger(매일 0 0 * * * = 한국 09:00)가
@@ -175,11 +178,15 @@ async function handleRag(request, env, path, cors) {
     const topK = Math.min(Math.max(parseInt(body.topK, 10) || 5, 1), 10);
     const [vec] = await ragEmbed(env, [query]);
     const res = await env.VECTORIZE.query(vec, { topK, returnMetadata: 'all' });
+    // v3.3: kind·recId를 함께 넘긴다 — 자동 색인된 기록이면 클라이언트가 그 NCR/ITP 화면으로
+    // 바로 이동시킬 수 있어야 답변에 근거 링크를 붙일 수 있다. (수동 문서는 이 값이 없음)
     const matches = (res.matches || []).map(m => ({
       score: Math.round((m.score || 0) * 1000) / 1000,
       docName: (m.metadata || {}).docName || '',
       chunkIndex: (m.metadata || {}).chunkIndex,
       text: (m.metadata || {}).text || '',
+      kind: (m.metadata || {}).kind || '',
+      recId: (m.metadata || {}).recId || '',
     }));
     return json(200, { matches }, cors);
   }
@@ -217,7 +224,87 @@ async function handleRag(request, env, path, cors) {
     return json(200, { ok: true, docName, chunkCount: vectors.length }, cors);
   }
 
-  return json(404, { error: 'usage: POST /rag/search 또는 /rag/upload' }, cors);
+  // ── v3.3: 기록 자동 색인 (로드맵 9-1) ────────────────────────────
+  // 직원이 NCR·CAR·검사보고서·ITP·회의록을 저장하면 그 즉시 이 엔드포인트로 색인한다.
+  // (기존 /rag/upload는 절차서·매뉴얼용 관리자 전용 — 그건 그대로 둔다)
+  //
+  // 설계 결정 (9-1a):
+  //  · 권한: 사내 계정 전체. NCR을 저장한 사람이 곧 색인하는 사람이므로 관리자 제한 불가.
+  //  · 남용 방지: kind는 허용 목록만, 벡터 id는 `auto:{kind}:{id}::{n}`으로 네임스페이스 고정 →
+  //    사용자가 남의 문서나 수동 등록 절차서를 덮어쓸 수 없다. 레코드당 벡터 20개로 상한.
+  //  · docName에 '[자동]' 접두 → 수동 등록 문서와 이름이 겹쳐 서로 지우는 일 방지.
+  //  · 삭제 지원(remove:true): 레코드가 지워지면 벡터도 지운다. 안 지우면 AI가 없는 NCR을 근거로 답한다.
+  //  · 순서: 임베딩 먼저 → 성공 후 삭제 → 업서트 (v3.2.4에서 배운 것 — 중간 실패 시 기존 색인 증발 방지)
+  if (path === 'record') {
+    const KINDS = {
+      ncr:        'NCR',
+      car:        'CAR',
+      inspection: '검사보고서',
+      itp:        'ITP',
+      meeting:    '회의록',
+    };
+    const kind = String(body.kind || '').trim().toLowerCase();
+    if (!KINDS[kind]) {
+      return json(400, { error: 'kind는 ' + Object.keys(KINDS).join('/') + ' 중 하나여야 합니다' }, cors);
+    }
+    // id 정규화 — 벡터 id에 들어가므로 구분자(:)와 공백을 막는다
+    const recId = String(body.id || '').trim().replace(/[^A-Za-z0-9가-힣._-]/g, '_').slice(0, 80);
+    if (!recId) return json(400, { error: 'id가 필요합니다' }, cors);
+
+    const MAX_CHUNKS = 20;
+    const slot = 'auto:' + kind + ':' + recId;
+    const delIds = Array.from({ length: MAX_CHUNKS }, (_, i) => slot + '::' + i);
+
+    // 삭제 요청 — 레코드가 지워졌을 때
+    if (body.remove) {
+      await env.VECTORIZE.deleteByIds(delIds);   // 20개 < 100개 제한
+      return json(200, { ok: true, removed: true, slot }, cors);
+    }
+
+    const title = String(body.title || '').trim().slice(0, 200);
+    const text  = String(body.text || '').trim();
+    if (!text) return json(400, { error: 'text가 필요합니다 (또는 remove:true)' }, cors);
+    if (text.length > 20000) return json(400, { error: '본문이 너무 깁니다 (최대 20,000자)' }, cors);
+
+    // 문단 우선 청킹 — 문단을 살리되 700자를 넘으면 잘라 이어붙인다
+    const CHUNK = 700;
+    const chunks = [];
+    let buf = '';
+    for (const para of text.split(/\n{2,}/)) {
+      const piece = para.trim();
+      if (!piece) continue;
+      if ((buf + '\n\n' + piece).trim().length <= CHUNK) {
+        buf = (buf ? buf + '\n\n' : '') + piece;
+      } else {
+        if (buf) { chunks.push(buf); buf = ''; }
+        for (let i = 0; i < piece.length; i += CHUNK) chunks.push(piece.slice(i, i + CHUNK));
+      }
+      if (chunks.length >= MAX_CHUNKS) break;
+    }
+    if (buf && chunks.length < MAX_CHUNKS) chunks.push(buf);
+    const use = chunks.slice(0, MAX_CHUNKS);
+    if (!use.length) return json(400, { error: '색인할 내용이 없습니다' }, cors);
+
+    const docName = '[자동] ' + KINDS[kind] + ' ' + recId + (title ? ' — ' + title : '');
+    const at = new Date().toISOString();
+
+    // 1) 임베딩 먼저 (20개 이하라 한 번에 처리 — Workers AI 배치 한도 100)
+    const embs = await ragEmbed(env, use);
+    const vectors = embs.map((values, i) => ({
+      id: slot + '::' + i,
+      values,
+      metadata: {
+        docName, chunkIndex: i, text: use[i].slice(0, 2000),
+        kind, recId, title, by: auth.email, at,
+      },
+    }));
+    // 2) 성공했으니 이 레코드 슬롯만 비우고  3) 업서트
+    await env.VECTORIZE.deleteByIds(delIds);
+    await env.VECTORIZE.upsert(vectors);
+    return json(200, { ok: true, docName, slot, chunkCount: vectors.length }, cors);
+  }
+
+  return json(404, { error: 'usage: POST /rag/search · /rag/upload · /rag/record' }, cors);
 }
 
 // v2: 9Router 동적 설정 — 부장님이 플랫폼 🔑에서 '전 직원 공용 공유'한 터널 주소/키/모델

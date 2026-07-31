@@ -207,6 +207,74 @@ const post = (path, token, obj) => worker.fetch(new Request('https://gw.test' + 
   check('RAG 재등록: 임베딩 실패 시 기존 조각 보존 (500 + 생존)', r.status === 500 && before && vecStore.has('검사절차서::0'), 'status=' + r.status);
 }
 
+// ── 4.5 기록 자동 색인(v3.3 · 로드맵 9-1) 시나리오 ──────────────
+const PARA = String.fromCharCode(10, 10);   // 문단 구분 (소스에 이스케이프를 안 쓰기 위해)
+const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
+{
+  const r = await post('/rag/record', staffToken, {
+    kind: 'ncr', id: 'SJ-NCR-2026-01', title: '펌프 부적합',
+    text: '토출측 플랜지 누설 확인. 원인은 개스킷 규격 오적용.' + PARA + '조치: 개스킷 교체 후 재수압시험 통과.',
+  });
+  const b = await r.json();
+  check('자동색인: 일반 직원도 기록 색인 가능 (관리자 아님)', r.status === 200 && b.ok, 'status=' + r.status + ' ' + JSON.stringify(b).slice(0, 90));
+  check('자동색인: 벡터가 auto: 네임스페이스에 저장', vecStore.has('auto:ncr:SJ-NCR-2026-01::0'), autoKeys('auto:').join(','));
+  check('자동색인: docName에 [자동] 접두 (수동 문서와 구분)', (b.docName || '').startsWith('[자동] NCR SJ-NCR-2026-01'), b.docName);
+}
+{
+  const r = await post('/rag/search', staffToken, { query: '개스킷 규격 오적용 누설', topK: 5 });
+  const b = await r.json();
+  const hit = (b.matches || []).find(m => m.recId === 'SJ-NCR-2026-01');
+  check('자동색인: 검색으로 찾아짐', !!hit, JSON.stringify((b.matches || []).map(m => m.docName)).slice(0, 120));
+  check('자동색인: kind·recId 반환 (근거 링크용)', hit && hit.kind === 'ncr' && hit.recId === 'SJ-NCR-2026-01');
+}
+{
+  // 재저장(수정) — 조각 수가 줄어도 옛 조각이 남지 않아야 한다
+  const long = Array(120).fill('가나다라마바사아자차').join(PARA);
+  await post('/rag/record', staffToken, { kind: 'ncr', id: 'SJ-NCR-2026-01', title: 'x', text: long });
+  const many = autoKeys('auto:ncr:SJ-NCR-2026-01::').length;
+  await post('/rag/record', staffToken, { kind: 'ncr', id: 'SJ-NCR-2026-01', title: '짧게', text: '한 줄로 요약' });
+  const few = autoKeys('auto:ncr:SJ-NCR-2026-01::').length;
+  check('자동색인: 재저장 시 옛 조각 잔류 없음', many > 1 && few === 1, 'many=' + many + ' few=' + few);
+}
+{
+  const r = await post('/rag/record', staffToken, { kind: 'ncr', id: 'SJ-NCR-2026-01', remove: true });
+  check('자동색인: 삭제 요청으로 벡터 제거 (지워진 NCR 근거 방지)', r.status === 200 && autoKeys('auto:ncr:SJ-NCR-2026-01::').length === 0);
+}
+{
+  const r = await post('/rag/record', staffToken, { kind: 'hack', id: 'x', text: 'y' });
+  check('자동색인: 허용 안 된 kind 거부', r.status === 400);
+}
+{
+  // 수동 등록 절차서를 자동 색인으로 덮어쓰려는 시도 — 네임스페이스가 달라 침범 불가
+  const survived = vecStore.has('검사절차서::0');
+  await post('/rag/record', staffToken, { kind: 'ncr', id: '검사절차서', text: '악의적 덮어쓰기' });
+  check('자동색인: 수동 등록 문서 침범 불가', survived && vecStore.has('검사절차서::0'));
+}
+{
+  const r = await post('/rag/record', outsiderToken, { kind: 'ncr', id: 'z', text: 'z' });
+  check('자동색인: 사외 계정 거부', r.status === 401);
+}
+{
+  const r = await post('/rag/record', staffToken, { kind: 'ncr', id: 'big', text: 'x'.repeat(20001) });
+  check('자동색인: 20,000자 초과 거부', r.status === 400);
+}
+{
+  // 긴 본문이라도 벡터 20개 상한 (남용 방지 + deleteByIds 100개 제한 안전)
+  await post('/rag/record', staffToken, { kind: 'meeting', id: 'M-1', text: Array(200).fill('회의문단내용').join(PARA) });
+  const n = autoKeys('auto:meeting:M-1::').length;
+  check('자동색인: 벡터 20개 상한', n <= 20 && n > 0, 'n=' + n);
+}
+{
+  // 임베딩 실패 시 기존 색인 보존 (upload와 동일한 순서 규칙)
+  await post('/rag/record', staffToken, { kind: 'car', id: 'C-9', text: '원본 유지되어야 함' });
+  const before = vecStore.has('auto:car:C-9::0');
+  const orig = env.AI.run;
+  env.AI.run = async () => { throw new Error('임베딩 실패'); };
+  const r = await post('/rag/record', staffToken, { kind: 'car', id: 'C-9', text: '새 내용' });
+  env.AI.run = orig;
+  check('자동색인: 임베딩 실패 시 기존 벡터 보존', r.status === 500 && before && vecStore.has('auto:car:C-9::0'), 'status=' + r.status);
+}
+
 // ── 5. 크론 알림 시나리오 ───────────────────────────────────────
 {
   // v3.2부터 scheduled가 waitUntil을 여러 번(알림+백업) 호출 — 전부 기다려야 경합이 없다
