@@ -975,38 +975,81 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-07-31 07:45 (오전 정리 자동 실행)",
-    "newMails": 5,
-    "processed": 3,
-    "urgentReplies": 1,
-    "ncr": 0,
+    "generatedAt": "2026-07-31 16:32 (오후 정리 자동 실행)",
+    "newMails": 12,
+    "processed": 12,
+    "urgentReplies": 2,
+    "ncr": 3,
     "car": 0,
-    "newProjects": 0,
+    "newProjects": 1,
     "keyActions": [
       {
-        "text": "T-8405 W.W STORAGE TANK 40M3 수정도면 검토 (7건 수정사항)",
-        "proj": "SJ2026-020",
-        "priority": "mid"
-      },
-      {
-        "text": "삼성전기 포장출고안 초안 검토 및 의견 제시",
-        "proj": "SJ435-26",
-        "priority": "mid"
-      },
-      {
-        "text": "신안건업 가조립(6F 본혼합) 검사기록서 확인 회신 (초안 작성 완료)",
-        "proj": "SJ435-26",
+        "text": "NCR-2026-17 진양화성 Tube sheet 누수 - 금일중 종결처리, 원인/조치방안 소급 작성 회신 필요",
+        "proj": "SJE437-26",
         "priority": "high"
+      },
+      {
+        "text": "NCR-2026-19 VDS CD-102 Condenser 치수불일치 - 열교환기 HOLD, 조치방안 확정 대기",
+        "proj": "SJ2026-030",
+        "priority": "high"
+      },
+      {
+        "text": "삼성전기 철골 가조립검사 불만족(용접/구조점검) - 8/3 재검사 입회 전 신안건업 보완조치 확인",
+        "proj": "SJ435-26",
+        "priority": "mid"
+      },
+      {
+        "text": "A-1 PJT 온도센서 WELL 제작(8/9)/설치(8/10) - 시간 미기재로 담당자 확인 필요",
+        "proj": "SJ433-25",
+        "priority": "mid"
+      },
+      {
+        "text": "NCR-2026-18 진양화성 리시버탱크 - 품질부서장 서명본 확인 회신",
+        "proj": "SJE437-26",
+        "priority": "low"
+      },
+      {
+        "text": "SJ2026-036 MDI 분쇄기 신규 라벨 생성 완료",
+        "proj": "SJ2026-036",
+        "priority": "low"
       }
     ],
     "urgentList": [
       {
-        "subject": "신안건업 - 삼성전기 가조립(6F 본혼합) 검사기록서 송부의 건",
-        "from": "신안건업 이현문 (shinan9038@naver.com)",
+        "subject": "Re: [QC] 불일치보고서(NCR) 송부: 진양화성_Tube sheet 용접부 누수 (NCR-2026-17)",
+        "from": "김시원 대리(swkim)",
+        "proj": "SJE437-26"
+      },
+      {
+        "subject": "[QC] 불일치보고서(NCR) 송부: VDS_CONDENSER 도면-제품 치수 불일치 (NCR-2026-19)",
+        "from": "김시원 대리(swkim)",
+        "proj": "SJ2026-030"
+      },
+      {
+        "subject": "Re: 신안건업 - 삼성전기 가조립(6F 본혼합) 검사기록서 송부의 건",
+        "from": "김시원 대리(swkim)",
         "proj": "SJ435-26"
+      },
+      {
+        "subject": "[SJ433-25, A-1 PROJECT] 온도센서 WELL 제작 도면 출도건",
+        "from": "강재상 사원(jskang)",
+        "proj": "SJ433-25"
+      },
+      {
+        "subject": "Re: [공유] 불일치보고서(NCR) 송부: 진양화성_리시버탱크 불일치 (NCR-2026-18)",
+        "from": "김시원 대리(swkim)",
+        "proj": "SJE437-26"
       }
     ],
-    "schedule": []
+    "schedule": [
+      {
+        "title": "삼성전기(주) 철골구조물 가조립 재검사 입회",
+        "date": "2026-08-03",
+        "time": "13:00",
+        "proj": "SJ435-26",
+        "color": "orange"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-07-23 (daily-mail-swkim 자동 실행)",
