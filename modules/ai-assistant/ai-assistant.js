@@ -1338,166 +1338,215 @@
   // 실패해도 대화에 영향 없어야 하므로 모든 진입점이 try로 감싸져 호출된다.
   var lastRagMatches = null;   // search_docs가 채운다 — 질문마다 리셋
   var SJP_Brain = (function () {
-    // v29.71: 흰 배경 계기판 — 패널이 열려 있는 동안 항상 잔잔히 살아 있고(idle),
-    // 질문 중엔 활발해지고(think), 답의 근거 노드에 불이 들어온다(reveal).
-    var cv, ctx, W = 0, H = 0, nodes = [], edges = [], pulses = [], mode = 'idle', raf = 0, hideTimer = 0, lastT = 0, built = false;
+    // v29.73: '아크 리액터' 계기판 —
+    //  대기: 코어 링 3겹이 서로 반대로 천천히 회전 + 궤도 입자 + 레이더 스캔 (시스템 가동 중)
+    //  질문: 코어 가속, 실제 지식 노드(프로젝트·NCR·CAR)가 별자리로 날아들고 스캔 빔이 훑는다
+    //  답변: 실제 근거 노드에 빔이 조준 고정 + 타게팅 브래킷. 12초 후 대기로 복귀.
+    var cv, ctx, W = 0, H = 0, mode = 'idle', raf = 0, hideTimer = 0, lastT = 0;
+    var rot = 0, sweep = 0, knodes = [], beams = [], orbiters = [];
     var REDUCED = false;
     try { REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-    var NCOLOR = { project: '#2563eb', ncr: '#dc2626', car: '#ea580c', meeting: '#7c3aed', cause: '#ca8a04', dept: '#059669', doc: '#6366f1', etc: '#0ea5e9' };
+    var NCOLOR = { project: '#2563eb', ncr: '#dc2626', car: '#ea580c', meeting: '#7c3aed', cause: '#ca8a04', dept: '#059669', doc: '#6366f1', etc: '#0284c7' };
     function box() { return $id('aiBrain'); }
     function visible() { var b = box(); return !!(b && b.offsetWidth > 10); }
     function ensure() {
       var b = box(); if (!b || !visible()) return false;
       if (!cv) { cv = $id('aiBrainCanvas'); if (!cv) return false; ctx = cv.getContext('2d'); }
       var r = b.getBoundingClientRect();
-      if (Math.abs(r.width - W) > 2 || Math.abs(r.height - H) > 2) {   // 패널 리사이즈 추적
+      if (Math.abs(r.width - W) > 2 || Math.abs(r.height - H) > 2) {
         var dpr = Math.min(window.devicePixelRatio || 1, 2);
         W = r.width; H = r.height;
         cv.width = W * dpr; cv.height = H * dpr;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        seedOrbiters();
       }
       return true;
     }
-    var idx = {};
-    function add(key, type, label) {
-      if (idx[key] != null) return idx[key];
-      idx[key] = nodes.length;
-      nodes.push({ key: key, type: type, label: label || '', hot: 0,
-        x: 18 + Math.random() * (W - 36), y: 12 + Math.random() * (H - 32),
-        vx: (Math.random() - .5) * .12, vy: (Math.random() - .5) * .12 });
-      return idx[key];
+    function core() { return { x: W * .5, y: H * .5, r: Math.min(W, H) * .30 }; }
+    function seedOrbiters() {
+      orbiters = [];
+      for (var i = 0; i < 10; i++) orbiters.push({ ang: Math.random() * 6.283, rad: .78 + Math.random() * .55, sp: .004 + Math.random() * .007, s: .8 + Math.random() * 1.2, dir: Math.random() < .5 ? 1 : -1 });
     }
-    function link(a, b) { if (a != null && b != null && a !== b) edges.push([a, b]); }
-    function build() {
-      nodes = []; edges = []; pulses = []; idx = {};
+    // 실제 데이터로 지식 별자리를 만든다 — 라벨이 진짜여야 계기판이지 장식이 아니다
+    function buildKnodes() {
+      var items = [];
       try {
-        (window.state && state.projects || []).slice(0, 5).forEach(function (p) { add('proj:' + p.id, 'project', p.code || p.name || ''); });
-        (window.state && state.ncrs || []).slice(-6).forEach(function (n) {
-          if (!n || !n.id || String(n.id).indexOf('chunk__') === 0) return;
-          var a = add('ncr:' + n.id, 'ncr', n.id);
-          if (idx['proj:' + n.proj] != null) link(a, idx['proj:' + n.proj]);
-          if (n.cause) link(a, add('cause:' + n.cause, 'cause', n.cause));
-        });
-        (window.state && state.cars || []).slice(-5).forEach(function (c) {
-          if (!c || !c.id || String(c.id).indexOf('chunk__') === 0) return;
-          var a = add('car:' + c.id, 'car', c.id);
-          if (idx['proj:' + c.proj] != null) link(a, idx['proj:' + c.proj]);
-          if (c.ncrId && idx['ncr:' + c.ncrId] != null) link(a, idx['ncr:' + c.ncrId]);
-          if (c.reqDept) link(a, add('dept:' + c.reqDept, 'dept', c.reqDept));
-        });
+        (window.state && state.projects || []).slice(0, 4).forEach(function (p) { items.push({ label: p.code || p.name || '', type: 'project', key: 'proj:' + p.id }); });
+        (window.state && state.ncrs || []).slice(-5).forEach(function (n) { if (n && n.id && String(n.id).indexOf('chunk__') !== 0) items.push({ label: n.id, type: 'ncr', key: 'ncr:' + n.id }); });
+        (window.state && state.cars || []).slice(-4).forEach(function (c) { if (c && c.id && String(c.id).indexOf('chunk__') !== 0) items.push({ label: c.id, type: 'car', key: 'car:' + c.id }); });
       } catch (e) {}
-      // 데이터가 아직 없으면(부팅 직후 등) 대표 개념 노드로 채운다 — 빈 화면 방지
-      if (nodes.length < 8) ['NCR', 'CAR', 'ITP', 'WBS', '회의록', '절차서', '검사', '인증서'].forEach(function (l) { add('x:' + l, 'etc', l); });
-      var deg = nodes.map(function () { return 0; });
-      edges.forEach(function (e) { deg[e[0]]++; deg[e[1]]++; });
-      nodes.forEach(function (n, i) { if (!deg[i]) link(i, (i + 1) % nodes.length); });
-      for (var k = 0; k < Math.min(6, nodes.length); k++) link((Math.random() * nodes.length) | 0, (Math.random() * nodes.length) | 0);
-      built = true;
+      if (items.length < 6) ['NCR', 'CAR', 'ITP', 'WBS', '회의록', '절차서'].forEach(function (l) { items.push({ label: l, type: 'etc', key: 'x:' + l }); });
+      var c = core(), maxR = Math.min(W, H) * .5;
+      knodes = items.slice(0, 14).map(function (it, i) {
+        var ang = (i / Math.min(14, items.length)) * 6.283 + Math.random() * .4;
+        return { label: it.label, type: it.type, key: it.key, ang: ang,
+          rad: maxR * 1.8,                                    // 밖에서 날아들어온다
+          targetRad: c.r + 14 + Math.random() * Math.max(18, maxR - c.r - 22),
+          flash: 0, hot: 0 };
+      });
+      beams = [];
     }
-    function spawnPulse(biasHot) {
-      if (!edges.length) return;
-      var cand = edges;
-      if (biasHot) {
-        var he = edges.filter(function (e) { return nodes[e[0]].hot || nodes[e[1]].hot; });
-        if (he.length) cand = he;
-      }
-      var e = cand[(Math.random() * cand.length) | 0];
-      pulses.push({ a: e[0], b: e[1], t: 0, sp: .008 + Math.random() * .014 });
+    function nodePos(n) { var c = core(); return { x: c.x + Math.cos(n.ang) * n.rad, y: c.y + Math.sin(n.ang) * n.rad * .82 }; }
+    function bracket(x, y, w, h) {   // 타게팅 브래킷 ⌐ ¬
+      var L = 4;
+      ctx.beginPath();
+      ctx.moveTo(x, y + L); ctx.lineTo(x, y); ctx.lineTo(x + L, y);
+      ctx.moveTo(x + w - L, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + L);
+      ctx.moveTo(x + w, y + h - L); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - L, y + h);
+      ctx.moveTo(x + L, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - L);
+      ctx.stroke();
     }
     function render(ts) {
       ctx.clearRect(0, 0, W, H);
-      var speed = mode === 'idle' ? .45 : 1;   // 대기 중엔 느긋하게
-      nodes.forEach(function (n) {
-        n.x += n.vx * speed; n.y += n.vy * speed;
-        if (n.x < 12 || n.x > W - 12) n.vx *= -1;
-        if (n.y < 10 || n.y > H - 20) n.vy *= -1;
-      });
-      ctx.lineWidth = 1;
-      edges.forEach(function (e) {
-        var a = nodes[e[0]], b = nodes[e[1]];
-        ctx.strokeStyle = 'rgba(37,99,235,' + ((a.hot || b.hot) ? .40 : .10) + ')';
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      });
-      var maxP = mode === 'think' ? 8 : (mode === 'reveal' ? 5 : 3);
-      var prob = mode === 'think' ? .35 : (mode === 'reveal' ? .3 : .10);
-      if (pulses.length < maxP && Math.random() < prob) spawnPulse(mode === 'reveal');
-      pulses = pulses.filter(function (p) { p.t += p.sp * (mode === 'idle' ? .6 : 1); return p.t <= 1; });
-      pulses.forEach(function (p) {
-        var a = nodes[p.a], b = nodes[p.b];
-        ctx.fillStyle = 'rgba(37,99,235,.9)'; ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t, 1.6, 0, 7); ctx.fill();
-        ctx.shadowBlur = 0;
-      });
-      nodes.forEach(function (n) {
-        var r = n.type === 'project' ? 3.4 : 2.2;
-        var c = NCOLOR[n.type] || NCOLOR.etc;
-        if (n.hot) { ctx.shadowColor = c; ctx.shadowBlur = 13; r += 2.4 + Math.sin(ts / 170) * .9; }
-        ctx.globalAlpha = n.hot ? 1 : .85;
-        ctx.fillStyle = c;
-        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
-        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-        if (n.type === 'project' || n.hot) {
-          ctx.font = (n.hot ? '700 ' : '') + '9px ui-monospace,Consolas,monospace';
-          ctx.fillStyle = n.hot ? '#1e3a8a' : 'rgba(30,64,175,.55)';
-          ctx.fillText(String(n.label).slice(0, 20), Math.min(n.x + 6, W - 60), n.y + 3);
+      var c = core();
+      var speed = mode === 'think' ? 4 : (mode === 'reveal' ? 2 : 1);
+      rot += .006 * speed; sweep += .02 * speed;
+
+      // ── 코어 글로우
+      var g = ctx.createRadialGradient(c.x, c.y, 2, c.x, c.y, c.r * 1.15);
+      g.addColorStop(0, 'rgba(59,130,246,' + (mode === 'think' ? .28 : .16) + ')');
+      g.addColorStop(1, 'rgba(59,130,246,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(c.x - c.r * 1.2, c.y - c.r * 1.2, c.r * 2.4, c.r * 2.4);
+
+      // ── 레이더 스캔 부채꼴 (대기·질문 공통 — 질문 중엔 빠르게)
+      ctx.fillStyle = 'rgba(37,99,235,.05)';
+      ctx.beginPath(); ctx.moveTo(c.x, c.y);
+      ctx.arc(c.x, c.y, c.r * .96, sweep, sweep + .7); ctx.closePath(); ctx.fill();
+
+      // ── 코어 링 3겹 (서로 반대 방향, 끊긴 호)
+      [[.45, 1, .55, 2.2], [.68, -1.4, .4, 1.5], [.92, .8, .3, 1.1]].forEach(function (rg, i) {
+        var rr = c.r * rg[0], dir = rg[1], alpha = rg[2], lw = rg[3];
+        ctx.strokeStyle = 'rgba(37,99,235,' + alpha + ')'; ctx.lineWidth = lw;
+        for (var k = 0; k < 3; k++) {
+          var a0 = rot * dir + k * 2.094;
+          ctx.beginPath(); ctx.arc(c.x, c.y, rr, a0, a0 + 1.5); ctx.stroke();
         }
+      });
+      // 바깥 눈금 링
+      ctx.strokeStyle = 'rgba(37,99,235,.35)'; ctx.lineWidth = 1;
+      for (var t = 0; t < 24; t++) {
+        var a = -rot * .6 + t * .2618;
+        ctx.beginPath();
+        ctx.moveTo(c.x + Math.cos(a) * c.r, c.y + Math.sin(a) * c.r);
+        ctx.lineTo(c.x + Math.cos(a) * (c.r + (t % 6 === 0 ? 5 : 2.5)), c.y + Math.sin(a) * (c.r + (t % 6 === 0 ? 5 : 2.5)));
+        ctx.stroke();
+      }
+      // 중심 점
+      ctx.fillStyle = '#2563eb'; ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = mode === 'think' ? 16 : 9;
+      ctx.beginPath(); ctx.arc(c.x, c.y, 3.2 + (mode === 'think' ? Math.sin(ts / 90) * 1 : 0), 0, 7); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // ── 궤도 입자
+      orbiters.forEach(function (o) {
+        o.ang += o.sp * speed * o.dir;
+        var x = c.x + Math.cos(o.ang) * c.r * o.rad, y = c.y + Math.sin(o.ang) * c.r * o.rad * .82;
+        ctx.fillStyle = 'rgba(96,165,250,.6)';
+        ctx.beginPath(); ctx.arc(x, y, o.s, 0, 7); ctx.fill();
+      });
+
+      if (mode === 'idle') return;   // 대기 화면은 코어까지만 — 조용하게
+
+      // ── 지식 별자리 (질문·답변 중에만)
+      knodes.forEach(function (n) {
+        n.rad += (n.targetRad - n.rad) * .08;   // 밖에서 날아들어오는 이징
+        n.flash *= .93;
+        var p = nodePos(n), col = NCOLOR[n.type] || NCOLOR.etc;
+        var glow = n.hot ? 1 : n.flash;
+        if (glow > .05) { ctx.shadowColor = col; ctx.shadowBlur = 12 * glow; }
+        ctx.fillStyle = col; ctx.globalAlpha = n.hot ? 1 : (.45 + .55 * Math.max(n.flash, 0));
+        ctx.beginPath(); ctx.arc(p.x, p.y, n.hot ? 4 : 2.4, 0, 7); ctx.fill();
+        ctx.shadowBlur = 0;
+        // 라벨 — 훑는 중이거나 근거로 잠긴 노드만 또렷하게
+        if (n.hot || n.flash > .25) {
+          ctx.font = (n.hot ? '700 ' : '') + '9px ui-monospace,Consolas,monospace';
+          var label = String(n.label).slice(0, 18), tw = ctx.measureText(label).width;
+          var lx = Math.max(4, Math.min(p.x + 7, W - tw - 8)), ly = p.y + 3;
+          ctx.fillStyle = n.hot ? '#1e3a8a' : 'rgba(30,64,175,' + (.35 + .55 * n.flash) + ')';
+          ctx.fillText(label, lx, ly);
+          if (n.hot) { ctx.strokeStyle = col; ctx.lineWidth = 1.2; bracket(lx - 4, ly - 10, tw + 8, 14); }
+        }
+        ctx.globalAlpha = 1;
+      });
+
+      // ── 스캔 빔
+      if (mode === 'think' && knodes.length && beams.length < 3 && Math.random() < .18) {
+        beams.push({ i: (Math.random() * knodes.length) | 0, t: 0, lock: false });
+      }
+      beams = beams.filter(function (b) { return b.lock || b.t < 1; });
+      beams.forEach(function (b) {
+        var n = knodes[b.i]; if (!n) return;
+        var p = nodePos(n);
+        var prog = b.lock ? ((ts / 600 + b.i * .37) % 1) : (b.t += .07);
+        if (!b.lock && b.t > .5) n.flash = 1;                    // 훑는 순간 번쩍
+        var alpha = b.lock ? (.3 + .18 * Math.sin(ts / 140)) : (1 - b.t) * .4;
+        ctx.strokeStyle = 'rgba(59,130,246,' + Math.max(0, alpha) + ')'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+        // 빔 위를 달리는 빛
+        var bx = c.x + (p.x - c.x) * prog, by = c.y + (p.y - c.y) * prog;
+        ctx.fillStyle = 'rgba(37,99,235,.95)'; ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(bx, by, 1.8, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
       });
     }
     function frame(ts) {
       raf = requestAnimationFrame(frame);
       if (ts - lastT < 33) return;   // ~30fps 상한
       lastT = ts;
-      if (document.hidden || !ensure()) return;   // 패널 닫힘·탭 숨김이면 그리지 않음
+      if (document.hidden || !ensure()) return;
       render(ts);
     }
     function caption(t, onClick) {
-      var c = $id('aiBrainCaption'); if (!c) return;
-      c.textContent = t || '';
-      c.style.cursor = onClick ? 'pointer' : '';
-      c.onclick = onClick || null;
+      var el = $id('aiBrainCaption'); if (!el) return;
+      el.textContent = t || '';
+      el.style.cursor = onClick ? 'pointer' : '';
+      el.onclick = onClick || null;
     }
     function start() {
       if (!ensure()) return;
-      if (!built) build();
-      if (REDUCED) { render(0); return; }   // 모션 최소화: 정지 화면 1장만
+      if (REDUCED) { render(0); return; }   // 모션 최소화: 정지 화면 1장
       if (!raf) raf = requestAnimationFrame(frame);
     }
     function toIdle() {
       clearTimeout(hideTimer);
-      nodes.forEach(function (n) { n.hot = 0; });
-      mode = 'idle'; caption('');
+      mode = 'idle'; beams = []; knodes.forEach(function (n) { n.hot = 0; });
+      caption('SYSTEM ONLINE');
       start();
     }
     return {
       idle: toIdle,
       think: function () {
         clearTimeout(hideTimer);
-        mode = 'think';
-        if (ensure()) { build(); caption('회사 지식 그물을 살피는 중…'); start(); }
+        if (!ensure()) return;
+        buildKnodes(); mode = 'think';
+        caption('지식 스캔 중…');
+        start();
       },
       reveal: function (matches) {
         var names = [];
         (matches || []).slice(0, 5).forEach(function (m) {
           var key = (m.kind && m.recId) ? m.kind + ':' + m.recId : null;
-          var i = key && idx[key] != null ? idx[key] : null;
-          if (i == null) {   // 그물에 없던 기록·수동 문서는 노드를 만들어 붙인다
-            var label = m.recId || String(m.docName || '').replace(/^\[자동\]\s*/, '').slice(0, 22);
+          var n = key ? knodes.find(function (x) { return x.key === key; }) : null;
+          if (!n) {   // 별자리에 없던 기록·수동 문서는 노드를 만들어 띄운다
+            var label = m.recId || String(m.docName || '').replace(/^\[자동\]\s*/, '').slice(0, 20);
             if (!label) return;
-            i = add((key || 'doc:' + label), (m.kind || 'doc'), label);
-            link(i, (Math.random() * Math.max(1, nodes.length - 1)) | 0);
+            var c = core();
+            n = { label: label, type: m.kind || 'doc', key: key || 'doc:' + label,
+              ang: Math.random() * 6.283, rad: c.r * 2.2, targetRad: c.r + 20 + Math.random() * 20, flash: 0, hot: 0 };
+            knodes.push(n);
           }
-          nodes[i].hot = 1;
-          if (names.indexOf(nodes[i].label) === -1) names.push(nodes[i].label);
+          n.hot = 1;
+          if (names.indexOf(n.label) === -1) names.push(n.label);
         });
         if (!names.length) { toIdle(); return; }
         mode = 'reveal';
+        beams = knodes.map(function (n, i) { return n.hot ? { i: i, t: 1, lock: true } : null; }).filter(Boolean);
         caption('근거: ' + names.join(' · ') + '  → 지식 지도에서 보기', function () {
           try { if (typeof switchMod === 'function') switchMod('knowledge'); } catch (e) {}
         });
         if (REDUCED) render(0);
-        hideTimer = setTimeout(toIdle, 12000);   // 12초 보여주고 잔잔한 대기로
+        hideTimer = setTimeout(toIdle, 12000);
       },
-      off: toIdle,   // 하위 호환 — 이제 '끄기'는 대기 모드로 돌아가는 것
+      off: toIdle,
     };
   })();
   // 지식 그물 깨우기는 아래 window.toggleAiPanel(진짜 정의) 안에서 한다 —
