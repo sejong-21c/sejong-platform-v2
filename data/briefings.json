@@ -975,29 +975,40 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-03 07:39 (오전 정리 자동 실행)",
-    "newMails": 1,
-    "processed": 1,
-    "urgentReplies": 0,
+    "generatedAt": "2026-08-03 16:32 (오후 정리 자동 실행)",
+    "newMails": 4,
+    "processed": 3,
+    "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "AGITATOR 최초 1대분 8/4 세종기술 공장 입고 예정 (시간 확인 필요)",
+        "text": "SJ435-26 보온 노즐 보완작업 완료여부 확인 회신 초안 작성 (발송 대기)",
+        "proj": "SJ435-26",
+        "priority": "high"
+      },
+      {
+        "text": "SJ435-26 포장출고안 회신 확인 (추가 조치 불요)",
         "proj": "SJ435-26",
         "priority": "mid"
       },
       {
-        "text": "AGITATOR 잔여 품목 9월 중순 현장 납품 (PM 협의 후 통보 예정)",
-        "proj": "SJ435-26",
+        "text": "애경케미칼 SPRING BALANCE VE-108 도면 수신 확인",
+        "proj": "애경케미칼_청양공장",
         "priority": "low"
       }
     ],
-    "urgentList": [],
+    "urgentList": [
+      {
+        "subject": "Re: [품질관리부] (SJ435-26)삼성전기 보온관련 확인요청건",
+        "from": "이영주 대리 (yjlee@sejong-21c.com)",
+        "proj": "SJ435-26"
+      }
+    ],
     "schedule": [
       {
-        "title": "삼성전기(주) 철골구조물 가조립 재검사 입회",
+        "title": "[SJ435-26] 삼성전기(주) 철골구조물 가조립 재검사 입회",
         "date": "2026-08-03",
         "time": "13:00",
         "proj": "SJ435-26",
