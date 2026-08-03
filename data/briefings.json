@@ -975,46 +975,27 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-03 16:32 (오후 정리 자동 실행)",
+    "generatedAt": "2026-08-04 07:44 (오전 정리 자동 실행)",
     "newMails": 4,
-    "processed": 3,
-    "urgentReplies": 1,
+    "processed": 4,
+    "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "SJ435-26 보온 노즐 보완작업 완료여부 확인 회신 초안 작성 (발송 대기)",
-        "proj": "SJ435-26",
-        "priority": "high"
-      },
-      {
-        "text": "SJ435-26 포장출고안 회신 확인 (추가 조치 불요)",
-        "proj": "SJ435-26",
+        "text": "SHAHEEN PROJECT 스페어파트 패킹리스트 - Project 라벨 매핑 확인 필요",
+        "proj": "SHAHEEN(미매칭)",
         "priority": "mid"
       },
       {
-        "text": "애경케미칼 SPRING BALANCE VE-108 도면 수신 확인",
-        "proj": "애경케미칼_청양공장",
+        "text": "Google Cloud 콘솔 2단계 인증(2SV) 의무화 - 2026-10-20 시행",
+        "proj": "일반사무",
         "priority": "low"
       }
     ],
-    "urgentList": [
-      {
-        "subject": "Re: [품질관리부] (SJ435-26)삼성전기 보온관련 확인요청건",
-        "from": "이영주 대리 (yjlee@sejong-21c.com)",
-        "proj": "SJ435-26"
-      }
-    ],
-    "schedule": [
-      {
-        "title": "[SJ435-26] 삼성전기(주) 철골구조물 가조립 재검사 입회",
-        "date": "2026-08-03",
-        "time": "13:00",
-        "proj": "SJ435-26",
-        "color": "blue"
-      }
-    ]
+    "urgentList": [],
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-07-23 (daily-mail-swkim 자동 실행)",
