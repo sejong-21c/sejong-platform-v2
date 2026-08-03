@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>공정 시뮬레이터 v1.0 · Sejong-Platform</title>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   EPC Control System 디자인 토큰 (다른 모듈과 동일 인라인 정의)
+═══════════════════════════════════════════════════════════ */
+:root {
+  --sjp-primary:        #4a7fc1;
+  --sjp-primary-hover:  #3a6bb5;
+  --sjp-primary-light:  #eef3fb;
+  --sjp-success:        #16a34a;
+  --sjp-success-bg:     #f0fdf4;
+  --sjp-warning:        #f59e0b;
+  --sjp-warning-bg:     #fef3c7;
+  --sjp-danger:         #dc2626;
+  --sjp-danger-bg:      #fee2e2;
+  --sjp-border:         #e4e7ec;
+  --sjp-border-strong:  #c3d6f0;
+  --sjp-bg-card:        #ffffff;
+  --sjp-bg-app:         #f0f4f8;
+  --sjp-bg-table-head:  #f8fafc;
+  --sjp-bg-row-hover:   #f9fafb;
+  --sjp-text-main:      #1a2332;
+  --sjp-text-body:      #4b5563;
+  --sjp-text-sub:       #6b7280;
+  --sjp-text-muted:     #9ca3af;
+  --sjp-radius-sm:      4px;
+  --sjp-radius:         5px;
+  --sjp-radius-lg:      8px;
+  --sjp-shadow:         0 1px 3px rgba(0,0,0,.05);
+  --sjp-shadow-md:      0 2px 8px rgba(0,0,0,.08);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
+  background: var(--sjp-bg-app); color: var(--sjp-text-main);
+  font-size: 13px; line-height: 1.55;
+}
+h1 { font-size: 19px; margin: 0; letter-spacing: -.3px; }
+h2 { font-size: 14px; margin: 0 0 10px; color: var(--sjp-text-main); }
+h3 { font-size: 12.5px; margin: 14px 0 6px; color: var(--sjp-text-sub); font-weight: 600; }
+.wrap { max-width: 1240px; margin: 0 auto; }
+
+/* header */
+.top {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--sjp-bg-card); border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius-lg); padding: 12px 16px; margin-bottom: 14px;
+  box-shadow: var(--sjp-shadow);
+}
+.top .sub { color: var(--sjp-text-sub); font-size: 12px; }
+.spacer { flex: 1 1 auto; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.pill.ok   { background: var(--sjp-success-bg); color: var(--sjp-success); border-color: #bbf7d0; }
+.pill.warn { background: var(--sjp-warning-bg); color: #92400e; border-color: #fde68a; }
+.pill.err  { background: var(--sjp-danger-bg);  color: var(--sjp-danger);  border-color: #fecaca; }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+.card {
+  background: var(--sjp-bg-card); border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius-lg); padding: 16px; margin-bottom: 14px;
+  box-shadow: var(--sjp-shadow);
+}
+
+button {
+  font: inherit; cursor: pointer; border-radius: var(--sjp-radius);
+  border: 1px solid var(--sjp-border-strong); background: #fff;
+  color: var(--sjp-text-body); padding: 6px 12px; transition: .12s;
+}
+button:hover:not(:disabled) { background: var(--sjp-primary-light); border-color: var(--sjp-primary); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.primary {
+  background: var(--sjp-primary); border-color: var(--sjp-primary);
+  color: #fff; font-weight: 600; padding: 9px 22px;
+}
+button.primary:hover:not(:disabled) { background: var(--sjp-primary-hover); border-color: var(--sjp-primary-hover); }
+button.sm { padding: 3px 9px; font-size: 11.5px; }
+
+input, select, textarea {
+  font: inherit; padding: 6px 8px; border: 1px solid var(--sjp-border);
+  border-radius: var(--sjp-radius); background: #fff; color: var(--sjp-text-main);
+  width: 100%; min-width: 0;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--sjp-primary);
+  box-shadow: 0 0 0 3px rgba(74,127,193,.12);
+}
+select { cursor: pointer; }
+textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; line-height: 1.6; resize: vertical;
+}
+
+/* template picker */
+.tpl-grid {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+}
+.tpl {
+  text-align: left; padding: 10px 12px; border-radius: var(--sjp-radius);
+  border: 1px solid var(--sjp-border); background: #fff; line-height: 1.4;
+}
+.tpl .nm { font-weight: 600; color: var(--sjp-text-main); display: block; font-size: 12.5px; }
+.tpl .ds { color: var(--sjp-text-muted); font-size: 11px; }
+.tpl[aria-pressed="true"] {
+  border-color: var(--sjp-primary); background: var(--sjp-primary-light);
+  box-shadow: 0 0 0 1px var(--sjp-primary) inset;
+}
+
+/* form layout */
+.cols { display: grid; gap: 14px; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+@media (max-width: 900px) { .cols { grid-template-columns: minmax(0,1fr); } }
+
+.field { margin-bottom: 10px; }
+.field > label {
+  display: block; font-size: 11.5px; font-weight: 600;
+  color: var(--sjp-text-sub); margin-bottom: 3px;
+}
+.field .hint { font-size: 11px; color: var(--sjp-text-muted); margin-top: 2px; }
+.qty { display: flex; gap: 6px; }
+.qty input { flex: 1 1 auto; }
+.qty select { flex: 0 0 auto; width: auto; min-width: 96px; }
+
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td {
+  border: 1px solid var(--sjp-border); padding: 5px 8px; text-align: right;
+  white-space: nowrap;
+}
+th {
+  background: var(--sjp-bg-table-head); font-weight: 600;
+  color: var(--sjp-text-sub); font-size: 11.5px;
+}
+th:first-child, td:first-child { text-align: left; }
+tbody tr:hover { background: var(--sjp-bg-row-hover); }
+.tbl-scroll { overflow-x: auto; }
+
+.msg { padding: 10px 12px; border-radius: var(--sjp-radius); margin-bottom: 12px; font-size: 12.5px; }
+.msg.err  { background: var(--sjp-danger-bg);  color: #7f1d1d; border: 1px solid #fecaca; }
+.msg.warn { background: var(--sjp-warning-bg); color: #78350f; border: 1px solid #fde68a; }
+.msg.ok   { background: var(--sjp-success-bg); color: #14532d; border: 1px solid #bbf7d0; }
+.msg b { font-weight: 700; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px;
+  background: var(--sjp-primary-light); border: 1px solid var(--sjp-border-strong);
+  color: var(--sjp-primary-hover); border-radius: 999px; padding: 2px 6px 2px 9px;
+}
+.chip button {
+  border: none; background: none; padding: 0 2px; color: var(--sjp-text-sub);
+  font-size: 13px; line-height: 1;
+}
+.chip button:hover { background: none; color: var(--sjp-danger); }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.muted { color: var(--sjp-text-muted); }
+.right { text-align: right; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+details summary { cursor: pointer; font-weight: 600; font-size: 12.5px; color: var(--sjp-text-sub); }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.4);
+        border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div>
+      <h1>⚗️ 공정 시뮬레이터</h1>
+      <div class="sub">DWSIM 계산 엔진 · 템플릿을 고르고 조건만 넣으면 결과표가 나옵니다</div>
+    </div>
+    <div class="spacer"></div>
+    <span id="status" class="pill warn"><span class="dot"></span>연결 확인 중…</span>
+    <button class="sm" id="btnCfg" title="서버 주소 설정">⚙ 서버</button>
+  </div>
+
+  <div class="card" id="cfgCard" hidden>
+    <h2>DWSIM API 서버 주소</h2>
+    <div class="row">
+      <input id="apiUrl" placeholder="http://localhost:8080" style="flex:1 1 320px">
+      <button id="btnSaveCfg">저장 후 연결</button>
+      <button id="btnDemo">데모 모드로 보기</button>
+    </div>
+    <div class="hint" style="margin-top:6px">
+      사내 서버에 올렸다면 그 주소를 넣으세요. 서버가 없어도 <b>데모 모드</b>로 화면 구성은 볼 수 있습니다
+      (계산값은 가짜입니다).
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>1 · 무엇을 계산할까요?</h2>
+    <div class="tpl-grid" id="tplGrid"></div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>2 · 성분과 물성 모델</h2>
+        <div class="field">
+          <label for="simName">이름</label>
+          <input id="simName" placeholder="예: 에탄올-물 증류">
+        </div>
+        <div class="field">
+          <label for="compSearch">성분 추가</label>
+          <div class="row">
+            <input id="compSearch" placeholder="영문명으로 검색 (예: ethanol)" style="flex:1 1 auto">
+            <button id="btnCompAdd" class="sm">추가</button>
+          </div>
+          <div id="compResults" class="chips"></div>
+          <div class="hint">DWSIM 성분 DB는 영문 이름입니다. 물=Water, 에탄올=Ethanol, 질소=Nitrogen</div>
+          <h3>선택된 성분 <span class="muted" id="compCount"></span></h3>
+          <div id="compChips" class="chips"></div>
+        </div>
+        <div class="field">
+          <label for="pkg">물성 패키지</label>
+          <select id="pkg"></select>
+          <div class="hint" id="pkgHint">
+            탄화수소 → Peng-Robinson · 극성/알코올 수용액 → NRTL 또는 UNIQUAC · 순수 물/증기 → Steam Tables
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3 · 공급 조건</h2>
+        <div id="feedArea"></div>
+      </div>
+
+      <div class="card">
+        <h2>4 · 장치 설정</h2>
+        <div id="paramArea"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>입력 내용 (텍스트)</h2>
+        <div class="hint" style="margin-bottom:8px">
+          위 폼을 고치면 여기에 자동 반영됩니다. 여기서 직접 고쳐 실행해도 됩니다
+          (YAML 또는 JSON). 파일로 저장해 두면 나중에 그대로 재실행할 수 있습니다.
+        </div>
+        <textarea id="specText" rows="22" spellcheck="false"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="sm" id="btnFromForm">← 폼 내용으로 되돌리기</button>
+          <button class="sm" id="btnCopy">복사</button>
+          <button class="sm" id="btnSaveFile">파일로 저장</button>
+          <label class="row" style="gap:5px;font-size:11.5px;color:var(--sjp-text-sub);margin-left:auto">
+            <input type="checkbox" id="chkSave" style="width:auto"> .dwxmz 도 생성
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <button class="primary" id="btnRun">▶ 계산 실행</button>
+          <span class="muted" id="runNote"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultArea"></div>
+
+  <div class="card" style="font-size:11.5px;color:var(--sjp-text-muted)">
+    계산 엔진은 <b>DWSIM</b> (GNU GPL v3, © 2008–2025 Daniel Wagner and contributors) 입니다.
+    이 화면은 HTTP/JSON으로만 엔진과 통신하는 별개 프로그램입니다.
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════
+   설정
+══════════════════════════════════════════════════════════════ */
+const LS_KEY = "sjp.processSim.apiUrl";
+let API = localStorage.getItem(LS_KEY) || "http://localhost:8080";
+let DEMO = false;
+let META = null;
+
+const $ = (id) => document.getElementById(id);
+
+/* ══════════════════════════════════════════════════════════════
+   단위 프리셋
+══════════════════════════════════════════════════════════════ */
+const U = {
+  temperature: { units: ["C", "K", "F"], def: "C" },
+  pressure:    { units: ["bar", "barg", "atm", "kPa", "MPa", "Pa", "psi", "psig", "kgf/cm2"], def: "bar" },
+  dtemp:       { units: ["K", "C", "F"], def: "K" },
+  flow:        { units: ["kg/h", "kg/s", "t/h", "mol/s", "kmol/h", "m3/h", "L/min"], def: "kg/h" },
+  power:       { units: ["kW", "MW", "W", "kcal/h", "BTU/h"], def: "kW" },
+  area:        { units: ["m2", "ft2"], def: "m2" },
+  htc:         { units: ["W/[m2.K]", "kW/[m2.K]", "kcal/[h.m2.C]"], def: "W/[m2.K]" },
+};
+
+/* ══════════════════════════════════════════════════════════════
+   템플릿 정의 — SPEC.md 와 1:1 대응
+══════════════════════════════════════════════════════════════ */
+const TEMPLATES = [
+  { id: "stream", nm: "물성 · 상평형", ds: "스트림 하나의 상태",
+    feeds: 1, params: [
+      { k: "T", l: "온도 (선택)", q: "temperature", opt: true },
+      { k: "P", l: "압력 (선택)", q: "pressure", opt: true },
+    ] },
+
+  { id: "flash", nm: "플래시 드럼", ds: "기·액 분리",
+    feeds: 1, params: [
+      { k: "T", l: "분리 온도 (선택)", q: "temperature", opt: true, v: 60 },
+      { k: "P", l: "분리 압력 (선택)", q: "pressure", opt: true, v: 5 },
+    ] },
+
+  { id: "heater", nm: "가열기", ds: "Heater",
+    feeds: 1, params: [
+      { k: "mode", l: "계산 기준", sel: [
+          ["outlet_temperature", "출구 온도 지정"], ["duty", "가열량 지정"],
+          ["delta_t", "온도 상승 지정"], ["vapor_fraction", "출구 기상분율 지정"]] },
+      { k: "outlet_temperature", l: "출구 온도", q: "temperature", v: 120, when: { mode: "outlet_temperature" } },
+      { k: "duty", l: "가열량", q: "power", v: 500, when: { mode: "duty" } },
+      { k: "delta_t", l: "온도 상승", q: "dtemp", v: 30, when: { mode: "delta_t" } },
+      { k: "vapor_fraction", l: "출구 기상분율 (0~1)", num: true, v: 0.5, when: { mode: "vapor_fraction" } },
+      { k: "delta_p", l: "압력 손실", q: "pressure", v: 0 },
+      { k: "efficiency", l: "효율 (%)", num: true, v: 100 },
+    ] },
+
+  { id: "cooler", nm: "냉각기", ds: "Cooler",
+    feeds: 1, params: [
+      { k: "mode", l: "계산 기준", sel: [
+          ["outlet_temperature", "출구 온도 지정"], ["duty", "냉각량 지정"],
+          ["delta_t", "온도 변화 지정"], ["vapor_fraction", "출구 기상분율 지정"]] },
+      { k: "outlet_temperature", l: "출구 온도", q: "temperature", v: 40, when: { mode: "outlet_temperature" } },
+      { k: "duty", l: "냉각량", q: "power", v: 500, when: { mode: "duty" } },
+      { k: "delta_t", l: "온도 변화", q: "dtemp", v: 30, when: { mode: "delta_t" } },
+      { k: "vapor_fraction", l: "출구 기상분율 (0~1)", num: true, v: 0, when: { mode: "vapor_fraction" } },
+      { k: "delta_p", l: "압력 손실", q: "pressure", v: 0 },
+      { k: "efficiency", l: "효율 (%)", num: true, v: 100 },
+    ] },
+
+  { id: "pump", nm: "펌프", ds: "소요동력 · 양정",
+    feeds: 1, params: [
+      { k: "mode", l: "계산 기준", sel: [
+          ["outlet_pressure", "토출 압력 지정"], ["delta_p", "차압 지정"], ["power", "동력 지정"]] },
+      { k: "outlet_pressure", l: "토출 압력", q: "pressure", v: 8, u: "barg", when: { mode: "outlet_pressure" } },
+      { k: "delta_p", l: "차압", q: "pressure", v: 5, when: { mode: "delta_p" } },
+      { k: "power", l: "동력", q: "power", v: 10, when: { mode: "power" } },
+      { k: "efficiency", l: "효율 (%)", num: true, v: 75 },
+    ] },
+
+  { id: "compressor", nm: "압축기", ds: "소요동력 · 출구온도",
+    feeds: 1, params: [
+      { k: "mode", l: "계산 기준", sel: [
+          ["outlet_pressure", "토출 압력 지정"], ["delta_p", "차압 지정"],
+          ["pressure_ratio", "압축비 지정"], ["power", "동력 지정"]] },
+      { k: "outlet_pressure", l: "토출 압력", q: "pressure", v: 10, when: { mode: "outlet_pressure" } },
+      { k: "delta_p", l: "차압", q: "pressure", v: 5, when: { mode: "delta_p" } },
+      { k: "pressure_ratio", l: "압축비", num: true, v: 3, when: { mode: "pressure_ratio" } },
+      { k: "power", l: "동력", q: "power", v: 100, when: { mode: "power" } },
+      { k: "path", l: "압축 경로", sel: [["adiabatic", "단열 (adiabatic)"], ["polytropic", "폴리트로픽"]] },
+      { k: "efficiency", l: "효율 (%)", num: true, v: 75 },
+    ] },
+
+  { id: "valve", nm: "밸브", ds: "교축 · 감압",
+    feeds: 1, params: [
+      { k: "mode", l: "계산 기준", sel: [["outlet_pressure", "출구 압력 지정"], ["delta_p", "압력 강하 지정"]] },
+      { k: "outlet_pressure", l: "출구 압력", q: "pressure", v: 1, u: "atm", when: { mode: "outlet_pressure" } },
+      { k: "delta_p", l: "압력 강하", q: "pressure", v: 2, when: { mode: "delta_p" } },
+    ] },
+
+  { id: "mixer", nm: "혼합기", ds: "스트림 2개 이상 합류",
+    feeds: 2, feedNames: ["feed1", "feed2"], params: [
+      { k: "pressure", l: "출구 압력 기준", sel: [
+          ["minimum", "입구 중 최소"], ["maximum", "입구 중 최대"], ["average", "평균"]] },
+    ] },
+
+  { id: "splitter", nm: "분배기", ds: "한 스트림을 둘로",
+    feeds: 1, params: [
+      { k: "outlet1_flow", l: "출구1 유량", q: "flow", v: 300 },
+    ], note: "DWSIM이 분할비 설정을 자동화 API로 공개하지 않아 유량 직접지정만 가능합니다." },
+
+  { id: "heat_exchanger", nm: "열교환기", ds: "고온측 ↔ 저온측",
+    feeds: 2, feedNames: ["hot", "cold"], params: [
+      { k: "mode", l: "계산 기준", sel: [
+          ["area", "전열면적 + U 지정"], ["duty", "교환열량 지정"],
+          ["calc_area", "필요 면적 계산"],
+          ["hot_outlet_temperature", "고온측 출구온도 지정"],
+          ["cold_outlet_temperature", "저온측 출구온도 지정"]] },
+      { k: "area", l: "전열면적", q: "area", v: 12, when: { mode: "area" } },
+      { k: "duty", l: "교환열량", q: "power", v: 250, when: { mode: ["duty", "calc_area"] } },
+      { k: "u", l: "총괄전열계수", q: "htc", v: 800, when: { mode: ["area", "duty", "calc_area"] } },
+      { k: "hot_outlet_temperature", l: "고온측 출구온도", q: "temperature", v: 80, when: { mode: "hot_outlet_temperature" } },
+      { k: "cold_outlet_temperature", l: "저온측 출구온도", q: "temperature", v: 60, when: { mode: "cold_outlet_temperature" } },
+      { k: "flow_direction", l: "유동 방향", sel: [["countercurrent", "대향류"], ["cocurrent", "병류"]] },
+      { k: "hot_delta_p", l: "고온측 압력손실", q: "pressure", v: 0 },
+      { k: "cold_delta_p", l: "저온측 압력손실", q: "pressure", v: 0 },
+    ], note: "고온측/저온측은 입구 온도로 DWSIM이 자동 판별합니다." },
+
+  { id: "shortcut_column", nm: "단축법 증류", ds: "FUG · 개념설계",
+    feeds: 1, params: [
+      { k: "light_key", l: "경비점 성분 (light key)", comp: true },
+      { k: "heavy_key", l: "중비점 성분 (heavy key)", comp: true },
+      { k: "light_key_bottoms_fraction", l: "잔사 중 경비점 몰분율", num: true, v: 0.01 },
+      { k: "heavy_key_distillate_fraction", l: "유출 중 중비점 몰분율", num: true, v: 0.01 },
+      { k: "reflux_ratio", l: "환류비", num: true, v: 1.5 },
+      { k: "condenser_pressure", l: "응축기 압력", q: "pressure", v: 1, u: "atm" },
+      { k: "reboiler_pressure", l: "재비기 압력", q: "pressure", v: 1, u: "atm" },
+      { k: "condenser", l: "응축기 종류", sel: [["total", "전응축 (total)"], ["partial", "부분응축 (partial)"]] },
+    ] },
+
+  { id: "distillation", nm: "정밀 증류탑", ds: "단별 수지 계산",
+    feeds: 1, params: [
+      { k: "stages", l: "전체 단수 (응축기~재비기)", num: true, v: 20, int: true },
+      { k: "feed_stage", l: "공급 단 (1 = 응축기)", num: true, v: 10, int: true },
+      { k: "condenser", l: "응축기 종류", sel: [["total", "전응축 (total)"], ["partial", "부분응축 (partial)"]] },
+      { k: "top_pressure", l: "탑정 압력", q: "pressure", v: 1, u: "atm" },
+      { k: "pressure_drop", l: "탑 압력강하", q: "pressure", v: 0, u: "Pa" },
+      { k: "@condenser_spec.type", l: "응축기 규격", sel: [
+          ["Reflux Ratio", "환류비"], ["Product Molar Flow Rate", "유출 몰유량"],
+          ["Product Mass Flow Rate", "유출 질량유량"], ["Component Recovery", "성분 회수율"],
+          ["Component Fraction", "성분 몰분율"], ["Temperature", "온도"], ["Heat Duty", "열량"]] },
+      { k: "@condenser_spec.value", l: "응축기 규격 값", num: true, v: 2 },
+      { k: "@condenser_spec.unit", l: "응축기 규격 단위", text: true, v: "", hint: "환류비는 비워둠. 유량이면 mol/s, kg/h 등" },
+      { k: "@condenser_spec.compound", l: "응축기 규격 대상 성분", comp: true, opt: true,
+        hint: "Component… / Feed Recovery 일 때만 필요" },
+      { k: "@reboiler_spec.type", l: "재비기 규격", sel: [
+          ["Product Molar Flow Rate", "잔사 몰유량"], ["Product Mass Flow Rate", "잔사 질량유량"],
+          ["Boilup Ratio", "보일업비"], ["Component Recovery", "성분 회수율"],
+          ["Component Fraction", "성분 몰분율"], ["Temperature", "온도"], ["Heat Duty", "열량"]] },
+      { k: "@reboiler_spec.value", l: "재비기 규격 값", num: true, v: 75 },
+      { k: "@reboiler_spec.unit", l: "재비기 규격 단위", text: true, v: "mol/s" },
+      { k: "@reboiler_spec.compound", l: "재비기 규격 대상 성분", comp: true, opt: true },
+    ] },
+];
+
+/* ══════════════════════════════════════════════════════════════
+   상태
+══════════════════════════════════════════════════════════════ */
+const S = {
+  template: "distillation",
+  name: "",
+  compounds: ["Water", "Ethanol"],
+  pkg: "NRTL",
+  feeds: {},     // tag -> { T:{v,u}, P:{v,u}, flow:{v,u}, basis, composition:{name:val} }
+  params: {},    // key -> value or {v,u}
+  dirty: false,  // 텍스트를 직접 고쳤는지
+};
+
+function tpl() { return TEMPLATES.find(t => t.id === S.template) || TEMPLATES[0]; }
+function feedTags() {
+  const t = tpl();
+  return t.feeds === 1 ? ["feed"] : (t.feedNames || ["feed1", "feed2"]);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   미니 YAML (이 스키마가 쓰는 부분집합만)
+══════════════════════════════════════════════════════════════ */
+function yamlDump(obj, indent) {
+  indent = indent || 0;
+  const pad = "  ".repeat(indent);
+  let out = "";
+  for (const k in obj) {
+    const v = obj[k];
+    if (v === undefined || v === null) continue;
+    if (Array.isArray(v)) {
+      out += pad + k + ": [" + v.map(scalarOut).join(", ") + "]\n";
+    } else if (typeof v === "object") {
+      const keys = Object.keys(v);
+      if (keys.length === 0) continue;
+      const flat = keys.every(kk => typeof v[kk] !== "object" || v[kk] === null);
+      if (flat && keys.length <= 4 && indent >= 1) {
+        out += pad + k + ": { " + keys.map(kk => kk + ": " + scalarOut(v[kk])).join(", ") + " }\n";
+      } else {
+        out += pad + k + ":\n" + yamlDump(v, indent + 1);
+      }
+    } else {
+      out += pad + k + ": " + scalarOut(v) + "\n";
+    }
+  }
+  return out;
+}
+function scalarOut(v) {
+  if (v === null || v === undefined) return '""';
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  const s = String(v);
+  if (s === "") return '""';
+  // 콜론/쉼표/중괄호/선행공백이 있으면 인용
+  if (/[:,{}\[\]#]|^\s|\s$/.test(s)) return JSON.stringify(s);
+  return s;
+}
+
+function yamlParse(text) {
+  const lines = text.replace(/\r/g, "").split("\n");
+  const root = {};
+  // stack of { indent, container }
+  const stack = [{ indent: -1, box: root }];
+
+  for (let i = 0; i < lines.length; i++) {
+    let raw = lines[i];
+    const noComment = stripComment(raw);
+    if (!noComment.trim()) continue;
+
+    const indent = noComment.length - noComment.replace(/^\s*/, "").length;
+    const line = noComment.trim();
+
+    const m = line.match(/^([^:]+):\s*(.*)$/);
+    if (!m) throw new Error((i + 1) + "행을 해석할 수 없습니다: " + line);
+
+    const key = m[1].trim().replace(/^["']|["']$/g, "");
+    const rest = m[2].trim();
+
+    while (stack.length > 1 && indent <= stack[stack.length - 1].indent) stack.pop();
+    const box = stack[stack.length - 1].box;
+
+    if (rest === "") {
+      const child = {};
+      box[key] = child;
+      stack.push({ indent: indent, box: child });
+    } else {
+      box[key] = parseScalarOrFlow(rest, i + 1);
+    }
+  }
+  return root;
+}
+function stripComment(s) {
+  let out = "", q = null;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { out += c; if (c === q && s[i - 1] !== "\\") q = null; continue; }
+    if (c === '"' || c === "'") { q = c; out += c; continue; }
+    if (c === "#") break;
+    out += c;
+  }
+  return out;
+}
+function parseScalarOrFlow(s, lineNo) {
+  if (s.startsWith("{") && s.endsWith("}")) {
+    const inner = s.slice(1, -1).trim();
+    const o = {};
+    if (!inner) return o;
+    for (const part of splitTop(inner)) {
+      const idx = part.indexOf(":");
+      if (idx < 0) throw new Error(lineNo + "행: \"" + part + "\" 에 콜론이 없습니다.");
+      o[part.slice(0, idx).trim().replace(/^["']|["']$/g, "")] = parseScalar(part.slice(idx + 1).trim());
+    }
+    return o;
+  }
+  if (s.startsWith("[") && s.endsWith("]")) {
+    const inner = s.slice(1, -1).trim();
+    return inner ? splitTop(inner).map(parseScalar) : [];
+  }
+  return parseScalar(s);
+}
+function splitTop(s) {
+  const parts = []; let depth = 0, cur = "", q = null;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { cur += c; if (c === q) q = null; continue; }
+    if (c === '"' || c === "'") { q = c; cur += c; continue; }
+    if (c === "{" || c === "[") depth++;
+    if (c === "}" || c === "]") depth--;
+    if (c === "," && depth === 0) { parts.push(cur); cur = ""; continue; }
+    cur += c;
+  }
+  if (cur.trim()) parts.push(cur);
+  return parts.map(p => p.trim()).filter(Boolean);
+}
+function parseScalar(s) {
+  s = s.trim();
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))
+    return s.slice(1, -1);
+  if (s === "true") return true;
+  if (s === "false") return false;
+  if (s === "null" || s === "~") return null;
+  if (/^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(s)) return Number(s);
+  return s;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   spec 조립
+══════════════════════════════════════════════════════════════ */
+function qtyStr(o, fallbackUnit) {
+  if (o === undefined || o === null || o === "") return undefined;
+  if (typeof o === "object") {
+    if (o.v === "" || o.v === undefined || o.v === null) return undefined;
+    const u = o.u || fallbackUnit;
+    return u ? (o.v + " " + u) : String(o.v);
+  }
+  return String(o);
+}
+
+function buildSpec() {
+  const t = tpl();
+  const spec = {
+    template: t.id,
+    name: S.name || t.nm,
+    compounds: S.compounds.slice(),
+    property_package: S.pkg,
+  };
+  if ($("chkSave") && $("chkSave").checked) spec.save = true;
+
+  const tags = feedTags();
+  const mkFeed = (tag) => {
+    const f = S.feeds[tag] || {};
+    const out = {};
+    const T = qtyStr(f.T), P = qtyStr(f.P), fl = qtyStr(f.flow);
+    if (T) out.T = T;
+    if (P) out.P = P;
+    if (fl) out.flow = fl;
+    out.basis = f.basis || "molar";
+    const comp = {};
+    for (const c of S.compounds) {
+      const val = (f.composition || {})[c];
+      if (val !== undefined && val !== "" && Number(val) !== 0) comp[c] = Number(val);
+    }
+    out.composition = comp;
+    return out;
+  };
+
+  if (t.feeds === 1) spec.feed = mkFeed("feed");
+  else { spec.feeds = {}; tags.forEach(tag => { spec.feeds[tag] = mkFeed(tag); }); }
+
+  const params = {};
+  for (const f of t.params) {
+    if (!fieldVisible(f)) continue;
+    const val = S.params[f.k];
+    let outVal;
+    if (f.q) outVal = qtyStr(val, U[f.q].def);
+    else if (val === "" || val === undefined || val === null) outVal = undefined;
+    else outVal = f.num ? Number(val) : val;
+
+    if (outVal === undefined) { if (f.opt) continue; else continue; }
+
+    if (f.k.startsWith("@")) {
+      const path = f.k.slice(1).split(".");
+      let box = params;
+      for (let i = 0; i < path.length - 1; i++) box = (box[path[i]] = box[path[i]] || {});
+      if (outVal !== "" ) box[path[path.length - 1]] = outVal;
+    } else {
+      params[f.k] = outVal;
+    }
+  }
+  if (Object.keys(params).length) spec.params = params;
+  return spec;
+}
+
+function fieldVisible(f) {
+  if (!f.when) return true;
+  for (const k in f.when) {
+    const want = f.when[k];
+    const have = S.params[k];
+    if (Array.isArray(want)) { if (!want.includes(have)) return false; }
+    else if (have !== want) return false;
+  }
+  return true;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   렌더링
+══════════════════════════════════════════════════════════════ */
+function renderTemplates() {
+  $("tplGrid").innerHTML = "";
+  for (const t of TEMPLATES) {
+    const b = document.createElement("button");
+    b.className = "tpl";
+    b.setAttribute("aria-pressed", String(t.id === S.template));
+    b.innerHTML = '<span class="nm"></span><span class="ds"></span>';
+    b.querySelector(".nm").textContent = t.nm;
+    b.querySelector(".ds").textContent = t.ds;
+    b.onclick = () => { S.template = t.id; initTemplate(); renderAll(); };
+    $("tplGrid").appendChild(b);
+  }
+}
+
+function initTemplate() {
+  const t = tpl();
+  S.params = {};
+  for (const f of t.params) {
+    if (f.sel) S.params[f.k] = f.sel[0][0];
+    else if (f.q) S.params[f.k] = { v: f.v !== undefined ? f.v : "", u: f.u || U[f.q].def };
+    else if (f.v !== undefined) S.params[f.k] = f.v;
+    else S.params[f.k] = "";
+  }
+  // 공급 스트림 기본값
+  const tags = feedTags();
+  const kept = {};
+  for (const tag of tags) {
+    kept[tag] = S.feeds[tag] || {
+      T: { v: 25, u: "C" }, P: { v: 1, u: "atm" }, flow: { v: 1000, u: "kg/h" },
+      basis: "molar", composition: {},
+    };
+  }
+  S.feeds = kept;
+  ensureComposition();
+}
+
+function ensureComposition() {
+  for (const tag of feedTags()) {
+    const f = S.feeds[tag];
+    if (!f.composition) f.composition = {};
+    const n = S.compounds.length;
+    for (const c of S.compounds)
+      if (f.composition[c] === undefined) f.composition[c] = n ? Math.round(100 / n) : 0;
+    for (const c in f.composition)
+      if (!S.compounds.includes(c)) delete f.composition[c];
+  }
+}
+
+function qtyControl(container, label, get, set, quantity, hint) {
+  const spec = U[quantity];
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  const lb = document.createElement("label");
+  lb.textContent = label;
+  wrap.appendChild(lb);
+  const row = document.createElement("div");
+  row.className = "qty";
+  const inp = document.createElement("input");
+  inp.type = "text"; inp.inputMode = "decimal";
+  const cur = get() || {};
+  inp.value = cur.v === undefined ? "" : cur.v;
+  const sel = document.createElement("select");
+  for (const u of spec.units) {
+    const o = document.createElement("option");
+    o.value = u; o.textContent = u;
+    sel.appendChild(o);
+  }
+  sel.value = cur.u || spec.def;
+  const push = () => { set({ v: inp.value, u: sel.value }); onFormChange(); };
+  inp.oninput = push; sel.onchange = push;
+  row.appendChild(inp); row.appendChild(sel);
+  wrap.appendChild(row);
+  if (hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = hint; wrap.appendChild(h); }
+  container.appendChild(wrap);
+}
+
+function plainControl(container, label, get, set, opts) {
+  opts = opts || {};
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  const lb = document.createElement("label");
+  lb.textContent = label;
+  wrap.appendChild(lb);
+  let el;
+  if (opts.sel) {
+    el = document.createElement("select");
+    for (const [v, t] of opts.sel) {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = t;
+      el.appendChild(o);
+    }
+    el.value = get();
+    el.onchange = () => { set(el.value); onFormChange(); renderParams(); };
+  } else if (opts.comp) {
+    el = document.createElement("select");
+    if (opts.optional) el.appendChild(new Option("(없음)", ""));
+    for (const c of S.compounds) el.appendChild(new Option(c, c));
+    el.value = get() || "";
+    el.onchange = () => { set(el.value); onFormChange(); };
+  } else {
+    el = document.createElement("input");
+    el.type = "text";
+    if (opts.num) el.inputMode = "decimal";
+    el.value = get() === undefined || get() === null ? "" : get();
+    el.oninput = () => { set(el.value); onFormChange(); };
+  }
+  wrap.appendChild(el);
+  if (opts.hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = opts.hint; wrap.appendChild(h); }
+  container.appendChild(wrap);
+}
+
+function renderFeeds() {
+  const box = $("feedArea");
+  box.innerHTML = "";
+  for (const tag of feedTags()) {
+    const f = S.feeds[tag];
+    const sec = document.createElement("div");
+    if (feedTags().length > 1) {
+      const h = document.createElement("h3");
+      h.textContent = tag === "hot" ? "고온측 (hot)" : tag === "cold" ? "저온측 (cold)" : tag;
+      sec.appendChild(h);
+    }
+    qtyControl(sec, "온도", () => f.T, v => f.T = v, "temperature");
+    qtyControl(sec, "압력", () => f.P, v => f.P = v, "pressure");
+    qtyControl(sec, "유량", () => f.flow, v => f.flow = v, "flow",
+               "단위가 기준을 정합니다: kg/h → 질량, mol/s → 몰, m3/h → 체적");
+    plainControl(sec, "조성 입력 기준", () => f.basis || "molar", v => f.basis = v,
+                 { sel: [["molar", "몰 기준 (mol%)"], ["mass", "질량 기준 (wt%)"]] });
+
+    const h2 = document.createElement("h3");
+    h2.textContent = "조성 (상대비 — 합이 100이 아니어도 자동 정규화)";
+    sec.appendChild(h2);
+    if (S.compounds.length === 0) {
+      const p = document.createElement("div");
+      p.className = "hint"; p.textContent = "성분을 먼저 추가하세요.";
+      sec.appendChild(p);
+    } else {
+      const t = document.createElement("table");
+      t.innerHTML = "<thead><tr><th>성분</th><th>값</th></tr></thead>";
+      const tb = document.createElement("tbody");
+      for (const c of S.compounds) {
+        const tr = document.createElement("tr");
+        const td1 = document.createElement("td"); td1.textContent = c;
+        const td2 = document.createElement("td");
+        const inp = document.createElement("input");
+        inp.type = "text"; inp.inputMode = "decimal";
+        inp.style.textAlign = "right";
+        inp.value = f.composition[c] === undefined ? "" : f.composition[c];
+        inp.oninput = () => { f.composition[c] = inp.value; onFormChange(); };
+        td2.appendChild(inp);
+        tr.appendChild(td1); tr.appendChild(td2);
+        tb.appendChild(tr);
+      }
+      t.appendChild(tb);
+      const sc = document.createElement("div");
+      sc.className = "tbl-scroll"; sc.appendChild(t);
+      sec.appendChild(sc);
+    }
+    box.appendChild(sec);
+  }
+}
+
+function renderParams() {
+  const box = $("paramArea");
+  box.innerHTML = "";
+  const t = tpl();
+  if (t.note) {
+    const n = document.createElement("div");
+    n.className = "msg warn"; n.textContent = "ℹ " + t.note;
+    box.appendChild(n);
+  }
+  if (t.params.length === 0) {
+    const p = document.createElement("div");
+    p.className = "hint"; p.textContent = "이 템플릿은 추가 설정이 없습니다.";
+    box.appendChild(p);
+  }
+  for (const f of t.params) {
+    if (!fieldVisible(f)) continue;
+    if (f.q) {
+      qtyControl(box, f.l, () => S.params[f.k], v => S.params[f.k] = v, f.q, f.hint);
+    } else {
+      plainControl(box, f.l, () => S.params[f.k], v => S.params[f.k] = v,
+                   { sel: f.sel, comp: f.comp, num: f.num, hint: f.hint, optional: f.opt });
+    }
+  }
+}
+
+function renderCompounds() {
+  const box = $("compChips");
+  box.innerHTML = "";
+  $("compCount").textContent = "(" + S.compounds.length + ")";
+  for (const c of S.compounds) {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.appendChild(document.createTextNode(c));
+    const b = document.createElement("button");
+    b.textContent = "×"; b.title = c + " 제거";
+    b.onclick = () => {
+      S.compounds = S.compounds.filter(x => x !== c);
+      ensureComposition(); renderAll();
+    };
+    chip.appendChild(b);
+    box.appendChild(chip);
+  }
+}
+
+function renderPackages() {
+  const sel = $("pkg");
+  const list = (META && META.property_packages && META.property_packages.length)
+    ? META.property_packages
+    : ["Peng-Robinson", "Soave-Redlich-Kwong (SRK)", "NRTL", "UNIQUAC", "UNIFAC",
+       "Raoult's Law", "Steam Tables (IAPWS-IF97)", "Lee-Kesler-Plocker", "CoolProp"];
+  const cur = S.pkg;
+  sel.innerHTML = "";
+  for (const p of list) sel.appendChild(new Option(p, p));
+  if (list.includes(cur)) sel.value = cur;
+  else { sel.value = list[0]; S.pkg = list[0]; }
+  sel.onchange = () => { S.pkg = sel.value; onFormChange(); };
+}
+
+function renderAll() {
+  renderTemplates();
+  renderCompounds();
+  renderPackages();
+  renderFeeds();
+  renderParams();
+  syncText();
+}
+
+function onFormChange() { S.dirty = false; syncText(); }
+function syncText() {
+  if (S.dirty) return;
+  $("specText").value = yamlDump(buildSpec());
+}
+
+/* ══════════════════════════════════════════════════════════════
+   서버 통신
+══════════════════════════════════════════════════════════════ */
+function setStatus(kind, text) {
+  const el = $("status");
+  el.className = "pill " + kind;
+  el.innerHTML = '<span class="dot"></span>';
+  el.appendChild(document.createTextNode(text));
+}
+
+async function checkServer() {
+  if (DEMO) { setStatus("warn", "데모 모드 (계산값 가짜)"); return; }
+  setStatus("warn", "연결 확인 중…");
+  try {
+    const r = await fetch(API.replace(/\/$/, "") + "/api/health", { method: "GET" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    setStatus("ok", "DWSIM " + (j.dwsim_version || "?") + " 연결됨");
+    try {
+      const m = await fetch(API.replace(/\/$/, "") + "/api/meta");
+      if (m.ok) { META = await m.json(); renderPackages(); }
+    } catch (e) { /* meta 는 있으면 좋고 없어도 동작 */ }
+  } catch (e) {
+    setStatus("err", "서버 연결 안 됨");
+  }
+}
+
+async function searchCompounds(q) {
+  const box = $("compResults");
+  box.innerHTML = "";
+  if (!q || q.length < 2) return;
+  if (DEMO) {
+    box.innerHTML = '<span class="hint">데모 모드에서는 성분 검색을 할 수 없습니다. 직접 입력 후 [추가]를 누르세요.</span>';
+    return;
+  }
+  try {
+    const r = await fetch(API.replace(/\/$/, "") + "/api/compounds?q=" + encodeURIComponent(q) + "&limit=12");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    if (!j.compounds || !j.compounds.length) {
+      box.innerHTML = '<span class="hint">검색 결과가 없습니다.</span>';
+      return;
+    }
+    for (const c of j.compounds) {
+      const b = document.createElement("button");
+      b.className = "sm";
+      b.textContent = c.name + (c.formula ? " (" + c.formula + ")" : "");
+      b.onclick = () => addCompound(c.name);
+      box.appendChild(b);
+    }
+  } catch (e) {
+    box.innerHTML = '<span class="hint">검색 실패 — 서버 연결을 확인하세요. 이름을 직접 입력해 [추가]할 수도 있습니다.</span>';
+  }
+}
+
+function addCompound(name) {
+  name = (name || "").trim();
+  if (!name) return;
+  if (!S.compounds.includes(name)) S.compounds.push(name);
+  ensureComposition();
+  $("compSearch").value = "";
+  $("compResults").innerHTML = "";
+  renderAll();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   실행
+══════════════════════════════════════════════════════════════ */
+async function run() {
+  const btn = $("btnRun");
+  const text = $("specText").value.trim();
+  let spec;
+  try {
+    spec = text.startsWith("{") ? JSON.parse(text) : yamlParse(text);
+  } catch (e) {
+    showResult({ ok: false, error: "입력 텍스트를 해석할 수 없습니다: " + e.message });
+    return;
+  }
+
+  btn.disabled = true;
+  const old = btn.innerHTML;
+  btn.innerHTML = '<span class="spin"></span> 계산 중…';
+  $("runNote").textContent = "증류탑은 수 초 걸릴 수 있습니다.";
+
+  try {
+    let json;
+    if (DEMO) {
+      await new Promise(r => setTimeout(r, 600));
+      json = demoResult(spec);
+    } else {
+      const r = await fetch(API.replace(/\/$/, "") + "/api/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(spec),
+      });
+      json = await r.json().catch(() => ({ ok: false, error: "서버가 JSON을 반환하지 않았습니다 (HTTP " + r.status + ")" }));
+    }
+    showResult(json);
+  } catch (e) {
+    showResult({ ok: false, error: "서버에 연결할 수 없습니다: " + e.message });
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = old;
+    $("runNote").textContent = "";
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   결과 표시
+══════════════════════════════════════════════════════════════ */
+const fmt = (v) => {
+  if (v === null || v === undefined) return "—";
+  const a = Math.abs(v);
+  if (v === 0) return "0";
+  if (a >= 1e6 || a < 1e-4) return v.toExponential(3);
+  return v.toLocaleString("ko-KR", { maximumFractionDigits: a < 1 ? 5 : a < 100 ? 3 : 2 });
+};
+
+function showResult(j) {
+  const area = $("resultArea");
+  area.innerHTML = "";
+  const card = document.createElement("div");
+  card.className = "card";
+  area.appendChild(card);
+
+  const h = document.createElement("h2");
+  h.textContent = "결과";
+  card.appendChild(h);
+
+  if (DEMO) {
+    const d = document.createElement("div");
+    d.className = "msg warn";
+    d.innerHTML = "<b>데모 모드입니다 — 아래 숫자는 화면 확인용 가짜 값입니다.</b> 실제 계산에는 DWSIM API 서버 연결이 필요합니다.";
+    card.appendChild(d);
+  }
+
+  if (j.error) {
+    const e = document.createElement("div");
+    e.className = "msg err";
+    e.innerHTML = "<b>실행할 수 없습니다.</b><br>";
+    e.appendChild(document.createTextNode(j.error));
+    card.appendChild(e);
+    area.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  if (j.errors && j.errors.length) {
+    const e = document.createElement("div");
+    e.className = "msg err";
+    e.innerHTML = "<b>계산 중 오류가 발생했습니다 (아래 값은 신뢰할 수 없습니다).</b>";
+    const ul = document.createElement("ul");
+    ul.style.margin = "6px 0 0"; ul.style.paddingLeft = "18px";
+    for (const m of j.errors) { const li = document.createElement("li"); li.textContent = m; ul.appendChild(li); }
+    e.appendChild(ul);
+    card.appendChild(e);
+  } else if (j.ok) {
+    const e = document.createElement("div");
+    e.className = "msg ok";
+    e.textContent = "계산 완료 · " + (j.elapsed_ms || 0) + " ms · DWSIM " + (j.dwsim_version || "");
+    card.appendChild(e);
+  }
+
+  // 스트림 물성표
+  if (j.streams && j.streams.length) {
+    const keys = ["T", "P", "molar_flow", "mass_flow", "volumetric_flow",
+                  "vapor_fraction", "molecular_weight", "density", "enthalpy"];
+    const t = document.createElement("table");
+    let head = "<thead><tr><th>항목</th>";
+    for (const s of j.streams) head += "<th>" + esc(s.name) + "</th>";
+    head += "</tr></thead>";
+    t.innerHTML = head;
+    const tb = document.createElement("tbody");
+    for (const k of keys) {
+      const first = j.streams[0].props ? j.streams[0].props[k] : null;
+      if (!first) continue;
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.textContent = (first.label || k) + (first.u && first.u !== "-" ? " [" + first.u + "]" : "");
+      tr.appendChild(td);
+      for (const s of j.streams) {
+        const cell = document.createElement("td");
+        const p = (s.props || {})[k];
+        cell.textContent = p ? fmt(p.v) : "—";
+        tr.appendChild(cell);
+      }
+      tb.appendChild(tr);
+    }
+    t.appendChild(tb);
+    const h3 = document.createElement("h3"); h3.textContent = "스트림 물성";
+    card.appendChild(h3);
+    const sc = document.createElement("div"); sc.className = "tbl-scroll"; sc.appendChild(t);
+    card.appendChild(sc);
+
+    // 조성표
+    for (const basis of ["molar", "mass"]) {
+      const ct = document.createElement("table");
+      let ch = "<thead><tr><th>성분</th>";
+      for (const s of j.streams) ch += "<th>" + esc(s.name) + "</th>";
+      ch += "</tr></thead>";
+      ct.innerHTML = ch;
+      const ctb = document.createElement("tbody");
+      let any = false;
+      for (const c of (j.compounds || [])) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td"); td.textContent = c; tr.appendChild(td);
+        for (const s of j.streams) {
+          const cell = document.createElement("td");
+          const v = ((s.composition || {})[basis] || {})[c];
+          if (v !== undefined && v !== null) any = true;
+          cell.textContent = v === undefined || v === null ? "—" : fmt(v);
+          tr.appendChild(cell);
+        }
+        ctb.appendChild(tr);
+      }
+      if (!any) continue;
+      ct.appendChild(ctb);
+      const h4 = document.createElement("h3");
+      h4.textContent = basis === "molar" ? "조성 (몰분율)" : "조성 (질량분율)";
+      card.appendChild(h4);
+      const sc2 = document.createElement("div"); sc2.className = "tbl-scroll"; sc2.appendChild(ct);
+      card.appendChild(sc2);
+    }
+  }
+
+  // 장치 결과 + 에너지
+  const extras = [];
+  if (j.unit && j.unit.results)
+    for (const k in j.unit.results) {
+      const r = j.unit.results[k];
+      if (r && r.v !== null && r.v !== undefined) extras.push([r.label || k, r.v, r.u]);
+    }
+  if (j.energy_streams)
+    for (const e of j.energy_streams)
+      if (e.duty && e.duty.v !== null && e.duty.v !== undefined)
+        extras.push([e.name, e.duty.v, e.duty.u]);
+
+  if (extras.length) {
+    const h3 = document.createElement("h3");
+    h3.textContent = "장치 결과" + (j.unit ? " (" + j.unit.type + ")" : "");
+    card.appendChild(h3);
+    const t = document.createElement("table");
+    t.innerHTML = "<thead><tr><th>항목</th><th>값</th><th>단위</th></tr></thead>";
+    const tb = document.createElement("tbody");
+    for (const [l, v, u] of extras) {
+      const tr = document.createElement("tr");
+      for (const cellText of [l, fmt(v), u === "-" ? "" : u]) {
+        const td = document.createElement("td");
+        td.textContent = cellText;
+        tr.appendChild(td);
+      }
+      tb.appendChild(tr);
+    }
+    t.appendChild(tb);
+    const sc = document.createElement("div"); sc.className = "tbl-scroll"; sc.appendChild(t);
+    card.appendChild(sc);
+  }
+
+  // 내려받기
+  const row = document.createElement("div");
+  row.className = "row"; row.style.marginTop = "12px";
+  const bCsv = document.createElement("button");
+  bCsv.className = "sm"; bCsv.textContent = "결과 CSV 저장";
+  bCsv.onclick = () => downloadCsv(j);
+  row.appendChild(bCsv);
+  if (j.download_url && !DEMO) {
+    const a = document.createElement("a");
+    a.href = API.replace(/\/$/, "") + j.download_url;
+    a.textContent = "DWSIM 파일(.dwxmz) 내려받기";
+    a.style.fontSize = "11.5px";
+    row.appendChild(a);
+  }
+  if (j.save_error) {
+    const w = document.createElement("span");
+    w.className = "hint"; w.textContent = "파일 저장 실패: " + j.save_error;
+    row.appendChild(w);
+  }
+  card.appendChild(row);
+
+  const det = document.createElement("details");
+  det.style.marginTop = "10px";
+  const sm = document.createElement("summary"); sm.textContent = "원본 JSON 보기";
+  det.appendChild(sm);
+  const pre = document.createElement("textarea");
+  pre.rows = 14; pre.readOnly = true; pre.value = JSON.stringify(j, null, 2);
+  det.appendChild(pre);
+  card.appendChild(det);
+
+  area.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+function downloadCsv(j) {
+  const rows = [];
+  const streams = j.streams || [];
+  rows.push(["항목", "단위"].concat(streams.map(s => s.name)));
+  const keys = ["T", "P", "molar_flow", "mass_flow", "volumetric_flow",
+                "vapor_fraction", "molecular_weight", "density", "enthalpy"];
+  for (const k of keys) {
+    const first = streams[0] && streams[0].props ? streams[0].props[k] : null;
+    if (!first) continue;
+    rows.push([first.label || k, first.u].concat(
+      streams.map(s => { const p = (s.props || {})[k]; return p && p.v !== null ? p.v : ""; })));
+  }
+  for (const basis of ["molar", "mass"]) {
+    for (const c of (j.compounds || [])) {
+      rows.push([c + (basis === "molar" ? " 몰분율" : " 질량분율"), "-"].concat(
+        streams.map(s => {
+          const v = ((s.composition || {})[basis] || {})[c];
+          return v === undefined || v === null ? "" : v;
+        })));
+    }
+  }
+  if (j.unit && j.unit.results)
+    for (const k in j.unit.results) {
+      const r = j.unit.results[k];
+      if (r && r.v !== null && r.v !== undefined) rows.push([r.label || k, r.u, r.v]);
+    }
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c === undefined || c === null ? "" : c);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(",")).join("\r\n");
+  // 엑셀에서 한글이 깨지지 않도록 BOM 추가
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (j.name || "simulation") + ".csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   데모 데이터 — 서버 없이 화면을 확인하기 위한 가짜 값
+══════════════════════════════════════════════════════════════ */
+function demoResult(spec) {
+  const comps = spec.compounds || ["Water"];
+  const names = spec.feeds ? Object.keys(spec.feeds) : ["feed"];
+  const outs = {
+    stream: [], flash: ["vapor", "liquid"], heater: ["outlet"], cooler: ["outlet"],
+    pump: ["outlet"], compressor: ["outlet"], valve: ["outlet"], mixer: ["outlet"],
+    splitter: ["outlet1", "outlet2"], heat_exchanger: ["outlet1", "outlet2"],
+    shortcut_column: ["distillate", "bottoms"], distillation: ["distillate", "bottoms"],
+  }[spec.template] || ["outlet"];
+
+  const mk = (nm, i) => {
+    const frac = {}, mfrac = {};
+    let tot = 0;
+    comps.forEach((c, k) => { const v = 1 / (k + 1 + i); frac[c] = v; tot += v; });
+    comps.forEach(c => { frac[c] = frac[c] / tot; mfrac[c] = frac[c]; });
+    const V = (v, u, l) => ({ v: v, u: u, label: l });
+    return {
+      name: nm,
+      props: {
+        T: V(320 + i * 18, "K", "온도"), P: V(101325, "Pa", "압력"),
+        molar_flow: V(100 / (i + 1), "mol/s", "몰유량"),
+        mass_flow: V(2.5 / (i + 1), "kg/s", "질량유량"),
+        volumetric_flow: V(0.003, "m3/s", "체적유량"),
+        vapor_fraction: V(i === 0 ? 1 : 0, "-", "기상분율(몰)"),
+        molecular_weight: V(25 + i, "g/mol", "분자량"),
+        density: V(850 - i * 40, "kg/m3", "밀도"),
+        enthalpy: V(-1200 + i * 60, "kJ/kg", "비엔탈피"),
+      },
+      composition: { molar: frac, mass: mfrac },
+      phases: [],
+    };
+  };
+
+  const streams = names.concat(outs).map(mk);
+  return {
+    ok: true, name: spec.name || "데모", template: spec.template,
+    dwsim_version: "(데모)", elapsed_ms: 600, solved: true, errors: [],
+    compounds: comps, streams: streams,
+    energy_streams: (spec.template === "distillation" || spec.template === "shortcut_column")
+      ? [{ name: "condenser_duty", duty: { v: -3120, u: "kW", label: "열량" } },
+         { name: "reboiler_duty", duty: { v: 3450, u: "kW", label: "열량" } }] : [],
+    unit: { type: "(데모)", results: {} },
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   이벤트 바인딩
+══════════════════════════════════════════════════════════════ */
+$("btnCfg").onclick = () => {
+  const c = $("cfgCard");
+  c.hidden = !c.hidden;
+  $("apiUrl").value = API;
+};
+$("btnSaveCfg").onclick = () => {
+  API = $("apiUrl").value.trim() || "http://localhost:8080";
+  localStorage.setItem(LS_KEY, API);
+  DEMO = false;
+  $("cfgCard").hidden = true;
+  checkServer();
+};
+$("btnDemo").onclick = () => {
+  DEMO = true;
+  $("cfgCard").hidden = true;
+  setStatus("warn", "데모 모드 (계산값 가짜)");
+};
+$("simName").oninput = () => { S.name = $("simName").value; onFormChange(); };
+$("btnCompAdd").onclick = () => addCompound($("compSearch").value);
+$("compSearch").oninput = debounce(() => searchCompounds($("compSearch").value.trim()), 300);
+$("compSearch").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addCompound($("compSearch").value); } };
+$("specText").oninput = () => { S.dirty = true; };
+$("btnFromForm").onclick = () => { S.dirty = false; syncText(); };
+$("btnCopy").onclick = async () => {
+  try { await navigator.clipboard.writeText($("specText").value); $("btnCopy").textContent = "복사됨!"; }
+  catch (e) { $("specText").select(); document.execCommand("copy"); $("btnCopy").textContent = "복사됨!"; }
+  setTimeout(() => { $("btnCopy").textContent = "복사"; }, 1200);
+};
+$("btnSaveFile").onclick = () => {
+  const blob = new Blob([$("specText").value], { type: "text/yaml;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (S.name || S.template) + ".yaml";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+$("chkSave").onchange = onFormChange;
+$("btnRun").onclick = run;
+
+function debounce(fn, ms) {
+  let t;
+  return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   시작
+══════════════════════════════════════════════════════════════ */
+S.name = "에탄올-물 증류";
+$("simName").value = S.name;
+initTemplate();
+// 증류 기본 예시값
+S.feeds.feed = { T: { v: 27, u: "C" }, P: { v: 1, u: "atm" }, flow: { v: 100, u: "mol/s" },
+                 basis: "molar", composition: { Water: 50, Ethanol: 50 } };
+renderAll();
+checkServer();
+</script>
+</body>
+</html>

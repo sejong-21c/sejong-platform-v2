@@ -758,11 +758,13 @@ const TOOLS = {
   'deptsch':   { name: '부서 스케줄',       icon: '📅', li: 'calendar-range', desc: '부서별 WBS 일정·진척 관리',  status: 'live', ver: 'v1.0' },
   'mtools':    { name: '측정기구 반입출',   icon: '🔬', li: 'microscope', desc: 'QR 스캔 반출·반입 (전 부서) · 등록/검교정은 품질관리부만', status: 'live', ver: 'v1.0', crossDept: true },
   'asset':     { name: '자산 관리 대장',    icon: '🖥️', li: 'monitor', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
+  // 공정 시뮬레이터: 계산은 사내 DWSIM API 서버가 수행. 서버 주소는 모듈 화면의 ⚙ 서버에서 설정.
+  'procsim':   { name: '공정 시뮬레이터',   icon: '⚗️', li: 'flask-conical', desc: 'DWSIM 엔진 기반 공정 계산 — 플래시·증류탑·열교환기·펌프·압축기 등', status: 'live', ver: 'v1.0' },
 };
 // 회의 모듈은 부서 도구가 아니라 대메뉴(NAV 'meeting')로 노출 — 전 직원 자유 사용
 const DEPTS = [
   { id: 'sales',        icon: '💼', li: 'briefcase', name: '영업부',     tools: ['deptsch'] },
-  { id: 'design',       icon: '📐', li: 'pencil-ruler', name: '기술부',     tools: ['deptsch'] },
+  { id: 'design',       icon: '📐', li: 'pencil-ruler', name: '기술부',     tools: ['deptsch', 'procsim'] },
   { id: 'purchase',     icon: '🛒', li: 'shopping-cart', name: '구매부',     tools: ['deptsch'] },
   { id: 'production',   icon: '🏭', li: 'factory', name: '생산부',     tools: ['deptsch'] },
   { id: 'quality',      icon: '📦', li: 'package-check', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
@@ -1163,6 +1165,8 @@ const ASSET_BUILD = 'a8';
 // v29.24: ITP/QA 조회 뷰어 (신규)
 const ITPVIEW_BUILD = 'a11';
 const QAVIEW_BUILD = 'a3';
+// process-sim.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
+const PROCSIM_BUILD = 'a1';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -2618,6 +2622,7 @@ function iframeViewKey() {
   if (v.selectedTool === 'qaview') return 'qaview';
   if (v.selectedTool === 'mtools') return 'mtools';
   if (v.selectedTool === 'asset') return 'asset';
+  if (v.selectedTool === 'procsim') return 'procsim';
   if (v.cur === 'manday') return 'manday';
   if (v.cur === 'messenger') return 'messenger';
   if (v.cur === 'meeting') return 'meeting';
@@ -2694,6 +2699,7 @@ function render() {
   if (view.selectedTool === 'itpview') { const _t=_itpViewTarget; _itpViewTarget=null; const _q=(_t&&_t.pid)?`&pid=${encodeURIComponent(_t.pid)}${_t.tag?`&tag=${encodeURIComponent(_t.tag)}`:''}`:''; content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/itp-viewer/itp-viewer.html?v=${ITPVIEW_BUILD}${_q}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="ITP 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'qaview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/qa-viewer/qa-viewer.html?v=${QAVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="QA Doc 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'mtools') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/measurement-tools/measurement-tools.html?v=${MTOOLS_BUILD}" allow="camera" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="측정기구 반입출 관리"></iframe></div>`; return; }
+  if (view.selectedTool === 'procsim') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/process-sim/process-sim.html?v=${PROCSIM_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="공정 시뮬레이터"></iframe></div>`; return; }
   if (view.selectedTool === 'asset') {
     // 자산 관리 대장: 라이선스 정보는 총무부·슈퍼·임원만 조회 (full=1 URL 파라미터로 iframe에 전달)
     const _uu = getU(state.currentUser);
