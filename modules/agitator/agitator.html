@@ -413,8 +413,12 @@ function drawTank(res) {
   // D (임펠러 가로) — 탱크 바닥 아래로 확실히 내려 겹침 방지
   const yD = yBot + 26;
   P.push(dim(cx - dw / 2, yD, cx + dw / 2, yD, `D = ${(g.D * 1000).toFixed(0)}`, 0, false));
-  // C (바닥간극: 최하단 임펠러 ~ 탱크 바닥)
-  P.push(dim(xR + 26, yBot - g.elevations[0] * sc, xR + 26, yBot, `C = ${(g.C * 1000).toFixed(0)}`, 0, true));
+  // C (바닥간극: 최하단 임펠러 ~ 탱크 바닥) — 라벨은 오른쪽 여백으로 빼서 탱크벽과 겹치지 않게
+  const cX = xR + 26, cY1 = yBot - g.elevations[0] * sc, cY2 = yBot, cc = '#1976D2';
+  P.push(`<line x1="${cX}" y1="${cY1}" x2="${cX}" y2="${cY2}" stroke="${cc}" stroke-width="1"/>`);
+  P.push(`<line x1="${cX - 4}" y1="${cY1}" x2="${cX + 4}" y2="${cY1}" stroke="${cc}" stroke-width="1"/>`);
+  P.push(`<line x1="${cX - 4}" y1="${cY2}" x2="${cX + 4}" y2="${cY2}" stroke="${cc}" stroke-width="1"/>`);
+  P.push(`<text x="${cX + 7}" y="${(cY1 + cY2) / 2 + 3}" font-size="10.5" fill="${cc}" text-anchor="start" font-family="sans-serif">C(간극)=${(g.C * 1000).toFixed(0)}</text>`);
 
   // 우측 범례
   const lx = xR + 46;
