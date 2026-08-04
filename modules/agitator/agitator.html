@@ -19,7 +19,11 @@
   window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, setDoc, deleteDoc, collection, onSnapshot };
 </script>
 
-<script src="./agitcalc-core.js"></script>
+<!-- 계산 엔진은 tools/agitcalc/web/ 의 원본을 직접 읽는다. 모듈 폴더로 복사하지
+     않는 이유: 복사본을 두면 파이썬 엔진 수정 후 동기화를 잊는 순간 화면과
+     계산서가 갈린다. 원본 한 벌만 두고 여기서 참조한다.
+     수정 절차는 tools/agitcalc/README.md 참조. -->
+<script src="../../tools/agitcalc/web/agitcalc-core.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js" defer onload="try{lucide.createIcons()}catch(e){}"></script>
 
 <style>
@@ -130,7 +134,7 @@ svg.tankdraw { width: 100%; height: auto; background: #FCFDFF; border: 1px solid
 <script>
 /* ================================================================
    교반기 선정·설계 모듈
-   계산 엔진은 ./agitcalc-core.js (파이썬 패키지 agitcalc 의 1:1 포팅).
+   계산 엔진은 ../../tools/agitcalc/web/agitcalc-core.js (파이썬 패키지 agitcalc 의 1:1 포팅).
    엔진 수식은 이 파일에서 고치지 말고 원본 저장소에서 고친 뒤 재배포한다.
    ================================================================ */
 

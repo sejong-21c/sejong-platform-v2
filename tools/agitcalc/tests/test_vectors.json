@@ -1,0 +1,2829 @@
+{
+ "scalar": [
+  {
+   "fn": "reynolds",
+   "args": [
+    1300,
+    0.3333333333333333,
+    3.0,
+    15.0
+   ],
+   "got": 260.0
+  },
+  {
+   "fn": "froude",
+   "args": [
+    0.3333333333333333,
+    3.0
+   ],
+   "got": 0.03399054043259761
+  },
+  {
+   "fn": "tipSpeed",
+   "args": [
+    0.3333333333333333,
+    3.0
+   ],
+   "got": 3.141592653589793
+  },
+  {
+   "fn": "reynolds",
+   "args": [
+    1100,
+    0.7333333333333333,
+    1.8,
+    15.0
+   ],
+   "got": 174.23999999999998
+  },
+  {
+   "fn": "froude",
+   "args": [
+    0.7333333333333333,
+    1.8
+   ],
+   "got": 0.09870852941626344
+  },
+  {
+   "fn": "tipSpeed",
+   "args": [
+    0.7333333333333333,
+    1.8
+   ],
+   "got": 4.146902302738527
+  },
+  {
+   "fn": "reynolds",
+   "args": [
+    1000,
+    2.0,
+    0.5,
+    0.001
+   ],
+   "got": 500000.0
+  },
+  {
+   "fn": "froude",
+   "args": [
+    2.0,
+    0.5
+   ],
+   "got": 0.20394324259558566
+  },
+  {
+   "fn": "tipSpeed",
+   "args": [
+    2.0,
+    0.5
+   ],
+   "got": 3.141592653589793
+  },
+  {
+   "fn": "reynolds",
+   "args": [
+    1691,
+    1.0333333333333334,
+    1.0,
+    7.0
+   ],
+   "got": 249.62380952380954
+  },
+  {
+   "fn": "froude",
+   "args": [
+    1.0333333333333334,
+    1.0
+   ],
+   "got": 0.10888303118575436
+  },
+  {
+   "fn": "tipSpeed",
+   "args": [
+    1.0333333333333334,
+    1.0
+   ],
+   "got": 3.246312408709453
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "MAXBLEND",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 24.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "MAXBLEND",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 24.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "PBT4",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 7.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "PBT4",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 7.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "RUSHTON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 14.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "RUSHTON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 14.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "HYDROFOIL",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 6.6
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "HYDROFOIL",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 6.6
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "PADDLE2",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 9.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "PADDLE2",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 9.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "ANCHOR",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 60.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "ANCHOR",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 60.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "RIBBON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 70.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "RIBBON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 70.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "PBT4",
+    {
+     "W_D": 0.15,
+     "baffled": true
+    }
+   ],
+   "got": 5.095061603583995
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    5.0,
+    "PBT4",
+    {
+     "nBlades": 6,
+     "baffled": true
+    }
+   ],
+   "got": 10.097081630724919
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "MAXBLEND",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 2.4
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "MAXBLEND",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 1.68
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "PBT4",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.27
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "PBT4",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.8889999999999999
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "RUSHTON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 5.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "RUSHTON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 3.5
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "HYDROFOIL",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.66
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "HYDROFOIL",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.66
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "PADDLE2",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.7
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "PADDLE2",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 1.19
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "ANCHOR",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 6.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "ANCHOR",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 6.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "RIBBON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 7.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "RIBBON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 7.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "PBT4",
+    {
+     "W_D": 0.15,
+     "baffled": true
+    }
+   ],
+   "got": 0.8864011282947497
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50.0,
+    "PBT4",
+    {
+     "nBlades": 6,
+     "baffled": true
+    }
+   ],
+   "got": 1.7566155713726914
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "MAXBLEND",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.2
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "MAXBLEND",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.84
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "PBT4",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.27
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "PBT4",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.8889999999999999
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "RUSHTON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 5.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "RUSHTON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 3.5
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "HYDROFOIL",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "HYDROFOIL",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "PADDLE2",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.7
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "PADDLE2",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 1.19
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "ANCHOR",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.1538461538461537
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "ANCHOR",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 1.1538461538461537
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "RIBBON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.3461538461538463
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "RIBBON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 1.3461538461538463
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "PBT4",
+    {
+     "W_D": 0.15,
+     "baffled": true
+    }
+   ],
+   "got": 0.8864011282947497
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    260.0,
+    "PBT4",
+    {
+     "nBlades": 6,
+     "baffled": true
+    }
+   ],
+   "got": 1.7566155713726914
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "MAXBLEND",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.2
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "MAXBLEND",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.84
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "PBT4",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.27
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "PBT4",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.8889999999999999
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "RUSHTON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 5.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "RUSHTON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 3.5
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "HYDROFOIL",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "HYDROFOIL",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "PADDLE2",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.7
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "PADDLE2",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 1.19
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "ANCHOR",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "ANCHOR",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "RIBBON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.36951013513513514
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "RIBBON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.36951013513513514
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "PBT4",
+    {
+     "W_D": 0.15,
+     "baffled": true
+    }
+   ],
+   "got": 0.8864011282947497
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    947.2,
+    "PBT4",
+    {
+     "nBlades": 6,
+     "baffled": true
+    }
+   ],
+   "got": 1.7566155713726914
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "MAXBLEND",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.2
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "MAXBLEND",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.84
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "PBT4",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.27
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "PBT4",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.8889999999999999
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "RUSHTON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 5.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "RUSHTON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 3.5
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "HYDROFOIL",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "HYDROFOIL",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "PADDLE2",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.7
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "PADDLE2",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 1.19
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "ANCHOR",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "ANCHOR",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "RIBBON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "RIBBON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "PBT4",
+    {
+     "W_D": 0.15,
+     "baffled": true
+    }
+   ],
+   "got": 0.8864011282947497
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    1979.8,
+    "PBT4",
+    {
+     "nBlades": 6,
+     "baffled": true
+    }
+   ],
+   "got": 1.7566155713726914
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "MAXBLEND",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.2
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "MAXBLEND",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.84
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "PBT4",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.27
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "PBT4",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.8889999999999999
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "RUSHTON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 5.0
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "RUSHTON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 3.5
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "HYDROFOIL",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "HYDROFOIL",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.3
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "PADDLE2",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 1.7
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "PADDLE2",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 1.19
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "ANCHOR",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "ANCHOR",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "RIBBON",
+    {
+     "baffled": true
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "RIBBON",
+    {
+     "baffled": false
+    }
+   ],
+   "got": 0.35
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "PBT4",
+    {
+     "W_D": 0.15,
+     "baffled": true
+    }
+   ],
+   "got": 0.8864011282947497
+  },
+  {
+   "fn": "powerNumber",
+   "args": [
+    50000.0,
+    "PBT4",
+    {
+     "nBlades": 6,
+     "baffled": true
+    }
+   ],
+   "got": 1.7566155713726914
+  },
+  {
+   "fn": "impellerPower",
+   "args": [
+    1300,
+    0.3333333333333333,
+    3.0,
+    0.84
+   ],
+   "got": 9827.999999999998
+  },
+  {
+   "fn": "pumpingCapacity",
+   "args": [
+    1.3333333333333333,
+    0.8,
+    0.79
+   ],
+   "got": 0.5393066666666667
+  },
+  {
+   "fn": "pumpingCapacity",
+   "args": [
+    1.3333333333333333,
+    0.8,
+    0.4095
+   ],
+   "got": 0.279552
+  },
+  {
+   "fn": "interferenceFactor",
+   "args": [
+    0.4
+   ],
+   "got": 0.8
+  },
+  {
+   "fn": "interferenceFactor",
+   "args": [
+    0.5
+   ],
+   "got": 0.8
+  },
+  {
+   "fn": "interferenceFactor",
+   "args": [
+    0.75
+   ],
+   "got": 0.9
+  },
+  {
+   "fn": "interferenceFactor",
+   "args": [
+    1.0
+   ],
+   "got": 1.0
+  },
+  {
+   "fn": "interferenceFactor",
+   "args": [
+    1.5
+   ],
+   "got": 1.0
+  },
+  {
+   "fn": "liquidHeight",
+   "args": [
+    4.5,
+    50.0
+   ],
+   "got": 3.1438013450250932
+  },
+  {
+   "fn": "volumeFromTH",
+   "args": [
+    4.5,
+    3.1438
+   ],
+   "got": 49.99997860830018
+  },
+  {
+   "fn": "turnoverTime",
+   "args": [
+    50.0,
+    0.5
+   ],
+   "got": 100.0
+  },
+  {
+   "fn": "specificPower",
+   "args": [
+    10000.0,
+    50.0
+   ],
+   "got": 200.0
+  },
+  {
+   "fn": "selectMotor.motor",
+   "args": [
+    1000.0,
+    0.9
+   ],
+   "got": 1.5
+  },
+  {
+   "fn": "selectMotor.load",
+   "args": [
+    1000.0,
+    0.9
+   ],
+   "got": 66.66666666666667
+  },
+  {
+   "fn": "selectMotor.motor",
+   "args": [
+    13721.0,
+    0.9
+   ],
+   "got": 18.5
+  },
+  {
+   "fn": "selectMotor.load",
+   "args": [
+    13721.0,
+    0.9
+   ],
+   "got": 74.16756756756756
+  },
+  {
+   "fn": "selectMotor.motor",
+   "args": [
+    25000.0,
+    0.9
+   ],
+   "got": 30.0
+  },
+  {
+   "fn": "selectMotor.load",
+   "args": [
+    25000.0,
+    0.9
+   ],
+   "got": 83.33333333333333
+  },
+  {
+   "fn": "selectMotor.motor",
+   "args": [
+    300000.0,
+    0.9
+   ],
+   "got": 250.0
+  },
+  {
+   "fn": "selectMotor.load",
+   "args": [
+    300000.0,
+    0.9
+   ],
+   "got": 120.0
+  },
+  {
+   "fn": "blendTime.theta",
+   "args": [
+    0.3333333333333333,
+    3.0,
+    4.5,
+    3.1438,
+    0.84,
+    260.0,
+    "MAXBLEND"
+   ],
+   "got": 218.79155070040053
+  },
+  {
+   "fn": "blendTime.thetaTurb",
+   "args": [
+    0.3333333333333333,
+    3.0,
+    4.5,
+    3.1438,
+    0.84,
+    260.0,
+    "MAXBLEND"
+   ],
+   "got": 35.27907749793118
+  },
+  {
+   "fn": "blendTime.fRe",
+   "args": [
+    0.3333333333333333,
+    3.0,
+    4.5,
+    3.1438,
+    0.84,
+    260.0,
+    "MAXBLEND"
+   ],
+   "got": 6.201736729460423
+  },
+  {
+   "fn": "blendTime.theta",
+   "args": [
+    2.0,
+    0.5,
+    1.5,
+    1.5,
+    1.27,
+    50000.0,
+    "PBT4"
+   ],
+   "got": 24.5167718225966
+  },
+  {
+   "fn": "blendTime.thetaTurb",
+   "args": [
+    2.0,
+    0.5,
+    1.5,
+    1.5,
+    1.27,
+    50000.0,
+    "PBT4"
+   ],
+   "got": 24.5167718225966
+  },
+  {
+   "fn": "blendTime.fRe",
+   "args": [
+    2.0,
+    0.5,
+    1.5,
+    1.5,
+    1.27,
+    50000.0,
+    "PBT4"
+   ],
+   "got": 1.0
+  },
+  {
+   "fn": "blendTime.theta",
+   "args": [
+    0.5,
+    1.0,
+    2.0,
+    2.0,
+    1.2,
+    800.0,
+    "MAXBLEND"
+   ],
+   "got": 157.03745793758188
+  },
+  {
+   "fn": "blendTime.thetaTurb",
+   "args": [
+    0.5,
+    1.0,
+    2.0,
+    2.0,
+    1.2,
+    800.0,
+    "MAXBLEND"
+   ],
+   "got": 44.41690056318455
+  },
+  {
+   "fn": "blendTime.fRe",
+   "args": [
+    0.5,
+    1.0,
+    2.0,
+    2.0,
+    1.2,
+    800.0,
+    "MAXBLEND"
+   ],
+   "got": 3.5355339059327378
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SS400",
+    true
+   ],
+   "got": 54.0
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SS400",
+    false
+   ],
+   "got": 72.0
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SM45C",
+    true
+   ],
+   "got": 76.815
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SM45C",
+    false
+   ],
+   "got": 102.42
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SUS304",
+    true
+   ],
+   "got": 46.125
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SUS304",
+    false
+   ],
+   "got": 61.5
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SUS316L",
+    true
+   ],
+   "got": 39.375
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SUS316L",
+    false
+   ],
+   "got": 52.5
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SUS329J",
+    true
+   ],
+   "got": 83.69999999999999
+  },
+  {
+   "fn": "allowableShear",
+   "args": [
+    "SUS329J",
+    false
+   ],
+   "got": 111.6
+  },
+  {
+   "fn": "sectionProps.A",
+   "args": [
+    70.0
+   ],
+   "got": 3848.4510006474966
+  },
+  {
+   "fn": "sectionProps.I",
+   "args": [
+    70.0
+   ],
+   "got": 1178588.1189482957
+  },
+  {
+   "fn": "sectionProps.Z",
+   "args": [
+    70.0
+   ],
+   "got": 33673.94625566559
+  },
+  {
+   "fn": "sectionProps.Zp",
+   "args": [
+    70.0
+   ],
+   "got": 67347.89251133119
+  },
+  {
+   "fn": "sectionProps.Zp.hollow",
+   "args": [
+    70.0,
+    42.0
+   ],
+   "got": 58619.60564186267
+  },
+  {
+   "fn": "sectionProps.A",
+   "args": [
+    100.0
+   ],
+   "got": 7853.981633974483
+  },
+  {
+   "fn": "sectionProps.I",
+   "args": [
+    100.0
+   ],
+   "got": 4908738.521234051
+  },
+  {
+   "fn": "sectionProps.Z",
+   "args": [
+    100.0
+   ],
+   "got": 98174.77042468103
+  },
+  {
+   "fn": "sectionProps.Zp",
+   "args": [
+    100.0
+   ],
+   "got": 196349.54084936206
+  },
+  {
+   "fn": "sectionProps.Zp.hollow",
+   "args": [
+    100.0,
+    60.0
+   ],
+   "got": 170902.64035528473
+  },
+  {
+   "fn": "sectionProps.A",
+   "args": [
+    150.0
+   ],
+   "got": 17671.458676442588
+  },
+  {
+   "fn": "sectionProps.I",
+   "args": [
+    150.0
+   ],
+   "got": 24850488.763747387
+  },
+  {
+   "fn": "sectionProps.Z",
+   "args": [
+    150.0
+   ],
+   "got": 331339.85018329846
+  },
+  {
+   "fn": "sectionProps.Zp",
+   "args": [
+    150.0
+   ],
+   "got": 662679.7003665969
+  },
+  {
+   "fn": "sectionProps.Zp.hollow",
+   "args": [
+    150.0,
+    90.0
+   ],
+   "got": 576796.411199086
+  },
+  {
+   "fn": "estimateImpellerMass",
+   "args": [
+    0.5,
+    "SUS304"
+   ],
+   "got": 9.071616886563648
+  },
+  {
+   "fn": "estimateImpellerMass",
+   "args": [
+    1.0,
+    "SUS304"
+   ],
+   "got": 55.0
+  },
+  {
+   "fn": "estimateImpellerMass",
+   "args": [
+    3.0,
+    "SUS304"
+   ],
+   "got": 956.9251122412227
+  },
+  {
+   "fn": "minShaftDiameter",
+   "args": [
+    18.5,
+    20.0,
+    "SUS304"
+   ],
+   "got": 117.82326058879214
+  },
+  {
+   "fn": "minShaftDiameter",
+   "args": [
+    3.7,
+    80.0,
+    "SUS304"
+   ],
+   "got": 43.406460328162474
+  },
+  {
+   "fn": "minShaftDiameter",
+   "args": [
+    30.0,
+    44.0,
+    "SUS304"
+   ],
+   "got": 106.43226851424323
+  },
+  {
+   "fn": "snapRpm",
+   "args": [
+    13.0
+   ],
+   "got": 12
+  },
+  {
+   "fn": "snapRpm",
+   "args": [
+    22.0
+   ],
+   "got": 21
+  },
+  {
+   "fn": "snapRpm",
+   "args": [
+    24.0
+   ],
+   "got": 25
+  },
+  {
+   "fn": "snapRpm",
+   "args": [
+    63.0
+   ],
+   "got": 62
+  },
+  {
+   "fn": "snapRpm",
+   "args": [
+    480.0
+   ],
+   "got": 500
+  },
+  {
+   "fn": "snapShaftDia",
+   "args": [
+    63.0
+   ],
+   "got": 65.0
+  },
+  {
+   "fn": "snapShaftDia",
+   "args": [
+    118.0
+   ],
+   "got": 120.0
+  },
+  {
+   "fn": "snapShaftDia",
+   "args": [
+    141.0
+   ],
+   "got": 150.0
+  },
+  {
+   "fn": "justSuspendedSpeed.Njs",
+   "args": [
+    1000.0,
+    0.001,
+    2500.0,
+    0.0002,
+    10.0,
+    0.5,
+    1.5,
+    "PBT4"
+   ],
+   "got": 2.162394159035232
+  },
+  {
+   "fn": "justSuspendedSpeed.S",
+   "args": [
+    1000.0,
+    0.001,
+    2500.0,
+    0.0002,
+    10.0,
+    0.5,
+    1.5,
+    "PBT4"
+   ],
+   "got": 5.8
+  },
+  {
+   "fn": "cavernDiameter.Dc",
+   "args": [
+    1300.0,
+    0.3333333333333333,
+    3.0,
+    4.5,
+    0.84,
+    5.0
+   ],
+   "got": 13.369819621887837
+  },
+  {
+   "fn": "cavernDiameter.DcT",
+   "args": [
+    1300.0,
+    0.3333333333333333,
+    3.0,
+    4.5,
+    0.84,
+    5.0
+   ],
+   "got": 2.971071027086186
+  },
+  {
+   "fn": "cavernDiameter.Dc",
+   "args": [
+    1300.0,
+    0.3333333333333333,
+    3.0,
+    4.5,
+    0.84,
+    50.0
+   ],
+   "got": 6.20572054643716
+  },
+  {
+   "fn": "cavernDiameter.DcT",
+   "args": [
+    1300.0,
+    0.3333333333333333,
+    3.0,
+    4.5,
+    0.84,
+    50.0
+   ],
+   "got": 1.3790490103193689
+  },
+  {
+   "fn": "cavernDiameter.Dc",
+   "args": [
+    1300.0,
+    0.3333333333333333,
+    3.0,
+    4.5,
+    0.84,
+    300.0
+   ],
+   "got": 3.415139628551019
+  },
+  {
+   "fn": "cavernDiameter.DcT",
+   "args": [
+    1300.0,
+    0.3333333333333333,
+    3.0,
+    4.5,
+    0.84,
+    300.0
+   ],
+   "got": 0.758919917455782
+  },
+  {
+   "fn": "jacketHeatTransfer.h",
+   "args": [
+    1000.0,
+    0.001,
+    0.6,
+    4180.0,
+    2.0,
+    0.5,
+    1.5
+   ],
+   "got": 3696.577998471997
+  },
+  {
+   "fn": "coilHeatTransfer.h",
+   "args": [
+    1000.0,
+    0.001,
+    0.6,
+    4180.0,
+    2.0,
+    0.5,
+    0.05
+   ],
+   "got": 67648.81005008555
+  },
+  {
+   "fn": "gasDispersionCheck.Flg",
+   "args": [
+    2.0,
+    0.5,
+    1.5,
+    0.01
+   ],
+   "got": 0.04
+  },
+  {
+   "fn": "gasDispersionCheck.Fltrans",
+   "args": [
+    2.0,
+    0.5,
+    1.5,
+    0.01
+   ],
+   "got": 0.13082965112440723
+  }
+ ],
+ "design": [
+  {
+   "args": {
+    "V": 50.0,
+    "rho": 1300.0,
+    "mu_cP": 15000.0,
+    "T": 4.5
+   },
+   "got": {
+    "T": 4.5,
+    "H": 3.1438013450250932,
+    "rpm": 21,
+    "rpm_calc": 23.977510913172274,
+    "Re": 221.12999999999994,
+    "Fr": 0.033727113744244974,
+    "v_tip": 2.968805057642354,
+    "Np": 0.84,
+    "P_liquid": 6718.086512864996,
+    "PV": 134.3617302572999,
+    "motor_kW": 11.0,
+    "load_pct": 73.93109559612198,
+    "Q_total": 2.4111674999999986,
+    "theta95_s": 278.94537326322495,
+    "turnover_s": 20.736842214404444,
+    "shaft_dia_mm": 120.0,
+    "shaft_len_mm": 3563.8013450250933,
+    "impeller_type": "MAXBLEND",
+    "D": 2.6999999999999997,
+    "D_T": 0.6,
+    "n_impellers": 1,
+    "N_crit_rpm": 121.49798646111674,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 50.0,
+    "rho": 1300.0,
+    "mu_cP": 2000.0,
+    "T": 4.5
+   },
+   "got": {
+    "T": 4.5,
+    "H": 3.1438013450250932,
+    "rpm": 21,
+    "rpm_calc": 22.469221761200306,
+    "Re": 1151.7187499999998,
+    "Fr": 0.028105928120204144,
+    "v_tip": 2.474004214701962,
+    "Np": 1.27,
+    "P_liquid": 8163.8269914550765,
+    "PV": 163.27653982910152,
+    "motor_kW": 11.0,
+    "load_pct": 89.84115827917068,
+    "Q_total": 6.299015624999999,
+    "theta95_s": 153.35247533039913,
+    "turnover_s": 7.937748209665698,
+    "shaft_dia_mm": 100.0,
+    "shaft_len_mm": 2618.8013450250933,
+    "impeller_type": "PBT4",
+    "D": 2.25,
+    "D_T": 0.5,
+    "n_impellers": 2,
+    "N_crit_rpm": 171.02742185006196,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 3.0,
+    "rho": 1110.0,
+    "mu_cP": 1000.0,
+    "T": 1.5
+   },
+   "got": {
+    "T": 1.5,
+    "H": 1.6976527263135504,
+    "rpm": 82,
+    "rpm_calc": 73.31625364785975,
+    "Re": 546.1200000000001,
+    "Fr": 0.11427619693439318,
+    "v_tip": 2.576105975943631,
+    "Np": 1.27,
+    "P_liquid": 789.8201465509335,
+    "PV": 263.2733821836445,
+    "motor_kW": 1.5,
+    "load_pct": 63.73987147604024,
+    "Q_total": 0.6996240000000005,
+    "theta95_s": 113.42347374053882,
+    "turnover_s": 4.288017563719938,
+    "shaft_dia_mm": 50.0,
+    "shaft_len_mm": 1922.6527263135504,
+    "impeller_type": "PBT4",
+    "D": 0.6000000000000001,
+    "D_T": 0.4,
+    "n_impellers": 3,
+    "N_crit_rpm": 280.25809252338644,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 12.5,
+    "rho": 1100.0,
+    "mu_cP": 15000.0,
+    "T": 2.35
+   },
+   "got": {
+    "T": 2.35,
+    "H": 2.8819364978161217,
+    "rpm": 44,
+    "rpm_calc": 47.156555511025836,
+    "Re": 106.91559999999998,
+    "Fr": 0.07732168137607302,
+    "v_tip": 3.2484068038118457,
+    "Np": 0.84,
+    "P_liquid": 2030.8217816801362,
+    "PV": 162.46574253441088,
+    "motor_kW": 3.7,
+    "load_pct": 66.44224890276404,
+    "Q_total": 0.7194933899999999,
+    "theta95_s": 253.67405804568165,
+    "turnover_s": 17.373335424249,
+    "shaft_dia_mm": 85.0,
+    "shaft_len_mm": 3387.936497816122,
+    "impeller_type": "MAXBLEND",
+    "D": 1.41,
+    "D_T": 0.6,
+    "n_impellers": 1,
+    "N_crit_rpm": 142.65043691063428,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 2.0,
+    "rho": 1691.0,
+    "mu_cP": 7000.0,
+    "T": 1.3
+   },
+   "got": {
+    "T": 1.3,
+    "H": 1.5067923606333287,
+    "rpm": 82,
+    "rpm_calc": 76.96090006877397,
+    "Re": 80.56790436190478,
+    "Fr": 0.09408740214265038,
+    "v_tip": 2.1209939201935892,
+    "Np": 1.27,
+    "P_liquid": 473.4057407744856,
+    "PV": 236.7028703872428,
+    "motor_kW": 0.75,
+    "load_pct": 76.40934763377662,
+    "Q_total": 0.3904737063760001,
+    "theta95_s": 331.1272871536522,
+    "turnover_s": 5.121983804139,
+    "shaft_dia_mm": 40.0,
+    "shaft_len_mm": 1781.7923606333286,
+    "impeller_type": "PBT4",
+    "D": 0.49400000000000005,
+    "D_T": 0.38,
+    "n_impellers": 3,
+    "N_crit_rpm": 258.6945570863146,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 2.0,
+    "rho": 1300.0,
+    "mu_cP": 8000.0,
+    "T": 1.3
+   },
+   "got": {
+    "T": 1.3,
+    "H": 1.5067923606333287,
+    "rpm": 62,
+    "rpm_calc": 53.17320977658844,
+    "Re": 70.94479166666669,
+    "Fr": 0.07077397027074034,
+    "v_tip": 2.1101030656611446,
+    "Np": 1.27,
+    "P_liquid": 547.6251099500844,
+    "PV": 273.8125549750422,
+    "motor_kW": 0.75,
+    "load_pct": 88.38861423755748,
+    "Q_total": 0.6725566250000001,
+    "theta95_s": 269.5659869864995,
+    "turnover_s": 2.973727305117245,
+    "shaft_dia_mm": 45.0,
+    "shaft_len_mm": 1781.7923606333286,
+    "impeller_type": "PBT4",
+    "D": 0.65,
+    "D_T": 0.5,
+    "n_impellers": 3,
+    "N_crit_rpm": 236.06857964442204,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 10.0,
+    "rho": 1000.0,
+    "mu_cP": 50.0
+   },
+   "got": {
+    "T": 2.2620688076018376,
+    "H": 2.4882756883620227,
+    "rpm": 90,
+    "rpm_calc": 92.49907894917696,
+    "Re": 24561.38539356096,
+    "Fr": 0.20760014141849192,
+    "v_tip": 4.2638992487259335,
+    "Np": 0.3,
+    "P_liquid": 1704.0684343312294,
+    "PV": 170.40684343312293,
+    "motor_kW": 3.7,
+    "load_pct": 55.7518833422735,
+    "Q_total": 1.8668006706807911,
+    "theta95_s": 38.515011121504365,
+    "turnover_s": 5.35675830690224,
+    "shaft_dia_mm": 55.0,
+    "shaft_len_mm": 2522.7584864615637,
+    "impeller_type": "HYDROFOIL",
+    "D": 0.9048275230407351,
+    "D_T": 0.4,
+    "n_impellers": 3,
+    "N_crit_rpm": 143.25268967924669,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 5.0,
+    "rho": 1200.0,
+    "mu_cP": 100000.0
+   },
+   "got": {
+    "T": 1.795405202405804,
+    "H": 1.9749457226463847,
+    "rpm": 17,
+    "rpm_calc": 13.738739010593635,
+    "Re": 4.6305287913463,
+    "Fr": 0.00955323590715173,
+    "v_tip": 1.038779522079157,
+    "Np": 25.91496682285193,
+    "P_liquid": 1531.1019012449453,
+    "PV": 306.22038024898904,
+    "motor_kW": 2.2,
+    "load_pct": 84.24723380055919,
+    "Q_total": 0.15761343101050906,
+    "theta95_s": 811.7552818151853,
+    "turnover_s": 31.723184806925616,
+    "shaft_dia_mm": 90.0,
+    "shaft_len_mm": 2503.1295145501526,
+    "impeller_type": "MAXBLEND",
+    "D": 1.1670133815637727,
+    "D_T": 0.65,
+    "n_impellers": 1,
+    "N_crit_rpm": 310.4608308585195,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 50.0,
+    "rho": 1300.0,
+    "mu_cP": 15000.0,
+    "T": 4.5,
+    "impeller_type": "MAXBLEND",
+    "dT": 0.6666666666666666,
+    "basis": "rpm",
+    "rpm": 20
+   },
+   "got": {
+    "T": 4.5,
+    "H": 3.1438013450250932,
+    "rpm": 20,
+    "rpm_calc": 20.0,
+    "Re": 260.0,
+    "Fr": 0.03399054043259761,
+    "v_tip": 3.141592653589793,
+    "Np": 0.84,
+    "P_liquid": 9827.999999999998,
+    "PV": 196.55999999999997,
+    "motor_kW": 15.0,
+    "load_pct": 79.3136842105263,
+    "Q_total": 3.1499999999999995,
+    "theta95_s": 218.79159750364732,
+    "turnover_s": 15.873015873015875,
+    "shaft_dia_mm": 140.0,
+    "shaft_len_mm": 3563.8013450250933,
+    "impeller_type": "MAXBLEND",
+    "D": 3.0,
+    "D_T": 0.6666666666666666,
+    "n_impellers": 1,
+    "N_crit_rpm": 143.9643962051845,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 20.0,
+    "rho": 1050.0,
+    "mu_cP": 800.0,
+    "level": "vigorous"
+   },
+   "got": {
+    "T": 2.8500281070081512,
+    "H": 3.135030917708967,
+    "rpm": 68,
+    "rpm_calc": 67.56609661941114,
+    "Re": 1933.1931301552788,
+    "Fr": 0.149315118559636,
+    "v_tip": 4.058977738120559,
+    "Np": 1.27,
+    "P_liquid": 10372.290371870133,
+    "PV": 518.6145185935067,
+    "motor_kW": 15.0,
+    "load_pct": 83.7062030010572,
+    "Q_total": 3.9795449217846066,
+    "theta95_s": 71.66908293502246,
+    "turnover_s": 5.025700273043055,
+    "shaft_dia_mm": 85.0,
+    "shaft_len_mm": 3022.523890956929,
+    "impeller_type": "PBT4",
+    "D": 1.1400112428032605,
+    "D_T": 0.4,
+    "n_impellers": 3,
+    "N_crit_rpm": 186.90784225233998,
+    "ok": true
+   }
+  },
+  {
+   "args": {
+    "V": 8.0,
+    "rho": 1000.0,
+    "mu_cP": 200.0,
+    "basis": "blend",
+    "target_blend_min": 3.0
+   },
+   "got": {
+    "T": 2.099918663645693,
+    "H": 2.3099105300102623,
+    "rpm": 50,
+    "rpm_calc": 42.44059455868904,
+    "Re": 2000.882496244609,
+    "Fr": 0.049071942041248,
+    "v_tip": 1.8141994878824863,
+    "Np": 1.27,
+    "P_liquid": 411.89504881970305,
+    "PV": 51.48688110246288,
+    "motor_kW": 0.75,
+    "load_pct": 66.4813061252854,
+    "Q_total": 0.8763045701848865,
+    "theta95_s": 140.7633803719108,
+    "turnover_s": 9.129246008967094,
+    "shaft_dia_mm": 45.0,
+    "shaft_len_mm": 2384.9308640988393,
+    "impeller_type": "PBT4",
+    "D": 0.6929731590030787,
+    "D_T": 0.33,
+    "n_impellers": 4,
+    "N_crit_rpm": 131.83348692207662,
+    "ok": false
+   }
+  }
+ ],
+ "geometry": [
+  {
+   "args": {
+    "T": 4.5,
+    "V": 50.0,
+    "mu_cP": 15000.0
+   },
+   "got": {
+    "H": 3.1438013450250932,
+    "H_T": 0.6986225211166874,
+    "impeller_type": "MAXBLEND",
+    "D": 2.6999999999999997,
+    "D_T": 0.6,
+    "n_impellers": 1,
+    "W": 0.40499999999999997,
+    "W_D": 0.15,
+    "C": 0.18,
+    "C_T": 0.04,
+    "baffled": false,
+    "n_baffles": 0,
+    "B": 0.0,
+    "B_T": 0.0,
+    "B_wall_clearance": 0.0,
+    "elevations": [
+     0.18
+    ],
+    "spacing": null,
+    "tip_speed_range": [
+     1.5,
+     3.5
+    ]
+   }
+  },
+  {
+   "args": {
+    "T": 2.0,
+    "V": 6.0,
+    "mu_cP": 500.0
+   },
+   "got": {
+    "H": 1.909859317102744,
+    "H_T": 0.954929658551372,
+    "impeller_type": "PBT4",
+    "D": 0.8,
+    "D_T": 0.4,
+    "n_impellers": 3,
+    "W": 0.16000000000000003,
+    "W_D": 0.2,
+    "C": 0.5,
+    "C_T": 0.25,
+    "baffled": true,
+    "n_baffles": 4,
+    "B": 0.16666666666666666,
+    "B_T": 0.08333333333333333,
+    "B_wall_clearance": 0.027777777777777776,
+    "elevations": [
+     0.5,
+     1.004929658551372,
+     1.5098593171027441
+    ],
+    "spacing": 0.5049296585513721,
+    "tip_speed_range": [
+     2.5,
+     5.0
+    ]
+   }
+  },
+  {
+   "args": {
+    "T": 1.3,
+    "V": 2.0,
+    "mu_cP": 8000.0
+   },
+   "got": {
+    "H": 1.5067923606333287,
+    "H_T": 1.1590710466410221,
+    "impeller_type": "PBT4",
+    "D": 0.65,
+    "D_T": 0.5,
+    "n_impellers": 3,
+    "W": 0.13,
+    "W_D": 0.2,
+    "C": 0.325,
+    "C_T": 0.25,
+    "baffled": true,
+    "n_baffles": 4,
+    "B": 0.10833333333333334,
+    "B_T": 0.08333333333333333,
+    "B_wall_clearance": 0.05416666666666667,
+    "elevations": [
+     0.325,
+     0.7533961803166644,
+     1.1817923606333287
+    ],
+    "spacing": 0.42839618031666443,
+    "tip_speed_range": [
+     2.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "args": {
+    "T": 1.5,
+    "V": 3.0,
+    "mu_cP": 1000.0
+   },
+   "got": {
+    "H": 1.6976527263135504,
+    "H_T": 1.1317684842090336,
+    "impeller_type": "PBT4",
+    "D": 0.6000000000000001,
+    "D_T": 0.4,
+    "n_impellers": 3,
+    "W": 0.12000000000000002,
+    "W_D": 0.2,
+    "C": 0.375,
+    "C_T": 0.25,
+    "baffled": true,
+    "n_baffles": 4,
+    "B": 0.125,
+    "B_T": 0.08333333333333333,
+    "B_wall_clearance": 0.020833333333333332,
+    "elevations": [
+     0.375,
+     0.8863263631567752,
+     1.3976527263135503
+    ],
+    "spacing": 0.5113263631567752,
+    "tip_speed_range": [
+     2.5,
+     5.0
+    ]
+   }
+  },
+  {
+   "args": {
+    "T": 3.0,
+    "V": 25.0,
+    "mu_cP": 50.0
+   },
+   "got": {
+    "H": 3.53677651315323,
+    "H_T": 1.17892550438441,
+    "impeller_type": "HYDROFOIL",
+    "D": 1.2000000000000002,
+    "D_T": 0.4,
+    "n_impellers": 3,
+    "W": 0.18000000000000002,
+    "W_D": 0.15,
+    "C": 0.75,
+    "C_T": 0.25,
+    "baffled": true,
+    "n_baffles": 4,
+    "B": 0.25,
+    "B_T": 0.08333333333333333,
+    "B_wall_clearance": 0.041666666666666664,
+    "elevations": [
+     0.75,
+     1.8433882565766149,
+     2.9367765131532297
+    ],
+    "spacing": 1.0933882565766149,
+    "tip_speed_range": [
+     3.0,
+     6.0
+    ]
+   }
+  },
+  {
+   "args": {
+    "T": 2.0,
+    "V": 8.0,
+    "mu_cP": 300000.0
+   },
+   "got": {
+    "H": 2.5464790894703255,
+    "H_T": 1.2732395447351628,
+    "impeller_type": "RIBBON",
+    "D": 1.86,
+    "D_T": 0.93,
+    "n_impellers": 1,
+    "W": 0.279,
+    "W_D": 0.15,
+    "C": 0.1,
+    "C_T": 0.05,
+    "baffled": false,
+    "n_baffles": 0,
+    "B": 0.0,
+    "B_T": 0.0,
+    "B_wall_clearance": 0.0,
+    "elevations": [
+     0.1
+    ],
+    "spacing": null,
+    "tip_speed_range": [
+     0.5,
+     2.0
+    ]
+   }
+  },
+  {
+   "args": {
+    "T": 2.35,
+    "V": 12.5,
+    "mu_cP": 15000.0,
+    "impeller_type": "MAXBLEND",
+    "dT": 0.766
+   },
+   "got": {
+    "H": 2.8819364978161217,
+    "H_T": 1.2263559565174986,
+    "impeller_type": "MAXBLEND",
+    "D": 1.8001,
+    "D_T": 0.766,
+    "n_impellers": 1,
+    "W": 0.270015,
+    "W_D": 0.15,
+    "C": 0.094,
+    "C_T": 0.04,
+    "baffled": false,
+    "n_baffles": 0,
+    "B": 0.0,
+    "B_T": 0.0,
+    "B_wall_clearance": 0.0,
+    "elevations": [
+     0.094
+    ],
+    "spacing": null,
+    "tip_speed_range": [
+     1.5,
+     3.5
+    ]
+   }
+  },
+  {
+   "args": {
+    "T": 1.5,
+    "V": 3.0,
+    "mu_cP": 1000.0,
+    "impeller_type": "PBT4",
+    "dT": 0.533,
+    "n_imp": 2
+   },
+   "got": {
+    "H": 1.6976527263135504,
+    "H_T": 1.1317684842090336,
+    "impeller_type": "PBT4",
+    "D": 0.75,
+    "D_T": 0.5,
+    "n_impellers": 2,
+    "W": 0.15000000000000002,
+    "W_D": 0.2,
+    "C": 0.375,
+    "C_T": 0.25,
+    "baffled": true,
+    "n_baffles": 4,
+    "B": 0.125,
+    "B_T": 0.08333333333333333,
+    "B_wall_clearance": 0.020833333333333332,
+    "elevations": [
+     0.375,
+     1.3226527263135504
+    ],
+    "spacing": 0.9476527263135504,
+    "tip_speed_range": [
+     2.5,
+     5.0
+    ]
+   }
+  }
+ ],
+ "shaft": [
+  {
+   "args": {
+    "P_motor_kW": 18.5,
+    "rpm": 20.0,
+    "d_shaft_mm": 150.0,
+    "L_shaft_mm": 3700.0,
+    "impellers": [
+     {
+      "D": 3.0,
+      "a": 3700.0,
+      "mass": 900.0
+     }
+    ],
+    "material": "SUS304",
+    "baffled": false
+   },
+   "got": {
+    "T_rated_Nm": 8833.099341600193,
+    "T_design_Nm": 13249.649012400288,
+    "tau_MPa": 19.994046905421325,
+    "sigma_b_MPa": 65.75819871116347,
+    "tau_max_MPa": 38.48112636202848,
+    "sigma_vm_MPa": 74.31975802372762,
+    "tau_allow_MPa": 46.125,
+    "SF_stress": 1.1986395503618668,
+    "delta_tip_mm": 20.730679110093906,
+    "m_shaft_kg": 518.498269025502,
+    "m_eq_kg": 1024.4395845661204,
+    "N_crit_rpm": 159.01290420143903,
+    "N_over_Nc": 0.12577595573415737,
+    "M_b_Nm": 21788.311709280475,
+    "F_hyd_total_N": 5888.732894400128
+   }
+  },
+  {
+   "args": {
+    "P_motor_kW": 3.7,
+    "rpm": 80.0,
+    "d_shaft_mm": 70.0,
+    "L_shaft_mm": 2000.0,
+    "impellers": [
+     {
+      "D": 0.8,
+      "a": 2000.0
+     },
+     {
+      "D": 0.8,
+      "a": 1300.0
+     }
+    ],
+    "material": "SUS304",
+    "baffled": true
+   },
+   "got": {
+    "T_rated_Nm": 441.6549670800096,
+    "T_design_Nm": 662.4824506200144,
+    "tau_MPa": 9.836721327375653,
+    "sigma_b_MPa": 27.050983650283037,
+    "tau_max_MPa": 16.72423437961861,
+    "sigma_vm_MPa": 31.969344313970865,
+    "tau_allow_MPa": 46.125,
+    "SF_stress": 2.75797378540756,
+    "delta_tip_mm": 4.842516217233227,
+    "m_shaft_kg": 61.036432870269294,
+    "m_eq_kg": 53.89326988822325,
+    "N_crit_rpm": 379.90886918146276,
+    "N_over_Nc": 0.21057681588841284,
+    "M_b_Nm": 910.9133696025197,
+    "F_hyd_total_N": 552.068708850012
+   }
+  },
+  {
+   "args": {
+    "P_motor_kW": 30.0,
+    "rpm": 44.0,
+    "d_shaft_mm": 140.0,
+    "L_shaft_mm": 3000.0,
+    "impellers": [
+     {
+      "D": 1.8,
+      "a": 3000.0
+     },
+     {
+      "D": 1.7,
+      "a": 1900.0
+     }
+    ],
+    "material": "SUS304",
+    "baffled": true
+   },
+   "got": {
+    "T_rated_Nm": 6510.884035577537,
+    "T_design_Nm": 9766.326053366305,
+    "tau_MPa": 18.126636352657833,
+    "sigma_b_MPa": 34.58848367278087,
+    "tau_max_MPa": 25.053258194435582,
+    "sigma_vm_MPa": 46.712825210714,
+    "tau_allow_MPa": 46.125,
+    "SF_stress": 1.8410779006079347,
+    "delta_tip_mm": 7.035843881860734,
+    "m_shaft_kg": 366.21859722161577,
+    "m_eq_kg": 396.9640127119274,
+    "N_crit_rpm": 304.78545239807465,
+    "N_over_Nc": 0.14436384562912935,
+    "M_b_Nm": 9317.845922097518,
+    "F_hyd_total_N": 3708.4451469794867
+   }
+  },
+  {
+   "args": {
+    "P_motor_kW": 1.0,
+    "rpm": 10.0,
+    "d_shaft_mm": 100.0,
+    "L_shaft_mm": 2000.0,
+    "impellers": [
+     {
+      "D": 0.4,
+      "a": 2000.0,
+      "mass": 100.0
+     }
+    ],
+    "material": "SUS304",
+    "baffled": true
+   },
+   "got": {
+    "T_rated_Nm": 954.9296585513721,
+    "T_design_Nm": 1432.3944878270581,
+    "tau_MPa": 7.295125222248321,
+    "sigma_b_MPa": 48.634168148322125,
+    "tau_max_MPa": 25.387781113718884,
+    "sigma_vm_MPa": 50.2487698108533,
+    "tau_allow_MPa": 46.125,
+    "SF_stress": 1.816818878081286,
+    "delta_tip_mm": 6.719746894414111,
+    "m_shaft_kg": 124.5641487148353,
+    "m_eq_kg": 129.89539569156048,
+    "N_crit_rpm": 499.40598316284894,
+    "N_over_Nc": 0.020023788935542543,
+    "M_b_Nm": 4774.6482927568595,
+    "F_hyd_total_N": 2387.3241463784298
+   }
+  }
+ ],
+ "vendor": [
+  {
+   "args": {
+    "T": 4.5,
+    "V": 50.0,
+    "rho": 1300.0,
+    "mu_cP": 15000.0,
+    "rpm": 20.0,
+    "imps": [
+     [
+      "MAXBLEND",
+      3.0
+     ]
+    ],
+    "motor_kW": 18.5,
+    "baffled": false
+   },
+   "got": {
+    "Re": 260.0,
+    "TP": 3.141592653589793,
+    "QV": 2.2680000000000002,
+    "Q": 113.4,
+    "P_calc_kW": 11.562352941176469,
+    "P_corr_kW": 12.718588235294117,
+    "motor_kW": 18.5,
+    "load_pct": 68.74912559618441,
+    "margin": 1.1
+   }
+  },
+  {
+   "args": {
+    "T": 4.5,
+    "V": 50.0,
+    "rho": 1300.0,
+    "mu_cP": 15000.0,
+    "rpm": 20.0,
+    "imps": [
+     [
+      "MAXBLEND",
+      3.0
+     ]
+    ],
+    "motor_kW": 18.5,
+    "baffled": true
+   },
+   "got": {
+    "Re": 260.0,
+    "TP": 3.141592653589793,
+    "QV": 2.2680000000000002,
+    "Q": 113.4,
+    "P_calc_kW": 16.517647058823524,
+    "P_corr_kW": 18.169411764705877,
+    "motor_kW": 18.5,
+    "load_pct": 98.21303656597772,
+    "margin": 1.1
+   }
+  },
+  {
+   "args": {
+    "T": 1.3,
+    "V": 2.0,
+    "rho": 1691.0,
+    "mu_cP": 7000.0,
+    "rpm": 62.0,
+    "imps": [
+     [
+      "MAXBLEND",
+      1.0
+     ],
+     [
+      "2-P.P",
+      0.8
+     ]
+    ],
+    "motor_kW": 7.5
+   },
+   "got": {
+    "Re": 249.62380952380954,
+    "TP": 3.246312408709453,
+    "QV": 14.446000000000002,
+    "Q": 28.892000000000003,
+    "P_calc_kW": 2.699787875114389,
+    "P_corr_kW": 2.9697666626258283,
+    "motor_kW": 7.5,
+    "load_pct": 39.59688883501105,
+    "margin": 1.1
+   }
+  },
+  {
+   "args": {
+    "T": 1.5,
+    "V": 3.0,
+    "rho": 1110.0,
+    "mu_cP": 1000.0,
+    "rpm": 80.0,
+    "imps": [
+     [
+      "4-P.P",
+      0.8
+     ],
+     [
+      "4-P.P",
+      0.8
+     ]
+    ],
+    "motor_kW": 3.7
+   },
+   "got": {
+    "Re": 947.2000000000002,
+    "TP": 3.3510321638291125,
+    "QV": 11.182080000000001,
+    "Q": 33.546240000000004,
+    "P_calc_kW": 1.8034410649934636,
+    "P_corr_kW": 1.98378517149281,
+    "motor_kW": 3.7,
+    "load_pct": 53.61581544575162,
+    "margin": 1.1
+   }
+  },
+  {
+   "args": {
+    "T": 2.35,
+    "V": 12.5,
+    "rho": 1100.0,
+    "mu_cP": 15000.0,
+    "rpm": 44.0,
+    "imps": [
+     [
+      "MAXBLEND",
+      1.8
+     ],
+     [
+      "2-P.P",
+      1.7
+     ]
+    ],
+    "motor_kW": 30.0,
+    "has_coil": true
+   },
+   "got": {
+    "Re": 174.23999999999998,
+    "TP": 4.146902302738527,
+    "QV": 12.9578944,
+    "Q": 161.97368,
+    "P_calc_kW": 23.891246319302827,
+    "P_corr_kW": 28.669495583163393,
+    "motor_kW": 30.0,
+    "load_pct": 95.5649852772113,
+    "margin": 1.2
+   }
+  }
+ ]
+}
