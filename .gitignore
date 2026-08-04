@@ -3,3 +3,5 @@
 # wrangler CLI 임시 파일
 .wrangler/
 gateway/.wrangler/
+# OS 캐시
+*.DS_Store

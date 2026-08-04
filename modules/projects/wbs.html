@@ -4155,7 +4155,7 @@ window.resetWbsRev = resetWbsRev;
   const qs = new URLSearchParams(window.location.search);
   const view = qs.get("view");
   const pid = qs.get("pid");
-  // ═══ v30.1: 데모 모드 (?demo=1 / #demo / wbs-demo.html 런처) — 영천 마스터 스케줄 샘플로 메모 콜아웃 즉시 체험 ═══
+  // ═══ v30.1: 데모 모드 (?demo=1 / #demo) — 영천 마스터 스케줄 샘플로 메모 콜아웃 즉시 체험 ═══
   let _demoFlag = false;
   try { _demoFlag = localStorage.getItem("sjp_demo") === "1"; } catch (e) {}
   if (qs.get("demo") === "1" || location.hash === "#demo" || _demoFlag) {
