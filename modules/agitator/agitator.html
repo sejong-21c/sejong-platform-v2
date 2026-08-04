@@ -1085,11 +1085,9 @@ function boot() {
   window.addEventListener('storage', ev => {
     if (ev.key === KEY) { loadPlatformState(); render(); }
   });
-  // 아이콘 자동 재렌더 (innerHTML 교체 후)
-  try {
-    new MutationObserver(() => { try { lucide.createIcons(); } catch (e) {} })
-      .observe(document.body, { childList: true, subtree: true });
-  } catch (e) {}
+  // 아이콘 재렌더는 render() 끝에서 직접 lucide.createIcons() 로 처리한다.
+  // MutationObserver 로 body subtree 를 감시하며 createIcons 를 호출하면,
+  // createIcons 의 DOM 교체가 옵저버를 다시 깨우는 무한 되먹임이 되어 탭이 얼어붙는다.
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
