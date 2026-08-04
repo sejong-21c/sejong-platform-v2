@@ -278,7 +278,7 @@ function drawTank(res) {
   const W = 620, Hpx = 490;
   // mT 는 구동부 박스(yTop-62)와 T 치수선(yTop-18)이 들어갈 만큼 확보해야 한다.
   // 탱크가 높아 yTop 이 mT 까지 올라가면 mT<62 에서 구동부가 캔버스 밖으로 나간다.
-  const mL = 96, mR = 150, mT = 78, mB = 46;
+  const mL = 96, mR = 150, mT = 92, mB = 60;
   const drawW = W - mL - mR, drawH = Hpx - mT - mB;
 
   // 탱크 전체 높이 = 액위 + 여유공간(액위의 20%) 로 스케일
@@ -328,10 +328,10 @@ function drawTank(res) {
 
   // 축
   const shaftW = Math.max(res.shaft_dia_mm / 1000 * sc, 4);
-  P.push(`<rect x="${cx - shaftW / 2}" y="${yTop - 30}" width="${shaftW}" height="${(yBot - g.elevations[0] * sc) - (yTop - 30) + 6}" fill="url(#stlG)" stroke="#455A64" stroke-width="1"/>`);
-  // 구동부
-  P.push(`<rect x="${cx - 34}" y="${yTop - 62}" width="68" height="32" rx="4" fill="#455A64"/>`);
-  P.push(`<text x="${cx}" y="${yTop - 42}" font-size="11" fill="#fff" text-anchor="middle" font-family="sans-serif">${n2(res.motor_kW, 1)} kW</text>`);
+  P.push(`<rect x="${cx - shaftW / 2}" y="${yTop - 50}" width="${shaftW}" height="${(yBot - g.elevations[0] * sc) - (yTop - 50) + 6}" fill="url(#stlG)" stroke="#455A64" stroke-width="1"/>`);
+  // 구동부 (T 치수선 위로 충분히 띄운다)
+  P.push(`<rect x="${cx - 34}" y="${yTop - 82}" width="68" height="32" rx="4" fill="#455A64"/>`);
+  P.push(`<text x="${cx}" y="${yTop - 62}" font-size="11" fill="#fff" text-anchor="middle" font-family="sans-serif">${n2(res.motor_kW, 1)} kW</text>`);
   // 플랜지(노즐)
   P.push(`<rect x="${cx - 30}" y="${yTop - 8}" width="60" height="8" fill="#607D8B"/>`);
 
@@ -406,15 +406,15 @@ function drawTank(res) {
         text-anchor="${vert ? 'end' : 'middle'}" font-family="sans-serif">${label}</text>`;
     return s;
   };
-  // T (상부 가로)
-  P.push(dim(xL, yTop - 18, xR, yTop - 18, `T = ${(g.T * 1000).toFixed(0)}`, 0, false));
+  // T (상부 가로) — 탱크에서 더 띄움
+  P.push(dim(xL, yTop - 28, xR, yTop - 28, `T = ${(g.T * 1000).toFixed(0)}`, 0, false));
   // H (좌측 세로)
-  P.push(dim(xL - 14, yLiq, xL - 14, yBot, `H = ${(g.H * 1000).toFixed(0)}`, 0, true));
-  // D (임펠러 가로)
-  const yD = yBot - g.elevations[0] * sc + 26;
+  P.push(dim(xL - 24, yLiq, xL - 24, yBot, `H = ${(g.H * 1000).toFixed(0)}`, 0, true));
+  // D (임펠러 가로) — 탱크 바닥 아래로 확실히 내려 겹침 방지
+  const yD = yBot + 26;
   P.push(dim(cx - dw / 2, yD, cx + dw / 2, yD, `D = ${(g.D * 1000).toFixed(0)}`, 0, false));
-  // C (바닥간극)
-  P.push(dim(xR + 16, yBot - g.elevations[0] * sc, xR + 16, yBot, `C = ${(g.C * 1000).toFixed(0)}`, 0, true));
+  // C (바닥간극: 최하단 임펠러 ~ 탱크 바닥)
+  P.push(dim(xR + 26, yBot - g.elevations[0] * sc, xR + 26, yBot, `C = ${(g.C * 1000).toFixed(0)}`, 0, true));
 
   // 우측 범례
   const lx = xR + 46;
