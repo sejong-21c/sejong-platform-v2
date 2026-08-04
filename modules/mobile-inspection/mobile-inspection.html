@@ -207,6 +207,7 @@ input[type=file]{display:none}
     <select id="item" disabled onchange="onItemChange()">
       <option value="">— 아이템 선택 —</option>
     </select>
+    <input type="text" id="item-custom" placeholder="품목명을 직접 입력하세요 (예: Pressure Gauge — 구매품)" style="display:none;margin-top:8px;width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">
     <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid #f0ede8">
       <p style="font-size:12px;color:#888;margin-bottom:6px;font-weight:500">
         <i class="ti ti-list-check" aria-hidden="true" style="margin-right:3px"></i>
@@ -215,8 +216,9 @@ input[type=file]{display:none}
       <select id="itp" disabled onchange="onItpChange()">
         <option value="">— ITP 검사 항목 선택 —</option>
       </select>
+      <input type="text" id="itp-custom" placeholder="검사항목명을 직접 입력하세요 (예: 구매품 입고검사)" style="display:none;margin-top:8px;width:100%;font-size:13px;padding:9px 10px;border:1px solid #d6d3cb;border-radius:7px;background:#fff;box-sizing:border-box">
       <p style="font-size:10px;color:#999;margin-top:5px;line-height:1.4">
-        ※ 아이템 선택 후 활성화 · ITP Builder 연동 데이터
+        ※ 아이템 선택 후 활성화 · ITP Builder 연동 데이터 · ITP/아이템이 등록되지 않은 구매품 등은 "직접 입력"으로 검사 가능
       </p>
 
       <!-- 검사값 입력 영역 (ITP 항목별 동적 필드) -->
@@ -827,26 +829,26 @@ function initFromITPBuilder(){
   const itemSel=document.getElementById('item');
   const itpSel=document.getElementById('itp');
 
+  // v29.40 fix: 구매품처럼 WBS/EPC Control 아이템 목록에도, ITP Builder
+  // 체크리스트에도 등록되지 않은 품목은 예전엔 여기서 완전히 막혔다(아이템
+  // select 자체가 disabled). 하지만 구매품도 입고검사는 반드시 해야 하므로,
+  // ITP Builder 데이터가 전혀 없어도 select를 잠그지 않고 "직접 입력"
+  // 옵션으로 검사를 계속할 수 있게 한다.
   if(!state){
-    badge.innerHTML='⚠️ ITP Builder 데이터 없음 — 먼저 ITP Builder에서 프로젝트를 작성해 주세요';
+    badge.innerHTML='⚠️ ITP Builder 데이터 없음 — 구매품 등 미등록 품목은 "직접 입력"으로 검사할 수 있습니다';
     badge.style.background='#fff3cd'; badge.style.color='#856404';
-    itemSel.innerHTML='<option value="">— 아이템 선택 —</option>';
-    itemSel.disabled=true;
-    itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
-    itpSel.disabled=true;
-    return;
+  } else {
+    const projCode=state.proj?.code||'';
+    const projName=state.proj?.name||state.proj||'';
+    const projLabel=[projCode, projName].filter(Boolean).join(' / ')||'(프로젝트 정보 없음)';
+    badge.innerHTML='📁 '+projLabel;
+    badge.style.background='#eef4fb'; badge.style.color='#185fa5';
   }
-
-  const projCode=state.proj?.code||'';
-  const projName=state.proj?.name||state.proj||'';
-  const projLabel=[projCode, projName].filter(Boolean).join(' / ')||'(프로젝트 정보 없음)';
-  badge.innerHTML='📁 '+projLabel;
-  badge.style.background='#eef4fb'; badge.style.color='#185fa5';
 
   // 아이템 드롭다운 — ITP Builder 로컬 저장값이 비어있으면 WBS/EPC Control
   // 브릿지(window.SJP.bridge)에서 가져온다 (필드명 tag/name 동일해 그대로 사용 가능).
   itemSel.innerHTML='<option value="">— 아이템 선택 —</option>';
-  const localItems=state.items||[];
+  const localItems=state?.items||[];
   const items=localItems.length?localItems:getBridgeItems();
   items.forEach(it=>{
     const label=[it.tag, it.name].filter(Boolean).join(' / ');
@@ -856,12 +858,18 @@ function initFromITPBuilder(){
     opt.dataset.itemTag=it.tag||''; // QA Doc Generator 아이템 id 재해석(getQagItemId)용
     itemSel.appendChild(opt);
   });
-  itemSel.disabled=items.length===0;
+  const customItemOpt=document.createElement('option');
+  customItemOpt.value='__custom__';
+  customItemOpt.textContent='✏️ 직접 입력 (구매품 등 미등록 품목)';
+  itemSel.appendChild(customItemOpt);
+  itemSel.disabled=false; // 직접 입력 옵션이 항상 있으므로 아이템이 0개여도 잠그지 않음
 
   // ITP 드롭다운은 아이템 선택 전엔 비워둔다 — onItemChange에서 선택된
   // 아이템 기준으로 채운다(아이템별 ITP 대비).
   itpSel.innerHTML='<option value="">— ITP 검사 항목 선택 —</option>';
   itpSel.disabled=true;
+  document.getElementById('item-custom').style.display='none';
+  document.getElementById('itp-custom').style.display='none';
 }
 
 // v29.14.2 fix: 화면에 붙는 번호가 getItpFieldsKey()(입력 폼 종류 구분용 카테고리
@@ -902,12 +910,42 @@ function renderItpOptionsForItem(itemId){
     opt.textContent=seqLabel+row.activity;
     itpSel.appendChild(opt);
   });
+  // v29.40 fix: 이 아이템에 매칭되는 ITP 항목이 하나도 없어도(구매품 등
+  // ITP 자체가 없는 품목) 검사는 해야 하므로, 언제나 "직접 입력" 옵션을
+  // 추가해 자유 형식 체크리스트(ITP_FIELDS.CUSTOM)로 진행할 수 있게 한다.
+  const customOpt=document.createElement('option');
+  customOpt.value='__custom__';
+  customOpt.dataset.fieldsKey='CUSTOM';
+  customOpt.textContent='✏️ 직접 입력 (검사항목 직접 작성)';
+  itpSel.appendChild(customOpt);
 }
 
+// v29.40 — 아이템/ITP를 "직접 입력"으로 고르면 select의 원시 값은
+// '__custom__'일 뿐, 실제 값은 옆의 텍스트 입력에 있다. 등록·임시저장·
+// 임시저장 복원이 전부 이 헬퍼 하나로 실제 값을 읽어 서로 어긋나지 않게 한다.
+function getCurrentItemItp(){
+  const itemSel=document.getElementById('item');
+  const itpSel=document.getElementById('itp');
+  const isCustomItem = itemSel.value==='__custom__';
+  const item = isCustomItem ? (document.getElementById('item-custom')?.value||'').trim() : itemSel.value;
+  const isCustomItp = itpSel.value==='__custom__';
+  const customItpName = isCustomItp ? (document.getElementById('itp-custom')?.value||'').trim() : '';
+  const selOpt=itpSel.options[itpSel.selectedIndex];
+  // 직접 입력한 검사항목명이 다르면 서로 다른 슬롯(임시저장 등)으로 취급되도록
+  // 이름을 인코딩해 itpVal에 반영 — 이름 미입력 시엔 빈 값(미완성 상태)으로 둔다.
+  const itpVal = isCustomItp ? (customItpName ? 'custom_'+encodeURIComponent(customItpName) : '') : itpSel.value;
+  const itpName = isCustomItp ? customItpName : (selOpt?.dataset?.activity||selOpt?.text||'');
+  const fieldsKey = isCustomItp ? 'CUSTOM' : (selOpt?.dataset?.fieldsKey||'');
+  return {item, itpVal, itpName, fieldsKey, isCustomItem, isCustomItp};
+}
 function onItemChange(){
   const itemSelEl=document.getElementById('item');
   const item=itemSelEl.value;
   const itpSel=document.getElementById('itp');
+  // v29.40: "직접 입력" 선택 시 품목명 입력칸을 보여준다 — 구매품 등
+  // 브릿지/ITP Builder에 없는 품목은 이 텍스트가 실제 품목명이 된다.
+  document.getElementById('item-custom').style.display = item==='__custom__' ? 'block' : 'none';
+  if(item==='__custom__') document.getElementById('item-custom').focus();
   if(item){
     currentItemId=itemSelEl.options[itemSelEl.selectedIndex]?.dataset.itemId||'';
     currentItemTag=itemSelEl.options[itemSelEl.selectedIndex]?.dataset.itemTag||'';
@@ -921,6 +959,7 @@ function onItemChange(){
     renderItpOptionsForItem('');
     itpSel.value='';
     itpSel.disabled=true;
+    document.getElementById('itp-custom').style.display='none';
     document.getElementById('insp-wrap').style.display='none';
   }
 }
@@ -1057,13 +1096,29 @@ const ITP_FIELDS={
     ]}
   ]},
   '10':{name:'Surface Treatment', fields:[], note:'📷 사진만 등록 · PC 환경에서 Accept + 표면처리 Report 업로드'},
-  '11':{name:'Shipping Preparation', fields:[], note:'📷 사진만 등록 · 포장·보호 상태 확인용'}
+  '11':{name:'Shipping Preparation', fields:[], note:'📷 사진만 등록 · 포장·보호 상태 확인용'},
+  // v29.40 — 구매품 등 ITP 자체가 없는 품목을 위한 자유 형식 체크리스트.
+  // 검사항목명/기준/판정/비고를 직접 여러 건 추가하는 목록형 — material-list
+  // 등과 동일한 반복 행 패턴(buildCustomChecklist/addCustomCheckRow)을 쓴다.
+  'CUSTOM':{name:'직접 입력 검사 (ITP 미등록 품목)', specialType:'custom-checklist',
+    customFields:[
+      {key:'itemName', label:'검사항목', type:'text', ph:'예: 외관, 치수, 재질증명서 확인 등'},
+      {key:'criteria', label:'기준/사양', type:'text', ph:'예: 발주 사양서, 도면, 규격 등'},
+      {key:'judgement', label:'확인결과', type:'mode-toggle',
+        options:[{v:'합격',l:'합격'},{v:'불합격',l:'불합격'},{v:'N/A',l:'N/A'}]},
+      {key:'remark', label:'비고 (측정값 등)', type:'text'}
+    ],
+    fields:[]
+  }
 };
 
 async function onItpChange(){
   const itpSel=document.getElementById('itp');
   const itpVal=itpSel.value;
   const wrap=document.getElementById('insp-wrap');
+  // v29.40: "직접 입력" 선택 시 검사항목명 입력칸을 보여준다.
+  document.getElementById('itp-custom').style.display = itpVal==='__custom__' ? 'block' : 'none';
+  if(itpVal==='__custom__') document.getElementById('itp-custom').focus();
   if(!itpVal){ wrap.style.display='none'; return; }
   wrap.style.display='block';
   const selOpt=itpSel.options[itpSel.selectedIndex];
@@ -1116,6 +1171,12 @@ function renderInspFields(itpId){
     wrap.innerHTML=buildHydroList(def);
     bindFieldEvents(itpId);
     autoPopulateHydroRows();
+    return;
+  }
+  // v29.40 — 특수 모드: 직접 입력 검사(구매품 등 ITP 미등록 품목) 체크리스트
+  if(def.specialType==='custom-checklist'){
+    wrap.innerHTML=buildCustomChecklist(def);
+    bindFieldEvents(itpId);
     return;
   }
   let html='';
@@ -1347,6 +1408,38 @@ function addHeadRow(){
   bindFieldEvents('04');
 }
 
+// v29.40 — 직접 입력 검사(구매품 등 ITP 미등록 품목) 체크리스트 빌더.
+// 경판/가압부 목록과 동일한 반복 행 패턴 — 검사항목을 원하는 만큼 추가한다.
+function buildCustomChecklist(def){
+  let html = '<div id="custom-list-container" style="display:flex;flex-direction:column;gap:10px"></div>';
+  html += `<button type="button" onclick="addCustomCheckRow()" style="margin-top:10px;width:100%;padding:10px;background:#185fa5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+    <i class="ti ti-plus" aria-hidden="true"></i> 검사항목 추가
+  </button>`;
+  html += `<p style="font-size:11px;color:#999;margin-top:8px;line-height:1.5">ITP가 없는 품목(구매품 등)이라 검사항목을 정해진 목록에서 고를 수 없습니다 — 필요한 검사항목을 원하는 만큼 직접 추가해 기록합니다.</p>`;
+  return html;
+}
+let _customCounter = 0;
+function addCustomCheckRow(){
+  const def = ITP_FIELDS['CUSTOM'];
+  if(!def || !def.customFields) return;
+  const container = document.getElementById('custom-list-container');
+  if(!container) return;
+  const idx = _customCounter++;
+  const div = document.createElement('div');
+  div.className = 'custom-entry';
+  div.style.cssText = 'padding:12px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
+  let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #f0ede8">
+    <strong style="font-size:13px;color:#185fa5">검사항목 #${idx+1}</strong>
+    <button type="button" onclick="this.closest('.custom-entry').remove()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
+  </div>`;
+  def.customFields.forEach(f=>{
+    inner += buildField(f, `custom${idx}`);
+  });
+  div.innerHTML = inner;
+  container.appendChild(div);
+  bindFieldEvents('CUSTOM');
+}
+
 // Hydrostatic & Leak Test 가압부 목록 빌더
 function buildHydroList(def){
   let html = '<div id="hydro-list-container" style="display:flex;flex-direction:column;gap:10px"></div>';
@@ -1427,8 +1520,7 @@ function getLatestMaterialJudgments(pid, item, itpId){
 // 목록에서 뺀다 — 불합격/보류(아직 미판정)는 재검사·재작업 대상이라 계속
 // 보여준다.
 function autoPopulateMaterialRows(){
-  const item = document.getElementById('item').value;
-  const itpId = document.getElementById('itp').value;
+  const {item, itpVal:itpId} = getCurrentItemItp();
   const latestJudgments = getLatestMaterialJudgments(MI_PID, item, itpId);
   const bomRows=getBOMForItem(MI_PID,currentQagItemId)
     .map((r,i)=>({partNo:i+1, name:(r.name||'').trim(), heat:(r.heat||'').trim()}))
@@ -1746,6 +1838,9 @@ function renderInspDataDetail(rec){
   if(def.specialType==='hydro-list'){
     return renderInspEntryList(data.hydroParts, def.hydroFields, '입력된 가압부가 없습니다', 'name', '가압부');
   }
+  if(def.specialType==='custom-checklist'){
+    return renderInspEntryList(data.customChecks, def.customFields, '입력된 검사항목이 없습니다', 'itemName', '검사항목');
+  }
   if(def.fields && def.fields.length){
     return `<table style="width:100%;border-collapse:collapse">${renderFieldRows(def.fields, data)}</table>`;
   }
@@ -1827,6 +1922,23 @@ function collectInspData(){
       data.hydroParts.push(hydro);
     });
   }
+  // v29.40 — custom-checklist(직접 입력 검사항목) 별도 수집. material-list와
+  // 동일하게, 검사항목명을 안 적은(손 안 댄) 빈 행은 저장하지 않는다.
+  const customEntries = document.querySelectorAll('#insp-fields .custom-entry');
+  if(customEntries.length){
+    data.customChecks = [];
+    customEntries.forEach(entry=>{
+      const nameInput = entry.querySelector('.insp-field[data-key$=".itemName"]');
+      if(!(nameInput?.value||'').trim()) return;
+      const chk = {};
+      entry.querySelectorAll('.insp-field').forEach(el=>{
+        const parts = el.dataset.key.split('.');
+        const fld = parts.slice(1).join('.');
+        chk[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
+      });
+      data.customChecks.push(chk);
+    });
+  }
   return data;
 }
 
@@ -1840,10 +1952,8 @@ function draftDocId(item, itpId){
   return MI_PID+'__'+encodeURIComponent(item)+'__'+itpId;
 }
 async function saveDraft(){
-  const item = document.getElementById('item').value;
-  const itpSel = document.getElementById('itp');
-  const itpVal = itpSel.value;
-  if(!item || !itpVal){ showToast('⚠️ 아이템과 ITP 검사 항목을 먼저 선택하세요'); return; }
+  const {item, itpVal, itpName, fieldsKey, isCustomItp} = getCurrentItemItp();
+  if(!item || !itpVal){ showToast('⚠️ 아이템과 ITP 검사 항목을 먼저 선택하세요'+(isCustomItp?' (직접 입력한 검사항목명도 입력해 주세요)':'')); return; }
   if(!window.fb || !fb.db){ showToast('⚠️ 오프라인 상태라 임시저장을 할 수 없습니다'); return; }
   const btn=document.getElementById('draft-save-btn');
   const origHtml=btn.innerHTML;
@@ -1851,7 +1961,6 @@ async function saveDraft(){
   btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin .8s linear infinite;display:inline-block"></i> 임시저장 중...';
   try{
     const docId=draftDocId(item, itpVal);
-    const selOpt=itpSel.options[itpSel.selectedIndex];
     const photos=[];
     for(let i=0;i<pendingFiles.length;i++){
       const f=pendingFiles[i];
@@ -1862,7 +1971,7 @@ async function saveDraft(){
       photos.push({name:f.name, caption:f.caption||'', chunkId:f.chunkId, totalChunks:f.totalChunks});
     }
     const draft={
-      pid:MI_PID, item, itpId:itpVal, itpName:selOpt?.dataset.activity||'', fieldsKey:selOpt?.dataset.fieldsKey||'',
+      pid:MI_PID, item, itpId:itpVal, itpName, fieldsKey,
       date:document.getElementById('insp-date').value,
       inspData:collectInspData(),
       result:document.querySelector('#result-grid .stage-btn.sel')?.dataset.val||'합격',
@@ -1943,8 +2052,7 @@ function restoreFieldValue(f, data){
   else { setVal(dk, data[dk]); }
 }
 async function checkAndOfferDraftRestore(){
-  const item=document.getElementById('item').value;
-  const itpVal=document.getElementById('itp').value;
+  const {item, itpVal}=getCurrentItemItp();
   if(!item || !itpVal || !window.fb || !fb.db || !fb.auth?.currentUser) return;
   try{
     const snap=await fb.getDoc(fb.doc(fb.db, 't_mobileInspectionDrafts', draftDocId(item, itpVal)));
@@ -1962,6 +2070,7 @@ async function applyDraftToForm(draft){
     else if(def.specialType==='joint-list') restoreListEntries('joint-list-container', addJoint, ()=>{_jointCounter=0;}, draft.inspData?.joints);
     else if(def.specialType==='head-list') restoreListEntries('head-list-container', addHeadRow, ()=>{_headCounter=0;}, draft.inspData?.heads);
     else if(def.specialType==='hydro-list') restoreListEntries('hydro-list-container', addHydroRow, ()=>{_hydroCounter=0;}, draft.inspData?.hydroParts);
+    else if(def.specialType==='custom-checklist') restoreListEntries('custom-list-container', addCustomCheckRow, ()=>{_customCounter=0;}, draft.inspData?.customChecks);
     else (def.fields||[]).forEach(f=>restoreFieldValue(f, draft.inspData||{}));
   }
   if(document.querySelector('#insp-fields .material-entry')) updateMaterialOverallResult();
@@ -2178,19 +2287,16 @@ async function submitUpload(){
   const projCode=itpState?.proj?.code||'';
   const projName=itpState?.proj?.name||itpState?.proj||'';
   const proj=[projCode, projName].filter(Boolean).join(' / ')||'(프로젝트 미지정)';
-  const item=document.getElementById('item').value;
+  const {item, itpVal, itpName, fieldsKey, isCustomItem, isCustomItp}=getCurrentItemItp();
   const date=document.getElementById('insp-date').value;
-  const itpSel=document.getElementById('itp');
-  const itpVal=itpSel.value;
-  const selOpt=itpSel.options[itpSel.selectedIndex];
-  const itpName=selOpt?.dataset?.activity||selOpt?.text||'';
-  const fieldsKey=selOpt?.dataset?.fieldsKey||'';
-  const stage=itpVal ? (fieldsKey?fieldsKey+'. ':'')+itpName : '—';
+  const stage=itpVal ? (fieldsKey && fieldsKey!=='CUSTOM' ? fieldsKey+'. ' : '')+itpName : '—';
   const result=document.querySelector('#result-grid .stage-btn.sel')?.dataset.val||'합격';
   const failNote=document.getElementById('fail-note').value||'';
   const note=(result==='합격'||result==='진행중')?result:`${result} — ${failNote||'사유 미기재'}`;
   const inspData=collectInspData();
+  if(isCustomItem && !item){showToast('⚠️ 품목명을 직접 입력해 주세요');return;}
   if(!item){showToast('⚠️ 아이템을 선택해 주세요');return;}
+  if(isCustomItp && !itpVal){showToast('⚠️ 검사항목명을 직접 입력해 주세요');return;}
   if(!itpVal){showToast('⚠️ ITP 검사 항목을 선택해 주세요');return;}
   if(!date){showToast('⚠️ 검사 일시를 입력해 주세요');return;}
   if(!pendingFiles.length){showToast('⚠️ 사진을 1장 이상 선택해 주세요');return;}
@@ -2199,6 +2305,9 @@ async function submitUpload(){
   // 상태) collectInspData가 전부 걸러내 빈 등록이 되므로, 제출 전에 막는다.
   if(fieldsKey==='02' && ![...document.querySelectorAll('#insp-fields .material-entry .insp-field[data-key$=".heatNo"]')].some(el=>el.value.trim())){showToast('⚠️ 최소 1개 자재에 Heat No.를 입력해 주세요');return;}
   if(fieldsKey==='08' && !document.querySelectorAll('#insp-fields .hydro-entry').length){showToast('⚠️ 가압부를 1건 이상 추가해 주세요');return;}
+  // v29.40: 직접 입력 검사(구매품 등)는 검사항목을 최소 1건 적어야 등록 의미가 있다.
+  if(fieldsKey==='CUSTOM' && !document.querySelectorAll('#insp-fields .custom-entry').length){showToast('⚠️ 검사항목을 1건 이상 추가해 주세요');return;}
+  if(fieldsKey==='CUSTOM' && !(inspData.customChecks&&inspData.customChecks.length)){showToast('⚠️ 최소 1건의 검사항목명을 입력해 주세요');return;}
 
   const btn=document.getElementById('submit-btn');
   const pw=document.getElementById('prog-wrap');
@@ -2239,8 +2348,12 @@ async function submitUpload(){
 
     pendingFiles=[];renderPreviews();
     document.getElementById('item').value='';
+    document.getElementById('item-custom').value='';
+    document.getElementById('item-custom').style.display='none';
     document.getElementById('itp').value='';
     document.getElementById('itp').disabled=true;
+    document.getElementById('itp-custom').value='';
+    document.getElementById('itp-custom').style.display='none';
     document.getElementById('insp-wrap').style.display='none';
     document.getElementById('insp-fields').innerHTML='';
     document.getElementById('fail-note').value='';
