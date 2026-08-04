@@ -1,0 +1,1092 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교반기 선정·설계</title>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, setDoc, deleteDoc, collection, onSnapshot };
+</script>
+
+<script src="./agitcalc-core.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js" defer onload="try{lucide.createIcons()}catch(e){}"></script>
+
+<style>
+:root {
+  --primary: #1976D2; --primary-hover: #1565C0; --primary-light: #E3F2FD;
+  --primary-lighter: #F0F7FF; --accent: #42A5F5;
+  --success: #4CAF50; --warning: #FF9800; --danger: #F44336;
+  --bg: #F5F7FA; --white: #FFFFFF; --border: #E0E0E0; --border-light: #F0F0F0;
+  --text: #333; --text-light: #666; --text-lighter: #999; --radius: 8px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
+  background: var(--bg); color: var(--text); font-size: 14px;
+  height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+}
+i[data-lucide] { font-size: 0; color: transparent; width: 16px; height: 16px; vertical-align: -3px; }
+.mod-head { background: var(--white); border-bottom: 1px solid var(--border); padding: 14px 24px; flex-shrink: 0; }
+.mod-title { font-size: 18px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px; }
+.mod-sub { color: var(--text-light); font-size: 12px; margin-top: 3px; }
+.tabs { display: flex; gap: 2px; background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; flex-shrink: 0; }
+.tab { padding: 10px 16px; cursor: pointer; border: 0; background: none; font-size: 13px; color: var(--text-light); border-bottom: 2px solid transparent; font-family: inherit; }
+.tab:hover { color: var(--primary); }
+.tab.active { color: var(--primary); font-weight: 700; border-bottom-color: var(--primary); }
+#app { flex: 1; overflow-y: auto; padding: 20px 24px 60px; }
+.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+.card h3 { margin: 0 0 12px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.grid2 { display: grid; grid-template-columns: 380px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .grid2 { grid-template-columns: 1fr; } }
+.fg { margin-bottom: 11px; }
+.fl { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px; font-weight: 600; }
+.fi, .fs { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 5px; font-size: 13px; font-family: inherit; background: var(--white); }
+.fi:focus, .fs:focus { outline: none; border-color: var(--primary); }
+.frow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.frow3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: 5px; background: var(--white); cursor: pointer; font-size: 13px; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--border-light); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-lg { padding: 11px 18px; font-size: 14px; width: 100%; justify-content: center; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-danger { color: var(--danger); border-color: #f8c9c6; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.kpi { background: var(--primary-lighter); border: 1px solid var(--primary-light); border-radius: 6px; padding: 10px 12px; }
+.kpi-label { font-size: 11px; color: var(--text-light); margin-bottom: 3px; }
+.kpi-value { font-size: 17px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+.kpi-unit { font-size: 11px; font-weight: 400; color: var(--text-light); }
+table.t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.t th, table.t td { padding: 6px 9px; border-bottom: 1px solid var(--border-light); text-align: left; }
+table.t th { background: var(--bg); font-weight: 600; color: var(--text-light); font-size: 11.5px; }
+table.t td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.b-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.b-pill.green { background: #E8F5E9; color: #2E7D32; }
+.b-pill.red { background: #FFEBEE; color: #C62828; }
+.b-pill.orange { background: #FFF3E0; color: #E65100; }
+.b-pill.blue { background: #E3F2FD; color: #1565C0; }
+.b-pill.gray { background: #F5F5F5; color: #616161; }
+.chk { padding: 7px 10px; border-radius: 5px; margin-bottom: 5px; font-size: 12.5px; display: flex; gap: 8px; align-items: flex-start; }
+.chk.ok { background: #F1F8F2; color: #2E7D32; }
+.chk.ng { background: #FFF5F5; color: #C62828; }
+.warn { background: #FFF8E1; border-left: 3px solid var(--warning); padding: 9px 12px; margin-bottom: 7px; font-size: 12.5px; border-radius: 0 5px 5px 0; }
+/* 계산서 — 웹 화면과 같은 밝은 표. 인쇄/PDF 에서도 그대로 읽힌다. */
+.rpt{border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:14px}
+.rpt-h{background:var(--primary-lighter);border-bottom:1px solid var(--primary-light);
+  padding:9px 12px;font-weight:700;font-size:13px}
+.rpt-h .ref{font-weight:400;font-size:11.5px;color:var(--text-light);margin-top:2px}
+.rpt-sec{font-size:11.5px;font-weight:700;color:var(--text-light);background:var(--bg);
+  padding:5px 12px;border-top:1px solid var(--border-light)}
+table.rt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.rt td{padding:5px 12px;border-bottom:1px solid var(--border-light);vertical-align:top}
+table.rt td.k{width:44%;color:var(--text)}
+table.rt td.v{width:22%;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+table.rt td.u{width:10%;color:var(--text-light);font-size:11.5px}
+table.rt td.f{color:var(--text-lighter);font-size:11px;font-family:Consolas,"D2Coding",monospace}
+pre.sheet { background: var(--white); border: 1px solid var(--border); color: var(--text); padding: 14px; border-radius: 6px; font-size: 11.5px; line-height: 1.55; overflow-x: auto; font-family: Consolas, "D2Coding", monospace; margin: 0; }
+.hint { font-size: 11.5px; color: var(--text-lighter); margin-top: 3px; line-height: 1.5; }
+.disclaimer { background: #FFF8E1; border: 1px solid #FFE082; border-radius: 6px; padding: 11px 14px; font-size: 12px; color: #7a5c00; margin-bottom: 16px; line-height: 1.6; }
+svg.tankdraw { width: 100%; height: auto; background: #FCFDFF; border: 1px solid var(--border-light); border-radius: 6px; }
+.empty { text-align: center; color: var(--text-lighter); padding: 50px 20px; font-size: 13px; }
+/* 인쇄 = PDF 저장 경로 (브라우저 기본 기능, 별도 라이브러리 없음) */
+@media print{
+  .tabs,.head,.btn,.noprint{display:none!important}
+  body{background:#fff;font-size:11px}
+  #app{padding:0;max-width:none}
+  .card,.rpt{border-color:#999;box-shadow:none;break-inside:avoid;page-break-inside:avoid}
+  .rpt{margin-bottom:10px}
+  .rpt-h{background:#f0f0f0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rpt-sec{background:#f7f7f7!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .kpi{background:#f4f8fd!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .chk.ok,.chk.ng,.warn,.b-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  svg.tankdraw{break-inside:avoid;page-break-inside:avoid;max-height:150mm}
+  .print-head{display:block!important;margin-bottom:10px;border-bottom:2px solid #333;padding-bottom:6px}
+}
+.print-head{display:none}
+@page{size:A4;margin:14mm}
+.sec-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .sec-split { grid-template-columns: 1fr; } }
+</style>
+
+<div class="mod-head">
+  <h1 class="mod-title"><i data-lucide="fan">🌀</i> 교반기 선정·설계</h1>
+  <div class="mod-sub">점도·비중·탱크 제원 입력 → 임펠러 형식·치수·회전수·동력·모터·축 산출 · 협력업체 검토서 대조</div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+<div id="app"><div class="empty">불러오는 중…</div></div>
+
+<script>
+/* ================================================================
+   교반기 선정·설계 모듈
+   계산 엔진은 ./agitcalc-core.js (파이썬 패키지 agitcalc 의 1:1 포팅).
+   엔진 수식은 이 파일에서 고치지 말고 원본 저장소에서 고친 뒤 재배포한다.
+   ================================================================ */
+
+/* --- 메인 앱과 공유하는 사용자 상태 --- */
+const KEY = 'SJ_FLOW_V04';
+const MODULE_KEY = 'AGITATOR_V01';
+const FS_COLL = 't_agitatorDesigns';   // 신규 컬렉션은 t_ 접두사 필수
+
+let state = {};
+let designs = [];        // 저장된 선정안
+let lastSynced = [];
+let view = { tab: 'design', result: null, error: null, selectedId: null };
+
+function loadPlatformState() {
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { state = {}; }
+  if (!state.users) state.users = [];
+}
+function currentUser() {
+  const uid = state.currentUser;
+  if (!uid) return null;
+  return (state.users || []).find(u => u.id === uid) || null;
+}
+function currentUserName() { const u = currentUser(); return u ? u.name : ''; }
+function canEdit() {
+  const u = currentUser();
+  return !!u && (u.dept === '기술부' || u.grade === 'super' || u.grade === 'exec');
+}
+function uid() { return 'ag-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function nowISO() { return new Date().toISOString(); }
+
+function loadLocalCache() {
+  try { designs = JSON.parse(localStorage.getItem(MODULE_KEY) || '[]'); } catch (e) { designs = []; }
+  if (!Array.isArray(designs)) designs = [];
+}
+function saveLocalCache() {
+  try { localStorage.setItem(MODULE_KEY, JSON.stringify(designs)); } catch (e) {}
+}
+
+/* --- Firestore 동기화 --- */
+async function waitForFbAuth(timeoutMs = 5000) {
+  const start = Date.now();
+  while (!window.fb || !fb.db || !fb.auth || !fb.auth.currentUser) {
+    if (Date.now() - start > timeoutMs)
+      throw new Error('로그인 세션을 확인할 수 없습니다 (오프라인이거나 로그인 전일 수 있음)');
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+function mergeServerSnapshot(localArr, serverDocs, prevSynced) {
+  const serverIds = new Set(serverDocs.map(d => d.id));
+  const prevIds = new Set((prevSynced || []).map(d => d.id));
+  const notYetSynced = (localArr || []).filter(n => !serverIds.has(n.id) && !prevIds.has(n.id));
+  return [...serverDocs, ...notYetSynced];
+}
+function startFirestoreSync() {
+  if (!window.fb || !fb.db) { setTimeout(startFirestoreSync, 300); return; }
+  if (!fb.auth || !fb.auth.currentUser) { setTimeout(startFirestoreSync, 400); return; }
+  try {
+    fb.onSnapshot(fb.collection(fb.db, FS_COLL), snap => {
+      const serverDocs = [];
+      snap.forEach(d => serverDocs.push(Object.assign({ id: d.id }, d.data())));
+      designs = mergeServerSnapshot(designs, serverDocs, lastSynced);
+      lastSynced = serverDocs.map(d => Object.assign({}, d));
+      saveLocalCache();
+      if (view.tab === 'saved') render();
+    }, err => console.warn('[agitator] onSnapshot 실패', err));
+  } catch (e) { console.warn('[agitator] sync 실패', e); }
+}
+async function pushDesign(d) {
+  await waitForFbAuth();
+  await fb.setDoc(fb.doc(fb.db, FS_COLL, d.id), d);
+}
+async function removeDesign(id) {
+  await waitForFbAuth();
+  await fb.deleteDoc(fb.doc(fb.db, FS_COLL, id));
+}
+
+/* --- 입력 기본값 --- */
+const DEFAULTS = {
+  project: '', item: '', customer: '',
+  T: 4500, V: 50, rho: 1300, mu: 15000,
+  impellerType: '', dT: '', nImp: '',
+  basis: 'level', level: 'moderate', rpm: '', blendMin: '',
+  material: 'SUS304', mechEff: 0.95, motorMargin: 1.15, maxLoad: 0.90,
+  shaftExtra: 600, serviceFactor: 1.5, baffled: '', dataset: 'LIT',
+  vfdMin: 0.3
+};
+let form = Object.assign({}, DEFAULTS);
+
+const LEVEL_LABEL = {
+  mild: '완만 (20~100 W/m³) — 액위 균일화',
+  moderate: '보통 (100~300 W/m³) — 일반 혼합·열전달',
+  vigorous: '강 (300~800 W/m³) — 고체현탁·반응',
+  intense: '격렬 (800~2000 W/m³) — 유화·결정화'
+};
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function n2(x, d) { return (x == null || !isFinite(x)) ? '—' : Number(x).toFixed(d == null ? 2 : d); }
+function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
+
+/* ================================================================
+   계산 실행
+   ================================================================ */
+function runDesign() {
+  view.error = null;
+  const f = form;
+  const num = v => (v === '' || v == null) ? null : Number(v);
+    const mm = v => { const x = num(v); return x == null ? null : x / 1000; };   // mm 입력 -> m
+  try {
+    const opts = {
+      V: Number(f.V), rho: Number(f.rho), mu_cP: Number(f.mu),
+      T: mm(f.T), basis: f.basis, level: f.level,
+      impellerType: f.impellerType || null,
+      dT: num(f.dT), nImp: num(f.nImp),
+      rpm: num(f.rpm), targetBlendMin: num(f.blendMin),
+      material: f.material, mechEff: Number(f.mechEff),
+      motorMargin: Number(f.motorMargin), maxLoad: Number(f.maxLoad),
+      shaftExtraMM: Number(f.shaftExtra), serviceFactor: Number(f.serviceFactor),
+      vfdMinRpmRatio: Number(f.vfdMin), dataset: f.dataset,
+      baffled: f.baffled === '' ? null : (f.baffled === 'yes')
+    };
+    if (!(opts.V > 0)) throw new Error('액체 체적 V 를 입력하세요');
+    if (!(opts.rho > 0)) throw new Error('밀도(비중) 를 입력하세요');
+    if (!(opts.mu_cP > 0)) throw new Error('점도 를 입력하세요');
+    view.result = agitcalc.design(opts);
+  } catch (e) {
+    view.error = e.message || String(e);
+    view.result = null;
+  }
+  render();
+}
+
+/* ================================================================
+   탱크 단면도 SVG
+   ================================================================ */
+function drawTank(res) {
+  const g = res.geometry;
+  const W = 620, Hpx = 490;
+  // mT 는 구동부 박스(yTop-62)와 T 치수선(yTop-18)이 들어갈 만큼 확보해야 한다.
+  // 탱크가 높아 yTop 이 mT 까지 올라가면 mT<62 에서 구동부가 캔버스 밖으로 나간다.
+  const mL = 96, mR = 150, mT = 78, mB = 46;
+  const drawW = W - mL - mR, drawH = Hpx - mT - mB;
+
+  // 탱크 전체 높이 = 액위 + 여유공간(액위의 20%) 로 스케일
+  const tankH = g.H * 1.2;
+  const sc = Math.min(drawW / g.T, drawH / tankH);
+  const tw = g.T * sc, th = tankH * sc;
+  const cx = mL + drawW / 2;
+  const yTop = mT + (drawH - th);
+  const yBot = yTop + th;
+  const xL = cx - tw / 2, xR = cx + tw / 2;
+  const yLiq = yBot - g.H * sc;
+  const dishR = tw * 0.25;
+
+  const P = [];
+  // 탱크 셸 (하부 접시경판)
+  P.push(`<path d="M ${xL} ${yTop} L ${xL} ${yBot - dishR}
+      Q ${xL} ${yBot} ${cx} ${yBot} Q ${xR} ${yBot} ${xR} ${yBot - dishR}
+      L ${xR} ${yTop}" fill="#fff" stroke="#37474F" stroke-width="2.5"/>`);
+  // 액체
+  P.push(`<path d="M ${xL} ${yLiq} L ${xL} ${yBot - dishR}
+      Q ${xL} ${yBot} ${cx} ${yBot} Q ${xR} ${yBot} ${xR} ${yBot - dishR}
+      L ${xR} ${yLiq} Z" fill="#BBDEFB" fill-opacity="0.55" stroke="none"/>`);
+  P.push(`<line x1="${xL}" y1="${yLiq}" x2="${xR}" y2="${yLiq}" stroke="#1976D2" stroke-width="1.6" stroke-dasharray="7 4"/>`);
+
+  // 배플
+  if (g.baffled) {
+    const bw = g.B * sc, bg = g.B_wall_clearance * sc;
+    [-1, 1].forEach(s => {
+      const x = s < 0 ? xL + bg : xR - bg - bw;
+      P.push(`<rect x="${x}" y="${yLiq + 4}" width="${Math.max(bw, 2.5)}" height="${(yBot - dishR) - yLiq - 6}" fill="#90A4AE" stroke="#546E7A" stroke-width="0.8"/>`);
+    });
+  }
+
+  // 축
+  const shaftW = Math.max(res.shaft_dia_mm / 1000 * sc, 4);
+  P.push(`<rect x="${cx - shaftW / 2}" y="${yTop - 30}" width="${shaftW}" height="${(yBot - g.elevations[0] * sc) - (yTop - 30) + 6}" fill="#78909C" stroke="#455A64" stroke-width="1"/>`);
+  // 구동부
+  P.push(`<rect x="${cx - 34}" y="${yTop - 62}" width="68" height="32" rx="4" fill="#455A64"/>`);
+  P.push(`<text x="${cx}" y="${yTop - 42}" font-size="11" fill="#fff" text-anchor="middle" font-family="sans-serif">${n2(res.motor_kW, 1)} kW</text>`);
+  // 플랜지(노즐)
+  P.push(`<rect x="${cx - 30}" y="${yTop - 8}" width="60" height="8" fill="#607D8B"/>`);
+
+  // 임펠러
+  const dw = g.D * sc;
+  g.elevations.forEach(e => {
+    const y = yBot - e * sc;
+    const t = g.impeller_type;
+    if (t === 'MAXBLEND') {
+      const lp = (g.lower_paddle_H || g.H * 0.35) * sc;
+      const gr = (g.grid_H || g.H * 0.5) * sc;
+      P.push(`<rect x="${cx - dw / 2}" y="${y - lp}" width="${dw}" height="${lp}" fill="#FFB74D" fill-opacity="0.85" stroke="#E65100" stroke-width="1.6"/>`);
+      P.push(`<rect x="${cx - dw / 2}" y="${y - lp - gr}" width="${dw}" height="${gr}" fill="none" stroke="#E65100" stroke-width="1.6"/>`);
+      for (let i = 1; i <= 2; i++) {
+        const yy = y - lp - gr * i / 3;
+        P.push(`<line x1="${cx - dw / 2}" y1="${yy}" x2="${cx + dw / 2}" y2="${yy}" stroke="#E65100" stroke-width="1.4"/>`);
+      }
+    } else if (t === 'ANCHOR' || t === 'RIBBON') {
+      P.push(`<path d="M ${cx - dw / 2} ${y - g.H * sc * 0.75} L ${cx - dw / 2} ${y}
+          Q ${cx} ${y + dw * 0.18} ${cx + dw / 2} ${y} L ${cx + dw / 2} ${y - g.H * sc * 0.75}"
+          fill="none" stroke="#E65100" stroke-width="3.5"/>`);
+    } else {
+      const bh = Math.max(g.W * sc, 5);
+      [-1, 1].forEach(s => {
+        P.push(`<rect x="${s < 0 ? cx - dw / 2 : cx + shaftW / 2}" y="${y - bh / 2}"
+            width="${dw / 2 - shaftW / 2}" height="${bh}" fill="#FFB74D" fill-opacity="0.9"
+            stroke="#E65100" stroke-width="1.4" transform="skewX(${g.blade_angle_deg === 45 ? (s < 0 ? 14 : -14) : 0})"/>`);
+      });
+      if (t === 'RUSHTON' && g.disc_D) {
+        const ddw = g.disc_D * sc;
+        P.push(`<rect x="${cx - ddw / 2}" y="${y - 2}" width="${ddw}" height="4" fill="#E65100"/>`);
+      }
+    }
+  });
+
+  // 치수선
+  const dim = (x1, y1, x2, y2, label, off, vert) => {
+    const c = '#1976D2';
+    let s = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="1"/>`;
+    const cap = (x, y) => `<line x1="${vert ? x - 4 : x}" y1="${vert ? y : y - 4}" x2="${vert ? x + 4 : x}" y2="${vert ? y : y + 4}" stroke="${c}" stroke-width="1"/>`;
+    s += cap(x1, y1) + cap(x2, y2);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    s += `<text x="${mx + (vert ? -7 : 0)}" y="${my + (vert ? 3 : -5)}" font-size="10.5" fill="${c}"
+        text-anchor="${vert ? 'end' : 'middle'}" font-family="sans-serif">${label}</text>`;
+    return s;
+  };
+  // T (상부 가로)
+  P.push(dim(xL, yTop - 18, xR, yTop - 18, `T = ${(g.T * 1000).toFixed(0)}`, 0, false));
+  // H (좌측 세로)
+  P.push(dim(xL - 14, yLiq, xL - 14, yBot, `H = ${(g.H * 1000).toFixed(0)}`, 0, true));
+  // D (임펠러 가로)
+  const yD = yBot - g.elevations[0] * sc + 26;
+  P.push(dim(cx - dw / 2, yD, cx + dw / 2, yD, `D = ${(g.D * 1000).toFixed(0)}`, 0, false));
+  // C (바닥간극)
+  P.push(dim(xR + 16, yBot - g.elevations[0] * sc, xR + 16, yBot, `C = ${(g.C * 1000).toFixed(0)}`, 0, true));
+
+  // 우측 범례
+  const lx = xR + 46;
+  const rows = [
+    ['형식', g.impeller_type],
+    ['D/T', g.D_T.toFixed(3)],
+    ['단수', g.n_impellers + ' 단'],
+    ['W/D', g.W_D.toFixed(3)],
+    ['배플', g.baffled ? g.n_baffles + '매' : '무배플'],
+    ['축', 'φ' + res.shaft_dia_mm.toFixed(0)],
+    ['rpm', res.rpm],
+    ['v_tip', n2(res.v_tip, 2) + ' m/s']
+  ];
+  rows.forEach((r, i) => {
+    const y = yTop + 8 + i * 17;
+    P.push(`<text x="${lx}" y="${y}" font-size="10.5" fill="#666" font-family="sans-serif">${esc(r[0])}</text>`);
+    P.push(`<text x="${lx + 44}" y="${y}" font-size="10.5" fill="#333" font-weight="600" font-family="sans-serif">${esc(r[1])}</text>`);
+  });
+
+  return `<svg class="tankdraw" viewBox="0 0 ${W} ${Hpx}" xmlns="http://www.w3.org/2000/svg">${P.join('')}</svg>`;
+}
+
+/* ================================================================
+   렌더링
+   ================================================================ */
+const TABS = [
+  ['design', '선정 계산', 'calculator'],
+  ['report', '계산서', 'file-text'],
+  ['vendor', '협력업체 검토서 대조', 'git-compare'],
+  ['saved', '저장 목록', 'folder'],
+  ['ref', '계산식 근거', 'book-open']
+];
+
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = TABS.map(([id, label, icon]) =>
+    `<button class="tab ${view.tab === id ? 'active' : ''}" data-tab="${id}">${LI(icon)} ${esc(label)}${id === 'saved' && designs.length ? ` <span class="b-pill gray">${designs.length}</span>` : ''}</button>`
+  ).join('');
+}
+
+function inputForm() {
+  const f = form;
+  const impOpts = ['<option value="">자동 선정 (점도 기준)</option>'].concat(
+    Object.keys(agitcalc.LIT).map(k =>
+      `<option value="${k}" ${f.impellerType === k ? 'selected' : ''}>${esc(agitcalc.LIT[k].nameKo)}</option>`)
+  ).join('');
+  return `
+  <div class="card">
+    <h3>${LI('clipboard-list')} 프로젝트</h3>
+    <div class="frow3">
+      <div class="fg"><label class="fl">발주처</label><input class="fi" data-f="customer" value="${esc(f.customer)}" placeholder="D&K켐텍"></div>
+      <div class="fg"><label class="fl">Project</label><input class="fi" data-f="project" value="${esc(f.project)}" placeholder="SJ426-24"></div>
+      <div class="fg"><label class="fl">ITEM NO.</label><input class="fi" data-f="item" value="${esc(f.item)}" placeholder="FA-6101"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>${LI('beaker')} 공정 조건</h3>
+    <div class="frow">
+      <div class="fg"><label class="fl">액체 체적 V [m³] *</label><input class="fi" type="number" step="any" data-f="V" value="${esc(f.V)}"></div>
+      <div class="fg"><label class="fl">탱크 내경 T [mm]</label><input class="fi" type="number" step="any" data-f="T" value="${esc(f.T)}" placeholder="비우면 자동">
+        <div class="hint">비우면 H/T=1.1 기준으로 산정</div></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">비중 ρ [kg/m³] *</label><input class="fi" type="number" step="any" data-f="rho" value="${esc(f.rho)}"></div>
+      <div class="fg"><label class="fl">점도 μ [cP] *</label><input class="fi" type="number" step="any" data-f="mu" value="${esc(f.mu)}"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>${LI('fan')} 임펠러</h3>
+    <div class="fg"><label class="fl">형식</label><select class="fs" data-f="impellerType">${impOpts}</select></div>
+    <div class="frow3">
+      <div class="fg"><label class="fl">D/T</label><input class="fi" type="number" step="any" data-f="dT" value="${esc(f.dT)}" placeholder="자동"></div>
+      <div class="fg"><label class="fl">단수</label><input class="fi" type="number" step="1" data-f="nImp" value="${esc(f.nImp)}" placeholder="자동"></div>
+      <div class="fg"><label class="fl">배플</label><select class="fs" data-f="baffled">
+        <option value="" ${f.baffled === '' ? 'selected' : ''}>자동</option>
+        <option value="yes" ${f.baffled === 'yes' ? 'selected' : ''}>설치</option>
+        <option value="no" ${f.baffled === 'no' ? 'selected' : ''}>무배플</option>
+      </select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>${LI('gauge')} 회전수 결정 기준</h3>
+    <div class="fg"><label class="fl">기준</label><select class="fs" data-f="basis">
+      <option value="level" ${f.basis === 'level' ? 'selected' : ''}>교반강도 (P/V) 목표</option>
+      <option value="blend" ${f.basis === 'blend' ? 'selected' : ''}>목표 혼합시간</option>
+      <option value="rpm" ${f.basis === 'rpm' ? 'selected' : ''}>회전수 직접 지정</option>
+    </select></div>
+    ${f.basis === 'level' ? `<div class="fg"><label class="fl">교반강도</label><select class="fs" data-f="level">
+      ${Object.keys(LEVEL_LABEL).map(k => `<option value="${k}" ${f.level === k ? 'selected' : ''}>${esc(LEVEL_LABEL[k])}</option>`).join('')}
+    </select></div>` : ''}
+    ${f.basis === 'blend' ? `<div class="fg"><label class="fl">목표 혼합시간 [min]</label><input class="fi" type="number" step="any" data-f="blendMin" value="${esc(f.blendMin)}"></div>` : ''}
+    ${f.basis === 'rpm' ? `<div class="fg"><label class="fl">회전수 [rpm]</label><input class="fi" type="number" step="any" data-f="rpm" value="${esc(f.rpm)}"></div>` : ''}
+  </div>
+
+  <div class="card">
+    <h3>${LI('wrench')} 기계 사양</h3>
+    <div class="frow">
+      <div class="fg"><label class="fl">축 재질</label><select class="fs" data-f="material">
+        ${Object.keys(agitcalc.MATERIALS).map(k => `<option value="${k}" ${f.material === k ? 'selected' : ''}>${k} (${esc(agitcalc.MATERIALS[k].name)})</option>`).join('')}
+      </select></div>
+      <div class="fg"><label class="fl">데이터셋</label><select class="fs" data-f="dataset">
+        <option value="LIT" ${f.dataset === 'LIT' ? 'selected' : ''}>문헌값 (신규 설계)</option>
+        <option value="TOPJIN" ${f.dataset === 'TOPJIN' ? 'selected' : ''}>TOPJIN 역산 Nq (견적 대조)</option>
+      </select></div>
+    </div>
+    <div class="frow3">
+      <div class="fg"><label class="fl">기계효율</label><input class="fi" type="number" step="any" data-f="mechEff" value="${esc(f.mechEff)}"></div>
+      <div class="fg"><label class="fl">모터 여유율</label><input class="fi" type="number" step="any" data-f="motorMargin" value="${esc(f.motorMargin)}"></div>
+      <div class="fg"><label class="fl">부하율 상한</label><input class="fi" type="number" step="any" data-f="maxLoad" value="${esc(f.maxLoad)}"></div>
+    </div>
+    <div class="frow3">
+      <div class="fg"><label class="fl">액면상 축길이 [mm]</label><input class="fi" type="number" step="any" data-f="shaftExtra" value="${esc(f.shaftExtra)}"></div>
+      <div class="fg"><label class="fl">서비스팩터</label><input class="fi" type="number" step="any" data-f="serviceFactor" value="${esc(f.serviceFactor)}"></div>
+      <div class="fg"><label class="fl">인버터 최저속비</label><input class="fi" type="number" step="any" data-f="vfdMin" value="${esc(f.vfdMin)}">
+        <div class="hint">V.V.V.F 공진 검토용</div></div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary btn-lg" id="btnCalc">${LI('play')} 선정 계산</button>
+  <button class="btn btn-lg" id="btnReset" style="margin-top:8px">${LI('rotate-ccw')} 초기화</button>
+  `;
+}
+
+function resultPanel() {
+  if (view.error) return `<div class="card"><div class="chk ng">${LI('alert-circle')} <div>${esc(view.error)}</div></div></div>`;
+  const res = view.result;
+  if (!res) return `<div class="card"><div class="empty">${LI('arrow-left')} 왼쪽에 조건을 입력하고 <b>선정 계산</b> 을 누르세요.</div></div>`;
+  const s = res.summary, g = res.geometry;
+
+  const kpi = (l, v, u) => `<div class="kpi"><div class="kpi-label">${esc(l)}</div><div class="kpi-value">${esc(v)}<span class="kpi-unit"> ${esc(u || '')}</span></div></div>`;
+
+  return `
+  <div class="kpi-grid">
+    ${kpi('임펠러 형식', g.impeller_type, g.n_impellers + '단')}
+    ${kpi('임펠러경 D', (g.D * 1000).toFixed(0), 'mm')}
+    ${kpi('회전수', res.rpm, 'rpm')}
+    ${kpi('모터', n2(res.motor_kW, 1), 'kW')}
+    ${kpi('부하율', n2(res.load_pct, 1), '%')}
+    ${kpi('축경', 'φ' + res.shaft_dia_mm.toFixed(0), 'mm')}
+  </div>
+
+  <div class="card">
+    <h3>${LI('layout-dashboard')} 탱크·임펠러 단면도</h3>
+    ${drawTank(res)}
+  </div>
+
+  <div class="sec-split">
+    <div class="card">
+      <h3>${LI('activity')} 수력 성능</h3>
+      <table class="t">
+        <tr><td>Reynolds수 Re</td><td class="num">${n2(res.Re, 1)}</td><td><span class="b-pill ${agitcalc.flowRegime(res.Re) === '난류' ? 'green' : 'orange'}">${esc(agitcalc.flowRegime(res.Re))}</span></td></tr>
+        <tr><td>동력수 Np</td><td class="num">${n2(res.Np, 4)}</td><td>-</td></tr>
+        <tr><td>익단속도 v_tip</td><td class="num">${n2(res.v_tip, 3)}</td><td>m/s</td></tr>
+        <tr><td>Froude수 Fr</td><td class="num">${n2(res.Fr, 4)}</td><td>-</td></tr>
+        <tr><td>액체전달동력 P</td><td class="num">${n2(res.P_liquid / 1000, 3)}</td><td>kW</td></tr>
+        <tr><td>단위체적동력 P/V</td><td class="num">${n2(res.PV, 1)}</td><td>W/m³</td></tr>
+        <tr><td>총 토출량 Q</td><td class="num">${n2(res.Q_total * 60, 2)}</td><td>m³/min</td></tr>
+        <tr><td>토출유량수 Q/V</td><td class="num">${n2(res.Q_total * 60 / g.V, 3)}</td><td>回/min</td></tr>
+        <tr><td>탱크 순환시간</td><td class="num">${n2(res.turnover_s, 1)}</td><td>s</td></tr>
+        <tr><td>혼합시간 θ95</td><td class="num">${n2(res.theta95_s / 60, 2)}</td><td>min</td></tr>
+      </table>
+      <div class="hint">θ95 산정근거: ${esc(res.blend_detail.basis)}</div>
+    </div>
+
+    <div class="card">
+      <h3>${LI('ruler')} 형상 치수</h3>
+      <table class="t">
+        <tr><td>탱크 내경 T</td><td class="num">${(g.T * 1000).toFixed(0)}</td><td>mm</td></tr>
+        <tr><td>액위 H</td><td class="num">${(g.H * 1000).toFixed(0)}</td><td>mm (H/T=${n2(g.H_T, 3)})</td></tr>
+        <tr><td>임펠러경 D</td><td class="num">${(g.D * 1000).toFixed(0)}</td><td>mm (D/T=${n2(g.D_T, 3)})</td></tr>
+        <tr><td>날개폭 W</td><td class="num">${(g.W * 1000).toFixed(0)}</td><td>mm (W/D=${n2(g.W_D, 3)})</td></tr>
+        <tr><td>바닥간극 C</td><td class="num">${(g.C * 1000).toFixed(0)}</td><td>mm (C/T=${n2(g.C_T, 3)})</td></tr>
+        ${g.elevations.map((e, i) => `<tr><td>${i + 1}단 설치높이</td><td class="num">${(e * 1000).toFixed(0)}</td><td>mm</td></tr>`).join('')}
+        ${g.spacing ? `<tr><td>임펠러 간격 S</td><td class="num">${(g.spacing * 1000).toFixed(0)}</td><td>mm (S/D=${n2(g.spacing_over_D, 2)})</td></tr>` : ''}
+        ${g.baffled ? `<tr><td>배플</td><td class="num">${g.n_baffles}매 × ${(g.B * 1000).toFixed(0)}</td><td>mm (벽간극 ${(g.B_wall_clearance * 1000).toFixed(0)})</td></tr>` : `<tr><td>배플</td><td class="num">—</td><td>무배플</td></tr>`}
+        ${g.blade_thk ? `<tr><td>날개 두께</td><td class="num">${(g.blade_thk * 1000).toFixed(0)}</td><td>mm</td></tr>` : ''}
+        ${g.n_blades ? `<tr><td>날개 수</td><td class="num">${g.n_blades}</td><td>매</td></tr>` : ''}
+      </table>
+    </div>
+  </div>
+
+  <div class="sec-split">
+    <div class="card">
+      <h3>${LI('bolt')} 축 검토</h3>
+      <table class="t">
+        <tr><td>축경 × 전장</td><td class="num">φ${res.shaft_dia_mm.toFixed(0)} × ${res.shaft_len_mm.toFixed(0)}</td><td>mm</td></tr>
+        <tr><td>설계토크</td><td class="num">${n2(res.shaft.results.T_design_Nm, 1)}</td><td>N·m</td></tr>
+        <tr><td>비틀림응력 τ</td><td class="num">${n2(res.shaft.results.tau_MPa, 2)}</td><td>MPa</td></tr>
+        <tr><td>굽힘응력 σb</td><td class="num">${n2(res.shaft.results.sigma_b_MPa, 2)}</td><td>MPa</td></tr>
+        <tr><td>조합응력 τmax</td><td class="num">${n2(res.shaft.results.tau_max_MPa, 2)}</td><td>MPa</td></tr>
+        <tr><td>허용응력 τallow</td><td class="num">${n2(res.shaft.results.tau_allow_MPa, 2)}</td><td>MPa</td></tr>
+        <tr><td>안전율</td><td class="num">${n2(res.shaft.results.SF_stress, 2)}</td><td><span class="b-pill ${res.shaft.results.SF_stress >= 1 ? 'green' : 'red'}">${res.shaft.results.SF_stress >= 1 ? 'OK' : 'NG'}</span></td></tr>
+        <tr><td>최하단 처짐</td><td class="num">${n2(res.shaft.results.delta_tip_mm, 3)}</td><td>mm</td></tr>
+        <tr><td>1차 위험속도 Nc</td><td class="num">${n2(res.shaft.results.N_crit_rpm, 1)}</td><td>rpm</td></tr>
+        <tr><td>N/Nc</td><td class="num">${n2(res.shaft.results.N_over_Nc, 3)}</td><td><span class="b-pill ${res.shaft.results.N_over_Nc <= 0.7 ? 'green' : 'red'}">${res.shaft.results.N_over_Nc <= 0.7 ? '아임계' : '공진위험'}</span></td></tr>
+        ${res.shaft.results.resonance_band_rpm ? `<tr><td>공진 회피대역</td><td class="num">${n2(res.shaft.results.resonance_band_rpm[0], 0)} ~ ${n2(res.shaft.results.resonance_band_rpm[1], 0)}</td><td>rpm</td></tr>` : ''}
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>${LI('check-circle')} 검토 결과 ${s.ok ? '<span class="b-pill green">전 항목 적합</span>' : '<span class="b-pill red">부적합 항목 있음</span>'}</h3>
+      ${s.checks.map(([d, p, note]) => `<div class="chk ${p ? 'ok' : 'ng'}">${LI(p ? 'check' : 'x')}<div>${esc(d)}${note ? ` <span style="opacity:.75">— ${esc(note)}</span>` : ''}</div></div>`).join('')}
+      ${res.shaft.checks.map(([d, p, note]) => `<div class="chk ${p ? 'ok' : 'ng'}">${LI(p ? 'check' : 'x')}<div>[축] ${esc(d)}${note ? ` <span style="opacity:.75">— ${esc(note)}</span>` : ''}</div></div>`).join('')}
+      ${s.warnings.concat(res.power.warnings || []).map(w => `<div class="warn">${LI('alert-triangle')} ${esc(w)}</div>`).join('')}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>${LI('info')} 선정 근거</h3>
+    <div style="font-size:12.5px;line-height:1.7">${esc(g.reason)}</div>
+    <div class="hint" style="margin-top:8px">${esc(res.impeller.note || '')}</div>
+    <div class="hint">문헌출처: ${esc(res.impeller.source || '')}</div>
+  </div>
+
+  <div class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-primary" id="btnSave" ${canEdit() ? '' : 'disabled title="기술부 권한 필요"'}>${LI('save')} 선정안 저장</button>
+    <button class="btn" id="btnSheet">${LI('file-text')} 계산서 보기</button>
+    <button class="btn" id="btnXls">${LI('download')} Excel 내려받기</button>
+    <button class="btn" id="btnPrint">${LI('printer')} 인쇄 / PDF</button>
+  </div>
+  `;
+}
+
+/* CalcResult 하나를 밝은 HTML 표로. 엔진의 텍스트 report() 대신 쓴다. */
+function rptCard(r){
+  const rows=[];
+  if(r.inputs.length){
+    rows.push(`<tr><td class="rpt-sec" colspan="4">입력</td></tr>`);
+    r.inputs.forEach(([n,v,u,note])=>rows.push(
+      `<tr><td class="k">${esc(n)}</td><td class="v">${esc(agitcalc.fmt(v))}</td>
+       <td class="u">${esc(u)}</td><td class="f">${esc(note)}</td></tr>`));
+  }
+  if(r.steps.length){
+    rows.push(`<tr><td class="rpt-sec" colspan="4">계산</td></tr>`);
+    r.steps.forEach(([n,f,v,u])=>rows.push(
+      `<tr><td class="k">${esc(n)}</td><td class="v">${esc(agitcalc.fmt(v))}</td>
+       <td class="u">${esc(u)}</td><td class="f">${esc(f)}</td></tr>`));
+  }
+  let extra='';
+  if(r.checks.length){
+    extra+=`<div class="rpt-sec">검토</div><div style="padding:8px 12px">`+
+      r.checks.map(([d,p,note])=>`<div class="chk ${p?'ok':'ng'}">${p?'✔':'✘'} ${esc(d)}${
+        note?` <span style="opacity:.75">— ${esc(note)}</span>`:''}</div>`).join('')+`</div>`;
+  }
+  if(r.warnings.length){
+    extra+=`<div class="rpt-sec">경고</div><div style="padding:8px 12px">`+
+      r.warnings.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join('')+`</div>`;
+  }
+  return `<div class="rpt"><div class="rpt-h">${esc(r.title)}${
+    r.ref?`<div class="ref">근거: ${esc(r.ref)}</div>`:''}</div>
+    <table class="rt">${rows.join('')}</table>${extra}</div>`;
+}
+
+/* 형상 치수는 표가 더 읽기 좋아서 별도 표로 낸다 */
+function geoCard(g){
+  const mm=x=>(x*1000).toFixed(0);
+  const row=(k,v,u)=>`<tr><td class="k">${esc(k)}</td><td class="v">${esc(v)}</td><td class="u">${esc(u||'')}</td><td class="f"></td></tr>`;
+  const rows=[
+    `<tr><td class="rpt-sec" colspan="4">탱크</td></tr>`,
+    row('탱크 내경 T',mm(g.T),'mm'), row('액위 H',mm(g.H)+`  (H/T=${g.H_T.toFixed(3)})`,'mm'),
+    row('액체 체적 V',g.V.toFixed(3),'m³'),
+    `<tr><td class="rpt-sec" colspan="4">임펠러</td></tr>`,
+    row('형식',g.impeller_type+' × '+g.n_impellers+'단',''),
+    row('임펠러경 D',mm(g.D)+`  (D/T=${g.D_T.toFixed(3)})`,'mm'),
+    row('날개폭 W',mm(g.W)+`  (W/D=${g.W_D.toFixed(3)})`,'mm'),
+    row('바닥간극 C',mm(g.C)+`  (C/T=${g.C_T.toFixed(3)})`,'mm'),
+    ...g.elevations.map((e,i)=>row(`${i+1}단 설치높이 (바닥에서)`,mm(e),'mm')),
+    ...(g.spacing?[row('임펠러 간격 S',mm(g.spacing)+`  (S/D=${g.spacing_over_D.toFixed(2)})`,'mm')]:[]),
+    ...(g.n_blades?[row('날개 수',g.n_blades,'매')]:[]),
+    ...(g.blade_angle_deg?[row('날개 각도',g.blade_angle_deg,'deg')]:[]),
+    ...(g.blade_thk?[row('날개 두께',mm(g.blade_thk),'mm')]:[]),
+    ...(g.lower_paddle_H?[row('하부 패들 높이',mm(g.lower_paddle_H),'mm')]:[]),
+    ...(g.grid_H?[row('상부 격자 높이',mm(g.grid_H),'mm')]:[]),
+    ...(g.wall_clearance?[row('벽 간극',mm(g.wall_clearance),'mm')]:[]),
+    `<tr><td class="rpt-sec" colspan="4">배플</td></tr>`,
+    g.baffled?row('배플',`${g.n_baffles}매 × ${mm(g.B)} (벽간극 ${mm(g.B_wall_clearance)})`,'mm')
+             :row('배플','무배플 — 광폭/근접간극 임펠러로 선회류 억제',''),
+    row('권장 익단속도',`${g.tip_speed_range[0].toFixed(1)} ~ ${g.tip_speed_range[1].toFixed(1)}`,'m/s')
+  ];
+  return `<div class="rpt"><div class="rpt-h">임펠러·탱크 형상 치수 — ${esc(g.impeller_name)} (${esc(g.flow)})
+    <div class="ref">${esc(g.reason)}</div></div><table class="rt">${rows.join('')}</table></div>`;
+}
+
+function reportTab(){
+  if(!view.result) return `<div class="card"><div class="empty">먼저 <b>선정 계산</b> 탭에서 계산을 실행하세요.</div></div>`;
+  const res=view.result, f=form;
+  const today=new Date().toISOString().slice(0,10);
+  return `<div class="card">
+    <div class="print-head">
+      <div style="font-size:16px;font-weight:700">교반기 선정 검토서</div>
+      <div style="font-size:11px;color:#555;margin-top:3px">
+        발주처 ${esc(f.customer||'—')} · Project ${esc(f.project||'—')} · ITEM ${esc(f.item||'—')} · ${today}
+        · ㈜세종기술 기술부 · agitcalc v0.1</div>
+    </div>
+    <h3 class="noprint">📄 계산서</h3>
+    <div class="noprint" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-sm" id="btnPrint">🖨 인쇄 / PDF 저장</button>
+      <button class="btn btn-sm" id="btnXls">📊 Excel 내려받기</button>
+      <button class="btn btn-sm" id="btnCopy">📋 텍스트 복사</button>
+    </div>
+    ${rptCard(res.summary)}
+    ${geoCard(res.geometry)}
+    ${rptCard(res.power)}
+    ${rptCard(res.shaft)}
+  </div>`;
+}
+
+/* --- 협력업체 검토서 대조 --- */
+/* 기본값 = D&K켐텍 FA-6101 (50m3 RESOL A). 검토서 비고란이 NON-BAFFLE 이므로
+   baffled:'no'. 인쇄값은 검토서 RESULT 란 그대로 넣어둔다. */
+let vform = {
+  T: 4500, V: 50, rho: 1300, mu: 15000, rpm: 20, mechEff: 0.85,
+  hasCoil: false, baffled: 'no', motor: 18.5,
+  imps: [['MAXBLEND', 3000], ['', ''], ['', '']],
+  pRe: 260, pTP: 3.1416, pQV: 2.268, pPcalc: 13.7702, pPcorr: 15.1472, pLoad: 81.9
+};
+let vresult = null;
+
+function vendorTab() {
+  const vendorTypes = ['', 'MAXBLEND', '4-P.P', '2-P.P', '6-P.P', 'ANCHOR', 'RIBBON', 'PROPELLER'];
+  return `
+  <div class="disclaimer">
+    ${LI('alert-triangle')} <b>확정된 식 / 미확정된 식</b> — D&K켐텍 YDK-II 검토서 R5 8건을 역산한 결과,
+    <b>Re · TIP SPEED · 토출유량수 Q/V · 보정계수 · 부하율</b> 은 상대오차 1e-8 이내로 정확히 재현되었습니다.
+    반면 <b>계산동력(Np 룩업표 비공개)</b> 과 <b>교반소요시간</b> 은 재현되지 않습니다.
+    아래 대조에서 동력 차이는 <u>둘 중 어느 쪽이 틀렸다는 뜻이 아니라, 벤더가 쓰는 Np 값을 확인해야 한다는 신호</u>로 보십시오.
+  </div>
+
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <h3>${LI('edit')} 검토서 입력값</h3>
+        <div class="frow">
+          <div class="fg"><label class="fl">Tank Dia. T [mm]</label><input class="fi" type="number" step="any" data-v="T" value="${esc(vform.T)}"></div>
+          <div class="fg"><label class="fl">Volume V [m³]</label><input class="fi" type="number" step="any" data-v="V" value="${esc(vform.V)}"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label class="fl">비중 [kg/m³]</label><input class="fi" type="number" step="any" data-v="rho" value="${esc(vform.rho)}"></div>
+          <div class="fg"><label class="fl">점도 [cP]</label><input class="fi" type="number" step="any" data-v="mu" value="${esc(vform.mu)}"></div>
+        </div>
+        <div class="frow3">
+          <div class="fg"><label class="fl">RPM</label><input class="fi" type="number" step="any" data-v="rpm" value="${esc(vform.rpm)}"></div>
+          <div class="fg"><label class="fl">기계효율</label><input class="fi" type="number" step="any" data-v="mechEff" value="${esc(vform.mechEff)}"></div>
+          <div class="fg"><label class="fl">MOTOR [kW]</label><input class="fi" type="number" step="any" data-v="motor" value="${esc(vform.motor)}"></div>
+        </div>
+        ${[0, 1, 2].map(i => `<div class="frow">
+          <div class="fg"><label class="fl">IMPELLER ${['하단', '중단', '상단'][i]}</label>
+            <select class="fs" data-vi="${i}">${vendorTypes.map(t => `<option value="${t}" ${vform.imps[i][0] === t ? 'selected' : ''}>${t || '없음'}</option>`).join('')}</select></div>
+          <div class="fg"><label class="fl">SIZE [mm]</label><input class="fi" type="number" step="any" data-vd="${i}" value="${esc(vform.imps[i][1])}"></div>
+        </div>`).join('')}
+        <div class="fg"><label class="fl">배플 (검토서 비고란) — 동력수에 직접 영향</label>
+          <select class="fs" data-v="baffled">
+            <option value="no" ${vform.baffled === 'no' ? 'selected' : ''}>NON-BAFFLE (무배플)</option>
+            <option value="yes" ${vform.baffled === 'yes' ? 'selected' : ''}>4-BAFFLES (배플 설치)</option>
+          </select>
+          <div class="hint">무배플이면 선회류로 동력수가 약 30% 낮아집니다. 검토서 비고란과 반드시 일치시키세요.</div></div>
+        <div class="fg"><label class="fl"><input type="checkbox" data-v="hasCoil" ${vform.hasCoil ? 'checked' : ''}> 내부 코일 (IN-COIL) — 보정계수 1.20</label></div>
+      </div>
+
+      <div class="card">
+        <h3>${LI('printer')} 검토서 인쇄값 (RESULT 란)</h3>
+        <div class="frow">
+          <div class="fg"><label class="fl">Reynolds수</label><input class="fi" type="number" step="any" data-v="pRe" value="${esc(vform.pRe)}"></div>
+          <div class="fg"><label class="fl">TIP SPEED</label><input class="fi" type="number" step="any" data-v="pTP" value="${esc(vform.pTP)}"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label class="fl">토출유량수 Q/V</label><input class="fi" type="number" step="any" data-v="pQV" value="${esc(vform.pQV)}"></div>
+          <div class="fg"><label class="fl">부하율 [%]</label><input class="fi" type="number" step="any" data-v="pLoad" value="${esc(vform.pLoad)}"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label class="fl">계산동력 [kW]</label><input class="fi" type="number" step="any" data-v="pPcalc" value="${esc(vform.pPcalc)}"></div>
+          <div class="fg"><label class="fl">보정동력 [kW]</label><input class="fi" type="number" step="any" data-v="pPcorr" value="${esc(vform.pPcorr)}"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" id="btnVendor">${LI('git-compare')} 대조 실행</button>
+    </div>
+
+    <div>${vresult || `<div class="card"><div class="empty">${LI('arrow-left')} 검토서 값을 입력하고 <b>대조 실행</b> 을 누르세요.</div></div>`}</div>
+  </div>`;
+}
+
+function runVendor() {
+  try {
+    const imps = vform.imps.filter(p => p[0] && Number(p[1]) > 0).map(p => [p[0], Number(p[1]) / 1000]);
+    if (!imps.length) throw new Error('임펠러를 1개 이상 입력하세요');
+    const r = agitcalc.topjinSheet({
+      T: Number(vform.T) / 1000, V: Number(vform.V), rho: Number(vform.rho),
+      mu_cP: Number(vform.mu), rpm: Number(vform.rpm), imps,
+      mechEff: Number(vform.mechEff), motor_kW: Number(vform.motor) || null,
+      hasCoil: !!vform.hasCoil, baffled: vform.baffled === 'yes'
+    });
+    const rows = [
+      ['Reynolds수', vform.pRe, r.results.Re, ''],
+      ['TIP SPEED', vform.pTP, r.results.TP, 'm/s'],
+      ['토출유량수 Q/V', vform.pQV, r.results.QV, '回/min'],
+      ['계산동력', vform.pPcalc, r.results.P_calc_kW, 'kW'],
+      ['보정동력', vform.pPcorr, r.results.P_corr_kW, 'kW'],
+      ['부하율', vform.pLoad, r.results.load_pct, '%']
+    ];
+    const body = rows.map(([label, want, got, unit]) => {
+      const w = Number(want);
+      if (!isFinite(w) || w === 0) return '';
+      const err = Math.abs(got - w) / Math.abs(w) * 100;
+      const cls = err <= 0.1 ? 'green' : (err <= 20 ? 'orange' : 'red');
+      const tag = err <= 0.1 ? '일치' : (err <= 20 ? '차이' : '큰 차이');
+      return `<tr><td>${esc(label)}</td><td class="num">${n2(w, 4)}</td>
+        <td class="num">${n2(got, 4)}</td><td class="num">${n2(err, 2)}%</td>
+        <td><span class="b-pill ${cls}">${tag}</span></td><td>${esc(unit)}</td></tr>`;
+    }).join('');
+
+    // 유체역학적 혼합시간을 별도 산출 (검토서 '교반소요시간' 과 비교용)
+    const N = Number(vform.rpm) / 60;
+    const D = imps[0][1];
+    const T = Number(vform.T) / 1000, V = Number(vform.V);
+    const H = agitcalc.liquidHeight(T, V);
+    const key = agitcalc.VENDOR_ALIAS[imps[0][0].toUpperCase()] || imps[0][0].toUpperCase();
+    const pn = agitcalc.powerNumber(r.results.Re, key, { baffled: r.results.baffled });
+    const bt = agitcalc.blendTime(N, D, T, H, pn.Np, r.results.Re, key);
+
+    vresult = `
+    <div class="card">
+      <h3>${LI('git-compare')} 대조 결과</h3>
+      <table class="t">
+        <thead><tr><th>항목</th><th>검토서</th><th>agitcalc</th><th>차이</th><th>판정</th><th>단위</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>${LI('clock')} 혼합시간 별도 산출</h3>
+      <table class="t">
+        <tr><td>유체역학적 θ95 (agitcalc)</td><td class="num">${n2(bt.theta / 60, 2)}</td><td>min</td></tr>
+        <tr><td>산정근거</td><td colspan="2">${esc(bt.basis)}</td></tr>
+      </table>
+      <div class="warn" style="margin-top:10px">${LI('alert-triangle')}
+        검토서의 '교반소요시간(추정)'은 8건 모두 표준 상관식으로 재현되지 않았습니다
+        (t × Q/V 회전수가 88~840회로 30배 흩어짐). 공정 요구시간을 기입한 것으로 추정되므로,
+        <b>유체역학적 혼합시간과는 다른 값</b>으로 이해하고 벤더에 정의를 확인하십시오.
+      </div>
+    </div>
+    <div class="card">
+      <h3>${LI('list')} 재현 계산 상세</h3>
+      ${rptCard(r)}
+    </div>`;
+  } catch (e) {
+    vresult = `<div class="card"><div class="chk ng">${LI('alert-circle')}<div>${esc(e.message || e)}</div></div></div>`;
+  }
+  render();
+}
+
+function savedTab() {
+  if (!designs.length) return `<div class="card"><div class="empty">저장된 선정안이 없습니다.</div></div>`;
+  const sorted = designs.slice().sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
+  return `<div class="card">
+    <h3>${LI('folder')} 저장된 선정안 ${designs.length}건</h3>
+    <table class="t">
+      <thead><tr><th>발주처</th><th>Project</th><th>ITEM</th><th>조건</th><th>선정</th><th>작성</th><th></th></tr></thead>
+      <tbody>${sorted.map(d => `<tr>
+        <td>${esc(d.customer || '—')}</td>
+        <td>${esc(d.project || '—')}</td>
+        <td><b>${esc(d.item || '—')}</b></td>
+        <td>${esc(d.V)}m³ · ${esc(Number(d.mu).toLocaleString())}cP · ${esc(d.rho)}</td>
+        <td>${esc(d.impellerType || '')} D${d.D_mm || '?'} · ${d.rpm || '?'}rpm · ${d.motor_kW || '?'}kW</td>
+        <td>${esc(d.savedBy || '')}<div class="hint">${esc((d.savedAt || '').slice(0, 10))}</div></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm" data-load="${esc(d.id)}">${LI('upload')} 불러오기</button>
+          ${canEdit() ? `<button class="btn btn-sm btn-danger" data-del="${esc(d.id)}">${LI('trash-2')}</button>` : ''}
+        </td></tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function refTab() {
+  return `
+  <div class="disclaimer">
+    ${LI('alert-triangle')} 본 계산은 <b>제조사 실측 성능표나 검증된 상용 소프트웨어를 대체하지 않습니다.</b>
+    견적·사전검토·협력업체 견적 대조 용도로 사용하고, 납품용 계산서는 별도 검증을 거치십시오.
+    특히 <b>Re &lt; 10⁴ (천이·층류)</b> 영역은 문헌 상관식의 오차가 큽니다 (동력 ±15%, 혼합시간 ±50% 이상).
+  </div>
+  <div class="card">
+    <h3>${LI('book-open')} 핵심 계산식</h3>
+    <table class="t">
+      <thead><tr><th>항목</th><th>식</th><th>근거</th></tr></thead>
+      <tbody>
+      <tr><td>레이놀즈수</td><td><code>Re = ρ·N·D²/μ</code>  (N [rev/s])</td><td>HIM Ch.6</td></tr>
+      <tr><td>프루드수</td><td><code>Fr = N²·D/g</code></td><td>볼텍스 판정</td></tr>
+      <tr><td>익단속도</td><td><code>v_tip = π·D·N</code></td><td>전단 지표</td></tr>
+      <tr><td>동력수 (2점근)</td><td><code>Np(Re) = max(Kp/Re, Np_turb)</code></td><td>Nagata 1975</td></tr>
+      <tr><td>날개폭 보정</td><td><code>×[(W/D)/(W/D)std]^1.25</code></td><td>Perry's Sec.18</td></tr>
+      <tr><td>날개수 보정</td><td><code>×(n/n_std)^0.8</code></td><td>Bates 1963</td></tr>
+      <tr><td>소요동력</td><td><code>P = Np·ρ·N³·D⁵</code></td><td>HIM Ch.6</td></tr>
+      <tr><td>토출유량</td><td><code>Q = Nq·N·D³</code></td><td>HIM Ch.6</td></tr>
+      <tr><td>혼합시간 (난류)</td><td><code>N·θ95 = 5.9·Np^(-1/3)·(T/D)²·(H/T)^0.5</code></td><td>Ruszkowski 1994</td></tr>
+      <tr><td>혼합시간 (천이)</td><td><code>×(10⁴/Re)^0.5</code> — 근사</td><td>보정, 오차 큼</td></tr>
+      <tr><td>임계현탁</td><td><code>N_js = S·ν^0.1·(gΔρ/ρ)^0.45·X^0.13·dp^0.2/D^0.85</code></td><td>Zwietering 1958</td></tr>
+      <tr><td>비뉴턴 겉보기점도</td><td><code>γ̇ = ks·N,  μ_app = K·γ̇^(n-1)</code></td><td>Metzner-Otto</td></tr>
+      <tr><td>축 허용전단응력</td><td><code>τ_allow = min(0.30Sy, 0.18Su)</code> ×0.75(키홈)</td><td>ASME B106.1M</td></tr>
+      <tr><td>축 조합응력</td><td><code>τ_max = √(Mb²+T²)/Zp</code></td><td>최대전단응력설</td></tr>
+      <tr><td>축 위험속도</td><td><code>Nc = (1/2π)√(3EI/L³·m_eq)</code>, N/Nc ≤ 0.7</td><td>HIM Ch.21</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3>${LI('table')} 임펠러 데이터베이스</h3>
+    <table class="t">
+      <thead><tr><th>형식</th><th>유동</th><th>Np_turb</th><th>Kp</th><th>Nq</th><th>D/T</th><th>μ 상한 [cP]</th><th>용도</th></tr></thead>
+      <tbody>${Object.values(agitcalc.LIT).map(im => `<tr>
+        <td><b>${esc(im.nameKo)}</b></td><td>${esc(im.flow)}</td>
+        <td class="num">${im.NpTurb}</td><td class="num">${im.Kp}</td><td class="num">${im.Nq}</td>
+        <td class="num">${im.dT[0]}~${im.dT[1]}</td><td class="num">${im.muMax.toLocaleString()}</td>
+        <td style="font-size:11.5px">${esc(im.note)}</td></tr>`).join('')}</tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3>${LI('search-check')} 협력업체 검토서 역산 결과</h3>
+    <p style="font-size:12.5px;line-height:1.7;margin:0 0 10px">
+      D&K켐텍 YDK-II 선정검토서 R5 (2025-01-06) 8건을 역산해 확정한 값입니다.
+      토출유량수 Nq 는 8/8 케이스에서 상대오차 1e-8 이내로 정확히 재현되었습니다.
+    </p>
+    <table class="t">
+      <thead><tr><th>벤더 형식명</th><th>역산 Nq</th><th>문헌 Nq</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>MAXBLEND</td><td class="num">0.2100</td><td class="num">0.35</td><td>2건에서 정확히 일치</td></tr>
+        <tr><td>2-P.P</td><td class="num">0.5000</td><td class="num">0.40</td><td>4건에서 정확히 일치. 2매가 4매보다 크게 나오는 점 확인 필요</td></tr>
+        <tr><td>4-P.P</td><td class="num">0.4095</td><td class="num">0.79</td><td>2건에서 정확히 일치 (0.41 아님)</td></tr>
+      </tbody>
+    </table>
+    <div class="warn" style="margin-top:12px">${LI('alert-triangle')}
+      <b>검토서에서 확인된 개선 필요 사항</b><br>
+      ① <b>축 강도·위험속도 검토 항목이 없음</b> — 축경이 SJ 모델 표준값으로만 정해져 있고,
+      전달토크로 역산한 비틀림응력이 4.6~10.9 MPa 로 흩어져 있습니다.
+      MOTOR = V.V.V.F 사양이므로 인버터 전 운전구간의 공진 회피 검토가 특히 필요합니다.<br>
+      ② <b>보정계수 근거 미표기</b> — 7건은 1.10, FA-6201 만 1.20 입니다 (유일한 IN-COIL 사양).<br>
+      ③ <b>조합형 임펠러의 Np 내부 모순</b> — MAXBLEND+2-P.P 4건에서 Re 가 낮을수록 Np 가
+      작아지는 역전이 발생합니다 (Re 174 → 1.40, Re 218/250 → 2.44, Re 224 → 2.05).<br>
+      ④ <b>교반소요시간 재현 불가</b> — 표준 상관식과 무관한 값으로 보입니다.
+    </div>
+  </div>`;
+}
+
+function render() {
+  renderTabs();
+  const app = document.getElementById('app');
+  if (view.tab === 'design') {
+    app.innerHTML = `<div class="grid2"><div>${inputForm()}</div><div>${resultPanel()}</div></div>`;
+  } else if (view.tab === 'report') {
+    app.innerHTML = reportTab();
+  } else if (view.tab === 'vendor') {
+    app.innerHTML = vendorTab();
+  } else if (view.tab === 'saved') {
+    app.innerHTML = savedTab();
+  } else {
+    app.innerHTML = refTab();
+  }
+  try { lucide.createIcons(); } catch (e) {}
+}
+
+/* ---------------- Excel 내려받기 ----------------
+   ponytail: HTML 표를 .xls 로 내보낸다 — Excel 이 HTML 테이블을 그대로 열고
+   서식(굵기·정렬·테두리)까지 살린다. SheetJS 같은 라이브러리를 넣지 않는 이유.
+   진짜 .xlsx(수식·여러 시트·차트)가 필요해지면 그때 SheetJS 를 붙일 것.        */
+function downloadXls(){
+  const r=view.result, g=r.geometry, s=r.shaft.results, f=form;
+  const mm=x=>Math.round(x*1000);
+  const H=(t)=>`<tr><td colspan="3" style="background:#D9E7F5;font-weight:bold">${esc(t)}</td></tr>`;
+  const R=(k,v,u)=>`<tr><td>${esc(k)}</td><td style="text-align:right">${esc(v)}</td><td>${esc(u||'')}</td></tr>`;
+  const rows=[
+    H('프로젝트'),
+    R('발주처',f.customer||'—'), R('Project',f.project||'—'), R('ITEM NO.',f.item||'—'),
+    R('작성일',new Date().toISOString().slice(0,10)), R('작성도구','agitcalc v0.1 (㈜세종기술 기술부)'),
+    H('공정 조건'),
+    R('액체 체적 V',g.V,'m³'), R('탱크 내경 T',mm(g.T),'mm'), R('액위 H',mm(g.H),'mm'),
+    R('H/T',g.H_T.toFixed(3),''), R('비중 ρ',f.rho,'kg/m³'), R('점도 μ',f.mu,'cP'),
+    H('임펠러 형상'),
+    R('형식',g.impeller_type,''), R('단수',g.n_impellers,'단'),
+    R('임펠러경 D',mm(g.D),'mm'), R('D/T',g.D_T.toFixed(3),''),
+    R('날개폭 W',mm(g.W),'mm'), R('W/D',g.W_D.toFixed(3),''),
+    R('바닥간극 C',mm(g.C),'mm'), R('C/T',g.C_T.toFixed(3),''),
+    ...g.elevations.map((e,i)=>R(`${i+1}단 설치높이`,mm(e),'mm')),
+    R('배플',g.baffled?`${g.n_baffles}매 × ${mm(g.B)}mm`:'무배플',''),
+    H('수력 성능'),
+    R('회전수 N',r.rpm,'rpm'), R('Reynolds수 Re',r.Re.toFixed(1),''),
+    R('유동영역',agitcalc.flowRegime(r.Re),''), R('동력수 Np',r.Np.toFixed(4),''),
+    R('익단속도 v_tip',r.v_tip.toFixed(3),'m/s'), R('Froude수 Fr',r.Fr.toFixed(4),''),
+    R('액체전달동력 P',(r.P_liquid/1000).toFixed(3),'kW'), R('단위체적동력 P/V',r.PV.toFixed(1),'W/m³'),
+    R('총 토출량 Q',(r.Q_total*60).toFixed(2),'m³/min'), R('탱크 순환시간',r.turnover_s.toFixed(1),'s'),
+    R('혼합시간 θ95',(r.theta95_s/60).toFixed(2),'min'),
+    H('구동부'),
+    R('선정 모터',r.motor_kW,'kW'), R('부하율',r.load_pct.toFixed(1),'%'),
+    H('축 검토'),
+    R('축경',mm(r.shaft_dia_mm/1000),'mm'), R('축 전장',Math.round(r.shaft_len_mm),'mm'),
+    R('설계토크',s.T_design_Nm.toFixed(1),'N·m'), R('비틀림응력 τ',s.tau_MPa.toFixed(2),'MPa'),
+    R('굽힘응력 σb',s.sigma_b_MPa.toFixed(2),'MPa'), R('조합응력 τmax',s.tau_max_MPa.toFixed(2),'MPa'),
+    R('허용응력 τallow',s.tau_allow_MPa.toFixed(2),'MPa'), R('안전율',s.SF_stress.toFixed(2),''),
+    R('최하단 처짐',s.delta_tip_mm.toFixed(3),'mm'), R('1차 위험속도 Nc',s.N_crit_rpm.toFixed(1),'rpm'),
+    R('N/Nc',s.N_over_Nc.toFixed(3),''),
+    H('검토 결과'),
+    ...r.summary.checks.concat(r.shaft.checks).map(([d,p])=>R(d,p?'OK':'NG','')),
+    ...(r.summary.warnings.length?[H('경고'),...r.summary.warnings.map((w,i)=>R('경고 '+(i+1),w,''))]:[])
+  ];
+  const html=`<html><head><meta charset="utf-8"></head><body>
+    <table border="1" cellspacing="0" cellpadding="4"
+      style="border-collapse:collapse;font-family:'맑은 고딕';font-size:10pt">
+      <tr><td colspan="3" style="background:#1976D2;color:#fff;font-size:13pt;font-weight:bold">
+        교반기 선정 검토서</td></tr>
+      ${rows.join('')}
+    </table></body></html>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['﻿'+html],{type:'application/vnd.ms-excel'}));
+  a.download=`교반기선정_${(f.item||'ITEM')}_${new Date().toISOString().slice(0,10)}.xls`;
+  a.click();
+}
+
+/* ================================================================
+   이벤트
+   ================================================================ */
+document.addEventListener('click', e => {
+  const tabBtn = e.target.closest('[data-tab]');
+  if (tabBtn) { view.tab = tabBtn.dataset.tab; render(); return; }
+
+  if (e.target.closest('#btnCalc')) { runDesign(); return; }
+  if (e.target.closest('#btnReset')) { form = Object.assign({}, DEFAULTS); view.result = null; view.error = null; render(); return; }
+  if (e.target.closest('#btnVendor')) { runVendor(); return; }
+  if (e.target.closest('#btnSheet')) { view.tab = 'report'; render(); return; }
+
+  if (e.target.closest('#btnCopy') && view.result) {
+    navigator.clipboard.writeText(agitcalc.fullReport(view.result)).then(
+      () => alert('계산서를 클립보드에 복사했습니다.'),
+      () => alert('복사에 실패했습니다.'));
+    return;
+  }
+  if (e.target.closest('#btnPrint')) { window.print(); return; }
+  if (e.target.closest('#btnXls') && view.result) { downloadXls(); return; }
+
+  if (e.target.closest('#btnSave') && view.result) {
+    const r = view.result, g = r.geometry;
+    const d = {
+      id: uid(), customer: form.customer, project: form.project, item: form.item,
+      T: g.T, V: g.V, rho: Number(form.rho), mu: Number(form.mu),
+      impellerType: g.impeller_type, D_mm: Math.round(g.D * 1000),
+      D_T: g.D_T, n_impellers: g.n_impellers, rpm: r.rpm,
+      Re: r.Re, Np: r.Np, v_tip: r.v_tip, P_liquid_kW: r.P_liquid / 1000,
+      PV: r.PV, motor_kW: r.motor_kW, load_pct: r.load_pct,
+      theta95_min: r.theta95_s / 60, shaft_dia_mm: r.shaft_dia_mm,
+      shaft_len_mm: r.shaft_len_mm, N_crit_rpm: r.shaft.results.N_crit_rpm,
+      material: form.material, dataset: form.dataset, ok: r.summary.ok,
+      inputs: Object.assign({}, form),
+      savedBy: currentUserName(), savedAt: nowISO()
+    };
+    designs.push(d);
+    saveLocalCache();
+    pushDesign(d).then(() => {
+      alert('저장했습니다.');
+      view.tab = 'saved'; render();
+    }).catch(err => {
+      alert('서버 저장에 실패했습니다(로컬에는 저장됨): ' + err.message);
+      view.tab = 'saved'; render();
+    });
+    return;
+  }
+
+  const loadBtn = e.target.closest('[data-load]');
+  if (loadBtn) {
+    const d = designs.find(x => x.id === loadBtn.dataset.load);
+    if (d && d.inputs) { form = Object.assign({}, DEFAULTS, d.inputs); view.tab = 'design'; runDesign(); }
+    return;
+  }
+  const delBtn = e.target.closest('[data-del]');
+  if (delBtn) {
+    if (!confirm('이 선정안을 삭제하시겠습니까?')) return;
+    const id = delBtn.dataset.del;
+    designs = designs.filter(x => x.id !== id);
+    saveLocalCache();
+    removeDesign(id).catch(err => alert('서버 삭제 실패: ' + err.message)).finally(render);
+    return;
+  }
+});
+
+document.addEventListener('input', e => {
+  const f = e.target.dataset.f;
+  if (f) { form[f] = e.target.value; return; }
+  const v = e.target.dataset.v;
+  if (v) { vform[v] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; return; }
+  const vi = e.target.dataset.vi;
+  if (vi != null) { vform.imps[Number(vi)][0] = e.target.value; return; }
+  const vd = e.target.dataset.vd;
+  if (vd != null) { vform.imps[Number(vd)][1] = e.target.value; return; }
+});
+
+document.addEventListener('change', e => {
+  // basis / impellerType 변경은 폼 구조가 바뀌므로 재렌더
+  if (e.target.dataset.f === 'basis') { form.basis = e.target.value; render(); }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && view.tab === 'design' && e.target.classList.contains('fi')) {
+    runDesign();
+  }
+});
+
+/* ================================================================
+   부트
+   ================================================================ */
+function boot() {
+  loadPlatformState();
+  loadLocalCache();
+  render();
+  startFirestoreSync();
+  window.addEventListener('storage', ev => {
+    if (ev.key === KEY) { loadPlatformState(); render(); }
+  });
+  // 아이콘 자동 재렌더 (innerHTML 교체 후)
+  try {
+    new MutationObserver(() => { try { lucide.createIcons(); } catch (e) {} })
+      .observe(document.body, { childList: true, subtree: true });
+  } catch (e) {}
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
