@@ -195,7 +195,8 @@ try {
   $("mat-T").value = "150"; pick("sh-S", 0);
   w.calcShell();
   const rep = sheet(d, "shell");
-  ok("계산서 머리에 판 표기", rep.startsWith("재료 데이터 출처: TEST-2026 Table X"));
+  ok("계산서 머리에 인허가 기준", rep.startsWith("인허가 기준: ASME VIII-1"));
+  ok("계산서에 판 표기", rep.includes("재료 데이터 출처: TEST-2026 Table X"));
   ok("사용 재료·온도 명시", rep.includes("MAT-A S@150"));
   ok("타 탭 선택은 미포함", !rep.includes("MAT-B") && !rep.includes("Ey@"));
   w.calcExt();
@@ -318,6 +319,56 @@ try {
      d.getElementById("mat-edition").textContent.includes("파일-판"));
 } finally {
   unlinkSync(MATJS);
+}
+
+/* ══ 6b. 인허가 기준 전환 ══════════════════════════════════════ */
+console.log("== 인허가 기준 전환 ==");
+{
+  const w = await load(), d = w.document;
+  const $ = id => d.getElementById(id);
+  const visible = () => [...d.querySelectorAll("#tabs button")]
+    .filter(b => b.style.display !== "none").map(b => b.dataset.tab);
+
+  ok("기본 기준은 ASME", d.querySelector("#codebar button.on").dataset.code === "asme");
+  ok("제목이 '압력용기 계산 도구'", d.querySelector("h1").textContent.includes("압력용기 계산 도구"));
+  ok("ASME 부제 표시", $("code-sub").textContent.includes("Section VIII Div.1"));
+
+  const asmeTabs = visible();
+  ok("ASME 탭 8개 + 공통 2개", asmeTabs.length === 10, asmeTabs.join(","));
+  ok("국내기준 탭은 숨김", !asmeTabs.includes("kec") && !asmeTabs.includes("kgs"));
+
+  /* 국내 기준으로 전환 */
+  w.setCode("kec");
+  const kecTabs = visible();
+  ok("에너지공단 탭만 + 공통", kecTabs.join(",") === "kec,mat,info", kecTabs.join(","));
+  ok("ASME 탭 숨김", !kecTabs.includes("shell"));
+  ok("부제가 기준에 맞게 바뀜", $("code-sub").textContent.includes("열사용기자재"));
+  ok("숨겨진 탭에서 자동 이동", d.querySelector("#panel-kec").classList.contains("on"));
+  ok("준비중 안내에 필요 원문 명시", d.querySelector("#panel-kec").textContent.includes("KS B 6750"));
+
+  w.setCode("kgs");
+  ok("KGS 탭 전환", visible().includes("kgs") && !visible().includes("kec"));
+  ok("KGS 안내에 코드 확정 요청", d.querySelector("#panel-kgs").textContent.includes("어느 KGS 코드"));
+
+  w.setCode("kosha");
+  ok("KOSHA 안내에 사용중검사 성격 명시",
+     d.querySelector("#panel-kosha").textContent.includes("사용 중 검사"));
+
+  /* 공통 탭은 어느 기준에서도 열린다 */
+  w.showTab("mat");
+  ok("재료 관리는 공통 탭", d.querySelector("#panel-mat").classList.contains("on"));
+
+  /* ASME 로 돌아오면 계산이 정상 동작 */
+  w.setCode("asme");
+  w.showTab("shell");
+  w.calcShell();
+  ok("ASME 복귀 후 계산 정상", grab(d, "shell", "t_req") > 0);
+  ok("계산서에 기준 표기", sheet(d, "shell").startsWith("인허가 기준: ASME VIII-1"));
+
+  /* 잘못된 기준값은 무시 */
+  const before = d.querySelector("#codebar button.on").dataset.code;
+  w.setCode("없는기준");
+  ok("모르는 기준값 무시", d.querySelector("#codebar button.on").dataset.code === before);
 }
 
 /* ══ 7. 부서 공유 저장 진입점 (Firestore 브리지 seam) ════════════

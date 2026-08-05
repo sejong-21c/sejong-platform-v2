@@ -36,7 +36,7 @@ const ok = (label, cond, extra = "") => {
 const html = await (await fetch(base + "/index.html")).text();
 
 /* 1. 등록 5곳 */
-ok("TOOLS 에 pvcalc 등록", /'pvcalc':\s*\{[^}]*압력용기 예비계산/.test(html));
+ok("TOOLS 에 pvcalc 등록", /'pvcalc':\s*\{[^}]*name: '압력용기 계산 도구'/.test(html));
 ok("기술부 도구 목록에 포함", /id: 'design'[^}]*tools: \[[^\]]*'pvcalc'/.test(html));
 ok("PVCALC_BUILD 상수 존재", /const PVCALC_BUILD = '[^']+'/.test(html));
 ok("iframeViewKey 분기", /selectedTool === 'pvcalc'\) return 'pvcalc'/.test(html));
@@ -52,8 +52,18 @@ for (const p of ["/tools/pvcalc/web/index.html", "/tools/pvcalc/web/pvcalc-core.
 }
 const tool = await (await fetch(base + "/tools/pvcalc/web/index.html?fb=1")).text();
 ok("도구 페이지가 엔진을 상대경로로 로드", tool.includes('src="pvcalc-core.js"'));
-ok("도구 페이지에 제목 헤더 없음 (호스트가 담당)", !/<h1>압력용기 예비계산 도구/.test(tool));
+/* 플랫폼은 도구용 제목을 그려주지 않는다(iframe 이 화면 전체를 채움) —
+   agitator 처럼 도구 페이지가 자기 제목을 가져야 한다. */
+ok("도구 페이지가 자체 제목을 가짐", tool.includes("<h1>압력용기 계산 도구"));
 ok("재료 관리 탭 존재", tool.includes('data-tab="mat"'));
+/* 인허가 기준 분리 — 국내 기준은 구조만 있고 수식은 비어 있어야 한다
+   (원문 없이 추정해 넣으면 값은 나오는데 틀린 계산서가 된다) */
+for (const c of ["asme", "kec", "kosha", "kgs"])
+  ok(`기준 탭 존재: ${c}`, tool.includes(`data-code="${c}"`));
+ok("국내 기준은 필요 원문을 명시", ["KS B 6750", "안전인증", "어느 KGS 코드"]
+   .every(s => tool.includes(s)));
+ok("ASME 결과 국내 제출 금지 경고", tool.includes("국내 인허가")
+   && tool.includes("그대로 제출할 수 없습니다"));
 ok("Firestore 브리지 조건부", tool.includes('get("fb") === "1"')
    && tool.includes("t_pvcalcMaterials"));
 

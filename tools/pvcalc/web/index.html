@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>압력용기 예비계산 도구 — 세종기술 기술부</title>
+<title>압력용기 계산 도구 — 세종기술 기술부</title>
 <style>
   :root {
     --bg: #f4f6f9; --panel: #ffffff; --text: #1a2433; --muted: #5b6b80;
@@ -103,6 +103,27 @@
   .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
   .info-box h3 { font-size: 14px; margin: 16px 0 6px; }
   .info-box li { margin: 3px 0; }
+  /* 인허가 기준 선택 — 같은 용기라도 근거 코드가 다르면 허용응력·안전율·
+     이음효율 기준이 달라진다. 어느 기준으로 계산했는지가 계산서의 전제이므로
+     화면 최상단에 두고 계산서에도 찍는다. */
+  #codebar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    background: var(--panel); border-bottom: 1px solid var(--line); padding: 9px 20px;
+  }
+  #codebar .lbl { font-size: 12px; color: var(--muted); }
+  #codebar button {
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    padding: 6px 13px; border-radius: 999px; cursor: pointer; font-size: 12.5px;
+  }
+  #codebar button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  #codebar button .wip { opacity: .75; font-size: 11px; }
+  .stub { max-width: 800px; }
+  .stub h3 { font-size: 15px; margin: 18px 0 8px; }
+  .stub .need {
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: 0 7px 7px 0; padding: 10px 14px; margin: 12px 0;
+  }
+  .stub li { margin: 4px 0; }
   #matbar {
     display: none; background: var(--accent-soft); border-bottom: 1px solid var(--line);
     padding: 7px 20px; font-size: 12px; gap: 14px; align-items: center; flex-wrap: wrap;
@@ -127,8 +148,11 @@
 </head>
 <body>
 
-<!-- 제목/브랜딩은 호스트(세종플랫폼)가 담당 — 단위 토글만 유지 -->
 <header>
+  <div>
+    <h1>압력용기 계산 도구 <span class="sub">pvcalc v0.2</span></h1>
+    <div class="sub">㈜세종기술 기술부 · <span id="code-sub">ASME BPVC Section VIII Div.1</span></div>
+  </div>
   <div class="spacer"></div>
   <div class="unit-toggle" title="단위계 (값 자동환산 없음 — 라벨만 변경)">
     <button id="uSI" class="on" onclick="setUnits('SI')">SI (mm·MPa)</button>
@@ -136,7 +160,8 @@
   </div>
 </header>
 <div class="disclaimer">
-  ⚠ 견적·사전검토·교차검증 전용 예비계산입니다. 납품·인허가용 계산서는 검증된 소프트웨어(PV Elite 등)로 별도 수행하십시오.
+  ⚠ 견적·사전검토·교차검증 전용입니다. 납품·인허가용 계산서는 검증된 소프트웨어(PV Elite 등)로 별도 수행하십시오.
+  <b>ASME 계산 결과를 국내 인허가(에너지공단·KOSHA·KGS)에 그대로 제출할 수 없습니다</b> — 기준별 허용응력·안전율이 다릅니다.
   <span id="dc-mat">허용응력 S·항복강도 Sy·탄성계수 Ey는 ASME Sec II-D에서 직접 확인해 입력해야 합니다.</span>
 </div>
 
@@ -148,17 +173,28 @@
   <span id="mat-status" class="note" style="margin:0"></span>
 </div>
 
+<div id="codebar">
+  <span class="lbl">인허가 기준</span>
+  <button data-code="asme" class="on" onclick="setCode('asme')">ASME VIII-1</button>
+  <button data-code="kec" onclick="setCode('kec')">한국에너지공단 <span class="wip">(준비중)</span></button>
+  <button data-code="kosha" onclick="setCode('kosha')">산업안전 KOSHA <span class="wip">(준비중)</span></button>
+  <button data-code="kgs" onclick="setCode('kgs')">가스안전공사 KGS <span class="wip">(준비중)</span></button>
+</div>
+
 <nav id="tabs">
-  <button data-tab="shell" class="on">원통·구형 셸 (UG-27)</button>
-  <button data-tab="head">경판 (UG-32)</button>
-  <button data-tab="ext">외압 (VIII-2 4.4)</button>
-  <button data-tab="noz">노즐 보강 (UG-37·41)</button>
-  <button data-tab="ug45">노즐 목 (UG-45)</button>
-  <button data-tab="flg">플랜지 (App.2)</button>
-  <button data-tab="sad">새들 (VIII-2 4.15)</button>
-  <button data-tab="lod">풍·지진 하중 (UG-22)</button>
-  <button data-tab="mat">재료 데이터 관리</button>
-  <button data-tab="info">정보·범위</button>
+  <button data-code="asme" data-tab="shell" class="on">원통·구형 셸 (UG-27)</button>
+  <button data-code="asme" data-tab="head">경판 (UG-32)</button>
+  <button data-code="asme" data-tab="ext">외압 (VIII-2 4.4)</button>
+  <button data-code="asme" data-tab="noz">노즐 보강 (UG-37·41)</button>
+  <button data-code="asme" data-tab="ug45">노즐 목 (UG-45)</button>
+  <button data-code="asme" data-tab="flg">플랜지 (App.2)</button>
+  <button data-code="asme" data-tab="sad">새들 (VIII-2 4.15)</button>
+  <button data-code="asme" data-tab="lod">풍·지진 하중 (UG-22)</button>
+  <button data-code="kec" data-tab="kec">열사용기자재 계산</button>
+  <button data-code="kosha" data-tab="kosha">안전인증 계산</button>
+  <button data-code="kgs" data-tab="kgs">KGS 계산</button>
+  <button data-code="all" data-tab="mat">재료 데이터 관리</button>
+  <button data-code="all" data-tab="info">정보·범위</button>
 </nav>
 
 <main>
@@ -630,6 +666,79 @@
 </section>
 
 <!-- ================= Info ================= -->
+<!-- ============ 국내 인허가 기준 (구조만 잡아둔 상태) ============
+     ⚠ 수식을 추정해 채우지 않는다. 국내 기준은 ASME 를 상당 부분 인용하지만
+     허용응력 기준·안전율·이음효율·검사요건이 달라, 원문 없이 넣으면 "값이 나오는데
+     틀린" 계산서가 된다 (재료 데이터를 AI 가 전사하지 않는 것과 같은 이유).
+     각 패널에 필요한 원문을 적어 두었다. -->
+<section class="panel stub" id="panel-kec">
+  <h3>한국에너지공단 — 열사용기자재 (산업통상자원부 고시)</h3>
+  <p class="note">근거: 에너지이용 합리화법 → 열사용기자재의 검사기준.
+    강재 압력용기 설계는 <b>KS B 6750</b> 계열을 인용합니다.</p>
+  <div class="need">
+    <b>구현하려면 다음 원문이 필요합니다</b>
+    <ul>
+      <li><b>KS B 6750</b>(압력용기 — 설계 및 제조 일반) 해당 판 — 원통·경판 두께식,
+        이음효율표, 안전율</li>
+      <li>열사용기자재 <b>검사기준 고시</b> 최신본 (적용범위·제외조건)</li>
+      <li>허용응력표 — KS 재료 기준 (ASME Sec II-D 와 값이 다릅니다)</li>
+    </ul>
+  </div>
+  <h3>ASME 와 무엇이 달라서 그대로 못 쓰는가</h3>
+  <ul>
+    <li><b>허용응력 기준</b> — 인용 규격과 안전율이 달라 같은 재질도 S 값이 다릅니다</li>
+    <li><b>이음효율</b> — 방사선투과시험 범위별 계수 체계가 다릅니다</li>
+    <li><b>적용 범위</b> — 검사 대상 용기 판정 기준(압력·용적)이 별도로 있습니다</li>
+  </ul>
+  <p class="note">원문(PDF·사본)을 주시면 ASME 와 동일한 방식으로 만들겠습니다 —
+    파이썬 엔진 + JS 포팅 + 손계산 대조 + 두 엔진 자동 일치 검증.
+    <b>ASME 계산 결과를 국내 인허가에 그대로 제출할 수 없습니다.</b></p>
+</section>
+
+<section class="panel stub" id="panel-kosha">
+  <h3>산업안전 — 안전검사·안전인증 (KOSHA / 고용노동부)</h3>
+  <p class="note">근거: 산업안전보건법 → 위험기계·기구 <b>안전인증</b> 및
+    <b>안전검사</b> 고시. 압력용기가 대상 품목입니다.
+    (부장님이 말씀하신 「산업안전부」는 소관이 고용노동부, 시행이 안전보건공단입니다.)</p>
+  <div class="need">
+    <b>구현하려면 다음 원문이 필요합니다</b>
+    <ul>
+      <li><b>안전인증·자율안전확인 고시</b> 중 압력용기 심사기준</li>
+      <li><b>안전검사 고시</b> — 검사 주기·판정 기준(사용 중 용기 두께 판정 포함)</li>
+      <li>관련 <b>KOSHA GUIDE</b> (설계 검토 항목)</li>
+    </ul>
+  </div>
+  <h3>ASME 탭과 성격이 다른 부분</h3>
+  <ul>
+    <li><b>신규 설계</b>보다 <b>사용 중 검사</b> 판정(부식 후 잔존두께 vs 최소허용두께)
+      비중이 큽니다 — 입력 항목 구성이 달라집니다</li>
+    <li>안전밸브 용량·설정압력 검토가 함께 요구됩니다</li>
+  </ul>
+</section>
+
+<section class="panel stub" id="panel-kgs">
+  <h3>가스안전공사 — KGS 코드</h3>
+  <p class="note">근거: 고압가스 안전관리법 → <b>KGS 코드</b>.
+    제조 시설·기술 검사 기준이며 용기·저장탱크별로 코드가 나뉩니다
+    (예: 저장탱크 제조 기준 AC 계열).</p>
+  <div class="need">
+    <b>구현하려면 먼저 정해야 합니다</b>
+    <ul>
+      <li><b>어느 KGS 코드인지</b> — 대상 설비(고압가스 저장탱크 / 특정설비 / 용기)에
+        따라 적용 코드와 계산식이 다릅니다. 실제 프로젝트에서 쓰는 코드 번호를
+        알려주십시오</li>
+      <li>해당 코드 원문 (KGS 코드는 가스안전공사 사이트에서 공개 열람 가능)</li>
+      <li>적용 재료 규격·허용응력 근거</li>
+    </ul>
+  </div>
+  <h3>주의</h3>
+  <ul>
+    <li>KGS 는 ASME 설계를 인정하는 경로가 있는 경우와, 자체 기준을 요구하는 경우가
+      나뉩니다 — <b>어느 쪽으로 인허가를 받는지에 따라 필요한 계산이 달라집니다</b></li>
+    <li>저온·독성·가연성 가스는 재료 충격시험 등 별도 요건이 붙습니다</li>
+  </ul>
+</section>
+
 <!-- ================= 재료 데이터 관리 ================= -->
 <section class="panel" id="panel-mat">
   <p class="note" style="margin:0 0 12px">
@@ -747,11 +856,43 @@ function setUnits(u) {
   const tu = $("mat-Tunit"); if (tu) tu.textContent = u === "SI" ? "°C" : "°F";
   document.querySelectorAll(".u-area").forEach(el => el.textContent = u === "SI" ? "mm²" : "in²");
 }
-document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+function showTab(tab) {
+  document.querySelectorAll("#tabs button").forEach(x =>
+    x.classList.toggle("on", x.dataset.tab === tab));
   document.querySelectorAll("section.panel").forEach(p =>
-    p.classList.toggle("on", p.id === "panel-" + b.dataset.tab));
-});
+    p.classList.toggle("on", p.id === "panel-" + tab));
+}
+document.querySelectorAll("#tabs button").forEach(b =>
+  b.onclick = () => showTab(b.dataset.tab));
+
+/* ---------- 인허가 기준 전환 ----------
+   기준이 바뀌면 그 기준의 탭만 남긴다 (재료 관리·정보는 공통).
+   계산서에도 기준을 찍는다 — 어느 코드로 계산했는지가 계산서의 전제이므로. */
+const CODES = {
+  asme:  { label: "ASME VIII-1", sub: "ASME BPVC Section VIII Div.1" },
+  kec:   { label: "한국에너지공단", sub: "열사용기자재 (산업통상자원부 고시 · KS B 6750 계열) — 준비중" },
+  kosha: { label: "산업안전 KOSHA", sub: "산업안전보건법 안전인증·안전검사 — 준비중" },
+  kgs:   { label: "가스안전공사 KGS", sub: "고압가스 안전관리법 KGS 코드 — 준비중" },
+};
+let CODE = CODES[store.getItem("pvcalc.code")] ? store.getItem("pvcalc.code") : "asme";
+
+function setCode(code) {
+  if (!CODES[code]) return;
+  CODE = code;
+  store.setItem("pvcalc.code", code);
+  document.querySelectorAll("#codebar button").forEach(b =>
+    b.classList.toggle("on", b.dataset.code === code));
+  $("code-sub").textContent = CODES[code].sub;
+  let first = null;
+  document.querySelectorAll("#tabs button").forEach(b => {
+    const show = b.dataset.code === code || b.dataset.code === "all";
+    b.style.display = show ? "" : "none";
+    if (show && !first && b.dataset.code === code) first = b.dataset.tab;
+  });
+  /* 숨겨진 탭이 열려 있었으면 이 기준의 첫 탭으로 옮긴다 */
+  const cur = document.querySelector("#tabs button.on");
+  if (!cur || cur.style.display === "none") showTab(first || "info");
+}
 
 /* ---------- form helpers ---------- */
 function num(id, { optional = false } = {}) {
@@ -833,7 +974,7 @@ function render(panel, results, extraNote) {
     p.className = "note"; p.textContent = extraNote;
     box.appendChild(p);
   }
-  const full = matStamp(panel) + texts.join("\n\n");
+  const full = `인허가 기준: ${CODES[CODE].label}\n\n` + matStamp(panel) + texts.join("\n\n");
   lastReport[panel] = full;
   const det = document.createElement("details");
   det.innerHTML = `<summary>전체 계산서 보기 / 인쇄용</summary><pre class="sheet">${full
@@ -1441,6 +1582,7 @@ function saveInputs() {
     });
   } catch (_) {}
   setUnits(UNITS);
+  setCode(CODE);
   initMaterials();
   meInit();
 })();
