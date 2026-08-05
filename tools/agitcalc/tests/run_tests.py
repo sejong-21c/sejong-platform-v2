@@ -164,6 +164,36 @@ close(zr.results["S"], 5.8, label="S 계수 (T/D=3)")
 close(zr.results["N_js_rps"], 2.162139, rel=2e-3, label="N_js rev/s")
 close(zr.results["N_js_rpm"], 129.728, rel=2e-3, label="N_js rpm")
 
+print("== Kamei-Hiraoka 동력 상관식 ==")
+# 리본(Table 4)은 형상 의존성 없는 고정값이라 손계산이 가능하다.
+#   ReG = 0.0388*Re,  CL = 1.00,  Np0 = 16.0*f
+#   층류 극한: f -> CL/ReG = 1/(0.0388*Re) -> Np*Re = 16/0.0388 = 412.371
+nk, _ = ac.core.kamei_hiraoka_np(1.0, 0.93, 1.0, 1.0, 0.09, 2, "ribbon")
+close(nk * 1.0, 412.371, rel=5e-3, label="리본 층류 Np*Re = 16/0.0388")
+nk, _ = ac.core.kamei_hiraoka_np(0.1, 0.93, 1.0, 1.0, 0.09, 2, "ribbon")
+close(nk * 0.1, 412.371, rel=5e-3, label="리본 층류 Np*Re (Re=0.1)")
+#   난류 극한: f -> f_inf = 0.00683 -> Np = 16*0.00683 = 0.10928
+nk, _ = ac.core.kamei_hiraoka_np(1e8, 0.93, 1.0, 1.0, 0.09, 2, "ribbon")
+close(nk, 0.10928, rel=5e-3, label="리본 난류 Np = 16*f_inf")
+
+# 러시톤 표준형상(d/D=1/3, b/d=0.2, H/D=1, np=6, 배플 4매 B/T=1/10)
+#   난류역 문헌값 Np = 5.0~5.5 에 들어와야 한다
+nk, _ = ac.core.kamei_hiraoka_np(1e4, 1/3, 1.0, 1.0, 0.2/3, 6, "paddle", 90.0,
+                                 baffled=True, B_w=0.1, n_baffles=4)
+check(5.0 <= nk <= 5.5, f"러시톤 표준형상 난류 Np={nk:.3f} 가 문헌 5.0~5.5 내")
+
+# Npmax 두 분기는 Z=0.54 에서 연속이어야 한다 (10*Z^1.3 vs 8.3*Z)
+close(10.0 * 0.54 ** 1.3, 8.3 * 0.54, rel=2e-3, label="Npmax 분기 연속성 @Z=0.54")
+
+# 배플이 층류역에서 무배플보다 작아지면 안 된다 (하한 가드)
+nb, _ = ac.core.kamei_hiraoka_np(1.0, 1/3, 1.0, 1.0, 0.2/3, 6, "paddle", 90.0)
+wb, _ = ac.core.kamei_hiraoka_np(1.0, 1/3, 1.0, 1.0, 0.2/3, 6, "paddle", 90.0,
+                                 baffled=True, B_w=0.1, n_baffles=4)
+check(wb >= nb, f"층류 Re=1 에서 배플 Np({wb:.2f}) >= 무배플 Np({nb:.2f})")
+
+# MAXBLEND 는 KH 적용 대상이 아니므로 2점근으로 폴백해야 한다
+check("MAXBLEND" not in ac.core.KH_FAMILY, "MAXBLEND 는 KH_FAMILY 에서 제외")
+
 print("== 벤더 검토서 확정식 재현 ==")
 # TOPJIN 8케이스 중 FA-6205: T=1.3 V=2 rho=1691 mu=7000cP 62rpm
 #   MAXBLEND D=1.0 + 2-P.P D=0.8

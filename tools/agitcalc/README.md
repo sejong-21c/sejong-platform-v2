@@ -26,17 +26,13 @@ python tests/gen_test_vectors.py && node web/test_core.mjs  # 파이썬<->JS 대
 - 길이 단위 mm 표시, 계산서 HTML 표, 인쇄(PDF)·Excel(.xls) 출력
 
 **다음에 결정해야 할 것 (부장님 답 대기 중)**
-1. **미요청 함수 3개를 지울지** — `process.py` 의 `gas_dispersion_check`,
-   `jacket_heat_transfer`, `coil_heat_transfer`. 요청 없이 넣은 것들입니다.
-   IN-COIL 검토서가 실제로 있어 열전달은 곧 쓸 수도 있어 판단이 필요합니다.
-   지우면 JS 포팅·테스트 벡터에서도 함께 걷어내야 합니다.
-2. **협력업체(TOPJIN) 확인요청 3건 발송** — 아직 안 보냈습니다.
+1. **협력업체(TOPJIN) 확인요청 3건 발송** — 아직 안 보냈습니다.
    ① 임펠러별 Np–Re 표 공개 (조합형 4건 모순)
    ② '교반소요시간' 정의 (유체역학적 혼합시간인지 공정 요구시간인지)
    ③ 축 강도·처짐·위험속도 검토서 추가 (V.V.V.F 전 구간 공진 회피 포함)
 
-**v0.2 최우선 과제** — 동력수 모델을 Kamei–Hiraoka 로 교체 (§3 참조).
-현재 2점근 모델은 천이역 10~30% 편차가 있고, 검토서 8건이 전부 천이역입니다.
+**끝남 (2026-08-05)** — 동력수 기본 모델을 **Kamei–Hiraoka 로 교체**했습니다 (§3).
+남은 것은 MAXBLEND 전용 상관식입니다 — 제조사 실측 Np–Re 곡선을 받아야 합니다.
 
 ### 파일을 고칠 때 반드시
 
@@ -72,7 +68,7 @@ python tests/gen_test_vectors.py && node web/test_core.mjs  # JS 동기화 확�
 | `agitcalc/core.py` | Re·Fr·익단속도, 동력수, 동력, 토출량, 혼합시간, 볼텍스 판정 | HIM Ch.6/9 |
 | `agitcalc/geometry.py` | 형식 선정, 임펠러·배플 치수 산정 (D/T, W/D, C/T, 단수, 배치) | HIM Ch.6, Perry's 18 |
 | `agitcalc/shaft.py` | **축 비틀림·굽힘 조합응력, 처짐, 위험속도** | ASME B106.1M, HIM Ch.21 |
-| `agitcalc/process.py` | Zwietering 현탁, **Elson 캐번**, 자켓/코일 열전달, 가스분산 | Zwietering 1958, Elson 1986 |
+| `agitcalc/process.py` | Zwietering 현탁, **Elson 캐번** | Zwietering 1958, Elson 1986 |
 | `agitcalc/select.py` | 종합 선정 드라이버 (D/T·rpm 동시 최적화) | — |
 | `agitcalc/vendor.py` | 협력업체(TOPJIN) 검토서 방식 재현 및 대조 | 역산 결과 |
 | `verification/dk_kemtec_audit.py` | **D&K켐텍 검토서 R5 8건 역산 감사** | — |
@@ -164,15 +160,25 @@ v_tip = π·D·N                        — 전단·재질 마모 지표
 ```
 
 **④ 동력수 → 소요동력 → 모터**
-```
-Np(Re) = max(Kp/Re, Np_turb)                   2점근 모델
-         × [(W/D)/(W/D)std]^1.25               날개폭 보정
-         × (n/n_std)^0.8                        날개수 보정
-         × 0.7 (무배플·난류·반경류/혼합류)
 
+기본은 **Kamei–Hiraoka** (마찰계수 f 와 수정 레이놀즈수 ReG 로 층류~난류 전역을
+하나의 식으로 덮음). d/D·b/d·날개수·날개각·배플 치수가 전부 식에 들어갑니다.
+```
+Np0 = {1.2π⁴β² / [8d³/(D²H)]} · f            무배플
+f   = CL/ReG + Ct{[(Ctr/ReG)+ReG]⁻¹ + (f∞/Ct)^(1/m)}^m
+ReG = {πη·ln(D/d)/(4d/βD)}·Re_d
+배플: Np = (1+x⁻³)^(-1/3)·Npmax,  x = 4.5(Bw/D)nB^0.8/[(2θ/π)^0.72·Npmax^0.2] + Np0/Npmax
+```
+구 2점근 모델(`model="2asymptote"`)은 대조용으로 남겼습니다.
+```
+Np(Re) = max(Kp/Re, Np_turb) × 날개폭·날개수·무배플 보정
+```
+```
 P       = Σ Np·ρ·N³·D⁵ × 간섭계수(다단)
 P_motor = P / 기계효율 × 여유율   →  IEC 표준용량으로 스냅
 ```
+
+기본 모델은 **Kamei–Hiraoka** 입니다. 2점근 모델로 보려면 `model="2asymptote"`.
 
 **⑤ 성능 확인**
 ```
@@ -196,7 +202,6 @@ Nc      = (1/2π)·√(3EI/L³·m_eq)                 1차 위험속도
 - 고체현탁: Zwietering `N_js = S·ν^0.1·(gΔρ/ρ)^0.45·X^0.13·dp^0.2/D^0.85`
 - **항복응력 유체: Elson 캐번 `(Dc/D)³ = (4/π²)·Np·ρ·N²·D²/τy`, Dc ≥ T 필요**
 - 비뉴턴: Metzner-Otto `γ̇ = ks·N`, `μ_app = K·γ̇^(n-1)`
-- 열전달: 자켓 `Nu = 0.74·Re^0.67·Pr^0.33·(μ/μw)^0.14`, 코일 `0.87·Re^0.62·…`
 
 ---
 
@@ -303,8 +308,28 @@ Pfaudler·**앵커·헬리컬리본**을 층류~난류 전역에서 무배플/�
 > *"permits unrestricted use, distribution, and reproduction in any medium,
 > provided the original work is properly cited."*
 
-**v0.2 계획**: Kamei–Hiraoka 를 구현해 기본 모델로 전환하고, 현재의 2점근 모델은
-대조용으로 남깁니다.
+**적용 완료 (2026-08-05)** — Kamei–Hiraoka 가 기본 모델이고, 2점근 모델은
+`model="2asymptote"` 로 남겨 대조에 씁니다.
+
+⚠ **MAXBLEND(광폭 대형패들)만 예외**입니다. 하부 광폭패들 + 상부 격자의 복합
+구조라 단순 패들로 환산되지 않습니다. 검토서 2건으로 확인한 결과 날개폭 b 를
+어떤 값으로 넣어도 두 건을 동시에 맞출 수 없었습니다
+(FA-6101 Re=260 은 b=0.15D 에서 1.5% / b=0.35H 에서 92%,
+ FA-6102 Re=1980 은 27.8% / 20%). 한쪽을 맞추면 다른 쪽이 무너집니다.
+따라서 MAXBLEND 는 2점근 모델로 폴백하며, 제조사 실측 Np–Re 곡선을 받으면
+전용 상관식을 추가합니다.
+
+**벤더 검토서 대조 (동일 형상·단수 기준, 액체동력)**
+
+| 케이스 | 벤더 | 2점근 | Kamei |
+|---|--:|--:|--:|
+| FA-6101 MAXBLEND ×1 무배플 | 11.70 kW | 16.0% | **1.5%** |
+| FA-6102 MAXBLEND ×1 무배플 | 9.97 kW | **5.0%** | 27.8% |
+| FA-6104 4-P.P ×2 배플 | 2.00 kW | 9.4% | **1.8%** |
+| FA-6206 4-P.P ×2 배플 | 2.89 kW | 9.4% | **6.9%** |
+
+표준 패들 계열(4-P.P)에서는 Kamei 가 확실히 낫고, MAXBLEND 는 위 이유로
+일관되지 않습니다.
 
 ### 저작권 주의 (설계팀 공유 필요)
 
@@ -451,11 +476,11 @@ python tests/gen_test_vectors.py && node web/test_core.mjs
 
 ## 범위 제한 (현재 미포함)
 
-- **Kamei–Hiraoka 동력식 미구현** (v0.2 예정) — 현재 2점근 모델은 천이역 10~30% 편차
+- **MAXBLEND 전용 동력식 없음** — Kamei–Hiraoka 대상이 아니라 2점근으로 폴백
 - 다단 임펠러 간섭계수가 선형 근사 (정밀도 낮음)
 - 임펠러 질량 추정식이 경험식 (`55·D^2.6`) — 위험속도 1차 스크리닝용
 - 수력 불균형계수 f_imb (0.25/0.50) 는 관행값 — 실측 캘리브레이션 권장
-- 가스분산 시 동력 저하(gassed power) 미포함
+- 열전달(자켓/코일)·가스분산 미포함 — 요청 시 추가
 - 씰·베어링·감속기 선정, 노즐 하중 검토(→ `pvcalc` 연계), GA 도면 생성 미포함
 - 비뉴턴 계산은 Metzner-Otto 겉보기점도 방식만 (항복응력은 캐번 판정으로 별도)
 

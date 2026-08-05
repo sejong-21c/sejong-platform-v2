@@ -96,15 +96,18 @@ for tau_y in [5.0, 50.0, 300.0]:
       cv.results["Dc"])
     S("cavernDiameter.DcT", [1300.0, 20 / 60, 3.0, 4.5, 0.84, tau_y],
       cv.results["Dc_over_T"])
-hj = ac.jacket_heat_transfer(1000.0, 0.001, 0.6, 4180.0, 2.0, 0.5, 1.5)
-S("jacketHeatTransfer.h", [1000.0, 0.001, 0.6, 4180.0, 2.0, 0.5, 1.5],
-  hj.results["h"])
-hc = ac.coil_heat_transfer(1000.0, 0.001, 0.6, 4180.0, 2.0, 0.5, 0.05)
-S("coilHeatTransfer.h", [1000.0, 0.001, 0.6, 4180.0, 2.0, 0.5, 0.05],
-  hc.results["h"])
-gd = ac.gas_dispersion_check(2.0, 0.5, 1.5, 0.01, 1000.0)
-S("gasDispersionCheck.Flg", [2.0, 0.5, 1.5, 0.01], gd.results["Fl_g"])
-S("gasDispersionCheck.Fltrans", [2.0, 0.5, 1.5, 0.01], gd.results["Fl_trans"])
+# Kamei-Hiraoka — 계열/배플/Re 를 두루 덮는다
+for Re in [0.5, 10.0, 260.0, 1979.8, 5e4]:
+    for fam, d, D, H, b, nb, th in [
+            ("paddle", 1 / 3, 1.0, 1.0, 0.2 / 3, 6, 90.0),
+            ("paddle", 0.5, 1.0, 1.0, 0.1, 2, 90.0),
+            ("paddle", 0.6, 1.0, 1.2, 0.12, 4, 45.0),
+            ("propeller", 0.35, 1.0, 1.0, 0.07, 3, 45.0),
+            ("ribbon", 0.93, 1.0, 1.0, 0.09, 2, 90.0)]:
+        for baf, Bw, nB in [(False, 0.0, 0), (True, 0.1, 4)]:
+            Np, _ = ac.core.kamei_hiraoka_np(Re, d, D, H, b, nb, fam, th,
+                                             baf, Bw, nB)
+            S("kameiHiraokaNp", [Re, d, D, H, b, nb, fam, th, baf, Bw, nB], Np)
 
 # --- 형상 산정 --------------------------------------------------------------
 GEO_CASES = [

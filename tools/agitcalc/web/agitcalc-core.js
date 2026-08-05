@@ -135,6 +135,77 @@
              governing, fWidth: fW, fBlades: fN, fBaffle: fB, Kp: im.Kp };
   }
 
+  /* --- Kamei-Hiraoka 동력 상관식 --------------------------------------------
+     나고야공업대 平岡(Hiraoka)·亀井(Kamei) 계열. 마찰계수 f 와 수정 레이놀즈수
+     ReG 로 정리해 층류~난류 전역을 하나의 식으로 덮는다.
+     출처: Furukawa et al., Int. J. Chem. Eng. 2012, 106496 (CC-BY)
+           doi:10.1155/2012/106496  Table 1~4 를 그대로 옮긴 것.
+     MAXBLEND 는 의도적으로 제외했다 — 파이썬 core.py 의 KH_FAMILY 주석 참조. */
+  const KH_FAMILY = {
+    PADDLE2: "paddle", PBT4: "paddle", PBT6: "paddle", FBT6: "paddle",
+    RUSHTON: "paddle", ANCHOR: "paddle",
+    PROP: "propeller", HYDROFOIL: "propeller", HYDROFOIL_HS: "propeller",
+    RIBBON: "ribbon"
+  };
+  const KH_THETA = { PBT4: 45.0, PBT6: 45.0, PROP: 45.0,
+                     HYDROFOIL: 45.0, HYDROFOIL_HS: 45.0 };
+
+  function kameiHiraokaNp(ReD, d, D, H, b, nBlades, family, thetaDeg,
+                          baffled, Bw, nBaffles) {
+    family = family || "paddle";
+    thetaDeg = thetaDeg === undefined ? 90.0 : thetaDeg;
+    Bw = Bw || 0; nBaffles = nBaffles || 0;
+    const th = thetaDeg * Math.PI / 180.0, sinTh = Math.sin(th);
+    let ReG, CL, Ct, m, Ctr, fInf, pref, beta, eta, gamma, X;
+
+    if (family === "ribbon") {
+      ReG = 0.0388 * ReD;
+      CL = 1.00; Ct = 0.100; m = 0.333; Ctr = 2500.0; fInf = 0.00683;
+      pref = 16.0;
+      beta = eta = gamma = X = NaN;
+    } else {
+      beta = 2.0 * Math.log(D / d) / ((D / d) - (d / D));
+      eta = 0.711 * (0.157 + Math.pow(nBlades * Math.log(D / d), 0.611))
+        / (Math.pow(nBlades, 0.52) * (1.0 - Math.pow(d / D, 2)));
+      gamma = Math.pow(eta * Math.log(D / d) / Math.pow(beta * D / d, 5), 1 / 3);
+      X = gamma * Math.pow(nBlades, 0.7) * b * Math.pow(sinTh, 1.6) / H;
+
+      ReG = (Math.PI * eta * Math.log(D / d)) / (4.0 * d / (beta * D)) * ReD;
+      CL = 0.215 * eta * nBlades * (d / H) * (1.0 - Math.pow(d / D, 2))
+        + 1.83 * (b * sinTh / H) * Math.pow(nBlades / (2.0 * sinTh), 1 / 3);
+      if (family === "propeller") {
+        Ct = Math.pow(Math.pow(3.0 * Math.pow(X, 1.5), -7.8) + Math.pow(0.25, -7.8), -1 / 7.8);
+        m = Math.pow(Math.pow(0.8 * Math.pow(X, 0.373), -7.8) + Math.pow(0.333, -7.8), -1 / 7.8);
+      } else {
+        Ct = Math.pow(Math.pow(1.96 * Math.pow(X, 1.19), -7.8) + Math.pow(0.25, -7.8), -1 / 7.8);
+        m = Math.pow(Math.pow(0.71 * Math.pow(X, 0.373), -7.8) + Math.pow(0.333, -7.8), -1 / 7.8);
+      }
+      Ctr = 23.8 * Math.pow(d / D, -3.24) * Math.pow(b * sinTh / D, -1.18) * Math.pow(X, -0.74);
+      fInf = 0.0151 * (d / D) * Math.pow(Ct, 0.308);
+      pref = 1.2 * Math.pow(Math.PI, 4) * beta * beta / (8.0 * Math.pow(d, 3) / (D * D * H));
+    }
+
+    const f = CL / ReG + Ct * Math.pow(
+      Math.pow(Ctr / ReG + ReG, -1) + Math.pow(fInf / Ct, 1 / m), m);
+    const Np0 = pref * f;
+
+    if (!baffled || nBaffles <= 0 || Bw <= 0 || family === "ribbon") {
+      return { Np: Np0, f, ReG, CL, Ct, m, Ctr, f_inf: fInf, Np0,
+               Np_max: null, beta, eta, gamma, X, baffled: false };
+    }
+    const Z = Math.pow(nBlades, 0.7) * b * Math.pow(sinTh, 1.6) / d;
+    const ang = 2.0 * thetaDeg / 180.0;
+    const NpMax = family === "propeller"
+      ? 6.5 * Math.pow(Z, 1.7)
+      : Math.pow(ang, 0.9) * (Z <= 0.54 ? 10.0 * Math.pow(Z, 1.3) : 8.3 * Z);
+    const x = 4.5 * (Bw / D) * Math.pow(nBaffles, 0.8)
+      / (Math.pow(ang, 0.72) * Math.pow(NpMax, 0.2)) + Np0 / NpMax;
+    // 배플식은 난류 전제라 층류에서 Np0 보다 작아진다 — 무배플을 하한으로
+    const Np = Math.max(Math.pow(1.0 + Math.pow(x, -3), -1 / 3) * NpMax, Np0);
+    return { Np, f, ReG, CL, Ct, m, Ctr, f_inf: fInf, Np0, Np_max: NpMax,
+             x, Z, beta, eta, gamma, X, baffled: true };
+  }
+
   function apparentViscosityMO(K, n, N, impeller, dataset) {
     const im = (typeof impeller === "string") ? getImpeller(impeller, dataset) : impeller;
     const gamma = im.ksMO * N;
@@ -157,6 +228,10 @@
     const dataset = opts.dataset || "LIT";
     const mechEff = opts.mechEff === undefined ? 0.95 : opts.mechEff;
     const margin = opts.margin === undefined ? 1.15 : opts.margin;
+    const model = opts.model || "kamei";
+    const H = opts.H == null ? null : opts.H;
+    const Bw = opts.B_w || 0, nBaf = opts.n_baffles || 0;
+    const useKH = (model === "kamei" && H != null);
 
     const r = mkResult("교반 동력 및 토출량", "P = Np*rho*N^3*D^5  [HIM Ch.6]");
     r.addInput("rho (밀도)", rho, "kg/m3");
@@ -167,6 +242,10 @@
     r.addInput("기계효율", mechEff, "-");
     r.addInput("모터 여유율", margin, "-");
     r.addInput("데이터셋", dataset);
+    if (model === "kamei" && H == null) {
+      r.warn("액위 H 미입력 → Kamei-Hiraoka 대신 2점근 모델로 계산했다. " +
+             "정확한 값이 필요하면 H 를 넘길 것.");
+    }
 
     const Dmax = Math.max.apply(null, stages.map(s => s.D));
     const ReGov = reynolds(rho, N, Dmax, mu);
@@ -192,23 +271,44 @@
       const D = s.D;
       const im = getImpeller(s.type, dataset);
       const Rei = reynolds(rho, N, D, mu);
-      const pn = powerNumber(Rei, im, { W_D: s.W_D, nBlades: s.nBlades, baffled, dataset });
+      const nb = s.nBlades || im.nBlades;
+      let pn, gov, formula;
+      if (useKH && !KH_FAMILY[im.key]) {
+        r.warn(im.nameKo + " 은 Kamei-Hiraoka 검증 대상이 아니어서 2점근 모델로 계산했다.");
+      }
+      if (useKH && KH_FAMILY[im.key]) {
+        pn = kameiHiraokaNp(Rei, D, T, H, (s.W_D || im.W_D || 0.15) * D, nb,
+          KH_FAMILY[im.key], KH_THETA[im.key] || 90.0, baffled, Bw, nBaf);
+        gov = "Kamei-Hiraoka";
+        formula = "Np0=pref*f, f=CL/ReG+Ct{...}^m  ReG=" + pn.ReG.toPrecision(4) +
+          " CL=" + pn.CL.toPrecision(4) + " Ct=" + pn.Ct.toPrecision(4) +
+          " m=" + pn.m.toPrecision(4);
+      } else {
+        pn = powerNumber(Rei, im, { W_D: s.W_D, nBlades: s.nBlades, baffled, dataset });
+        gov = pn.governing;
+        formula = "max(" + pn.Kp.toFixed(1) + "/Re, " + pn.NpTurb.toFixed(2) + ") x " +
+          pn.fWidth.toFixed(3) + " x " + pn.fBlades.toFixed(3) + " x " + pn.fBaffle.toFixed(2);
+      }
       const Pi = impellerPower(rho, N, D, pn.Np);
       const Qi = pumpingCapacity(N, D, im.Nq);
       Psum += Pi; Qsum += Qi;
       detail.push({ stage: idx + 1, type: im.key, name: im.nameKo, D, Re: Rei,
                     Np: pn.Np, P: Pi, Q: Qi, Nq: im.Nq,
-                    governing: pn.governing, dT: D / T });
+                    governing: gov, dT: D / T });
       const k = idx + 1;
       r.addStep(k + "단 " + im.nameKo + "  D=" + (D * 1000).toFixed(0) + " mm  (D/T=" + (D / T).toFixed(3) + ")", "", "");
       r.addStep("   Re_" + k, "rho*N*D^2/mu", Rei);
-      r.addStep("   Np_" + k + "  [" + pn.governing + "]",
-        "max(" + pn.Kp.toFixed(1) + "/Re, " + pn.NpTurb.toFixed(2) + ") x " +
-        pn.fWidth.toFixed(3) + " x " + pn.fBlades.toFixed(3) + " x " + pn.fBaffle.toFixed(2),
-        pn.Np);
+      r.addStep("   Np_" + k + "  [" + gov + "]", formula, pn.Np);
       r.addStep("   P_" + k, "Np*rho*N^3*D^5", Pi / 1000.0, "kW");
       r.addStep("   Q_" + k, "Nq(" + im.Nq + ")*N*D^3", Qi * 60.0, "m3/min");
     });
+
+    const khUsed = detail.map(d => d.governing === "Kamei-Hiraoka");
+    let mdl, note;
+    if (khUsed.every(Boolean)) { mdl = "Kamei-Hiraoka"; note = "doi:10.1155/2012/106496"; }
+    else if (khUsed.some(Boolean)) { mdl = "혼용"; note = "일부 형식은 2점근 폴백"; }
+    else { mdl = "2점근(Nagata 계열)"; note = "천이역 오차 10~30%"; }
+    r.inputs.splice(8, 0, ["동력수 모델", mdl, "", note]);
 
     const Pliq = Psum * fInt;
     const Pmot = Pliq / mechEff * margin;
@@ -601,31 +701,6 @@
     return { Dc, Dc_over_T: Dc / T, full_motion: Dc >= T, ratio3 };
   }
 
-  function jacketHeatTransfer(rho, mu, k, cp, N, D, T, muWall) {
-    const Re = reynolds(rho, N, D, mu);
-    const Pr = cp * mu / k;
-    const fv = muWall ? Math.pow(mu / muWall, 0.14) : 1.0;
-    const Nu = 0.74 * Math.pow(Re, 0.67) * Math.pow(Pr, 0.33) * fv;
-    return { h: Nu * k / T, Nu, Re, Pr,
-             warn: Re < 1e4 ? "Re<1e4 — 난류 상관식이므로 과대평가. 실측 권장" : null };
-  }
-
-  function coilHeatTransfer(rho, mu, k, cp, N, D, dCoil, muWall) {
-    const Re = reynolds(rho, N, D, mu);
-    const Pr = cp * mu / k;
-    const fv = muWall ? Math.pow(mu / muWall, 0.14) : 1.0;
-    const Nu = 0.87 * Math.pow(Re, 0.62) * Math.pow(Pr, 0.33) * fv;
-    return { h: Nu * k / dCoil, Nu, Re, Pr,
-             warn: "내부 코일은 배플과 유사한 선회류 억제 효과가 있어 동력이 10~20% 증가한다" };
-  }
-
-  function gasDispersionCheck(N, D, T, Qgas) {
-    const Flg = Qgas / (N * Math.pow(D, 3));
-    const Fr = N * N * D / G;
-    const Ftr = 30.0 * Math.pow(D / T, 3.5) * Fr;
-    return { Fl_g: Flg, Fl_trans: Ftr, Fr, dispersed: Flg < Ftr };
-  }
-
   /* ---------------- 종합 선정 ---------------- */
   const STD_RPM = [10, 12, 15, 17, 20, 21, 25, 28, 30, 35, 37, 44, 50, 56, 62,
     68, 75, 82, 90, 100, 110, 125, 140, 155, 175, 200, 230, 260, 300, 350,
@@ -653,22 +728,32 @@
     return null;
   }
 
-  function powerAt(N, rho, mu, stages, baffled, dataset) {
+  /* totalPower 와 같은 동력수 모델을 써야 탐색 rpm 과 최종 동력이 어긋나지 않는다 */
+  function powerAt(N, rho, mu, stages, baffled, dataset, T, H, Bw, nBaf) {
     let P = 0;
     for (const s of stages) {
       const Re = reynolds(rho, N, s.D, mu);
-      const pn = powerNumber(Re, s.type, { W_D: s.W_D, nBlades: s.nBlades, baffled, dataset });
-      P += pn.Np * rho * Math.pow(N, 3) * Math.pow(s.D, 5);
+      const im = getImpeller(s.type, dataset);
+      let Np;
+      if (H != null && KH_FAMILY[im.key]) {
+        Np = kameiHiraokaNp(Re, s.D, T, H, (s.W_D || im.W_D || 0.15) * s.D,
+          s.nBlades || im.nBlades, KH_FAMILY[im.key], KH_THETA[im.key] || 90.0,
+          baffled, Bw || 0, nBaf || 0).Np;
+      } else {
+        Np = powerNumber(Re, im, { W_D: s.W_D, nBlades: s.nBlades, baffled, dataset }).Np;
+      }
+      P += Np * rho * Math.pow(N, 3) * Math.pow(s.D, 5);
     }
     return P;
   }
 
-  function solveNforPV(targetPV, V, rho, mu, stages, baffled, dataset) {
+  function solveNforPV(targetPV, V, rho, mu, stages, baffled, dataset, T, H, Bw, nBaf) {
     const targetP = targetPV * V;
     let lo = 0.005, hi = 30.0;
     for (let i = 0; i < 200; i++) {
       const mid = 0.5 * (lo + hi);
-      if (powerAt(mid, rho, mu, stages, baffled, dataset) < targetP) lo = mid; else hi = mid;
+      if (powerAt(mid, rho, mu, stages, baffled, dataset, T, H, Bw, nBaf) < targetP)
+        lo = mid; else hi = mid;
     }
     return 0.5 * (lo + hi);
   }
@@ -702,6 +787,7 @@
     const shaftExtra = o.shaftExtraMM === undefined ? 600.0 : o.shaftExtraMM;
     const SF = o.serviceFactor === undefined ? 1.5 : o.serviceFactor;
     const vfdRatio = o.vfdMinRpmRatio === undefined ? 0.3 : o.vfdMinRpmRatio;
+    const model = o.model || "kamei";
 
     const T = o.T == null ? Math.pow(4.0 * V / (Math.PI * H_T), 1 / 3) : o.T;
     const H = liquidHeight(T, V);
@@ -742,7 +828,8 @@
           o.solids.X_wt_pct, gg.D, T, gg.impeller_type);
         return [zr.N_js_rps * 1.2, "N_js " + zr.N_js_rpm.toFixed(1) + " rpm x 1.2 여유"];
       }
-      return [solveNforPV(targetPV, V, rho, mu, sg, baffled, dataset),
+      return [solveNforPV(targetPV, V, rho, mu, sg, baffled, dataset, T,
+                          model === "kamei" ? H : null, gg.B, gg.n_baffles),
               "교반강도 '" + level + "' 목표 P/V = " + targetPV.toFixed(0) + " W/m3"];
     };
 
@@ -789,7 +876,8 @@
       "최근접 채택. D/T 상한 확대 또는 형식 변경 검토)";
 
     const pr = totalPower(rho, N, mu, stagesGeo, T,
-      { baffled, dataset, mechEff, margin: motorMargin });
+      { baffled, dataset, mechEff, margin: motorMargin, model, H,
+        B_w: g.B, n_baffles: g.n_baffles });
     const Pliq = pr.results.P_liquid;
     const ms = selectMotor(pr.results.P_motor_req, maxLoad);
 
@@ -798,7 +886,10 @@
     const Fr = froude(N, D);
     const vTip = tipSpeed(N, D);
     const PV = specificPower(Pliq, V);
-    const pnGov = powerNumber(Re, g.impeller_type, { W_D: g.W_D, baffled, dataset });
+    const pnGov = (model === "kamei" && KH_FAMILY[im.key])
+      ? kameiHiraokaNp(Re, D, T, H, g.W, g.n_blades || im.nBlades,
+          KH_FAMILY[im.key], KH_THETA[im.key] || 90.0, baffled, g.B, g.n_baffles)
+      : powerNumber(Re, g.impeller_type, { W_D: g.W_D, baffled, dataset });
     const bt = blendTime(N, D, T, H, pnGov.Np, Re, g.impeller_type, dataset);
     const tTurn = turnoverTime(V, pr.results.Q_total);
 
@@ -1054,13 +1145,14 @@
     G, AXIAL, RADIAL, MIXED, TANGENTIAL, LIT, TOPJIN_NQ, VENDOR_ALIAS,
     MATERIALS, IEC_MOTORS_KW, STD_RPM, STD_SHAFT_DIA, AGITATION_LEVELS,
     VISCOSITY_GUIDE, S_ZWIETERING,
+    KH_FAMILY, KH_THETA, kameiHiraokaNp,
     mkResult, getImpeller, rpmToRps, rpsToRpm, cPToPas, volumeFromTH,
     liquidHeight, reynolds, froude, tipSpeed, flowRegime, powerNumber,
     apparentViscosityMO, impellerPower, pumpingCapacity, interferenceFactor,
     totalPower, selectMotor, blendTime, turnoverTime, specificPower,
     vortexCheck, selectType, nStages, recommend, allowableShear, sectionProps,
     estimateImpellerMass, minShaftDiameter, designShaft, justSuspendedSpeed,
-    cavernDiameter, jacketHeatTransfer, coilHeatTransfer, gasDispersionCheck,
+    cavernDiameter,
     snapRpm, snapShaftDia, design, topjinSheet, reportText, formatGeometry,
     fullReport, fmt
   };

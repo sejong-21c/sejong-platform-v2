@@ -28,8 +28,7 @@ from .core import (rpm_to_rps, rps_to_rpm, cP_to_Pas, volume_from_TH,
                    IEC_MOTORS_KW)
 from .geometry import recommend, format_geometry, select_type, AGITATION_LEVELS
 from .shaft import design_shaft, min_shaft_diameter, MATERIALS
-from .process import (just_suspended_speed, jacket_heat_transfer,
-                      coil_heat_transfer, gas_dispersion_check)
+from .process import just_suspended_speed, cavern_diameter
 from .select import design, full_report
 from .vendor import topjin_sheet
 
@@ -42,6 +41,6 @@ __all__ = [
     "blend_time", "turnover_time", "specific_power", "vortex_check",
     "IEC_MOTORS_KW", "recommend", "format_geometry", "select_type",
     "AGITATION_LEVELS", "design_shaft", "min_shaft_diameter", "MATERIALS",
-    "just_suspended_speed", "jacket_heat_transfer", "coil_heat_transfer",
-    "gas_dispersion_check", "design", "full_report", "topjin_sheet",
+    "just_suspended_speed", "cavern_diameter",
+    "design", "full_report", "topjin_sheet",
 ]

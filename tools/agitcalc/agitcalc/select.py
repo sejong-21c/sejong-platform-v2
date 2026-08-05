@@ -50,24 +50,38 @@ def _rpm_candidates(rpm):
     return out
 
 
-def _power_at(N, rho, mu, stages_geo, T, baffled, dataset):
-    """회전수 N 에서의 액체전달동력 [W] (빠른 내부 계산)."""
+def _power_at(N, rho, mu, stages_geo, T, baffled, dataset, H=None,
+              B_w=0.0, n_baffles=0):
+    """회전수 N 에서의 액체전달동력 [W] (빠른 내부 계산).
+
+    total_power() 와 같은 동력수 모델을 써야 탐색으로 찾은 rpm 과 최종
+    선정 동력이 어긋나지 않는다."""
     P = 0.0
     for s in stages_geo:
         Re = reynolds(rho, N, s["D"], mu)
-        Np, _ = power_number(Re, s["type"], s.get("W_D"), s.get("n_blades"),
-                             baffled, dataset)
+        im = imp_db.get(s["type"], dataset)
+        if H is not None and im.key in core.KH_FAMILY:
+            Np, _ = core.kamei_hiraoka_np(
+                Re, s["D"], T, H, (s.get("W_D") or im.W_D or 0.15) * s["D"],
+                s.get("n_blades") or im.n_blades,
+                core.KH_FAMILY.get(im.key, "paddle"),
+                core.KH_THETA.get(im.key, 90.0), baffled, B_w, n_baffles)
+        else:
+            Np, _ = power_number(Re, im, s.get("W_D"), s.get("n_blades"),
+                                 baffled, dataset)
         P += Np * rho * N ** 3 * s["D"] ** 5
     return P
 
 
-def _solve_N_for_PV(target_PV, V, rho, mu, stages_geo, T, baffled, dataset):
+def _solve_N_for_PV(target_PV, V, rho, mu, stages_geo, T, baffled, dataset,
+                    H=None, B_w=0.0, n_baffles=0):
     """목표 P/V 를 만족하는 N 을 이분법으로 구한다."""
     target_P = target_PV * V
     lo, hi = 0.005, 30.0            # rev/s
     for _ in range(200):
         mid = 0.5 * (lo + hi)
-        if _power_at(mid, rho, mu, stages_geo, T, baffled, dataset) < target_P:
+        if _power_at(mid, rho, mu, stages_geo, T, baffled, dataset,
+                     H, B_w, n_baffles) < target_P:
             lo = mid
         else:
             hi = mid
@@ -102,7 +116,8 @@ def design(V, rho, mu_cP, T=None, H_T=1.1, duty="blend",
            solids=None, has_gas=False, shear_sensitive=False,
            material="SUS304", mech_eff=0.95, motor_margin=1.15,
            max_load=0.90, shaft_extra_mm=600.0, service_factor=1.5,
-           vfd_min_rpm_ratio=0.3, dataset="LIT", baffled=None):
+           vfd_min_rpm_ratio=0.3, dataset="LIT", baffled=None,
+           model="kamei"):
     """교반기 종합 선정.
 
     V      : 액체 체적 [m3]           rho : 밀도 [kg/m3]
@@ -159,7 +174,9 @@ def design(V, rho, mu_cP, T=None, H_T=1.1, duty="blend",
                                       gg["impeller_type"])
             return (zr.results["N_js_rps"] * 1.2,
                     f"N_js {zr.results['N_js_rpm']:.1f} rpm x 1.2 여유")
-        return (_solve_N_for_PV(target_PV, V, rho, mu, sg, T, baffled, dataset),
+        return (_solve_N_for_PV(target_PV, V, rho, mu, sg, T, baffled, dataset,
+                                H if model == "kamei" else None,
+                                gg["B"], gg["n_baffles"]),
                 f"교반강도 '{level}' 목표 P/V = {target_PV:.0f} W/m3")
 
     # 후보 D/T: 기본값에서 시작해 형식 권장범위를 0.05 간격으로 스캔
@@ -206,7 +223,8 @@ def design(V, rho, mu_cP, T=None, H_T=1.1, duty="blend",
 
     # ---- 4) 동력 ---------------------------------------------------------
     pr = total_power(rho, N, mu, stages_geo, T, baffled, dataset,
-                     mech_eff=mech_eff, margin=motor_margin)
+                     mech_eff=mech_eff, margin=motor_margin, model=model,
+                     H=H, B_w=g["B"], n_baffles=g["n_baffles"])
     P_liquid = pr.results["P_liquid"]
     motor_kW, load_pct = select_motor(pr.results["P_motor_req"], max_load)
 
@@ -216,8 +234,14 @@ def design(V, rho, mu_cP, T=None, H_T=1.1, duty="blend",
     Fr = froude(N, D)
     v_tip = tip_speed(N, D)
     PV = specific_power(P_liquid, V)
-    Np_gov, _ = power_number(Re, g["impeller_type"], g["W_D"],
-                             baffled=baffled, dataset=dataset)
+    if model == "kamei" and im.key in core.KH_FAMILY:
+        Np_gov, _ = core.kamei_hiraoka_np(
+            Re, D, T, H, g["W"], g.get("n_blades") or im.n_blades,
+            core.KH_FAMILY.get(im.key, "paddle"),
+            core.KH_THETA.get(im.key, 90.0), baffled, g["B"], g["n_baffles"])
+    else:
+        Np_gov, _ = power_number(Re, g["impeller_type"], g["W_D"],
+                                 baffled=baffled, dataset=dataset)
     theta95, bd = blend_time(N, D, T, H, Np_gov, Re, g["impeller_type"], dataset)
     t_turn = turnover_time(V, pr.results["Q_total"])
 

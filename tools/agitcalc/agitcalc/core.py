@@ -116,6 +116,106 @@ def power_number(Re, impeller, W_D=None, n_blades=None, baffled=True,
                     f_width=f_w, f_blades=f_n, f_baffle=f_b, Kp=im.Kp)
 
 
+# --- Kamei-Hiraoka 동력 상관식 ------------------------------------------------
+# 나고야공업대 平岡節郎(Hiraoka)·亀井(Kamei) 계열 상관식. 마찰계수 f 와 수정
+# 레이놀즈수 ReG 로 정리해 **층류~난류 전역을 하나의 식**으로 덮는다.
+# 2점근 모델과 달리 d/D, b/d, 날개수, 날개각, 배플 치수가 모두 식에 들어간다.
+#
+# 출처: Furukawa, Kato, Inoue, Kato, Tada & Hashimoto,
+#       "Correlation of Power Consumption for Several Kinds of Mixing Impellers",
+#       Int. J. Chem. Eng. 2012, 106496.  doi:10.1155/2012/106496
+#       CC-BY (상업적 사용 제약 없음). Table 1~4 의 식을 그대로 옮긴 것.
+#
+# 임펠러 계열별 Ct, m 계수만 다르고 골격은 같다.
+#   paddle    : 패들·러시톤·피치패들·앵커·광폭패들   (Table 1, 2)
+#   propeller : 프로펠러·Pfaudler·하이드로포일        (Table 3)
+#   ribbon    : 헬리컬 리본 — 형상 의존성 없이 고정값 (Table 4)
+KH_FAMILY = {
+    "PADDLE2": "paddle", "PBT4": "paddle", "PBT6": "paddle", "FBT6": "paddle",
+    "RUSHTON": "paddle", "ANCHOR": "paddle",
+    "PROP": "propeller", "HYDROFOIL": "propeller", "HYDROFOIL_HS": "propeller",
+    "RIBBON": "ribbon",
+}
+# MAXBLEND(광폭 대형패들)는 일부러 뺐다. 하부 광폭패들 + 상부 격자의 복합
+# 구조라 단순 패들로 환산되지 않는다. D&K 검토서 2건으로 확인한 결과,
+# 날개폭 b 를 어떤 값으로 넣어도 두 건을 동시에 맞출 수 없었다
+#   FA-6101(Re=260)  : b=0.15D 에서 오차 1.5%, b=0.35H 에서 92%
+#   FA-6102(Re=1980) : b=0.15D 에서 27.8%, b=0.35H 에서 20%
+# 즉 한쪽을 맞추면 다른 쪽이 무너진다. KH_FAMILY 에 없는 형식은
+# 기존 2점근 모델로 폴백한다. 제조사 실측 Np-Re 곡선을 받으면 그때 넣을 것.
+# ponytail: 광폭임펠러는 2점근 폴백, 제조사 실측 곡선 확보 시 전용 상관식 추가
+
+# 날개각 theta [deg] — 축류 성분이 있는 형식은 45도, 수직 패들은 90도
+KH_THETA = {"PBT4": 45.0, "PBT6": 45.0, "PROP": 45.0,
+            "HYDROFOIL": 45.0, "HYDROFOIL_HS": 45.0}
+
+
+def kamei_hiraoka_np(Re_d, d, D, H, b, n_blades, family="paddle",
+                     theta_deg=90.0, baffled=False, B_w=0.0, n_baffles=0):
+    """Kamei-Hiraoka 동력수 Np [-].  층류~난류 전역.
+
+      Re_d = n*d^2*rho/mu      d 임펠러경 / D 탱크경 / H 액위 / b 날개폭 [m]
+      family : "paddle" | "propeller" | "ribbon"
+      baffled 이면 B_w(배플 폭), n_baffles 로 부분~완전배플까지 보간한다.
+
+    반환 (Np, 상세 dict)
+    """
+    th = math.radians(theta_deg)
+    sin_th = math.sin(th)
+
+    if family == "ribbon":
+        # Table 4 — 리본은 형상 파라미터 없이 실측 피팅 고정값
+        ReG = 0.0388 * Re_d
+        CL, Ct, m, Ctr, f_inf = 1.00, 0.100, 0.333, 2500.0, 0.00683
+        pref = 16.0
+        beta = eta = gamma = X = float("nan")
+    else:
+        beta = 2.0 * math.log(D / d) / ((D / d) - (d / D))
+        eta = (0.711 * (0.157 + (n_blades * math.log(D / d)) ** 0.611)
+               / (n_blades ** 0.52 * (1.0 - (d / D) ** 2)))
+        gamma = (eta * math.log(D / d) / (beta * D / d) ** 5) ** (1.0 / 3.0)
+        X = gamma * n_blades ** 0.7 * b * sin_th ** 1.6 / H
+
+        ReG = (math.pi * eta * math.log(D / d)) / (4.0 * d / (beta * D)) * Re_d
+        CL = (0.215 * eta * n_blades * (d / H) * (1.0 - (d / D) ** 2)
+              + 1.83 * (b * sin_th / H) * (n_blades / (2.0 * sin_th)) ** (1.0 / 3.0))
+        if family == "propeller":                       # Table 3
+            Ct = ((3.0 * X ** 1.5) ** -7.8 + 0.25 ** -7.8) ** (-1.0 / 7.8)
+            m = ((0.8 * X ** 0.373) ** -7.8 + 0.333 ** -7.8) ** (-1.0 / 7.8)
+        else:                                           # Table 1, 2
+            Ct = ((1.96 * X ** 1.19) ** -7.8 + 0.25 ** -7.8) ** (-1.0 / 7.8)
+            m = ((0.71 * X ** 0.373) ** -7.8 + 0.333 ** -7.8) ** (-1.0 / 7.8)
+        Ctr = 23.8 * (d / D) ** -3.24 * (b * sin_th / D) ** -1.18 * X ** -0.74
+        f_inf = 0.0151 * (d / D) * Ct ** 0.308
+        pref = 1.2 * math.pi ** 4 * beta ** 2 / (8.0 * d ** 3 / (D ** 2 * H))
+
+    f = CL / ReG + Ct * ((Ctr / ReG + ReG) ** -1 + (f_inf / Ct) ** (1.0 / m)) ** m
+    Np0 = pref * f                                       # 무배플 동력수
+
+    if not baffled or n_baffles <= 0 or B_w <= 0 or family == "ribbon":
+        return Np0, dict(f=f, ReG=ReG, CL=CL, Ct=Ct, m=m, Ctr=Ctr,
+                         f_inf=f_inf, Np0=Np0, Np_max=None, beta=beta,
+                         eta=eta, gamma=gamma, X=X, baffled=False)
+
+    # 배플 조건 — 완전배플 Npmax 에서 무배플 Np0 로 x 를 통해 보간
+    Z = n_blades ** 0.7 * b * sin_th ** 1.6 / d
+    ang = (2.0 * theta_deg / 180.0)                      # (2*theta/pi), theta [rad] 기준
+    if family == "propeller":
+        Np_max = 6.5 * Z ** 1.7
+    else:
+        # 0.54 에서 두 분기가 연속(10*0.54^1.3 = 4.488, 8.3*0.54 = 4.482)
+        Np_max = ang ** 0.9 * (10.0 * Z ** 1.3 if Z <= 0.54 else 8.3 * Z)
+    x = (4.5 * (B_w / D) * n_baffles ** 0.8
+         / (ang ** 0.72 * Np_max ** 0.2) + Np0 / Np_max)
+    Np = (1.0 + x ** -3) ** (-1.0 / 3.0) * Np_max
+    # 배플식은 난류 전제라 층류역에서 Np0 보다 작아지는 구간이 생긴다.
+    # 층류에서는 배플이 동력을 낮추지 않으므로 무배플 값을 하한으로 둔다.
+    Np = max(Np, Np0)
+    return Np, dict(f=f, ReG=ReG, CL=CL, Ct=Ct, m=m, Ctr=Ctr, f_inf=f_inf,
+                    Np0=Np0, Np_max=Np_max, x=x, Z=Z, beta=beta, eta=eta,
+                    gamma=gamma, X=X, baffled=True)
+
+
 def apparent_viscosity_MO(K, n, N, impeller, dataset="LIT"):
     """비뉴턴(멱법칙) 유체의 Metzner-Otto 겉보기점도.
 
@@ -157,13 +257,17 @@ def interference_factor(spacing_over_D):
 
 
 def total_power(rho, N, mu, stages, T, baffled=True, dataset="LIT",
-                mech_eff=0.95, margin=1.15):
+                mech_eff=0.95, margin=1.15, model="kamei", H=None,
+                B_w=0.0, n_baffles=0):
     """다단 임펠러 총동력 계산.
 
     stages : [{"type":키, "D":m, "W_D":옵션, "n_blades":옵션,
                "elevation":바닥으로부터 높이 m (옵션, 간섭계산용)}, ...]
     mech_eff : 감속기·씰 기계효율 (축동력 -> 모터축)
     margin   : 모터 선정 여유율
+    model    : "kamei"(기본) Kamei-Hiraoka 상관식 / "2asymptote" 구 2점근 모델.
+               kamei 는 액위 H 와 배플 치수(B_w, n_baffles)가 있어야 정확하다.
+               H 미입력이면 2점근 모델로 자동 폴백한다.
 
     반환 CalcResult. results 주요 키
       P_liquid  액체전달동력 [W]      P_shaft 축동력(=P_liquid) [W]
@@ -179,6 +283,10 @@ def total_power(rho, N, mu, stages, T, baffled=True, dataset="LIT",
     r.add_input("기계효율", mech_eff, "-")
     r.add_input("모터 여유율", margin, "-")
     r.add_input("데이터셋", dataset)
+    use_kh = (model == "kamei" and H is not None)
+    if model == "kamei" and H is None:
+        r.warn("액위 H 미입력 → Kamei-Hiraoka 대신 2점근 모델로 계산했다. "
+               "정확한 값이 필요하면 H 를 넘길 것.")
 
     D_max = max(s["D"] for s in stages)
     Re_gov = reynolds(rho, N, D_max, mu)
@@ -204,23 +312,48 @@ def total_power(rho, N, mu, stages, T, baffled=True, dataset="LIT",
         D = s["D"]
         im = imp_db.get(s["type"], dataset)
         Re_i = reynolds(rho, N, D, mu)
-        Np_i, nd = power_number(Re_i, im, s.get("W_D"), s.get("n_blades"),
-                                baffled, dataset)
+        nb = s.get("n_blades") or im.n_blades
+        if use_kh and im.key not in KH_FAMILY:
+            r.warn(f"{im.name_ko} 은 Kamei-Hiraoka 검증 대상이 아니어서 "
+                   "2점근 모델로 계산했다 (KH_FAMILY 주석 참조).")
+        if use_kh and im.key in KH_FAMILY:
+            Np_i, nd = kamei_hiraoka_np(
+                Re_i, D, T, H, (s.get("W_D") or im.W_D or 0.15) * D, nb,
+                KH_FAMILY.get(im.key, "paddle"), KH_THETA.get(im.key, 90.0),
+                baffled, B_w, n_baffles)
+            gov = "Kamei-Hiraoka"
+            formula = (f"Np0=pref*f, f=CL/ReG+Ct{{...}}^m  "
+                       f"ReG={nd['ReG']:.4g} CL={nd['CL']:.4g} "
+                       f"Ct={nd['Ct']:.4g} m={nd['m']:.4g}")
+        else:
+            Np_i, nd = power_number(Re_i, im, s.get("W_D"), s.get("n_blades"),
+                                    baffled, dataset)
+            gov = nd["governing"]
+            formula = (f"max({nd['Kp']:.1f}/Re, {nd['Np_turb']:.2f})"
+                       f" x {nd['f_width']:.3f} x {nd['f_blades']:.3f}"
+                       f" x {nd['f_baffle']:.2f}")
         P_i = impeller_power(rho, N, D, Np_i)
         Q_i = pumping_capacity(N, D, im.Nq)
         P_sum += P_i
         Q_sum += Q_i
         detail.append(dict(stage=k, type=im.key, name=im.name_ko, D=D,
                            Re=Re_i, Np=Np_i, P=P_i, Q=Q_i, Nq=im.Nq,
-                           governing=nd["governing"], dT=D / T))
+                           governing=gov, dT=D / T))
         r.add_step(f"{k}단 {im.name_ko}  D={D*1000:.0f} mm  (D/T={D/T:.3f})", "", "")
         r.add_step(f"   Re_{k}", "rho*N*D^2/mu", Re_i)
-        r.add_step(f"   Np_{k}  [{nd['governing']}]",
-                   f"max({nd['Kp']:.1f}/Re, {nd['Np_turb']:.2f})"
-                   f" x {nd['f_width']:.3f} x {nd['f_blades']:.3f} x {nd['f_baffle']:.2f}",
-                   Np_i)
+        r.add_step(f"   Np_{k}  [{gov}]", formula, Np_i)
         r.add_step(f"   P_{k}", "Np*rho*N^3*D^5", P_i / 1000.0, "kW")
         r.add_step(f"   Q_{k}", f"Nq({im.Nq})*N*D^3", Q_i * 60.0, "m3/min")
+
+    # 실제로 어느 모델이 쓰였는지는 단별 폴백 결과로 판단한다
+    kh_used = [d["governing"] == "Kamei-Hiraoka" for d in detail]
+    if all(kh_used):
+        mdl, note = "Kamei-Hiraoka", "doi:10.1155/2012/106496"
+    elif any(kh_used):
+        mdl, note = "혼용", "일부 형식은 2점근 폴백"
+    else:
+        mdl, note = "2점근(Nagata 계열)", "천이역 오차 10~30%"
+    r.inputs.insert(8, ("동력수 모델", mdl, "", note))
 
     P_liquid = P_sum * f_int
     P_motor_req = P_liquid / mech_eff * margin
