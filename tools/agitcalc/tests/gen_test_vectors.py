@@ -109,6 +109,12 @@ for Re in [0.5, 10.0, 260.0, 1979.8, 5e4]:
                                              baf, Bw, nB)
             S("kameiHiraokaNp", [Re, d, D, H, b, nb, fam, th, baf, Bw, nB], Np)
 
+for mu in [1.0, 50.0, 100.0, 300.0, 1000.0, 1001.0, 3000.0, 10000.0,
+           50000.0, 120000.0, 200000.0, 5e5, 1e6, 2e6]:
+    lo, hi = ac.geometry.tip_speed_range(mu)
+    S("tipSpeedRange.lo", [mu], lo)
+    S("tipSpeedRange.hi", [mu], hi)
+
 # --- 형상 산정 --------------------------------------------------------------
 GEO_CASES = [
     dict(T=4.5, V=50.0, mu_cP=15000.0),

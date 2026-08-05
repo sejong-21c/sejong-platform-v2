@@ -395,11 +395,28 @@
     intense: [800, 2000, "격렬 — 미세분산, 유화, 결정화"],
   };
 
+  /* 권장 익단속도 — 점도 로그축 선형보간. 표에 적힌 점도(노드)에서는 표값과
+     정확히 일치하고, 구간 경계에서 1 cP 차이로 튀지 않게 한다.
+     표 범위 밖은 외삽하지 않고 양 끝값 고정. 파이썬 geometry.py 와 동일. */
+  function tipSpeedRange(muCP) {
+    const nodes = VISCOSITY_GUIDE.filter(r => isFinite(r[0])).map(r => [r[0], r[3]]);
+    if (muCP <= nodes[0][0]) return nodes[0][1];
+    if (muCP > nodes[nodes.length - 1][0]) return VISCOSITY_GUIDE[VISCOSITY_GUIDE.length - 1][3];
+    for (let i = 0; i < nodes.length - 1; i++) {
+      const [m0, t0] = nodes[i], [m1, t1] = nodes[i + 1];
+      if (muCP <= m1) {
+        const w = (Math.log10(muCP) - Math.log10(m0)) / (Math.log10(m1) - Math.log10(m0));
+        return [t0[0] + w * (t1[0] - t0[0]), t0[1] + w * (t1[1] - t0[1])];
+      }
+    }
+    return VISCOSITY_GUIDE[VISCOSITY_GUIDE.length - 1][3];
+  }
+
   function selectType(muCP, opts) {
     opts = opts || {};
     const row = VISCOSITY_GUIDE.find(r => muCP <= r[0]);
     let key = row[1], dT = row[2];
-    const tip = row[3], baffled = row[4];
+    const tip = tipSpeedRange(muCP), baffled = row[4];
     const notes = ["점도 " + Math.round(muCP).toLocaleString() + " cP → " + row[5]];
 
     if (opts.hasGas && muCP <= 5000) {
@@ -1158,7 +1175,7 @@
     liquidHeight, reynolds, froude, tipSpeed, flowRegime, powerNumber,
     apparentViscosityMO, impellerPower, pumpingCapacity, interferenceFactor,
     totalPower, selectMotor, blendTime, turnoverTime, specificPower,
-    vortexCheck, selectType, nStages, recommend, allowableShear, sectionProps,
+    vortexCheck, selectType, tipSpeedRange, nStages, recommend, allowableShear, sectionProps,
     estimateImpellerMass, minShaftDiameter, designShaft, justSuspendedSpeed,
     cavernDiameter,
     snapRpm, snapShaftDia, design, topjinSheet, reportText, formatGeometry,

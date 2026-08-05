@@ -50,6 +50,34 @@ AGITATION_LEVELS = {
 }
 
 
+def tip_speed_range(mu_cP):
+    """점도에 따른 권장 익단속도 [m/s] — 점도 로그축 선형보간.
+
+    VISCOSITY_GUIDE 를 계단으로 그대로 읽으면 구간 경계에서 1 cP 차이로
+    권장범위가 튄다(1000 cP 는 2.5~5.0, 1001 cP 는 2.0~4.0). 점도 측정오차가
+    그보다 큰데 판정이 뒤집히므로 경계를 부드럽게 잇는다.
+
+    표의 점도 상한을 노드로 삼아 log10(mu) 선형보간한다. 따라서 **표에 적힌
+    점도(100, 1000, 10000 …)에서는 표값과 정확히 일치**하고, 구간 안쪽만
+    부드럽게 변한다. 표 범위 밖(100 cP 이하, 1e6 cP 초과)은 외삽하지 않고
+    양 끝값으로 고정한다.
+
+    형식·D/T·배플은 이산 선택이라 보간하지 않는다 — 익단속도만 해당.
+    """
+    nodes = [(r[0], r[3]) for r in VISCOSITY_GUIDE if math.isfinite(r[0])]
+    if mu_cP <= nodes[0][0]:
+        return nodes[0][1]
+    if mu_cP > nodes[-1][0]:      # 마지막 노드 자신은 아래 루프에서 정확히 처리
+        return VISCOSITY_GUIDE[-1][3]
+    for (m0, t0), (m1, t1) in zip(nodes, nodes[1:]):
+        if mu_cP <= m1:
+            w = ((math.log10(mu_cP) - math.log10(m0))
+                 / (math.log10(m1) - math.log10(m0)))
+            return (t0[0] + w * (t1[0] - t0[0]),
+                    t0[1] + w * (t1[1] - t0[1]))
+    return VISCOSITY_GUIDE[-1][3]
+
+
 def select_type(mu_cP, duty="blend", has_solids=False, has_gas=False,
                 shear_sensitive=False):
     """점도·용도로 임펠러 형식 1차 선정.
@@ -57,7 +85,8 @@ def select_type(mu_cP, duty="blend", has_solids=False, has_gas=False,
     반환 dict(type, dT, tip_speed_range, baffled, reason)
     """
     row = next(r for r in VISCOSITY_GUIDE if mu_cP <= r[0])
-    mu_max, key, dT, tip, baffled, reason = row
+    mu_max, key, dT, _tip_step, baffled, reason = row
+    tip = tip_speed_range(mu_cP)
 
     notes = [f"점도 {mu_cP:,.0f} cP → {reason}"]
 

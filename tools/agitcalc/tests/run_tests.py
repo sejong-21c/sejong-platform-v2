@@ -227,6 +227,32 @@ check(g2["impeller_type"] == "PBT4", "500cP -> PBT4 선정")
 check(g2["baffled"] is True, "PBT4 -> 배플 4매")
 close(g2["B_T"], 1 / 12, label="배플 폭비 B/T=1/12")
 
+print("== 익단속도 권장범위 보간 ==")
+from agitcalc.geometry import VISCOSITY_GUIDE, tip_speed_range
+# 표에 적힌 점도(노드)에서는 표값과 정확히 일치해야 한다 — 베이스 보존 조건
+for mu, _k, _d, tip, _b, _r in VISCOSITY_GUIDE:
+    if mu == float("inf"):
+        continue
+    got = tip_speed_range(mu)
+    close(got[0], tip[0], rel=1e-12, label=f"노드 {mu:,.0f}cP 하한 보존")
+    close(got[1], tip[1], rel=1e-12, label=f"노드 {mu:,.0f}cP 상한 보존")
+# 경계에서 1 cP 차이로 튀지 않아야 한다 (이 보간의 목적)
+for mu in [1000, 10000, 50000]:
+    lo1, hi1 = tip_speed_range(mu)
+    lo2, hi2 = tip_speed_range(mu + 1)
+    check(abs(lo1 - lo2) < 0.01 and abs(hi1 - hi2) < 0.01,
+          f"{mu:,}cP 경계에서 +1cP 급변 없음")
+# 단조감소 — 점도가 오르면 권장 익단속도는 내려간다
+prev = tip_speed_range(1.0)
+for mu in [100, 500, 1000, 5000, 10000, 1e5, 1e6, 1e7]:
+    cur = tip_speed_range(mu)
+    check(cur[0] <= prev[0] + 1e-12 and cur[1] <= prev[1] + 1e-12,
+          f"{mu:,.0f}cP 권장범위 단조감소")
+    prev = cur
+# 표 범위 밖은 외삽하지 않고 양 끝값 고정
+close(tip_speed_range(1.0)[0], 3.0, label="100cP 미만은 최저점도 값 고정")
+close(tip_speed_range(2e6)[0], 0.3, label="1e6cP 초과는 최고점도 값 고정")
+
 print("== 종합 선정 정합성 ==")
 r = ac.design(V=50.0, rho=1300.0, mu_cP=15000.0, T=4.5)
 check(r["summary"].ok, "D&K FA-6101 조건 전 항목 통과")

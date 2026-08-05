@@ -73,6 +73,8 @@ const SCALAR = {
     ac.justSuspendedSpeed(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]).N_js_rps,
   "justSuspendedSpeed.S": a =>
     ac.justSuspendedSpeed(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]).S,
+  "tipSpeedRange.lo": a => ac.tipSpeedRange(a[0])[0],
+  "tipSpeedRange.hi": a => ac.tipSpeedRange(a[0])[1],
   kameiHiraokaNp: a => ac.kameiHiraokaNp(a[0], a[1], a[2], a[3], a[4], a[5],
     a[6], a[7], a[8], a[9], a[10]).Np,
   "cavernDiameter.Dc": a => ac.cavernDiameter(a[0], a[1], a[2], a[3], a[4], a[5]).Dc,
