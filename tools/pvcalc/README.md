@@ -13,8 +13,8 @@
 | **ASME VIII-1** | 구현 완료 | ASME BPVC Sec VIII Div.1 (+ Div.2 4.4/4.15) |
 | **한국에너지공단** | **동체·경판 구현** | 열사용기자재 · KEA CODE Section IV (KPM-3210/3221/3222/3321/3323) |
 | 산업안전 KOSHA | 구조만 (준비중) | 산업안전보건법 안전인증·안전검사 |
-| 가스안전공사 KGS | 구조만 (준비중) | 고압가스 안전관리법 KGS 코드 |
-| **API 650** | **셸 단별 두께 구현** | 상압 용접 저장탱크 · 5.6.3 1-Foot Method + 5.6.1.1 |
+| **가스안전공사 KGS** | **동체·경판 구현** | KGS AC111 (2023) 3.3.1.1.1 / 3.3.1.1.3 / 3.3.1.1.4 |
+| **API 650** | **셸 단별 두께 구현** | 5.6.3 1-Foot Method + **5.6.4 변동설계점법** + 5.6.1.1 |
 | API 620 | 구조만 (준비중) | 저압 저장탱크 (약 15 psi 이하) |
 | 위험물안전관리법 | 구조만 (준비중) | 옥외탱크저장소 (소방청) — API 650 의 국내 대응 |
 
@@ -44,15 +44,16 @@
 | `pvcalc/saddle.py` | 횡형 용기 2점 새들 지지 응력 (Zick) | VIII-2 4.15 |
 | `pvcalc/loads.py` | 풍·지진 전단력·모멘트, 조합 길이방향 응력 | UG-22, UG-23(b) |
 | `pvcalc/kec.py` | **한국에너지공단** 동체·경판 최소두께 (SI·공학단위) | KPM-3210/3220/3221/3222/3321/3322/3323/3324 |
-| `pvcalc/api650.py` | **API 650** 셸 단별 두께 (SI·USC) | API 650 5.6.1.1 / 5.6.3 |
+| `pvcalc/api650.py` | **API 650** 셸 단별 두께 (SI·USC) | API 650 5.6.1.1 / 5.6.3 / 5.6.4 |
+| `pvcalc/kgs.py` | **가스안전공사** 동체·경판 최소두께 | KGS AC111 3.3.1.1.1/3/4 |
 | `pvcalc/report.py` | 검토 가능한 계산서(텍스트) 출력 | — |
-| `tests/run_tests.py` | 손계산 대조 검증 케이스 200건 | — |
+| `tests/run_tests.py` | 손계산 대조 검증 케이스 225건 (API 650 Annex K 앵커 포함) | — |
 | `examples/example_vessel.py` | 용기 1기 전체 계산 노트 예시 | — |
 | `comparison/` | PV Elite 대조표 템플릿 (CSV) | — |
 | `reference/calctoys/` | 참고용 오픈소스 (thepvguy/calctoys 클론) | — |
 | `web/index.html` + `web/pvcalc-core.js` | **웹 버전** (세종플랫폼 탑재용, 서버 불필요) | — |
-| `web/test_core.mjs` | JS↔Python 엔진 자동 대조 (279 벡터) | — |
-| `web/test_ui.mjs` | 웹 UI 헤드리스 테스트 (159건, jsdom 필요) | — |
+| `web/test_core.mjs` | JS↔Python 엔진 자동 대조 (362 벡터) | — |
+| `web/test_ui.mjs` | 웹 UI 헤드리스 테스트 (185건, jsdom 필요) | — |
 | `web/materials.example.js` | 사내 재료 데이터 형식 템플릿 | Sec II-D (값 미포함) |
 | `comparison/UG41_verification.md` | UG-41 미확정 항목 확인 요청서 | — |
 | `comparison/App2_verification.md` | App.2 검증 기록 + 미확정 항목 확인 요청서 | — |

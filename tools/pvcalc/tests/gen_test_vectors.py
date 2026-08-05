@@ -332,6 +332,89 @@ add_courses(dict(D=30.0, course_heights=[2.4] * 3, H_design=7.2, G=1.0,
 add_courses(dict(D=100.0, course_heights=[8.0] * 5, H_design=40.0, G=1.0,
                  Sd=23200.0, St=24900.0, CA=0.0625, units="USC"))
 
+# API 650 5.6.4 변동설계점법
+for D, t, H in [(85.0, 37.15, 19.2), (20.0, 8.0, 15.0), (60.0, 10.0, 3.0)]:
+    add("a650VdpApplicability", _a650.vdp_applicability,
+        dict(D=D, t_bottom_corroded=t, H=H, units="SI"))
+add("a650VdpApplicability", _a650.vdp_applicability,
+    dict(D=280.0, t_bottom_corroded=1.5, H=64.0, units="USC"))
+
+
+def add_vdp(kwargs):
+    _, summary = _a650.vdp_courses(**kwargs)
+    record("a650VdpCourses", kwargs, summary)
+
+
+add_vdp(dict(D=45.0, course_heights=[2.4] * 8, H_design=19.2, G=1.0,
+             Sd=160.0, St=171.0, CA=1.5))
+add_vdp(dict(D=85.0, course_heights=[2.4] * 8, H_design=19.2, G=1.0,
+             Sd=208.0, St=208.0, CA=0.0))
+add_vdp(dict(D=45.0, course_heights=[3.0] * 6, H_design=18.0, G=0.85,
+             Sd=180.0, St=193.0, CA=3.0))
+add_vdp(dict(D=45.0, course_heights=[2.4] * 5, H_design=8.0, G=1.0,
+             Sd=160.0, St=171.0, CA=1.5))          # 상단 2개 단이 액면 위
+add_vdp(dict(D=45.0, course_heights=[3.0] * 3, H_design=9.0, G=1.0,
+             Sd=[160.0, 180.0, 200.0], St=[171.0, 190.0, 210.0], CA=1.5))
+add_vdp(dict(D=100.0, course_heights=[8.0] * 5, H_design=40.0, G=1.0,
+             Sd=23200.0, St=24900.0, CA=0.0625, units="USC"))
+for it in [1, 2, 3]:
+    add_vdp(dict(D=60.0, course_heights=[2.5] * 6, H_design=15.0, G=1.0,
+                 Sd=160.0, St=171.0, CA=2.0, iterations=it))
+
+# KGS AC111
+from pvcalc import kgs as _kgs  # noqa: E402
+
+for P, Di, sa, eta in itertools.product([0.5, 1.0, 2.5], [800.0, 2000.0],
+                                        [100.0, 138.0], [0.85, 1.0]):
+    add("kgsCylinderThickness", _kgs.cylinder_thickness,
+        dict(P=P, Di=Di, sigma_a=sa, eta=eta))
+    add("kgsSphereThickness", _kgs.sphere_thickness,
+        dict(P=P, Di=Di, sigma_a=sa, eta=eta))
+# 두꺼운 벽 분기 + 강제
+add("kgsCylinderThickness", _kgs.cylinder_thickness,
+    dict(P=4.0, Di=400.0, sigma_a=10.0, eta=1.0))
+add("kgsCylinderThickness", _kgs.cylinder_thickness,
+    dict(P=4.0, Di=400.0, sigma_a=10.0, eta=1.0, thick_wall=False))
+add("kgsSphereThickness", _kgs.sphere_thickness,
+    dict(P=4.0, Di=400.0, sigma_a=5.0, eta=1.0))
+add("kgsSphereThickness", _kgs.sphere_thickness,
+    dict(P=4.0, Di=400.0, sigma_a=5.0, eta=1.0, thick_wall=True))
+for a_deg in [10.0, 22.5, 30.0]:
+    add("kgsConicalShellThickness", _kgs.conical_shell_thickness,
+        dict(P=1.0, Di=2000.0, half_apex_deg=a_deg, sigma_a=100.0, eta=1.0))
+# 경판
+add("kgsTorisphericalHead", _kgs.torispherical_head_thickness,
+    dict(P=1.0, R=1000.0, sigma_a=100.0, eta=1.0, hemispherical=True))
+for rk in [150.0, 200.0, 400.0]:
+    add("kgsTorisphericalHead", _kgs.torispherical_head_thickness,
+        dict(P=1.0, R=2000.0, r_knuckle=rk, sigma_a=100.0, eta=1.0))
+add("kgsTorisphericalHead", _kgs.torispherical_head_thickness,
+    dict(P=1.0, R=2000.0, r_knuckle=150.0, sigma_a=100.0, eta=1.0,
+         flanged_opening=True, Di_shell=2000.0))
+add("kgsTorisphericalHead", _kgs.torispherical_head_thickness,
+    dict(P=4.0, R=2000.0, r_knuckle=150.0, sigma_a=100.0, eta=1.0,
+         flanged_opening=True, Di_shell=2000.0))
+add("kgsTorisphericalHead", _kgs.torispherical_head_thickness,
+    dict(P=1.0, R=1000.0, r_knuckle=150.0, sigma_a=100.0, eta=1.0,
+         flanged_opening=True, Di_shell=2000.0))     # R 대체 발동
+for ratio in [1.0, 2.0, 2.5]:
+    add("kgsEllipsoidalHead", _kgs.ellipsoidal_head_thickness,
+        dict(P=1.0, D=2000.0, D_over_2h=ratio, sigma_a=100.0, eta=1.0))
+add("kgsEllipsoidalHead", _kgs.ellipsoidal_head_thickness,
+    dict(P=1.0, D=2000.0, h=500.0, sigma_a=100.0, eta=1.0))
+add("kgsEllipsoidalHead", _kgs.ellipsoidal_head_thickness,
+    dict(P=1.0, D=2000.0, h=500.0, sigma_a=100.0, eta=1.0,
+         flanged_opening=True, Di_shell=2000.0))
+# 원추형 경판 — 140° 이하 / 초과
+add("kgsConicalHead", _kgs.conical_head_thickness,
+    dict(P=1.0, Di=2000.0, apex_deg=120.0, sigma_a=100.0, eta=1.0))
+add("kgsConicalHead", _kgs.conical_head_thickness,
+    dict(P=1.0, Di=2000.0, apex_deg=160.0, sigma_a=100.0, eta=1.0,
+         Do=2100.0, r_corner=100.0))
+add("kgsConicalHead", _kgs.conical_head_thickness,
+    dict(P=0.3, Di=2000.0, apex_deg=170.0, sigma_a=100.0, eta=1.0,
+         Do=2100.0, r_corner=150.0))
+
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_vectors.json")
 with open(out, "w", encoding="utf-8") as f:
     json.dump(vectors, f, indent=1)

@@ -1583,9 +1583,393 @@
     return { courses: results, summary: s };
   }
 
+  /* ═══════════ API 650 5.6.4 변동설계점법 ═══════════
+   * pvcalc/api650.py 의 1:1 포팅. 검증 앵커: 원문 Annex K.1 (t1 = 37.15 mm). */
+
+  function a650VdpApplicability({ D, t_bottom_corroded, H, units = "SI" }) {
+    const c = a650Cfg(units);
+    const si = String(units).toUpperCase() === "SI";
+    const r = mkResult("변동설계점법 적용조건", "API Standard 650, 5.6.4.1");
+    r.addInput("D (탱크 지름)", D, c.lenU);
+    r.addInput("t (최하단 단 부식 후 두께)", t_bottom_corroded, c.tU);
+    r.addInput("H (최대 설계 액면)", H, c.lenU);
+    const L = Math.sqrt((si ? 500.0 : 6.0) * D * t_bottom_corroded);
+    const limit = si ? 1000.0 / 6.0 : 2.0;
+    const ratio = L / H;
+    r.addStep("L", si ? "(500·D·t)^0.5" : "(6·D·t)^0.5", L, c.tU);
+    r.addStep("L/H", "L / H", ratio);
+    r.addStep("허용 상한", si ? "1000/6" : "2", limit);
+    r.addCheck("L/H <= 상한 (5.6.4.1)", ratio <= limit);
+    r.results.L = L;
+    r.results.L_over_H = ratio;
+    r.results.limit = limit;
+    return r;
+  }
+
+  const a650OneFoot = (c, D, H, G, S) => c.k * D * (H - c.href) * G / S;
+
+  function a650VdpBottom(c, D, H, G, S) {
+    const coef = c.k === 4.9 ? 0.0696 : 0.463;
+    const t1raw = (1.06 - (coef * D / H) * Math.sqrt(H * G / S))
+      * (c.k * H * D * G / S);
+    const tp = a650OneFoot(c, D, H, G, S);
+    return { t: Math.min(t1raw, tp), t1raw, tp, coef };
+  }
+
+  function a650VdpUpper(c, D, Hcourse, G, S, tL, iterations = 2) {
+    const si = c.k === 4.9;
+    const conv = si ? 1000.0 : 12.0;
+    let tu = a650OneFoot(c, D, Hcourse, G, S);
+    const steps = [["tu 예비값 (5.6.3.2)", "1-Foot 식", tu]];
+    const rNom = D * conv / 2.0;
+    let tx = tu;
+    for (let it = 1; it <= iterations; it++) {
+      const K = tL / tu;
+      const C = (Math.sqrt(K) * (K - 1.0)) / (1.0 + Math.pow(K, 1.5));
+      const rt = Math.sqrt(rNom * tu);
+      const x1 = 0.61 * rt + (si ? 320.0 : 3.84) * C * Hcourse;
+      const x2 = conv * C * Hcourse;
+      const x3 = 1.22 * rt;
+      const x = Math.min(x1, x2, x3);
+      tx = c.k * D * (Hcourse - x / conv) * G / S;
+      steps.push(
+        [`[${it}] K = tL/tu`, "아래 단 두께 / 이 단 두께", K],
+        [`[${it}] C`, "[K^0.5*(K-1)]/(1+K^1.5)", C],
+        [`[${it}] x1`, si ? "0.61*(r*tu)^0.5 + 320*C*H" : "0.61*(r*tu)^0.5 + 3.84*C*H", x1],
+        [`[${it}] x2`, si ? "1000*C*H" : "12*C*H", x2],
+        [`[${it}] x3`, "1.22*(r*tu)^0.5", x3],
+        [`[${it}] x = min(x1,x2,x3)`, "변동설계점 위치", x],
+        [`[${it}] tx`, si ? "k*D*(H - x/1000)*G/S" : "k*D*(H - x/12)*G/S", tx]);
+      tu = tx;
+    }
+    return { tx, steps };
+  }
+
+  function a650VdpCourses({ D, course_heights, H_design, G, Sd, St,
+    CA = 0.0, units = "SI", iterations = 2 }) {
+    const c = a650Cfg(units);
+    const n = course_heights.length;
+    if (!n) throw new Error("course_heights 가 비어 있습니다");
+    const SdL = Array.isArray(Sd) ? Sd.slice() : new Array(n).fill(Sd);
+    const StL = Array.isArray(St) ? St.slice() : new Array(n).fill(St);
+    if (SdL.length !== n || StL.length !== n)
+      throw new Error("Sd·St 리스트 길이가 단 수와 다릅니다");
+
+    const si = c.k === 4.9;
+    const conv = si ? 1000.0 : 12.0;
+    const rNom = D * conv / 2.0;
+
+    const run = (Gp, SL) => {
+      const out = [];
+      let z = 0.0;
+      for (let i = 0; i < n; i++) {
+        const Hi = H_design - z;
+        const S = SL[i];
+        if (Hi - c.href <= 0) {
+          out.push([0.0, [["정수두 없음", "설계 액면 위 단", 0.0]]]);
+          z += course_heights[i];
+          continue;
+        }
+        if (i === 0) {
+          const b = a650VdpBottom(c, D, Hi, Gp, S);
+          out.push([b.t, [
+            ["t1 (5.6.4.4)", "(1.06 - (c*D/H)*sqrt(H*G/S))*(k*H*D*G/S)", b.t1raw],
+            ["tp (5.6.3.2)", "1-Foot 예비값", b.tp],
+            ["t1 = min(t1, tp)", "NOTE - tp 를 넘을 필요 없음", b.t]]]);
+        } else if (i === 1) {
+          const t1 = out[0][0];
+          const h1 = course_heights[0] * conv;
+          const up = a650VdpUpper(c, D, Hi, Gp, S, t1, iterations);
+          const ratio = h1 / Math.sqrt(rNom * t1);
+          let t2, how;
+          if (ratio <= 1.375) { t2 = t1; how = "비 <= 1.375 -> t2 = t1"; }
+          else if (ratio >= 2.625) { t2 = up.tx; how = "비 >= 2.625 -> t2 = t2a"; }
+          else {
+            t2 = up.tx + (t1 - up.tx) * (2.1 - h1 / (1.25 * Math.sqrt(rNom * t1)));
+            how = "1.375 < 비 < 2.625 -> 보간";
+          }
+          out.push([t2, up.steps.concat([
+            ["h1/(r*t1)^0.5", "둘째 단 판정 비 (5.6.4.5)", ratio],
+            ["t2a", "상단 단 절차로 구한 값", up.tx],
+            ["t2", how, t2]])]);
+        } else {
+          const up = a650VdpUpper(c, D, Hi, Gp, S, out[i - 1][0], iterations);
+          out.push([up.tx, up.steps]);
+        }
+        z += course_heights[i];
+      }
+      return out;
+    };
+
+    const design = run(G, SdL);
+    const hydro = run(1.0, StL);
+
+    const results = [];
+    let z = 0.0;
+    for (let i = 0; i < n; i++) {
+      const Hi = H_design - z;
+      const r = mkResult(
+        `셸 단 두께 - 변동설계점법 · ${i + 1}단 (하단 z=${z} ${c.lenU})`,
+        "API Standard 650, 5.6.4 / 5.6.1.1");
+      r.addInput("D (탱크 지름)", D, c.lenU);
+      r.addInput("H (이 단 하단 기준 설계 액면)", Hi, c.lenU);
+      r.addInput("G (설계 비중)", G);
+      r.addInput("Sd", SdL[i], c.sU);
+      r.addInput("St", StL[i], c.sU);
+      r.addInput("CA (부식여유)", CA, c.tU);
+      design[i][1].forEach(([nm, f, v]) => r.addStep("설계: " + nm, f, v));
+      hydro[i][1].forEach(([nm, f, v]) => r.addStep("시험: " + nm, f, v));
+
+      const td = design[i][0] > 0 ? design[i][0] + CA : 0.0;
+      const tt = hydro[i][0];
+      r.addStep("td (설계, CA 포함)", "설계조건 두께 + CA", td, c.tU);
+      r.addStep("tt (수압시험)", "수압시험조건 두께", tt, c.tU);
+      const tCalc = Math.max(td, tt);
+      const tMin = a650MinNominalThickness(D, units, i === 0);
+      r.addStep("최소 호칭두께 (5.6.1.1)", "호칭지름 구간별", tMin, c.tU);
+      const tReq = Math.max(tCalc, tMin);
+      r.addCheck("H > 기준높이", Hi - c.href > 0 || tCalc === 0.0);
+      r.results.td = td;
+      r.results.tt = tt;
+      r.results.t_min_nominal = tMin;
+      r.results.t_required = tReq;
+      r.results.governing = tCalc < tMin ? "minimum_nominal"
+        : (tt > td ? "hydrostatic_test" : "product_design");
+      results.push(r);
+      z += course_heights[i];
+    }
+
+    const totalH = course_heights.reduce((s, h) => s + h, 0);
+    const s = mkResult("셸 단별 필요두께 요약 - 변동설계점법",
+      "API Standard 650, 5.6.4 / 5.6.1.1");
+    s.addInput("D (탱크 지름)", D, c.lenU);
+    s.addInput("셸 전체 높이", totalH, c.lenU);
+    s.addInput("H_design (바닥 기준 설계 액면)", H_design, c.lenU);
+    s.addInput("단 수", n);
+    s.addInput("반복 횟수 (5.6.4.8)", iterations);
+    results.forEach((r, i) =>
+      s.addStep(`${i + 1}단 필요두께`, r.results.governing, r.results.t_required, c.tU));
+    const app = a650VdpApplicability({
+      D, t_bottom_corroded: results[0].results.t_required - CA, H: H_design, units });
+    s.addCheck("5.6.4.1 적용조건 L/H <= 상한", app.ok);
+    s.addCheck("설계 액면이 셸 전체 높이를 넘지 않음", H_design <= totalH);
+    s.addCheck("아래 단이 위 단보다 두껍거나 같음",
+      results.every((r, i) => i === n - 1
+        || r.results.t_required >= results[i + 1].results.t_required));
+    s.results.t_bottom = results[0].results.t_required;
+    s.results.t_top = results[n - 1].results.t_required;
+    s.results.courses = n;
+    s.results.L_over_H = app.results.L_over_H;
+    return { courses: results, summary: s };
+  }
+
+  /* ═══════════ 가스안전공사 KGS AC111 ═══════════
+   * pvcalc/kgs.py 의 1:1 포팅.
+   * ⚠ KPM 과 달리 식에 α(부식여유)가 없고 P 는 설계압력이다. */
+
+  function kgsCommon(r, P, sigma_a, eta) {
+    r.addInput("P (설계압력)", P, "MPa");
+    r.addInput("σa (설계온도 허용인장응력)", sigma_a, "N/mm²",
+      "용접부 허용응력이 모재보다 낮으면 용접부 값 적용");
+    r.addInput("η (용접이음매효율)", eta, "", "용접이음매가 없으면 1");
+  }
+
+  function kgsCylinderThickness({ P, Di, sigma_a, eta = 1.0, thick_wall = null }) {
+    const r = mkResult("원통동체 — 내압 최소두께",
+      "KGS AC111 3.3.1.1.1 (1-1) (가스안전공사)");
+    kgsCommon(r, P, sigma_a, eta);
+    r.addInput("Di (동체의 안지름)", Di, "mm");
+    const S = sigma_a * eta;
+    r.addStep("σa·η", "σa × η", S);
+    const tThin = P * Di / (2.0 * S - 1.2 * P);
+    r.addStep("t (1-1-1)", "P·Di/(2σaη − 1.2P)", tThin, "mm");
+    const limit = Di / 4.0;
+    r.addStep("Di/4 (두꺼운 벽 판정 한계)", "안지름/4", limit, "mm");
+    const isThick = thick_wall === null || thick_wall === undefined
+      ? tThin > limit : !!thick_wall;
+    let t = tThin;
+    if (isThick) {
+      if (S <= P) throw new Error("σa·η ≤ P — 두꺼운 벽 식의 적용 범위를 벗어남");
+      const k = Math.sqrt((S + P) / (S - P));
+      r.addStep("√((σaη+P)/(σaη−P))", "두꺼운 벽 계수", k);
+      t = (Di / 2.0) * (k - 1.0);
+      r.addStep("t (1-1-2)", "(Di/2)·(k − 1)", t, "mm");
+      r.results.governing = "thick_wall";
+    } else r.results.governing = "thin_wall";
+    r.addCheck("부식여유는 식에 없음 — 필요하면 별도 가산 (KPM 과 다른 점)", true);
+    r.results.t = t;
+    return r;
+  }
+
+  function kgsSphereThickness({ P, Di, sigma_a, eta = 1.0, thick_wall = null }) {
+    const r = mkResult("구형동체 — 내압 최소두께",
+      "KGS AC111 3.3.1.1.1 (2) (가스안전공사)");
+    kgsCommon(r, P, sigma_a, eta);
+    r.addInput("Di (동체의 안지름)", Di, "mm");
+    const S = sigma_a * eta;
+    r.addStep("σa·η", "σa × η", S);
+    const tThin = P * Di / (4.0 * S - 0.4 * P);
+    r.addStep("t (2-1)", "P·Di/(4σaη − 0.4P)", tThin, "mm");
+    const ratio = tThin / Di;
+    r.addStep("t/Di", "얇은 벽 식 결과 / 안지름", ratio);
+    const isThick = thick_wall === null || thick_wall === undefined
+      ? ratio > 0.178 : !!thick_wall;
+    let t = tThin;
+    if (isThick) {
+      if (2.0 * S <= P) throw new Error("2σa·η ≤ P — 두꺼운 벽 식의 적용 범위를 벗어남");
+      const k = Math.cbrt((2.0 * (S + P)) / (2.0 * S - P));
+      r.addStep("∛(2(σaη+P)/(2σaη−P))", "두꺼운 벽 계수", k);
+      t = (Di / 2.0) * (k - 1.0);
+      r.addStep("t (2-2)", "(Di/2)·(k − 1)", t, "mm");
+      r.results.governing = "thick_wall";
+    } else r.results.governing = "thin_wall";
+    r.results.t = t;
+    return r;
+  }
+
+  function kgsConicalShellThickness({ P, Di, half_apex_deg, sigma_a, eta = 1.0 }) {
+    const r = mkResult("원추형동체 원추부 — 내압 최소두께",
+      "KGS AC111 3.3.1.1.1 (3-1) (가스안전공사)");
+    kgsCommon(r, P, sigma_a, eta);
+    r.addInput("Di (원추 축에 직각으로 측정한 안지름)", Di, "mm");
+    r.addInput("θ (원추 꼭지각의 1/2)", half_apex_deg, "deg");
+    const th = half_apex_deg * Math.PI / 180.0;
+    const S = sigma_a * eta;
+    const t = P * Di / (2.0 * Math.cos(th) * (S - 0.6 * P));
+    r.addStep("cos θ", "cos(꼭지각/2)", Math.cos(th));
+    r.addStep("t (3-1)", "P·Di/(2·cosθ·(σaη − 0.6P))", t, "mm");
+    r.addCheck("적용범위: 꼭지각 ≤ 45° 는 원통형으로 취급 가능 (3-1 단서 참조)", true);
+    r.results.t = t;
+    return r;
+  }
+
+  function kgsTorisphericalHead({ P, R, r_knuckle = null, sigma_a, eta = 1.0,
+    hemispherical = false, flanged_opening = false, Di_shell = null }) {
+    const res = mkResult("접시형·온반구형 경판 — 최소두께",
+      "KGS AC111 3.3.1.1.3 (1-1)"
+      + (flanged_opening ? " / (1-2) 삽입플랜지 보강" : "") + " (가스안전공사)");
+    kgsCommon(res, P, sigma_a, eta);
+    res.addInput("R (경판 중앙부 안쪽 반지름)", R, "mm");
+    let Ruse = R;
+    if (flanged_opening) {
+      if (Di_shell === null || Di_shell === undefined)
+        throw new Error("(1-2) 는 동체 안지름(Di_shell)이 필요");
+      res.addInput("Di (동체 안지름)", Di_shell, "mm");
+      const floorR = 0.8 * Di_shell;
+      if (Ruse < floorR) {
+        res.addStep("R 대체 ((1-2) 단서)", "동체안지름 × 0.8", floorR, "mm");
+        Ruse = floorR;
+      }
+    }
+    let W;
+    if (hemispherical) { W = 1.0; res.addStep("W", "온반구형 경판은 1", W); }
+    else {
+      if (r_knuckle === null || r_knuckle === undefined || r_knuckle === "")
+        throw new Error("접시형 경판은 r_knuckle 이 필요 (온반구형은 hemispherical=true)");
+      res.addInput("r (가장자리 단곡부 안쪽 반지름)", r_knuckle, "mm");
+      W = 0.25 * (3.0 + Math.sqrt(Ruse / r_knuckle));
+      res.addStep("W", "(3 + √(R/r))/4", W);
+    }
+    const S = sigma_a * eta;
+    const tBase = P * Ruse * W / (2.0 * S - 0.2 * P);
+    res.addStep("t (1-1)", "P·R·W/(2σaη − 0.2P)", tBase, "mm");
+    let t = tBase;
+    if (flanged_opening) {
+      const tp = Math.max(0.15 * tBase, 3.0);
+      res.addStep("t′ ((1-2))", "max(0.15 × t, 3 mm)", tp, "mm");
+      t = tBase + tp;
+      res.addStep("t (보강 가산 후)", "t + t′", t, "mm");
+    }
+    res.results.W = W;
+    res.results.t = t;
+    return res;
+  }
+
+  function kgsEllipsoidalHead({ P, D = null, h = null, sigma_a, eta = 1.0,
+    D_over_2h = null, flanged_opening = false, Di_shell = null }) {
+    if (flanged_opening) {
+      if (Di_shell === null || Di_shell === undefined)
+        throw new Error("(2-2) 는 동체 안지름(Di_shell)이 필요");
+      const res = mkResult("반타원체형 경판 — 삽입플랜지 보강 구멍이 있는 경우",
+        "KGS AC111 3.3.1.1.3 (2-2) (가스안전공사)");
+      kgsCommon(res, P, sigma_a, eta);
+      res.addInput("Di (동체 안지름)", Di_shell, "mm");
+      const Ruse = 0.8 * Di_shell;
+      res.addStep("R", "동체안지름 × 0.8", Ruse, "mm");
+      const S = sigma_a * eta;
+      const tBase = 1.77 * P * Ruse / (2.0 * S - 0.2 * P);
+      res.addStep("t (2-2) 본항", "1.77·P·R/(2σaη − 0.2P)", tBase, "mm");
+      const tp = Math.max(0.15 * tBase, 3.0);
+      res.addStep("t′", "max(0.15 × t, 3 mm)", tp, "mm");
+      const t = tBase + tp;
+      res.addStep("t (보강 가산 후)", "t + t′", t, "mm");
+      res.results.W = 1.77;
+      res.results.t = t;
+      return res;
+    }
+    const res = mkResult("반타원체형 경판 — 최소두께",
+      "KGS AC111 3.3.1.1.3 (2-1) (가스안전공사)");
+    kgsCommon(res, P, sigma_a, eta);
+    if (D === null || D === undefined) throw new Error("D (경판 내면 긴지름)가 필요");
+    res.addInput("D (경판 타원체 내면 긴지름)", D, "mm");
+    let ratio;
+    if (D_over_2h === null || D_over_2h === undefined) {
+      if (h === null || h === undefined) throw new Error("h 또는 D_over_2h 중 하나가 필요");
+      res.addInput("h (짧은 지름의 1/2)", h, "mm");
+      ratio = D / (2.0 * h);
+    } else ratio = D_over_2h;
+    res.addStep("D/2h", "긴지름/(2h)", ratio);
+    const K = (2.0 + ratio * ratio) / 6.0;
+    res.addStep("K", "[2 + (D/2h)²]/6", K);
+    const S = sigma_a * eta;
+    const t = P * D * K / (2.0 * S - 0.2 * P);
+    res.addStep("t (2-1)", "P·D·K/(2σaη − 0.2P)", t, "mm");
+    res.results.K = K;
+    res.results.t = t;
+    return res;
+  }
+
+  function kgsConicalHead({ P, Di = null, apex_deg = null, sigma_a, eta = 1.0,
+    Do = null, r_corner = null }) {
+    if (apex_deg === null || apex_deg === undefined)
+      throw new Error("apex_deg (원추 꼭지각)이 필요");
+    const over140 = apex_deg > 140.0;
+    const res = mkResult("원추형 경판 — 내압 최소두께",
+      `KGS AC111 3.3.1.1.4 (${over140 ? "2" : "1"}) (가스안전공사)`);
+    kgsCommon(res, P, sigma_a, eta);
+    res.addInput("꼭지각", apex_deg, "deg");
+    const theta = apex_deg / 2.0;
+    res.addStep("θ (꼭지각/2)", "꼭지각 ÷ 2", theta, "deg");
+    const S = sigma_a * eta;
+    if (Di === null || Di === undefined)
+      throw new Error("Di (원추 축에 직각으로 측정한 안지름)가 필요");
+    res.addInput("Di (원추 축에 직각으로 측정한 안지름)", Di, "mm");
+    const t1 = P * Di / (2.0 * Math.cos(theta * Math.PI / 180.0) * (S - 0.6 * P));
+    res.addStep("t — (1) 식", "P·Di/(2·cosθ·(σaη − 0.6P))", t1, "mm");
+    if (!over140) {
+      res.results.t = t1;
+      res.results.governing = "cone_formula";
+      return res;
+    }
+    if (Do === null || Do === undefined || r_corner === null || r_corner === undefined)
+      throw new Error("꼭지각 > 140° 는 Do 와 r_corner 가 필요");
+    res.addInput("Do (큰 쪽 지름 끝 바깥지름)", Do, "mm");
+    res.addInput("r (큰 쪽 지름 끝 둥근 부분 안쪽 반지름)", r_corner, "mm");
+    const t2 = 0.5 * (Do - r_corner) * (theta / 90.0) * Math.sqrt(P / S);
+    res.addStep("t — (2) 식", "0.5·(Do − r)·(θ/90)·√(P/(σaη))", t2, "mm");
+    const t = Math.min(t1, t2);
+    res.addStep("t (작은 값)", "min((1) 식, (2) 식)", t, "mm");
+    res.results.t = t;
+    res.results.governing = t1 <= t2 ? "cone_formula" : "flat_like_formula";
+    return res;
+  }
+
   return {
     VERSION: "0.1.0",
     a650MinNominalThickness, a650ShellCourseThickness, a650ShellCourses,
+    a650VdpApplicability, a650VdpCourses,
+    kgsCylinderThickness, kgsSphereThickness, kgsConicalShellThickness,
+    kgsTorisphericalHead, kgsEllipsoidalHead, kgsConicalHead,
     kecCylinderThickness, kecSphereThickness,
     kecTorisphericalHead, kecEllipsoidalHead,
     KEC_MIN_THICKNESS,

@@ -161,8 +161,8 @@ try {
   ok("경고띠 문구 교체", $("dc-mat").textContent.includes("판·개정년도"));
 
   const tagged = d.querySelectorAll("main input[data-mat]");
-  /* ASME 19 + KPM(σa) 2 = 21 */
-  ok("응력칸 21개 태그", tagged.length === 21, `실제 ${tagged.length}`);
+  /* ASME 19 + KPM(σa) 2 + KGS(σa) 2 = 23 */
+  ok("응력칸 23개 태그", tagged.length === 23, `실제 ${tagged.length}`);
   ok("칸마다 드롭다운", d.querySelectorAll(".matsel").length === tagged.length);
   ok("차트인자 B·플랜지 내경 B 제외",
      !$("ld-B").dataset.mat && !$("fl-B").dataset.mat);
@@ -387,7 +387,8 @@ console.log("== 기준 × 아이템 ==");
   ok("KOSHA 사용중검사 성격 명시", stubText().includes("사용 중 검사"));
   w.setCode("kgs");
   ok("KGS 아이템 2종", items().join(",") === "gastank,spec");
-  ok("KGS 코드번호 확정 요청", stubText().includes("어느 KGS 코드"));
+  ok("KGS AC111 구현 명시", stubText().includes("AC111"));
+  ok("KGS 부식여유 취급 차이 경고", stubText().includes("α 항이 없고"));
   w.setCode("kfi");
   ok("위험물안전관리법 = API 650 국내 대응 명시", stubText().includes("API 650 의 국내 대응"));
   w.setCode("api620");
@@ -600,6 +601,129 @@ console.log("== API 650 탭 ==");
   $("a6-ch").value = "";
   w.calcA650();
   ok("빈 단 목록 오류 표시", !!d.querySelector("#res-a650 .err"));
+}
+
+/* ══ 6e. KGS AC111 탭 ════════════════════════════════════════════ */
+console.log("== KGS AC111 탭 ==");
+{
+  const w = await load(), d = w.document;
+  const $ = id => d.getElementById(id);
+  const visible = () => [...d.querySelectorAll("#tabs button")]
+    .filter(b => b.style.display !== "none").map(b => b.dataset.tab);
+
+  w.setCode("kgs");
+  ok("KGS 탭에 동체·경판 노출",
+     visible().join(",") === "gshell,ghead,stub,mat,info", visible().join(","));
+
+  /* 동체: P=1, Di=2000, σa=100, η=1 → 2000/198.8 = 10.0604 (α 없음!) */
+  w.showTab("gshell");
+  w.calcGshell();
+  near("AC111 (1-1-1) 원통", grab(d, "gshell", "t"), 2000 / 198.8);
+  ok("계산서에 AC111 조항", sheet(d, "gshell").includes("KGS AC111 3.3.1.1.1"));
+  ok("계산서에 기준·아이템",
+     sheet(d, "gshell").startsWith("인허가 기준 / 아이템: 가스안전공사 KGS · 고압가스 저장탱크"),
+     sheet(d, "gshell").split("\n")[0]);
+  ok("부식여유 미포함 경고", sheet(d, "gshell").includes("부식여유는 식에 없음"));
+
+  /* KPM 과 값이 달라야 한다 — 같은 입력에서 KPM 은 α=3 을 더한다 */
+  w.setCode("kec"); w.showTab("kshell");
+  $("ks-P").value = "1.0"; $("ks-D").value = "2000"; $("ks-sa").value = "100";
+  $("ks-eta").value = "1.0"; $("ks-alpha").value = "3";
+  w.calcKshell();
+  const kpmT = grab(d, "kshell", "t_req");
+  w.setCode("kgs"); w.showTab("gshell");
+  w.calcGshell();
+  const kgsT = grab(d, "gshell", "t");
+  near("KPM 은 α 를 더해 3mm 더 두껍다", kpmT - kgsT, 3.0, 1e-2);
+
+  /* 구형 → 2000/399.6 = 5.005 */
+  d.querySelector('input[name="gs-geo"][value="sph"]').click();
+  w.calcGshell();
+  near("AC111 (2-1) 구형", grab(d, "gshell", "t"), 2000 / 399.6);
+  /* 원추 θ=22.5° */
+  d.querySelector('input[name="gs-geo"][value="cone"]').click();
+  w.calcGshell();
+  near("AC111 (3-1) 원추부", grab(d, "gshell", "t"),
+       1.0 * 2000 / (2 * Math.cos(22.5 * Math.PI / 180) * (100 - 0.6)));
+  ok("원추는 θ 입력 표시", $("gs-theta").closest(".field").style.display !== "none");
+  d.querySelector('input[name="gs-geo"][value="cyl"]').click();
+
+  /* 경판 — 온반구형 W=1, R=2000 → 2000/199.8 */
+  w.showTab("ghead");
+  w.calcGhead();
+  near("AC111 (1) 온반구형", grab(d, "ghead", "t"), 2000 / 199.8);
+  /* 접시형 W = (3+√(2000/150))/4 */
+  $("gh-type").value = "tori"; $("gh-type").onchange();
+  w.calcGhead();
+  const gW = 0.25 * (3 + Math.sqrt(2000 / 150));
+  near("AC111 접시형 W", grab(d, "ghead", "W"), gW);
+  near("AC111 접시형 t", grab(d, "ghead", "t"), 2000 * gW / 199.8);
+  /* 삽입플랜지 보강 → t′ = max(0.15t, 3) */
+  const gBase = 2000 * gW / 199.8;
+  $("gh-flg").checked = true;
+  w.calcGhead();
+  near("AC111 (1-2) t′ 가산", grab(d, "ghead", "t"),
+       gBase + Math.max(0.15 * gBase, 3));
+  $("gh-flg").checked = false;
+  /* 반타원체형 K=1 (2:1) */
+  $("gh-type").value = "ellip"; $("gh-type").onchange();
+  w.calcGhead();
+  ok("AC111 (2-1) K=1", grab(d, "ghead", "K") === 1);
+  near("AC111 반타원체형 t", grab(d, "ghead", "t"), 2000 / 199.8);
+  /* (2-2) 삽입플랜지 → R=0.8Di, 계수 1.77 */
+  $("gh-flg").checked = true;
+  w.calcGhead();
+  const g22 = 1.77 * 1.0 * 1600 / 199.8;
+  near("AC111 (2-2) 1.77·P·R", grab(d, "ghead", "t"),
+       g22 + Math.max(0.15 * g22, 3));
+  $("gh-flg").checked = false;
+  /* 원추형 경판 — 140° 이하는 (1) 식만 */
+  $("gh-type").value = "cone"; $("gh-type").onchange();
+  w.calcGhead();
+  ok("원추형 경판 140° 이하 (1) 식", sheet(d, "ghead").includes("3.3.1.1.4 (1)"));
+  /* 140° 초과는 두 식 중 작은 값 */
+  $("gh-apex").value = "160";
+  w.calcGhead();
+  ok("원추형 경판 140° 초과 (2) 식 병행", sheet(d, "ghead").includes("3.3.1.1.4 (2)")
+     && sheet(d, "ghead").includes("작은 값"));
+}
+
+/* ══ 6f. API 650 변동설계점법 탭 ═════════════════════════════════ */
+console.log("== API 650 변동설계점법 ==");
+{
+  const w = await load(), d = w.document;
+  const $ = id => d.getElementById(id);
+
+  w.setCode("api650");
+  w.showTab("a650");
+  /* Annex K 조건: D=85, H=19.2, Sd=St=208, CA=0, 단 2.4×8 */
+  $("a6-D").value = "85"; $("a6-Hd").value = "19.2";
+  $("a6-ch").value = "2.4, 2.4, 2.4, 2.4, 2.4, 2.4, 2.4, 2.4";
+  $("a6-Sd").value = "208"; $("a6-St").value = "208"; $("a6-CA").value = "0";
+  $("a6-method").value = "vdp";
+  w.calcA650();
+  ok("VDP 계산서 조항", sheet(d, "a650").includes("5.6.4"));
+  near("★ VDP 최하단 = AnnexK 공표 37.15mm", grab(d, "a650", "t_bottom"), 37.15, 1e-3);
+  ok("L/H 결과 출력", grab(d, "a650", "L_over_H") > 0);
+  ok("변동설계점 x 스텝 노출", sheet(d, "a650").includes("x = min(x1,x2,x3)"));
+
+  /* 1-Foot 과 비교 — VDP 가 얇거나 같아야 한다 */
+  const tVdp = grab(d, "a650", "t_bottom");
+  $("a6-method").value = "1ft";
+  w.calcA650();
+  const t1ft = grab(d, "a650", "t_bottom");
+  ok("VDP 가 1-Foot 보다 얇거나 같음", tVdp <= t1ft + 1e-9, `${tVdp} vs ${t1ft}`);
+  ok("D=85m 는 1-Foot 적용범위 밖 FAIL",
+     d.querySelector("#res-a650 .badge").textContent === "FAIL");
+
+  /* 반복 횟수 변경이 반영되는가 */
+  $("a6-method").value = "vdp"; $("a6-iter").value = "1";
+  w.calcA650();
+  const t1iter = grab(d, "a650", "t_top");
+  $("a6-iter").value = "3";
+  w.calcA650();
+  ok("반복 횟수 입력 반영", Math.abs(grab(d, "a650", "t_top") - t1iter) >= 0
+     && sheet(d, "a650").includes("[3]"));
 }
 
 /* ══ 7. 부서 공유 저장 진입점 (Firestore 브리지 seam) ════════════

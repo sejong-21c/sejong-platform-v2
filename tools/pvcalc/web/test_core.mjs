@@ -30,6 +30,8 @@ for (const [i, v] of vectors.entries()) {
   // a650ShellCourses 는 {courses, summary} 를 돌려준다 — 파이썬은 요약만 기록.
   else if (v.fn === "a650ShellCourses")
     r = pv.a650ShellCourses(v.kwargs).summary;
+  else if (v.fn === "a650VdpCourses")
+    r = pv.a650VdpCourses(v.kwargs).summary;
   else
     r = fn(v.kwargs);
   for (const [key, expected] of Object.entries(v.results)) {

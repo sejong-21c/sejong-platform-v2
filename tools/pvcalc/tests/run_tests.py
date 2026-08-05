@@ -725,7 +725,93 @@ courses3, _ = a650.shell_courses(
 close(courses3[4].results["t_required"], 6.0, label="액면 위 단은 최소두께")
 close(courses3[4].results["td"], 0.0, label="액면 위 단은 td=0")
 
+print("== API 650 5.6.4 변동설계점법 ==")
+# ★ 원문 Annex K.1 공표 예제 앵커 — D=85 m, H=19.2 m, St=208 MPa, 수압시험조건
+#   원문 중간값: 0.0696D/H = 0.3081, sqrt(H/St) = 0.3038, 4.9HD/St = 38.45
+#   원문 결과:   t1 = 37.15 mm
+_c = a650._cfg("SI")
+_t1, _t1raw, _tp, _coef = a650._vdp_bottom(_c, 85.0, 19.2, 1.0, 208.0)
+close(0.0696 * 85 / 19.2, 0.3081, rel=2e-4, label="AnnexK 중간값 0.0696D/H")
+close((19.2 / 208) ** 0.5, 0.3038, rel=2e-4, label="AnnexK 중간값 sqrt(H/St)")
+close(4.9 * 19.2 * 85 / 208, 38.45, rel=2e-4, label="AnnexK 중간값 4.9HD/St")
+close(_t1raw, 37.15, rel=2e-4, label="★ AnnexK 공표 t1 = 37.15 mm")
+check(_t1 == min(_t1raw, _tp), "t1 은 tp 를 넘지 않음 (5.6.4.4 NOTE)")
+
+# 5.6.4.5 둘째 단 보간 — 원문 Annex K.1.3 산식 재현
+#   h1/(r*t1)^0.5 = 2400/[(42500)(37.2)]^0.5 = 1.909  (1.375 < 비 < 2.625)
+_ratio = 2400.0 / ((42500.0 * 37.2) ** 0.5)
+close(_ratio, 1.909, rel=1e-3, label="AnnexK 둘째 단 판정 비 1.909")
+#   t2 = 31.28 + (37.15-31.28)*[2.1 - 2400/(1.25*[(42500)(37.16)]^0.5)]
+_t2a, _t1x = 31.28, 37.15
+_bracket = 2.1 - 2400.0 / (1.25 * ((42500.0 * 37.16) ** 0.5))
+close(_bracket, 0.572, rel=2e-3, label="AnnexK 보간 대괄호 0.572")
+close(_t2a + (_t1x - _t2a) * _bracket, 34.64, rel=1e-3,
+      label="AnnexK 둘째 단 t2 = 34.64 mm")
+
+# 5.6.4.1 적용조건 — L/H
+#   AnnexK 탱크: D=85, t=37.15, H=19.2
+#   L = sqrt(500*85*37.15) = sqrt(1,578,875) = 1256.53 mm ; L/H = 65.4 <= 166.7 -> PASS
+#   (Annex K 가 이 탱크에 VDP 를 적용하므로 통과해야 맞다)
+r = a650.vdp_applicability(D=85.0, t_bottom_corroded=37.15, H=19.2)
+close(r.results["L"], 1256.5329, label="L = (500·D·t)^0.5")
+close(r.results["L_over_H"], 1256.5329 / 19.2, label="L/H")
+close(r.results["limit"], 1000.0 / 6.0, label="SI 상한 1000/6")
+check(r.ok, "AnnexK 탱크는 VDP 적용조건 통과")
+# 넓고 얕은 탱크는 상한 초과: D=60, t=10, H=3 -> L=547.72, L/H=182.6 > 166.7
+r = a650.vdp_applicability(D=60.0, t_bottom_corroded=10.0, H=3.0)
+close(r.results["L_over_H"], ((500 * 60 * 10) ** 0.5) / 3.0, label="얕은 탱크 L/H")
+check(not r.ok, "L/H 상한 초과는 FAIL (넓고 얕은 탱크)")
+# USC 상한은 2
+r = a650.vdp_applicability(D=280.0, t_bottom_corroded=1.5, H=64.0, units="USC")
+close(r.results["limit"], 2.0, label="USC 상한 2")
+close(r.results["L"], (6 * 280 * 1.5) ** 0.5, label="USC L = (6·D·t)^0.5")
+
+# 상단 단 절차 — x = min(x1,x2,x3) 와 반복수렴
+_tx1, _steps = a650._vdp_upper(_c, 85.0, 16.8, 1.0, 208.0, tL=37.15, iterations=1)
+_tx2, _ = a650._vdp_upper(_c, 85.0, 16.8, 1.0, 208.0, tL=37.15, iterations=2)
+check(_tx1 > 0 and _tx2 > 0, "상단 단 tx 계산됨")
+check(abs(_tx2 - _tx1) / _tx1 < 0.05, "반복 2회면 5% 이내로 수렴 (5.6.4.8)")
+check(any("x = min(x1,x2,x3)" in s[0] for s in _steps), "변동설계점 x 스텝 기록됨")
+# C = [K^0.5(K-1)]/(1+K^1.5) 손계산 — K=1.5:
+#   K^0.5 = 1.2247449, 분자 = 1.2247449*0.5 = 0.6123724
+#   K^1.5 = 1.8371173, 분모 = 2.8371173  ->  C = 0.2158435
+_K = 1.5
+close((_K ** 0.5 * (_K - 1.0)) / (1.0 + _K ** 1.5), 0.2158435,
+      label="C 계수 (K=1.5)")
+# K=1 (아래 단과 같은 두께)이면 C=0 이므로 x = min(0.61√(rt), 0, 1.22√(rt)) = 0
+close((1.0 ** 0.5 * 0.0) / (1.0 + 1.0), 0.0, label="C 계수 (K=1 이면 0)")
+
+# 전체 단별 계산 — VDP 가 1-Foot 보다 얇거나 같아야 한다 (그게 이 방법의 목적)
+_courses_vdp, _sum_vdp = a650.vdp_courses(
+    D=45.0, course_heights=[2.4] * 8, H_design=19.2, G=1.0,
+    Sd=160.0, St=171.0, CA=1.5)
+_courses_1ft, _sum_1ft = a650.shell_courses(
+    D=45.0, course_heights=[2.4] * 8, H_design=19.2, G=1.0,
+    Sd=160.0, St=171.0, CA=1.5)
+check(len(_courses_vdp) == 8, "VDP 단 8개 계산")
+check(_sum_vdp.results["t_bottom"] <= _sum_1ft.results["t_bottom"] * 1.001,
+      "VDP 최하단이 1-Foot 보다 얇거나 같음")
+check(all(_courses_vdp[i].results["t_required"]
+          >= _courses_vdp[i + 1].results["t_required"] for i in range(7)),
+      "VDP 도 아래 단이 위 단보다 두껍다")
+# 단별 재질 리스트
+_cv, _sv = a650.vdp_courses(D=45.0, course_heights=[3.0] * 3, H_design=9.0, G=1.0,
+                            Sd=[160.0, 180.0, 200.0], St=[171.0, 190.0, 210.0],
+                            CA=1.5)
+check(len(_cv) == 3, "VDP 단별 재질 리스트 동작")
+
 print("== API 650 입력 검증 ==")
+try:
+    a650.vdp_courses(D=45.0, course_heights=[], H_design=1.0, G=1.0, Sd=1.0, St=1.0)
+    check(False, "VDP 빈 단 목록은 거부되어야 함")
+except ValueError:
+    check(True, "VDP 빈 단 목록 거부")
+try:
+    a650.vdp_courses(D=45.0, course_heights=[2.4, 2.4], H_design=4.8, G=1.0,
+                     Sd=[160.0], St=171.0)
+    check(False, "VDP Sd 길이 불일치는 거부되어야 함")
+except ValueError:
+    check(True, "VDP Sd 길이 불일치 거부")
 try:
     a650.shell_course_thickness(D=30.0, H=12.0, G=1.0, Sd=160.0, St=171.0, units="psi")
     check(False, "모르는 단위계는 거부되어야 함")
