@@ -191,8 +191,18 @@ wb, _ = ac.core.kamei_hiraoka_np(1.0, 1/3, 1.0, 1.0, 0.2/3, 6, "paddle", 90.0,
                                  baffled=True, B_w=0.1, n_baffles=4)
 check(wb >= nb, f"층류 Re=1 에서 배플 Np({wb:.2f}) >= 무배플 Np({nb:.2f})")
 
-# MAXBLEND 는 KH 적용 대상이 아니므로 2점근으로 폴백해야 한다
-check("MAXBLEND" not in ac.core.KH_FAMILY, "MAXBLEND 는 KH_FAMILY 에서 제외")
+# MAXBLEND 는 등가 날개폭 b=0.18D 로 KH 적용 (D&K 2건 최대오차 최소화 값)
+check("MAXBLEND" in ac.core.KH_FAMILY, "MAXBLEND 도 KH_FAMILY 에 포함")
+close(ac.core.KH_B_OVER_D["MAXBLEND"], 0.18, label="MAXBLEND 등가 b/D")
+# 두 검토서 케이스의 오차가 20% 이내에 들어와야 한다 (채택 근거)
+for T, V, rho, mu_cP, rpm, D, Pc in [(4.5, 50., 1300., 15000., 20., 3.00, 13.7702),
+                                     (4.5, 50., 1300., 2000., 21., 2.95, 11.7247)]:
+    N, mu = rpm / 60, mu_cP / 1000
+    H = ac.liquid_height(T, V)
+    Np, _ = ac.core.kamei_hiraoka_np(ac.reynolds(rho, N, D, mu), D, T, H,
+                                     0.18 * D, 2, "paddle", 90.0)
+    err = abs(Np * rho * N ** 3 * D ** 5 / 1000 - Pc * 0.85) / (Pc * 0.85) * 100
+    check(err <= 20.0, f"MAXBLEND {rpm}rpm 벤더 대조 오차 {err:.1f}% <= 20%")
 
 print("== 벤더 검토서 확정식 재현 ==")
 # TOPJIN 8케이스 중 FA-6205: T=1.3 V=2 rho=1691 mu=7000cP 62rpm

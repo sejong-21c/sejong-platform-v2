@@ -62,7 +62,9 @@ def _power_at(N, rho, mu, stages_geo, T, baffled, dataset, H=None,
         im = imp_db.get(s["type"], dataset)
         if H is not None and im.key in core.KH_FAMILY:
             Np, _ = core.kamei_hiraoka_np(
-                Re, s["D"], T, H, (s.get("W_D") or im.W_D or 0.15) * s["D"],
+                Re, s["D"], T, H,
+                (core.KH_B_OVER_D.get(im.key) or s.get("W_D")
+                 or im.W_D or 0.15) * s["D"],
                 s.get("n_blades") or im.n_blades,
                 core.KH_FAMILY.get(im.key, "paddle"),
                 core.KH_THETA.get(im.key, 90.0), baffled, B_w, n_baffles)
@@ -236,7 +238,9 @@ def design(V, rho, mu_cP, T=None, H_T=1.1, duty="blend",
     PV = specific_power(P_liquid, V)
     if model == "kamei" and im.key in core.KH_FAMILY:
         Np_gov, _ = core.kamei_hiraoka_np(
-            Re, D, T, H, g["W"], g.get("n_blades") or im.n_blades,
+            Re, D, T, H,
+            (core.KH_B_OVER_D.get(im.key) or g["W_D"]) * D,
+            g.get("n_blades") or im.n_blades,
             core.KH_FAMILY.get(im.key, "paddle"),
             core.KH_THETA.get(im.key, 90.0), baffled, g["B"], g["n_baffles"])
     else:

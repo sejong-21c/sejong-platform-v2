@@ -143,10 +143,15 @@
      MAXBLEND 는 의도적으로 제외했다 — 파이썬 core.py 의 KH_FAMILY 주석 참조. */
   const KH_FAMILY = {
     PADDLE2: "paddle", PBT4: "paddle", PBT6: "paddle", FBT6: "paddle",
-    RUSHTON: "paddle", ANCHOR: "paddle",
+    RUSHTON: "paddle", ANCHOR: "paddle", MAXBLEND: "paddle",
     PROP: "propeller", HYDROFOIL: "propeller", HYDROFOIL_HS: "propeller",
     RIBBON: "ribbon"
   };
+  /* Kamei 식에 넣을 등가 날개폭 b/D. MAXBLEND 0.18 은 D&K 검토서 2건의
+     최대오차를 최소화한 값(18.4%) — 2점 피팅이라 신뢰구간이 좁지 않다.
+     파이썬 core.py 의 KH_B_OVER_D 주석 참조. */
+  const KH_B_OVER_D = { MAXBLEND: 0.18 };
+
   const KH_THETA = { PBT4: 45.0, PBT6: 45.0, PROP: 45.0,
                      HYDROFOIL: 45.0, HYDROFOIL_HS: 45.0 };
 
@@ -277,7 +282,8 @@
         r.warn(im.nameKo + " 은 Kamei-Hiraoka 검증 대상이 아니어서 2점근 모델로 계산했다.");
       }
       if (useKH && KH_FAMILY[im.key]) {
-        pn = kameiHiraokaNp(Rei, D, T, H, (s.W_D || im.W_D || 0.15) * D, nb,
+        pn = kameiHiraokaNp(Rei, D, T, H,
+          (KH_B_OVER_D[im.key] || s.W_D || im.W_D || 0.15) * D, nb,
           KH_FAMILY[im.key], KH_THETA[im.key] || 90.0, baffled, Bw, nBaf);
         gov = "Kamei-Hiraoka";
         formula = "Np0=pref*f, f=CL/ReG+Ct{...}^m  ReG=" + pn.ReG.toPrecision(4) +
@@ -736,7 +742,8 @@
       const im = getImpeller(s.type, dataset);
       let Np;
       if (H != null && KH_FAMILY[im.key]) {
-        Np = kameiHiraokaNp(Re, s.D, T, H, (s.W_D || im.W_D || 0.15) * s.D,
+        Np = kameiHiraokaNp(Re, s.D, T, H,
+          (KH_B_OVER_D[im.key] || s.W_D || im.W_D || 0.15) * s.D,
           s.nBlades || im.nBlades, KH_FAMILY[im.key], KH_THETA[im.key] || 90.0,
           baffled, Bw || 0, nBaf || 0).Np;
       } else {
@@ -887,7 +894,8 @@
     const vTip = tipSpeed(N, D);
     const PV = specificPower(Pliq, V);
     const pnGov = (model === "kamei" && KH_FAMILY[im.key])
-      ? kameiHiraokaNp(Re, D, T, H, g.W, g.n_blades || im.nBlades,
+      ? kameiHiraokaNp(Re, D, T, H, (KH_B_OVER_D[im.key] || g.W_D) * D,
+          g.n_blades || im.nBlades,
           KH_FAMILY[im.key], KH_THETA[im.key] || 90.0, baffled, g.B, g.n_baffles)
       : powerNumber(Re, g.impeller_type, { W_D: g.W_D, baffled, dataset });
     const bt = blendTime(N, D, T, H, pnGov.Np, Re, g.impeller_type, dataset);
@@ -1145,7 +1153,7 @@
     G, AXIAL, RADIAL, MIXED, TANGENTIAL, LIT, TOPJIN_NQ, VENDOR_ALIAS,
     MATERIALS, IEC_MOTORS_KW, STD_RPM, STD_SHAFT_DIA, AGITATION_LEVELS,
     VISCOSITY_GUIDE, S_ZWIETERING,
-    KH_FAMILY, KH_THETA, kameiHiraokaNp,
+    KH_FAMILY, KH_THETA, KH_B_OVER_D, kameiHiraokaNp,
     mkResult, getImpeller, rpmToRps, rpsToRpm, cPToPas, volumeFromTH,
     liquidHeight, reynolds, froude, tipSpeed, flowRegime, powerNumber,
     apparentViscosityMO, impellerPower, pumpingCapacity, interferenceFactor,

@@ -132,18 +132,21 @@ def power_number(Re, impeller, W_D=None, n_blades=None, baffled=True,
 #   ribbon    : 헬리컬 리본 — 형상 의존성 없이 고정값 (Table 4)
 KH_FAMILY = {
     "PADDLE2": "paddle", "PBT4": "paddle", "PBT6": "paddle", "FBT6": "paddle",
-    "RUSHTON": "paddle", "ANCHOR": "paddle",
+    "RUSHTON": "paddle", "ANCHOR": "paddle", "MAXBLEND": "paddle",
     "PROP": "propeller", "HYDROFOIL": "propeller", "HYDROFOIL_HS": "propeller",
     "RIBBON": "ribbon",
 }
-# MAXBLEND(광폭 대형패들)는 일부러 뺐다. 하부 광폭패들 + 상부 격자의 복합
-# 구조라 단순 패들로 환산되지 않는다. D&K 검토서 2건으로 확인한 결과,
-# 날개폭 b 를 어떤 값으로 넣어도 두 건을 동시에 맞출 수 없었다
-#   FA-6101(Re=260)  : b=0.15D 에서 오차 1.5%, b=0.35H 에서 92%
-#   FA-6102(Re=1980) : b=0.15D 에서 27.8%, b=0.35H 에서 20%
-# 즉 한쪽을 맞추면 다른 쪽이 무너진다. KH_FAMILY 에 없는 형식은
-# 기존 2점근 모델로 폴백한다. 제조사 실측 Np-Re 곡선을 받으면 그때 넣을 것.
-# ponytail: 광폭임펠러는 2점근 폴백, 제조사 실측 곡선 확보 시 전용 상관식 추가
+# Kamei 식에 넣을 등가 날개폭 b/D. 형상이 단순 패들이 아닌 형식만 지정한다.
+#
+# MAXBLEND(광폭 대형패들)는 하부 광폭패들 + 상부 격자의 복합 구조라 실제
+# 날개폭이 하나로 정의되지 않는다. D&K 검토서 2건으로 b 를 스캔해 두 건의
+# 최대오차가 가장 작아지는 값을 골랐다.
+#   b=0.15D : FA-6101 1.5% / FA-6102 27.8%  (최대 27.8%)
+#   b=0.18D : FA-6101 16.8% / FA-6102 18.4% (최대 18.4%)  <- 채택
+#   b=0.22D : FA-6101 41.2% / FA-6102  5.7% (최대 41.2%)
+# ponytail: 2점 피팅이라 신뢰구간이 좁지 않다. 제조사 실측 Np-Re 곡선을
+#           받으면 MAXBLEND 전용 상관식으로 교체할 것.
+KH_B_OVER_D = {"MAXBLEND": 0.18}
 
 # 날개각 theta [deg] — 축류 성분이 있는 형식은 45도, 수직 패들은 90도
 KH_THETA = {"PBT4": 45.0, "PBT6": 45.0, "PROP": 45.0,
@@ -318,7 +321,9 @@ def total_power(rho, N, mu, stages, T, baffled=True, dataset="LIT",
                    "2점근 모델로 계산했다 (KH_FAMILY 주석 참조).")
         if use_kh and im.key in KH_FAMILY:
             Np_i, nd = kamei_hiraoka_np(
-                Re_i, D, T, H, (s.get("W_D") or im.W_D or 0.15) * D, nb,
+                Re_i, D, T, H,
+                (KH_B_OVER_D.get(im.key) or s.get("W_D")
+                 or im.W_D or 0.15) * D, nb,
                 KH_FAMILY.get(im.key, "paddle"), KH_THETA.get(im.key, 90.0),
                 baffled, B_w, n_baffles)
             gov = "Kamei-Hiraoka"
