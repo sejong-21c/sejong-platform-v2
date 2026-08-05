@@ -1,0 +1,5208 @@
+[
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 500.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 2.5,
+   "t_req_ca": 5.5
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 500.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 2.1240441801189465,
+   "t_req_ca": 5.124044180118947
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 2.1367521367521367,
+   "t_req_ca": 5.136752136752136
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 1.815541031227306,
+   "t_req_ca": 4.815541031227306
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 1000.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 5.0,
+   "t_req_ca": 8.0
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 1000.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 4.248088360237893,
+   "t_req_ca": 7.248088360237893
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 4.273504273504273,
+   "t_req_ca": 7.273504273504273
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 3.631082062454612,
+   "t_req_ca": 6.631082062454611
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 1500.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 7.5,
+   "t_req_ca": 10.5
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 1500.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 6.372132540356839,
+   "t_req_ca": 9.372132540356839
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 1500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 6.410256410256411,
+   "t_req_ca": 9.41025641025641
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 0.5,
+   "R": 1500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 5.446623093681918,
+   "t_req_ca": 8.446623093681918
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 500.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 5.015045135406218,
+   "t_req_ca": 8.015045135406218
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 500.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 4.258943781942079,
+   "t_req_ca": 7.258943781942079
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 4.284490145672665,
+   "t_req_ca": 7.284490145672665
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 3.6390101892285296,
+   "t_req_ca": 6.63901018922853
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1000.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 10.030090270812437,
+   "t_req_ca": 13.030090270812437
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1000.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 8.517887563884157,
+   "t_req_ca": 11.517887563884157
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 8.56898029134533,
+   "t_req_ca": 11.56898029134533
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 7.278020378457059,
+   "t_req_ca": 10.27802037845706
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1500.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 15.045135406218655,
+   "t_req_ca": 18.045135406218655
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1500.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 12.776831345826235,
+   "t_req_ca": 15.776831345826235
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 12.853470437017995,
+   "t_req_ca": 15.853470437017995
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 10.91703056768559,
+   "t_req_ca": 13.91703056768559
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 500.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 12.651821862348179,
+   "t_req_ca": 15.651821862348179
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 500.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 10.729613733905579,
+   "t_req_ca": 13.729613733905579
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 10.79447322970639,
+   "t_req_ca": 13.79447322970639
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 9.157509157509157,
+   "t_req_ca": 12.157509157509157
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 1000.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 25.303643724696357,
+   "t_req_ca": 28.303643724696357
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 1000.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 21.459227467811157,
+   "t_req_ca": 24.459227467811157
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 21.58894645941278,
+   "t_req_ca": 24.58894645941278
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 18.315018315018314,
+   "t_req_ca": 21.315018315018314
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 1500.0,
+   "S": 118.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 37.955465587044536,
+   "t_req_ca": 40.955465587044536
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 1500.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 32.18884120171674,
+   "t_req_ca": 35.18884120171674
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 1500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 32.38341968911917,
+   "t_req_ca": 35.38341968911917
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "R": 1500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 27.47252747252747,
+   "t_req_ca": 30.47252747252747
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 6.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 1.397537728355838
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 6.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 0.697107765451664
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 6.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 1.6441620333598093
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 6.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 0.8201267828843106
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 6.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 0.7012754085292945
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 6.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 0.350218949044586
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 6.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 0.8250298923874053
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 6.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 0.4120222929936306
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 10.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 2.3181818181818183
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 10.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 1.6188880126182965
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 10.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 2.727272727272727
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 10.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 1.9045741324921137
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 10.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 1.166003976143141
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 10.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 0.8152303415409055
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 10.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 1.371769383697813
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 10.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 0.9590945194598888
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 14.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 3.230133752950433
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 14.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 2.5319858712715853
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 14.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 3.800157356412274
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 14.0,
+   "R": 500.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 2.9788069073783356
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 14.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 1.628520428401428
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 14.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 1.2780309033280506
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 14.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 0.0
+  },
+  "results": {
+   "MAWP": 1.9159063863546213
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMawp",
+  "kwargs": {
+   "t": 14.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 1.503565768621236
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "sphereThickness",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 0.0
+  },
+  "results": {
+   "t_req": 3.625815808556925,
+   "t_req_ca": 3.625815808556925
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "sphereMawp",
+  "kwargs": {
+   "t": 8.0,
+   "R": 1000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "MAWP": 1.3745019920318724
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "ellipsoidalThickness",
+  "kwargs": {
+   "P": 1.6,
+   "D": 2400.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0,
+   "D_over_2h": 1.0
+  },
+  "results": {
+   "t_req": 8.195321837117978,
+   "t_req_ca": 11.195321837117978
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "ellipsoidalThickness",
+  "kwargs": {
+   "P": 1.6,
+   "D": 2400.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0,
+   "D_over_2h": 2.0
+  },
+  "results": {
+   "t_req": 16.390643674235957,
+   "t_req_ca": 19.390643674235957
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "ellipsoidalThickness",
+  "kwargs": {
+   "P": 1.6,
+   "D": 2400.0,
+   "S": 138.0,
+   "E": 0.85,
+   "CA": 3.0,
+   "D_over_2h": 2.5
+  },
+  "results": {
+   "t_req": 22.53713505207444,
+   "t_req_ca": 25.53713505207444
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "ellipsoidalMawp",
+  "kwargs": {
+   "t": 12.0,
+   "D": 2400.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0,
+   "D_over_2h": 2.0
+  },
+  "results": {
+   "MAWP": 1.0316471467729877
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "torisphericalThickness",
+  "kwargs": {
+   "P": 1.0,
+   "L": 2000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0,
+   "r_knuckle": null
+  },
+  "results": {
+   "M": 1.77,
+   "t_req": 12.835387962291515,
+   "t_req_ca": 15.835387962291515
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "torisphericalThickness",
+  "kwargs": {
+   "P": 1.0,
+   "L": 2000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0,
+   "r_knuckle": 150.0
+  },
+  "results": {
+   "M": 1.662870929175277,
+   "t_req": 12.058527405186926,
+   "t_req_ca": 15.058527405186926
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "torisphericalMawp",
+  "kwargs": {
+   "t": 14.0,
+   "L": 2000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0,
+   "r_knuckle": null
+  },
+  "results": {
+   "MAWP": 0.8558115410527385
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "torisphericalMawp",
+  "kwargs": {
+   "t": 14.0,
+   "L": 2000.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0,
+   "r_knuckle": 150.0
+  },
+  "results": {
+   "MAWP": 0.91053558475937
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "hemisphericalThickness",
+  "kwargs": {
+   "P": 2.0,
+   "L": 1200.0,
+   "S": 118.0,
+   "E": 1.0,
+   "CA": 1.5
+  },
+  "results": {
+   "t_req": 10.186757215619695,
+   "t_req_ca": 11.686757215619695
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "conicalThickness",
+  "kwargs": {
+   "P": 1.0,
+   "D": 2000.0,
+   "alpha_deg": 10.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 7.390295574132059,
+   "t_req_ca": 10.39029557413206
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "conicalThickness",
+  "kwargs": {
+   "P": 1.0,
+   "D": 2000.0,
+   "alpha_deg": 21.8,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 7.838590711617324,
+   "t_req_ca": 10.838590711617325
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "conicalThickness",
+  "kwargs": {
+   "P": 1.0,
+   "D": 2000.0,
+   "alpha_deg": 30.0,
+   "S": 138.0,
+   "E": 1.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_req": 8.40393404933953,
+   "t_req_ca": 11.40393404933953
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 5.0,
+   "L": 500.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.6547091914143562
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 5.0,
+   "L": 3000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.11482292409091284
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 5.0,
+   "L": 20000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.02145
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 10.0,
+   "L": 500.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 2.2937594333477236
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 10.0,
+   "L": 3000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.6627251643204533
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 10.0,
+   "L": 20000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.1716
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 25.0,
+   "L": 500.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 6.14877024595081
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 25.0,
+   "L": 3000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 4.37404741021131
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 1000.0,
+   "t": 25.0,
+   "L": 20000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 2.681250000000001
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 5.0,
+   "L": 500.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.27633722443889563
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 5.0,
+   "L": 3000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.04142032277002833
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 5.0,
+   "L": 20000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.005565677411987149
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 10.0,
+   "L": 500.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.9669661906680905
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 10.0,
+   "L": 3000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.23906628777576708
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 10.0,
+   "L": 20000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.03212350239829617
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 25.0,
+   "L": 500.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 3.074385122975405
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 25.0,
+   "L": 3000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 1.8477561613419091
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 2000.0,
+   "t": 25.0,
+   "L": 20000.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.3351562500000001
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 800.0,
+   "t": 60.0,
+   "L": 400.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 18.44631073785243
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "cylinderMaep",
+  "kwargs": {
+   "Do": 800.0,
+   "t": 40.0,
+   "L": 1200.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 12.297540491901621
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "sphereMaep",
+  "kwargs": {
+   "Ro": 1000.0,
+   "t": 5.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 0.365625
+  },
+  "checks": []
+ },
+ {
+  "fn": "sphereMaep",
+  "kwargs": {
+   "Ro": 1000.0,
+   "t": 12.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 1.5169006085499734
+  },
+  "checks": []
+ },
+ {
+  "fn": "sphereMaep",
+  "kwargs": {
+   "Ro": 500.0,
+   "t": 20.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 8.135356111084176
+  },
+  "checks": []
+ },
+ {
+  "fn": "sphereMaep",
+  "kwargs": {
+   "Ro": 400.0,
+   "t": 40.0,
+   "Ey": 195000.0,
+   "Sy": 205.0
+  },
+  "results": {
+   "Pa": 24.595080983803243
+  },
+  "checks": []
+ },
+ {
+  "fn": "areaReinforcement",
+  "kwargs": {
+   "d": 200.0,
+   "t": 10.0,
+   "tr": 7.27802,
+   "tn": 8.0,
+   "trn": 0.727802,
+   "Sv": 138.0,
+   "Sn": 138.0,
+   "leg_nozzle": 6.0
+  },
+  "results": {
+   "A_required": 1455.604,
+   "A_available": 871.2839200000001,
+   "margin_pct": -40.142791583425165
+  },
+  "checks": [
+   false,
+   true
+  ]
+ },
+ {
+  "fn": "areaReinforcement",
+  "kwargs": {
+   "d": 200.0,
+   "t": 10.0,
+   "tr": 7.27802,
+   "tn": 8.0,
+   "trn": 0.727802,
+   "Sv": 138.0,
+   "Sn": 138.0,
+   "te": 10.0,
+   "Dp": 400.0,
+   "leg_nozzle": 6.0,
+   "leg_pad": 6.0
+  },
+  "results": {
+   "A_required": 1455.604,
+   "A_available": 2820.0059,
+   "margin_pct": 93.7344154041896
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "areaReinforcement",
+  "kwargs": {
+   "d": 200.0,
+   "t": 10.0,
+   "tr": 7.27802,
+   "tn": 8.0,
+   "trn": 0.909753,
+   "Sv": 138.0,
+   "Sn": 110.4,
+   "set_in": false,
+   "leg_nozzle": 6.0
+  },
+  "results": {
+   "A_required": 1455.604,
+   "A_available": 800.0839040000001,
+   "margin_pct": -45.03423293698011
+  },
+  "checks": [
+   false,
+   true
+  ]
+ },
+ {
+  "fn": "areaReinforcement",
+  "kwargs": {
+   "d": 350.0,
+   "t": 16.0,
+   "tr": 12.5,
+   "tn": 12.0,
+   "trn": 1.8,
+   "Sv": 138.0,
+   "Sn": 118.0,
+   "set_in": true,
+   "te": 12.0,
+   "Dp": 700.0,
+   "Sp": 138.0,
+   "leg_nozzle": 10.0,
+   "leg_pad": 8.0,
+   "leg_inner": 6.0,
+   "ti": 9.0,
+   "h": 40.0
+  },
+  "results": {
+   "A_required": 4418.478260869565,
+   "A_available": 6349.159420289855,
+   "margin_pct": 43.69561295612956
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "areaReinforcement",
+  "kwargs": {
+   "d": 100.0,
+   "t": 20.0,
+   "tr": 5.0,
+   "tn": 10.0,
+   "trn": 0.5,
+   "Sv": 138.0,
+   "Sn": 138.0,
+   "E1": 0.85,
+   "F": 1.0,
+   "leg_nozzle": 8.0
+  },
+  "results": {
+   "A_required": 500.0,
+   "A_available": 1739.0,
+   "margin_pct": 247.8
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 200.0,
+    "t": 10.0,
+    "tr": 7.27802,
+    "tn": 8.0,
+    "trn": 0.727802,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 10.0,
+    "Dp": 400.0,
+    "leg_nozzle": 6.0,
+    "leg_pad": 6.0
+   },
+   "weld": {
+    "groove_nozzle": 0.0,
+    "groove_pad": 0.0
+   }
+  },
+  "results": {
+   "W": 131756.83584,
+   "W_max": 336114.1662,
+   "strength_total": 645072.5186758469,
+   "margin_pct": 91.92065778388097
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 200.0,
+    "t": 10.0,
+    "tr": 7.27802,
+    "tn": 8.0,
+    "trn": 0.727802,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 10.0,
+    "Dp": 400.0,
+    "leg_nozzle": 6.0,
+    "leg_pad": 6.0
+   },
+   "weld": {
+    "groove_nozzle": 0.0,
+    "groove_pad": 10.0
+   }
+  },
+  "results": {
+   "W": 131756.83584,
+   "W_max": 336114.1662,
+   "strength_total": 991557.5158032037,
+   "margin_pct": 195.0061662123433
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 200.0,
+    "t": 10.0,
+    "tr": 7.27802,
+    "tn": 8.0,
+    "trn": 0.727802,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 10.0,
+    "Dp": 400.0,
+    "leg_nozzle": 6.0,
+    "leg_pad": 6.0
+   },
+   "weld": {
+    "groove_nozzle": 10.0,
+    "groove_pad": 0.0
+   }
+  },
+  "results": {
+   "W": 131756.83584,
+   "W_max": 336114.1662,
+   "strength_total": 991557.5158032037,
+   "margin_pct": 195.0061662123433
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 200.0,
+    "t": 10.0,
+    "tr": 7.27802,
+    "tn": 8.0,
+    "trn": 0.727802,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 10.0,
+    "Dp": 400.0,
+    "leg_nozzle": 6.0,
+    "leg_pad": 6.0
+   },
+   "weld": {
+    "groove_nozzle": 10.0,
+    "groove_pad": 10.0
+   }
+  },
+  "results": {
+   "W": 131756.83584,
+   "W_max": 336114.1662,
+   "strength_total": 1338042.5129305604,
+   "margin_pct": 298.09167464080554
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 200.0,
+    "t": 10.0,
+    "tr": 7.27802,
+    "tn": 8.0,
+    "trn": 0.727802,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 6.0
+   },
+   "weld": {
+    "groove_nozzle": 10.0
+   }
+  },
+  "results": {
+   "W": 131756.83584,
+   "W_max": 131756.83584,
+   "strength_total": 736636.1215203134,
+   "margin_pct": 459.08759255182287
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 200.0,
+    "t": 10.0,
+    "tr": 7.27802,
+    "tn": 8.0,
+    "trn": 0.727802,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 6.0
+   },
+   "weld": {}
+  },
+  "results": {
+   "W": 131756.83584,
+   "W_max": 131756.83584,
+   "strength_total": 390151.12439295667,
+   "margin_pct": 196.1145218049558
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 350.0,
+    "t": 16.0,
+    "tr": 12.5,
+    "tn": 12.0,
+    "trn": 1.8,
+    "Sv": 138.0,
+    "Sn": 118.0,
+    "set_in": true,
+    "te": 12.0,
+    "Dp": 700.0,
+    "Sp": 103.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 8.0,
+    "leg_inner": 6.0,
+    "ti": 9.0,
+    "h": 40.0
+   },
+   "weld": {
+    "groove_nozzle": 16.0,
+    "groove_pad": 12.0
+   }
+  },
+  "results": {
+   "W": 452291.9999999999,
+   "W_max": 613466.0000000001,
+   "strength_total": 2865997.2548677186,
+   "margin_pct": 367.18110781489406
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 350.0,
+    "t": 16.0,
+    "tr": 12.5,
+    "tn": 12.0,
+    "trn": 1.8,
+    "Sv": 138.0,
+    "Sn": 118.0,
+    "set_in": true,
+    "te": 12.0,
+    "Dp": 700.0,
+    "Sp": 103.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 8.0,
+    "leg_inner": 6.0,
+    "ti": 9.0,
+    "h": 40.0
+   },
+   "weld": {
+    "groove_nozzle": 16.0,
+    "external_pressure": true
+   }
+  },
+  "results": {
+   "W": 452291.9999999999,
+   "W_max": 613466.0000000001,
+   "strength_total": 2328666.5358926766,
+   "margin_pct": 279.5917843682741
+  },
+  "checks": []
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 200.0,
+    "t": 10.0,
+    "tr": 7.27802,
+    "tn": 8.0,
+    "trn": 0.727802,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 10.0,
+    "Dp": 400.0,
+    "leg_nozzle": 6.0,
+    "leg_pad": 6.0
+   },
+   "weld": {
+    "groove_nozzle": 10.0,
+    "exempt_uw15b1": true
+   }
+  },
+  "results": {
+   "W": 131756.83584,
+   "W_max": 336114.1662,
+   "strength_total": 991557.5158032037,
+   "margin_pct": 195.0061662123433
+  },
+  "checks": []
+ },
+ {
+  "fn": "weldStrength",
+  "kwargs": {
+   "area": {
+    "d": 200.0,
+    "t": 10.0,
+    "tr": 7.27802,
+    "tn": 1.0,
+    "trn": 0.727802,
+    "Sv": 138.0,
+    "Sn": 138.0
+   },
+   "weld": {}
+  },
+  "results": {
+   "W": 126497.97047999999,
+   "W_max": 126497.97047999999,
+   "strength_total": 30499.523958845788,
+   "margin_pct": -75.88931755733746
+  },
+  "checks": [
+   false
+  ]
+ },
+ {
+  "fn": "ug45NeckThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Rn": 100.0,
+   "Sn": 138.0,
+   "CA": 3.0,
+   "units": "SI",
+   "nps": 8.0,
+   "tr_shell_e1": 7.27802,
+   "t_nominal": 12.7,
+   "is_pipe": true
+  },
+  "results": {
+   "t_UG45": 10.15645,
+   "t_available": 11.112499999999999
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "ug45NeckThickness",
+  "kwargs": {
+   "P": 150.0,
+   "Rn": 4.0,
+   "Sn": 20000.0,
+   "CA": 0.125,
+   "units": "US",
+   "nps": 8.0,
+   "tr_shell_e1": 0.35,
+   "t_nominal": 0.5,
+   "is_pipe": true
+  },
+  "results": {
+   "t_UG45": 0.40675,
+   "t_available": 0.4375
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "ug45NeckThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Rn": 100.0,
+   "Sn": 138.0,
+   "CA": 3.0,
+   "units": "SI",
+   "tr_shell_e1": 7.27802,
+   "t_nominal": 12.0,
+   "is_pipe": false
+  },
+  "results": {
+   "t_UG45": 10.27802,
+   "t_available": 12.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 400.0
+   },
+   "large": {
+    "D_inside": 1200.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 510.0,
+   "d_over_D": 0.3333333333333333,
+   "limit_parallel": 400.0,
+   "limit_reduced": 300.0,
+   "A_within_reduced": 4664.0,
+   "A_two_thirds": 2666.6666666666665,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 400.0
+   },
+   "large": {
+    "D_inside": 1200.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 510.0,
+   "d_over_D": 0.3333333333333333,
+   "limit_parallel": 400.0,
+   "limit_reduced": 300.0,
+   "A_within_reduced": 1464.0,
+   "A_two_thirds": 2400.0,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 400.0
+   },
+   "large": {
+    "D_inside": 2000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 666.6666666666666,
+   "d_over_D": 0.2,
+   "limit_parallel": 400.0,
+   "limit_reduced": 300.0,
+   "A_within_reduced": 4664.0,
+   "A_two_thirds": 2666.6666666666665,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 400.0
+   },
+   "large": {
+    "D_inside": 2000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 666.6666666666666,
+   "d_over_D": 0.2,
+   "limit_parallel": 400.0,
+   "limit_reduced": 300.0,
+   "A_within_reduced": 1464.0,
+   "A_two_thirds": 2400.0,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 400.0
+   },
+   "large": {
+    "D_inside": 4000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.1,
+   "limit_parallel": 400.0,
+   "limit_reduced": 300.0,
+   "A_within_reduced": 4664.0,
+   "A_two_thirds": 2666.6666666666665,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 400.0
+   },
+   "large": {
+    "D_inside": 4000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.1,
+   "limit_parallel": 400.0,
+   "limit_reduced": 300.0,
+   "A_within_reduced": 1464.0,
+   "A_two_thirds": 2400.0,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 520.0
+   },
+   "large": {
+    "D_inside": 1200.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 510.0,
+   "d_over_D": 0.43333333333333335,
+   "limit_parallel": 520.0,
+   "limit_reduced": 390.0,
+   "A_within_reduced": 5864.0,
+   "A_two_thirds": 3466.6666666666665,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 520.0
+   },
+   "large": {
+    "D_inside": 1200.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 510.0,
+   "d_over_D": 0.43333333333333335,
+   "limit_parallel": 520.0,
+   "limit_reduced": 390.0,
+   "A_within_reduced": 1764.0,
+   "A_two_thirds": 3120.0,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 520.0
+   },
+   "large": {
+    "D_inside": 2000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 666.6666666666666,
+   "d_over_D": 0.26,
+   "limit_parallel": 520.0,
+   "limit_reduced": 390.0,
+   "A_within_reduced": 5864.0,
+   "A_two_thirds": 3466.6666666666665,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 520.0
+   },
+   "large": {
+    "D_inside": 2000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 666.6666666666666,
+   "d_over_D": 0.26,
+   "limit_parallel": 520.0,
+   "limit_reduced": 390.0,
+   "A_within_reduced": 1764.0,
+   "A_two_thirds": 3120.0,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 520.0
+   },
+   "large": {
+    "D_inside": 4000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.13,
+   "limit_parallel": 520.0,
+   "limit_reduced": 390.0,
+   "A_within_reduced": 5864.0,
+   "A_two_thirds": 3466.6666666666665,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 520.0
+   },
+   "large": {
+    "D_inside": 4000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.13,
+   "limit_parallel": 520.0,
+   "limit_reduced": 390.0,
+   "A_within_reduced": 1764.0,
+   "A_two_thirds": 3120.0,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 800.0
+   },
+   "large": {
+    "D_inside": 1200.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 510.0,
+   "d_over_D": 0.6666666666666666,
+   "limit_parallel": 800.0,
+   "limit_reduced": 600.0,
+   "A_within_reduced": 8664.0,
+   "A_two_thirds": 5333.333333333333,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 800.0
+   },
+   "large": {
+    "D_inside": 1200.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 510.0,
+   "d_over_D": 0.6666666666666666,
+   "limit_parallel": 800.0,
+   "limit_reduced": 600.0,
+   "A_within_reduced": 2464.0,
+   "A_two_thirds": 4800.0,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 800.0
+   },
+   "large": {
+    "D_inside": 2000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 666.6666666666666,
+   "d_over_D": 0.4,
+   "limit_parallel": 800.0,
+   "limit_reduced": 600.0,
+   "A_within_reduced": 8664.0,
+   "A_two_thirds": 5333.333333333333,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 800.0
+   },
+   "large": {
+    "D_inside": 2000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 666.6666666666666,
+   "d_over_D": 0.4,
+   "limit_parallel": 800.0,
+   "limit_reduced": 600.0,
+   "A_within_reduced": 2464.0,
+   "A_two_thirds": 4800.0,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 800.0
+   },
+   "large": {
+    "D_inside": 4000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.2,
+   "limit_parallel": 800.0,
+   "limit_reduced": 600.0,
+   "A_within_reduced": 8664.0,
+   "A_two_thirds": 5333.333333333333,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 800.0
+   },
+   "large": {
+    "D_inside": 4000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.2,
+   "limit_parallel": 800.0,
+   "limit_reduced": 600.0,
+   "A_within_reduced": 2464.0,
+   "A_two_thirds": 4800.0,
+   "app_1_7_required": 0.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 1300.0
+   },
+   "large": {
+    "D_inside": 2000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 666.6666666666666,
+   "d_over_D": 0.65,
+   "limit_parallel": 1300.0,
+   "limit_reduced": 975.0,
+   "A_within_reduced": 5964.0,
+   "A_two_thirds": 8666.666666666666,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 1300.0
+   },
+   "large": {
+    "D_inside": 2000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 666.6666666666666,
+   "d_over_D": 0.65,
+   "limit_parallel": 1300.0,
+   "limit_reduced": 975.0,
+   "A_within_reduced": 3714.0,
+   "A_two_thirds": 7800.0,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 1300.0
+   },
+   "large": {
+    "D_inside": 4000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.325,
+   "limit_parallel": 1300.0,
+   "limit_reduced": 975.0,
+   "A_within_reduced": 5964.0,
+   "A_two_thirds": 8666.666666666666,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 1300.0
+   },
+   "large": {
+    "D_inside": 4000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.325,
+   "limit_parallel": 1300.0,
+   "limit_reduced": 975.0,
+   "A_within_reduced": 3714.0,
+   "A_two_thirds": 7800.0,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 0.625,
+    "tr": 0.4,
+    "tn": 0.5,
+    "trn": 0.1,
+    "Sv": 20000.0,
+    "Sn": 20000.0,
+    "leg_nozzle": 0.375,
+    "d": 22.0
+   },
+   "large": {
+    "D_inside": 48.0,
+    "units": "US"
+   }
+  },
+  "results": {
+   "d_max_UG36": 20.0,
+   "d_over_D": 0.4583333333333333,
+   "limit_parallel": 22.0,
+   "limit_reduced": 16.5,
+   "A_within_reduced": 3.6156249999999996,
+   "A_two_thirds": 5.866666666666667,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 16.0,
+    "tr": 10.0,
+    "tn": 12.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "te": 14.0,
+    "Dp": 1400.0,
+    "leg_nozzle": 10.0,
+    "leg_pad": 10.0,
+    "d": 1100.0
+   },
+   "large": {
+    "D_inside": 6000.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 1020.0,
+   "d_over_D": 0.18333333333333332,
+   "limit_parallel": 1100.0,
+   "limit_reduced": 825.0,
+   "A_within_reduced": 8164.0,
+   "A_two_thirds": 7333.333333333333,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "largeOpeningCheck",
+  "kwargs": {
+   "area": {
+    "t": 14.0,
+    "tr": 9.0,
+    "tn": 10.0,
+    "trn": 2.0,
+    "Sv": 138.0,
+    "Sn": 138.0,
+    "leg_nozzle": 8.0,
+    "d": 560.0,
+    "set_in": false
+   },
+   "large": {
+    "D_inside": 1500.0
+   }
+  },
+  "results": {
+   "d_max_UG36": 510.0,
+   "d_over_D": 0.37333333333333335,
+   "limit_parallel": 560.0,
+   "limit_reduced": 420.0,
+   "A_within_reduced": 1864.0,
+   "A_two_thirds": 3360.0,
+   "app_1_7_required": 1.0
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "flangeBoltLoads",
+  "kwargs": {
+   "P": 1.0,
+   "gasket_od": 350.0,
+   "gasket_id": 320.0,
+   "m": 3.0,
+   "y": 69.0,
+   "Sb": 172.0,
+   "Sa": 172.0,
+   "Ab": 3200.0,
+   "units": "SI"
+  },
+  "results": {
+   "Am": 2924.1256378538596,
+   "Wm1": 132462.26724771288,
+   "Wm2": 502949.60971086385,
+   "W_seating": 526674.804855432,
+   "G": 336.19739155086984,
+   "b": 6.901304224565093
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "flangeBoltLoads",
+  "kwargs": {
+   "P": 1.0,
+   "gasket_od": 330.0,
+   "gasket_id": 326.0,
+   "m": 2.0,
+   "y": 20.0,
+   "Sb": 172.0,
+   "Sa": 172.0,
+   "Ab": 1200.0,
+   "units": "SI"
+  },
+  "results": {
+   "Am": 514.9721486134291,
+   "Wm1": 88575.20956150981,
+   "Wm2": 20608.847807549042,
+   "W_seating": 147487.6047807549,
+   "G": 328.0,
+   "b": 1.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "flangeBoltLoads",
+  "kwargs": {
+   "P": 150.0,
+   "gasket_od": 13.5,
+   "gasket_id": 13.0,
+   "m": 3.0,
+   "y": 10000.0,
+   "Sb": 25000.0,
+   "Sa": 25000.0,
+   "Ab": 5.0,
+   "units": "US"
+  },
+  "results": {
+   "Am": 2.081305133003238,
+   "Wm1": 25355.420924257283,
+   "Wm2": 52032.62832508095,
+   "W_seating": 88516.31416254048,
+   "G": 13.25,
+   "b": 0.125
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "flangeBoltLoads",
+  "kwargs": {
+   "P": 1.0,
+   "gasket_od": 350.0,
+   "gasket_id": 320.0,
+   "m": 3.0,
+   "y": 69.0,
+   "Sb": 172.0,
+   "Sa": 172.0,
+   "Ab": 3000.0,
+   "units": "SI"
+  },
+  "results": {
+   "Am": 2924.1256378538596,
+   "Wm1": 132462.26724771288,
+   "Wm2": 502949.60971086385,
+   "W_seating": 509474.80485543195,
+   "G": 336.19739155086984,
+   "b": 6.901304224565093
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "flangeBoltLoads",
+  "kwargs": {
+   "P": 1.0,
+   "gasket_od": 350.0,
+   "gasket_id": 320.0,
+   "m": 3.0,
+   "y": 69.0,
+   "Sb": 172.0,
+   "Sa": 172.0,
+   "Ab": 3200.0,
+   "units": "SI"
+  },
+  "results": {
+   "Am": 2924.1256378538596,
+   "Wm1": 132462.26724771288,
+   "Wm2": 502949.60971086385,
+   "W_seating": 526674.804855432,
+   "G": 336.19739155086984,
+   "b": 6.901304224565093
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "flangeBoltLoads",
+  "kwargs": {
+   "P": 1.0,
+   "gasket_od": 350.0,
+   "gasket_id": 320.0,
+   "m": 3.0,
+   "y": 69.0,
+   "Sb": 172.0,
+   "Sa": 172.0,
+   "Ab": 5000.0,
+   "units": "SI"
+  },
+  "results": {
+   "Am": 2924.1256378538596,
+   "Wm1": 132462.26724771288,
+   "Wm2": 502949.60971086385,
+   "W_seating": 681474.804855432,
+   "G": 336.19739155086984,
+   "b": 6.901304224565093
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 10.5,
+    "h": 10.0
+   }
+  },
+  "results": {
+   "Mo": 4965913.528711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 110.91108330206806,
+   "SR_operating": 22.560597218992218,
+   "ST_operating": 32.58662112166977,
+   "SH_seating": 345.8477329255111,
+   "SR_seating": 70.34942919440913,
+   "ST_seating": 101.61301019788993
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   false,
+   true,
+   true,
+   false,
+   false
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 10.5,
+    "h": 25.0
+   }
+  },
+  "results": {
+   "Mo": 4965913.528711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 112.35126826141996,
+   "SR_operating": 22.792449069483617,
+   "ST_operating": 31.98380631039214,
+   "SH_seating": 350.3385799027129,
+   "SR_seating": 71.07239965398571,
+   "ST_seating": 99.7332870029908
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   false,
+   true,
+   true,
+   false,
+   false
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 10.5,
+    "h": 80.0
+   }
+  },
+  "results": {
+   "Mo": 4965913.528711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 113.9853253756761,
+   "SR_operating": 23.02527450479566,
+   "ST_operating": 31.378460178580823,
+   "SH_seating": 355.43396741143584,
+   "SR_seating": 71.79840598782307,
+   "ST_seating": 97.84567053501365
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   false,
+   true,
+   true,
+   false,
+   false
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 18.0,
+    "h": 10.0
+   }
+  },
+  "results": {
+   "Mo": 4700976.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 87.84411716154604,
+   "SR_operating": 23.51086272550814,
+   "ST_operating": 25.247943639730295,
+   "SH_seating": 289.3568612061305,
+   "SR_seating": 77.44433733667583,
+   "ST_seating": 83.16624902799651
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   false,
+   true,
+   true,
+   false,
+   false
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 18.0,
+    "h": 25.0
+   }
+  },
+  "results": {
+   "Mo": 4700976.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 48.827618763374566,
+   "SR_operating": 25.668258507573718,
+   "ST_operating": 19.638714606359784,
+   "SH_seating": 160.83725310321017,
+   "SR_seating": 84.55075825647206,
+   "ST_seating": 64.68955463652628
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 18.0,
+    "h": 80.0
+   }
+  },
+  "results": {
+   "Mo": 4700976.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 50.165753791046455,
+   "SR_operating": 27.6316632405516,
+   "ST_operating": 14.533862300617301,
+   "SH_seating": 165.24504458644694,
+   "SR_seating": 91.01817632804257,
+   "ST_seating": 47.87426765044296
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 30.0,
+    "h": 10.0
+   }
+  },
+  "results": {
+   "Mo": 4277076.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 83.68021973408528,
+   "SR_operating": 22.358330861018654,
+   "ST_operating": 20.455747023406012,
+   "SH_seating": 302.95978265339556,
+   "SR_seating": 80.94714712356105,
+   "ST_seating": 74.05894358209491
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   false,
+   true,
+   true,
+   false,
+   false
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 30.0,
+    "h": 25.0
+   }
+  },
+  "results": {
+   "Mo": 4277076.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 50.76525386312415,
+   "SR_operating": 25.19137167867199,
+   "ST_operating": 13.08984089750733,
+   "SH_seating": 183.7929002288687,
+   "SR_seating": 91.20402064865345,
+   "ST_seating": 47.39107241685468
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 30.0,
+    "h": 80.0
+   }
+  },
+  "results": {
+   "Mo": 4277076.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 18.872226284907118,
+   "SR_operating": 27.461259389193117,
+   "ST_operating": 7.1881328501523996,
+   "SH_seating": 68.32589101259556,
+   "SR_seating": 99.4220283165633,
+   "ST_seating": 26.02425248028908
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 30.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "integral",
+    "g0": 10.0,
+    "g1": 18.0,
+    "h": 25.0,
+    "Sn": 103.0,
+    "Sna": 103.0
+   }
+  },
+  "results": {
+   "Mo": 4700976.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 48.827618763374566,
+   "SR_operating": 25.668258507573718,
+   "ST_operating": 19.638714606359784,
+   "SH_seating": 160.83725310321017,
+   "SR_seating": 84.55075825647206,
+   "ST_seating": 64.68955463652628
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   false,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 20.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "ring"
+   }
+  },
+  "results": {
+   "Mo": 5336826.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 0.0,
+   "SR_operating": 0.0,
+   "ST_operating": 220.63355082460544,
+   "SH_seating": 0.0,
+   "SR_seating": 0.0,
+   "ST_seating": 640.1734337325457
+  },
+  "checks": [
+   false,
+   false
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 350.0,
+    "gasket_id": 320.0,
+    "m": 3.0,
+    "y": 69.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 3200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 60.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "ring"
+   }
+  },
+  "results": {
+   "Mo": 5336826.028711911,
+   "Mg": 15484926.164968003,
+   "SH_operating": 0.0,
+   "SR_operating": 0.0,
+   "ST_operating": 24.514838980511716,
+   "SH_seating": 0.0,
+   "SR_seating": 0.0,
+   "ST_seating": 71.13038152583842
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 1.0,
+    "gasket_od": 330.0,
+    "gasket_id": 326.0,
+    "m": 2.0,
+    "y": 20.0,
+    "Sb": 172.0,
+    "Sa": 172.0,
+    "Ab": 1200.0,
+    "units": "SI"
+   },
+   "stress": {
+    "flange_od": 450.0,
+    "B": 300.0,
+    "bolt_circle": 395.0,
+    "t": 40.0,
+    "Sf": 138.0,
+    "Sfa": 138.0,
+    "flange_type": "ring"
+   }
+  },
+  "results": {
+   "Mo": 4052993.600310579,
+   "Mg": 4940834.7601552885,
+   "SH_operating": 0.0,
+   "SR_operating": 0.0,
+   "ST_operating": 41.88942850558659,
+   "SH_seating": 0.0,
+   "SR_seating": 0.0,
+   "ST_seating": 51.06564797624701
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "flangeStresses",
+  "kwargs": {
+   "bolt": {
+    "P": 150.0,
+    "gasket_od": 13.5,
+    "gasket_id": 13.0,
+    "m": 3.0,
+    "y": 10000.0,
+    "Sb": 25000.0,
+    "Sa": 25000.0,
+    "Ab": 5.0,
+    "units": "US"
+   },
+   "stress": {
+    "flange_od": 17.0,
+    "B": 13.0,
+    "bolt_circle": 15.5,
+    "t": 1.2,
+    "Sf": 20000.0,
+    "Sfa": 20000.0,
+    "flange_type": "integral",
+    "g0": 0.4,
+    "g1": 0.7,
+    "h": 1.0
+   }
+  },
+  "results": {
+   "Mo": 24095.700688226945,
+   "Mg": 99580.85343285804,
+   "SH_operating": 4272.583349833486,
+   "SR_operating": 2117.1821255396267,
+   "ST_operating": 1426.0208046539756,
+   "SH_seating": 17657.402946880047,
+   "SR_seating": 8749.727001590762,
+   "ST_seating": 5893.348800179803
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 600.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": -6821676.000000003,
+   "M2": 96858324.0,
+   "T": 86400.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 39.37797551269646,
+   "sigma2": 44.45535782063687,
+   "sigma3": 43.59377700548115,
+   "sigma4": 40.987108769323264,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -41.7014929977443,
+   "tau": 8.378727872481514,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 600.0,
+   "b": 200.0,
+   "theta_deg": 135.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": -6821676.000000003,
+   "M2": 96858324.0,
+   "T": 86400.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 39.37797551269646,
+   "sigma2": 44.45535782063687,
+   "sigma3": 43.27159187470644,
+   "sigma4": 41.15215232102545,
+   "sigma5": 0.0,
+   "sigma6": -1.9138079089817017,
+   "sigma7": -34.05408179689609,
+   "tau": 6.8592559012334275,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 600.0,
+   "b": 200.0,
+   "theta_deg": 150.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": -6821676.000000003,
+   "M2": 96858324.0,
+   "T": 86400.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 39.37797551269646,
+   "sigma2": 44.45535782063687,
+   "sigma3": 43.029476988035746,
+   "sigma4": 41.27634616456946,
+   "sigma5": 0.0,
+   "sigma6": -1.8128300763091716,
+   "sigma7": -27.689262523603194,
+   "tau": 5.717393490070593,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 600.0,
+   "b": 200.0,
+   "theta_deg": 168.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": -6821676.000000003,
+   "M2": 96858324.0,
+   "T": 86400.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 39.37797551269646,
+   "sigma2": 44.45535782063687,
+   "sigma3": 42.81197253486306,
+   "sigma4": 41.38796924626216,
+   "sigma5": 0.0,
+   "sigma6": -1.7241758391273012,
+   "sigma7": -21.55406759932025,
+   "tau": 4.680109819203994,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 400.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "stiffening": "none"
+  },
+  "results": {
+   "M1": -821676.0000000054,
+   "M2": 120858323.99999999,
+   "T": 93600.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 38.74892696860555,
+   "sigma2": 45.084406364727776,
+   "sigma3": 42.11867586715577,
+   "sigma4": 41.80470071946285,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 9.076955195188308,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 400.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "stiffening": "head"
+  },
+  "results": {
+   "M1": -821676.0000000054,
+   "M2": 120858323.99999999,
+   "T": 93600.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 38.74892696860555,
+   "sigma2": 45.084406364727776,
+   "sigma3": 41.938203087146434,
+   "sigma4": 41.895130246186895,
+   "sigma5": 87.31997332746299,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 8.746559911455805,
+   "tau_head": 8.746559911455805
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 400.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "stiffening": "ring_in_plane"
+  },
+  "results": {
+   "M1": -821676.0000000054,
+   "M2": 120858323.99999999,
+   "T": 93600.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 38.74892696860555,
+   "sigma2": 45.084406364727776,
+   "sigma3": 41.938203087146434,
+   "sigma4": 41.895130246186895,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 2.46800905788625,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 400.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "stiffening": "head",
+   "head_type": "torispherical"
+  },
+  "results": {
+   "M1": -821676.0000000054,
+   "M2": 120858323.99999999,
+   "T": 93600.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 38.74892696860555,
+   "sigma2": 45.084406364727776,
+   "sigma3": 41.938203087146434,
+   "sigma4": 41.895130246186895,
+   "sigma5": 45.653306660796325,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 8.746559911455805,
+   "tau_head": 8.746559911455805
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 400.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "stiffening": "head",
+   "head_type": "ellipsoidal"
+  },
+  "results": {
+   "M1": -821676.0000000054,
+   "M2": 120858323.99999999,
+   "T": 93600.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 38.74892696860555,
+   "sigma2": 45.084406364727776,
+   "sigma3": 41.938203087146434,
+   "sigma4": 41.895130246186895,
+   "sigma5": 87.31997332746299,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 8.746559911455805,
+   "tau_head": 8.746559911455805
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 400.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "stiffening": "head",
+   "head_type": "hemispherical"
+  },
+  "results": {
+   "M1": -821676.0000000054,
+   "M2": 120858323.99999999,
+   "T": 93600.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 38.74892696860555,
+   "sigma2": 45.084406364727776,
+   "sigma3": 41.938203087146434,
+   "sigma4": 41.895130246186895,
+   "sigma5": 87.31997332746299,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 8.746559911455805,
+   "tau_head": 8.746559911455805
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 400.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "stiffening": "head",
+   "head_type": "flat"
+  },
+  "results": {
+   "M1": -821676.0000000054,
+   "M2": 120858323.99999999,
+   "T": 93600.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 38.74892696860555,
+   "sigma2": 45.084406364727776,
+   "sigma3": 41.938203087146434,
+   "sigma4": 41.895130246186895,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 8.746559911455805,
+   "tau_head": 8.746559911455805
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 300.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": 1638324.0000000007,
+   "M2": 132858323.99999999,
+   "T": 97200.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 38.4344026965601,
+   "sigma2": 45.39893063677323,
+   "sigma3": 41.513884400442365,
+   "sigma4": 42.13991341902008,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 9.426068856541704,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 503.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": -3731838.000000008,
+   "M2": 108498323.99999999,
+   "T": 89892.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 39.07288696881237,
+   "sigma2": 44.76044636452096,
+   "sigma3": 42.834139746974316,
+   "sigma4": 41.408146548662494,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -28.884947652864348,
+   "tau": 8.717368123994309,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 700.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": -10361676.00000001,
+   "M2": 84858324.0,
+   "T": 82800.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 39.692499784741905,
+   "sigma2": 44.140833548591424,
+   "sigma3": 44.46408667709313,
+   "sigma4": 40.5047295187409,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -54.91442634298141,
+   "tau": 8.029614211128118,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 1100.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": -28121676.00000001,
+   "M2": 36858324.00000001,
+   "T": 68400.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 40.95059687292371,
+   "sigma2": 42.88273646040962,
+   "sigma3": 48.83038604653626,
+   "sigma4": 38.08465734632773,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -95.34600237940693,
+   "tau": 6.633159565714532,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 12000.0,
+   "a": 1200.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0
+  },
+  "results": {
+   "M1": -17611408.421052635,
+   "M2": 200662275.78947365,
+   "T": 90947.36842105264,
+   "Sc": 145.37773359840955,
+   "sigma1": 36.65723698169434,
+   "sigma2": 47.17609635163899,
+   "sigma3": 46.24643476823466,
+   "sigma4": 39.51684237405447,
+   "sigma5": 0.0,
+   "sigma6": -2.0469982258978203,
+   "sigma7": -72.79592947020228,
+   "tau": 8.819713549980543,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 600.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "tr": 8.0,
+   "Sr": 118.0,
+   "theta1_deg": 140.0
+  },
+  "results": {
+   "M1": -6821676.000000003,
+   "M2": 96858324.0,
+   "T": 86400.0,
+   "Sc": 145.37773359840955,
+   "sigma1": 39.37797551269646,
+   "sigma2": 44.45535782063687,
+   "sigma3": 43.59377700548115,
+   "sigma4": 40.987108769323264,
+   "sigma5": 0.0,
+   "sigma6": -1.3037804084949192,
+   "sigma7": -18.47370506268119,
+   "tau": 8.378727872481514,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 12000.0,
+   "a": 600.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "tr": 8.0,
+   "Sr": 138.0,
+   "b1": 420.0
+  },
+  "results": {
+   "M1": -3590355.7894736924,
+   "M2": 272662275.78947365,
+   "T": 102315.78947368421,
+   "Sc": 145.37773359840955,
+   "sigma1": 34.770091349421634,
+   "sigma2": 49.063241983911695,
+   "sigma3": 42.79935631867429,
+   "sigma4": 41.42742566806487,
+   "sigma5": 0.0,
+   "sigma6": -1.0860826902252916,
+   "sigma7": -12.957076850261991,
+   "tau": 9.92217774372811,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 600.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 120000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "saddle_welded": false,
+   "exceptional": true,
+   "E_joint": 0.85
+  },
+  "results": {
+   "M1": -6821676.000000003,
+   "M2": 96858324.0,
+   "T": 86400.0,
+   "Sc": 196.2599403578529,
+   "sigma1": 39.37797551269646,
+   "sigma2": 44.45535782063687,
+   "sigma3": 43.59377700548115,
+   "sigma4": 40.987108769323264,
+   "sigma5": 0.0,
+   "sigma6": -20.469982258978202,
+   "sigma7": -41.7014929977443,
+   "tau": 8.378727872481514,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "saddleAnalysis",
+  "kwargs": {
+   "P": 0.0,
+   "Rm": 1006.0,
+   "ts": 12.0,
+   "L": 6000.0,
+   "a": 600.0,
+   "b": 200.0,
+   "theta_deg": 120.0,
+   "H": 500.0,
+   "Q": 45000.0,
+   "Ey": 195000.0,
+   "S": 138.0,
+   "th": 12.0,
+   "Ri": 1000.0,
+   "exceptional": true
+  },
+  "results": {
+   "M1": -2558128.500000001,
+   "M2": 36321871.5,
+   "T": 32400.0,
+   "Sc": 196.2599403578529,
+   "sigma1": -0.9520091827388281,
+   "sigma2": 0.9520091827388281,
+   "sigma3": 0.6289163770554336,
+   "sigma4": -0.34858421150377605,
+   "sigma5": 0.0,
+   "sigma6": -0.7676243347116826,
+   "sigma7": -15.638059874154116,
+   "tau": 3.1420229521805685,
+   "tau_head": 0.0
+  },
+  "checks": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "windLoad",
+  "kwargs": {
+   "segments": [
+    {
+     "z_bottom": 0.0,
+     "z_top": 4000.0,
+     "width": 2100.0,
+     "q": 0.001,
+     "Cf": 0.7
+    },
+    {
+     "z_bottom": 4000.0,
+     "z_top": 9000.0,
+     "width": 2100.0,
+     "q": 0.0014,
+     "Cf": 0.7
+    },
+    {
+     "z_bottom": 9000.0,
+     "z_top": 12000.0,
+     "width": 2400.0,
+     "q": 0.0017
+    }
+   ],
+   "elevation": 0.0
+  },
+  "results": {
+   "V": 28410.0,
+   "M": 207165000.0
+  },
+  "checks": []
+ },
+ {
+  "fn": "windLoad",
+  "kwargs": {
+   "segments": [
+    {
+     "z_bottom": 0.0,
+     "z_top": 4000.0,
+     "width": 2100.0,
+     "q": 0.001,
+     "Cf": 0.7
+    },
+    {
+     "z_bottom": 4000.0,
+     "z_top": 9000.0,
+     "width": 2100.0,
+     "q": 0.0014,
+     "Cf": 0.7
+    },
+    {
+     "z_bottom": 9000.0,
+     "z_top": 12000.0,
+     "width": 2400.0,
+     "q": 0.0017
+    }
+   ],
+   "elevation": 3000.0
+  },
+  "results": {
+   "V": 24000.0,
+   "M": 128550000.0
+  },
+  "checks": []
+ },
+ {
+  "fn": "windLoad",
+  "kwargs": {
+   "segments": [
+    {
+     "z_bottom": 0.0,
+     "z_top": 4000.0,
+     "width": 2100.0,
+     "q": 0.001,
+     "Cf": 0.7
+    },
+    {
+     "z_bottom": 4000.0,
+     "z_top": 9000.0,
+     "width": 2100.0,
+     "q": 0.0014,
+     "Cf": 0.7
+    },
+    {
+     "z_bottom": 9000.0,
+     "z_top": 12000.0,
+     "width": 2400.0,
+     "q": 0.0017
+    }
+   ],
+   "elevation": 6500.0
+  },
+  "results": {
+   "V": 17385.0,
+   "M": 55391250.0
+  },
+  "checks": []
+ },
+ {
+  "fn": "seismicLoad",
+  "kwargs": {
+   "segments": [
+    {
+     "z_bottom": 0.0,
+     "z_top": 4000.0,
+     "weight": 62000.0
+    },
+    {
+     "z_bottom": 4000.0,
+     "z_top": 9000.0,
+     "weight": 78000.0
+    },
+    {
+     "z_bottom": 9000.0,
+     "z_top": 12000.0,
+     "weight": 31000.0
+    }
+   ],
+   "Cs": 0.11,
+   "k": 0.0
+  },
+  "results": {
+   "V": 18810.0,
+   "M": 105215000.0,
+   "W_total": 171000.0
+  },
+  "checks": []
+ },
+ {
+  "fn": "seismicLoad",
+  "kwargs": {
+   "segments": [
+    {
+     "z_bottom": 0.0,
+     "z_top": 4000.0,
+     "weight": 62000.0
+    },
+    {
+     "z_bottom": 4000.0,
+     "z_top": 9000.0,
+     "weight": 78000.0
+    },
+    {
+     "z_bottom": 9000.0,
+     "z_top": 12000.0,
+     "weight": 31000.0
+    }
+   ],
+   "Cs": 0.11,
+   "k": 1.0
+  },
+  "results": {
+   "V": 18810.0,
+   "M": 136896092.5248301,
+   "W_total": 171000.0
+  },
+  "checks": []
+ },
+ {
+  "fn": "seismicLoad",
+  "kwargs": {
+   "segments": [
+    {
+     "z_bottom": 0.0,
+     "z_top": 4000.0,
+     "weight": 62000.0
+    },
+    {
+     "z_bottom": 4000.0,
+     "z_top": 9000.0,
+     "weight": 78000.0
+    },
+    {
+     "z_bottom": 9000.0,
+     "z_top": 12000.0,
+     "weight": 31000.0
+    }
+   ],
+   "Cs": 0.11,
+   "k": 1.5
+  },
+  "results": {
+   "V": 18810.0,
+   "M": 147838792.8088559,
+   "W_total": 171000.0
+  },
+  "checks": []
+ },
+ {
+  "fn": "seismicLoad",
+  "kwargs": {
+   "segments": [
+    {
+     "z_bottom": 0.0,
+     "z_top": 4000.0,
+     "weight": 62000.0
+    },
+    {
+     "z_bottom": 4000.0,
+     "z_top": 9000.0,
+     "weight": 78000.0
+    },
+    {
+     "z_bottom": 9000.0,
+     "z_top": 12000.0,
+     "weight": 31000.0
+    }
+   ],
+   "Cs": 0.11,
+   "k": 2.0
+  },
+  "results": {
+   "V": 18810.0,
+   "M": 156189876.99766564,
+   "W_total": 171000.0
+  },
+  "checks": []
+ },
+ {
+  "fn": "seismicLoad",
+  "kwargs": {
+   "segments": [
+    {
+     "z_bottom": 0.0,
+     "z_top": 4000.0,
+     "weight": 62000.0
+    },
+    {
+     "z_bottom": 4000.0,
+     "z_top": 9000.0,
+     "weight": 78000.0
+    },
+    {
+     "z_bottom": 9000.0,
+     "z_top": 12000.0,
+     "weight": 31000.0
+    }
+   ],
+   "Cs": 0.11,
+   "k": 1.0,
+   "elevation": 4000.0
+  },
+  "results": {
+   "V": 18810.0,
+   "M": 66533123.36644015,
+   "W_total": 171000.0
+  },
+  "checks": []
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 0.0,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": null
+  },
+  "results": {
+   "sigma_pressure": 0.0,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 1.5537499039045315,
+   "sigma_leeward": -7.881978257459018,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 117.3
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 0.0,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": 60.0
+  },
+  "results": {
+   "sigma_pressure": 0.0,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 1.5537499039045315,
+   "sigma_leeward": -7.881978257459018,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 60.0
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 0.0,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": 95.0
+  },
+  "results": {
+   "sigma_pressure": 0.0,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 1.5537499039045315,
+   "sigma_leeward": -7.881978257459018,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 95.0
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": null
+  },
+  "results": {
+   "sigma_pressure": 41.916666666666664,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 43.47041657057119,
+   "sigma_leeward": 34.03468840920765,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 117.3
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": 60.0
+  },
+  "results": {
+   "sigma_pressure": 41.916666666666664,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 43.47041657057119,
+   "sigma_leeward": 34.03468840920765,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 60.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 1.0,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": 95.0
+  },
+  "results": {
+   "sigma_pressure": 41.916666666666664,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 43.47041657057119,
+   "sigma_leeward": 34.03468840920765,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 95.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 2.5,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": null
+  },
+  "results": {
+   "sigma_pressure": 104.79166666666667,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 106.3454165705712,
+   "sigma_leeward": 96.90968840920765,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 117.3
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 2.5,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": 60.0
+  },
+  "results": {
+   "sigma_pressure": 104.79166666666667,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 106.3454165705712,
+   "sigma_leeward": 96.90968840920765,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 60.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 2.5,
+   "Rm": 1006.0,
+   "t": 12.0,
+   "S": 138.0,
+   "E": 0.85,
+   "M": 180000000.0,
+   "W_axial": 240000.0,
+   "B_allow": 95.0
+  },
+  "results": {
+   "sigma_pressure": 104.79166666666667,
+   "sigma_bending": 4.717864080681775,
+   "sigma_axial": 3.164114176777243,
+   "sigma_windward": 106.3454165705712,
+   "sigma_leeward": 96.90968840920765,
+   "S_tension_allow": 117.3,
+   "S_compression_allow": 95.0
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "combinedLongitudinal",
+  "kwargs": {
+   "P": 0.0,
+   "Rm": 1006.0,
+   "t": 6.0,
+   "S": 138.0,
+   "M": 3000000000.0,
+   "W_axial": 200000.0,
+   "B_allow": 50.0
+  },
+  "results": {
+   "sigma_pressure": 0.0,
+   "sigma_bending": 157.26213602272583,
+   "sigma_axial": 5.2735236279620725,
+   "sigma_windward": 151.98861239476375,
+   "sigma_leeward": -162.5356596506879,
+   "S_tension_allow": 138.0,
+   "S_compression_allow": 50.0
+  },
+  "checks": [
+   false,
+   false
+  ]
+ }
+]

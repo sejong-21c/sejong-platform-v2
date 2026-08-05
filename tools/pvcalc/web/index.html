@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>압력용기 예비계산 도구 — 세종기술 기술부</title>
+<style>
+  :root {
+    --bg: #f4f6f9; --panel: #ffffff; --text: #1a2433; --muted: #5b6b80;
+    --line: #dde3ec; --accent: #1d5fa8; --accent-soft: #e8f0fa;
+    --pass: #1d7a46; --pass-bg: #e3f4ea; --fail: #b3261e; --fail-bg: #fbe9e7;
+    --mono: Consolas, "Cascadia Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141a23; --panel: #1d2530; --text: #e6ebf2; --muted: #93a1b5;
+      --line: #313c4b; --accent: #6aa5e0; --accent-soft: #24354a;
+      --pass: #5fc98b; --pass-bg: #1c3527; --fail: #f2857c; --fail-bg: #442622;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.55 "Segoe UI", "Malgun Gothic", sans-serif;
+  }
+  header {
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  header h1 { font-size: 17px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  .spacer { flex: 1; }
+  .unit-toggle { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .unit-toggle button {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 5px 12px; cursor: pointer; font-size: 12px;
+  }
+  .unit-toggle button.on { background: var(--accent); color: #fff; }
+  .disclaimer {
+    background: var(--fail-bg); color: var(--fail); font-size: 12px;
+    padding: 7px 20px; border-bottom: 1px solid var(--line);
+  }
+  nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 20px 0; }
+  nav button {
+    border: 1px solid var(--line); border-bottom: 0; background: var(--panel);
+    color: var(--muted); padding: 8px 14px; cursor: pointer;
+    border-radius: 8px 8px 0 0; font-size: 13px;
+  }
+  nav button.on { color: var(--accent); font-weight: 600; border-color: var(--accent); }
+  main { padding: 0 20px 40px; }
+  section.panel {
+    display: none; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 0 10px 10px 10px; padding: 18px;
+  }
+  section.panel.on { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  .field input, .field select {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  .field input:invalid { border-color: var(--fail); }
+  .opts { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 12px; align-items: center; }
+  .opts label { font-size: 13px; display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+  fieldset {
+    border: 1px dashed var(--line); border-radius: 8px; margin: 12px 0 0; padding: 10px 14px 14px;
+  }
+  fieldset legend { font-size: 12px; color: var(--muted); padding: 0 6px; }
+  .actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button.calc {
+    background: var(--accent); color: #fff; border: 0; border-radius: 7px;
+    padding: 9px 22px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button.ghost {
+    background: transparent; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 7px; padding: 9px 14px; cursor: pointer; font-size: 13px;
+  }
+  .result { margin-top: 18px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
+    background: var(--bg);
+  }
+  .card h3 { margin: 0 0 2px; font-size: 14px; }
+  .card .ref { color: var(--muted); font-size: 11px; margin-bottom: 8px; }
+  .kv { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 13px; }
+  .kv b { color: var(--accent); }
+  .badge {
+    float: right; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px;
+  }
+  .badge.pass { color: var(--pass); background: var(--pass-bg); }
+  .badge.fail { color: var(--fail); background: var(--fail-bg); }
+  .chk { font-size: 12px; margin-top: 8px; }
+  .chk div { padding: 1px 0; }
+  .chk .p::before { content: "✔ "; color: var(--pass); }
+  .chk .f::before { content: "✘ "; color: var(--fail); }
+  details { margin-top: 10px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  pre.sheet {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; overflow-x: auto; font: 12px/1.5 var(--mono); white-space: pre;
+  }
+  .err { color: var(--fail); font-size: 13px; margin-top: 10px; }
+  .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  .info-box h3 { font-size: 14px; margin: 16px 0 6px; }
+  .info-box li { margin: 3px 0; }
+  #matbar {
+    display: none; background: var(--accent-soft); border-bottom: 1px solid var(--line);
+    padding: 7px 20px; font-size: 12px; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  #matbar.on { display: flex; }
+  #matbar input { width: 90px; padding: 4px 7px; border: 1px solid var(--line);
+    border-radius: 5px; background: var(--panel); color: var(--text); font-size: 13px; }
+  #mat-edition { font-weight: 600; }
+  .matsel {
+    width: 100%; margin-top: 3px; padding: 3px 6px; font-size: 11px;
+    border: 1px dashed var(--line); border-radius: 5px;
+    background: var(--panel); color: var(--muted);
+  }
+  @media print {
+    header, nav, .disclaimer, form, .actions, details summary { display: none !important; }
+    #matbar { display: none !important; }
+    body { background: #fff; color: #000; }
+    section.panel { border: 0; }
+    details { display: block; } details[open] pre { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 제목/브랜딩은 호스트(세종플랫폼)가 담당 — 단위 토글만 유지 -->
+<header>
+  <div class="spacer"></div>
+  <div class="unit-toggle" title="단위계 (값 자동환산 없음 — 라벨만 변경)">
+    <button id="uSI" class="on" onclick="setUnits('SI')">SI (mm·MPa)</button>
+    <button id="uUS" onclick="setUnits('US')">US (in·psi)</button>
+  </div>
+</header>
+<div class="disclaimer">
+  ⚠ 견적·사전검토·교차검증 전용 예비계산입니다. 납품·인허가용 계산서는 검증된 소프트웨어(PV Elite 등)로 별도 수행하십시오.
+  <span id="dc-mat">허용응력 S·항복강도 Sy·탄성계수 Ey는 ASME Sec II-D에서 직접 확인해 입력해야 합니다.</span>
+</div>
+
+<!-- 재료 데이터가 로드된 경우에만 표시. 데이터는 materials.js(사내 전용, 미커밋) -->
+<div id="matbar">
+  <span>재료 데이터: <span id="mat-edition"></span></span>
+  <label>설계온도 <input id="mat-T" type="number" step="any" value="150"> <span id="mat-Tunit">°C</span></label>
+  <label>상온 <input id="mat-Tamb" type="number" step="any" value="20"></label>
+  <span id="mat-status" class="note" style="margin:0"></span>
+</div>
+
+<nav id="tabs">
+  <button data-tab="shell" class="on">원통·구형 셸 (UG-27)</button>
+  <button data-tab="head">경판 (UG-32)</button>
+  <button data-tab="ext">외압 (VIII-2 4.4)</button>
+  <button data-tab="noz">노즐 보강 (UG-37·41)</button>
+  <button data-tab="ug45">노즐 목 (UG-45)</button>
+  <button data-tab="flg">플랜지 (App.2)</button>
+  <button data-tab="sad">새들 (VIII-2 4.15)</button>
+  <button data-tab="lod">풍·지진 하중 (UG-22)</button>
+  <button data-tab="mat">재료 데이터 관리</button>
+  <button data-tab="info">정보·범위</button>
+</nav>
+
+<main>
+
+<!-- ================= UG-27 ================= -->
+<section class="panel on" id="panel-shell">
+  <form id="f-shell" onsubmit="return false">
+    <div class="opts">
+      <label><input type="radio" name="sh-geo" value="cyl" checked> 원통</label>
+      <label><input type="radio" name="sh-geo" value="sph"> 구형</label>
+      &nbsp;·&nbsp;
+      <label><input type="radio" name="sh-mode" value="t" checked> 필요두께 계산</label>
+      <label><input type="radio" name="sh-mode" value="mawp"> MAWP 계산</label>
+    </div>
+    <div class="grid">
+      <div class="field" data-show="t"><label>P 설계압력 (<span class="u-press">MPa</span>)</label>
+        <input id="sh-P" type="number" step="any" value="1.0" required></div>
+      <div class="field" data-show="mawp"><label>t 공칭두께 (<span class="u-len">mm</span>)</label>
+        <input id="sh-t" type="number" step="any" value="12"></div>
+      <div class="field"><label>R 내반경 — 신품 기준 (<span class="u-len">mm</span>)</label>
+        <input id="sh-R" type="number" step="any" value="1000" required></div>
+      <div class="field"><label>S 허용응력 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="S" id="sh-S" type="number" step="any" value="138" required></div>
+      <div class="field"><label>E 이음효율</label>
+        <input id="sh-E" type="number" step="any" min="0.1" max="1" value="1.0" required></div>
+      <div class="field"><label>CA 부식여유 (<span class="u-len">mm</span>)</label>
+        <input id="sh-CA" type="number" step="any" value="3" required></div>
+    </div>
+    <p class="note">필요두께 모드에서는 R에 부식여유가 자동 가산됩니다 (R_corroded = R + CA).</p>
+    <div class="actions">
+      <button class="calc" onclick="calcShell()">계산</button>
+      <button class="ghost" onclick="copyReport('shell')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-shell"></div>
+</section>
+
+<!-- ================= UG-32 ================= -->
+<section class="panel" id="panel-head">
+  <form id="f-head" onsubmit="return false">
+    <div class="opts">
+      <label>경판 형식&nbsp;
+        <select id="hd-type">
+          <option value="ellip2">2:1 타원형</option>
+          <option value="ellipG">일반 타원형 (D/2h 지정)</option>
+          <option value="toriS">표준 접시형 (r = 6%L)</option>
+          <option value="toriG">일반 접시형 (L, r 지정)</option>
+          <option value="hemi">반구형</option>
+          <option value="cone">원추형</option>
+        </select>
+      </label>
+      <label><input type="radio" name="hd-mode" value="t" checked> 필요두께</label>
+      <label id="hd-mawp-opt"><input type="radio" name="hd-mode" value="mawp"> MAWP</label>
+    </div>
+    <div class="grid">
+      <div class="field" data-show="t"><label>P 설계압력 (<span class="u-press">MPa</span>)</label>
+        <input id="hd-P" type="number" step="any" value="1.0"></div>
+      <div class="field" data-show="mawp"><label>t 공칭두께 (<span class="u-len">mm</span>)</label>
+        <input id="hd-t" type="number" step="any" value="12"></div>
+      <div class="field" data-geo="ellip2 ellipG cone"><label>D 내경 — 신품 기준 (<span class="u-len">mm</span>)</label>
+        <input id="hd-D" type="number" step="any" value="2000"></div>
+      <div class="field" data-geo="toriS toriG hemi"><label>L 크라운 반경 / 내반경 (<span class="u-len">mm</span>)</label>
+        <input id="hd-L" type="number" step="any" value="2000"></div>
+      <div class="field" data-geo="toriG"><label>r 너클 반경 (<span class="u-len">mm</span>)</label>
+        <input id="hd-r" type="number" step="any" value="150"></div>
+      <div class="field" data-geo="ellipG"><label>D/2h 비율</label>
+        <input id="hd-ratio" type="number" step="any" value="2.0"></div>
+      <div class="field" data-geo="cone"><label>α 반꼭지각 (deg, ≤30)</label>
+        <input id="hd-alpha" type="number" step="any" value="15"></div>
+      <div class="field"><label>S 허용응력 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="S" id="hd-S" type="number" step="any" value="138"></div>
+      <div class="field"><label>E 이음효율</label>
+        <input id="hd-E" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>CA 부식여유 (<span class="u-len">mm</span>)</label>
+        <input id="hd-CA" type="number" step="any" value="3"></div>
+    </div>
+    <div class="actions">
+      <button class="calc" onclick="calcHead()">계산</button>
+      <button class="ghost" onclick="copyReport('head')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-head"></div>
+</section>
+
+<!-- ================= External ================= -->
+<section class="panel" id="panel-ext">
+  <form id="f-ext" onsubmit="return false">
+    <div class="opts">
+      <label><input type="radio" name="ex-geo" value="cyl" checked> 원통</label>
+      <label><input type="radio" name="ex-geo" value="sph"> 구형·경판 (등가 Ro)</label>
+      &nbsp;·&nbsp;
+      <label id="ex-mode-pa"><input type="radio" name="ex-mode" value="pa" checked> 허용외압 Pa</label>
+      <label id="ex-mode-t"><input type="radio" name="ex-mode" value="t"> 필요두께 역산 (원통)</label>
+    </div>
+    <div class="grid">
+      <div class="field" data-geo="cyl"><label>Do 외경 (<span class="u-len">mm</span>)</label>
+        <input id="ex-Do" type="number" step="any" value="2024"></div>
+      <div class="field" data-geo="sph"><label>Ro 등가 외측 구반경 (<span class="u-len">mm</span>)</label>
+        <input id="ex-Ro" type="number" step="any" value="1822"></div>
+      <div class="field" data-show="pa"><label>t 부식 후 두께 (<span class="u-len">mm</span>)</label>
+        <input id="ex-t" type="number" step="any" value="9"></div>
+      <div class="field" data-show="t"><label>P_ext 설계 외압 (<span class="u-press">MPa</span>)</label>
+        <input id="ex-P" type="number" step="any" value="0.1013"></div>
+      <div class="field" data-geo="cyl"><label>L 설계길이 — 지지선 간 (<span class="u-len">mm</span>)</label>
+        <input id="ex-L" type="number" step="any" value="6333"></div>
+      <div class="field"><label>Ey 탄성계수 @온도 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="Ey" id="ex-Ey" type="number" step="any" value="195000"></div>
+      <div class="field"><label>Sy 항복강도 @온도 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="Sy" id="ex-Sy" type="number" step="any" value="220"></div>
+    </div>
+    <p class="note">경판 등가 Ro — 반구형: 외측 크라운 반경 / 2:1 타원형: 0.9×Do / 접시형: 외측 크라운 반경 (UG-33).
+      UG-28 차트 대신 VIII-2 4.4 수식을 사용하므로 PV Elite와 수 % 차이가 정상입니다.</p>
+    <div class="actions">
+      <button class="calc" onclick="calcExt()">계산</button>
+      <button class="ghost" onclick="copyReport('ext')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-ext"></div>
+</section>
+
+<!-- ================= UG-37 ================= -->
+<section class="panel" id="panel-noz">
+  <form id="f-noz" onsubmit="return false">
+    <div class="opts">
+      <label><input type="radio" name="nz-set" value="in" checked> 삽입형 (set-in)</label>
+      <label><input type="radio" name="nz-set" value="on"> 부착형 (set-on)</label>
+    </div>
+    <div class="grid">
+      <div class="field"><label>d 개구경 — 부식 후 (<span class="u-len">mm</span>)</label>
+        <input id="nz-d" type="number" step="any" value="210.77"></div>
+      <div class="field"><label>t 셸 가용두께 (<span class="u-len">mm</span>)</label>
+        <input id="nz-t" type="number" step="any" value="9"></div>
+      <div class="field"><label>tr 셸 필요두께 E=1 (<span class="u-len">mm</span>)</label>
+        <input id="nz-tr" type="number" step="any" value="7.30"></div>
+      <div class="field"><label>tn 노즐 가용두께 (<span class="u-len">mm</span>)</label>
+        <input id="nz-tn" type="number" step="any" value="4.16"></div>
+      <div class="field"><label>trn 노즐 필요두께 E=1 (<span class="u-len">mm</span>)</label>
+        <input id="nz-trn" type="number" step="any" value="0.90"></div>
+      <div class="field"><label>Sv 셸 허용응력 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="S" id="nz-Sv" type="number" step="any" value="138"></div>
+      <div class="field"><label>Sn 노즐 허용응력 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="S" id="nz-Sn" type="number" step="any" value="118"></div>
+      <div class="field"><label>E1 (개구부 통과 이음 없으면 1.0)</label>
+        <input id="nz-E1" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>F 보정계수 (통상 1.0)</label>
+        <input id="nz-F" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>외측 노즐용접 각장 (<span class="u-len">mm</span>)</label>
+        <input id="nz-lo" type="number" step="any" value="8"></div>
+      <div class="field"><label>내측 용접 각장 (<span class="u-len">mm</span>)</label>
+        <input id="nz-li" type="number" step="any" value="0"></div>
+    </div>
+    <fieldset>
+      <legend><label><input type="checkbox" id="nz-pad"> 보강 패드 사용</label></legend>
+      <div class="grid">
+        <div class="field"><label>te 패드 두께 (<span class="u-len">mm</span>)</label>
+          <input id="nz-te" type="number" step="any" value="10"></div>
+        <div class="field"><label>Dp 패드 외경 (<span class="u-len">mm</span>)</label>
+          <input id="nz-Dp" type="number" step="any" value="420"></div>
+        <div class="field"><label>Sp 패드 허용응력 (<span class="u-press">MPa</span>)</label>
+          <input data-mat="S" id="nz-Sp" type="number" step="any" value="138"></div>
+        <div class="field"><label>패드 외경부 용접 각장 (<span class="u-len">mm</span>)</label>
+          <input id="nz-lp" type="number" step="any" value="8"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend><label><input type="checkbox" id="nz-inw"> 내측 돌출 (inward projection)</label></legend>
+      <div class="grid">
+        <div class="field"><label>ti 돌출부 가용두께 (<span class="u-len">mm</span>)</label>
+          <input id="nz-ti" type="number" step="any" value="0"></div>
+        <div class="field"><label>h 돌출 길이 (<span class="u-len">mm</span>)</label>
+          <input id="nz-h" type="number" step="any" value="0"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend><label><input type="checkbox" id="nz-lgo"> 대구경 개구부 (UG-36(b)(1) / App.1-7)</label></legend>
+      <div class="grid">
+        <div class="field"><label>D 용기 내경 — 부식 후 (<span class="u-len">mm</span>)</label>
+          <input id="nz-D" type="number" step="any" value="2000"></div>
+      </div>
+      <p class="note">d가 UG-36(b)(1) 한계(D≤1520 → min(D/2, 510) / D&gt;1520 → min(D/3, 1020))를 넘으면
+        App.1-7이 <b>UG-37에 추가로</b> 적용됩니다 — 「A의 2/3가 UG-40 평행한계의 0.75배 안에」.
+        d/D &gt; 0.7은 UG-37·App.1-7 둘 다의 적용범위 밖입니다.</p>
+    </fieldset>
+    <fieldset>
+      <legend><label><input type="checkbox" id="nz-w41" checked> 용접부 강도 (UG-41 / UW-15(c))</label></legend>
+      <div class="grid">
+        <div class="field"><label>노즐–셸 그루브 용접 깊이 (<span class="u-len">mm</span>)</label>
+          <input id="nz-gn" type="number" step="any" value="9"></div>
+        <div class="field"><label>노즐–패드 그루브 용접 깊이 (<span class="u-len">mm</span>)</label>
+          <input id="nz-gp" type="number" step="any" value="0"></div>
+      </div>
+      <div class="opts">
+        <label><input type="checkbox" id="nz-x15b"> UW-15(b)(1) 면제 대상</label>
+        <label><input type="checkbox" id="nz-xext"> 외압 조건 (강도계산 불필요)</label>
+      </div>
+      <p class="note">개별 용접부 강도는 UW-15(c) 계수(그루브 인장 0.74 · 필릿 전단 0.49 · 노즐벽 전단 0.70)로
+        계산합니다. <b>Fig. UG-41.1의 경로별(1-1/2-2/3-3) 대조는 미포함</b>이며,
+        「전체 용접부 강도 합 ≥ 최대 용접하중」이라는 필요조건만 확인합니다 —
+        과소 용접은 걸러내지만 코드 검토를 대체하지 않습니다. W·W1-1·W2-2·W3-3 하중값은
+        상용 SW 출력과 완전히 대조되지 않았으므로 참고값으로 보십시오 (README 참조).</p>
+    </fieldset>
+    <div class="actions">
+      <button class="calc" onclick="calcNoz()">계산</button>
+      <button class="ghost" onclick="copyReport('noz')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-noz"></div>
+</section>
+
+<!-- ================= UG-45 ================= -->
+<section class="panel" id="panel-ug45">
+  <form id="f-ug45" onsubmit="return false">
+    <div class="grid">
+      <div class="field"><label>P 설계압력 (<span class="u-press">MPa</span>)</label>
+        <input id="u45-P" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>Rn 노즐 내반경 — 부식 후 (<span class="u-len">mm</span>)</label>
+        <input id="u45-Rn" type="number" step="any" value="105.4"></div>
+      <div class="field"><label>Sn 노즐 허용응력 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="S" id="u45-Sn" type="number" step="any" value="118"></div>
+      <div class="field"><label>CA 부식여유 (<span class="u-len">mm</span>)</label>
+        <input id="u45-CA" type="number" step="any" value="3"></div>
+      <div class="field"><label>tr 셸 필요두께 E=1, CA 제외 (<span class="u-len">mm</span>)</label>
+        <input id="u45-tr" type="number" step="any" value="7.30"></div>
+      <div class="field"><label>NPS 호칭경 (t_b3 상한용)</label>
+        <select id="u45-nps">
+          <option value="">— 파이프 아님 —</option>
+          <option>0.5</option><option>0.75</option><option>1</option><option>1.25</option>
+          <option>1.5</option><option>2</option><option>2.5</option><option>3</option>
+          <option>3.5</option><option>4</option><option>5</option><option>6</option>
+          <option selected>8</option><option>10</option><option>12</option><option>14</option>
+          <option>16</option><option>18</option><option>20</option><option>24</option>
+        </select></div>
+      <div class="field"><label>t 공칭두께 (<span class="u-len">mm</span>)</label>
+        <input id="u45-tn" type="number" step="any" value="12.7"></div>
+    </div>
+    <div class="opts" style="margin-top:10px">
+      <label><input type="checkbox" id="u45-pipe" checked> 파이프 (밀 공차 12.5% 적용)</label>
+    </div>
+    <div class="actions">
+      <button class="calc" onclick="calcUg45()">계산</button>
+      <button class="ghost" onclick="copyReport('ug45')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-ug45"></div>
+</section>
+
+<!-- ================= App. 2 flange ================= -->
+<section class="panel" id="panel-flg">
+  <form id="f-flg" onsubmit="return false">
+    <div class="opts">
+      <label><input type="radio" name="fl-type" value="integral" checked> 인테그럴형 (허브 있음)</label>
+      <label><input type="radio" name="fl-type" value="ring"> 루즈형·허브 없음 (링 플랜지)</label>
+    </div>
+    <fieldset>
+      <legend>개스킷·볼트 (App. 2-5)</legend>
+      <div class="grid">
+        <div class="field"><label>P 설계압력 (<span class="u-press">MPa</span>)</label>
+          <input id="fl-P" type="number" step="any" value="1.0"></div>
+        <div class="field"><label>개스킷 접촉면 외경 (<span class="u-len">mm</span>)</label>
+          <input id="fl-god" type="number" step="any" value="350"></div>
+        <div class="field"><label>개스킷 접촉면 내경 (<span class="u-len">mm</span>)</label>
+          <input id="fl-gid" type="number" step="any" value="320"></div>
+        <div class="field"><label>m 개스킷 계수 — Table 2-5.1 직접 입력</label>
+          <input id="fl-m" type="number" step="any" value="3.0"></div>
+        <div class="field"><label>y 최소 착좌응력 (<span class="u-press">MPa</span>) — Table 2-5.1</label>
+          <input id="fl-y" type="number" step="any" value="69"></div>
+        <div class="field"><label>Sb 볼트 허용응력, 설계온도 (<span class="u-press">MPa</span>)</label>
+          <input data-mat="S" id="fl-Sb" type="number" step="any" value="172"></div>
+        <div class="field"><label>Sa 볼트 허용응력, 상온 (<span class="u-press">MPa</span>)</label>
+          <input data-mat="S@amb" id="fl-Sa" type="number" step="any" value="172"></div>
+        <div class="field"><label>Ab 실제 볼트 총 단면적 (<span class="u-area">mm²</span>)</label>
+          <input id="fl-Ab" type="number" step="any" value="3200"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>플랜지 형상·재료 (App. 2-6/2-7)</legend>
+      <div class="grid">
+        <div class="field"><label>A 플랜지 외경 (<span class="u-len">mm</span>)</label>
+          <input id="fl-A" type="number" step="any" value="450"></div>
+        <div class="field"><label>B 플랜지 내경 (<span class="u-len">mm</span>)</label>
+          <input id="fl-B" type="number" step="any" value="300"></div>
+        <div class="field"><label>C 볼트원 직경 (<span class="u-len">mm</span>)</label>
+          <input id="fl-C" type="number" step="any" value="395"></div>
+        <div class="field"><label>t 플랜지 두께 (<span class="u-len">mm</span>)</label>
+          <input id="fl-t" type="number" step="any" value="30"></div>
+        <div class="field"><label>Sf 플랜지 허용응력, 설계온도 (<span class="u-press">MPa</span>)</label>
+          <input data-mat="S" id="fl-Sf" type="number" step="any" value="138"></div>
+        <div class="field"><label>Sfa 플랜지 허용응력, 상온 (<span class="u-press">MPa</span>)</label>
+          <input data-mat="S@amb" id="fl-Sfa" type="number" step="any" value="138"></div>
+        <div class="field" data-show="integral"><label>g0 허브 소단부 두께 (<span class="u-len">mm</span>)</label>
+          <input id="fl-g0" type="number" step="any" value="10"></div>
+        <div class="field" data-show="integral"><label>g1 허브 배면부 두께 (<span class="u-len">mm</span>)</label>
+          <input id="fl-g1" type="number" step="any" value="18"></div>
+        <div class="field" data-show="integral"><label>h 허브 길이 (<span class="u-len">mm</span>)</label>
+          <input id="fl-h" type="number" step="any" value="25"></div>
+        <div class="field" data-show="integral"><label>Sn 넥 허용응력, 설계온도 (<span class="u-press">MPa</span>) — 비우면 Sf</label>
+          <input data-mat="S" id="fl-Sn" type="number" step="any" value=""></div>
+        <div class="field" data-show="integral"><label>Sna 넥 허용응력, 상온 (<span class="u-press">MPa</span>) — 비우면 Sfa</label>
+          <input data-mat="S@amb" id="fl-Sna" type="number" step="any" value=""></div>
+      </div>
+    </fieldset>
+    <p class="note">볼트원 내측 링형 개스킷·내압 전용입니다. <b>루즈형이라도 허브가 있으면 이 계산으로 쓰지 마십시오</b>
+      — Table 2-7.1의 F_L·V_L을 검증하지 못해 제외했습니다 (comparison/App2_verification.md).
+      전면 개스킷(App. 2-3), 강성지수(App. 2-14), 볼트 간격, 리버스 플랜지, 외부 배관하중은 미포함.
+      m·y는 Table 2-5.1이 저작권 자료라 직접 입력해야 합니다.</p>
+    <div class="actions">
+      <button class="calc" onclick="calcFlg()">계산</button>
+      <button class="ghost" onclick="copyReport('flg')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-flg"></div>
+</section>
+
+<!-- ================= VIII-2 4.15 saddles ================= -->
+<section class="panel" id="panel-sad">
+  <form id="f-sad" onsubmit="return false">
+    <div class="opts">
+      <label>보강 상태
+        <select id="sd-stf">
+          <option value="none" selected>보강 없음</option>
+          <option value="head">경판이 보강 (a ≤ Rm/2)</option>
+          <option value="ring_in_plane">새들면 내 보강링</option>
+        </select></label>
+      &nbsp;·&nbsp;
+      <label>경판 형식
+        <select id="sd-ht">
+          <option value="ellipsoidal" selected>타원형</option>
+          <option value="torispherical">접시형</option>
+          <option value="hemispherical">반구형</option>
+          <option value="flat">평판</option>
+        </select></label>
+    </div>
+    <div class="grid">
+      <div class="field"><label>P 설계압력 (<span class="u-press">MPa</span>)</label>
+        <input id="sd-P" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>Rm 셸 평균반경 — 부식 후 (<span class="u-len">mm</span>)</label>
+        <input id="sd-Rm" type="number" step="any" value="1006"></div>
+      <div class="field"><label>ts 셸 두께 — 부식 후 (<span class="u-len">mm</span>)</label>
+        <input id="sd-ts" type="number" step="any" value="12"></div>
+      <div class="field"><label>L 접선간 길이 (<span class="u-len">mm</span>)</label>
+        <input id="sd-L" type="number" step="any" value="6000"></div>
+      <div class="field"><label>a 새들–접선 거리 (<span class="u-len">mm</span>)</label>
+        <input id="sd-a" type="number" step="any" value="600"></div>
+      <div class="field"><label>b 새들 폭 (<span class="u-len">mm</span>)</label>
+        <input id="sd-b" type="number" step="any" value="200"></div>
+      <div class="field"><label>θ 새들 접촉각 (deg, ≥120)</label>
+        <input id="sd-th" type="number" step="any" value="120"></div>
+      <div class="field"><label>H 경판 깊이 (<span class="u-len">mm</span>)</label>
+        <input id="sd-H" type="number" step="any" value="500"></div>
+      <div class="field"><label>Q <b>새들 1개</b> 하중 (N) — 자중+내용물 포함</label>
+        <input id="sd-Q" type="number" step="any" value="120000"></div>
+      <div class="field"><label>Ey 셸 탄성계수 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="Ey" id="sd-Ey" type="number" step="any" value="195000"></div>
+      <div class="field"><label>S 셸 허용응력 (<span class="u-press">MPa</span>)</label>
+        <input data-mat="S" id="sd-S" type="number" step="any" value="138"></div>
+      <div class="field"><label>E 길이이음 효율</label>
+        <input id="sd-E" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>t_h 경판 두께 (<span class="u-len">mm</span>)</label>
+        <input id="sd-tht" type="number" step="any" value="12"></div>
+      <div class="field"><label>Sh 경판 허용응력 (<span class="u-press">MPa</span>) — 비우면 S</label>
+        <input data-mat="S" id="sd-Sh" type="number" step="any" value=""></div>
+      <div class="field"><label>Ri 경판 내반경 (<span class="u-len">mm</span>)</label>
+        <input id="sd-Ri" type="number" step="any" value="1000"></div>
+    </div>
+    <div class="opts" style="margin-top:10px">
+      <label><input type="checkbox" id="sd-weld" checked> 새들이 셸에 용접됨 (k=0.1)</label>
+      <label><input type="checkbox" id="sd-exc"> 예외/설치 하중조건 (Sc 계수 1.35)</label>
+    </div>
+    <fieldset>
+      <legend><label><input type="checkbox" id="sd-wp"> 보강판(wear plate) 사용</label></legend>
+      <div class="grid">
+        <div class="field"><label>tr 보강판 두께 (<span class="u-len">mm</span>)</label>
+          <input id="sd-tr" type="number" step="any" value="8"></div>
+        <div class="field"><label>Sr 보강판 허용응력 (<span class="u-press">MPa</span>)</label>
+          <input data-mat="S" id="sd-Sr" type="number" step="any" value="138"></div>
+        <div class="field"><label>b1 보강판 폭 (<span class="u-len">mm</span>) — 비우면 자동</label>
+          <input id="sd-b1" type="number" step="any" value=""></div>
+        <div class="field"><label>θ1 보강판 포함각 (deg) — 비우면 미검사</label>
+          <input id="sd-th1" type="number" step="any" value=""></div>
+      </div>
+    </fieldset>
+    <p class="note">K 계수는 VIII-2 Table 4.15.1 닫힌형이며, θ=150°에서 공표값과 0.02% 이내로 일치합니다.
+      <b>Q는 사용자가 직접 넣는 값</b>입니다 — 자중·내용물·하중조합 계수를 미리 반영해 주십시오.
+      새들 강재 자체(웨브·베이스플레이트·앵커볼트), 새들 분리력, <b>새들면 밖의 보강링</b>(K9·K10 미검증)은 미포함입니다.</p>
+    <div class="actions">
+      <button class="calc" onclick="calcSad()">계산</button>
+      <button class="ghost" onclick="copyReport('sad')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-sad"></div>
+</section>
+
+<!-- ================= wind / seismic / UG-22 ================= -->
+<section class="panel" id="panel-lod">
+  <form id="f-lod" onsubmit="return false">
+    <div class="disclaimer" style="margin:0 0 12px">
+      ⚠ 풍압 q(z)와 지진 응답계수 Cs는 <b>건축구조기준(KDS 41 17 00, ASCE 7 등) 소관</b>이며
+      저작권·관할 문제로 내장하지 않습니다. 해당 코드에서 산정해 직접 입력하십시오.
+      이 탭은 정역학 합산(전단력·모멘트)과 ASME UG-22 조합 길이방향 응력만 계산합니다.
+    </div>
+    <div class="opts">
+      <label><input type="radio" name="ld-kind" value="wind" checked> 풍하중</label>
+      <label><input type="radio" name="ld-kind" value="seismic"> 지진하중 (등가정적)</label>
+    </div>
+    <fieldset data-show="wind">
+      <legend>풍하중 구간 — 한 줄에 <code>z_bottom, z_top, 폭, q, Cf</code></legend>
+      <textarea id="ld-wseg" rows="5" style="width:100%;font-family:monospace;font-size:12px"
+>0, 4000, 2100, 0.0010, 0.7
+4000, 9000, 2100, 0.0014, 0.7
+9000, 12000, 2400, 0.0017, 1.0</textarea>
+      <p class="note">폭에는 보온재·플랫폼·사다리·배관 등 부착물의 투영폭을 포함시켜야 합니다.
+        Cf 생략 시 1.0. 길이 단위는 <span class="u-len">mm</span>, q는 <span class="u-press">MPa</span>.</p>
+    </fieldset>
+    <fieldset data-show="seismic">
+      <legend>지진 구간 — 한 줄에 <code>z_bottom, z_top, 중량(N)</code></legend>
+      <textarea id="ld-sseg" rows="5" style="width:100%;font-family:monospace;font-size:12px"
+>0, 4000, 62000
+4000, 9000, 78000
+9000, 12000, 31000</textarea>
+      <div class="grid">
+        <div class="field"><label>Cs 지진응답계수 — 코드에서 산정</label>
+          <input id="ld-Cs" type="number" step="any" value="0.11"></div>
+        <div class="field"><label>k 수직분포 지수 (0=균일, 1=선형, 2=포물)</label>
+          <input id="ld-k" type="number" step="any" value="1.0"></div>
+      </div>
+    </fieldset>
+    <div class="grid">
+      <div class="field"><label>검토 표고 — 보통 기초 0 (<span class="u-len">mm</span>)</label>
+        <input id="ld-elev" type="number" step="any" value="0"></div>
+    </div>
+    <fieldset>
+      <legend>UG-22 조합 길이방향 응력 (해당 표고 단면)</legend>
+      <div class="grid">
+        <div class="field"><label>P 설계압력 (<span class="u-press">MPa</span>) — 공용 조건은 0</label>
+          <input id="ld-P" type="number" step="any" value="0"></div>
+        <div class="field"><label>Rm 셸 평균반경 — 부식 후 (<span class="u-len">mm</span>)</label>
+          <input id="ld-Rm" type="number" step="any" value="1006"></div>
+        <div class="field"><label>t 셸 두께 — 부식 후 (<span class="u-len">mm</span>)</label>
+          <input id="ld-t" type="number" step="any" value="12"></div>
+        <div class="field"><label>S 허용응력 (<span class="u-press">MPa</span>)</label>
+          <input data-mat="S" id="ld-S" type="number" step="any" value="138"></div>
+        <div class="field"><label>E 길이이음 효율</label>
+          <input id="ld-E" type="number" step="any" value="1.0"></div>
+        <div class="field"><label>W 축방향 압축하중 (N) — 해당 단면 위 자중</label>
+          <input id="ld-W" type="number" step="any" value="240000"></div>
+        <div class="field"><label>B 허용압축응력 (<span class="u-press">MPa</span>) — UG-28(c) 인자 B, 비우면 S·E</label>
+          <input id="ld-B" type="number" step="any" value=""></div>
+      </div>
+      <p class="note">UG-23(b)는 허용 압축응력을 min(S, UG-28(c) 인자 B)로 규정합니다. B는
+        Sec II-D 외압 차트(저작권 자료)에서 나오므로 <b>직접 입력</b>해야 합니다.
+        비우면 S·E로 대체되며 <b>얇은 셸에서는 비보수적</b>입니다.</p>
+    </fieldset>
+    <p class="note">어떤 하중을 함께 조합하고 어떤 계수를 쓸지는 UG-22와 관할 코드에 따른
+      사용자 판단입니다. <b>공용(P=0) 조건을 따로 돌려보십시오</b> — 보통 압축측을 지배합니다.</p>
+    <div class="actions">
+      <button class="calc" onclick="calcLod()">계산</button>
+      <button class="ghost" onclick="copyReport('lod')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-lod"></div>
+</section>
+
+<!-- ================= Info ================= -->
+<!-- ================= 재료 데이터 관리 ================= -->
+<section class="panel" id="panel-mat">
+  <p class="note" style="margin:0 0 12px">
+    회사 licensed ASME Sec II-D 사본에서 값을 옮겨 두면, 각 계산 탭의 응력 칸에서
+    재료를 골라 설계온도로 자동 보간됩니다. <b>이 데이터는 저장소(GitHub)에 올라가지
+    않습니다</b> — 현재는 이 브라우저에만 저장되며, 내보낸 파일로 옮길 수 있습니다.
+    표에 없는 온도는 외삽하지 않고 거부합니다.
+  </p>
+  <div class="grid">
+    <div class="field"><label>판·출처 표기 (모든 계산서에 찍힘) — 예: 2023 Edition, Table 1A</label>
+      <input id="me-edition" type="text" placeholder="판·개정년도·표 번호"></div>
+    <div class="field"><label>온도 단위</label>
+      <select id="me-tempunit"><option value="C">°C</option><option value="F">°F</option></select></div>
+  </div>
+  <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:14px">
+    <div style="min-width:250px">
+      <label style="font-size:12px; color:var(--muted)">재료 목록</label>
+      <select id="me-list" size="14" style="width:100%; margin-top:3px"></select>
+      <div class="actions" style="margin-top:8px">
+        <button class="ghost" onclick="meAdd()">＋ 재료 추가</button>
+        <button class="ghost" onclick="meDup()">복제</button>
+        <button class="ghost" onclick="meDel()">삭제</button>
+      </div>
+    </div>
+    <div style="flex:1; min-width:340px">
+      <div class="grid">
+        <div class="field"><label>재료명 — 제품형태·두께구간까지 명시</label>
+          <input id="me-name" type="text" placeholder="예: SA-000-00 (판재, t ≤ 00mm)"></div>
+        <div class="field"><label>비고 — 표 위치·각주 조건</label>
+          <input id="me-note" type="text" placeholder="예: Table 0X, 각주 XX"></div>
+      </div>
+      <table id="me-table" style="width:100%; margin-top:12px; border-collapse:collapse; font-size:13px">
+        <thead><tr>
+          <th style="text-align:left; padding:4px">온도</th>
+          <th style="text-align:left; padding:4px">S 허용응력</th>
+          <th style="text-align:left; padding:4px">Sy 항복강도</th>
+          <th style="text-align:left; padding:4px">Ey 탄성계수</th>
+          <th style="padding:4px"></th>
+        </tr></thead>
+        <tbody id="me-rows"></tbody>
+      </table>
+      <div class="actions" style="margin-top:8px">
+        <button class="ghost" onclick="meAddRow()">＋ 온도 행 추가</button>
+      </div>
+      <p class="note">빈 칸은 「데이터 없음」으로 저장되어 그 물성 조회가 거부됩니다.
+        Sy·Ey는 외압·새들 계산에만 쓰이므로 필요 없으면 비워도 됩니다.</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="calc" onclick="meSave()">저장</button>
+    <button class="ghost" onclick="meExport()">materials.js 내보내기</button>
+    <button class="ghost" onclick="document.getElementById('me-import').click()">파일에서 가져오기</button>
+    <input type="file" id="me-import" accept=".js,.json" style="display:none">
+    <button class="ghost" onclick="meClear()">이 브라우저 저장 삭제</button>
+  </div>
+  <div id="me-status" class="note"></div>
+</section>
+
+<section class="panel info-box" id="panel-info">
+  <h3>용도</h3>
+  <p>견적, 사전 검토, 상용 소프트웨어(PV Elite 등) 결과 교차검증. 계산 엔진은 파이썬 패키지
+  <code>pvcalc</code>와 동일하며, 136개 케이스 자동 대조로 두 엔진의 일치가 검증되어 있습니다.</p>
+  <h3>계산 근거</h3>
+  <ul>
+    <li>셸 내압: ASME BPVC VIII-1 UG-27</li>
+    <li>경판: UG-32, Mandatory Appendix 1-4</li>
+    <li>외압: VIII-2 para 4.4 수식 (UG-28 차트의 수식 기반 대안 — 차트는 저작권 자료)</li>
+    <li>노즐 보강: UG-37 / UG-40, 노즐 목: UG-45 (ASME B36.10 STD 두께표 내장)</li>
+    <li>노즐 용접부 강도: UG-41 개별 요소 강도 + UW-15(c) 계수</li>
+    <li>플랜지: Mandatory Appendix 2 (2-5 볼트하중, 2-6 모멘트, 2-7/2-8 응력)</li>
+    <li>새들: VIII-2 Part 4.15 (Zick 해석) — VIII-1에는 강제 규정이 없어 VIII-2를 준용</li>
+    <li>대구경 개구부: UG-36(b)(1) 판정 + Mandatory Appendix 1-7</li>
+    <li>풍·지진: 정역학 합산 + UG-22/UG-23(b) 조합 길이방향 응력
+        (q·Cs·B는 건축코드/Sec II-D 소관 — 사용자 입력)</li>
+  </ul>
+  <h3>범위 제한</h3>
+  <ul>
+    <li>UG-41은 개별 용접부 강도만 — Fig. UG-41.1 경로별(1-1/2-2/3-3) 대조 미포함</li>
+    <li>풍·지진은 하중 산정 미포함 — q(z)·Cs는 KDS 41/ASCE 7 등에서 직접 산정해 입력.
+        지진은 등가정적법만 (모달해석·슬로싱 미포함)</li>
+    <li>플랜지는 인테그럴형·링형만 — 허브 있는 루즈형(F_L·V_L 미검증), 전면 개스킷(App.2-3),
+        강성지수(App.2-14), 리버스 플랜지(App.2-13) 미포함</li>
+    <li>리가먼트(UG-53), 경사·힐사이드 노즐 미포함</li>
+    <li>새들은 2개 대칭 지지만 — 새들 강재 자체, 분리력, 새들면 밖의 보강링 미포함</li>
+    <li>재료 물성 DB 없음 — S, Sy, Ey는 Sec II-D에서 직접 입력</li>
+    <li>단위 토글은 라벨 표시만 변경하며 값을 환산하지 않음 (UG-45의 최소두께 기준에는 반영됨)</li>
+  </ul>
+  <p class="note">문의: 기술부 김철우 부장</p>
+</section>
+
+</main>
+
+<!-- 사내 재료 데이터 (Sec II-D 전사본). 저작권상 미커밋 — 없으면 수동 입력으로 동작. -->
+<script src="materials.js" onerror="void 0"></script>
+<script src="pvcalc-core.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+/* localStorage can throw in sandboxed iframes / file: origins - degrade gracefully */
+const store = (() => {
+  try { const s = window.localStorage; s.getItem("t"); return s; }
+  catch (_) { const m = {}; return { getItem: k => m[k] ?? null, setItem: (k, v) => { m[k] = String(v); } }; }
+})();
+let UNITS = store.getItem("pvcalc.units") || "SI";
+const lastReport = {};
+
+/* ---------- units & tabs ---------- */
+function setUnits(u) {
+  UNITS = u;
+  store.setItem("pvcalc.units", u);
+  $("uSI").classList.toggle("on", u === "SI");
+  $("uUS").classList.toggle("on", u === "US");
+  document.querySelectorAll(".u-len").forEach(el => el.textContent = u === "SI" ? "mm" : "in");
+  document.querySelectorAll(".u-press").forEach(el => el.textContent = u === "SI" ? "MPa" : "psi");
+  const tu = $("mat-Tunit"); if (tu) tu.textContent = u === "SI" ? "°C" : "°F";
+  document.querySelectorAll(".u-area").forEach(el => el.textContent = u === "SI" ? "mm²" : "in²");
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section.panel").forEach(p =>
+    p.classList.toggle("on", p.id === "panel-" + b.dataset.tab));
+});
+
+/* ---------- form helpers ---------- */
+function num(id, { optional = false } = {}) {
+  const el = $(id), v = el.value.trim();
+  if (v === "") {
+    if (optional) return null;
+    el.focus(); throw new Error(`입력 누락: ${el.closest(".field").querySelector("label").textContent}`);
+  }
+  const n = Number(v);
+  if (!Number.isFinite(n)) { el.focus(); throw new Error("숫자가 아닙니다: " + v); }
+  return n;
+}
+function radio(name) { return document.querySelector(`input[name="${name}"]:checked`).value; }
+
+function refreshVisibility(formId, mode, geo) {
+  // Matches .field[data-show] and also whole fieldsets (wind vs seismic).
+  document.querySelectorAll(`#${formId} [data-show]`).forEach(f =>
+    f.style.display = f.dataset.show.split(" ").includes(mode) ? "" : "none");
+  if (geo !== undefined)
+    document.querySelectorAll(`#${formId} .field[data-geo]`).forEach(f =>
+      f.style.display = f.dataset.geo.split(" ").includes(geo) ? "" : "none");
+}
+
+/* ---------- report rendering (mirror of Python report()) ---------- */
+const fmt = v => typeof v === "number"
+  ? v.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : String(v);
+
+function sheetText(r) {
+  const W = 78, L = [];
+  L.push("=".repeat(W), r.title);
+  if (r.codeRef) L.push("Code reference: " + r.codeRef);
+  L.push("-".repeat(W));
+  if (r.inputs.length) {
+    L.push("[Inputs]");
+    r.inputs.forEach(([n, v, u, note]) =>
+      L.push(`  ${n.padEnd(28)} = ${fmt(v).padStart(14)} ${(u || "").padEnd(6)}${note ? "   (" + note + ")" : ""}`));
+  }
+  if (r.steps.length) {
+    L.push("[Calculation]");
+    r.steps.forEach(([n, f, v, u]) =>
+      L.push(`  ${n.padEnd(28)} = ${fmt(v).padStart(14)} ${(u || "").padEnd(6)}  ${f}`));
+  }
+  if (r.checks.length) {
+    L.push("[Checks]");
+    r.checks.forEach(([d, p]) => L.push(`  [${p ? "PASS" : "FAIL"}] ${d}`));
+  }
+  if (r.notes && r.notes.length) {
+    L.push("[Notes]");
+    r.notes.forEach(n => L.push(`  ! ${n}`));
+  }
+  L.push("-".repeat(W));
+  Object.entries(r.results).forEach(([k, v]) => L.push(`  >> ${k} = ${fmt(v)}`));
+  L.push("=".repeat(W));
+  return L.join("\n");
+}
+
+function render(panel, results, extraNote) {
+  const box = $("res-" + panel);
+  const texts = [];
+  box.innerHTML = "";
+  for (const r of results) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const badge = r.checks.length
+      ? `<span class="badge ${r.ok ? "pass" : "fail"}">${r.ok ? "PASS" : "FAIL"}</span>` : "";
+    const kv = Object.entries(r.results)
+      .map(([k, v]) => `<span>${k} = <b>${fmt(v)}</b></span>`).join("");
+    const chk = r.checks
+      .map(([d, p]) => `<div class="${p ? "p" : "f"}">${d}</div>`).join("");
+    const nts = (r.notes || [])
+      .map(n => `<p class="note">! ${n}</p>`).join("");
+    card.innerHTML = `${badge}<h3>${r.title}</h3><div class="ref">${r.codeRef}</div>
+      <div class="kv">${kv}</div><div class="chk">${chk}</div>${nts}`;
+    box.appendChild(card);
+    texts.push(sheetText(r));
+  }
+  if (extraNote) {
+    const p = document.createElement("p");
+    p.className = "note"; p.textContent = extraNote;
+    box.appendChild(p);
+  }
+  const full = matStamp(panel) + texts.join("\n\n");
+  lastReport[panel] = full;
+  const det = document.createElement("details");
+  det.innerHTML = `<summary>전체 계산서 보기 / 인쇄용</summary><pre class="sheet">${full
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`;
+  det.open = true;
+  box.appendChild(det);
+  saveInputs();
+}
+function fail(panel, e) {
+  $("res-" + panel).innerHTML = `<div class="err">⚠ ${e.message}</div>`;
+}
+function copyReport(panel) {
+  if (!lastReport[panel]) return;
+  navigator.clipboard.writeText(lastReport[panel]);
+}
+
+/* ---------- 재료 데이터 ----------
+   형식: { edition, tempUnit, materials:[{name, note, temps:[], S:[], Sy:[], Ey:[]}] }
+   출처 우선순위: 브라우저 저장(사용자가 표에서 입력) > materials.js(배포 시 동봉)
+   ASME Sec II-D 값이므로 어느 쪽도 저장소에 커밋되지 않는다. */
+const MAT_KEY = "pvcalc.materials";
+
+/* 저장소.
+   단독 실행판(더블클릭·사내망 공유폴더)은 localStorage 만 쓴다 — CDN·로그인 없이
+   오프라인 동작해야 하므로. 세종플랫폼은 iframe 을 `?fb=1` 로 열고, 그때만
+   Firestore(t_pvcalcMaterials/shared)를 붙여 부서 전원이 같은 표를 본다.
+   원격 값은 읽기 우선, 쓰기는 양쪽 모두(로컬은 오프라인 캐시 역할). */
+let matRemote = null;          // Firestore 에서 받아온 값
+let matPushRemote = null;      // Firestore 쓰기 함수 (붙었을 때만 설정)
+const matStore = {
+  load() {
+    if (matRemote) return matRemote;
+    try { return JSON.parse(store.getItem(MAT_KEY) || "null"); } catch (_) { return null; }
+  },
+  save(data) {
+    store.setItem(MAT_KEY, JSON.stringify(data));
+    matRemote = data;
+    if (matPushRemote) matPushRemote(data);
+  },
+  clear() {
+    store.setItem(MAT_KEY, "");
+    matRemote = null;
+    if (matPushRemote) matPushRemote(null);
+  },
+};
+
+let MAT = null, matSource = "";
+function resolveMat() {
+  const saved = matStore.load();
+  if (saved && Array.isArray(saved.materials) && saved.materials.length) {
+    MAT = saved; matSource = "브라우저 저장";
+  } else if (window.PVCALC_MATERIALS
+             && Array.isArray(window.PVCALC_MATERIALS.materials)
+             && window.PVCALC_MATERIALS.materials.length) {
+    MAT = window.PVCALC_MATERIALS; matSource = "materials.js";
+  } else {
+    MAT = null; matSource = "";
+  }
+}
+
+function matInterp(m, prop, T) {
+  const xs = m.temps, ys = m[prop];
+  if (!Array.isArray(xs) || !Array.isArray(ys) || xs.length !== ys.length || !xs.length)
+    return { v: null, why: `${prop} 데이터 없음` };
+  if (T < xs[0] || T > xs[xs.length - 1])
+    return { v: null, why: `${T}° 는 데이터 범위(${xs[0]}~${xs[xs.length - 1]}°) 밖 — 외삽 안 함` };
+  for (let i = 0; i < xs.length - 1; i++) {
+    if (T >= xs[i] && T <= xs[i + 1]) {
+      if (ys[i] == null || ys[i + 1] == null)
+        return { v: null, why: `${prop} 값이 비어 있는 구간` };
+      const span = xs[i + 1] - xs[i];
+      const f = span === 0 ? 0 : (T - xs[i]) / span;
+      return { v: ys[i] + f * (ys[i + 1] - ys[i]), why: "" };
+    }
+  }
+  return { v: null, why: "조회 실패" };
+}
+
+const matUsed = new Map();   // input id -> "재료명 @온도"
+
+function applyMat(inp, sel) {
+  const spec = inp.dataset.mat;               // "S" | "S@amb" | "Sy" | "Ey"
+  const prop = spec.split("@")[0];
+  const amb = spec.endsWith("@amb");
+  if (sel.value === "") { matUsed.delete(inp.id); $("mat-status").textContent = ""; return; }
+  const m = MAT.materials[Number(sel.value)];
+  const T = Number((amb ? $("mat-Tamb") : $("mat-T")).value);
+  const { v, why } = matInterp(m, prop, T);
+  if (v === null) {
+    sel.value = "";
+    matUsed.delete(inp.id);
+    $("mat-status").textContent = `⚠ ${m.name}: ${why} — 직접 입력하십시오.`;
+    return;
+  }
+  inp.value = Number(v.toFixed(6));
+  matUsed.set(inp.id, `${m.name} ${prop}@${T}° = ${Number(v.toFixed(4))}`);
+  $("mat-status").textContent = "";
+}
+
+function reapplyAll() {
+  document.querySelectorAll("main input[data-mat]").forEach(inp => {
+    const sel = inp.parentElement.querySelector(".matsel");
+    if (sel && sel.value !== "") applyMat(inp, sel);
+  });
+}
+
+/* 계산서 머리에 찍히는 재료 데이터 출처 — 판이 바뀌면 눈에 보이게 하는 장치.
+   해당 탭에서 실제로 조회한 칸만 싣는다 (다른 탭 선택이 섞이면 오해를 부름). */
+function matStamp(panel) {
+  if (!MAT || !matUsed.size) return "";
+  const root = $("panel-" + panel);
+  const used = [...matUsed].filter(([id]) => root && root.contains($(id)));
+  if (!used.length) return "";
+  return [`재료 데이터 출처: ${MAT.edition || "(판 표기 없음)"}`,
+          ...used.map(([, v]) => `  - ${v}`)].join("\n") + "\n\n";
+}
+
+/* 재료 UI 재구성 — 최초 로드와 표 저장 후 모두 이걸 호출한다 (멱등). */
+function initMaterials() {
+  resolveMat();
+  document.querySelectorAll(".matsel").forEach(el => el.remove());
+  matUsed.clear();
+  const on = !!MAT;
+  $("matbar").classList.toggle("on", on);
+  $("dc-mat").textContent = on
+    ? "허용응력은 입력해 둔 재료 데이터에서 조회됩니다 — 판·개정년도가 프로젝트 요구와 맞는지 확인하십시오. 조회 안 되는 값은 직접 입력."
+    : "허용응력 S·항복강도 Sy·탄성계수 Ey는 ASME Sec II-D에서 직접 확인해 입력해야 합니다. (「재료 데이터 관리」 탭에 미리 입력해 두면 자동 조회됩니다.)";
+  if (!on) return;
+
+  const unit = MAT.tempUnit === "F" ? "°F" : "°C";
+  $("mat-edition").textContent = `${MAT.edition || "(판 표기 없음)"} · ${matSource} · 온도 ${unit}`;
+  const opts = '<option value="">— 직접 입력 —</option>' +
+    MAT.materials.map((m, i) => `<option value="${i}">${esc(m.name)}</option>`).join("");
+  document.querySelectorAll("main input[data-mat]").forEach(inp => {
+    const sel = document.createElement("select");
+    sel.className = "matsel";
+    sel.title = `${inp.dataset.mat} 조회`;
+    sel.innerHTML = opts;
+    sel.onchange = () => applyMat(inp, sel);
+    inp.parentElement.appendChild(sel);
+  });
+  $("mat-T").onchange = reapplyAll;
+  $("mat-Tamb").onchange = reapplyAll;
+}
+
+/* Firestore 브리지가 호출하는 진입점. 클래식 스크립트의 함수 선언이라
+   window 에 붙으므로 모듈 스크립트에서 부를 수 있다 (let 변수는 안 보임). */
+function pvcalcAttachRemote(data, pushFn) {
+  matRemote = data && Array.isArray(data.materials) && data.materials.length ? data : null;
+  matPushRemote = pushFn || null;
+  initMaterials();
+  meInit();
+  if (matRemote) matSourceLabel(" · 부서 공유(Firestore)");
+}
+function matSourceLabel(suffix) {
+  const el = $("mat-edition");
+  if (el && !el.textContent.includes(suffix)) el.textContent += suffix;
+}
+
+/* ---------- 재료 데이터 관리 표 ---------- */
+const esc = s => String(s == null ? "" : s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const PROPS = ["S", "Sy", "Ey"];
+let meData = null, meIdx = -1;
+
+const meBlank = () => ({ name: "새 재료", note: "", temps: [], S: [], Sy: [], Ey: [] });
+const meStatus = (msg, bad) => {
+  const el = $("me-status");
+  el.textContent = msg;
+  el.style.color = bad ? "var(--fail)" : "var(--pass)";
+};
+
+function meInit() {
+  const src = matStore.load() || window.PVCALC_MATERIALS;
+  meData = src ? JSON.parse(JSON.stringify(src)) : { edition: "", tempUnit: "C", materials: [] };
+  if (!Array.isArray(meData.materials)) meData.materials = [];
+  meData.materials.forEach(m => {         // 누락 배열 보정
+    m.temps = m.temps || [];
+    PROPS.forEach(p => { if (!Array.isArray(m[p])) m[p] = m.temps.map(() => null); });
+  });
+  $("me-edition").value = meData.edition || "";
+  $("me-tempunit").value = meData.tempUnit === "F" ? "F" : "C";
+  meIdx = meData.materials.length ? 0 : -1;
+  meRenderList();
+}
+
+function meRenderList() {
+  $("me-list").innerHTML = meData.materials
+    .map((m, i) => `<option value="${i}"${i === meIdx ? " selected" : ""}>${esc(m.name)}</option>`).join("");
+  meRenderDetail();
+}
+
+function meRenderDetail() {
+  const m = meData.materials[meIdx];
+  $("me-name").value = m ? m.name || "" : "";
+  $("me-note").value = m ? m.note || "" : "";
+  $("me-name").disabled = $("me-note").disabled = !m;
+  const tbody = $("me-rows");
+  if (!m) { tbody.innerHTML = `<tr><td colspan="5" class="note">재료를 추가하십시오.</td></tr>`; return; }
+  const cell = (p, i) => {
+    const v = m[p][i];
+    return `<td style="padding:2px"><input type="number" step="any" data-p="${p}" data-i="${i}"
+      value="${v == null ? "" : v}" style="width:100%"></td>`;
+  };
+  tbody.innerHTML = m.temps.map((T, i) => `<tr>
+    <td style="padding:2px"><input type="number" step="any" data-p="temps" data-i="${i}"
+      value="${T == null ? "" : T}" style="width:100%"></td>
+    ${PROPS.map(p => cell(p, i)).join("")}
+    <td style="padding:2px; text-align:center"><button class="ghost" style="padding:2px 8px"
+      onclick="meDelRow(${i})" title="행 삭제">×</button></td></tr>`).join("")
+    || `<tr><td colspan="5" class="note">온도 행을 추가하십시오.</td></tr>`;
+  tbody.querySelectorAll("input").forEach(inp => {
+    inp.oninput = () => {
+      const p = inp.dataset.p, i = Number(inp.dataset.i);
+      const raw = inp.value.trim();
+      m[p][i] = raw === "" ? null : Number(raw);
+    };
+  });
+}
+
+function meAdd() { meData.materials.push(meBlank()); meIdx = meData.materials.length - 1; meRenderList(); meStatus("추가됨 — 저장을 눌러야 반영됩니다.", false); }
+function meDup() {
+  if (meIdx < 0) return;
+  const c = JSON.parse(JSON.stringify(meData.materials[meIdx]));
+  c.name += " (복제)";
+  meData.materials.splice(meIdx + 1, 0, c); meIdx++; meRenderList();
+}
+function meDel() {
+  if (meIdx < 0) return;
+  meData.materials.splice(meIdx, 1);
+  meIdx = Math.min(meIdx, meData.materials.length - 1);
+  meRenderList(); meStatus("삭제됨 — 저장을 눌러야 반영됩니다.", false);
+}
+function meAddRow() {
+  const m = meData.materials[meIdx];
+  if (!m) { meStatus("먼저 재료를 추가하십시오.", true); return; }
+  const last = m.temps.length ? m.temps[m.temps.length - 1] : null;
+  m.temps.push(last == null ? 20 : last + 50);
+  PROPS.forEach(p => m[p].push(null));
+  meRenderDetail();
+}
+function meDelRow(i) {
+  const m = meData.materials[meIdx];
+  m.temps.splice(i, 1); PROPS.forEach(p => m[p].splice(i, 1));
+  meRenderDetail();
+}
+
+/* 저장 전 검사 — 계산에 쓰이는 데이터이므로 여기서 막는다.
+   온도는 자동 오름차순 정렬, 중복·빈칸은 거부. */
+function meValidate() {
+  meData.edition = $("me-edition").value.trim();
+  meData.tempUnit = $("me-tempunit").value;
+  if (!meData.edition) return "판·출처 표기는 필수입니다 (계산서 추적용).";
+  if (!meData.materials.length) return "재료가 없습니다.";
+  for (const m of meData.materials) {
+    m.name = (m.name || "").trim();
+    if (!m.name) return "이름이 빈 재료가 있습니다.";
+    if (!m.temps.length) return `${m.name}: 온도 행이 없습니다.`;
+    if (m.temps.some(T => T == null || !Number.isFinite(T)))
+      return `${m.name}: 온도가 비었거나 숫자가 아닙니다.`;
+    const order = m.temps.map((T, i) => i).sort((a, b) => m.temps[a] - m.temps[b]);
+    ["temps", ...PROPS].forEach(p => { m[p] = order.map(i => m[p][i]); });
+    for (let i = 1; i < m.temps.length; i++)
+      if (m.temps[i] === m.temps[i - 1]) return `${m.name}: 온도 ${m.temps[i]} 가 중복입니다.`;
+    if (PROPS.every(p => m[p].every(v => v == null)))
+      return `${m.name}: S·Sy·Ey 가 전부 비어 있습니다.`;
+  }
+  return "";
+}
+
+function meSave() {
+  const err = meValidate();
+  if (err) { meStatus("⚠ " + err, true); return; }
+  matStore.save(meData);
+  initMaterials();
+  meRenderList();
+  meStatus(`저장됨 — 재료 ${meData.materials.length}건. 계산 탭 드롭다운에 반영되었습니다.`, false);
+}
+
+function meExport() {
+  const err = meValidate();
+  if (err) { meStatus("⚠ " + err, true); return; }
+  const body = "/* pvcalc 재료 데이터 — web/materials.js 로 저장. 저장소에 커밋하지 마십시오. */\n"
+    + "window.PVCALC_MATERIALS = " + JSON.stringify(meData, null, 1) + ";\n";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([body], { type: "text/javascript" }));
+  a.download = "materials.js";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  meStatus("내보냈습니다. web/ 폴더에 두면 이 브라우저 저장이 없어도 로드됩니다.", false);
+}
+
+function meImportText(text) {
+  const tries = [
+    () => JSON.parse(text),
+    () => JSON.parse(text.replace(/^[\s\S]*?window\.PVCALC_MATERIALS\s*=/, "").replace(/;\s*$/, "")),
+  ];
+  for (const f of tries) {
+    try {
+      const d = f();
+      if (d && Array.isArray(d.materials)) return d;
+    } catch (_) { /* 다음 방식 시도 */ }
+  }
+  return null;
+}
+
+$("me-import").onchange = ev => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const d = meImportText(String(rd.result));
+    ev.target.value = "";
+    if (!d) { meStatus("⚠ 읽을 수 없는 파일입니다. 내보낸 materials.js 또는 JSON만 지원합니다 (주석 있는 손편집 파일은 불가).", true); return; }
+    meData = d;
+    meInit0(d);
+    meStatus(`가져왔습니다 — 재료 ${d.materials.length}건. 저장을 눌러야 반영됩니다.`, false);
+  };
+  rd.readAsText(file, "utf-8");
+};
+function meInit0(d) {   // 가져온 데이터로 화면만 다시 그림 (저장은 사용자가)
+  meData = d;
+  if (!Array.isArray(meData.materials)) meData.materials = [];
+  meData.materials.forEach(m => {
+    m.temps = m.temps || [];
+    PROPS.forEach(p => { if (!Array.isArray(m[p])) m[p] = m.temps.map(() => null); });
+  });
+  $("me-edition").value = meData.edition || "";
+  $("me-tempunit").value = meData.tempUnit === "F" ? "F" : "C";
+  meIdx = meData.materials.length ? 0 : -1;
+  meRenderList();
+}
+
+function meClear() {
+  matStore.clear();
+  initMaterials();
+  meInit();
+  meStatus("이 브라우저 저장을 삭제했습니다." + (MAT ? " materials.js 데이터로 되돌아갔습니다." : ""), false);
+}
+
+$("me-list").onchange = ev => { meIdx = Number(ev.target.value); meRenderDetail(); };
+$("me-name").oninput = () => {
+  const m = meData.materials[meIdx];
+  if (!m) return;
+  m.name = $("me-name").value;
+  $("me-list").options[meIdx].textContent = m.name;
+};
+$("me-note").oninput = () => {
+  const m = meData.materials[meIdx];
+  if (m) m.note = $("me-note").value;
+};
+
+/* ---------- per-panel calculations ---------- */
+function calcShell() {
+  try {
+    const geo = radio("sh-geo"), mode = radio("sh-mode");
+    const S = num("sh-S"), E = num("sh-E"), CA = num("sh-CA");
+    if (mode === "t") {
+      const P = num("sh-P"), R = num("sh-R") + CA;
+      const r = geo === "cyl"
+        ? pvcalc.cylinderThickness({ P, R, S, E, CA })
+        : pvcalc.sphereThickness({ P, R, S, E, CA });
+      render("shell", [r]);
+    } else {
+      const t = num("sh-t"), R = num("sh-R");
+      const r = geo === "cyl"
+        ? pvcalc.cylinderMawp({ t, R, S, E, CA })
+        : pvcalc.sphereMawp({ t, R, S, E, CA });
+      render("shell", [r]);
+    }
+  } catch (e) { fail("shell", e); }
+}
+
+function calcHead() {
+  try {
+    const type = $("hd-type").value, mode = radio("hd-mode");
+    const S = num("hd-S"), E = num("hd-E"), CA = num("hd-CA");
+    let r;
+    if (mode === "t") {
+      const P = num("hd-P");
+      if (type === "ellip2" || type === "ellipG") {
+        const D = num("hd-D") + 2 * CA;
+        const ratio = type === "ellip2" ? 2.0 : num("hd-ratio");
+        r = pvcalc.ellipsoidalThickness({ P, D, S, E, CA, D_over_2h: ratio });
+      } else if (type === "toriS" || type === "toriG") {
+        const L = num("hd-L") + CA;
+        const rk = type === "toriS" ? null : num("hd-r") + CA;
+        r = pvcalc.torisphericalThickness({ P, L, S, E, CA, r_knuckle: rk });
+      } else if (type === "hemi") {
+        r = pvcalc.hemisphericalThickness({ P, L: num("hd-L") + CA, S, E, CA });
+      } else {
+        r = pvcalc.conicalThickness({ P, D: num("hd-D") + 2 * CA, alpha_deg: num("hd-alpha"), S, E, CA });
+      }
+    } else {
+      const t = num("hd-t");
+      if (type === "ellip2" || type === "ellipG") {
+        const ratio = type === "ellip2" ? 2.0 : num("hd-ratio");
+        r = pvcalc.ellipsoidalMawp({ t, D: num("hd-D"), S, E, CA, D_over_2h: ratio });
+      } else if (type === "toriS" || type === "toriG") {
+        const rk = type === "toriS" ? null : num("hd-r") + CA;
+        r = pvcalc.torisphericalMawp({ t, L: num("hd-L"), S, E, CA, r_knuckle: rk });
+      } else if (type === "hemi") {
+        r = pvcalc.sphereMawp({ t, R: num("hd-L"), S, E, CA });
+        r.title = "Hemispherical head - MAWP (spherical formula)";
+      } else {
+        throw new Error("원추형은 MAWP 모드를 지원하지 않습니다 (필요두께로 확인하십시오).");
+      }
+    }
+    render("head", [r]);
+  } catch (e) { fail("head", e); }
+}
+
+function calcExt() {
+  try {
+    const geo = radio("ex-geo"), mode = radio("ex-mode");
+    const Ey = num("ex-Ey"), Sy = num("ex-Sy");
+    if (geo === "sph") {
+      const r = pvcalc.sphereMaep({ Ro: num("ex-Ro"), t: num("ex-t"), Ey, Sy });
+      render("ext", [r]);
+    } else if (mode === "pa") {
+      const r = pvcalc.cylinderMaep({ Do: num("ex-Do"), t: num("ex-t"), L: num("ex-L"), Ey, Sy });
+      render("ext", [r]);
+    } else {
+      const Do = num("ex-Do"), L = num("ex-L"), P_ext = num("ex-P");
+      const tMin = pvcalc.cylinderThicknessForExternal({ P_ext, Do, L, Ey, Sy });
+      const r = pvcalc.cylinderMaep({ Do, t: tMin, L, Ey, Sy });
+      r.results.t_min_corroded = tMin;
+      render("ext", [r], "t_min_corroded는 부식 후 기준 필요두께입니다 — 공칭두께 = t_min + CA.");
+    }
+  } catch (e) { fail("ext", e); }
+}
+
+function calcNoz() {
+  try {
+    const pad = $("nz-pad").checked, inw = $("nz-inw").checked;
+    const r = pvcalc.areaReinforcement({
+      d: num("nz-d"), t: num("nz-t"), tr: num("nz-tr"),
+      tn: num("nz-tn"), trn: num("nz-trn"),
+      Sv: num("nz-Sv"), Sn: num("nz-Sn"),
+      set_in: radio("nz-set") === "in",
+      E1: num("nz-E1"), F: num("nz-F"),
+      te: pad ? num("nz-te") : 0, Dp: pad ? num("nz-Dp") : 0,
+      Sp: pad ? num("nz-Sp") : null,
+      leg_nozzle: num("nz-lo"), leg_pad: pad ? num("nz-lp") : 0,
+      leg_inner: num("nz-li"),
+      ti: inw ? num("nz-ti") : 0, h: inw ? num("nz-h") : 0,
+    });
+    const out = [r];
+    if ($("nz-lgo").checked) {
+      out.push(pvcalc.largeOpeningCheck(r, {
+        D_inside: num("nz-D"), units: UNITS,
+      }));
+    }
+    if ($("nz-w41").checked) {
+      out.push(pvcalc.weldStrength(r, {
+        groove_nozzle: num("nz-gn"), groove_pad: pad ? num("nz-gp") : 0,
+        exempt_uw15b1: $("nz-x15b").checked,
+        external_pressure: $("nz-xext").checked,
+      }));
+    }
+    render("noz", out);
+  } catch (e) { fail("noz", e); }
+}
+
+function calcFlg() {
+  try {
+    const type = radio("fl-type"), integral = type === "integral";
+    const bl = pvcalc.flangeBoltLoads({
+      P: num("fl-P"), gasket_od: num("fl-god"), gasket_id: num("fl-gid"),
+      m: num("fl-m"), y: num("fl-y"), Sb: num("fl-Sb"), Sa: num("fl-Sa"),
+      Ab: num("fl-Ab"), units: UNITS,
+    });
+    const st = pvcalc.flangeStresses(bl, {
+      flange_od: num("fl-A"), B: num("fl-B"), bolt_circle: num("fl-C"),
+      t: num("fl-t"), Sf: num("fl-Sf"), Sfa: num("fl-Sfa"), flange_type: type,
+      g0: integral ? num("fl-g0") : null,
+      g1: integral ? num("fl-g1") : null,
+      h: integral ? num("fl-h") : null,
+      Sn: integral && $("fl-Sn").value !== "" ? num("fl-Sn") : null,
+      Sna: integral && $("fl-Sna").value !== "" ? num("fl-Sna") : null,
+    });
+    render("flg", [bl, st], bl.data.governing === "seating"
+      ? "볼트 소요면적은 개스킷 착좌(seating)가 지배합니다 — Ab를 키우면 Mg도 커져 착좌 응력이 오히려 불리해질 수 있습니다."
+      : null);
+  } catch (e) { fail("flg", e); }
+}
+
+function calcSad() {
+  try {
+    const wp = $("sd-wp").checked;
+    const opt = id => $(id).value !== "" ? num(id) : null;
+    const r = pvcalc.saddleAnalysis({
+      P: num("sd-P"), Rm: num("sd-Rm"), ts: num("sd-ts"), L: num("sd-L"),
+      a: num("sd-a"), b: num("sd-b"), theta_deg: num("sd-th"), H: num("sd-H"),
+      Q: num("sd-Q"), Ey: num("sd-Ey"), S: num("sd-S"), E_joint: num("sd-E"),
+      th: num("sd-tht"), Sh: opt("sd-Sh"), Ri: num("sd-Ri"),
+      head_type: $("sd-ht").value, stiffening: $("sd-stf").value,
+      saddle_welded: $("sd-weld").checked, exceptional: $("sd-exc").checked,
+      tr: wp ? num("sd-tr") : 0, Sr: wp ? num("sd-Sr") : null,
+      b1: wp ? opt("sd-b1") : null, theta1_deg: wp ? opt("sd-th1") : null,
+    });
+    render("sad", [r], num("sd-L") < 8 * num("sd-Rm")
+      ? "L < 8·Rm 이므로 짧은 용기용 horn 응력식(σ7)이 적용되었습니다."
+      : null);
+  } catch (e) { fail("sad", e); }
+}
+
+/* "z0, z1, a, b, c" per line -> array of numbers, blank lines skipped. */
+function parseSegments(id, keys) {
+  const out = [];
+  $(id).value.split("\n").forEach((line, i) => {
+    const raw = line.trim();
+    if (!raw || raw.startsWith("#")) return;
+    const parts = raw.split(/[,\t;]+/).map(s => s.trim()).filter(s => s !== "");
+    if (parts.length < keys.length)
+      throw new Error(`${i + 1}행: 값이 ${keys.length}개 필요합니다 (${keys.join(", ")}) — "${raw}"`);
+    const seg = {};
+    keys.forEach((k, j) => {
+      const v = Number(parts[j]);
+      if (!isFinite(v)) throw new Error(`${i + 1}행 ${k}: 숫자가 아닙니다 — "${parts[j]}"`);
+      seg[k] = v;
+    });
+    if (parts.length > keys.length) {           // optional trailing Cf
+      const extra = Number(parts[keys.length]);
+      if (isFinite(extra)) seg.Cf = extra;
+    }
+    out.push(seg);
+  });
+  if (!out.length) throw new Error("구간을 최소 한 줄 입력하십시오.");
+  return out;
+}
+
+function calcLod() {
+  try {
+    const kind = radio("ld-kind"), elevation = num("ld-elev");
+    const load = kind === "wind"
+      ? pvcalc.windLoad({
+          segments: parseSegments("ld-wseg", ["z_bottom", "z_top", "width", "q"]),
+          elevation })
+      : pvcalc.seismicLoad({
+          segments: parseSegments("ld-sseg", ["z_bottom", "z_top", "weight"]),
+          Cs: num("ld-Cs"), k: num("ld-k"), elevation });
+    const comb = pvcalc.combinedLongitudinal({
+      P: num("ld-P"), Rm: num("ld-Rm"), t: num("ld-t"), S: num("ld-S"),
+      E: num("ld-E"), M: load.results.M, W_axial: num("ld-W"),
+      B_allow: $("ld-B").value !== "" ? num("ld-B") : null,
+    });
+    render("lod", [load, comb], num("ld-P") > 0
+      ? "내압이 있는 조건입니다 — 압축측은 보통 공용(P=0) 조건이 지배하므로 따로 확인하십시오."
+      : null);
+  } catch (e) { fail("lod", e); }
+}
+
+function calcUg45() {
+  try {
+    const npsSel = $("u45-nps").value;
+    const r = pvcalc.ug45NeckThickness({
+      P: num("u45-P"), Rn: num("u45-Rn"), Sn: num("u45-Sn"), CA: num("u45-CA"),
+      units: UNITS, nps: npsSel === "" ? null : Number(npsSel),
+      tr_shell_e1: num("u45-tr"), t_nominal: num("u45-tn"),
+      is_pipe: $("u45-pipe").checked,
+    });
+    render("ug45", [r]);
+  } catch (e) { fail("ug45", e); }
+}
+
+/* ---------- mode/geometry visibility wiring ---------- */
+function wire(formId, modeName, geoName) {
+  const upd = () => refreshVisibility(formId,
+    modeName ? radio(modeName) : "", geoName ? radio(geoName) : undefined);
+  document.querySelectorAll(`#${formId} input[type=radio]`).forEach(x => x.onchange = upd);
+  upd();
+}
+wire("f-shell", "sh-mode", "sh-geo");
+wire("f-ext", "ex-mode", "ex-geo");
+wire("f-flg", "fl-type");
+wire("f-lod", "ld-kind");
+$("hd-type").onchange = () => {
+  const t = $("hd-type").value;
+  document.querySelectorAll("#f-head .field[data-geo]").forEach(f =>
+    f.style.display = f.dataset.geo.split(" ").includes(t) ? "" : "none");
+  const mawpOk = t !== "cone";
+  $("hd-mawp-opt").style.display = mawpOk ? "" : "none";
+  if (!mawpOk) document.querySelector('input[name="hd-mode"][value="t"]').checked = true;
+  refreshVisibility("f-head", radio("hd-mode"));
+};
+document.querySelectorAll('#f-head input[name="hd-mode"]').forEach(x =>
+  x.onchange = () => refreshVisibility("f-head", radio("hd-mode")));
+$("hd-type").onchange();
+refreshVisibility("f-head", "t");
+
+/* ---------- input persistence ---------- */
+function saveInputs() {
+  const data = {};
+  document.querySelectorAll("main input[id], main select[id]").forEach(el =>
+    data[el.id] = el.type === "checkbox" ? el.checked : el.value);
+  store.setItem("pvcalc.inputs", JSON.stringify(data));
+}
+(function restore() {
+  try {
+    const data = JSON.parse(store.getItem("pvcalc.inputs") || "{}");
+    Object.entries(data).forEach(([id, v]) => {
+      const el = $(id); if (!el) return;
+      if (el.type === "checkbox") el.checked = v; else el.value = v;
+    });
+  } catch (_) {}
+  setUnits(UNITS);
+  initMaterials();
+  meInit();
+})();
+</script>
+
+<!-- ── 부서 공유 저장 (세종플랫폼 전용) ─────────────────────────────────
+     `?fb=1` 로 열렸을 때만 Firebase 를 불러와 재료 표를 부서 전원이 공유한다.
+     파라미터가 없으면 이 블록은 아무것도 하지 않으므로, 단독 실행판은
+     CDN·로그인 없이 오프라인으로 동작한다(그게 단독판의 존재 이유).
+     컬렉션 t_pvcalcMaterials 는 `t_` 접두사라 firestore.rules 수정이 불필요하다.
+     ⚠ ASME Sec II-D 전사값이 여기 저장된다 — 사내 계정만 접근 가능해야 하며
+        저장소에는 어떤 경우에도 커밋되지 않는다. -->
+<script type="module">
+if (new URLSearchParams(location.search).get("fb") === "1") {
+  const note = msg => { const el = document.getElementById("mat-status"); if (el) el.textContent = msg; };
+  try {
+    const [{ initializeApp }, { getAuth, onAuthStateChanged }, fs] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"),
+    ]);
+    const app = initializeApp({
+      apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+      authDomain: "sejong-platform.firebaseapp.com",
+      projectId: "sejong-platform",
+      storageBucket: "sejong-platform.firebasestorage.app",
+      messagingSenderId: "884301297710",
+      appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    });
+    const db = fs.getFirestore(app);
+    const ref = fs.doc(db, "t_pvcalcMaterials", "shared");
+
+    /* 저장 함수 — 표 저장 시 호출된다. 실패는 조용히 넘기지 않고 표시한다
+       (저장된 줄 알고 넘어가면 다른 PC 에서 값이 없어 계산이 틀어진다). */
+    const push = async data => {
+      try {
+        if (data) await fs.setDoc(ref, { data, at: new Date().toISOString() });
+        else await fs.deleteDoc(ref);
+        note("부서 공유 저장에 반영되었습니다.");
+      } catch (e) {
+        note("⚠ 부서 공유 저장 실패 — 이 브라우저에만 저장되었습니다: " + e.message);
+      }
+    };
+
+    onAuthStateChanged(getAuth(app), async user => {
+      if (!user) { note("⚠ 로그인되지 않아 부서 공유 표를 불러오지 못했습니다."); return; }
+      try {
+        const snap = await fs.getDoc(ref);
+        const data = snap.exists() ? snap.data().data : null;
+        window.pvcalcAttachRemote(data, push);
+      } catch (e) {
+        note("⚠ 부서 공유 표를 불러오지 못했습니다 (이 브라우저 저장으로 동작): " + e.message);
+      }
+    });
+  } catch (e) {
+    note("⚠ 부서 공유 저장을 붙이지 못했습니다 (이 브라우저 저장으로 동작): " + e.message);
+  }
+}
+</script>
+</body>
+</html>

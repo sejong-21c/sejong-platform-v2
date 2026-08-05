@@ -832,11 +832,12 @@ const TOOLS = {
   'mtools':    { name: '측정기구 반입출',   icon: '🔬', li: 'microscope', desc: 'QR 스캔 반출·반입 (전 부서) · 등록/검교정은 품질관리부만', status: 'live', ver: 'v1.0', crossDept: true },
   'asset':     { name: '자산 관리 대장',    icon: '🖥️', li: 'monitor', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
   'agitator':  { name: '교반기 선정·설계',  icon: '🌀', li: 'fan', desc: '점도·비중·탱크 제원 → 임펠러 형식·치수·동력·모터·축 산출 · 협력업체 검토서 대조', status: 'live', ver: 'v1.0' },
+  'pvcalc':    { name: '압력용기 예비계산',  icon: '⚙️', li: 'cylinder', desc: 'ASME VIII-1 셸·경판·외압·노즐보강·플랜지·새들·풍지진 · 견적/사전검토/PV Elite 교차검증', status: 'live', ver: 'v1.0' },
 };
 // 회의 모듈은 부서 도구가 아니라 대메뉴(NAV 'meeting')로 노출 — 전 직원 자유 사용
 const DEPTS = [
   { id: 'sales',        icon: '💼', li: 'briefcase', name: '영업부',     tools: ['deptsch'] },
-  { id: 'design',       icon: '📐', li: 'pencil-ruler', name: '기술부',     tools: ['deptsch', 'agitator'] },
+  { id: 'design',       icon: '📐', li: 'pencil-ruler', name: '기술부',     tools: ['deptsch', 'agitator', 'pvcalc'] },
   { id: 'purchase',     icon: '🛒', li: 'shopping-cart', name: '구매부',     tools: ['deptsch'] },
   { id: 'production',   icon: '🏭', li: 'factory', name: '생산부',     tools: ['deptsch'] },
   { id: 'quality',      icon: '📦', li: 'package-check', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
@@ -1242,6 +1243,11 @@ const QAVIEW_BUILD = 'a7'; // a7: 영속 캐시(점검 A3)
 // v1.0: 교반기 선정·설계 (기술부). 모듈 재배포할 때마다 이 번호를 올려야
 //       브라우저가 예전 캐시를 계속 보여주는 문제가 생기지 않는다.
 const AGITATOR_BUILD = 'a7';
+// v1.0: 압력용기 예비계산 (기술부). 교반기와 달리 별도 모듈 HTML 을 두지 않고
+//       tools/pvcalc/web/index.html(단독 실행판)을 그대로 iframe 한다 —
+//       탭 8개 UI 를 플랫폼용으로 다시 만들면 사본이 갈리기 때문.
+//       ?fb=1 을 붙여야 재료 표가 Firestore(t_pvcalcMaterials) 공유 저장으로 붙는다.
+const PVCALC_BUILD = 'a1';
 let state = JSON.parse(localStorage.getItem(KEY) || 'null') || defaultState();
 // 마이그레이션 안전장치: 이메일 필드 없는 옛 사용자 데이터면 초기화 (Firebase 로그인 후엔 state.users가 항상 새로 채워짐)
 if (!state.users || !state.users.length || !state.users[0].email) {
@@ -2838,6 +2844,7 @@ function iframeViewKey() {
   if (v.selectedTool === 'mtools') return 'mtools';
   if (v.selectedTool === 'asset') return 'asset';
   if (v.selectedTool === 'agitator') return 'agitator';
+  if (v.selectedTool === 'pvcalc') return 'pvcalc';
   if (v.cur === 'manday') return 'manday';
   if (v.cur === 'messenger') return 'messenger';
   if (v.cur === 'meeting') return 'meeting';
@@ -2917,6 +2924,9 @@ function render() {
   if (view.selectedTool === 'qaview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/qa-viewer/qa-viewer.html?v=${QAVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="QA Doc 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'mtools') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/measurement-tools/measurement-tools.html?v=${MTOOLS_BUILD}" allow="camera" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="측정기구 반입출 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'agitator') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/agitator/agitator.html?v=${AGITATOR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="교반기 선정·설계"></iframe></div>`; return; }
+  // pvcalc 는 단독 실행판을 그대로 iframe 한다 (모듈 사본 없음 — tools/pvcalc/README.md 참조).
+  // fb=1 이 붙어야 재료 표가 부서 공유(Firestore t_pvcalcMaterials)로 저장된다.
+  if (view.selectedTool === 'pvcalc') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="tools/pvcalc/web/index.html?fb=1&v=${PVCALC_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="압력용기 예비계산"></iframe></div>`; return; }
   if (view.selectedTool === 'asset') {
     // 자산 관리 대장: 라이선스 정보는 총무부·슈퍼·임원만 조회 (full=1 URL 파라미터로 iframe에 전달)
     const _uu = getU(state.currentUser);

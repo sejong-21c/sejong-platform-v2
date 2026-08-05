@@ -7,3 +7,8 @@ gateway/.wrangler/
 *.DS_Store
 # 파이썬 바이트코드 캐시 (tools/agitcalc)
 __pycache__/
+# pvcalc 사내 재료 데이터 (ASME Sec II-D 전사본) — 저작권상 커밋 금지
+tools/pvcalc/web/materials.js
+# 테스트 전용 (jsdom)
+node_modules/
+package-lock.json

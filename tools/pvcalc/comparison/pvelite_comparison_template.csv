@@ -1,0 +1,12 @@
+Item,Parameter,Unit,pvcalc,PV Elite,Diff (%),Remarks
+Shell,t required (internal),mm,,,,UG-27(c)
+Shell,MAWP (corroded hot),MPa,,,,UG-27(c)
+Shell,Pa allowable external,MPa,,,,"pvcalc uses VIII-2 4.4.5 equations; PV Elite uses UG-28 charts - expect small differences"
+Head (2:1 Ellip),t required,mm,,,,UG-32(d)
+Head (2:1 Ellip),MAWP,MPa,,,,UG-32(d)
+Nozzle N1,A required,mm2,,,,UG-37
+Nozzle N1,A available,mm2,,,,UG-37 (pvcalc excludes UG-41 weld strength checks)
+Nozzle N1,t UG-45,mm,,,,UG-45
+Nozzle N2,A required,mm2,,,,
+Nozzle N2,A available,mm2,,,,
+Nozzle N2,t UG-45,mm,,,,
