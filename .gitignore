@@ -5,3 +5,5 @@
 gateway/.wrangler/
 # OS 캐시
 *.DS_Store
+# 파이썬 바이트코드 캐시 (tools/agitcalc)
+__pycache__/
