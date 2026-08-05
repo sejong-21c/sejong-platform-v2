@@ -975,42 +975,31 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-05 16:34 (오후 정리 자동 실행)",
-    "newMails": 12,
-    "processed": 4,
-    "urgentReplies": 1,
-    "ncr": 2,
-    "car": 1,
+    "generatedAt": "2026-08-06 08:51 (오전 정리 자동 실행)",
+    "newMails": 9,
+    "processed": 5,
+    "urgentReplies": 0,
+    "ncr": 0,
+    "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "NCR-2026-19 VDS_CONDENSER 조치방안 긴급 확정 필요 (대금 수령 대기)",
-        "proj": "SJ2026-030 VDS",
-        "priority": "high"
-      },
-      {
-        "text": "CAR-2026-010 세창엔텍 전면 거래정지·근본원인분석 제출 후속조치",
-        "proj": "품질보증(공급사)",
-        "priority": "high"
-      },
-      {
-        "text": "NCR-2026-18 조치방안 PM(한승남 부장) 협의 여부 확인",
-        "proj": "SJE437-26 진양화성",
+        "text": "애경케미칼 VE-108 SPRING BALANCE 설치일정(8/12) 시각 확인 필요",
+        "proj": "애경케미칼",
         "priority": "mid"
       },
       {
-        "text": "애경케미칼 VE-108/VE-306 SPRING BALANCE 라벨 미매칭 - 신규 라벨 생성 여부 확인 필요",
-        "proj": "미분류",
-        "priority": "mid"
-      }
-    ],
-    "urgentList": [
+        "text": "애경케미칼 VE-306 SPRING BALANCE 설치일정(9월 초) 확정 필요",
+        "proj": "애경케미칼",
+        "priority": "low"
+      },
       {
-        "subject": "Re: [QC] NCR-2026-19 VDS_CONDENSER 조치방안 검토 회신건 (긴급 확정 요청)",
-        "from": "김시원 대리(swkim)",
-        "proj": "SJ2026-030 VDS"
+        "text": "삼성전기 Agitator Touch-up 도료 공급 가능여부 확인(정상진 부장 담당)",
+        "proj": "SJ435-26",
+        "priority": "low"
       }
     ],
+    "urgentList": [],
     "schedule": []
   },
   "swkim@sejong-21c.com": {
