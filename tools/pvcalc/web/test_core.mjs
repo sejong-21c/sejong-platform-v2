@@ -27,6 +27,9 @@ for (const [i, v] of vectors.entries()) {
     r = pv.largeOpeningCheck(pv.areaReinforcement(v.kwargs.area), v.kwargs.large);
   else if (v.fn === "flangeStresses")
     r = pv.flangeStresses(pv.flangeBoltLoads(v.kwargs.bolt), v.kwargs.stress);
+  // a650ShellCourses 는 {courses, summary} 를 돌려준다 — 파이썬은 요약만 기록.
+  else if (v.fn === "a650ShellCourses")
+    r = pv.a650ShellCourses(v.kwargs).summary;
   else
     r = fn(v.kwargs);
   for (const [key, expected] of Object.entries(v.results)) {

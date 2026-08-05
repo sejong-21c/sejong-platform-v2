@@ -636,6 +636,113 @@ close(r.results["W"], 1.77, label="KPM-3324(2) W = 1.77")
 close(r.results["t_req"], tb324 + max(0.15 * tb324, 3.0),
       label="KPM-3324(2) 플랜지 보강")
 
+# ==========================================================================
+# API 650 (2021) — 1-Foot Method. 기대값은 조항식에서 독립적으로 손계산.
+# ==========================================================================
+from pvcalc import api650 as a650  # noqa: E402
+
+print("== API 650 5.6.1.1 최소 호칭두께 ==")
+for D, exp in [(10.0, 5.0), (14.99, 5.0), (15.0, 6.0), (35.9, 6.0),
+               (36.0, 8.0), (60.0, 8.0), (60.1, 10.0), (80.0, 10.0)]:
+    close(a650.min_nominal_thickness(D), exp, label=f"SI 최소두께 D={D}")
+# NOTE 4 — 3.2 m < D < 15 m 최하단 단은 6 mm
+close(a650.min_nominal_thickness(10.0, lowest_course=True), 6.0,
+      label="NOTE 4 최하단 단 6mm")
+close(a650.min_nominal_thickness(3.0, lowest_course=True), 5.0,
+      label="NOTE 4 범위 밖(D<3.2)은 미적용")
+# USC
+close(a650.min_nominal_thickness(40.0, units="USC"), 3.0 / 16.0, label="USC D=40ft")
+close(a650.min_nominal_thickness(150.0, units="USC"), 5.0 / 16.0, label="USC D=150ft")
+close(a650.min_nominal_thickness(250.0, units="USC"), 3.0 / 8.0, label="USC D=250ft")
+
+print("== API 650 5.6.3 1-Foot Method ==")
+# D=30, H=12, G=1.0, Sd=160, St=171, CA=1.5
+#  td = 4.9*30*11.7/160 + 1.5 = 10.749375 + 1.5 = 12.249375
+#  tt = 4.9*30*11.7/171 = 10.0578947368
+r = a650.shell_course_thickness(D=30.0, H=12.0, G=1.0, Sd=160.0, St=171.0,
+                                CA=1.5, lowest_course=True)
+close(r.results["td"], 4.9 * 30 * 11.7 / 160 + 1.5, label="td 설계조건")
+close(r.results["tt"], 4.9 * 30 * 11.7 / 171, label="tt 수압시험조건")
+close(r.results["t_required"], 4.9 * 30 * 11.7 / 160 + 1.5, label="필요두께 = max")
+check(r.results["governing"] == "product_design", "설계조건 지배")
+
+# 비중이 낮으면 수압시험(G=1.0 상당)이 지배한다 — G=0.7
+#  td = 4.9*30*11.7*0.7/160 + 1.5 = 7.5245625 + 1.5 = 9.0245625
+#  tt = 10.0578947 > td  -> 수압시험 지배
+r = a650.shell_course_thickness(D=30.0, H=12.0, G=0.7, Sd=160.0, St=171.0, CA=1.5)
+close(r.results["td"], 4.9 * 30 * 11.7 * 0.7 / 160 + 1.5, label="td (G=0.7)")
+check(r.results["governing"] == "hydrostatic_test", "낮은 비중은 수압시험 지배")
+close(r.results["t_required"], 4.9 * 30 * 11.7 / 171, label="필요두께 = tt")
+
+# 얇은 상단 단은 최소 호칭두께가 지배
+#  D=30, H=2.0: td = 4.9*30*1.7/160 = 1.5619 (+0) , 최소 6.0 -> 6.0
+r = a650.shell_course_thickness(D=30.0, H=2.0, G=1.0, Sd=160.0, St=171.0, CA=0.0)
+close(r.results["t_required"], 6.0, label="최소 호칭두께 지배")
+check(r.results["governing"] == "minimum_nominal", "최소 호칭두께 지배 표시")
+
+# 5.6.3.1 적용범위 — D > 61 m 는 FAIL
+r = a650.shell_course_thickness(D=70.0, H=12.0, G=1.0, Sd=160.0, St=171.0, CA=1.5)
+check(not r.ok, "D>61m 는 1-Foot Method 적용범위 밖 FAIL")
+
+# USC: D=100 ft, H=40 ft, G=1, Sd=23200, St=24900, CA=0.0625
+#  td = 2.6*100*(40-1)*1/23200 + 0.0625 = 10140/23200 + 0.0625 = 0.437069 + 0.0625
+r = a650.shell_course_thickness(D=100.0, H=40.0, G=1.0, Sd=23200.0, St=24900.0,
+                                CA=0.0625, units="USC")
+close(r.results["td"], 2.6 * 100 * 39 / 23200 + 0.0625, label="USC td (2.6, H−1)")
+close(r.results["tt"], 2.6 * 100 * 39 / 24900, label="USC tt")
+
+print("== API 650 단별 계산 (shell_courses) ==")
+# D=30, 단 높이 2.4 m × 5 = 12 m, 액면 12 m
+# 1단 하단 z=0   -> H=12.0 -> td = 4.9*30*11.7/160+1.5 = 12.249375
+# 2단 하단 z=2.4 -> H=9.6  -> td = 4.9*30*9.3/160+1.5  = 10.043438
+# 5단 하단 z=9.6 -> H=2.4  -> td = 4.9*30*2.1/160+1.5  = 3.429375 -> 최소 6.0 지배
+courses, summary = a650.shell_courses(
+    D=30.0, course_heights=[2.4] * 5, H_design=12.0, G=1.0,
+    Sd=160.0, St=171.0, CA=1.5)
+check(len(courses) == 5, "단 5개 계산")
+close(courses[0].results["t_required"], 4.9 * 30 * 11.7 / 160 + 1.5, label="1단")
+close(courses[1].results["t_required"], 4.9 * 30 * 9.3 / 160 + 1.5, label="2단")
+close(courses[4].results["t_required"], 6.0, label="5단 (최소두께 지배)")
+check(courses[0].results["t_required"] > courses[1].results["t_required"],
+      "아래 단이 위 단보다 두껍다")
+check(summary.ok, "요약 체크 전부 통과")
+close(summary.results["t_bottom"], 4.9 * 30 * 11.7 / 160 + 1.5, label="요약 t_bottom")
+close(summary.results["t_top"], 6.0, label="요약 t_top")
+
+# 단별 재질이 다른 경우 — Sd 리스트
+courses2, _ = a650.shell_courses(
+    D=30.0, course_heights=[2.4] * 3, H_design=7.2, G=1.0,
+    Sd=[160.0, 180.0, 200.0], St=[171.0, 190.0, 210.0], CA=1.5)
+close(courses2[0].results["td"], 4.9 * 30 * (7.2 - 0.3) / 160 + 1.5,
+      label="단별 Sd — 1단")
+close(courses2[1].results["td"], 4.9 * 30 * (4.8 - 0.3) / 180 + 1.5,
+      label="단별 Sd — 2단")
+
+# 액면 위 단은 정수두 없이 최소두께만
+courses3, _ = a650.shell_courses(
+    D=30.0, course_heights=[2.4] * 5, H_design=7.0, G=1.0,
+    Sd=160.0, St=171.0, CA=1.5)
+close(courses3[4].results["t_required"], 6.0, label="액면 위 단은 최소두께")
+close(courses3[4].results["td"], 0.0, label="액면 위 단은 td=0")
+
+print("== API 650 입력 검증 ==")
+try:
+    a650.shell_course_thickness(D=30.0, H=12.0, G=1.0, Sd=160.0, St=171.0, units="psi")
+    check(False, "모르는 단위계는 거부되어야 함")
+except ValueError:
+    check(True, "모르는 단위계 거부")
+try:
+    a650.shell_courses(D=30.0, course_heights=[], H_design=1.0, G=1.0, Sd=1.0, St=1.0)
+    check(False, "빈 단 목록은 거부되어야 함")
+except ValueError:
+    check(True, "빈 단 목록 거부")
+try:
+    a650.shell_courses(D=30.0, course_heights=[2.4, 2.4], H_design=4.8, G=1.0,
+                       Sd=[160.0], St=171.0)
+    check(False, "Sd 리스트 길이 불일치는 거부되어야 함")
+except ValueError:
+    check(True, "Sd 리스트 길이 불일치 거부")
+
 print("== KPM 단위계·입력 검증 ==")
 try:
     kec.cylinder_thickness(P=1.0, Di=2000.0, Do=2200.0, sigma_a=100.0)

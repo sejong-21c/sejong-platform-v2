@@ -6064,5 +6064,828 @@
   "checks": [
    true
   ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 10.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 5.083125,
+   "tt": 3.352631578947368,
+   "t_min_nominal": 5.0,
+   "t_required": 5.083125
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 10.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI",
+   "lowest_course": true
+  },
+  "results": {
+   "td": 5.083125,
+   "tt": 3.352631578947368,
+   "t_min_nominal": 6.0,
+   "t_required": 6.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 14.99,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 6.871104375,
+   "tt": 5.0255947368421054,
+   "t_min_nominal": 5.0,
+   "t_required": 6.871104375
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 14.99,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI",
+   "lowest_course": true
+  },
+  "results": {
+   "td": 6.871104375,
+   "tt": 5.0255947368421054,
+   "t_min_nominal": 6.0,
+   "t_required": 6.871104375
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 15.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 6.874687499999999,
+   "tt": 5.028947368421052,
+   "t_min_nominal": 6.0,
+   "t_required": 6.874687499999999
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 15.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI",
+   "lowest_course": true
+  },
+  "results": {
+   "td": 6.874687499999999,
+   "tt": 5.028947368421052,
+   "t_min_nominal": 6.0,
+   "t_required": 6.874687499999999
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 35.9,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 14.36341875,
+   "tt": 12.035947368421052,
+   "t_min_nominal": 6.0,
+   "t_required": 14.36341875
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 35.9,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI",
+   "lowest_course": true
+  },
+  "results": {
+   "td": 14.36341875,
+   "tt": 12.035947368421052,
+   "t_min_nominal": 6.0,
+   "t_required": 14.36341875
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 36.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 14.39925,
+   "tt": 12.069473684210527,
+   "t_min_nominal": 8.0,
+   "t_required": 14.39925
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 36.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI",
+   "lowest_course": true
+  },
+  "results": {
+   "td": 14.39925,
+   "tt": 12.069473684210527,
+   "t_min_nominal": 8.0,
+   "t_required": 14.39925
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 60.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 22.998749999999998,
+   "tt": 20.11578947368421,
+   "t_min_nominal": 8.0,
+   "t_required": 22.998749999999998
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 60.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI",
+   "lowest_course": true
+  },
+  "results": {
+   "td": 22.998749999999998,
+   "tt": 20.11578947368421,
+   "t_min_nominal": 8.0,
+   "t_required": 22.998749999999998
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 60.1,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 23.03458125,
+   "tt": 20.149315789473683,
+   "t_min_nominal": 10.0,
+   "t_required": 23.03458125
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 60.1,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI",
+   "lowest_course": true
+  },
+  "results": {
+   "td": 23.03458125,
+   "tt": 20.149315789473683,
+   "t_min_nominal": 10.0,
+   "t_required": 23.03458125
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 80.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 30.165,
+   "tt": 26.821052631578944,
+   "t_min_nominal": 10.0,
+   "t_required": 30.165
+  },
+  "checks": [
+   false,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 80.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI",
+   "lowest_course": true
+  },
+  "results": {
+   "td": 30.165,
+   "tt": 26.821052631578944,
+   "t_min_nominal": 10.0,
+   "t_required": 30.165
+  },
+  "checks": [
+   false,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 2.0,
+   "G": 0.7,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 2.5933125,
+   "tt": 1.46140350877193,
+   "t_min_nominal": 6.0,
+   "t_required": 6.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 6.0,
+   "G": 0.7,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 5.1658124999999995,
+   "tt": 4.8999999999999995,
+   "t_min_nominal": 6.0,
+   "t_required": 6.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 12.0,
+   "G": 0.7,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 9.024562499999998,
+   "tt": 10.057894736842105,
+   "t_min_nominal": 6.0,
+   "t_required": 10.057894736842105
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 2.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 3.061875,
+   "tt": 1.46140350877193,
+   "t_min_nominal": 6.0,
+   "t_required": 6.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 6.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 6.7368749999999995,
+   "tt": 4.8999999999999995,
+   "t_min_nominal": 6.0,
+   "t_required": 6.7368749999999995
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 12.249374999999999,
+   "tt": 10.057894736842105,
+   "t_min_nominal": 6.0,
+   "t_required": 12.249374999999999
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 2.0,
+   "G": 1.25,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 3.45234375,
+   "tt": 1.46140350877193,
+   "t_min_nominal": 6.0,
+   "t_required": 6.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 6.0,
+   "G": 1.25,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 8.04609375,
+   "tt": 4.8999999999999995,
+   "t_min_nominal": 6.0,
+   "t_required": 8.04609375
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 30.0,
+   "H": 12.0,
+   "G": 1.25,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5,
+   "units": "SI"
+  },
+  "results": {
+   "td": 14.93671875,
+   "tt": 10.057894736842105,
+   "t_min_nominal": 6.0,
+   "t_required": 14.93671875
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 40.0,
+   "H": 40.0,
+   "G": 1.0,
+   "Sd": 23200.0,
+   "St": 24900.0,
+   "CA": 0.0625,
+   "units": "USC"
+  },
+  "results": {
+   "td": 0.23732758620689656,
+   "tt": 0.16289156626506024,
+   "t_min_nominal": 0.1875,
+   "t_required": 0.23732758620689656
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 100.0,
+   "H": 40.0,
+   "G": 1.0,
+   "Sd": 23200.0,
+   "St": 24900.0,
+   "CA": 0.0625,
+   "units": "USC"
+  },
+  "results": {
+   "td": 0.4995689655172414,
+   "tt": 0.4072289156626506,
+   "t_min_nominal": 0.25,
+   "t_required": 0.4995689655172414
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 150.0,
+   "H": 40.0,
+   "G": 1.0,
+   "Sd": 23200.0,
+   "St": 24900.0,
+   "CA": 0.0625,
+   "units": "USC"
+  },
+  "results": {
+   "td": 0.718103448275862,
+   "tt": 0.6108433734939759,
+   "t_min_nominal": 0.3125,
+   "t_required": 0.718103448275862
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourseThickness",
+  "kwargs": {
+   "D": 250.0,
+   "H": 40.0,
+   "G": 1.0,
+   "Sd": 23200.0,
+   "St": 24900.0,
+   "CA": 0.0625,
+   "units": "USC"
+  },
+  "results": {
+   "td": 1.1551724137931034,
+   "tt": 1.0180722891566265,
+   "t_min_nominal": 0.375,
+   "t_required": 1.1551724137931034
+  },
+  "checks": [
+   false,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourses",
+  "kwargs": {
+   "D": 30.0,
+   "course_heights": [
+    2.4,
+    2.4,
+    2.4,
+    2.4,
+    2.4
+   ],
+   "H_design": 12.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5
+  },
+  "results": {
+   "t_bottom": 12.249374999999999,
+   "t_top": 6.0,
+   "courses": 5.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourses",
+  "kwargs": {
+   "D": 30.0,
+   "course_heights": [
+    2.4,
+    2.4,
+    2.4,
+    2.4,
+    2.4
+   ],
+   "H_design": 7.0,
+   "G": 1.0,
+   "Sd": 160.0,
+   "St": 171.0,
+   "CA": 1.5
+  },
+  "results": {
+   "t_bottom": 7.655625,
+   "t_top": 6.0,
+   "courses": 5.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourses",
+  "kwargs": {
+   "D": 45.0,
+   "course_heights": [
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    3.0
+   ],
+   "H_design": 18.0,
+   "G": 0.85,
+   "Sd": 180.0,
+   "St": 193.0,
+   "CA": 3.0
+  },
+  "results": {
+   "t_bottom": 21.430125,
+   "t_top": 8.0,
+   "courses": 6.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourses",
+  "kwargs": {
+   "D": 30.0,
+   "course_heights": [
+    2.4,
+    2.4,
+    2.4
+   ],
+   "H_design": 7.2,
+   "G": 1.0,
+   "Sd": [
+    160.0,
+    180.0,
+    200.0
+   ],
+   "St": [
+    171.0,
+    190.0,
+    210.0
+   ],
+   "CA": 1.5
+  },
+  "results": {
+   "t_bottom": 7.839375,
+   "t_top": 6.0,
+   "courses": 3.0
+  },
+  "checks": [
+   false,
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "a650ShellCourses",
+  "kwargs": {
+   "D": 100.0,
+   "course_heights": [
+    8.0,
+    8.0,
+    8.0,
+    8.0,
+    8.0
+   ],
+   "H_design": 40.0,
+   "G": 1.0,
+   "Sd": 23200.0,
+   "St": 24900.0,
+   "CA": 0.0625,
+   "units": "USC"
+  },
+  "results": {
+   "t_bottom": 0.4995689655172414,
+   "t_top": 0.25,
+   "courses": 5.0
+  },
+  "checks": [
+   true,
+   true,
+   true
+  ]
  }
 ]

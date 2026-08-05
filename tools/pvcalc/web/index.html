@@ -201,6 +201,7 @@
   <button data-tab="lod">풍·지진 하중 (UG-22)</button>
   <button data-tab="kshell">동체 (KPM-3221·3222)</button>
   <button data-tab="khead">경판 (KPM-3321·3323)</button>
+  <button data-tab="a650">셸 단별 두께 (5.6.3)</button>
   <button data-tab="stub">미구현·필요자료</button>
   <button data-tab="mat">재료 데이터 관리</button>
   <button data-tab="info">정보·범위</button>
@@ -790,6 +791,56 @@
   <div class="result" id="res-khead"></div>
 </section>
 
+<!-- ============ API 650 — 상압 용접 저장탱크 ============
+     두께가 정수두로 결정되므로 단(course)마다 다르다. 허용응력 Sd·St 는
+     원문 Table 5.2 값(저작물)이라 사용자 입력. -->
+<section class="panel" id="panel-a650">
+  <form id="f-a650" onsubmit="return false">
+    <div class="opts">
+      <label><input type="radio" name="a6-mode" value="courses" checked> 단별 전체 계산</label>
+      <label><input type="radio" name="a6-mode" value="one"> 한 단만 계산</label>
+      &nbsp;·&nbsp;
+      <label>단위계&nbsp;
+        <select id="a6-units">
+          <option value="SI">SI — m, mm, MPa</option>
+          <option value="USC">USC — ft, in, psi</option>
+        </select></label>
+    </div>
+    <div class="grid">
+      <div class="field"><label>D 호칭 탱크 지름 (<span class="a6-len">m</span>) — 최하단 단 판 중심선</label>
+        <input id="a6-D" type="number" step="any" value="30"></div>
+      <div class="field" data-show="courses"><label>H_design 설계 액면 — 바닥 기준 (<span class="a6-len">m</span>)</label>
+        <input id="a6-Hd" type="number" step="any" value="12"></div>
+      <div class="field" data-show="one"><label>H 설계 액면 — <b>이 단 하단</b> 기준 (<span class="a6-len">m</span>)</label>
+        <input id="a6-H" type="number" step="any" value="12"></div>
+      <div class="field" data-show="courses"><label>단 높이 목록 — 아래부터, 쉼표 구분 (<span class="a6-len">m</span>)</label>
+        <input id="a6-ch" type="text" value="2.4, 2.4, 2.4, 2.4, 2.4"></div>
+      <div class="field" data-show="one"><label>최하단 단인가? (5.6.1.1 NOTE 4)</label>
+        <select id="a6-low"><option value="1">예</option><option value="0">아니오</option></select></div>
+      <div class="field"><label>G 설계 비중 (발주자 지정)</label>
+        <input id="a6-G" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>Sd 설계조건 허용응력 (<span class="a6-str">MPa</span>) — Table 5.2</label>
+        <input id="a6-Sd" type="number" step="any" value="160"></div>
+      <div class="field"><label>St 수압시험조건 허용응력 (<span class="a6-str">MPa</span>) — Table 5.2</label>
+        <input id="a6-St" type="number" step="any" value="171"></div>
+      <div class="field"><label>CA 부식여유 (<span class="a6-thk">mm</span>)</label>
+        <input id="a6-CA" type="number" step="any" value="1.5"></div>
+    </div>
+    <p class="note"><b>압력용기와 근본적으로 다릅니다.</b> 두께가 설계압력이 아니라
+      저장액 정수두로 결정되므로 <b>단마다 두께가 다릅니다</b>(위로 갈수록 얇아짐).
+      설계조건(td)과 수압시험조건(tt)을 각각 계산해 큰 값을 쓰고, 호칭지름별
+      최소 호칭두께 이상이어야 합니다. H 는 <b>검토 대상 단의 하단</b>에서 설계
+      액면까지의 높이입니다. Sd·St 는 원문 Table 5.2 에서 재질·판두께 구간에 맞는
+      값을 넣으십시오 — 「재료 데이터 관리」 탭에 넣어두면 조회됩니다.</p>
+    <div class="actions">
+      <button class="calc" onclick="calcA650()">계산</button>
+      <button class="ghost" onclick="copyReport('a650')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-a650"></div>
+</section>
+
 <!-- 미구현 조합 안내 — 기준×아이템 별 내용은 스크립트의 STUBS 가 채운다.
      ⚠ 수식을 추정해 채우지 않는다. 기준마다 허용응력·안전율·이음효율·적용범위가
      달라, 원문 없이 넣으면 "값은 나오는데 틀린" 계산서가 된다. -->
@@ -974,27 +1025,34 @@ const CODES = {
     label: "API 650",
     sub: "상압 저장탱크 (용접 강제 탱크) — 준비중",
     items: {
-      tank: { tabs: [], stub: {
-        tab: "필요자료",
-        title: "API 650 — 상압 용접 저장탱크",
+      tank: { tabs: ["a650"], stub: {
+        tab: "미구현 항목",
+        title: "API 650 — 구현 범위와 남은 항목",
         note: "ASME VIII 과 <b>별개 기준</b>입니다. ASME VIII 은 압력용기용이고, "
-            + "API 650 은 대기압(내압 2.5 psi 이하) 저장탱크용입니다. 두께가 "
-            + "설계압력이 아니라 <b>저장액 정수두</b>로 결정되는 것이 근본적 차이입니다.",
+            + "API 650 은 대기압 저장탱크용이라 두께가 설계압력이 아니라 "
+            + "<b>저장액 정수두</b>로 결정됩니다. 원문(13th Ed. 2021)에서 "
+            + "<b>셸 단별 두께 — 5.6.3 1-Foot Method 와 5.6.1.1 최소 호칭두께를 "
+            + "구현했습니다</b> — 왼쪽 탭. 허용응력 Sd·St 는 Table 5.2 가 저작물이라 "
+            + "직접 입력합니다.",
         need: [
-          "<b>API 650 원문</b> 해당 판 — 셸 두께(5.6.3 1-Foot Method, 5.6.4 "
-            + "Variable-Design-Point Method), 직경별 최소두께표",
-          "<b>적용 부속서 결정</b> — App.E(지진), App.F(내압), App.M(고온), "
-            + "App.S(스테인리스) 등 프로젝트별로 달라 무엇을 쓸지 정해야 합니다",
-          "허용응력 — Table 5-2a/5-2b (설계·수압시험 응력). <b>저작권 자료이므로 "
-            + "재료 데이터 관리 탭에 직접 입력</b>하시면 됩니다",
+          "<b>5.6.4 Variable-Design-Point Method</b> — 반복계산이 필요하고 큰 지름 "
+            + "탱크(1-Foot Method 는 D ≤ 61 m 만)에 쓰입니다. 다음 작업 후보 1순위",
+          "<b>바닥판·애뉼러 플레이트</b> (5.4, 5.5) — Table 5.1a/5.1b 는 저작권 표라 "
+            + "값을 넣어 주시면 판정 로직만 구현합니다",
+          "<b>지붕</b> (5.10) — 고정지붕 구조 검토 / 부상지붕은 부력·배수",
+          "<b>보강링</b>(5.9), <b>풍·지진</b>(5.11, Annex E), 앵커·전도 검토",
+          "<b>Annex A 대체 설계</b> — 고정 허용응력 145 MPa, 이음효율 0.85/0.70, "
+            + "셸 두께 13 mm 이하 탱크 한정",
+          "적용 부속서 결정 — App.E(지진)·F(내압)·M(고온)·S(스테인리스) 등 "
+            + "프로젝트별로 다릅니다",
         ],
         diff: [
-          "<b>셸</b>: 단(course)별로 정수두가 달라 <b>단마다 두께가 다릅니다</b> — "
-            + "압력용기처럼 한 값이 아닙니다",
+          "<b>설계조건(td)과 수압시험조건(tt)을 각각 계산</b>해 큰 값을 씁니다. "
+            + "비중이 1.0 보다 낮으면 수압시험이 지배하는 경우가 많습니다",
           "<b>바닥판·애뉼러 플레이트</b>: 압력용기에 없는 항목",
-          "<b>지붕</b>: 고정지붕(구조 검토)·부상지붕(부력·배수)으로 갈립니다",
           "<b>앵커·풍하중 전도</b>: 빈 탱크 부상 검토가 지배하는 경우가 많습니다",
-          "국내 위험물 저장탱크는 <b>위험물안전관리법</b>이 별도 적용됩니다 (아래 기준 참조)",
+          "국내 위험물 저장탱크는 <b>위험물안전관리법</b>이 별도 적용됩니다 — "
+            + "실무에서 API 650 으로 설계하고 그 법 요건을 추가로 만족시킵니다",
         ],
       } },
     },
@@ -1881,6 +1939,42 @@ function calcKhead() {
   } catch (e) { fail("khead", e); }
 }
 
+/* ---------- API 650 ---------- */
+function a650Units() {
+  const usc = $("a6-units").value === "USC";
+  document.querySelectorAll(".a6-len").forEach(el => el.textContent = usc ? "ft" : "m");
+  document.querySelectorAll(".a6-thk").forEach(el => el.textContent = usc ? "in" : "mm");
+  document.querySelectorAll(".a6-str").forEach(el => el.textContent = usc ? "psi" : "MPa");
+}
+
+function calcA650() {
+  try {
+    const units = $("a6-units").value;
+    const base = {
+      D: num("a6-D"), G: num("a6-G"), Sd: num("a6-Sd"), St: num("a6-St"),
+      CA: num("a6-CA"), units,
+    };
+    if (radio("a6-mode") === "one") {
+      render("a650", [pvcalc.a650ShellCourseThickness({
+        ...base, H: num("a6-H"), lowest_course: $("a6-low").value === "1",
+      })]);
+      return;
+    }
+    const heights = $("a6-ch").value.split(",").map(s => s.trim()).filter(s => s !== "")
+      .map(s => {
+        const v = Number(s);
+        if (!Number.isFinite(v) || v <= 0) throw new Error("단 높이 목록에 숫자가 아닌 값: " + s);
+        return v;
+      });
+    if (!heights.length) throw new Error("단 높이 목록을 입력하십시오 (예: 2.4, 2.4, 2.4)");
+    const { courses, summary } = pvcalc.a650ShellCourses({
+      ...base, course_heights: heights, H_design: num("a6-Hd"),
+    });
+    /* 요약을 먼저 보여주고 단별 상세를 아래에 붙인다 */
+    render("a650", [summary, ...courses]);
+  } catch (e) { fail("a650", e); }
+}
+
 function calcUg45() {
   try {
     const npsSel = $("u45-nps").value;
@@ -1928,6 +2022,8 @@ $("kh-type").onchange = () => {
 $("kh-type").onchange();
 $("ks-units").onchange = () => kecUnitLabels("ks");
 $("kh-units").onchange = () => kecUnitLabels("kh");
+$("a6-units").onchange = a650Units;
+wire("f-a650", "a6-mode");
 
 /* ---------- input persistence ---------- */
 function saveInputs() {

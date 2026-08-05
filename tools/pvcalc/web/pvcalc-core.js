@@ -1455,8 +1455,137 @@
     return res;
   }
 
+  /* ═══════════ API 650 — 상압 용접 저장탱크 ═══════════
+   * pvcalc/api650.py 의 1:1 포팅. 근거 조항은 파이썬 모듈 docstring 참조.
+   * 두께가 설계압력이 아니라 정수두로 결정되므로 단(course)마다 다르다.
+   * 허용응력 Sd·St 는 원문 Table 5.2 값(저작물)이라 사용자 입력. */
+
+  function a650Cfg(units) {
+    const u = String(units).toUpperCase();
+    if (u === "SI")
+      return { k: 4.9, href: 0.3, lenU: "m", tU: "mm", sU: "MPa", maxD: 61.0 };
+    if (u === "USC")
+      return { k: 2.6, href: 1.0, lenU: "ft", tU: "in", sU: "lbf/in²", maxD: 200.0 };
+    throw new Error("units 는 'SI' 또는 'USC'");
+  }
+
+  /* 5.6.1.1 호칭지름별 최소 호칭두께. 구간은 "<15 / 15~<36 / 36~60 / >60". */
+  function a650MinNominalThickness(D, units = "SI", lowestCourse = false) {
+    const si = String(units).toUpperCase() === "SI";
+    let t;
+    if (si) t = D < 15 ? 5.0 : D < 36 ? 6.0 : D <= 60 ? 8.0 : 10.0;
+    else t = D < 50 ? 3 / 16 : D < 120 ? 1 / 4 : D <= 200 ? 5 / 16 : 3 / 8;
+    if (lowestCourse) {                       /* NOTE 4 */
+      const [lo, hi, tn4] = si ? [3.2, 15.0, 6.0] : [10.5, 50.0, 1 / 4];
+      if (D > lo && D < hi) t = Math.max(t, tn4);
+    }
+    return t;
+  }
+
+  function a650ShellCourseThickness({ D, H, G, Sd, St, CA = 0.0, units = "SI",
+    lowest_course = false, course_label = "" }) {
+    const c = a650Cfg(units);
+    const r = mkResult(`셸 단 두께 — 1-Foot Method${course_label ? " · " + course_label : ""}`,
+      "API Standard 650, 5.6.3 (1-Foot Method) / 5.6.1.1");
+    r.addInput("D (호칭 탱크 지름)", D, c.lenU);
+    r.addInput("H (설계 액면 — 단 하단부터)", H, c.lenU);
+    r.addInput("G (설계 비중)", G);
+    r.addInput("Sd (설계조건 허용응력)", Sd, c.sU);
+    r.addInput("St (수압시험조건 허용응력)", St, c.sU);
+    r.addInput("CA (부식여유)", CA, c.tU);
+
+    const head = H - c.href;
+    r.addStep("H − 기준높이",
+      `H − ${c.href} (${c.lenU}) — 단 하단에서 0.3 m(1 ft) 위 지점`, head, c.lenU);
+
+    const td = c.k * D * head * G / Sd + CA;
+    const tt = c.k * D * head / St;
+    r.addStep("td (설계조건)", `${c.k}·D·(H−${c.href})·G/Sd + CA`, td, c.tU);
+    r.addStep("tt (수압시험조건)", `${c.k}·D·(H−${c.href})/St`, tt, c.tU);
+
+    const tCalc = Math.max(td, tt);
+    r.addStep("계산 필요두께", "max(td, tt)", tCalc, c.tU);
+
+    const tMin = a650MinNominalThickness(D, units, lowest_course);
+    r.addStep("최소 호칭두께 (5.6.1.1)",
+      "호칭지름 구간별" + (lowest_course ? " + NOTE 4 (최하단 단)" : ""), tMin, c.tU);
+
+    const tReq = Math.max(tCalc, tMin);
+    r.addCheck(`1-Foot Method 적용범위: D ≤ ${c.maxD} ${c.lenU} (5.6.3.1)`, D <= c.maxD);
+    r.addCheck("H > 기준높이 (단 높이가 0.3 m/1 ft 를 넘어야 함)", head > 0);
+    r.addCheck("계산두께가 최소 호칭두께 이상 (5.6.1.1)", tCalc <= tReq);
+
+    r.results.td = td;
+    r.results.tt = tt;
+    r.results.t_min_nominal = tMin;
+    r.results.t_required = tReq;
+    r.results.governing = tCalc >= tMin
+      ? (tt > td ? "hydrostatic_test" : "product_design") : "minimum_nominal";
+    return r;
+  }
+
+  function a650ShellCourses({ D, course_heights, H_design, G, Sd, St,
+    CA = 0.0, units = "SI" }) {
+    const c = a650Cfg(units);
+    const n = course_heights.length;
+    if (!n) throw new Error("course_heights 가 비어 있습니다");
+    const SdL = Array.isArray(Sd) ? Sd.slice() : new Array(n).fill(Sd);
+    const StL = Array.isArray(St) ? St.slice() : new Array(n).fill(St);
+    if (SdL.length !== n || StL.length !== n)
+      throw new Error("Sd·St 리스트 길이가 단 수와 다릅니다");
+
+    const results = [];
+    let z = 0.0;
+    for (let i = 0; i < n; i++) {
+      const Hi = H_design - z;
+      const label = `${i + 1}단 (하단 z=${z} ${c.lenU})`;
+      let r;
+      if (Hi - c.href <= 0) {
+        r = mkResult(`셸 단 두께 — ${label}`, "API Standard 650, 5.6.1.1");
+        r.addInput("D (호칭 탱크 지름)", D, c.lenU);
+        r.addInput("H (설계 액면 — 단 하단부터)", Hi, c.lenU);
+        const tMin = a650MinNominalThickness(D, units, i === 0);
+        r.addStep("정수두 없음", "이 단은 설계 액면 위 — 최소 호칭두께만 적용", 0.0);
+        r.addStep("최소 호칭두께 (5.6.1.1)", "호칭지름 구간별", tMin, c.tU);
+        r.results.td = 0.0;
+        r.results.tt = 0.0;
+        r.results.t_min_nominal = tMin;
+        r.results.t_required = tMin;
+        r.results.governing = "minimum_nominal";
+      } else {
+        r = a650ShellCourseThickness({
+          D, H: Hi, G, Sd: SdL[i], St: StL[i], CA, units,
+          lowest_course: i === 0, course_label: label,
+        });
+      }
+      results.push(r);
+      z += course_heights[i];
+    }
+
+    const totalH = course_heights.reduce((s, h) => s + h, 0);
+    const s = mkResult("셸 단별 필요두께 요약", "API Standard 650, 5.6.3 / 5.6.1.1");
+    s.addInput("D (호칭 탱크 지름)", D, c.lenU);
+    s.addInput("셸 전체 높이", totalH, c.lenU);
+    s.addInput("H_design (바닥 기준 설계 액면)", H_design, c.lenU);
+    s.addInput("단 수", n);
+    s.addInput("G (설계 비중)", G);
+    s.addInput("CA (부식여유)", CA, c.tU);
+    results.forEach((r, i) =>
+      s.addStep(`${i + 1}단 필요두께`, r.results.governing, r.results.t_required, c.tU));
+    s.addCheck("설계 액면이 셸 전체 높이를 넘지 않음", H_design <= totalH);
+    s.addCheck(`1-Foot Method 적용범위: D ≤ ${c.maxD} ${c.lenU}`, D <= c.maxD);
+    s.addCheck("아래 단이 위 단보다 두껍거나 같음 (5.6.1.3 취지)",
+      results.every((r, i) => i === n - 1
+        || r.results.t_required >= results[i + 1].results.t_required));
+    s.results.t_bottom = results[0].results.t_required;
+    s.results.t_top = results[n - 1].results.t_required;
+    s.results.courses = n;
+    return { courses: results, summary: s };
+  }
+
   return {
     VERSION: "0.1.0",
+    a650MinNominalThickness, a650ShellCourseThickness, a650ShellCourses,
     kecCylinderThickness, kecSphereThickness,
     kecTorisphericalHead, kecEllipsoidalHead,
     KEC_MIN_THICKNESS,

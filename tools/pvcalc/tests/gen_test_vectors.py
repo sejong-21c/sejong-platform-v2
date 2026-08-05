@@ -296,6 +296,42 @@ add("kecEllipsoidalHead", kec.ellipsoidal_head_thickness,
     dict(P=1.0, D=2000.0, h=500.0, sigma_a=100.0, eta=1.0, alpha=3.0,
          flanged_opening=True, Di_shell=2000.0))
 
+# API 650 1-Foot Method — 두 단위계, 지배조건 3종(설계·수압시험·최소두께),
+# 최소두께 구간 경계, 적용범위 밖(D>61m), 단별 계산.
+from pvcalc import api650 as _a650  # noqa: E402
+
+for D in [10.0, 14.99, 15.0, 35.9, 36.0, 60.0, 60.1, 80.0]:
+    add("a650ShellCourseThickness", _a650.shell_course_thickness,
+        dict(D=D, H=12.0, G=1.0, Sd=160.0, St=171.0, CA=1.5, units="SI"))
+    add("a650ShellCourseThickness", _a650.shell_course_thickness,
+        dict(D=D, H=12.0, G=1.0, Sd=160.0, St=171.0, CA=1.5, units="SI",
+             lowest_course=True))
+for G in [0.7, 1.0, 1.25]:
+    for H in [2.0, 6.0, 12.0]:
+        add("a650ShellCourseThickness", _a650.shell_course_thickness,
+            dict(D=30.0, H=H, G=G, Sd=160.0, St=171.0, CA=1.5, units="SI"))
+for D in [40.0, 100.0, 150.0, 250.0]:
+    add("a650ShellCourseThickness", _a650.shell_course_thickness,
+        dict(D=D, H=40.0, G=1.0, Sd=23200.0, St=24900.0, CA=0.0625, units="USC"))
+
+
+def add_courses(kwargs):
+    """shell_courses 는 (리스트, 요약)을 돌려주므로 요약만 벡터로 기록한다."""
+    _, summary = _a650.shell_courses(**kwargs)
+    record("a650ShellCourses", kwargs, summary)
+
+
+add_courses(dict(D=30.0, course_heights=[2.4] * 5, H_design=12.0, G=1.0,
+                 Sd=160.0, St=171.0, CA=1.5))
+add_courses(dict(D=30.0, course_heights=[2.4] * 5, H_design=7.0, G=1.0,
+                 Sd=160.0, St=171.0, CA=1.5))
+add_courses(dict(D=45.0, course_heights=[3.0] * 6, H_design=18.0, G=0.85,
+                 Sd=180.0, St=193.0, CA=3.0))
+add_courses(dict(D=30.0, course_heights=[2.4] * 3, H_design=7.2, G=1.0,
+                 Sd=[160.0, 180.0, 200.0], St=[171.0, 190.0, 210.0], CA=1.5))
+add_courses(dict(D=100.0, course_heights=[8.0] * 5, H_design=40.0, G=1.0,
+                 Sd=23200.0, St=24900.0, CA=0.0625, units="USC"))
+
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_vectors.json")
 with open(out, "w", encoding="utf-8") as f:
     json.dump(vectors, f, indent=1)

@@ -366,17 +366,18 @@ console.log("== 기준 × 아이템 ==");
   w.setItem("cond");
   ok("Condenser 는 표면복수기 형식 차이 명시", stubText().includes("표면복수기"));
 
-  /* API 650 — 저장탱크, 계산 탭 없음 */
+  /* API 650 — 저장탱크, 셸 단별 두께 탭 구현됨 */
   w.setCode("api650");
   ok("API 650 아이템은 저장탱크", items().join(",") === "tank");
-  ok("API 650 계산탭 없음 (stub + 공통만)",
-     visible().join(",") === "stub,mat,info", visible().join(","));
+  ok("API 650 셸 탭 + stub + 공통",
+     visible().join(",") === "a650,stub,mat,info", visible().join(","));
   ok("ASME 압력용기 탭이 새지 않음", !visible().includes("shell"));
-  ok("stub 이 자동 표시", $("panel-stub").classList.contains("on"));
+  ok("셸 탭이 자동 표시", d.querySelector("#panel-a650").classList.contains("on"));
   ok("API 650 은 ASME 와 별개 기준임을 명시", stubText().includes("별개 기준"));
   ok("정수두 기반이라는 핵심 차이 명시", stubText().includes("정수두"));
-  ok("단별 두께 차이 명시", stubText().includes("단마다 두께가 다릅니다"));
-  ok("1-Foot Method 필요자료 명시", stubText().includes("1-Foot Method"));
+  ok("Variable-Design-Point 미구현 명시",
+     stubText().includes("Variable-Design-Point"));
+  ok("1-Foot Method 구현 명시", stubText().includes("1-Foot Method"));
 
   /* 국내 기준들 */
   w.setCode("kec");
@@ -533,6 +534,72 @@ console.log("== KPM 탭 (한국에너지공단) ==");
      && $("panel-stub").textContent.includes("차트"));
   ok("stub 에 부식여유 취급 차이 경고",
      $("panel-stub").textContent.includes("부식여유 취급이 ASME 와 다릅니다"));
+}
+
+/* ══ 6d. API 650 탭 ══════════════════════════════════════════════ */
+console.log("== API 650 탭 ==");
+{
+  const w = await load(), d = w.document;
+  const $ = id => d.getElementById(id);
+  const cards = () => d.querySelectorAll("#res-a650 .card");
+
+  w.setCode("api650");
+  w.showTab("a650");
+
+  /* 기본값: D=30, H_design=12, 단 2.4×5, G=1, Sd=160, St=171, CA=1.5
+     1단 td = 4.9*30*11.7/160 + 1.5 = 12.249375 */
+  w.calcA650();
+  near("요약 t_bottom (1단)", grab(d, "a650", "t_bottom"), 4.9 * 30 * 11.7 / 160 + 1.5);
+  near("요약 t_top (최소두께 지배)", grab(d, "a650", "t_top"), 6.0);
+  ok("요약 + 단별 상세 6장", cards().length === 6, `${cards().length}장`);
+  ok("계산서에 API 650 조항", sheet(d, "a650").includes("API Standard 650"));
+  ok("계산서에 기준·아이템",
+     sheet(d, "a650").startsWith("인허가 기준 / 아이템: API 650 · 저장탱크"),
+     sheet(d, "a650").split("\n")[0]);
+  ok("단별로 두께가 다름 (정수두 기반)",
+     sheet(d, "a650").includes("1단 필요두께") && sheet(d, "a650").includes("5단 필요두께"));
+
+  /* 한 단만 계산 모드 */
+  d.querySelector('input[name="a6-mode"][value="one"]').click();
+  w.calcA650();
+  near("한 단 모드 td", grab(d, "a650", "td"), 4.9 * 30 * 11.7 / 160 + 1.5);
+  near("한 단 모드 tt", grab(d, "a650", "tt"), 4.9 * 30 * 11.7 / 171);
+  ok("최하단 단이면 NOTE 4 표기", sheet(d, "a650").includes("NOTE 4"));
+
+  /* 비중 낮추면 수압시험이 지배 */
+  $("a6-G").value = "0.7";
+  w.calcA650();
+  near("G=0.7 이면 tt 지배", grab(d, "a650", "t_required"), 4.9 * 30 * 11.7 / 171);
+  $("a6-G").value = "1.0";
+
+  /* 적용범위 밖 (D > 61 m) → FAIL */
+  $("a6-D").value = "70";
+  w.calcA650();
+  ok("D>61m 는 적용범위 밖 FAIL",
+     d.querySelector("#res-a650 .badge").textContent === "FAIL");
+  $("a6-D").value = "30";
+
+  /* USC 전환 — 라벨 + 계수 2.6 / H−1 */
+  $("a6-units").value = "USC"; $("a6-units").onchange();
+  ok("USC 라벨 전환", d.querySelector(".a6-len").textContent === "ft"
+     && d.querySelector(".a6-thk").textContent === "in"
+     && d.querySelector(".a6-str").textContent === "psi");
+  $("a6-D").value = "100"; $("a6-H").value = "40";
+  $("a6-Sd").value = "23200"; $("a6-St").value = "24900"; $("a6-CA").value = "0.0625";
+  w.calcA650();
+  near("USC td (2.6·D·(H−1))", grab(d, "a650", "td"), 2.6 * 100 * 39 / 23200 + 0.0625);
+  $("a6-units").value = "SI"; $("a6-units").onchange();
+
+  /* 단 높이 목록 파싱 오류는 사용자에게 보여야 함 */
+  d.querySelector('input[name="a6-mode"][value="courses"]').click();
+  $("a6-ch").value = "2.4, 어쩌구, 2.4";
+  w.calcA650();
+  ok("단 높이 목록 오류 표시",
+     !!d.querySelector("#res-a650 .err")
+     && d.querySelector("#res-a650 .err").textContent.includes("숫자가 아닌"));
+  $("a6-ch").value = "";
+  w.calcA650();
+  ok("빈 단 목록 오류 표시", !!d.querySelector("#res-a650 .err"));
 }
 
 /* ══ 7. 부서 공유 저장 진입점 (Firestore 브리지 seam) ════════════
