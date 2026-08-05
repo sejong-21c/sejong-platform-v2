@@ -56,16 +56,20 @@ ok("도구 페이지가 엔진을 상대경로로 로드", tool.includes('src="p
    agitator 처럼 도구 페이지가 자기 제목을 가져야 한다. */
 ok("도구 페이지가 자체 제목을 가짐", tool.includes("<h1>압력용기 계산 도구"));
 ok("재료 관리 탭 존재", tool.includes('data-tab="mat"'));
-/* 인허가 기준 분리 — 국내 기준은 구조만 있고 수식은 비어 있어야 한다
+/* 인허가 기준 x 아이템 — 국내 기준은 구조만 있고 수식은 비어 있어야 한다
    (원문 없이 추정해 넣으면 값은 나오는데 틀린 계산서가 된다) */
-for (const c of ["asme", "kec", "kosha", "kgs"])
-  ok(`기준 탭 존재: ${c}`, tool.includes(`data-code="${c}"`));
-ok("국내 기준은 필요 원문을 명시", ["KS B 6750", "안전인증", "어느 KGS 코드"]
+/* 템플릿 리터럴 안에서는 \b 가 백스페이스 문자가 되므로 \\b 로 써야
+   RegExp 가 단어경계로 받는다 (이 실수로 13건이 조용히 실패했다). */
+for (const c of ["asme", "api650", "api620", "kec", "kosha", "kgs", "kfi"])
+  ok(`기준 정의: ${c}`, new RegExp(`\\b${c}:\\s*\\{`).test(tool));
+for (const i of ["pv", "hx", "cond", "tank", "gastank", "spec"])
+  ok(`아이템 정의: ${i}`, new RegExp(`\\b${i}:\\s*["{]`).test(tool));
+ok("아이템 선택 바 존재", tool.includes('id="itembar"'));
+ok("국내 기준은 필요 원문을 명시", ["KS B 6750", "1-Foot Method", "UHX", "별표 6"]
    .every(s => tool.includes(s)));
+ok("API 650 은 ASME 와 별개 기준임을 명시", tool.includes("별개 기준"));
 ok("ASME 결과 국내 제출 금지 경고", tool.includes("국내 인허가")
    && tool.includes("그대로 제출할 수 없습니다"));
-ok("Firestore 브리지 조건부", tool.includes('get("fb") === "1"')
-   && tool.includes("t_pvcalcMaterials"));
 
 /* 3. 저작권 자료가 배포물에 없어야 함 */
 const matjs = await fetch(base + "/tools/pvcalc/web/materials.js");

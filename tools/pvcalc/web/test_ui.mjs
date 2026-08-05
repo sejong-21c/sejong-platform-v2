@@ -195,7 +195,8 @@ try {
   $("mat-T").value = "150"; pick("sh-S", 0);
   w.calcShell();
   const rep = sheet(d, "shell");
-  ok("계산서 머리에 인허가 기준", rep.startsWith("인허가 기준: ASME VIII-1"));
+  ok("계산서 머리에 인허가 기준·아이템",
+     rep.startsWith("인허가 기준 / 아이템: ASME VIII-1 · 압력용기"), rep.split("\n")[0]);
   ok("계산서에 판 표기", rep.includes("재료 데이터 출처: TEST-2026 Table X"));
   ok("사용 재료·온도 명시", rep.includes("MAT-A S@150"));
   ok("타 탭 선택은 미포함", !rep.includes("MAT-B") && !rep.includes("Ey@"));
@@ -321,54 +322,96 @@ try {
   unlinkSync(MATJS);
 }
 
-/* ══ 6b. 인허가 기준 전환 ══════════════════════════════════════ */
-console.log("== 인허가 기준 전환 ==");
+/* ══ 6b. 인허가 기준 × 아이템 종류 ═════════════════════════════ */
+console.log("== 기준 × 아이템 ==");
 {
   const w = await load(), d = w.document;
   const $ = id => d.getElementById(id);
   const visible = () => [...d.querySelectorAll("#tabs button")]
     .filter(b => b.style.display !== "none").map(b => b.dataset.tab);
+  const items = () => [...d.querySelectorAll("#item-btns button")].map(b => b.dataset.item);
+  const stubText = () => $("panel-stub").textContent;
 
-  ok("기본 기준은 ASME", d.querySelector("#codebar button.on").dataset.code === "asme");
   ok("제목이 '압력용기 계산 도구'", d.querySelector("h1").textContent.includes("압력용기 계산 도구"));
+  ok("기본 조합은 ASME × 압력용기",
+     d.querySelector("#codebar button.on").dataset.code === "asme"
+     && d.querySelector("#itembar button.on").dataset.item === "pv");
   ok("ASME 부제 표시", $("code-sub").textContent.includes("Section VIII Div.1"));
 
-  const asmeTabs = visible();
-  ok("ASME 탭 8개 + 공통 2개", asmeTabs.length === 10, asmeTabs.join(","));
-  ok("국내기준 탭은 숨김", !asmeTabs.includes("kec") && !asmeTabs.includes("kgs"));
+  /* ASME × 압력용기 — 계산 탭 8개, stub 없음 */
+  ok("ASME·압력용기 탭 8 + 공통 2", visible().join(",") ===
+     "shell,head,ext,noz,ug45,flg,sad,lod,mat,info", visible().join(","));
+  ok("압력용기는 stub 탭 없음", !visible().includes("stub"));
+  ok("ASME 아이템 3종(압력용기·열교환기·Condenser)",
+     items().join(",") === "pv,hx,cond", items().join(","));
 
-  /* 국내 기준으로 전환 */
+  /* ASME × 열교환기 — 같은 탭 + 튜브시트 stub */
+  w.setItem("hx");
+  ok("열교환기도 동체·경판·노즐 탭 유지", visible().includes("shell") && visible().includes("noz"));
+  ok("열교환기는 stub 탭 추가", visible().includes("stub"));
+  ok("stub 에 UHX 명시", stubText().includes("UHX"));
+  ok("stub 에 TEMA 별도 저작권 언급", stubText().includes("TEMA"));
+  ok("stub 탭 이름이 조합에 맞게 바뀜",
+     [...d.querySelectorAll("#tabs button")].find(b => b.dataset.tab === "stub")
+       .textContent.includes("튜브시트"));
+  w.showTab("shell");
+  w.calcShell();
+  ok("열교환기에서도 셸 계산 동작", grab(d, "shell", "t_req") > 0);
+  ok("계산서에 기준·아이템 표기",
+     sheet(d, "shell").startsWith("인허가 기준 / 아이템: ASME VIII-1 · 열교환기"),
+     sheet(d, "shell").split("\n")[0]);
+
+  /* Condenser — 표면복수기 형식 차이를 명시해야 함 */
+  w.setItem("cond");
+  ok("Condenser 는 표면복수기 형식 차이 명시", stubText().includes("표면복수기"));
+
+  /* API 650 — 저장탱크, 계산 탭 없음 */
+  w.setCode("api650");
+  ok("API 650 아이템은 저장탱크", items().join(",") === "tank");
+  ok("API 650 계산탭 없음 (stub + 공통만)",
+     visible().join(",") === "stub,mat,info", visible().join(","));
+  ok("ASME 압력용기 탭이 새지 않음", !visible().includes("shell"));
+  ok("stub 이 자동 표시", $("panel-stub").classList.contains("on"));
+  ok("API 650 은 ASME 와 별개 기준임을 명시", stubText().includes("별개 기준"));
+  ok("정수두 기반이라는 핵심 차이 명시", stubText().includes("정수두"));
+  ok("단별 두께 차이 명시", stubText().includes("단마다 두께가 다릅니다"));
+  ok("1-Foot Method 필요자료 명시", stubText().includes("1-Foot Method"));
+
+  /* 국내 기준들 */
   w.setCode("kec");
-  const kecTabs = visible();
-  ok("에너지공단 탭만 + 공통", kecTabs.join(",") === "kec,mat,info", kecTabs.join(","));
-  ok("ASME 탭 숨김", !kecTabs.includes("shell"));
-  ok("부제가 기준에 맞게 바뀜", $("code-sub").textContent.includes("열사용기자재"));
-  ok("숨겨진 탭에서 자동 이동", d.querySelector("#panel-kec").classList.contains("on"));
-  ok("준비중 안내에 필요 원문 명시", d.querySelector("#panel-kec").textContent.includes("KS B 6750"));
-
-  w.setCode("kgs");
-  ok("KGS 탭 전환", visible().includes("kgs") && !visible().includes("kec"));
-  ok("KGS 안내에 코드 확정 요청", d.querySelector("#panel-kgs").textContent.includes("어느 KGS 코드"));
-
+  ok("에너지공단 KS B 6750 필요", stubText().includes("KS B 6750"));
   w.setCode("kosha");
-  ok("KOSHA 안내에 사용중검사 성격 명시",
-     d.querySelector("#panel-kosha").textContent.includes("사용 중 검사"));
+  ok("KOSHA 소관 정정(고용노동부)", stubText().includes("고용노동부"));
+  ok("KOSHA 사용중검사 성격 명시", stubText().includes("사용 중 검사"));
+  w.setCode("kgs");
+  ok("KGS 아이템 2종", items().join(",") === "gastank,spec");
+  ok("KGS 코드번호 확정 요청", stubText().includes("어느 KGS 코드"));
+  w.setCode("kfi");
+  ok("위험물안전관리법 = API 650 국내 대응 명시", stubText().includes("API 650 의 국내 대응"));
+  w.setCode("api620");
+  ok("API 620 은 상압·압력용기 사이 구간", stubText().includes("사이 구간"));
 
-  /* 공통 탭은 어느 기준에서도 열린다 */
+  /* 공통 탭은 어느 조합에서도 열린다 */
   w.showTab("mat");
   ok("재료 관리는 공통 탭", d.querySelector("#panel-mat").classList.contains("on"));
 
-  /* ASME 로 돌아오면 계산이 정상 동작 */
+  /* 기준 전환 시 같은 아이템이 있으면 유지 */
+  w.setCode("api650");           // tank
+  w.setCode("kfi", "tank");
+  ok("동일 아이템 있으면 유지", d.querySelector("#itembar button.on").dataset.item === "tank");
+
+  /* 잘못된 값은 무시 */
   w.setCode("asme");
+  const beforeItem = d.querySelector("#itembar button.on").dataset.item;
+  w.setCode("없는기준");
+  ok("모르는 기준 무시", d.querySelector("#codebar button.on").dataset.code === "asme");
+  w.setItem("없는아이템");
+  ok("모르는 아이템 무시", d.querySelector("#itembar button.on").dataset.item === beforeItem);
+
+  /* ASME 복귀 후 계산 정상 */
   w.showTab("shell");
   w.calcShell();
   ok("ASME 복귀 후 계산 정상", grab(d, "shell", "t_req") > 0);
-  ok("계산서에 기준 표기", sheet(d, "shell").startsWith("인허가 기준: ASME VIII-1"));
-
-  /* 잘못된 기준값은 무시 */
-  const before = d.querySelector("#codebar button.on").dataset.code;
-  w.setCode("없는기준");
-  ok("모르는 기준값 무시", d.querySelector("#codebar button.on").dataset.code === before);
 }
 
 /* ══ 7. 부서 공유 저장 진입점 (Firestore 브리지 seam) ════════════
