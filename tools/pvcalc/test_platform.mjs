@@ -65,7 +65,9 @@ for (const c of ["asme", "api650", "api620", "kec", "kosha", "kgs", "kfi"])
 for (const i of ["pv", "hx", "cond", "tank", "gastank", "spec"])
   ok(`아이템 정의: ${i}`, new RegExp(`\\b${i}:\\s*["{]`).test(tool));
 ok("아이템 선택 바 존재", tool.includes('id="itembar"'));
-ok("국내 기준은 필요 원문을 명시", ["KS B 6750", "1-Foot Method", "UHX", "별표 6"]
+/* 에너지공단은 KS B 6750 이 아니라 자체 KEA CODE Section IV(KPM) 체계다
+   (2026-08-05 오픈소스·기준 조사에서 정정 — comparison/opensource_survey.md) */
+ok("국내 기준은 필요 원문을 명시", ["KEA CODE", "KPM", "1-Foot Method", "UHX", "별표 6"]
    .every(s => tool.includes(s)));
 ok("API 650 은 ASME 와 별개 기준임을 명시", tool.includes("별개 기준"));
 ok("ASME 결과 국내 제출 금지 경고", tool.includes("국내 인허가")

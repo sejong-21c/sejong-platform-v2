@@ -11,9 +11,17 @@
 | 기준 | 상태 | 근거 |
 |---|---|---|
 | **ASME VIII-1** | 구현 완료 | ASME BPVC Sec VIII Div.1 (+ Div.2 4.4/4.15) |
-| 한국에너지공단 | 구조만 (준비중) | 열사용기자재 검사기준 · KS B 6750 계열 |
+| 한국에너지공단 | 구조만 (준비중) | 열사용기자재 · KEA CODE Section IV (KPM) |
 | 산업안전 KOSHA | 구조만 (준비중) | 산업안전보건법 안전인증·안전검사 |
 | 가스안전공사 KGS | 구조만 (준비중) | 고압가스 안전관리법 KGS 코드 |
+| API 650 | 구조만 (준비중) | 상압 용접 저장탱크 (ASME 와 별개 기준) |
+| API 620 | 구조만 (준비중) | 저압 저장탱크 (약 15 psi 이하) |
+| 위험물안전관리법 | 구조만 (준비중) | 옥외탱크저장소 (소방청) — API 650 의 국내 대응 |
+
+아이템 종류도 함께 고릅니다 — 압력용기 · 열교환기 · Condenser · 저장탱크 ·
+고압가스 저장탱크 · 특정설비. (기준, 아이템) 조합이 보이는 탭을 결정합니다.
+열교환기·Condenser 는 동체·경판·노즐이 압력용기와 동일한 규칙이라 ASME 탭을
+그대로 재사용하고, 추가로 필요한 UHX 튜브시트·TEMA 만 미구현으로 표시합니다.
 
 > ⚠ **ASME 계산 결과를 국내 인허가에 그대로 제출할 수 없습니다.**
 > 국내 기준 3종은 **원문을 확보한 뒤** 구현합니다 — 수식을 추정해 채우면
@@ -42,11 +50,12 @@
 | `reference/calctoys/` | 참고용 오픈소스 (thepvguy/calctoys 클론) | — |
 | `web/index.html` + `web/pvcalc-core.js` | **웹 버전** (세종플랫폼 탑재용, 서버 불필요) | — |
 | `web/test_core.mjs` | JS↔Python 엔진 자동 대조 (199 벡터) | — |
-| `web/test_ui.mjs` | 웹 UI 헤드리스 테스트 (73건, jsdom 필요) | — |
+| `web/test_ui.mjs` | 웹 UI 헤드리스 테스트 (116건, jsdom 필요) | — |
 | `web/materials.example.js` | 사내 재료 데이터 형식 템플릿 | Sec II-D (값 미포함) |
 | `comparison/UG41_verification.md` | UG-41 미확정 항목 확인 요청서 | — |
 | `comparison/App2_verification.md` | App.2 검증 기록 + 미확정 항목 확인 요청서 | — |
 | `comparison/Saddle_verification.md` | 새들 검증 기록 + 미확정 항목 확인 요청서 | — |
+| `comparison/opensource_survey.md` | **오픈소스 조사 결과** (ASME·API·국내기준) | — |
 
 ## 사용법
 
@@ -74,11 +83,12 @@ print(r.results["t_req_ca"]) # 부식여유 포함 필요두께
 
 ## 세종플랫폼 탑재 (기술부 도구함)
 
-**https://sejong21c.com → 기술부 → 압력용기 예비계산**
+**https://sejong21c.com → 기술부 → 압력용기 계산 도구**
 
 교반기(agitcalc)와 달리 **별도 모듈 HTML을 두지 않고 단독 실행판을 그대로
-iframe** 합니다. 탭 8개 UI를 플랫폼용으로 다시 만들면 사본이 갈리기 때문입니다
-(그래서 화면 상단 제목을 뺐습니다 — 호스트가 담당).
+iframe** 합니다. 탭이 많은 UI를 플랫폼용으로 다시 만들면 사본이 갈리기 때문입니다.
+플랫폼은 도구용 제목을 그려주지 않으므로(iframe 이 화면을 채움) **도구 페이지가
+자체 제목을 가집니다** — agitator 와 같은 방식입니다.
 
 ```
 tools/pvcalc/                       ← 이 저장소 내용이 그대로 들어감
@@ -94,7 +104,7 @@ tools/pvcalc/web/index.html         ← 플랫폼이 이 파일을 직접 iframe
 Firebase를 아예 불러오지 않아 **오프라인·사내망 공유폴더에서도 동작**합니다.
 
 플랫폼 쪽 검증: `node tools/pvcalc/test_platform.mjs` (등록 5곳·배포 경로·
-저작권 자료 미포함 16건). 도구 화면을 고쳤으면 `PVCALC_BUILD` 번호를 올려야
+저작권 자료 미포함 32건). 도구 화면을 고쳤으면 `PVCALC_BUILD` 번호를 올려야
 브라우저 캐시가 갱신됩니다.
 
 ## 웹 버전 (단독 실행판)

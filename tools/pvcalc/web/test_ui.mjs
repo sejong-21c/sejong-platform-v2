@@ -379,7 +379,7 @@ console.log("== 기준 × 아이템 ==");
 
   /* 국내 기준들 */
   w.setCode("kec");
-  ok("에너지공단 KS B 6750 필요", stubText().includes("KS B 6750"));
+  ok("에너지공단 KEA CODE·KPM 명시", stubText().includes("KEA CODE") && stubText().includes("KPM"));
   w.setCode("kosha");
   ok("KOSHA 소관 정정(고용노동부)", stubText().includes("고용노동부"));
   ok("KOSHA 사용중검사 성격 명시", stubText().includes("사용 중 검사"));
