@@ -11,7 +11,7 @@
 | 기준 | 상태 | 근거 |
 |---|---|---|
 | **ASME VIII-1** | 구현 완료 | ASME BPVC Sec VIII Div.1 (+ Div.2 4.4/4.15) |
-| 한국에너지공단 | 구조만 (준비중) | 열사용기자재 · KEA CODE Section IV (KPM) |
+| **한국에너지공단** | **동체·경판 구현** | 열사용기자재 · KEA CODE Section IV (KPM-3210/3221/3222/3321/3323) |
 | 산업안전 KOSHA | 구조만 (준비중) | 산업안전보건법 안전인증·안전검사 |
 | 가스안전공사 KGS | 구조만 (준비중) | 고압가스 안전관리법 KGS 코드 |
 | API 650 | 구조만 (준비중) | 상압 용접 저장탱크 (ASME 와 별개 기준) |
@@ -43,19 +43,21 @@
 | `pvcalc/flange.py` | 볼트 플랜지 — 볼트하중·모멘트·응력 | App.2 (2-5/2-6/2-7/2-8) |
 | `pvcalc/saddle.py` | 횡형 용기 2점 새들 지지 응력 (Zick) | VIII-2 4.15 |
 | `pvcalc/loads.py` | 풍·지진 전단력·모멘트, 조합 길이방향 응력 | UG-22, UG-23(b) |
+| `pvcalc/kec.py` | **한국에너지공단** 동체·경판 최소두께 (SI·공학단위) | KPM-3210/3220/3221/3222/3321/3322/3323/3324 |
 | `pvcalc/report.py` | 검토 가능한 계산서(텍스트) 출력 | — |
-| `tests/run_tests.py` | 손계산 대조 검증 케이스 129건 | — |
+| `tests/run_tests.py` | 손계산 대조 검증 케이스 159건 | — |
 | `examples/example_vessel.py` | 용기 1기 전체 계산 노트 예시 | — |
 | `comparison/` | PV Elite 대조표 템플릿 (CSV) | — |
 | `reference/calctoys/` | 참고용 오픈소스 (thepvguy/calctoys 클론) | — |
 | `web/index.html` + `web/pvcalc-core.js` | **웹 버전** (세종플랫폼 탑재용, 서버 불필요) | — |
-| `web/test_core.mjs` | JS↔Python 엔진 자동 대조 (199 벡터) | — |
-| `web/test_ui.mjs` | 웹 UI 헤드리스 테스트 (116건, jsdom 필요) | — |
+| `web/test_core.mjs` | JS↔Python 엔진 자동 대조 (245 벡터) | — |
+| `web/test_ui.mjs` | 웹 UI 헤드리스 테스트 (144건, jsdom 필요) | — |
 | `web/materials.example.js` | 사내 재료 데이터 형식 템플릿 | Sec II-D (값 미포함) |
 | `comparison/UG41_verification.md` | UG-41 미확정 항목 확인 요청서 | — |
 | `comparison/App2_verification.md` | App.2 검증 기록 + 미확정 항목 확인 요청서 | — |
 | `comparison/Saddle_verification.md` | 새들 검증 기록 + 미확정 항목 확인 요청서 | — |
 | `comparison/opensource_survey.md` | **오픈소스 조사 결과** (ASME·API·국내기준) | — |
+| `comparison/KEC_KGS_notes.md` | **KPM·KGS AC111 원문 대조 노트** (차이·미구현) | — |
 
 ## 사용법
 

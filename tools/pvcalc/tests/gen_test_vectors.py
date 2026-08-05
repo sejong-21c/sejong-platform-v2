@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pvcalc import shell, heads, external, nozzle, flange, saddle, loads
+from pvcalc import shell, heads, external, nozzle, flange, saddle, loads, kec
 
 vectors = []
 
@@ -243,6 +243,58 @@ for P_i, B in itertools.product([0.0, 1.0, 2.5], [None, 60.0, 95.0]):
 add("combinedLongitudinal", loads.combined_longitudinal,
     dict(P=0.0, Rm=1006.0, t=6.0, S=138.0, M=3.0e9, W_axial=200000.0,
          B_allow=50.0))
+
+# 한국에너지공단 KPM — 두 단위계, ID/OD, 얇은벽/두꺼운벽, 최소두께 지배,
+# 경판 4종(반구·접시·타원·플랜지보강)을 모두 덮는다.
+for units, P, sa in [("SI", 1.0, 100.0), ("SI", 2.5, 138.0), ("kgf", 10.0, 10.0)]:
+    for eta in [0.85, 1.0]:
+        add("kecCylinderThickness", kec.cylinder_thickness,
+            dict(P=P, Di=2000.0, sigma_a=sa, eta=eta, alpha=3.0, units=units))
+        add("kecCylinderThickness", kec.cylinder_thickness,
+            dict(P=P, Do=2200.0, sigma_a=sa, eta=eta, alpha=3.0, units=units))
+        add("kecSphereThickness", kec.sphere_thickness,
+            dict(P=P, Di=2000.0, sigma_a=sa, eta=eta, alpha=3.0, units=units))
+        add("kecSphereThickness", kec.sphere_thickness,
+            dict(P=P, Do=2200.0, sigma_a=sa, eta=eta, alpha=3.0, units=units))
+# 두꺼운 벽 분기 (원통 t>Di/4, 구형 t>0.178Di) 와 강제 얇은벽
+add("kecCylinderThickness", kec.cylinder_thickness,
+    dict(P=4.0, Di=400.0, sigma_a=10.0, eta=1.0, alpha=0.0, material_class=None))
+add("kecCylinderThickness", kec.cylinder_thickness,
+    dict(P=4.0, Do=600.0, sigma_a=10.0, eta=1.0, alpha=0.0, material_class=None))
+add("kecCylinderThickness", kec.cylinder_thickness,
+    dict(P=4.0, Di=400.0, sigma_a=10.0, eta=1.0, alpha=0.0,
+         material_class=None, thick_wall=False))
+add("kecSphereThickness", kec.sphere_thickness,
+    dict(P=4.0, Di=400.0, sigma_a=5.0, eta=1.0, alpha=0.0, material_class=None))
+add("kecSphereThickness", kec.sphere_thickness,
+    dict(P=4.0, Do=600.0, sigma_a=5.0, eta=1.0, alpha=0.0, material_class=None))
+# KPM-3210 최소두께 지배 — 재료 구분 전부
+for mc in ["carbon", "highalloy", "highalloy_nocorr", "nonferrous", "nonferrous_nocorr"]:
+    add("kecCylinderThickness", kec.cylinder_thickness,
+        dict(P=0.05, Di=500.0, sigma_a=100.0, eta=1.0, alpha=1.0, material_class=mc))
+# 경판
+add("kecTorisphericalHead", kec.torispherical_head_thickness,
+    dict(P=1.0, R=1000.0, sigma_a=100.0, eta=1.0, alpha=3.0, hemispherical=True))
+for rk in [150.0, 200.0, 400.0]:
+    add("kecTorisphericalHead", kec.torispherical_head_thickness,
+        dict(P=1.0, R=2000.0, r_knuckle=rk, sigma_a=100.0, eta=1.0, alpha=3.0))
+add("kecTorisphericalHead", kec.torispherical_head_thickness,
+    dict(P=1.0, R=2000.0, r_knuckle=150.0, sigma_a=100.0, eta=1.0, alpha=3.0,
+         flanged_opening=True))
+add("kecTorisphericalHead", kec.torispherical_head_thickness,
+    dict(P=4.0, R=2000.0, r_knuckle=150.0, sigma_a=100.0, eta=1.0, alpha=3.0,
+         flanged_opening=True))
+add("kecTorisphericalHead", kec.torispherical_head_thickness,
+    dict(P=1.0, R=1000.0, r_knuckle=150.0, sigma_a=100.0, eta=1.0, alpha=3.0,
+         flanged_opening=True, Di_shell=2000.0))
+for ratio in [1.0, 2.0, 2.5]:
+    add("kecEllipsoidalHead", kec.ellipsoidal_head_thickness,
+        dict(P=1.0, D=2000.0, D_over_2h=ratio, sigma_a=100.0, eta=1.0, alpha=3.0))
+add("kecEllipsoidalHead", kec.ellipsoidal_head_thickness,
+    dict(P=1.0, D=2000.0, h=500.0, sigma_a=100.0, eta=1.0, alpha=3.0))
+add("kecEllipsoidalHead", kec.ellipsoidal_head_thickness,
+    dict(P=1.0, D=2000.0, h=500.0, sigma_a=100.0, eta=1.0, alpha=3.0,
+         flanged_opening=True, Di_shell=2000.0))
 
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_vectors.json")
 with open(out, "w", encoding="utf-8") as f:

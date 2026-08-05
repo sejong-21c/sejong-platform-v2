@@ -199,6 +199,8 @@
   <button data-tab="flg">플랜지 (App.2)</button>
   <button data-tab="sad">새들 (VIII-2 4.15)</button>
   <button data-tab="lod">풍·지진 하중 (UG-22)</button>
+  <button data-tab="kshell">동체 (KPM-3221·3222)</button>
+  <button data-tab="khead">경판 (KPM-3321·3323)</button>
   <button data-tab="stub">미구현·필요자료</button>
   <button data-tab="mat">재료 데이터 관리</button>
   <button data-tab="info">정보·범위</button>
@@ -673,6 +675,121 @@
 </section>
 
 <!-- ================= Info ================= -->
+<!-- ============ 한국에너지공단 KEMCO CODE Section IV (KPM) ============
+     원문 「압력용기 제조기술 규격 2002」에서 구현. 허용응력 σa·이음효율 η 는
+     원문 표가 저작물이라 사용자 입력. 외압(KPM-3230)은 차트 기반이라 미구현. -->
+<section class="panel" id="panel-kshell">
+  <form id="f-kshell" onsubmit="return false">
+    <div class="opts">
+      <label><input type="radio" name="ks-geo" value="cyl" checked> 원통형 동체 (KPM-3221)</label>
+      <label><input type="radio" name="ks-geo" value="sph"> 구형 동체 (KPM-3222)</label>
+      &nbsp;·&nbsp;
+      <label><input type="radio" name="ks-dia" value="id" checked> 안지름 기준</label>
+      <label><input type="radio" name="ks-dia" value="od"> 바깥지름 기준</label>
+    </div>
+    <div class="grid">
+      <div class="field"><label>P 최고사용압력 (<span class="ku-press">MPa</span>)</label>
+        <input id="ks-P" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>D 지름 — <b>부식여유 제외</b> (mm)</label>
+        <input id="ks-D" type="number" step="any" value="2000"></div>
+      <div class="field"><label>σa 허용인장응력 (<span class="ku-stress">N/mm²</span>)</label>
+        <input data-mat="S" id="ks-sa" type="number" step="any" value="100"></div>
+      <div class="field"><label>η 이음효율 — 관은 1.0</label>
+        <input id="ks-eta" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>α 부식여유 (mm, KPM-3130)</label>
+        <input id="ks-alpha" type="number" step="any" value="3"></div>
+      <div class="field"><label>단위계</label>
+        <select id="ks-units">
+          <option value="SI">SI — P[MPa], σa[N/mm²]</option>
+          <option value="kgf">공학 — P[kgf/cm²], σa[kgf/mm²]</option>
+        </select></div>
+      <div class="field"><label>재료 구분 (KPM-3210 최소두께)</label>
+        <select id="ks-mc">
+          <option value="carbon">탄소강·저합금강 강판 (2.5mm)</option>
+          <option value="highalloy">고합금강, 부식 예상 (2.5mm)</option>
+          <option value="highalloy_nocorr">고합금강, 부식 없음 (1.5mm)</option>
+          <option value="nonferrous">비철금속, 부식 예상 (2.5mm)</option>
+          <option value="nonferrous_nocorr">비철금속, 부식 없음 (1.5mm)</option>
+          <option value="">최소두께 검사 안 함</option>
+        </select></div>
+      <div class="field"><label>두꺼운 벽 식 (KPM-3221(3)/3222(3))</label>
+        <select id="ks-thick">
+          <option value="">자동 판정</option>
+          <option value="0">사용 안 함 (크리프 영역 — KPM-3220)</option>
+          <option value="1">강제 사용</option>
+        </select></div>
+    </div>
+    <p class="note"><b>ASME 탭과 부식여유 취급이 다릅니다.</b> KPM 식은 지름을
+      「부식여유를 제외한」 값으로 넣고 마지막에 α 를 더합니다 — ASME 탭처럼
+      반지름에 CA 를 자동 가산하지 <b>않습니다</b>. 두 기준을 섞으면 두께가
+      조용히 달라집니다.</p>
+    <div class="actions">
+      <button class="calc" onclick="calcKshell()">계산</button>
+      <button class="ghost" onclick="copyReport('kshell')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-kshell"></div>
+</section>
+
+<section class="panel" id="panel-khead">
+  <form id="f-khead" onsubmit="return false">
+    <div class="opts">
+      <label>경판 형식&nbsp;
+        <select id="kh-type">
+          <option value="hemi">전체반구형 (KPM-3321, W=1)</option>
+          <option value="tori">접시형 (KPM-3321)</option>
+          <option value="ellip">반타원체형 (KPM-3323)</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="kh-flg"> 접어 집어넣는 플랜지로 보강하는 맨홀·150mm 초과 구멍 (KPM-3322(2)/3324(2))</label>
+    </div>
+    <div class="grid">
+      <div class="field"><label>P 최고사용압력 (<span class="ku-press">MPa</span>)</label>
+        <input id="kh-P" type="number" step="any" value="1.0"></div>
+      <div class="field" data-kh="hemi tori"><label>R 경판 중앙부 내면 반지름 (mm)</label>
+        <input id="kh-R" type="number" step="any" value="2000"></div>
+      <div class="field" data-kh="tori"><label>r 구석 둥글기 안쪽 반지름 — 부식여유 제외 (mm)</label>
+        <input id="kh-r" type="number" step="any" value="150"></div>
+      <div class="field" data-kh="ellip"><label>D 경판 내면 긴지름 (mm)</label>
+        <input id="kh-D" type="number" step="any" value="2000"></div>
+      <div class="field" data-kh="ellip"><label>h 짧은 지름의 1/2 (mm) — 2:1 이면 D/4</label>
+        <input id="kh-h" type="number" step="any" value="500"></div>
+      <div class="field"><label>σa 허용인장응력 (<span class="ku-stress">N/mm²</span>)</label>
+        <input data-mat="S" id="kh-sa" type="number" step="any" value="100"></div>
+      <div class="field"><label>η 이음효율 — 경판 이음 없으면 1.0</label>
+        <input id="kh-eta" type="number" step="any" value="1.0"></div>
+      <div class="field"><label>α 부식여유 (mm)</label>
+        <input id="kh-alpha" type="number" step="any" value="3"></div>
+      <div class="field"><label>Di 동체 안지름 (mm) — 플랜지 보강 시 필요</label>
+        <input id="kh-Di" type="number" step="any" value="2000"></div>
+      <div class="field"><label>단위계</label>
+        <select id="kh-units">
+          <option value="SI">SI — P[MPa], σa[N/mm²]</option>
+          <option value="kgf">공학 — P[kgf/cm²], σa[kgf/mm²]</option>
+        </select></div>
+      <div class="field"><label>재료 구분 (KPM-3210)</label>
+        <select id="kh-mc">
+          <option value="carbon">탄소강·저합금강 강판 (2.5mm)</option>
+          <option value="highalloy">고합금강, 부식 예상 (2.5mm)</option>
+          <option value="highalloy_nocorr">고합금강, 부식 없음 (1.5mm)</option>
+          <option value="nonferrous">비철금속, 부식 예상 (2.5mm)</option>
+          <option value="nonferrous_nocorr">비철금속, 부식 없음 (1.5mm)</option>
+          <option value="">최소두께 검사 안 함</option>
+        </select></div>
+    </div>
+    <p class="note">플랜지 보강을 체크하면 KPM-3321 두께에 15%(3mm 미만이면 3mm)를
+      가산하고, 경판 내면 반경이 동체 안지름의 80% 보다 작으면 80% 로 대체해
+      계산합니다. 반타원체형은 KPM-3324(2)에 따라 R = 0.8·Di, W = 1.77 로 넘어갑니다.</p>
+    <div class="actions">
+      <button class="calc" onclick="calcKhead()">계산</button>
+      <button class="ghost" onclick="copyReport('khead')">결과 복사</button>
+      <button class="ghost" onclick="window.print()">인쇄</button>
+    </div>
+  </form>
+  <div class="result" id="res-khead"></div>
+</section>
+
 <!-- 미구현 조합 안내 — 기준×아이템 별 내용은 스크립트의 STUBS 가 채운다.
      ⚠ 수식을 추정해 채우지 않는다. 기준마다 허용응력·안전율·이음효율·적용범위가
      달라, 원문 없이 넣으면 "값은 나오는데 틀린" 계산서가 된다. -->
@@ -902,36 +1019,46 @@ const CODES = {
     label: "한국에너지공단",
     sub: "열사용기자재 · KEA CODE Section IV (KPM) — 준비중",
     items: {
-      pv: { tabs: [], stub: {
-        tab: "필요자료",
-        title: "한국에너지공단 — 열사용기자재 압력용기 (KEA CODE)",
+      pv: { tabs: ["kshell", "khead"], stub: {
+        tab: "미구현 항목",
+        title: "한국에너지공단 KPM — 구현 범위와 남은 항목",
         note: "근거: 에너지이용 합리화법 → 열사용기자재 검사제도. 에너지공단은 "
-            + "<b>자체 규격체계 KEA CODE</b>(구 KEMCO CODE)를 운영합니다 — "
-            + "보일러·압력용기의 제조·설치·사용을 Section I~X 로 나눈 체계입니다. "
-            + "압력용기 제조는 <b>Section IV = KPM</b>(Korea Pressure vessel Manufacture) "
-            + "이며, 설치는 KPI(V), 사용은 KPO(VI) 입니다.",
+            + "<b>자체 규격체계 KEA CODE</b>(구 KEMCO CODE)를 운영하며, 압력용기 제조는 "
+            + "<b>Section IV = KPM</b> 입니다. 「압력용기 제조기술 규격 2002」 원문에서 "
+            + "<b>동체(KPM-3221·3222)와 경판(KPM-3321·3323)을 구현했습니다</b> — 왼쪽 탭. "
+            + "허용응력 σa·이음효율 η 는 원문 표가 저작물이라 직접 입력합니다.",
         need: [
-          "<b>KEA CODE Section IV (KPM)</b> 전문 — 두께식·이음효율·안전율이 여기 있습니다. "
-            + "공단 홈페이지(열사용기자재검사 → 압력용기분야 규격)에서 배포하며, "
-            + "구입·열람 방법은 글로벌안전검사기술처(052-920-0525) 문의",
-          "KEA CODE <b>공통분야 규격</b> — 재료·용접 공통 요건",
-          "열사용기자재 <b>검사기준 고시</b> 최신본 (검사 대상 판정: 압력·용적)",
-          "적용 재료 허용응력표 — KS 재료 기준 (ASME Sec II-D 와 값이 다릅니다)",
+          "<b>외압 (KPM-3230)</b> — A·B 계수를 [그림 KPM-3230.1~3] <b>차트</b>에서 읽어야 "
+            + "합니다. ASME 는 VIII-2 4.4 라는 수식 대안이 있었지만 KPM 에는 없어 "
+            + "추정하지 않았습니다. 차트를 수치화해 주시면 구현 가능합니다",
+          "<b>구멍 보강 (KPM-3400 계열)</b> — 조항 확인 후 구현",
+          "<b>평판·뚜껑판 (KPM-3330 이후)</b>, 원뿔 동체(KPM-3260), 각형 용기(KPM-3286)",
+          "<b>플랜지·관판</b> — 관판은 KS B 6716 을 인용하므로 그 규격이 별도로 필요합니다",
+          "허용응력표·이음효율표 — 원문 표에서 「재료 데이터 관리」 탭에 입력",
         ],
         diff: [
-          "<b>ASME 를 그대로 인용한 체계가 아닙니다</b> — 자체 코드 번호(KPM-0000~9000)로 "
-            + "구성돼 있어 조항 대응을 일일이 확인해야 합니다",
-          "<b>허용응력 기준</b> — 인용 규격·안전율이 달라 같은 재질도 S 가 다릅니다",
-          "<b>이음효율</b> — 방사선투과시험 범위별 계수 체계가 다릅니다",
-          "수입 압력용기는 설치검사 단계에서 별도 서류·검사 요건이 붙습니다",
+          "<b>부식여유 취급이 ASME 와 다릅니다</b> — KPM 은 지름을 「부식여유를 제외한」 "
+            + "값으로 넣고 마지막에 α 를 더합니다. ASME 탭은 반지름에 CA 를 자동 가산하므로 "
+            + "두 탭의 입력을 그대로 옮기면 안 됩니다",
+          "<b>최소두께가 ASME 보다 두껍습니다</b> — 탄소강·저합금강 강판은 부식여유를 빼고 "
+            + "2.5 mm 이상(KPM-3210(1)). ASME UG-16(b) 는 1.5 mm 이므로 얇은 용기에서 "
+            + "결과가 갈립니다",
+          "동체·경판 두께식 자체는 ASME 와 대수적으로 같은 형태입니다(원통 "
+            + "P·Di/(2σaη−1.2P) = PR/(σaη−0.6P), 경판 W·V 계수는 ASME M·K 와 동일). "
+            + "<b>차이는 σa 와 η 의 근거</b>이므로 값을 반드시 KPM 표에서 가져와야 합니다",
+          "P 는 <b>최고사용압력</b>(KPM-3164)이며 안전장치 분출압력의 기준입니다",
         ],
       } },
-      hx: { tabs: [], stub: {
-        tab: "필요자료",
+      hx: { tabs: ["kshell", "khead"], stub: {
+        tab: "미구현 항목",
         title: "한국에너지공단 — 열교환기",
-        note: "압력용기와 같은 KEA CODE 검사체계를 따르며 튜브시트가 추가됩니다.",
-        need: ["위 KPM 자료 + 해당 튜브시트 계산 조항"],
-        diff: ["ASME UHX 와 튜브시트 계산식이 다를 수 있어 원문 확인이 필요합니다"],
+        note: "동체·경판은 압력용기와 같은 KPM 조항이라 왼쪽 탭을 그대로 쓰시면 됩니다. "
+            + "관판(튜브시트)이 추가로 필요합니다.",
+        need: ["<b>KS B 6716</b>(압력용기의 관판) — KPM-3316 이 이 규격을 인용합니다",
+               "위 압력용기와 동일한 미구현 항목(외압·구멍보강 등)"],
+        diff: ["KPM-3316 은 전열관 피치 하한을 직접 규정합니다 — 전열관 바깥지름의 "
+                 + "1.25배 이상, 확관 시 {do + 0.165(do + 2ts)} 이상",
+               "관판 설계온도는 동체측·관측 중 <b>두께가 두꺼워지는 쪽</b>의 온도로 합니다"],
       } },
     },
   },
@@ -1705,6 +1832,55 @@ function calcLod() {
   } catch (e) { fail("lod", e); }
 }
 
+/* ---------- 한국에너지공단 KPM ----------
+   ASME 탭과 달리 지름에 CA 를 가산하지 않는다 (KPM 식이 α 를 따로 더한다). */
+function kecUnitLabels(prefix) {
+  const kgf = $(prefix + "-units").value === "kgf";
+  document.querySelectorAll(".ku-press").forEach(el =>
+    el.textContent = kgf ? "kgf/cm²" : "MPa");
+  document.querySelectorAll(".ku-stress").forEach(el =>
+    el.textContent = kgf ? "kgf/mm²" : "N/mm²");
+}
+const tri = id => { const v = $(id).value; return v === "" ? null : v === "1"; };
+
+function calcKshell() {
+  try {
+    const geo = radio("ks-geo"), byId = radio("ks-dia") === "id";
+    const D = num("ks-D");
+    const args = {
+      P: num("ks-P"), sigma_a: num("ks-sa"), eta: num("ks-eta"),
+      alpha: num("ks-alpha"), units: $("ks-units").value,
+      material_class: $("ks-mc").value, thick_wall: tri("ks-thick"),
+    };
+    if (byId) args.Di = D; else args.Do = D;
+    render("kshell", [geo === "cyl" ? pvcalc.kecCylinderThickness(args)
+                                   : pvcalc.kecSphereThickness(args)]);
+  } catch (e) { fail("kshell", e); }
+}
+
+function calcKhead() {
+  try {
+    const type = $("kh-type").value, flg = $("kh-flg").checked;
+    const base = {
+      P: num("kh-P"), sigma_a: num("kh-sa"), eta: num("kh-eta"),
+      alpha: num("kh-alpha"), units: $("kh-units").value,
+      material_class: $("kh-mc").value, flanged_opening: flg,
+    };
+    if (flg) base.Di_shell = num("kh-Di");
+    let r;
+    if (type === "ellip") {
+      r = pvcalc.kecEllipsoidalHead({ ...base, D: num("kh-D"), h: num("kh-h") });
+    } else {
+      r = pvcalc.kecTorisphericalHead({
+        ...base, R: num("kh-R"),
+        r_knuckle: type === "tori" ? num("kh-r") : null,
+        hemispherical: type === "hemi",
+      });
+    }
+    render("khead", [r]);
+  } catch (e) { fail("khead", e); }
+}
+
 function calcUg45() {
   try {
     const npsSel = $("u45-nps").value;
@@ -1742,6 +1918,16 @@ document.querySelectorAll('#f-head input[name="hd-mode"]').forEach(x =>
   x.onchange = () => refreshVisibility("f-head", radio("hd-mode")));
 $("hd-type").onchange();
 refreshVisibility("f-head", "t");
+
+/* KPM 경판 형식별 입력 표시 + 단위 라벨 */
+$("kh-type").onchange = () => {
+  const t = $("kh-type").value;
+  document.querySelectorAll('#f-khead .field[data-kh]').forEach(f =>
+    f.style.display = f.dataset.kh.split(" ").includes(t) ? "" : "none");
+};
+$("kh-type").onchange();
+$("ks-units").onchange = () => kecUnitLabels("ks");
+$("kh-units").onchange = () => kecUnitLabels("kh");
 
 /* ---------- input persistence ---------- */
 function saveInputs() {

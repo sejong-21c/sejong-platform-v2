@@ -5204,5 +5204,865 @@
    false,
    false
   ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Di": 2000.0,
+   "sigma_a": 100.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 14.848341232227487,
+   "t": 14.848341232227487
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Do": 2200.0,
+   "sigma_a": 100.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 15.880562060889929,
+   "t": 15.880562060889929
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Di": 2000.0,
+   "sigma_a": 100.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 8.889281507656065,
+   "t": 8.889281507656065
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Do": 2200.0,
+   "sigma_a": 100.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 9.440281030444964,
+   "t": 9.440281030444964
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Di": 2000.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 13.060362173038229,
+   "t": 13.060362173038229
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Do": 2200.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 13.95617529880478,
+   "t": 13.95617529880478
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Di": 2000.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 8.005005005005005,
+   "t": 8.005005005005005
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 1.0,
+   "Do": 2200.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 8.47808764940239,
+   "t": 8.47808764940239
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "Di": 2000.0,
+   "sigma_a": 138.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 24.58894645941278,
+   "t": 24.58894645941278
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "Do": 2200.0,
+   "sigma_a": 138.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 26.245984784446325,
+   "t": 26.245984784446325
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 2.5,
+   "Di": 2000.0,
+   "sigma_a": 138.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 13.679196924391286,
+   "t": 13.679196924391286
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 2.5,
+   "Do": 2200.0,
+   "sigma_a": 138.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 14.622992392223162,
+   "t": 14.622992392223162
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "Di": 2000.0,
+   "sigma_a": 138.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 21.315018315018314,
+   "t": 21.315018315018314
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 2.5,
+   "Do": 2200.0,
+   "sigma_a": 138.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 22.784172661870503,
+   "t": 22.784172661870503
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 2.5,
+   "Di": 2000.0,
+   "sigma_a": 138.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 12.074410163339383,
+   "t": 12.074410163339383
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 2.5,
+   "Do": 2200.0,
+   "sigma_a": 138.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "SI"
+  },
+  "results": {
+   "t_req": 12.892086330935252,
+   "t": 12.892086330935252
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 10.0,
+   "Di": 2000.0,
+   "sigma_a": 10.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "kgf"
+  },
+  "results": {
+   "t_req": 14.848341232227488,
+   "t": 14.848341232227488
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 10.0,
+   "Do": 2200.0,
+   "sigma_a": 10.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "kgf"
+  },
+  "results": {
+   "t_req": 15.880562060889929,
+   "t": 15.880562060889929
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 10.0,
+   "Di": 2000.0,
+   "sigma_a": 10.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "kgf"
+  },
+  "results": {
+   "t_req": 8.889281507656065,
+   "t": 8.889281507656065
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 10.0,
+   "Do": 2200.0,
+   "sigma_a": 10.0,
+   "eta": 0.85,
+   "alpha": 3.0,
+   "units": "kgf"
+  },
+  "results": {
+   "t_req": 9.440281030444964,
+   "t": 9.440281030444964
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 10.0,
+   "Di": 2000.0,
+   "sigma_a": 10.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "kgf"
+  },
+  "results": {
+   "t_req": 13.060362173038229,
+   "t": 13.060362173038229
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 10.0,
+   "Do": 2200.0,
+   "sigma_a": 10.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "kgf"
+  },
+  "results": {
+   "t_req": 13.95617529880478,
+   "t": 13.95617529880478
+  },
+  "checks": [
+   true,
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 10.0,
+   "Di": 2000.0,
+   "sigma_a": 10.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "kgf"
+  },
+  "results": {
+   "t_req": 8.005005005005005,
+   "t": 8.005005005005005
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 10.0,
+   "Do": 2200.0,
+   "sigma_a": 10.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "units": "kgf"
+  },
+  "results": {
+   "t_req": 8.47808764940239,
+   "t": 8.47808764940239
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 4.0,
+   "Di": 400.0,
+   "sigma_a": 10.0,
+   "eta": 1.0,
+   "alpha": 0.0,
+   "material_class": null
+  },
+  "results": {
+   "t_req": 105.50504633038935,
+   "t": 105.50504633038935
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 4.0,
+   "Do": 600.0,
+   "sigma_a": 10.0,
+   "eta": 1.0,
+   "alpha": 0.0,
+   "material_class": null
+  },
+  "results": {
+   "t_req": 103.60389878760688,
+   "t": 103.60389878760688
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 4.0,
+   "Di": 400.0,
+   "sigma_a": 10.0,
+   "eta": 1.0,
+   "alpha": 0.0,
+   "material_class": null,
+   "thick_wall": false
+  },
+  "results": {
+   "t_req": 105.26315789473685,
+   "t": 105.26315789473685
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 4.0,
+   "Di": 400.0,
+   "sigma_a": 5.0,
+   "eta": 1.0,
+   "alpha": 0.0,
+   "material_class": null
+  },
+  "results": {
+   "t_req": 88.44991406148166,
+   "t": 88.44991406148166
+  },
+  "checks": []
+ },
+ {
+  "fn": "kecSphereThickness",
+  "kwargs": {
+   "P": 4.0,
+   "Do": 600.0,
+   "sigma_a": 5.0,
+   "eta": 1.0,
+   "alpha": 0.0,
+   "material_class": null
+  },
+  "results": {
+   "t_req": 91.99161769480956,
+   "t": 91.99161769480956
+  },
+  "checks": []
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 0.05,
+   "Di": 500.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 1.0,
+   "material_class": "carbon"
+  },
+  "results": {
+   "t_req": 1.125037511253376,
+   "t": 3.5
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 0.05,
+   "Di": 500.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 1.0,
+   "material_class": "highalloy"
+  },
+  "results": {
+   "t_req": 1.125037511253376,
+   "t": 3.5
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 0.05,
+   "Di": 500.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 1.0,
+   "material_class": "highalloy_nocorr"
+  },
+  "results": {
+   "t_req": 1.125037511253376,
+   "t": 2.5
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 0.05,
+   "Di": 500.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 1.0,
+   "material_class": "nonferrous"
+  },
+  "results": {
+   "t_req": 1.125037511253376,
+   "t": 3.5
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "kecCylinderThickness",
+  "kwargs": {
+   "P": 0.05,
+   "Di": 500.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 1.0,
+   "material_class": "nonferrous_nocorr"
+  },
+  "results": {
+   "t_req": 1.125037511253376,
+   "t": 2.5
+  },
+  "checks": [
+   true,
+   false
+  ]
+ },
+ {
+  "fn": "kecTorisphericalHead",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1000.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "hemispherical": true
+  },
+  "results": {
+   "W": 1.0,
+   "t_req": 8.005005005005005,
+   "t": 8.005005005005005
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecTorisphericalHead",
+  "kwargs": {
+   "P": 1.0,
+   "R": 2000.0,
+   "r_knuckle": 150.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0
+  },
+  "results": {
+   "W": 1.662870929175277,
+   "t_req": 19.64535464639917,
+   "t": 19.64535464639917
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecTorisphericalHead",
+  "kwargs": {
+   "P": 1.0,
+   "R": 2000.0,
+   "r_knuckle": 200.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0
+  },
+  "results": {
+   "W": 1.540569415042095,
+   "t_req": 18.421115265686637,
+   "t": 18.421115265686637
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecTorisphericalHead",
+  "kwargs": {
+   "P": 1.0,
+   "R": 2000.0,
+   "r_knuckle": 400.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0
+  },
+  "results": {
+   "W": 1.3090169943749475,
+   "t_req": 16.103273216966443,
+   "t": 16.103273216966443
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecTorisphericalHead",
+  "kwargs": {
+   "P": 1.0,
+   "R": 2000.0,
+   "r_knuckle": 150.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "flanged_opening": true
+  },
+  "results": {
+   "W": 1.662870929175277,
+   "t_req": 22.64535464639917,
+   "t": 22.64535464639917
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecTorisphericalHead",
+  "kwargs": {
+   "P": 4.0,
+   "R": 2000.0,
+   "r_knuckle": 150.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "flanged_opening": true
+  },
+  "results": {
+   "W": 1.662870929175277,
+   "t_req": 80.2492597811875,
+   "t": 80.2492597811875
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecTorisphericalHead",
+  "kwargs": {
+   "P": 1.0,
+   "R": 1000.0,
+   "r_knuckle": 150.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "flanged_opening": true,
+   "Di_shell": 2000.0
+  },
+  "results": {
+   "W": 1.566496580927726,
+   "t_req": 18.544517164586395,
+   "t": 18.544517164586395
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecEllipsoidalHead",
+  "kwargs": {
+   "P": 1.0,
+   "D": 2000.0,
+   "D_over_2h": 1.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0
+  },
+  "results": {
+   "V": 0.5,
+   "t_req": 8.005005005005005,
+   "t": 8.005005005005005
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecEllipsoidalHead",
+  "kwargs": {
+   "P": 1.0,
+   "D": 2000.0,
+   "D_over_2h": 2.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0
+  },
+  "results": {
+   "V": 1.0,
+   "t_req": 13.01001001001001,
+   "t": 13.01001001001001
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecEllipsoidalHead",
+  "kwargs": {
+   "P": 1.0,
+   "D": 2000.0,
+   "D_over_2h": 2.5,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0
+  },
+  "results": {
+   "V": 1.375,
+   "t_req": 16.763763763763762,
+   "t": 16.763763763763762
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecEllipsoidalHead",
+  "kwargs": {
+   "P": 1.0,
+   "D": 2000.0,
+   "h": 500.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0
+  },
+  "results": {
+   "V": 1.0,
+   "t_req": 13.01001001001001,
+   "t": 13.01001001001001
+  },
+  "checks": [
+   true
+  ]
+ },
+ {
+  "fn": "kecEllipsoidalHead",
+  "kwargs": {
+   "P": 1.0,
+   "D": 2000.0,
+   "h": 500.0,
+   "sigma_a": 100.0,
+   "eta": 1.0,
+   "alpha": 3.0,
+   "flanged_opening": true,
+   "Di_shell": 2000.0
+  },
+  "results": {
+   "W": 1.77,
+   "t_req": 20.174174174174173,
+   "t": 20.174174174174173
+  },
+  "checks": [
+   true
+  ]
  }
 ]

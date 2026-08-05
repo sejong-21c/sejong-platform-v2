@@ -1199,8 +1199,267 @@
     return r;
   }
 
+  /* ═══════════ 한국에너지공단 KEMCO CODE Section IV (KPM) ═══════════
+   * pvcalc/kec.py 의 1:1 포팅. 근거 조항은 파이썬 모듈 docstring 참조.
+   * 외압(KPM-3230)은 A·B 를 차트에서 읽어야 하므로 구현하지 않는다.
+   * 허용응력 σa·이음효율 η 는 사용자 입력 (원문 표는 저작물). */
+
+  const KEC_MIN_THICKNESS = {
+    carbon: 2.5, highalloy: 2.5, highalloy_nocorr: 1.5,
+    nonferrous: 2.5, nonferrous_nocorr: 1.5,
+  };
+  const KEC_MIN_LABEL = {
+    carbon: "탄소강·저합금강 강판 (KPM-3210(1))",
+    highalloy: "고합금강 강판, 부식 예상 (KPM-3210(2))",
+    highalloy_nocorr: "고합금강 강판, 부식 예상 안 됨 (KPM-3210(2))",
+    nonferrous: "비철금속판, 부식 예상 (KPM-3210(3))",
+    nonferrous_nocorr: "비철금속판, 부식 예상 안 됨 (KPM-3210(3))",
+  };
+
+  function kecMult(units) {
+    const u = String(units).toLowerCase();
+    if (u === "si") return 1.0;
+    if (u === "kgf") return 100.0;
+    throw new Error("units 는 'SI' 또는 'kgf'");
+  }
+  const kecUnitLabels = units => kecMult(units) === 1.0
+    ? ["MPa", "N/mm²"] : ["kgf/cm²", "kgf/mm²"];
+
+  function kecCommonInputs(r, P, sigma_a, eta, alpha, units) {
+    const [pu, su] = kecUnitLabels(units);
+    r.addInput("P (최고사용압력)", P, pu);
+    r.addInput("σa (허용인장응력)", sigma_a, su);
+    r.addInput("η (이음효율)", eta, "", "관은 허용응력에 용접효율이 포함되어 1.0");
+    r.addInput("α (부식여유, KPM-3130)", alpha, "mm");
+  }
+
+  function kecMinCheck(r, tReq, alpha, materialClass) {
+    if (materialClass === null || materialClass === undefined || materialClass === "")
+      return tReq;
+    if (KEC_MIN_THICKNESS[materialClass] === undefined)
+      throw new Error("material_class 값이 올바르지 않습니다");
+    const tmin = KEC_MIN_THICKNESS[materialClass];
+    r.addStep("t_min (KPM-3210)", KEC_MIN_LABEL[materialClass], tmin, "mm");
+    r.addCheck(`성형 후 실제두께(부식여유 제외) ≥ ${tmin} mm`, tReq - alpha >= tmin);
+    const governed = Math.max(tReq, tmin + alpha);
+    if (governed > tReq) r.addStep("t (최소두께 지배)", "t_min + α", governed, "mm");
+    return governed;
+  }
+
+  function kecCylinderThickness({ P, Di = null, Do = null, sigma_a, eta = 1.0,
+    alpha = 0.0, units = "SI", material_class = "carbon", thick_wall = null }) {
+    if ((Di === null) === (Do === null)) throw new Error("Di 또는 Do 중 하나만 지정");
+    const m = kecMult(units);
+    const r = mkResult("원통형 동체 — 내압 최소두께",
+      "KEMCO CODE Section IV KPM-3221 (한국에너지공단)");
+    kecCommonInputs(r, P, sigma_a, eta, alpha, units);
+    const byId = Di !== null;
+    const D = byId ? Di : Do;
+    r.addInput(byId ? "Di (부식여유 제외 안지름)" : "Do (부식여유 제외 바깥지름)", D, "mm");
+
+    const S = sigma_a * m * eta;
+    r.addStep("σa·계수·η", `σa × ${m} × η`, S);
+
+    let tThin;
+    if (byId) {
+      tThin = P * D / (2.0 * S - 1.2 * P) + alpha;
+      r.addStep("t (1) 안지름 기준", `P·Di/(2·${m}σa·η − 1.2P) + α`, tThin, "mm");
+    } else {
+      tThin = P * D / (2.0 * S + 0.8 * P) + alpha;
+      r.addStep("t (2) 바깥지름 기준", `P·Do/(2·${m}σa·η + 0.8P) + α`, tThin, "mm");
+    }
+
+    const DiEff = byId ? D : D - 2.0 * (tThin - alpha);
+    const limit = DiEff / 4.0;
+    r.addStep("Di/4 (두꺼운 벽 판정 한계)", "안지름/4", limit, "mm");
+    const isThick = thick_wall === null || thick_wall === undefined
+      ? (tThin - alpha) > limit : !!thick_wall;
+
+    let tReq = tThin;
+    if (isThick) {
+      if (S <= P) throw new Error("σa·η ≤ P — 두꺼운 벽 식의 적용 범위를 벗어남");
+      const k = Math.sqrt((S + P) / (S - P));
+      r.addStep("√((σa·η+P)/(σa·η−P))", "두꺼운 벽 계수", k);
+      if (byId) {
+        tReq = (D / 2.0) * (k - 1.0) + alpha;
+        r.addStep("t (3)① 안지름 기준", "(Di/2)·(k − 1) + α", tReq, "mm");
+      } else {
+        tReq = (D / 2.0) * (1.0 - 1.0 / k) + alpha;
+        r.addStep("t (3)② 바깥지름 기준", "(Do/2)·(1 − 1/k) + α", tReq, "mm");
+      }
+      r.results.governing = "thick_wall";
+    } else {
+      r.results.governing = "thin_wall";
+    }
+    r.addCheck("두꺼운 벽 식 적용 여부 판정됨 (크리프 영역이면 (1)/(2) 사용 — KPM-3220)", true);
+
+    r.results.t_req = tReq;
+    r.results.t = kecMinCheck(r, tReq, alpha, material_class);
+    return r;
+  }
+
+  function kecSphereThickness({ P, Di = null, Do = null, sigma_a, eta = 1.0,
+    alpha = 0.0, units = "SI", material_class = "carbon", thick_wall = null }) {
+    if ((Di === null) === (Do === null)) throw new Error("Di 또는 Do 중 하나만 지정");
+    const m = kecMult(units);
+    const r = mkResult("구형 동체 — 내압 최소두께",
+      "KEMCO CODE Section IV KPM-3222 (한국에너지공단)");
+    kecCommonInputs(r, P, sigma_a, eta, alpha, units);
+    const byId = Di !== null;
+    const D = byId ? Di : Do;
+    r.addInput(byId ? "Di (부식여유 제외 안지름)" : "Do (부식여유 제외 바깥지름)", D, "mm");
+
+    const S = sigma_a * m * eta;
+    r.addStep("σa·계수·η", `σa × ${m} × η`, S);
+
+    let tThin;
+    if (byId) {
+      tThin = P * D / (4.0 * S - 0.4 * P) + alpha;
+      r.addStep("t (1) 안지름 기준", `P·Di/(4·${m}σa·η − 0.4P) + α`, tThin, "mm");
+    } else {
+      tThin = P * D / (4.0 * S + 1.6 * P) + alpha;
+      r.addStep("t (2) 바깥지름 기준", `P·Do/(4·${m}σa·η + 1.6P) + α`, tThin, "mm");
+    }
+
+    const DiEff = byId ? D : D - 2.0 * (tThin - alpha);
+    const limit = 0.178 * DiEff;
+    r.addStep("0.178·Di (두꺼운 벽 판정 한계)", "안지름 × 0.178", limit, "mm");
+    const isThick = thick_wall === null || thick_wall === undefined
+      ? (tThin - alpha) > limit : !!thick_wall;
+
+    let tReq = tThin;
+    if (isThick) {
+      if (2.0 * S <= P) throw new Error("2σa·η ≤ P — 두꺼운 벽 식의 적용 범위를 벗어남");
+      const k = Math.cbrt((2.0 * (S + P)) / (2.0 * S - P));
+      r.addStep("∛(2(σa·η+P)/(2σa·η−P))", "두꺼운 벽 계수", k);
+      if (byId) {
+        tReq = (D / 2.0) * (k - 1.0) + alpha;
+        r.addStep("t (3)① 안지름 기준", "(Di/2)·(k − 1) + α", tReq, "mm");
+      } else {
+        tReq = (D / 2.0) * (1.0 - 1.0 / k) + alpha;
+        r.addStep("t (3)② 바깥지름 기준", "(Do/2)·(1 − 1/k) + α", tReq, "mm");
+      }
+      r.results.governing = "thick_wall";
+    } else {
+      r.results.governing = "thin_wall";
+    }
+
+    r.results.t_req = tReq;
+    r.results.t = kecMinCheck(r, tReq, alpha, material_class);
+    return r;
+  }
+
+  function kecTorisphericalHead({ P, R, r_knuckle = null, sigma_a, eta = 1.0,
+    alpha = 0.0, units = "SI", material_class = "carbon",
+    hemispherical = false, flanged_opening = false, Di_shell = null }) {
+    const m = kecMult(units);
+    const res = mkResult("접시형·전체반구형 경판 — 최소두께",
+      "KEMCO CODE Section IV KPM-3321"
+      + (flanged_opening ? " / KPM-3322(2)" : "") + " (한국에너지공단)");
+    kecCommonInputs(res, P, sigma_a, eta, alpha, units);
+    res.addInput("R (경판 중앙부 내면 반지름)", R, "mm");
+
+    let Ruse = R;
+    if (flanged_opening && Di_shell !== null && Di_shell !== undefined) {
+      const floorR = 0.8 * Di_shell;
+      res.addInput("Di (동체 안지름)", Di_shell, "mm");
+      if (Ruse < floorR) {
+        res.addStep("R 대체 (KPM-3322(2))", "동체 안지름의 80%", floorR, "mm");
+        Ruse = floorR;
+      }
+    }
+
+    let W;
+    if (hemispherical) {
+      W = 1.0;
+      res.addStep("W", "전체 반구형 경판은 1", W);
+    } else {
+      if (r_knuckle === null || r_knuckle === undefined || r_knuckle === "")
+        throw new Error("접시형 경판은 r_knuckle 이 필요 (전체반구형은 hemispherical=true)");
+      res.addInput("r (구석 둥글기 안쪽 반지름, 부식여유 제외)", r_knuckle, "mm");
+      W = 0.25 * (3.0 + Math.sqrt(Ruse / r_knuckle));
+      res.addStep("W", "(3 + √(R/r))/4", W);
+    }
+
+    const S = sigma_a * m * eta;
+    const tBase = P * Ruse * W / (2.0 * S - 0.2 * P) + alpha;
+    res.addStep("t (KPM-3321)", `P·R·W/(2·${m}σa·η − 0.2P) + α`, tBase, "mm");
+
+    let tReq = tBase;
+    if (flanged_opening) {
+      const add = Math.max(0.15 * tBase, 3.0);
+      res.addStep("가산량 (KPM-3322(2))", "max(15% × t, 3 mm)", add, "mm");
+      tReq = tBase + add;
+      res.addStep("t (플랜지 보강 가산 후)", "t + 가산량", tReq, "mm");
+    }
+
+    res.results.W = W;
+    res.results.t_req = tReq;
+    res.results.t = kecMinCheck(res, tReq, alpha, material_class);
+    return res;
+  }
+
+  function kecEllipsoidalHead({ P, D, h = null, sigma_a, eta = 1.0, alpha = 0.0,
+    units = "SI", material_class = "carbon", D_over_2h = null,
+    flanged_opening = false, Di_shell = null }) {
+    const m = kecMult(units);
+
+    if (flanged_opening) {
+      if (Di_shell === null || Di_shell === undefined)
+        throw new Error("KPM-3324(2) 는 동체 안지름(Di_shell)이 필요");
+      const res = mkResult("반타원체형 경판 — 플랜지 보강 구멍이 있는 경우",
+        "KEMCO CODE Section IV KPM-3324(2) → KPM-3322(2) (한국에너지공단)");
+      kecCommonInputs(res, P, sigma_a, eta, alpha, units);
+      res.addInput("Di (동체 안지름)", Di_shell, "mm");
+      const Ruse = 0.8 * Di_shell, W = 1.77;
+      res.addStep("R (KPM-3324(2))", "동체 안지름의 80%", Ruse, "mm");
+      res.addStep("W (KPM-3324(2))", "1.77 로 한다", W);
+      const S = sigma_a * m * eta;
+      const tBase = P * Ruse * W / (2.0 * S - 0.2 * P) + alpha;
+      res.addStep("t (KPM-3321 식)", `P·R·W/(2·${m}σa·η − 0.2P) + α`, tBase, "mm");
+      const add = Math.max(0.15 * tBase, 3.0);
+      res.addStep("가산량 (KPM-3322(2))", "max(15% × t, 3 mm)", add, "mm");
+      const tReq = tBase + add;
+      res.addStep("t (가산 후)", "t + 가산량", tReq, "mm");
+      res.results.W = W;
+      res.results.t_req = tReq;
+      res.results.t = kecMinCheck(res, tReq, alpha, material_class);
+      return res;
+    }
+
+    const res = mkResult("반타원체형 경판 — 최소두께",
+      "KEMCO CODE Section IV KPM-3323 (한국에너지공단)");
+    kecCommonInputs(res, P, sigma_a, eta, alpha, units);
+    res.addInput("D (경판 내면 긴지름)", D, "mm");
+
+    let ratio;
+    if (D_over_2h === null || D_over_2h === undefined) {
+      if (h === null || h === undefined) throw new Error("h 또는 D_over_2h 중 하나가 필요");
+      res.addInput("h (짧은 지름의 1/2)", h, "mm");
+      ratio = D / (2.0 * h);
+    } else {
+      ratio = D_over_2h;
+    }
+    res.addStep("D/2h", "긴지름/(2·h)", ratio);
+
+    const V = (2.0 + ratio * ratio) / 6.0;
+    res.addStep("V", "[2 + (D/2h)²]/6", V);
+
+    const S = sigma_a * m * eta;
+    const tReq = P * D * V / (2.0 * S - 0.2 * P) + alpha;
+    res.addStep("t (KPM-3323)", `P·D·V/(2·${m}σa·η − 0.2P) + α`, tReq, "mm");
+
+    res.results.V = V;
+    res.results.t_req = tReq;
+    res.results.t = kecMinCheck(res, tReq, alpha, material_class);
+    return res;
+  }
+
   return {
     VERSION: "0.1.0",
+    kecCylinderThickness, kecSphereThickness,
+    kecTorisphericalHead, kecEllipsoidalHead,
+    KEC_MIN_THICKNESS,
     cylinderThickness, cylinderMawp, sphereThickness, sphereMawp, staticHead,
     ellipsoidalThickness, ellipsoidalMawp, torisphericalThickness,
     torisphericalMawp, hemisphericalThickness, conicalThickness,

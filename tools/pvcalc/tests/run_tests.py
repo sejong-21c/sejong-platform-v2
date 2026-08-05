@@ -503,6 +503,156 @@ print("== static head helper ==")
 # water 1000 kg/m3, 10 m: 1000*9.80665*10*1e-6 = 0.0980665 MPa
 close(static_head(1000.0, 10.0), 0.0980665, label="static head 10 m water")
 
+# ==========================================================================
+# 한국에너지공단 KEMCO CODE Section IV (KPM) — 원문 계산식 대조
+# 기대값은 KPM 조항식에서 독립적으로 손계산한 값이다.
+# ==========================================================================
+from pvcalc import kec  # noqa: E402
+
+print("== KPM-3221 원통형 동체 (내압) ==")
+# (1) 안지름: P=1.0, Di=2000, sa=100, eta=1, a=3
+#     t = 2000/(2*100 - 1.2) + 3 = 2000/198.8 + 3 = 13.0603621730
+r = kec.cylinder_thickness(P=1.0, Di=2000.0, sigma_a=100.0, eta=1.0, alpha=3.0)
+close(r.results["t_req"], 13.0603621730, label="KPM-3221(1) 안지름 기준")
+check(r.results["governing"] == "thin_wall", "KPM-3221 얇은 벽 판정")
+
+# (2) 바깥지름: t = 2000/(2*100 + 0.8) + 3 = 2000/200.8 + 3 = 12.9601593625
+r = kec.cylinder_thickness(P=1.0, Do=2000.0, sigma_a=100.0, eta=1.0, alpha=3.0)
+close(r.results["t_req"], 12.9601593625, label="KPM-3221(2) 바깥지름 기준")
+
+# 이음효율 반영: eta=0.85 -> t = 2000/(2*85 - 1.2) + 3 = 2000/168.8 + 3
+close(kec.cylinder_thickness(P=1.0, Di=2000.0, sigma_a=100.0, eta=0.85,
+                             alpha=3.0).results["t_req"],
+      2000 / 168.8 + 3, label="KPM-3221 이음효율 0.85")
+
+# 공학단위(kgf): P=10 kgf/cm2, Di=2000, sa=10 kgf/mm2, a=3
+#   t = 10*2000/(200*10*1 - 1.2*10) + 3 = 20000/1988 + 3 = 13.0603621730
+close(kec.cylinder_thickness(P=10.0, Di=2000.0, sigma_a=10.0, eta=1.0, alpha=3.0,
+                             units="kgf").results["t_req"],
+      20000 / 1988 + 3, label="KPM-3221 공학단위(kgf) 200σa")
+
+# (3) 두꺼운 벽: sa=10, eta=1, P=4, Di=400 -> 얇은벽 t=400*4/(20-4.8)=105.26 > 100=Di/4
+#   k = sqrt((10+4)/(10-4)) = sqrt(2.3333333333) = 1.5275252317
+#   t = 200*(k-1) + 0 = 105.5050463
+r = kec.cylinder_thickness(P=4.0, Di=400.0, sigma_a=10.0, eta=1.0, alpha=0.0,
+                           material_class=None)
+check(r.results["governing"] == "thick_wall", "KPM-3221(3) 두꺼운 벽 자동 판정")
+close(r.results["t_req"], 200.0 * (math.sqrt(14.0 / 6.0) - 1.0),
+      label="KPM-3221(3)① 두꺼운 벽")
+
+# 크리프 영역에서는 (1) 식 강제 (KPM-3220 단서)
+r = kec.cylinder_thickness(P=4.0, Di=400.0, sigma_a=10.0, eta=1.0, alpha=0.0,
+                           material_class=None, thick_wall=False)
+close(r.results["t_req"], 400.0 * 4.0 / (20.0 - 4.8),
+      label="KPM-3220 크리프 영역은 얇은 벽 식")
+
+# KPM-3210 최소두께 지배: 얇은 용기
+#   P=0.05, Di=500, sa=100 -> t_p = 500*0.05/(200-0.06) = 0.125 mm, +a=1 -> 1.125
+#   탄소강 최소 2.5 -> t = 2.5 + 1 = 3.5
+r = kec.cylinder_thickness(P=0.05, Di=500.0, sigma_a=100.0, eta=1.0, alpha=1.0,
+                           material_class="carbon")
+close(r.results["t"], 3.5, label="KPM-3210 최소두께(탄소강 2.5mm) 지배")
+check(not r.ok, "KPM-3210 최소두께 미달 FAIL 표시")
+# 고합금강 부식 없음 -> 1.5 mm
+r = kec.cylinder_thickness(P=0.05, Di=500.0, sigma_a=100.0, eta=1.0, alpha=0.0,
+                           material_class="highalloy_nocorr")
+close(r.results["t"], 1.5, label="KPM-3210 고합금강(부식없음) 1.5mm")
+
+print("== KPM-3222 구형 동체 (내압) ==")
+# (1) 안지름: t = 2000/(4*100 - 0.4) + 3 = 2000/399.6 + 3 = 8.0050050050
+close(kec.sphere_thickness(P=1.0, Di=2000.0, sigma_a=100.0, eta=1.0,
+                           alpha=3.0).results["t_req"],
+      2000 / 399.6 + 3, label="KPM-3222(1) 안지름 기준")
+# (2) 바깥지름: t = 2000/(4*100 + 1.6) + 3 = 2000/401.6 + 3
+close(kec.sphere_thickness(P=1.0, Do=2000.0, sigma_a=100.0, eta=1.0,
+                           alpha=3.0).results["t_req"],
+      2000 / 401.6 + 3, label="KPM-3222(2) 바깥지름 기준")
+# (3) 두꺼운 벽: sa=10, P=4, Di=400 -> 얇은벽 t=400*4/(40-1.6)=41.67 > 0.178*400=71.2? 아니오
+#   더 얇은 허용응력으로: sa=5, P=4 -> t=1600/(20-1.6)=86.96 > 71.2 -> 두꺼운 벽
+#   k = (2*(5+4)/(2*5-4))^(1/3) = (18/6)^(1/3) = 3^(1/3) = 1.4422495703
+#   t = 200*(k-1) = 88.4499141
+r = kec.sphere_thickness(P=4.0, Di=400.0, sigma_a=5.0, eta=1.0, alpha=0.0,
+                         material_class=None)
+check(r.results["governing"] == "thick_wall", "KPM-3222(3) 두꺼운 벽 자동 판정")
+close(r.results["t_req"], 200.0 * (3.0 ** (1.0 / 3.0) - 1.0),
+      label="KPM-3222(3)① 두꺼운 벽")
+
+print("== KPM-3321 접시형·전체반구형 경판 ==")
+# 전체반구형: W=1, t = 1*1000*1/(2*100 - 0.2) + 3 = 1000/199.8 + 3
+close(kec.torispherical_head_thickness(P=1.0, R=1000.0, sigma_a=100.0, eta=1.0,
+                                       alpha=3.0, hemispherical=True).results["t_req"],
+      1000 / 199.8 + 3, label="KPM-3321 전체반구형 (W=1)")
+# 접시형: R=2000, r=150 -> W = (3 + sqrt(2000/150))/4 = (3 + 3.6514837167)/4 = 1.6628709292
+#   t = 1*2000*1.6628709292/199.8 + 3 = 16.646401... + 3
+W_exp = 0.25 * (3.0 + math.sqrt(2000.0 / 150.0))
+r = kec.torispherical_head_thickness(P=1.0, R=2000.0, r_knuckle=150.0,
+                                     sigma_a=100.0, eta=1.0, alpha=3.0)
+close(r.results["W"], W_exp, label="KPM-3321 W 계수")
+close(r.results["t_req"], 2000.0 * W_exp / 199.8 + 3.0, label="KPM-3321 접시형 t")
+
+# KPM-3322(2) 플랜지 보강: 15% 가산, 3mm 미만이면 3mm
+#   위 t_base = 19.646401...; 15% = 2.9469 < 3 -> 3mm 가산
+t_base = 2000.0 * W_exp / 199.8 + 3.0
+r = kec.torispherical_head_thickness(P=1.0, R=2000.0, r_knuckle=150.0,
+                                     sigma_a=100.0, eta=1.0, alpha=3.0,
+                                     flanged_opening=True)
+close(r.results["t_req"], t_base + max(0.15 * t_base, 3.0),
+      label="KPM-3322(2) 플랜지 보강 가산 (3mm 하한)")
+# 두꺼운 경우 15% 가 지배: P=4 -> t_base 커짐
+r = kec.torispherical_head_thickness(P=4.0, R=2000.0, r_knuckle=150.0,
+                                     sigma_a=100.0, eta=1.0, alpha=3.0,
+                                     flanged_opening=True)
+tb = 4.0 * 2000.0 * W_exp / (200.0 - 0.8) + 3.0
+close(r.results["t_req"], tb + 0.15 * tb, label="KPM-3322(2) 15% 가산 지배")
+check(0.15 * tb > 3.0, "이 케이스는 15% 가 3mm 보다 큼")
+
+# KPM-3322(2) R 대체: 경판 내면반경이 동체 안지름의 80% 미만이면 80% 로
+r = kec.torispherical_head_thickness(P=1.0, R=1000.0, r_knuckle=150.0,
+                                     sigma_a=100.0, eta=1.0, alpha=3.0,
+                                     flanged_opening=True, Di_shell=2000.0)
+W80 = 0.25 * (3.0 + math.sqrt(1600.0 / 150.0))
+tb80 = 1.0 * 1600.0 * W80 / 199.8 + 3.0
+close(r.results["t_req"], tb80 + max(0.15 * tb80, 3.0),
+      label="KPM-3322(2) R = 동체 안지름의 80% 대체")
+
+print("== KPM-3323 반타원체형 경판 ==")
+# 2:1 (D=2000, h=500): V = (2 + (2000/1000)^2)/6 = (2+4)/6 = 1.0
+#   t = 1*2000*1/199.8 + 3
+r = kec.ellipsoidal_head_thickness(P=1.0, D=2000.0, h=500.0, sigma_a=100.0,
+                                   eta=1.0, alpha=3.0)
+close(r.results["V"], 1.0, label="KPM-3323 V (2:1 경판)")
+close(r.results["t_req"], 2000 / 199.8 + 3, label="KPM-3323 2:1 경판 t")
+# D/2h = 2.5: V = (2 + 6.25)/6 = 1.375
+close(kec.ellipsoidal_head_thickness(P=1.0, D=2000.0, D_over_2h=2.5,
+                                     sigma_a=100.0, eta=1.0,
+                                     alpha=3.0).results["V"],
+      (2.0 + 6.25) / 6.0, label="KPM-3323 V (D/2h=2.5)")
+# KPM-3324(2): R = 0.8*Di, W = 1.77, 그 뒤 KPM-3322(2) 가산
+r = kec.ellipsoidal_head_thickness(P=1.0, D=2000.0, h=500.0, sigma_a=100.0,
+                                   eta=1.0, alpha=3.0, flanged_opening=True,
+                                   Di_shell=2000.0)
+tb324 = 1.0 * 1600.0 * 1.77 / 199.8 + 3.0
+close(r.results["W"], 1.77, label="KPM-3324(2) W = 1.77")
+close(r.results["t_req"], tb324 + max(0.15 * tb324, 3.0),
+      label="KPM-3324(2) 플랜지 보강")
+
+print("== KPM 단위계·입력 검증 ==")
+try:
+    kec.cylinder_thickness(P=1.0, Di=2000.0, Do=2200.0, sigma_a=100.0)
+    check(False, "Di·Do 동시 지정은 거부되어야 함")
+except ValueError:
+    check(True, "Di·Do 동시 지정 거부")
+try:
+    kec.cylinder_thickness(P=1.0, Di=2000.0, sigma_a=100.0, units="psi")
+    check(False, "모르는 단위계는 거부되어야 함")
+except ValueError:
+    check(True, "모르는 단위계 거부")
+try:
+    kec.torispherical_head_thickness(P=1.0, R=2000.0, sigma_a=100.0)
+    check(False, "접시형은 r_knuckle 없이 계산되면 안 됨")
+except ValueError:
+    check(True, "접시형 r_knuckle 누락 거부")
+
 print()
 if FAIL:
     print(f"{len(FAIL)} TEST(S) FAILED: {FAIL}")

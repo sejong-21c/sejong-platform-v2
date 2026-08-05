@@ -161,7 +161,8 @@ try {
   ok("경고띠 문구 교체", $("dc-mat").textContent.includes("판·개정년도"));
 
   const tagged = d.querySelectorAll("main input[data-mat]");
-  ok("응력칸 19개 태그", tagged.length === 19, `실제 ${tagged.length}`);
+  /* ASME 19 + KPM(σa) 2 = 21 */
+  ok("응력칸 21개 태그", tagged.length === 21, `실제 ${tagged.length}`);
   ok("칸마다 드롭다운", d.querySelectorAll(".matsel").length === tagged.length);
   ok("차트인자 B·플랜지 내경 B 제외",
      !$("ld-B").dataset.mat && !$("fl-B").dataset.mat);
@@ -412,6 +413,126 @@ console.log("== 기준 × 아이템 ==");
   w.showTab("shell");
   w.calcShell();
   ok("ASME 복귀 후 계산 정상", grab(d, "shell", "t_req") > 0);
+}
+
+/* ══ 6c. 한국에너지공단 KPM 탭 ═══════════════════════════════════
+   계산식 자체는 test_core.mjs 가 파이썬과 대조하므로, 여기서는 화면이
+   엔진에 올바른 인자를 넘기는지(지름 기준·단위계·재료구분)만 본다. */
+console.log("== KPM 탭 (한국에너지공단) ==");
+{
+  const w = await load(), d = w.document;
+  const $ = id => d.getElementById(id);
+  const visible = () => [...d.querySelectorAll("#tabs button")]
+    .filter(b => b.style.display !== "none").map(b => b.dataset.tab);
+
+  w.setCode("kec");
+  ok("에너지공단 탭에 동체·경판 노출",
+     visible().join(",") === "kshell,khead,stub,mat,info", visible().join(","));
+  ok("아이템은 압력용기·열교환기", [...d.querySelectorAll("#item-btns button")]
+     .map(b => b.dataset.item).join(",") === "pv,hx");
+
+  /* 동체: P=1, Di=2000, σa=100, η=1, α=3 → 2000/198.8 + 3 = 13.0604 */
+  w.showTab("kshell");
+  w.calcKshell();
+  near("KPM-3221(1) 안지름 기준", grab(d, "kshell", "t_req"), 13.0604);
+  ok("계산서에 KPM 조항 표기", sheet(d, "kshell").includes("KPM-3221"));
+  ok("계산서에 기준·아이템",
+     sheet(d, "kshell").startsWith("인허가 기준 / 아이템: 한국에너지공단 · 압력용기"),
+     sheet(d, "kshell").split("\n")[0]);
+
+  /* 바깥지름 기준으로 바꾸면 Do 로 넘어가야 함 → 2000/200.8 + 3 */
+  d.querySelector('input[name="ks-dia"][value="od"]').click();
+  w.calcKshell();
+  near("KPM-3221(2) 바깥지름 기준", grab(d, "kshell", "t_req"), 2000 / 200.8 + 3);
+  d.querySelector('input[name="ks-dia"][value="id"]').click();
+
+  /* 구형으로 전환 → 2000/399.6 + 3 */
+  d.querySelector('input[name="ks-geo"][value="sph"]').click();
+  w.calcKshell();
+  near("KPM-3222(1) 구형", grab(d, "kshell", "t_req"), 2000 / 399.6 + 3);
+  ok("구형은 KPM-3222 조항", sheet(d, "kshell").includes("KPM-3222"));
+  d.querySelector('input[name="ks-geo"][value="cyl"]').click();
+
+  /* 공학단위 전환 — P=10 kgf/cm², σa=10 kgf/mm² → 20000/1988 + 3 */
+  $("ks-units").value = "kgf"; $("ks-units").onchange();
+  ok("단위 라벨 kgf 전환", d.querySelector(".ku-press").textContent === "kgf/cm²"
+     && d.querySelector(".ku-stress").textContent === "kgf/mm²");
+  $("ks-P").value = "10"; $("ks-sa").value = "10";
+  w.calcKshell();
+  near("공학단위 200σa 계수", grab(d, "kshell", "t_req"), 20000 / 1988 + 3);
+  $("ks-units").value = "SI"; $("ks-units").onchange();
+  $("ks-P").value = "1.0"; $("ks-sa").value = "100";
+
+  /* KPM-3210 최소두께 지배 — 얇은 용기에서 FAIL 배지 + t 승격 */
+  $("ks-P").value = "0.05"; $("ks-D").value = "500"; $("ks-alpha").value = "1";
+  w.calcKshell();
+  near("KPM-3210 탄소강 2.5mm 지배", grab(d, "kshell", "t"), 3.5);
+  ok("최소두께 미달은 FAIL 배지",
+     d.querySelector("#res-kshell .badge").textContent === "FAIL");
+  $("ks-mc").value = "highalloy_nocorr"; $("ks-alpha").value = "0";
+  w.calcKshell();
+  near("KPM-3210 고합금강(부식없음) 1.5mm", grab(d, "kshell", "t"), 1.5);
+  $("ks-mc").value = "carbon"; $("ks-P").value = "1.0"; $("ks-D").value = "2000";
+  $("ks-alpha").value = "3";
+
+  /* 두꺼운 벽 강제/해제 */
+  $("ks-P").value = "4"; $("ks-D").value = "400"; $("ks-sa").value = "10";
+  $("ks-alpha").value = "0"; $("ks-mc").value = "";
+  w.calcKshell();
+  ok("두꺼운 벽 자동 판정", sheet(d, "kshell").includes("t (3)①"));
+  $("ks-thick").value = "0";
+  w.calcKshell();
+  ok("크리프 영역이면 얇은 벽 식 (KPM-3220)", !sheet(d, "kshell").includes("t (3)①"));
+  $("ks-thick").value = "";
+
+  /* 경판 — 전체반구형 W=1, 화면 기본 R=2000 → 2000/199.8 + 3 */
+  w.showTab("khead");
+  w.calcKhead();
+  near("KPM-3321 전체반구형", grab(d, "khead", "t_req"), 2000 / 199.8 + 3);
+  ok("반구형 W=1", grab(d, "khead", "W") === 1);
+
+  /* 접시형 — W = (3+√(2000/150))/4 */
+  $("kh-type").value = "tori"; $("kh-type").onchange();
+  w.calcKhead();
+  const Wexp = 0.25 * (3 + Math.sqrt(2000 / 150));
+  near("KPM-3321 접시형 W", grab(d, "khead", "W"), Wexp);
+  near("KPM-3321 접시형 t", grab(d, "khead", "t_req"), 2000 * Wexp / 199.8 + 3);
+
+  /* 플랜지 보강 — 15% 또는 3mm 가산 */
+  const tBase = 2000 * Wexp / 199.8 + 3;
+  $("kh-flg").checked = true;
+  w.calcKhead();
+  near("KPM-3322(2) 가산", grab(d, "khead", "t_req"),
+       tBase + Math.max(0.15 * tBase, 3));
+  ok("가산 조항 표기", sheet(d, "khead").includes("KPM-3322(2)"));
+  $("kh-flg").checked = false;
+
+  /* 반타원체형 — 2:1 이면 V=1 */
+  $("kh-type").value = "ellip"; $("kh-type").onchange();
+  w.calcKhead();
+  ok("KPM-3323 V=1 (2:1)", grab(d, "khead", "V") === 1);
+  near("KPM-3323 2:1 t", grab(d, "khead", "t_req"), 2000 / 199.8 + 3);
+
+  /* 반타원체형 + 플랜지 보강 → KPM-3324(2): R=0.8Di, W=1.77 */
+  $("kh-flg").checked = true;
+  w.calcKhead();
+  ok("KPM-3324(2) W=1.77", grab(d, "khead", "W") === 1.77);
+  const tb324 = 1600 * 1.77 / 199.8 + 3;
+  near("KPM-3324(2) t", grab(d, "khead", "t_req"), tb324 + Math.max(0.15 * tb324, 3));
+  $("kh-flg").checked = false;
+
+  /* 형식별 입력 표시 전환 */
+  ok("반타원체형은 D·h 표시, R·r 숨김",
+     $("kh-D").closest(".field").style.display !== "none"
+     && $("kh-R").closest(".field").style.display === "none");
+
+  /* stub 은 외압 미구현을 명시해야 함 */
+  w.showTab("stub");
+  ok("stub 에 외압 차트 미구현 명시",
+     $("panel-stub").textContent.includes("KPM-3230")
+     && $("panel-stub").textContent.includes("차트"));
+  ok("stub 에 부식여유 취급 차이 경고",
+     $("panel-stub").textContent.includes("부식여유 취급이 ASME 와 다릅니다"));
 }
 
 /* ══ 7. 부서 공유 저장 진입점 (Firestore 브리지 seam) ════════════
