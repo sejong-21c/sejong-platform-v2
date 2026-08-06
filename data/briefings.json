@@ -975,22 +975,46 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-06 16:32 (오후 정리 자동 실행)",
+    "generatedAt": "2026-08-07 08:07 (오전 정리 자동 실행)",
     "newMails": 3,
-    "processed": 2,
-    "urgentReplies": 0,
+    "processed": 3,
+    "urgentReplies": 1,
     "ncr": 1,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "NCR-2026-20 진양화성 Hopper 불일치 조치계획 회신 대기 (담당: 송기남 차장)",
-        "proj": "SJE437-26",
+        "text": "NCR-2026-19 CD-102 치수불일치 조치방안 확정 및 회신 (송기남 차장 주수신, 신과장 참조)",
+        "proj": "SJ2026-030 VDS",
+        "priority": "high"
+      },
+      {
+        "text": "왕복동 펌프 구매/검사 Procedure 2차 검토 미팅 참석 (13:30, 본사 소회의실)",
+        "proj": "품질보증",
         "priority": "mid"
+      },
+      {
+        "text": "K-INNO WEEK 전시 참가 관련 후속 확인 (이미 김철우 부장께 포워딩 완료)",
+        "proj": "일반사무",
+        "priority": "low"
       }
     ],
-    "urgentList": [],
-    "schedule": []
+    "urgentList": [
+      {
+        "subject": "Reminder!!!_[QC] 불일치보고서(NCR)_VDS_CONDENSER 도면-제품 치수 불일치 (NCR-2026-19) 관련 조치 요청건",
+        "from": "김시원 대리 (swkim@sejong-21c.com)",
+        "proj": "SJ2026-030 VDS"
+      }
+    ],
+    "schedule": [
+      {
+        "title": "[품질보증] 왕복동 펌프 구매/검사 Procedure 2차 검토 미팅",
+        "date": "2026-08-07",
+        "time": "13:30",
+        "proj": "품질보증",
+        "color": "blue"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-07-23 (daily-mail-swkim 자동 실행)",
