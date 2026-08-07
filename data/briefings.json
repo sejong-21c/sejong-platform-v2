@@ -975,43 +975,32 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-07 08:07 (오전 정리 자동 실행)",
-    "newMails": 3,
-    "processed": 3,
-    "urgentReplies": 1,
-    "ncr": 1,
-    "car": 0,
+    "generatedAt": "2026-08-07 16:33 (오후 정리 자동 실행)",
+    "newMails": 6,
+    "processed": 6,
+    "urgentReplies": 0,
+    "ncr": 0,
+    "car": 1,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "NCR-2026-19 CD-102 치수불일치 조치방안 확정 및 회신 (송기남 차장 주수신, 신과장 참조)",
-        "proj": "SJ2026-030 VDS",
-        "priority": "high"
-      },
-      {
-        "text": "왕복동 펌프 구매/검사 Procedure 2차 검토 미팅 참석 (13:30, 본사 소회의실)",
-        "proj": "품질보증",
+        "text": "CAR 26-CAR-009 이행기록 제출 확인",
+        "proj": "SJE437-26",
         "priority": "mid"
       },
       {
-        "text": "K-INNO WEEK 전시 참가 관련 후속 확인 (이미 김철우 부장께 포워딩 완료)",
-        "proj": "일반사무",
+        "text": "삼성전기 생산 스케줄 확정 여부 확인 (8/4 미팅안, 참석자 일부 부재)",
+        "proj": "SJ435-26",
         "priority": "low"
       }
     ],
-    "urgentList": [
-      {
-        "subject": "Reminder!!!_[QC] 불일치보고서(NCR)_VDS_CONDENSER 도면-제품 치수 불일치 (NCR-2026-19) 관련 조치 요청건",
-        "from": "김시원 대리 (swkim@sejong-21c.com)",
-        "proj": "SJ2026-030 VDS"
-      }
-    ],
+    "urgentList": [],
     "schedule": [
       {
-        "title": "[품질보증] 왕복동 펌프 구매/검사 Procedure 2차 검토 미팅",
+        "title": "왕복동 펌프 구매/검사 Procedure 2차 검토 미팅",
         "date": "2026-08-07",
         "time": "13:30",
-        "proj": "품질보증",
+        "proj": "내부품질경영",
         "color": "blue"
       }
     ]
