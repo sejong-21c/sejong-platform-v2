@@ -975,35 +975,16 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-07 16:33 (오후 정리 자동 실행)",
-    "newMails": 6,
-    "processed": 6,
+    "generatedAt": "2026-08-10 07:39 (오전 정리 자동 실행)",
+    "newMails": 0,
+    "processed": 0,
     "urgentReplies": 0,
     "ncr": 0,
-    "car": 1,
+    "car": 0,
     "newProjects": 0,
-    "keyActions": [
-      {
-        "text": "CAR 26-CAR-009 이행기록 제출 확인",
-        "proj": "SJE437-26",
-        "priority": "mid"
-      },
-      {
-        "text": "삼성전기 생산 스케줄 확정 여부 확인 (8/4 미팅안, 참석자 일부 부재)",
-        "proj": "SJ435-26",
-        "priority": "low"
-      }
-    ],
+    "keyActions": [],
     "urgentList": [],
-    "schedule": [
-      {
-        "title": "왕복동 펌프 구매/검사 Procedure 2차 검토 미팅",
-        "date": "2026-08-07",
-        "time": "13:30",
-        "proj": "내부품질경영",
-        "color": "blue"
-      }
-    ]
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-07-23 (daily-mail-swkim 자동 실행)",
