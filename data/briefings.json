@@ -987,44 +987,33 @@
     "schedule": []
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-08-11 (daily-mail-swkim 자동 실행)",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-11-morning.html",
+    "generatedAt": "2026-08-12 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-12-morning.html",
     "newMails": 6,
-    "processed": 4,
-    "urgentReplies": 1,
+    "processed": 1,
+    "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
-    "manday": 2,
+    "manday": 0.3,
     "keyActions": [
       {
-        "text": "[Firebase 보안규칙] sejong-platform-2 Firestore 클라이언트 액세스가 4일 전 만료 — 테스트모드 규칙으로 데이터베이스가 인터넷에 완전 공개된 상태. firebase console → firestore/rules에서 t_ncrs 등 컬렉션 규칙 확인·수정 최우선 필요 (세종 플랫폼 v2 NCR/CAR 전사 공유 문제와 동일 원인 의심)",
-        "proj": "sejong-platform-2",
-        "priority": "high"
+        "text": "[SJE437-26] 진양화성 드라이어 상부 WALKWAY 도면 전달 — 기술부 강재상 사원이 생산부(송기남 차장)에 제작도면(dwg/pdf) 송부, 본인 CC 참조. Label_32 부착 후 자동 보관 처리",
+        "proj": "SJE437-26",
+        "priority": "low"
       },
       {
-        "text": "[SJ2026-040] CKS FINAL DOCUMENT 제작용 최종자료 정리·회신 — 황서윤 대리 요청, 8/12(수)까지 (김재현 대리와 공동 수신, 시간 미기재로 Calendar 미등록)",
-        "proj": "SJ2026-040",
-        "priority": "high"
+        "text": "차량관리시스템(car.sejong21c.com) 주소·QR코드·비밀번호 안내 — 신채완 과장이 양병원 이사님/심윤지 대리에게 전달, 본인 CC 참조. Project 라벨 미매칭으로 INBOX 유지",
+        "proj": "사내시스템",
+        "priority": "low"
       },
       {
-        "text": "[SJ2026-030/036] VDS 교체공사(ESTER 수평콘덴샤·MDI 분쇄기) FINAL DOCUMENT를 이영주 대리가 영업부(김민준 차장)에 송부, 업체 제출 예정 — 본인 CC 참조, 별도 조치 불요",
-        "proj": "SJ2026-030/036",
-        "priority": "mid"
-      },
-      {
-        "text": "NCR-2026-19(SJ2026-030, VDS_CONDENSER 도면-제품 치수 불일치)는 8/10 종결 처리 완료 — 현재 진행 중인 NCR/CAR 없음",
-        "proj": "SJ2026-030",
+        "text": "[SJ436-26] 조광페인트 내부 코팅 성적서 및 품질팀 추가 보고서(사내용/고객용 구분) 고병선 대리에게 발신 완료 — 조치 완료",
+        "proj": "SJ436-26",
         "priority": "low"
       }
     ],
-    "urgentList": [
-      {
-        "subject": "[SJ2026-040] CKS FINAL DOCUMENT 최종자료 정리·회신 (8/12(수)까지)",
-        "from": "황서윤 대리 (기술부)",
-        "proj": "SJ2026-040"
-      }
-    ],
+    "urgentList": [],
     "schedule": []
   }
 }
