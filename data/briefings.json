@@ -975,7 +975,7 @@
     "runAt": "오전 정리 (07:00)"
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-11 07:55 (오전 정리 자동 실행)",
+    "generatedAt": "2026-08-12 07:53 (오후 정리 자동 실행)",
     "newMails": 0,
     "processed": 0,
     "urgentReplies": 0,
@@ -995,7 +995,7 @@
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
-    "manday": 2.0,
+    "manday": 2,
     "keyActions": [
       {
         "text": "[Firebase 보안규칙] sejong-platform-2 Firestore 클라이언트 액세스가 4일 전 만료 — 테스트모드 규칙으로 데이터베이스가 인터넷에 완전 공개된 상태. firebase console → firestore/rules에서 t_ncrs 등 컬렉션 규칙 확인·수정 최우선 필요 (세종 플랫폼 v2 NCR/CAR 전사 공유 문제와 동일 원인 의심)",
