@@ -929,33 +929,66 @@
     "schedule": []
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-08-12 (daily-mail-swkim 자동 실행)",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-12-morning.html",
-    "newMails": 6,
-    "processed": 1,
-    "urgentReplies": 0,
+    "generatedAt": "2026-08-13 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-13-morning.html",
+    "newMails": 8,
+    "processed": 6,
+    "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
-    "manday": 0.3,
+    "manday": 1.1,
     "keyActions": [
       {
-        "text": "[SJE437-26] 진양화성 드라이어 상부 WALKWAY 도면 전달 — 기술부 강재상 사원이 생산부(송기남 차장)에 제작도면(dwg/pdf) 송부, 본인 CC 참조. Label_32 부착 후 자동 보관 처리",
+        "text": "[CAR-2026-010] 세창엔텍 시정조치요구서 회신 지연 — 회신기한(8/7) 경과, 8/11 재촉 메일(전 직원 CC) 발송함. 금일 회신 여부 확인, 미회신 시 에스컬레이션 검토",
+        "proj": "CAR-2026-010",
+        "priority": "high"
+      },
+      {
+        "text": "[SJE2025-057] 삼영폴리텍 PUD REACTOR 에너지 용접검사 08/14(금) 예정 — 이영주 대리 회신(0.5M³, 용접번호 2026-21-10-00093, 구조번호 2026-21-15-00113, 담당 이계두 부장). 시간 미정 — 참석 여부·시간 확인 후 캘린더 등록 필요",
+        "proj": "SJE2025-057",
+        "priority": "mid"
+      },
+      {
+        "text": "[SJE437-26] 진양화성 건조기 WALKWAY·RAIN CAP 도면 수정본 2건 수신(기술부 강재상 사원→생산부) — 본인 CC 참조, 기존 라벨 부착 확인 후 보관 처리",
         "proj": "SJE437-26",
         "priority": "low"
       },
       {
-        "text": "차량관리시스템(car.sejong21c.com) 주소·QR코드·비밀번호 안내 — 신채완 과장이 양병원 이사님/심윤지 대리에게 전달, 본인 CC 참조. Project 라벨 미매칭으로 INBOX 유지",
-        "proj": "사내시스템",
+        "text": "[SJ2026-030/036] VDS(동성케미컬) 파쇄기 철판 성적서 수신 — 본인 CC 참조, 기존 라벨 보관 처리",
+        "proj": "SJ2026-030",
         "priority": "low"
       },
       {
-        "text": "[SJ436-26] 조광페인트 내부 코팅 성적서 및 품질팀 추가 보고서(사내용/고객용 구분) 고병선 대리에게 발신 완료 — 조치 완료",
+        "text": "[SJ435-26] 삼성전기 PACKING 관련 내용(원료3동 6라인 증설) 신채완 과장 전달 — 본인 CC 참조",
+        "proj": "SJ435-26",
+        "priority": "low"
+      },
+      {
+        "text": "[SJ436-26] 조광페인트 중앙하이프론 코팅 성적서 고병선 대리에게 발신 완료 — 조치 완료",
         "proj": "SJ436-26",
+        "priority": "low"
+      },
+      {
+        "text": "[SJ2026-040] CKS 최종자료 요청건 — 황서윤 대리 요청(8/12 마감)에 품질서류 회신 완료",
+        "proj": "SJ2026-040",
         "priority": "low"
       }
     ],
-    "urgentList": [],
-    "schedule": []
+    "urgentList": [
+      {
+        "subject": "CAR-2026-010 시정조치요구서 회신 지연 (세창엔텍) — 회신 여부 확인 및 후속조치 필요",
+        "from": "김시원 대리 (발신, 세창엔텍 회신 대기)",
+        "proj": "CAR-2026-010"
+      }
+    ],
+    "schedule": [
+      {
+        "title": "[SJE2025-057] 삼영폴리텍 PUD REACTOR 에너지 용접검사 (시간 미정 — 확인 필요)",
+        "date": "2026-08-14",
+        "proj": "SJE2025-057",
+        "color": "orange"
+      }
+    ]
   }
 }
