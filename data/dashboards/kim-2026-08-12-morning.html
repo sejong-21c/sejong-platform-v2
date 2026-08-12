@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>일일 통합 대시보드 — 2026-08-12 오전 (품질관리부 김철우 부장)</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#fff; --line:#e3e6ea; --tx:#1c2530; --tx2:#5b6773;
+    --red:#d93025; --org:#e8710a; --grn:#137333; --blu:#1a73e8; --gry:#80868b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#15181c; --card:#1e2227; --line:#31363c; --tx:#e6e9ed; --tx2:#a3adb8;
+           --red:#f28b82; --org:#fdb95d; --grn:#81c995; --blu:#8ab4f8; --gry:#9aa0a6; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px;background:var(--bg);color:var(--tx);
+       font-family:"Malgun Gothic","맑은 고딕",-apple-system,sans-serif;font-size:14px;line-height:1.6}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:21px;margin:0 0 4px}
+  .sub{color:var(--tx2);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  h2{font-size:15px;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .kpi{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .kpi div{flex:1 1 110px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+  .kpi b{display:block;font-size:24px;line-height:1.2}
+  .kpi span{font-size:12px;color:var(--tx2)}
+  .tblwrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:rgba(128,134,139,.12);font-weight:600;white-space:nowrap}
+  .p1{color:var(--red);font-weight:700}
+  .p2{color:var(--org);font-weight:600}
+  .p3{color:var(--grn)}
+  .muted{color:var(--tx2)}
+  ul{margin:6px 0;padding-left:20px}
+  li{margin-bottom:6px}
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;border:1px solid var(--line);color:var(--tx2)}
+  .warn{border-left:4px solid var(--org);padding-left:12px}
+  .foot{color:var(--tx2);font-size:12px;text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>일일 통합 대시보드 — 2026-08-12 (수) 오전</h1>
+<div class="sub">㈜세종기술 품질관리부 · 김철우 부장 (cwkim@sejong-21c.com) · 권한 L3 · 검색범위 newer_than:1d (08-11 23:00 ~ 08-12 08:48 KST)</div>
+
+<div class="kpi">
+  <div><b>34</b><span>신규 메일</span></div>
+  <div><b>9</b><span>업무 메일</span></div>
+  <div><b>3</b><span>긴급 답변</span></div>
+  <div><b class="p1">1</b><span>CAR 진행</span></div>
+  <div><b>0</b><span>신규 NCR</span></div>
+  <div><b>0</b><span>신규 Project</span></div>
+  <div><b>6H</b><span>예상 공수</span></div>
+</div>
+
+<div class="card">
+  <h2>■ Executive Summary</h2>
+  <ul>
+    <li><b class="p1">오늘 반드시 처리 1건</b> — <b>CAR-2026-010</b>(세창엔텍 반복 불일치·무단 납품) 시정조치 요구서 회신기한 8/7이 <b>5일 경과</b>. 김시원 대리가 금일 중 회신을 재요청. 회신 + <b>8월 중 공급사 재평가 일정</b> 확정 필요.</li>
+    <li><b>SJ2026-040 CKS 최종자료 마감이 오늘</b>. 품질서류는 김시원 대리가 8/12 08:21 회신 완료 — 황서윤 대리 측 접수·누락 여부만 확인하면 종결.</li>
+    <li><b>SJE2025-057 수성</b> 열교환기 추가로 콘덴샤 반영. 재고품(프로그린테크 C-108A) 수리 사용분에 대해 <b>8/14 용접검사(이계두 부장)</b> 예정 — 검사기록·에너지검사 서류 준비.</li>
+    <li>진양화성(SJE437-26) 도면 2건(WALKWAY 수정본·RAIN CAP), 삼성전기(SJ435-26) PACKING 협의 전달 — 모두 CC 참고, 직접 회신 불요.</li>
+    <li>계약·비용 건 2개 신규: <b>에이원정보기술 유상 유지보수 계약서(초안)</b> 도착, <b>MS365(19)·한/글(29) 9/22~23 만료</b> 안내. 8월 중 갱신 여부 결정 필요.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>■ 긴급 답변 TOP 5</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>순위</th><th>건명</th><th>Project</th><th>발신</th><th>권한</th><th>마감</th></tr>
+    <tr>
+      <td class="p1">1</td>
+      <td><b>CAR-2026-010 시정조치 요구서 회신</b><br><span class="muted">세창엔텍 반복 품질 불일치 + 부적합 미조치 무단 납품. 8월 중 공급자 재평가 수행 포함하여 회신</span></td>
+      <td>품질보증(공급사)</td><td>김시원 대리</td><td>L3</td><td class="p1">금일 중<br>(8/7 기한 D+5)</td>
+    </tr>
+    <tr>
+      <td class="p2">2</td>
+      <td><b>SJ2026-040 CKS 최종자료 접수 확인</b><br><span class="muted">품질서류 8/12 08:21 회신 완료 → 누락 여부 확인 후 종결</span></td>
+      <td>SJ2026-040</td><td>황서윤 대리</td><td>L2</td><td class="p2">오늘 (8/12)</td>
+    </tr>
+    <tr>
+      <td class="p2">3</td>
+      <td><b>SJE2025-057 콘덴샤 용접·에너지검사 준비</b><br><span class="muted">재고품 수리분 사용 — 검사기록/에너지검사 서류 사전 확인</span></td>
+      <td>SJE2025-057</td><td>이영주 대리</td><td>L2</td><td class="p2">8/14 검사일</td>
+    </tr>
+    <tr>
+      <td class="p3">4</td>
+      <td><b>에이원정보기술 유상 유지보수 계약서(초안) 검토</b><br><span class="muted">무상 유지보수 기간 만료 안내. 계약 조건·금액 확인 후 회신, 방문 일정 조율 요청 포함</span></td>
+      <td>부서업무</td><td>송정훈 본부장</td><td>L3</td><td>회신기한 미명시</td>
+    </tr>
+    <tr>
+      <td class="p3">5</td>
+      <td><b>MS365·한/글 라이선스 갱신 여부 결정</b><br><span class="muted">MS365 Apps for Business 19 → 9/22 만료 / 한글 ALA 9.0 29 → 9/23 만료</span></td>
+      <td>부서업무</td><td>포레스원 김근령 과장</td><td>L3</td><td>8월 중 결정 권장</td>
+    </tr>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>■ 업무 메일 분류 결과 (9건)</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>시각</th><th>발신자</th><th>제목</th><th>Project</th><th>조치</th></tr>
+    <tr><td>08:15</td><td>김시원 대리</td><td>Re: [QC] 시정조치요구서(CAR) 공급사 반복적 불일치·무단 납품 (CAR-2026-010)</td><td>품질보증</td><td class="p1">회신 필요(금일)</td></tr>
+    <tr><td>08:21</td><td>김시원 대리</td><td>Re: 260810 [SJ2026-040] CKS 최종자료 요청건 — 품질서류 공유</td><td>SJ2026-040</td><td class="p2">접수 확인</td></tr>
+    <tr><td>14:37</td><td>이영주 대리</td><td>[SJE2025-057] 추가 콘덴샤 도면 공유 건</td><td>SJE2025-057</td><td>검토</td></tr>
+    <tr><td>14:47</td><td>김시원 대리</td><td>Re: 위 건 — Tank 용량·에너지 검사번호 정보 요청</td><td>SJE2025-057</td><td>완료(회신 수령)</td></tr>
+    <tr><td>15:26</td><td>이영주 대리</td><td>Re: 위 건 — 0.5M3 / 용접 2026-21-10-00093 / 구조 2026-21-15-00113 / 검사 8/14 이계두 부장</td><td>SJE2025-057</td><td class="p2">검사 준비</td></tr>
+    <tr><td>11:57</td><td>신채완 과장</td><td>[세종기술] (SJ435-26) 삼성전기_PACKING 관련 내용 전달건 (원료3동6라인 증설공사)</td><td>SJ435-26</td><td class="muted">CC 참고</td></tr>
+    <tr><td>10:46</td><td>강재상 사원</td><td>[SJE437-26] 건조기 WALKWAY 도면 송부건 (페인트 색상·두께, 잔넬 HOLE 위치 수정)</td><td>SJE437-26</td><td class="muted">CC 참고</td></tr>
+    <tr><td>09:58</td><td>강재상 사원</td><td>[SJE437-26] RAIN CAP 도면 송부건</td><td>SJE437-26</td><td class="muted">CC 참고</td></tr>
+    <tr><td>17:05</td><td>송정훈 본부장(에이원정보기술)</td><td>무상 유지보수 기간 만료 안내 및 유상 유지보수 계약서(초안) 전달 건</td><td>부서업무</td><td class="p3">검토·회신</td></tr>
+    <tr><td>10:40</td><td>김근령 과장(포레스원)</td><td>㈜세종기술 Microsoft 외 제품 만료 안내</td><td>부서업무</td><td class="p3">갱신 결정</td></tr>
+    <tr><td>14:30</td><td>중소조선연구원</td><td>2026년 9월 재직자 무료교육 안내 (9/3 스마트선박 자동제어시스템 등)</td><td>교육</td><td class="muted">신청 검토</td></tr>
+  </table>
+  </div>
+  <p class="muted" style="margin-top:10px">※ 나머지 25건은 정보·광고·계정 알림 — TIPA 2건, 기업마당, 넷킬러/구글클라우드/ESCO/Zoom 웨비나, GitLab 2건, Ollama, ElevenLabs, Claude, Day.ai, 신규 서비스 가입·인증 메일 다수(Segmind, Serper, Speechmatics, Voyage AI, Dify, Arcee, Brave 3건, Parsec 3건) 및 Google 보안 알림. 조치 불요.</p>
+</div>
+
+<div class="card">
+  <h2>■ Project 카드</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>Project</th><th>고객사</th><th>오늘 활동</th><th>현재 단계</th><th>품질관리부 후속</th></tr>
+    <tr><td><b>SJE2025-057</b></td><td>수성</td><td>열교환기 추가 → 콘덴샤 도면 공유 + 에너지검사 정보 회신</td><td>제작·검사</td><td>8/14 용접검사 입회 준비, 재고품(C-108A) 수리분 검사기록 확인</td></tr>
+    <tr><td><b>SJ2026-040</b></td><td>CKS</td><td>FINAL DOCUMENT용 최종 품질서류 회신 완료</td><td>서류 취합(마감 8/12)</td><td>누락 항목 유무 확인 후 종결</td></tr>
+    <tr><td><b>SJE437-26</b></td><td>진양화성</td><td>WALKWAY 수정 도면·RAIN CAP 도면 송부</td><td>제작/설치 준비<br><span class="muted">(SHUT DOWN 8/15~8/31)</span></td><td>도면 개정본 ITP 반영 여부 확인</td></tr>
+    <tr><td><b>SJ435-26</b></td><td>삼성전기 부산</td><td>신안건업 앞 PACKING·소부재도장 마스킹 협의 내용 전달</td><td>설비 설치공사(8~9월)</td><td>도장 사양 검사항목 반영 확인</td></tr>
+    <tr><td><b>품질보증(공급사)</b></td><td>세창엔텍</td><td>CAR-2026-010 회신 독촉</td><td>시정조치 미회신</td><td class="p1">금일 회신 + 8월 중 재평가 일정 확정</td></tr>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>■ NCR / CAR 추적</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>번호</th><th>대상</th><th>내용</th><th>기한</th><th>상태</th></tr>
+    <tr><td><b>CAR-2026-010</b></td><td>세창엔텍(협력업체)</td><td>반복적 품질 불일치 발생 및 부적합 미조치 상태에서의 무단 납품</td><td>2026-08-07</td><td class="p1">미회신 · D+5 · 금일 회신 요청</td></tr>
+  </table>
+  </div>
+  <p class="muted" style="margin-top:8px">금일 신규 NCR 발행 없음. (기존 NCR-2026-18 진양화성 / NCR-2026-19 VDS_CONDENSER 건은 금일 신규 메일 없음 — 별도 추적)</p>
+</div>
+
+<div class="card">
+  <h2>■ Calendar 자동 등록 결과 (3건)</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>일자</th><th>일정</th><th>색상</th><th>근거</th></tr>
+    <tr><td>2026-08-12</td><td>[CAR-2026-010] 세창엔텍 시정조치요구서 회신 마감(금일 중)</td><td class="p1">긴급(11)</td><td>김시원 대리 메일 "금일 중 시정조치 요구서 회신"</td></tr>
+    <tr><td>2026-08-14</td><td>[SJE2025-057 수성] 추가 콘덴샤 용접검사 (이계두 부장)</td><td class="p2">주황(6)</td><td>이영주 대리 회신 "용접검사 일자: 2026.08.14"</td></tr>
+    <tr><td>2026-09-22</td><td>[부서업무] MS365 Apps for Business(19) 만료 — 한/글 ALA 9.0(29)은 9/23</td><td class="p3">정보(5)</td><td>포레스원 만료일 표 (잔여 41/42일)</td></tr>
+  </table>
+  </div>
+  <div class="warn" style="margin-top:12px">
+    <b>등록 보류(모호 판정)</b>
+    <ul>
+      <li>중소조선연구원 9월 재직자 무료교육 — 9/3(목) 09:00~15:30 등 일정은 확정이나 <b>참석·신청 여부 미결정</b>이라 등록하지 않음.</li>
+      <li>에이원정보기술 방문 인사 — "조만간 일정을 맞춰"로만 통보, 일자 미정.</li>
+      <li>SJE437-26 SHUT DOWN(8/15~8/31) — 프로젝트 계획상 구간이며 금일 메일에 확정 통보 없음.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <h2>■ 오늘 일정 (2026-08-12)</h2>
+  <ul>
+    <li><b class="p1">[CAR-2026-010] 세창엔텍 시정조치요구서 회신 마감</b> — 종일 (금일 신규 등록)</li>
+    <li>[SJ2026-042 애경케미칼] VE-108 SPRING BALANCE 설치 — 종일 <span class="muted">(8/5 등록분, 동일 건 3중 등록 상태 — 정리 권장)</span></li>
+    <li><span class="muted">[SJ2026-040] CKS 최종자료 회신 마감 — 캘린더 미등록(회신 완료로 추적만)</span></li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>■ Manday Tracker (예상)</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>업무</th><th>Project</th><th>예상(H)</th></tr>
+    <tr><td>CAR-2026-010 회신 검토·승인, 재평가 일정 협의</td><td>품질보증</td><td>2.0</td></tr>
+    <tr><td>CKS 최종자료 누락 확인</td><td>SJ2026-040</td><td>1.0</td></tr>
+    <tr><td>콘덴샤 용접·에너지검사 서류 준비</td><td>SJE2025-057</td><td>1.0</td></tr>
+    <tr><td>진양화성·삼성전기 도면/도장 사양 확인</td><td>SJE437-26 / SJ435-26</td><td>1.0</td></tr>
+    <tr><td>유지보수 계약서·라이선스 갱신 검토</td><td>부서업무</td><td>1.0</td></tr>
+    <tr><th>합계</th><th></th><th>6.0</th></tr>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>■ 자동화 처리 결과 / 미처리</h2>
+  <ul>
+    <li><span class="tag">완료</span> Gmail 검색(inbox 34건 / sent 0건), 일정 추출, Calendar 3건 등록, briefings.json 갱신</li>
+    <li><span class="tag">해당없음</span> 워크오더(WO) 메일 — "작업지시서 / Work Order / W/O / 발주서" 키워드 메일 없음 → <b>pendingProjects 변동 없음</b> (기존 20건 유지)</li>
+    <li><span class="tag">해당없음</span> 신규 Project 감지 0건 → 라벨·Drive 폴더 신규 생성 없음</li>
+    <li><span class="tag" style="border-color:var(--org);color:var(--org)">미처리</span> <b>Gmail 라벨 자동 분류(Step 2)</b> — <code>list_labels</code> API가 3회 연속 실패하여 라벨 ID를 조회하지 못함. 라벨 부착·INBOX 제거 미수행. 다음 실행(정오) 때 재시도 필요.</li>
+    <li><span class="tag">건너뜀</span> Step 7 답변 동시 작성 — 스케줄 자동 실행(사용자 부재)</li>
+  </ul>
+</div>
+
+<div class="foot">ⓒ daily-mail skill v1.0 · 생성 2026-08-12 08:48 KST · Asia/Seoul</div>
+
+</div>
+</body>
+</html>
