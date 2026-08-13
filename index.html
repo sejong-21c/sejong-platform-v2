@@ -1229,7 +1229,7 @@ const QADASH_BUILD = 'b15';
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c24'; // c24: 도면 파싱 태그 정규화 매칭(중복 아이템 생성 방지)
+const ITPBUILDER_BUILD = 'c25'; // c25: 좌측 아이템 클릭 시 iframe 새로고침 제거(postMessage 전환)
 const QADOC_BUILD = 'c16'; // c16: 표 범위 선택 + Ctrl+C TSV 복사
 const MTOOLS_BUILD = 'b7';
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
@@ -3277,7 +3277,7 @@ function renderITPBuilder() {
             <button class="btn btn-sm btn-primary" style="margin-top:10px;" onclick="openNewTag('${p.id}')">+ 첫 아이템 등록</button>
           </div>
         ` : items.map(it => `
-          <div class="itp-item-card${selectedItem && selectedItem.id===it.id?' sel':''}" onclick="setITPItem('${it.id}')" style="position:relative;">
+          <div class="itp-item-card${selectedItem && selectedItem.id===it.id?' sel':''}" data-itemid="${it.id}" onclick="setITPItem('${it.id}')" style="position:relative;">
             <button onclick="event.stopPropagation();deleteITPItem('${p.id}','${it.id}');" title="삭제 (복구 가능)" style="position:absolute;top:6px;right:6px;width:18px;height:18px;line-height:16px;padding:0;font-size:11px;border:none;border-radius:50%;background:var(--bg);color:#c00;cursor:pointer;">✕</button>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-right:18px;">
               <span class="itp-tag">${it.tag}</span>
@@ -3308,7 +3308,7 @@ function renderITPBuilder() {
           <div style="margin-top:14px;padding:10px;background:var(--primary-lighter);border-radius:5px;font-size:10px;line-height:1.6;">
             <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">→ 우측 ITP Builder에서</div>
             <div style="color:var(--text-light);">
-              현재 선택: <b style="color:var(--primary);">${selectedItem.tag}</b><br>
+              현재 선택: <b id="itpCurSelTag" style="color:var(--primary);">${selectedItem.tag}</b><br>
               이 Tag를 기준으로 ITP를 작성하세요.
             </div>
           </div>
@@ -3346,14 +3346,21 @@ function renderITPBuilder() {
 
 
 function setITPItem(iid) {
+  // v30.x — 아이템 클릭 시 우측 ITP Builder iframe을 통째로 새로고침(render())하던 동작 제거.
+  //   iframe은 그대로 두고, 좌측 하이라이트만 갱신 + iframe에 선택 아이템을 postMessage로 알려
+  //   ITP Builder 내부에서 부드럽게 전환한다. (신 과장 요청 — 클릭마다 새 창 뜨는 형태 없앰)
   view.itpSelectedItem = iid;
-  // 전체 render() 시 좌측 아이템 목록(.itp-side)이 새로 그려지며 스크롤이 맨 위로 튀는 문제 방지:
-  // 클릭 전 스크롤 위치를 저장했다가 다시 그린 직후(브라우저 페인트 전) 복원한다.
-  const _side = document.querySelector('.itp-side');
-  const _y = _side ? _side.scrollTop : 0;
-  render();
-  const _side2 = document.querySelector('.itp-side');
-  if (_side2) _side2.scrollTop = _y;
+  // 좌측 카드 하이라이트 갱신 (전체 render 없이)
+  document.querySelectorAll('.itp-item-card[data-itemid]').forEach(el => el.classList.toggle('sel', el.dataset.itemid === String(iid)));
+  // "현재 선택: TAG" 문구 갱신
+  const _it = (typeof getItems === 'function' && view.itpSelectedProj) ? getItems(view.itpSelectedProj).find(i => String(i.id) === String(iid)) : null;
+  const _tagEl = document.getElementById('itpCurSelTag');
+  if (_tagEl && _it) _tagEl.textContent = _it.tag;
+  // iframe에 선택 아이템 알림 (내부에서 selectedItpItemId 전환 — 새로고침 없음)
+  const _f = document.getElementById('itpFrame');
+  if (_f && _f.contentWindow) {
+    try { _f.contentWindow.postMessage({ type: 'SJP_ITP_SELECT', itemId: iid, tag: _it ? _it.tag : '' }, '*'); } catch(e) {}
+  }
 }
 
 /* ═════════════ QA Doc Generator Inline ═════════════ */

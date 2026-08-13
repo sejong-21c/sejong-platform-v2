@@ -1498,6 +1498,20 @@ function App(){
     return () => { window.removeEventListener("beforeunload", flush); document.removeEventListener("visibilitychange", onHide); };
   }, [proj, items, specReqs, quoteItems, revComments, itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList]);
 
+  // v3.7 — 플랫폼(좌측 검사대상 아이템) 클릭 시, iframe 새로고침 대신 postMessage로 아이템 전환.
+  //   epcId(플랫폼 아이템 id) 또는 태그 정규화 일치로 이 창의 아이템을 찾아 선택만 바꾼다(단계 유지).
+  useEffect(() => {
+    const onMsg = (e) => {
+      const d = e.data;
+      if (!d || d.type !== 'SJP_ITP_SELECT') return;
+      const wantTag = normTag(d.tag);
+      const match = items.find(it => (d.itemId != null && String(it.epcId) === String(d.itemId)) || (wantTag && normTag(it.tag) === wantTag));
+      if (match) setSelectedItpItemId(match.id);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [items]);
+
   // v1.5 — 업로드된 WPS/Welder 목록을 window 전역에도 반영 (동일 페이지 내 다른 참조 대응)
   useEffect(() => { if (wpsList.length) window.WPS_LIST = wpsList; }, [wpsList]);
   useEffect(() => { if (welderList.length) window.WELDER_LIST = welderList; }, [welderList]);
