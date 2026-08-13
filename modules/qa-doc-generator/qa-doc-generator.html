@@ -2490,6 +2490,73 @@ function App(){
   }, [proj, items, docData, activeItemId, activeDoc, currentProjId, imgTick]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
+
+  // v2.8 — Ctrl+Z 실행취소 / Ctrl+Shift+Z(·Ctrl+Y) 다시실행.
+  //   앱 상태(items·docData·IMG_STORE)의 스냅샷을 변경이 멈출 때마다 쌓고, 복원 시 loadNonce를
+  //   올려 모든 Preview를 다시 마운트 → IMG_STORE를 새로 읽게 한다(불러오기와 동일 경로).
+  const undoStackRef = useRef([]);
+  const redoStackRef = useRef([]);
+  const lastSnapRef = useRef(null);
+  const snapTimerRef = useRef(null);
+  const undoInitRef = useRef(false);
+  // 변경 감지용 시그니처(사진 base64는 길이만 반영 — 무겁지 않게)
+  const snapSig = () => {
+    let s = 'I' + JSON.stringify(items) + 'D' + JSON.stringify(docData);
+    for (const [k, v] of IMG_STORE) s += '|' + k + ':' + (typeof v === 'string' && v.startsWith('data:') ? ('img' + v.length) : JSON.stringify(v));
+    return s;
+  };
+  const takeSnap = () => ({
+    items: JSON.parse(JSON.stringify(items)),
+    docData: JSON.parse(JSON.stringify(docData)),
+    img: Array.from(IMG_STORE.entries()),   // 값은 편집 시 새 객체로 교체되므로 얕은 참조로 충분
+    sig: snapSig(),
+  });
+  const restoreSnap = (snap) => {
+    setItems(snap.items);
+    setDocData(snap.docData);
+    IMG_STORE.clear();
+    snap.img.forEach(([k, v]) => IMG_STORE.set(k, v));
+    lastSnapRef.current = snap;
+    setLoadNonce(n => n + 1);
+  };
+  // 변경이 멈추면(500ms) 직전 상태를 undo 스택에 적재
+  useEffect(() => {
+    clearTimeout(snapTimerRef.current);
+    snapTimerRef.current = setTimeout(() => {
+      const cur = snapSig();
+      if (!undoInitRef.current) { lastSnapRef.current = takeSnap(); undoInitRef.current = true; return; }
+      if (lastSnapRef.current && cur === lastSnapRef.current.sig) return; // 실제 변경 없음(복원 직후 포함)
+      undoStackRef.current.push(lastSnapRef.current);
+      if (undoStackRef.current.length > 30) undoStackRef.current.shift();
+      redoStackRef.current = [];
+      lastSnapRef.current = takeSnap();
+    }, 500);
+    return () => clearTimeout(snapTimerRef.current);
+  }, [items, docData, imgTick]);
+  const doUndo = () => {
+    if (!undoStackRef.current.length) { showMsg("↩ 되돌릴 작업이 없습니다", 2000); return; }
+    const prev = undoStackRef.current.pop();
+    if (lastSnapRef.current) redoStackRef.current.push(lastSnapRef.current);
+    restoreSnap(prev);
+    showMsg("↩ 실행 취소 (Ctrl+Shift+Z로 다시 실행)", 2500);
+  };
+  const doRedo = () => {
+    if (!redoStackRef.current.length) { showMsg("↪ 다시 실행할 작업이 없습니다", 2000); return; }
+    const next = redoStackRef.current.pop();
+    if (lastSnapRef.current) undoStackRef.current.push(lastSnapRef.current);
+    restoreSnap(next);
+    showMsg("↪ 다시 실행", 2000);
+  };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.isComposing) return;
+      const z = e.key === 'z' || e.key === 'Z', y = e.key === 'y' || e.key === 'Y';
+      if ((e.ctrlKey || e.metaKey) && z && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if ((e.ctrlKey || e.metaKey) && ((z && e.shiftKey) || y)) { e.preventDefault(); doRedo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   // v4.1 — 저장 실패(브라우저 저장공간 초과 등)를 화면에 알림. 1초마다 도는 자동저장에서
   // 매번 뜨면 스팸이 되므로 1분에 한 번만 표시(NCR/CAR/모바일 인스펙션과 동일한 관례).
   const lastQuotaWarnRef = useRef(0);
