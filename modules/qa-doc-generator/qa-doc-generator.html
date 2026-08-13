@@ -620,10 +620,16 @@ const DIM_LIB = ["Shell ID","Shell Length","Head ID","Head Length","Jacket ID","
 function dimTolASME(v){const n=parseFloat(v)||0;if(!n)return"";if(n<=120)return"±1";if(n<=400)return"±2";if(n<=1000)return"±3";if(n<=2000)return"±4";if(n<=4000)return"±6";return"±8";}
 function dimTolTEMA(v){const n=parseFloat(v)||0;if(!n)return"";if(n<=300)return"±3";if(n<=1500)return"±5";return"±8";}
 
+// v2.7 — TEMA는 3개 클래스(R/C/B). 치수 공차 자체는 클래스와 무관하게 동일(클래스는
+//   기계설계 요구사항이 다름) → 공차 계산은 모두 TEMA로 동일 처리, 라벨만 R/C/B 구분.
+const isTEMA = s => typeof s === "string" && s.indexOf("TEMA") === 0;
+const TOL_OPTIONS = [["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA_R","TEMA Class R"],["TEMA_C","TEMA Class C"],["TEMA_B","TEMA Class B"]];
+const migTol = (v, dflt) => v === "TEMA" ? "TEMA_C" : (v || dflt); // 과거 "TEMA" 저장값 → TEMA_C로 정규화
+
 /* ── Nozzle 공차 ── */
-function tolPos(std){return std==="TEMA"?"±1.5°":"±0.5°";}
-function tolH(std,v){const n=parseFloat(v)||0;if(std==="TEMA"){return n<=300?"±3":"±5";}if(n<=120)return"±1";if(n<=400)return"±2";if(n<=1000)return"±3";return"±5";}
-function tolL(std,v){const n=parseFloat(v)||0;if(std==="TEMA"){return n<=300?"±3":"±5";}return tolH(std,v);}
+function tolPos(std){return isTEMA(std)?"±1.5°":"±0.5°";}
+function tolH(std,v){const n=parseFloat(v)||0;if(isTEMA(std)){return n<=300?"±3":"±5";}if(n<=120)return"±1";if(n<=400)return"±2";if(n<=1000)return"±3";return"±5";}
+function tolL(std,v){const n=parseFloat(v)||0;if(isTEMA(std)){return n<=300?"±3":"±5";}return tolH(std,v);}
 
 /* ── Final VI 체크리스트 시드 ── */
 const mkVI = (id,text,criterion,cat,active) => ({id,text,criterion,cat,active,remarks:""});
@@ -1135,7 +1141,7 @@ function BendingPreview({doc}){
   // ── settings 통합 (영속화) ──
   const savedSet=IMG_STORE.get(setKey)||{};
   const[bvLabels,sBVL]=useState(savedSet.bvLabels||["θ₁","θ₂","ID","L","t₁","t₂","t₃","t₄"]);
-  const[tolStd,sTS]=useState(savedSet.tolStd||"ASME");
+  const[tolStd,sTS]=useState(migTol(savedSet.tolStd,"ASME"));
   const[feShape,sFES]=useState(savedSet.feShape||"cylindrical");
   const[feLimit,sFEL]=useState(savedSet.feLimit||ug79Info.limit);
   // v2.2 — Bevel Angle 설계값은 아이템 필드(bevel_f/bevel_theta2/공차)에서 읽음. 편집은 상단 "기본정보 수정" 패널에서 (전체 리포트 일괄). 표에는 읽기전용 표시.
@@ -1148,8 +1154,8 @@ function BendingPreview({doc}){
   const bvCps=bvLabels.map(s=>({p:s}));
   const shCps=["A","B","C","D","E","F","G"].map(s=>({p:s}));
   // 공차 함수
-  const tolCirc=v=>{const n=parseFloat(v)||0;return n>0?(tolStd==="TEMA"?"±π×3":"±π×2"):"—";};
-  const tolLen=v=>{const n=parseFloat(v)||0;return tolStd==="TEMA"?(n<=6000?"±5":"±10"):(n<=3000?"±5":"±10");};
+  const tolCirc=v=>{const n=parseFloat(v)||0;return n>0?(isTEMA(tolStd)?"±π×3":"±π×2"):"—";};
+  const tolLen=v=>{const n=parseFloat(v)||0;return isTEMA(tolStd)?(n<=6000?"±5":"±10"):(n<=3000?"±5":"±10");};
   // Fiber Elongation 계산
   const Rf=(idVal+shellThk)/2;
   const feFactor=feShape==="double_curved"?75:50;
@@ -1257,7 +1263,7 @@ function BendingPreview({doc}){
     })()}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#fff7eb",borderRadius:4,border:"1px dashed #ba7517",flexWrap:"wrap"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance:</span>
-      {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="bendTol" checked={tolStd===v} onChange={()=>sTS(v)} style={{accentColor:"#ba7517"}}/>{l}</label>)}
+      {TOL_OPTIONS.map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="bendTol" checked={tolStd===v} onChange={()=>sTS(v)} style={{accentColor:"#ba7517"}}/>{l}</label>)}
       <span style={{fontSize:10,color:"#555",marginLeft:10}}>UG-79 Shell형태:</span>
       {[["cylindrical","Cylindrical (50t/Rf)"],["double_curved","Double-curved (75t/Rf)"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="feShape" checked={feShape===v} onChange={()=>sFES(v)} style={{accentColor:"#ba7517"}}/>{l}</label>)}
       <span style={{fontSize:10,color:"#555"}}>한계:</span>
@@ -1583,8 +1589,8 @@ function DIMPreview({doc}){
   const dimRowsKey=`dim_rows_${it.id||it.tag}`;
   const savedDimSet=IMG_STORE.get(dimSetKey)||{};
   // 표준 (ASME / TEMA) 선택
-  const[tolStd,sTS]=useState(savedDimSet.tolStd||(isC?"TEMA":"ASME"));
-  const tolFn=tolStd==="TEMA"?dimTolTEMA:dimTolASME;
+  const[tolStd,sTS]=useState(migTol(savedDimSet.tolStd,isC?"TEMA_C":"ASME"));
+  const tolFn=isTEMA(tolStd)?dimTolTEMA:dimTolASME;
   // CheckPoint Row: 사용자가 추가/편집 가능, 기본은 핀 개수에 맞게 채움
   // v1.5 — A~Z (26) + AA~ZZ (676) = 총 702개 라벨
   const LBL = (() => {
@@ -1732,8 +1738,8 @@ function DIMPreview({doc}){
         </tr>
         <tr>
           <td style={{...hc,textAlign:"center"}}>Tolerance</td>
-          {chunk.map((r,i)=> <td key={i} style={{...cellCenter,fontSize:9,color:r.customTol?"#1a6fa8":"#888",fontWeight:r.customTol?500:"normal"}}>
-            {r.customTol||tolFn(r.dwg)||"—"}
+          {chunk.map((r,i)=> <td key={i} style={{...cellCenter,fontSize:9,padding:0}}>
+            <input value={r.customTol||tolFn(r.dwg)||""} onChange={e=>upR(startIdx+i,"customTol",e.target.value)} title="자동값 대신 직접 수정 가능 (비우면 자동 복귀)" style={{...inpCenter,fontSize:9,color:r.customTol?"#1a6fa8":"#888",fontWeight:r.customTol?500:"normal"}}/>
           </td>)}
           <td className="fc" style={tc}></td>
         </tr>
@@ -1769,7 +1775,7 @@ function DIMPreview({doc}){
     {headerTable("01")}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
-      {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="dimTol" checked={tolStd===v} onChange={()=>sTS(v)} style={{accentColor:SJB}}/>{l}</label>)}
+      {TOL_OPTIONS.map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="dimTol" checked={tolStd===v} onChange={()=>sTS(v)} style={{accentColor:SJB}}/>{l}</label>)}
       <span style={{fontSize:9,color:"#888",marginLeft:"auto"}}>D.W.G 입력 시 Tolerance 자동 적용 / 핀 배치 시 Check Point 자동 추가</span>
     </div>
     {/* Head Type 정보 박스 — 상/하 분리 + 공차 자동 적용 안내 */}
@@ -1869,7 +1875,7 @@ function NozzlePreview({doc}){
   const savedNoz=IMG_STORE.get(nozKey)||{};
   const[noz,sNz]=useState(savedNoz.noz||(nozFromDwg.length>0?nozFromDwg:fallback));
   const[nw,sNW]=useState({no:"",sz:"",pos:"",h:"",l:""});
-  const[std,sStd]=useState(savedNoz.std||(isC?"TEMA":"ASME"));
+  const[std,sStd]=useState(migTol(savedNoz.std,isC?"TEMA_C":"ASME"));
   const[mEqN,sMEN]=useState(savedNoz.mEqN||"");
   const up=(i,k,v)=>sNz(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
   // v3.0 [패치 1-1] — Nozzle 표 엑셀식 입력 (9컬럼, tol 자동칸 제외)
@@ -1919,7 +1925,7 @@ function NozzlePreview({doc}){
     </>}
     <div className="fc" style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,padding:"4px 8px",background:"#f0f4f8",borderRadius:4,border:"1px dashed #aac"}}>
       <span style={{fontSize:10,fontWeight:500,color:"#555"}}>📏 Tolerance 기준:</span>
-      {[["ASME","ASME BPVC Sec.VIII Div.1"],["TEMA","TEMA Class C"]].map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="tolStd" checked={std===v} onChange={()=>sStd(v)} style={{accentColor:SJB}}/>{l}</label>)}
+      {TOL_OPTIONS.map(([v,l])=> <label key={v} style={{fontSize:10,display:"flex",gap:3,cursor:"pointer"}}><input type="radio" name="tolStd" checked={std===v} onChange={()=>sStd(v)} style={{accentColor:SJB}}/>{l}</label>)}
       <span style={{fontSize:9,color:"#888",marginLeft:"auto"}}>D.W.G H/L 입력 시 Tolerance 자동 적용</span>
     </div>
     <table {...nozGrid.gridProps} style={{width:"100%",borderCollapse:"collapse",fontSize:10,marginBottom:5}}>
@@ -1982,7 +1988,8 @@ function HydroPreview({doc}){
   const[fluid,sFluid]=useState(savedHydro.fluid||(isC?"Water / Water":"Water"));
   const[fluidCustom,sFluidCustom]=useState(savedHydro.fluidCustom||"");
   const[holdMin,sHoldMin]=useState(savedHydro.holdMin||"60");  // 분 단위
-  useEffect(()=>{IMG_STORE.set(hydroSetKey,{tpcVal,ap,dt,mEqH,tTemp,testType,fluid,fluidCustom,holdMin});},[tpcVal,ap,dt,mEqH,tTemp,testType,fluid,fluidCustom,holdMin,hydroSetKey]);
+  const[result,sResult]=useState(savedHydro.result||"");  // v2.7 — Result: "ACCEPT" | "REJECT" | "" (부위별 영속화)
+  useEffect(()=>{IMG_STORE.set(hydroSetKey,{tpcVal,ap,dt,mEqH,tTemp,testType,fluid,fluidCustom,holdMin,result});},[tpcVal,ap,dt,mEqH,tTemp,testType,fluid,fluidCustom,holdMin,result,hydroSetKey]);
   // v2.2 — MAWP는 아이템 필드(it.mawp)에서 읽음. 편집은 상단 "기본정보 수정" 패널에서. 표에는 읽기전용 표시.
   const mawpClean=String(it.mawp||"").replace(/\s*M\s*Pa?\s*$/i,"").trim();
   // 단위 자동 판정 — Test/Actual Pressure가 숫자면 MPa, 텍스트(Full Water 등)면 단위 숨김
@@ -1999,26 +2006,28 @@ function HydroPreview({doc}){
   // tp는 그래프 정규화용. Full Water 모드면 가상 단위 1 사용, 아니면 Actual > Test 순
   const tp = isFullWater ? 1 : (isNumeric(ap)?parseFloat(ap):(isNumeric(tpcVal)?parseFloat(tpcVal):1));
   const hmin = parseInt(holdMin) || 60;
-  // v2.3 (패치노트 [5] C안) — ramp 10분 고정 + 누적 시각 표시
-  // 예: hmin=60 → 0 · 10m · 1h 10m · 1h 20m  (가압 10분 + 유지 60분 + 감압 10분)
-  // ASME UG-99 표준에 부합하는 실제 적용 시간 누적 표기
-  const tRampUp = 10, tRampDown = 10;
-  const totalT = tRampUp + hmin + tRampDown;
-  const tHoldStart = tRampUp;
-  const tHoldEnd = tHoldStart + hmin;
-  const tEnd = totalT;
-  // 시각 좌표 (visual position): 0~1 사이 비율
-  const vRampWidth = 0.10;  // 양쪽 ramp 각 10%
-  const vRampUpEnd = vRampWidth;          // = 0.10
-  const vHoldEnd = 1 - vRampWidth;        // = 0.90
-  const vEnd = 1;                          // = 1.00
-  // 4-포인트 사다리꼴 — 실제 시간이 아닌 시각 비율로 좌표 계산
-  const xs = [0, vRampUpEnd, vHoldEnd, vEnd];
-  const xsTime = [0, tHoldStart, tHoldEnd, tEnd];  // 실제 시간 (라벨용)
-  const ys = [0, tp, tp, 0];
-  const sx = vRatio => 26 + vRatio * (W - 36);  // 시각 비율 → SVG x좌표
+  // v2.7 — 가압 프로파일 2종.
+  //  · Full Water(비숫자 Actual): 0 →(10m ramp)→ 유지 →(10m ramp)→ 0 사다리꼴(기존 방식).
+  //  · 숫자 압력: 0 →(ramp)→ 0.5×Test 10분 유지 →(ramp)→ Test 홀딩 →(ramp)→ 0.5×Test 10분 유지 →(ramp)→ 0 (계단형).
+  const R = 5;          // 각 ramp 구간(분, 시각용)
+  const STEP_HOLD = 10; // 중간(0.5P) 유지 10분
+  const profile = (() => {
+    if (isFullWater) { const r = 10; return [{t:0,p:0},{t:r,p:tp},{t:r+hmin,p:tp},{t:r*2+hmin,p:0}]; }
+    const half = tp/2; let t = 0; const a = [{t:0,p:0}];
+    t += R; a.push({t,p:half}); t += STEP_HOLD; a.push({t,p:half});   // 0.5P까지 → 10분 유지
+    t += R; a.push({t,p:tp});   t += hmin;      a.push({t,p:tp});     // Test까지 → 홀딩
+    t += R; a.push({t,p:half}); t += STEP_HOLD; a.push({t,p:half});   // 0.5P로 → 10분 유지
+    t += R; a.push({t,p:0});                                          // 0으로
+    return a;
+  })();
+  const totalT = profile[profile.length-1].t || 1;
+  const peakPts = profile.filter(pt=>pt.p===tp);
+  const peakStart = peakPts[0]||{t:0}, peakEnd = peakPts[peakPts.length-1]||{t:totalT};
+  const halfPts = isFullWater ? [] : profile.filter(pt=>Math.abs(pt.p - tp/2) < 1e-9);
+  const sx = t => 26 + (t/totalT) * (W - 36);   // 실제 시간 → SVG x좌표
   const sy = v => H - 16 - v * ((H-32)/(tp*1.2||1));
-  const pts = xs.map((x,i) => `${sx(x)},${sy(ys[i])}`).join(" ");
+  const pts = profile.map(pt => `${sx(pt.t)},${sy(pt.p)}`).join(" ");
+  const fmtT = (v) => v===0?"0":(v<60?`${v}m`:(v%60===0?`${v/60}h`:`${Math.floor(v/60)}h ${v%60}m`));
   const hc=hdr(),tc=bdr();const HC1={...hc,whiteSpace:"nowrap"};
   const matStr=isC?`${it.shell_mat||"—"} / ${it.tube_mat||"—"}`:it.shell_mat||"—";
   return <div style={{fontFamily:"sans-serif",fontSize:11}}>
@@ -2063,7 +2072,7 @@ function HydroPreview({doc}){
           <input value={ap} onChange={e=>sAP(e.target.value)} placeholder="숫자(MPa) 또는 Full Water" style={{fontSize:11,padding:"2px 5px",border:"0.5px solid #bbb",borderRadius:3,width:"70%"}}/>
           {apUnit&&` ${apUnit}`}
         </td><td style={HC1}>Test Date</td><td style={tc}><input type="date" value={dt} onChange={e=>sDT(e.target.value)} style={{fontSize:11,padding:"2px 4px",border:"0.5px solid #bbb",borderRadius:3}}/></td></tr>
-        <tr><td style={HC1}>Result</td><td style={tc} colSpan={3}><label style={{marginRight:16}}><input type="checkbox" style={{accentColor:SJB}}/> ACCEPT</label><label><input type="checkbox" style={{accentColor:SJB}}/> REJECT</label></td></tr>
+        <tr><td style={HC1}>Result</td><td style={tc} colSpan={3}><label style={{marginRight:16,cursor:"pointer"}}><input type="checkbox" checked={result==="ACCEPT"} onChange={e=>sResult(e.target.checked?"ACCEPT":"")} style={{accentColor:SJB}}/> ACCEPT</label><label style={{cursor:"pointer"}}><input type="checkbox" checked={result==="REJECT"} onChange={e=>sResult(e.target.checked?"REJECT":"")} style={{accentColor:SJB}}/> REJECT</label></td></tr>
       </tbody>
     </table>
     <div style={{marginBottom:6,display:"flex",justifyContent:"center"}}><div style={{textAlign:"center"}}><div style={{fontSize:10,fontWeight:500,marginBottom:2}}>Pressure — Time Graph ({doc.part}) <span style={{fontSize:8,fontWeight:400,color:"#888",marginLeft:6}}>※ Ramp per ASME Sec.VIII Div.1 UG-99 / TEMA / Customer Spec.</span></div>
@@ -2075,32 +2084,27 @@ function HydroPreview({doc}){
           : [0,0.5,1].map(f=>{const yy=sy(tp*f);return <g key={f}><line x1={24} y1={yy} x2={W-6} y2={yy} stroke="#eee" strokeWidth={0.5}/><text x={22} y={yy+3} fontSize={7} textAnchor="end" fill="#888">{(tp*f).toFixed(2)}</text></g>;})}
         {/* Y축 단위 */}
         <text x={28} y={12} fontSize={7} fill="#888">{isFullWater?"":"MPa"}</text>
-        {/* v2.3 (패치노트 [5]) — X축 누적 시각 라벨 (h/m 분리 표기) */}
+        {/* v2.7 — X축 시각 라벨 (프로파일 꼭짓점 시간, 중복 제거) */}
         {(() => {
-          const fmt = (v) => {
-            if (v === 0) return "0";
-            if (v < 60) return `${v}m`;
-            const h = Math.floor(v/60), m = v%60;
-            return m===0 ? `${h}h` : `${h}h ${m}m`;
-          };
-          const markers = [
-            {vx:0,           t:0},
-            {vx:vRampUpEnd,  t:tHoldStart},
-            {vx:vHoldEnd,    t:tHoldEnd},
-            {vx:vEnd,        t:tEnd}
-          ];
           const seen = new Set();
-          return markers.filter(m => {
-            if (seen.has(m.t)) return false;
-            seen.add(m.t); return true;
-          }).map((m,i) => <text key={i} x={sx(m.vx)} y={H-4} fontSize={7} textAnchor={m.vx===0?"start":(m.vx>=1?"end":"middle")} fill="#888">{fmt(m.t)}</text>);
+          return profile.filter(pt => { if (seen.has(pt.t)) return false; seen.add(pt.t); return true; })
+            .map((pt,i) => <text key={i} x={sx(pt.t)} y={H-4} fontSize={6.5} textAnchor={pt.t===0?"start":(pt.t>=totalT?"end":"middle")} fill="#888">{fmtT(pt.t)}</text>);
         })()}
-        {/* X축 단위 표시 — 그래프 우측 끝 */}
         <text x={W-4} y={2} fontSize={6} textAnchor="end" fill="#aaa">Time (cumulative)</text>
-        {/* v3.0.1 — Ramp 구간 구분: 램프 상승/하강 경계에서 X축으로 세로 점선 (Hold 구간 시각화) */}
-        <line x1={sx(vRampUpEnd)} y1={sy(tp)} x2={sx(vRampUpEnd)} y2={H-16} stroke="#999" strokeWidth={0.6} strokeDasharray="3,2"/>
-        <line x1={sx(vHoldEnd)}   y1={sy(tp)} x2={sx(vHoldEnd)}   y2={H-16} stroke="#999" strokeWidth={0.6} strokeDasharray="3,2"/>
-        <polyline points={pts} fill="none" stroke={isFullWater?"#1d9e75":SJB} strokeWidth={1.5}/><text x={sx((vRampUpEnd+vHoldEnd)/2)} y={sy(tp)-5} fontSize={8} fill={isFullWater?"#1d9e75":SJB} textAnchor="middle">{`HOLD : ${hmin>=60?((hmin/60).toFixed(hmin%60===0?0:1)+" Hour"):(hmin+" min")}`}</text>
+        {/* 메인 홀딩(Test 압력) 구간 세로 점선 */}
+        <line x1={sx(peakStart.t)} y1={sy(tp)} x2={sx(peakStart.t)} y2={H-16} stroke="#999" strokeWidth={0.6} strokeDasharray="3,2"/>
+        <line x1={sx(peakEnd.t)}   y1={sy(tp)} x2={sx(peakEnd.t)}   y2={H-16} stroke="#999" strokeWidth={0.6} strokeDasharray="3,2"/>
+        <polyline points={pts} fill="none" stroke={isFullWater?"#1d9e75":SJB} strokeWidth={1.5}/>
+        <text x={sx((peakStart.t+peakEnd.t)/2)} y={sy(tp)-5} fontSize={8} fill={isFullWater?"#1d9e75":SJB} textAnchor="middle">{`HOLD : ${hmin>=60?((hmin/60).toFixed(hmin%60===0?0:1)+" Hour"):(hmin+" min")}`}</text>
+        {/* 0.5×Test 유지(10분) 라벨 — 계단형에서만 */}
+        {!isFullWater && halfPts.length>=2 && (() => {
+          const midUp = (halfPts[0].t + halfPts[1].t)/2;
+          const midDn = halfPts.length>=4 ? (halfPts[2].t + halfPts[3].t)/2 : null;
+          return <g>
+            <text x={sx(midUp)} y={sy(tp/2)-4} fontSize={6.5} fill={SJB} textAnchor="middle">0.5×Test·{STEP_HOLD}m</text>
+            {midDn!=null && <text x={sx(midDn)} y={sy(tp/2)-4} fontSize={6.5} fill={SJB} textAnchor="middle">0.5×Test·{STEP_HOLD}m</text>}
+          </g>;
+        })()}
       </svg>
     </div></div>
     <div style={{marginBottom:6}}><div className="fc" style={{fontSize:10,fontWeight:500,marginBottom:4,color:"#a32d2d"}}>📸 사진대지 (Ctrl+V — 페이지 이동 후에도 유지)</div>
@@ -2133,8 +2137,9 @@ function FinalPreview({doc}){
   const[oEqOther,sOEO]=useState(savedVI.oEqOther||"");
   const[lEq,sLE]=useState(savedVI.lEq||{"Hand Flash":true,"Plant Lighting":false,Other:false});
   const[lEqOther,sLEO]=useState(savedVI.lEqOther||"");
+  const[finalResult,sFinalResult]=useState(savedVI.finalResult||"");  // v2.7 — "ACCEPTABLE" | "UNACCEPTABLE" | "" (영속화)
   // 자동 동기화
-  useEffect(()=>{IMG_STORE.set(viKey,{extI,intI,nE,nI,wType,wOther,sCond,sCondOther,oEq,oEqOther,lEq,lEqOther});},[extI,intI,nE,nI,wType,wOther,sCond,sCondOther,oEq,oEqOther,lEq,lEqOther,viKey]);
+  useEffect(()=>{IMG_STORE.set(viKey,{extI,intI,nE,nI,wType,wOther,sCond,sCondOther,oEq,oEqOther,lEq,lEqOther,finalResult});},[extI,intI,nE,nI,wType,wOther,sCond,sCondOther,oEq,oEqOther,lEq,lEqOther,finalResult,viKey]);
   const hc=hdr(),tc=bdr();
   const aE=extI.filter(r=>r.active),aI=intI.filter(r=>r.active);
   const mvVI=(arr,sArr,i,dir)=>{const ni=i+dir;if(ni<0||ni>=arr.length)return;const a=[...arr];[a[i],a[ni]]=[a[ni],a[i]];sArr(a);};
@@ -2143,7 +2148,6 @@ function FinalPreview({doc}){
     <span style={{fontSize:9,color:r.active?col:"#aaa",maxWidth:130}}>{r.text.substring(0,24)}</span>
     <button onClick={()=>mvVI(arr,sArr,i,-1)} style={{fontSize:8,padding:"0 2px",cursor:"pointer",background:"none",border:"none",color:"#555"}}>▲</button>
     <button onClick={()=>mvVI(arr,sArr,i,1)} style={{fontSize:8,padding:"0 2px",cursor:"pointer",background:"none",border:"none",color:"#555"}}>▼</button>
-    <button onClick={()=>sArr(p=>p.filter((_,j)=>j!==i))} style={{fontSize:8,padding:"0 2px",cursor:"pointer",background:"none",border:"none",color:"#c00"}}>✕</button>
   </div>;
   // 체크박스 그룹 with Other input
   const renderChkGroup=(stateObj,setter,otherVal,otherSetter)=> <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"center"}}>
@@ -2206,7 +2210,7 @@ function FinalPreview({doc}){
         {aE.map((r,i)=> <tr key={r.id}><td style={{...tc,textAlign:"center",fontSize:9}}>{i+1}</td><td style={tc}>{r.text}</td><td style={tc}>{r.criterion}</td><td style={{...tc,textAlign:"center"}}>☐</td><td style={{...tc,textAlign:"center"}}>☐</td><td style={tc}></td></tr>)}
         <tr><td style={{...hc,background:"#e6f7f0"}} colSpan={7}>Internal Surface Irregularity (내부) {isSUS?"— SUS":"— Carbon"}</td></tr>
         {aI.map((r,i)=> <tr key={r.id}><td style={{...tc,textAlign:"center",fontSize:9}}>{i+1}</td><td style={tc}>{r.text}</td><td style={tc}>{r.criterion}</td><td style={{...tc,textAlign:"center"}}>☐</td><td style={{...tc,textAlign:"center"}}>☐</td><td style={tc}></td></tr>)}
-        <tr><td colSpan={2} style={hc}>Final Acceptance Criteria</td><td style={tc} colSpan={5}><label style={{marginRight:16}}><input type="checkbox" style={{accentColor:SJB}}/> ACCEPTABLE</label><label><input type="checkbox" style={{accentColor:SJB}}/> UNACCEPTABLE</label></td></tr>
+        <tr><td colSpan={2} style={hc}>Final Acceptance Criteria</td><td style={tc} colSpan={5}><label style={{marginRight:16,cursor:"pointer"}}><input type="checkbox" checked={finalResult==="ACCEPTABLE"} onChange={e=>sFinalResult(e.target.checked?"ACCEPTABLE":"")} style={{accentColor:SJB}}/> ACCEPTABLE</label><label style={{cursor:"pointer"}}><input type="checkbox" checked={finalResult==="UNACCEPTABLE"} onChange={e=>sFinalResult(e.target.checked?"UNACCEPTABLE":"")} style={{accentColor:SJB}}/> UNACCEPTABLE</label></td></tr>
       </tbody>
     </table>
     <div style={{marginTop:4,fontSize:10,color:"#666"}}>상기 내용이 적용 규격 및 계약 요구사항에 따라 검사되었음을 증명함.</div>
