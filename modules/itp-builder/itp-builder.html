@@ -897,6 +897,39 @@ function AutoTextarea({value, style, ...rest}){
   }, [value]);
   return <textarea ref={ref} value={value} style={style} {...rest}/>;
 }
+// v3.4 — 범위 선택(드래그·Shift+클릭·Shift+방향키) + Ctrl+C로 TSV 복사(엑셀식). 셀은 textarea.
+//   선택 상태는 리렌더에 안 지워지도록 모듈 스코프에 둔다(동시에 한 곳만 선택).
+const _gridSel = { grid:null, anchor:null, focus:null, dragging:false, moved:false };
+const _gridCellAt = (g,r,c) => g.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+const _gridRect = () => { const a=_gridSel.anchor, f=_gridSel.focus; if(!a||!f) return null;
+  return { r0:Math.min(a.r,f.r), r1:Math.max(a.r,f.r), c0:Math.min(a.c,f.c), c1:Math.max(a.c,f.c) }; };
+const _gridApply = () => {
+  const g=_gridSel.grid; if(!g) return;
+  const rect=_gridRect(); const multi = rect && (rect.r0!==rect.r1 || rect.c0!==rect.c1);
+  g.querySelectorAll('[data-r]').forEach(el=>{
+    const r=+el.dataset.r, c=+el.dataset.c;
+    const on = multi && r>=rect.r0 && r<=rect.r1 && c>=rect.c0 && c<=rect.c1;
+    el.style.boxShadow = on ? "inset 0 0 0 999px rgba(38,132,255,0.16)" : "";
+  });
+};
+const _gridClear = () => {
+  if(_gridSel.grid) _gridSel.grid.querySelectorAll('[data-r]').forEach(el=>{ el.style.boxShadow=""; });
+  _gridSel.grid=null; _gridSel.anchor=null; _gridSel.focus=null; _gridSel.dragging=false; _gridSel.moved=false;
+};
+const _gridCopy = () => {
+  const g=_gridSel.grid, rect=_gridRect(); if(!g||!rect) return false;
+  const lines=[];
+  for(let r=rect.r0;r<=rect.r1;r++){ const cells=[]; for(let c=rect.c0;c<=rect.c1;c++){ const el=_gridCellAt(g,r,c); let v=el?(el.value??el.textContent??""):""; if(/[\t\n"]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; cells.push(v); } lines.push(cells.join("\t")); }
+  const tsv=lines.join("\n");
+  try { if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(tsv); else throw 0; }
+  catch(e){ const ta=document.createElement('textarea'); ta.value=tsv; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.focus(); ta.select(); try{document.execCommand('copy');}catch(_){} document.body.removeChild(ta); }
+  return true;
+};
+if (typeof window!=="undefined" && !window.__gridSelInit){
+  window.__gridSelInit=true;
+  document.addEventListener('mouseup', ()=>{ _gridSel.dragging=false; });
+  document.addEventListener('mousedown', (e)=>{ if(!(e.target.closest&&e.target.closest('[data-grid]'))) _gridClear(); }, true);
+}
 function makeGrid(onCellPaste){
   const findCell=(container,row,col)=>container.querySelector(`[data-r="${row}"][data-c="${col}"]`);
   const moveTo=(el,dr,dc)=>{
@@ -909,9 +942,24 @@ function makeGrid(onCellPaste){
   };
   const onKeyDown=(e)=>{
     const el=e.target;if(!el.dataset||el.dataset.r===undefined)return;
+    const container=el.closest("[data-grid]");
+    // Ctrl/Cmd+C — 범위(2셀 이상) TSV 복사
+    if((e.ctrlKey||e.metaKey)&&(e.key==='c'||e.key==='C')){
+      const rect=_gridRect();
+      if(_gridSel.grid===container && rect && (rect.r0!==rect.r1||rect.c0!==rect.c1)){ e.preventDefault(); _gridCopy(); }
+      return;
+    }
+    // Shift+방향키 — 선택 확장
+    if(e.shiftKey&&(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='ArrowLeft'||e.key==='ArrowRight')){
+      if(_gridSel.grid!==container||!_gridSel.anchor){ _gridSel.grid=container; _gridSel.anchor={r:+el.dataset.r,c:+el.dataset.c}; _gridSel.focus={r:+el.dataset.r,c:+el.dataset.c}; }
+      const f=_gridSel.focus; const dr=e.key==='ArrowDown'?1:e.key==='ArrowUp'?-1:0; const dc=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+      if(findCell(container,f.r+dr,f.c+dc)){ _gridSel.focus={r:f.r+dr,c:f.c+dc}; _gridApply(); e.preventDefault(); }
+      return;
+    }
     if(e.key==="Tab"){e.preventDefault();moveTo(el,0,e.shiftKey?-1:1);}
     else if(e.key==="ArrowDown"&&e.ctrlKey){e.preventDefault();moveTo(el,1,0);}
     else if(e.key==="ArrowUp"&&e.ctrlKey){e.preventDefault();moveTo(el,-1,0);}
+    else if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.length===1){ if(_gridSel.grid===container) _gridClear(); } // 타이핑 → 선택 해제
   };
   const onPaste=(e)=>{
     const el=e.target;if(!el.dataset||el.dataset.r===undefined)return;
@@ -920,9 +968,29 @@ function makeGrid(onCellPaste){
     e.preventDefault();
     const rows=parseClipboardTSV(text);
     const startR=parseInt(el.dataset.r),startC=parseInt(el.dataset.c);
+    _gridClear();
     onCellPaste&&onCellPaste(startR,startC,rows);
   };
-  return {gridProps:{"data-grid":"1",onKeyDown,onPaste},cellProps:(r,c)=>({"data-r":r,"data-c":c})};
+  const onMouseDown=(e)=>{
+    const el=e.target;if(!el.dataset||el.dataset.r===undefined)return;
+    const container=el.closest("[data-grid]");
+    if(_gridSel.grid&&_gridSel.grid!==container) _gridClear();
+    _gridSel.grid=container;
+    const cell={r:+el.dataset.r,c:+el.dataset.c};
+    if(e.shiftKey&&_gridSel.anchor){ _gridSel.focus=cell; _gridApply(); e.preventDefault(); return; }
+    _gridSel.anchor=cell; _gridSel.focus={...cell}; _gridSel.dragging=true; _gridSel.moved=false; _gridApply();
+  };
+  const onMouseOver=(e)=>{
+    if(!_gridSel.dragging)return;
+    const el=e.target;if(!el.dataset||el.dataset.r===undefined)return;
+    const nf={r:+el.dataset.r,c:+el.dataset.c};
+    if(!_gridSel.focus||nf.r!==_gridSel.focus.r||nf.c!==_gridSel.focus.c){
+      _gridSel.focus=nf; _gridSel.moved=true;
+      const s=window.getSelection&&window.getSelection(); if(s&&s.removeAllRanges) try{s.removeAllRanges();}catch(_){}
+      _gridApply();
+    }
+  };
+  return {gridProps:{"data-grid":"1",onKeyDown,onPaste,onMouseDown,onMouseOver},cellProps:(r,c)=>({"data-r":r,"data-c":c})};
 }
 
 // ════════ 6. ITP 기본 행 (v1.6 — 회사 표준 ITP Sample_rev.1 기준 17개 항목으로 확장) ════════
@@ -1440,6 +1508,66 @@ function App(){
   }, [step, items, selectedItpItemId]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
+
+  // v3.4 — Ctrl+Z 실행취소 / Ctrl+Shift+Z(·Ctrl+Y) 다시실행. 문서 편집 상태(proj·items·ITP 행 등)
+  //   스냅샷을 변경이 멈출 때(500ms)마다 쌓고, 복원 시 각 setter로 되돌린다(최대 30단계).
+  const undoStackRef = useRef([]);
+  const redoStackRef = useRef([]);
+  const lastSnapRef = useRef(null);
+  const snapTimerRef = useRef(null);
+  const undoInitRef = useRef(false);
+  const undoSnapSig = () => JSON.stringify([proj, items, specReqs, quoteItems, revComments, itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, witnessCols]);
+  const undoTakeSnap = () => ({
+    proj: JSON.parse(JSON.stringify(proj)), items: JSON.parse(JSON.stringify(items)),
+    specReqs: JSON.parse(JSON.stringify(specReqs)), quoteItems: JSON.parse(JSON.stringify(quoteItems)),
+    revComments: JSON.parse(JSON.stringify(revComments)), itpRowsByItem: JSON.parse(JSON.stringify(itpRowsByItem)),
+    itpDocNoByItem: JSON.parse(JSON.stringify(itpDocNoByItem)), itpRevByItem: JSON.parse(JSON.stringify(itpRevByItem)),
+    itpHdrByItem: JSON.parse(JSON.stringify(itpHdrByItem)), witnessCols: JSON.parse(JSON.stringify(witnessCols)),
+    sig: undoSnapSig(),
+  });
+  const undoRestore = (snap) => {
+    setProj(snap.proj); setItems(snap.items); setSpecReqs(snap.specReqs); setQuoteItems(snap.quoteItems);
+    setRevComments(snap.revComments); setItpRowsByItem(snap.itpRowsByItem); setItpDocNoByItem(snap.itpDocNoByItem);
+    setItpRevByItem(snap.itpRevByItem); setItpHdrByItem(snap.itpHdrByItem); setWitnessCols(snap.witnessCols);
+    lastSnapRef.current = snap;
+  };
+  useEffect(() => {
+    clearTimeout(snapTimerRef.current);
+    snapTimerRef.current = setTimeout(() => {
+      const cur = undoSnapSig();
+      if (!undoInitRef.current) { lastSnapRef.current = undoTakeSnap(); undoInitRef.current = true; return; }
+      if (lastSnapRef.current && cur === lastSnapRef.current.sig) return; // 실제 변경 없음(복원 직후 포함)
+      undoStackRef.current.push(lastSnapRef.current);
+      if (undoStackRef.current.length > 30) undoStackRef.current.shift();
+      redoStackRef.current = [];
+      lastSnapRef.current = undoTakeSnap();
+    }, 500);
+    return () => clearTimeout(snapTimerRef.current);
+  }, [proj, items, specReqs, quoteItems, revComments, itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, witnessCols]);
+  const doUndo = () => {
+    if (!undoStackRef.current.length) { showMsg("↩ 되돌릴 작업이 없습니다", 2000); return; }
+    const prev = undoStackRef.current.pop();
+    if (lastSnapRef.current) redoStackRef.current.push(lastSnapRef.current);
+    undoRestore(prev);
+    showMsg("↩ 실행 취소 (Ctrl+Shift+Z로 다시 실행)", 2500);
+  };
+  const doRedo = () => {
+    if (!redoStackRef.current.length) { showMsg("↪ 다시 실행할 작업이 없습니다", 2000); return; }
+    const next = redoStackRef.current.pop();
+    if (lastSnapRef.current) undoStackRef.current.push(lastSnapRef.current);
+    undoRestore(next);
+    showMsg("↪ 다시 실행", 2000);
+  };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.isComposing) return;
+      const z = e.key === 'z' || e.key === 'Z', y = e.key === 'y' || e.key === 'Y';
+      if ((e.ctrlKey || e.metaKey) && z && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if ((e.ctrlKey || e.metaKey) && ((z && e.shiftKey) || y)) { e.preventDefault(); doRedo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // v1.8 — 파싱 결과를 상태에 반영하는 부분을 분리. API 키로 자동 호출하든, claude.ai에서
   // 수동으로 받은 JSON을 붙여넣든 동일한 로직으로 반영한다.
