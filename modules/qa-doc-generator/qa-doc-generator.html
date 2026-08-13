@@ -2293,6 +2293,7 @@ function App(){
   const [itemSearch, setItemSearch] = useState(""); // v1.6 — 아이템 30~40개 이상일 때 검색으로 좁히기
   const [editBasic, setEditBasic] = useState(false); // v2.2 — 기본정보(도면 추출값) 수동 수정 패널. 여기서 고치면 해당 아이템의 모든 리포트에 일괄 반영
   const [specClip, setSpecClip] = useState(null); // v2.6 — 사양 복사 클립보드. {fromId, fromTag, values:{...}}
+  const [reportClip, setReportClip] = useState(null); // v2.9 — 리포트(표 수치) 복사 클립보드. {fromId, fromTag, docKey, entries:[[relKey,value]]}
   const [activeDoc, setActiveDoc] = useState("BOM");
   const [hydroPart, sHydroPart] = useState("Shell");
   const [docData, setDocData] = useState({}); // {itemId: {BOM:{rows:[]}, BENDING:{}, ...}}
@@ -2716,6 +2717,38 @@ function App(){
     const cur = items.find(i => i.id === activeItemId);
     showMsg(`📥 "${specClip.fromTag}" 사양을 "${cur?.tag||cur?.name}"에 적용했습니다 (Item No./Name/장비종류/Appl.Code는 그대로).`, 7000);
   };
+  // v2.9 — 리포트(표 수치) 복사/붙여넣기. 리포트 내용은 IMG_STORE에 아이템별 키로 저장되므로,
+  //   해당 리포트의 키들을 모아 다른 아이템에 재키잉해서 붙여넣는다. (Excel→표 붙여넣기는 이미 지원)
+  const REPORT_KEY_BUILDERS = {
+    BOM:     iid => [`bom_${iid}`],
+    BENDING: iid => [`bend_bv_${iid}`,`bend_sh_${iid}`,`bend_set_${iid}`,`bend_eq_${iid}`,`bend_av_${iid}`],
+    FITUP:   iid => [`fitup_${iid}`],
+    DIM:     iid => [`dim_${iid}`,`dim_set_${iid}`,`dim_rows_${iid}`,`dim_mf_${iid}`],
+    NOZZLE:  iid => [`noz_set_${iid}`],
+    FINAL:   iid => [`vi_set_${iid}`],
+  };
+  const reportFullKeys = (docKey, iid) => docKey === "HYDRO"
+    ? [...IMG_STORE.keys()].filter(k => k.startsWith(`hydro_set_${iid}_`) || k.startsWith(`hyro_${iid}_`))
+    : (REPORT_KEY_BUILDERS[docKey] || (() => []))(iid).filter(k => IMG_STORE.has(k));
+  const docLabelOf = (k) => (DOC_TYPES.find(d => d.key === k)?.label) || k;
+  const copyReport = () => {
+    const it = items.find(i => i.id === activeItemId); if (!it) return;
+    const iid = it.id || it.tag;
+    const fullKeys = reportFullKeys(activeDoc, iid);
+    if (!fullKeys.length) { showMsg(`이 리포트(${docLabelOf(activeDoc)})에 복사할 데이터가 없습니다.`, 3500); return; }
+    const entries = fullKeys.map(k => [k.split(iid).join("%IID%"), IMG_STORE.get(k)]);
+    setReportClip({ fromId: it.id, fromTag: it.tag || it.name || "(이름없음)", docKey: activeDoc, entries: JSON.parse(JSON.stringify(entries)) });
+    showMsg(`📋 "${it.tag}"의 ${docLabelOf(activeDoc)} 데이터 복사됨 — 다른 아이템에서 같은 리포트 열고 붙여넣기`, 6000);
+  };
+  const pasteReport = () => {
+    if (!reportClip || !activeItemId) return;
+    if (reportClip.docKey !== activeDoc) { showMsg(`복사한 리포트(${docLabelOf(reportClip.docKey)})와 다른 리포트입니다. ${docLabelOf(reportClip.docKey)}를 여세요.`, 5000); return; }
+    if (reportClip.fromId === activeItemId) { showMsg("같은 아이템입니다. 붙여넣을 다른 아이템을 선택하세요.", 4000); return; }
+    const it = items.find(i => i.id === activeItemId); const iid = it.id || it.tag;
+    reportClip.entries.forEach(([relKey, value]) => { IMG_STORE.set(relKey.split("%IID%").join(iid), value); });
+    setLoadNonce(n => n + 1); // 리포트 Preview 재마운트 → 붙여넣은 IMG_STORE 값 반영
+    showMsg(`📥 "${reportClip.fromTag}"의 ${docLabelOf(reportClip.docKey)} 데이터를 "${it.tag}"에 붙여넣었습니다.`, 7000);
+  };
   const itemDocs = activeItemId ? (docData[activeItemId] || {}) : {};
   const setDocFor = (key, val) => {
     if (!activeItemId) return;
@@ -2950,6 +2983,26 @@ function App(){
       </div>
 
       <PrintBar title={`${DOC_TYPES.find(d=>d.key===activeDoc)?.label} — ${activeItem.tag}`}/>
+
+      {/* v2.9 — 리포트(표 수치) 복사/붙여넣기: 다른 탱크의 같은 리포트로 옮기기 */}
+      {(() => {
+        const clipReady = reportClip && reportClip.docKey === activeDoc;
+        const clipSelf = clipReady && reportClip.fromId === activeItemId;
+        const curColor = DOC_TYPES.find(d=>d.key===activeDoc)?.color || SJB;
+        return <div className="no-print" style={{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", margin:"0 4px 8px"}}>
+          <span style={{fontSize:10.5, fontWeight:700, color:"var(--sjp-text-main)"}}>📋 이 리포트 복사</span>
+          <button onClick={copyReport}
+            style={{fontSize:11, padding:"4px 10px", borderRadius:5, cursor:"pointer", fontWeight:600, border:`1.5px solid ${curColor}`, background:"#fff", color:curColor}}>
+            현재 리포트 수치 복사
+          </button>
+          <button onClick={pasteReport} disabled={!clipReady || clipSelf}
+            title={!reportClip ? "먼저 복사하세요" : (reportClip.docKey!==activeDoc ? `${DOC_TYPES.find(d=>d.key===reportClip.docKey)?.label||reportClip.docKey}를 복사했습니다` : (clipSelf ? "복사한 아이템과 동일" : ""))}
+            style={{fontSize:11, padding:"4px 10px", borderRadius:5, cursor:(!clipReady||clipSelf)?"not-allowed":"pointer", fontWeight:600, border:`1.5px solid ${(!clipReady||clipSelf)?"var(--sjp-border-strong)":"#059669"}`, background:(!clipReady||clipSelf)?"#f5f5f5":"#059669", color:(!clipReady||clipSelf)?"var(--sjp-text-sub)":"#fff"}}>
+            {clipReady ? `📥 "${reportClip.fromTag}" 수치 붙여넣기` : "📥 붙여넣기 (복사 먼저)"}
+          </button>
+          <span style={{fontSize:9.5, color:"var(--sjp-text-sub)"}}>※ 같은 종류 리포트끼리 · Excel에서 표로 복사→셀 클릭 후 붙여넣기도 지원</span>
+        </div>;
+      })()}
 
       <div className="qa-report-body" style={{border:"1px solid var(--sjp-border)", borderRadius:"var(--sjp-radius-lg)", padding:16, background:"#fff", boxShadow:"var(--sjp-shadow)"}}>
         {(() => {
