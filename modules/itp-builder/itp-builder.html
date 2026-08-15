@@ -1359,7 +1359,7 @@ function App(){
     const now = Date.now();
     if (now - lastQuotaWarnRef.current < 60000) return;
     lastQuotaWarnRef.current = now;
-    showMsg("⚠️ 이 기기의 저장 공간이 가득 차서 방금 작업한 내용이 이 브라우저에는 저장되지 않았습니다. 클라우드 저장은 별도로 진행되니 '☁ 지금 클라우드로 업로드'를 눌러 확인해주세요.", 10000);
+    showMsg("⚠️ 이 브라우저의 저장 공간이 부족합니다. 내용은 클라우드에 자동 저장되니(인터넷 연결 시) 걱정하지 않으셔도 됩니다. 공간이 필요하면 브라우저 캐시를 정리하세요.", 10000);
     logToolError("local-quota", "localStorage 저장 실패(용량 초과 추정)");
   };
   // v2.7 — WPS/Welder/검사자 List 텍스트박스를 직접 편집하다가 실수로 전체 삭제되면
@@ -2867,7 +2867,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
           </button>}
         <div style={{flex:1}}/>
         <button onClick={submitItpForApproval} className="btn-primary" style={{background:"#7c3aed", borderColor:"#7c3aed"}} title="이 ITP를 결재선(작성→[부서장 검토]→PM 승인)에 올립니다">📋 결재 상신</button>
-        <button onClick={handleManualCloudUpload} className="btn-secondary" title="현재 화면의 내용을 지금 즉시 클라우드에 업로드합니다 (다른 계정에서도 볼 수 있게 됨)">☁ 지금 클라우드로 업로드</button>
+        {/* v3.10 — 실시간 자동저장 도입으로 '☁ 지금 클라우드로 업로드' 버튼 제거(불필요) */}
         <button onClick={handleExport} className="btn-secondary">💾 QC Gen으로 Export</button>
       </div>
 
