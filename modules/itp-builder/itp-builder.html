@@ -521,6 +521,8 @@ const LOGO_FB = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BS
 // v3.6 — 태그 정규화(대소문자·공백·하이픈·기호 무시). 도면 파싱 태그가 기존 아이템 태그와
 //   형식만 달라도(예: "TA-6602A" vs "TA6602A" vs "ta-6602 a") 같은 것으로 매칭 → 새로 생성이
 //   아니라 기존 아이템 '갱신'되게 한다. (진양화성 도면 파싱 시 기존 2개 외 2개가 새로 생기던 원인)
+// ⚠ normTag·parseClipboardTSV는 modules/shared/tool-calc.mjs와 동일 로직이며
+//   test/tool-calc.test.mjs로 검증됨. 바꾸면 두 파일 함께 갱신 + `node test/tool-calc.test.mjs` 통과시킬 것.
 const normTag = t => String(t==null?"":t).toUpperCase().replace(/[^A-Z0-9]/g,"");
 const ITYPES = ["Pressure Vessel", "Reactor (Mixing Tank)", "Condenser / Heat Exchanger", "Storage Tank", "Column / Tower", "Agitator", "Pump", "Valve", "Motor", "Blower / Fan", "Compressor", "Filter / Strainer", "Piping / Spool", "Structure / Steel", "기타 (Others)"];
 const CODES = ["KS", "ASME", "TEMA", "EN", "API", "Others"];

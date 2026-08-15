@@ -41,6 +41,8 @@
   localhost:8931)에서 부팅·콘솔 오류 확인 → 가능한 만큼 기능 시뮬레이션 →
   푸시 후 사용자 실질문 확인까지가 "완료".
 - 게이트웨이 워커 수정 시: `node gateway/worker-test.mjs` (27개 시나리오) 통과 필수.
+- QA Doc Gen / ITP Builder 순수 계산·태그·TSV 함수(공차·normTag·parseClipboardTSV 등) 수정 시:
+  `node test/tool-calc.test.mjs` 통과 필수. HTML 인라인본과 `modules/shared/tool-calc.mjs`를 함께 갱신.
 - 워커 배포: `cd gateway && npx wrangler deploy` (wrangler.toml에 바인딩·크론 정의,
   keep_vars=true 유지 — 지우면 대시보드 변수 날아감).
 

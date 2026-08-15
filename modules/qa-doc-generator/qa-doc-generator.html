@@ -688,6 +688,9 @@ const ITP_BASE = [
 /* ── DIM Report 라이브러리 + V25 표준 공차 (v1.3 dimTol* 대체) ── */
 const DIM_LIB = ["Shell ID","Shell Length","Head ID","Head Length","Jacket ID","Jacket Length","Channel ID","Channel Length","Bracket PCD","Leg PCD","Skid PCD","Saddle PCD","Mount Flange to Bracket"];
 // V25 ASME UG-80 표준
+// ⚠ 이 아래 순수 계산·태그 함수(dimTolASME/dimTolTEMA/isTEMA/tolPos/tolH/tolL/tagId)는
+//   modules/shared/tool-calc.mjs와 동일 로직이며 test/tool-calc.test.mjs로 검증됨.
+//   동작을 바꾸면 그 두 파일도 함께 갱신하고 `node test/tool-calc.test.mjs`를 통과시킬 것.
 function dimTolASME(v){const n=parseFloat(v)||0;if(!n)return"";if(n<=120)return"±1";if(n<=400)return"±2";if(n<=1000)return"±3";if(n<=2000)return"±4";if(n<=4000)return"±6";return"±8";}
 function dimTolTEMA(v){const n=parseFloat(v)||0;if(!n)return"";if(n<=300)return"±3";if(n<=1500)return"±5";return"±8";}
 
