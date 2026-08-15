@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>정오 업데이트 — 2026-08-15 (품질관리부 김철우 부장)</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#fff; --line:#e3e6ea; --tx:#1c2530; --tx2:#5b6773;
+    --red:#d93025; --org:#e8710a; --grn:#137333; --blu:#1a73e8; --gry:#80868b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#15181c; --card:#1e2227; --line:#31363c; --tx:#e6e9ed; --tx2:#a3adb8;
+           --red:#f28b82; --org:#fdb95d; --grn:#81c995; --blu:#8ab4f8; --gry:#9aa0a6; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px;background:var(--bg);color:var(--tx);
+       font-family:"Malgun Gothic","맑은 고딕",-apple-system,sans-serif;font-size:14px;line-height:1.6}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:21px;margin:0 0 4px}
+  .sub{color:var(--tx2);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  h2{font-size:15px;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .kpi{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .kpi div{flex:1 1 110px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+  .kpi b{display:block;font-size:24px;line-height:1.2}
+  .kpi span{font-size:12px;color:var(--tx2)}
+  .tblwrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:rgba(128,134,139,.12);font-weight:600;white-space:nowrap}
+  .p1{color:var(--red);font-weight:700}
+  .p2{color:var(--org);font-weight:600}
+  .p3{color:var(--grn)}
+  .muted{color:var(--tx2)}
+  ul{margin:6px 0;padding-left:20px}
+  li{margin-bottom:6px}
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;border:1px solid var(--line);color:var(--tx2)}
+  .warn{border-left:4px solid var(--org);padding-left:12px}
+  .ok{border-left:4px solid var(--grn);padding-left:12px}
+  .foot{color:var(--tx2);font-size:12px;text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>정오 업데이트 — 2026-08-15 (토) · 광복절</h1>
+<div class="sub">㈜세종기술 품질관리부 · 김철우 부장 (cwkim@sejong-21c.com) · 권한 L3 · 검색범위: 직전 브리핑(08-12 08:48) ~ 08-15 14:16 KST</div>
+
+<div class="kpi">
+  <div><b>11</b><span>오늘 수신 메일</span></div>
+  <div><b class="p3">0</b><span>오늘 업무 메일</span></div>
+  <div><b class="p1">3</b><span>긴급 답변 대기</span></div>
+  <div><b class="p1">1</b><span>CAR 미종결</span></div>
+  <div><b>2</b><span>NCR 변동</span></div>
+  <div><b>0</b><span>신규 Project</span></div>
+  <div><b>0H</b><span>예상 공수</span></div>
+</div>
+
+<div class="card">
+  <h2>■ Executive Summary</h2>
+  <ul>
+    <li class="ok"><b>오늘(8/15) 업무 메일은 0건입니다.</b> 광복절·토요일로 수신 11건은 모두 해외 벤더 뉴스레터·광고입니다. 즉시 대응할 건 없습니다.</li>
+    <li class="p1"><b>미결 최우선 — CAR-2026-010(세창엔텍).</b> 8/13 최가람 주임이 송기남 차장 대신 회신을 송부했으나, 김시원 대리가 <b>① 서명된 원본에 수기 작성·서명 재회신</b>, <b>② 8월 중 공급사 재평가 일정 확정</b> 두 건을 다시 요청한 상태로 <b>여전히 미종결</b>. 회신기한 8/7 대비 <b>8일 경과</b>. 8/17(월) 주간회의에서 확정 필요.</li>
+    <li class="p3"><b>NCR-2026-20(진양화성 Hopper 불일치) 종결.</b> 8/14 16:59 김시원 대리 종결 공유. 후속으로 설계변경의뢰서(최가람 주임)와 JM1-H-041 수정 도면(강재상 사원, S-1·2 90° 회전)이 생산부로 송부 완료 — 품질 측 추가 조치 없음.</li>
+    <li><b>SJ-NCR-2026-10(천안 PPG Korea 열교환기 Gasket 발주 오류)</b> — 8/14 17:15 부장님 명의로 대표이사 포함 전사 공유 발신 완료. 구매요청서 양식 개정(26-CAR-007 관련)이 함께 진행 중.</li>
+    <li class="p2"><b>기한 경과 1건</b> — 2026 원전해체기술핸드북 수록기관 모집 마감이 <b>8/14</b>였습니다(김명식 이사 전달). 신청 여부 확인 필요 — 미신청이면 협회에 연장 가능 여부 문의.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>■ 긴급 답변 대기 TOP 3</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>순위</th><th>건명</th><th>Project</th><th>상대</th><th>기한 / 상태</th></tr>
+    <tr>
+      <td class="p1">1</td>
+      <td><b>CAR-2026-010</b> 시정조치 요구서 — 서명 원본 수기 회신 + 8월 중 세창엔텍 재평가 일정 확정</td>
+      <td>품질보증(공급사)</td>
+      <td>생산부 송기남 차장 / 최가람 주임</td>
+      <td class="p1">기한 8/7 → <b>8일 경과</b>, 미종결</td>
+    </tr>
+    <tr>
+      <td class="p2">2</td>
+      <td>2026 원전해체기술핸드북 수록기관(기업) 모집 — 신청 여부 확인</td>
+      <td>원자력사업</td>
+      <td>한국원자력산업협회 (김명식 이사 전달)</td>
+      <td class="p2">마감 8/14 <b>경과</b></td>
+    </tr>
+    <tr>
+      <td class="p2">3</td>
+      <td>W Tank 테프론 코팅 검수항목 — 코팅 스펙 <b>메이커 스탠다드 제출·승인</b> 절차 진행 (곽노한 이사 지시)</td>
+      <td>영업 견적(W Tank)</td>
+      <td>영업부 김민준 차장 / 신채완 과장</td>
+      <td>차주 진행</td>
+    </tr>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>■ 오늘(08-15) 수신 메일 분류 — 업무 메일 0건</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>시각(KST)</th><th>발신자</th><th>제목</th><th>분류</th><th>조치</th></tr>
+    <tr><td>18:38</td><td>support@cohere.com</td><td>Upgrading your Cohere experience</td><td><span class="tag">벤더</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>18:30</td><td>firecrawl.dev</td><td>Search the web and get full page content</td><td><span class="tag">벤더</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>17:54</td><td>ollama.com</td><td>Ollama now supports DeepSeek Harness</td><td><span class="tag">벤더</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>17:53</td><td>cloudhq.net</td><td>How to Collect Files From Clients</td><td><span class="tag">광고</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>15:59</td><td>voyage.mongodb.com</td><td>A quick guide to Voyage AI models (2/2)</td><td><span class="tag">벤더</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>15:53</td><td>dify.ai</td><td>Upgrade Basic Workflows to Agentic Workflows</td><td><span class="tag">벤더</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>14:52</td><td>byteplus.com</td><td>Seedance 2.5 출시 안내</td><td><span class="tag">광고</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>11:46</td><td>cerebras.net</td><td>Qwen 3.8 27B is coming to Cerebras</td><td><span class="tag">벤더</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>11:28</td><td>inference.net</td><td>See what your AI is actually doing</td><td><span class="tag">벤더</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>11:09</td><td>modal.com</td><td>$30 in free Modal credits, every month</td><td><span class="tag">벤더</span></td><td class="muted">조치 없음</td></tr>
+    <tr><td>08-15 00:40</td><td>manus.im</td><td>ACTION REQUIRED: 계정 삭제 예고 — 8/23까지 데이터 백업</td><td><span class="tag">개인 계정</span></td><td class="p2">8/23 전 백업 여부 개인 판단</td></tr>
+  </table>
+  </div>
+  <p class="muted" style="margin-top:10px">Project 라벨 매칭 대상 없음 → 라벨 부착·INBOX 해제 처리 0건. 신규 Project(수주통보·작업지시서) 감지 0건 → pendingProjects 변동 없음.</p>
+</div>
+
+<div class="card">
+  <h2>■ 직전 브리핑(8/12) 이후 업무 진척 — 8/13~8/14</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>일시</th><th>건명</th><th>Project</th><th>상태</th></tr>
+    <tr><td>8/13 11:05</td><td>CAR-2026-010 회신 송부 (최가람 주임이 송기남 차장 대신)</td><td>품질보증(공급사)</td><td class="p2">1차 회신 접수</td></tr>
+    <tr><td>8/13 14:57</td><td>└ 회신 검토 결과: 원본 수기서명 재회신 + 8월 중 재평가 일정 요청 (김시원 대리)</td><td>품질보증(공급사)</td><td class="p1">보완 요청 · 미종결</td></tr>
+    <tr><td>8/13 17:02</td><td>26-CAR-007 관련 <b>개정 구매요청서 양식</b> 공유 (김시원 대리)</td><td>품질시스템</td><td class="p3">공유 완료</td></tr>
+    <tr><td>8/13</td><td>용접사 자격관리표·WPQ 합본 송부 (신채완 과장 → 김홍란 이사). ASME BPVC Sec.IX 3개월 갱신 주기 안내</td><td>용접자격</td><td class="p3">송부 완료</td></tr>
+    <tr><td>8/13 13:59</td><td>Welder Qualification Renew data 회신 (최가람 주임) — 신동범·권오근·이상근·석병찬 등 용접수행기록</td><td>용접자격</td><td class="p3">지연 후 접수</td></tr>
+    <tr><td>8/14 13:00</td><td>냉각탑(Cooling Tower) Procedure 및 로드맵 검토 회의 (본사 대회의실)</td><td>구매·검사 Procedure</td><td class="p3">실시</td></tr>
+    <tr><td>8/14 09:28~09:59</td><td>W Tank 테프론 코팅 검수항목 회신 — 핀홀 DC1500/T 스펙 부적절(라이닝용), 100V/25㎛ 적용 의견(신채완 과장) → 곽노한 이사: 검정색 가능, <b>메이커 스탠다드로 제출·승인</b></td><td>영업 견적(W Tank)</td><td class="p2">차주 진행</td></tr>
+    <tr><td>8/14 09:01 / 09:49</td><td>NCR·CAR 미종결건 정리 공유 (김시원 대리) — <b>NCR-13 / CAR-08 발행이력 없음(결번)</b></td><td>품질시스템</td><td class="p3">공유 완료</td></tr>
+    <tr><td>8/14 11:41 → 16:59</td><td><b>NCR-2026-20</b> 진양화성 Hopper 불일치 — 조치계획 검토완료 최신본 → <b>종결</b></td><td>SJE437-26</td><td class="p3">종결</td></tr>
+    <tr><td>8/14 11:32</td><td>SJ437-26 JM1-H-041 PRODUCT HOPPER 설계변경의뢰서 송부 (NCR-2026-20 조치 이행, 최가람 주임)</td><td>SJE437-26</td><td class="p3">완료</td></tr>
+    <tr><td>8/14 15:34</td><td>JM1-H-041 수정 도면 송부 — DWG 26-JY-JM1H041-01, S-1·2 90° 회전 배치 (강재상 사원)</td><td>SJE437-26</td><td class="p3">완료</td></tr>
+    <tr><td>8/14 17:15</td><td><b>SJ-NCR-2026-10</b> 천안 PPG Korea 열교환기 Gasket 발주 오류 — 대표이사 포함 전사 공유 발신 (부장님 명의)</td><td>PPG Korea 천안</td><td class="p3">발신 완료</td></tr>
+    <tr><td>8/14</td><td>진양화성(SJ437-26)·삼성전기(SJ435-26) 주간 작업일보 8월 2주차 수신</td><td>SJ437-26 / SJ435-26</td><td class="muted">CC 참고</td></tr>
+    <tr><td>8/13 10:29</td><td>SJ431-25 SDC PROJECT MT-1201 실린더 수정 도면 — PIN&amp;SNAP RING → BOLT/CAP NUT 변경 (이영주 대리)</td><td>SJ431-25</td><td class="muted">CC 참고</td></tr>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>■ NCR / CAR 현황</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>번호</th><th>건명</th><th>Project</th><th>상태</th><th>비고</th></tr>
+    <tr><td class="p1">CAR-2026-010</td><td>공급사(세창엔텍) 반복 불일치 및 불일치 품목 무단 납품</td><td>품질보증(공급사)</td><td class="p1">미종결</td><td>회신기한 8/7 → 8일 경과. 원본 수기서명 재회신 + 8월 중 재평가 일정 확정 대기</td></tr>
+    <tr><td>26-CAR-007</td><td>구매요청서 양식 관련</td><td>품질시스템</td><td class="p2">진행</td><td>8/13 개정 양식 공유 완료, 정착 여부 모니터링</td></tr>
+    <tr><td class="p3">NCR-2026-20</td><td>진양화성 Hopper 불일치 (Support/Cover Plate C2 가공 누락, S1·S2 Flange 90° 회전)</td><td>SJE437-26</td><td class="p3">종결</td><td>8/14 종결. 설계변경의뢰서·수정도면 후속 완료</td></tr>
+    <tr><td>SJ-NCR-2026-10</td><td>천안 PPG Korea 열교환기 Gasket 발주 오류</td><td>PPG Korea 천안</td><td class="p3">종결·공유</td><td>8/14 전사 공유(대표이사 포함). 구매요청서 양식 개정과 연계</td></tr>
+    <tr><td class="muted">NCR-13 / CAR-08</td><td>작성 중단 — 발행 이력 없음</td><td>—</td><td class="muted">결번</td><td>8/14 김시원 대리 정리분. 번호 관리대장에 결번 표기 권장</td></tr>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>■ Calendar 자동 등록 결과 — 0건</h2>
+  <p>오늘 수신 메일에서 <b>명확한 신규 일정(날짜+시간 확정)이 감지되지 않아 등록 건이 없습니다.</b></p>
+  <ul class="warn">
+    <li><b>모호 — 등록 보류:</b> "8월 중 세창엔텍 공급자 재평가 수행" — 일자 미정. CAR-2026-010 회신에서 날짜 확정 후 등록 예정.</li>
+    <li><b>기한 경과 — 등록 불요:</b> 2026 원전해체기술핸드북 수록기관 모집 마감(8/14).</li>
+    <li><b>개인 건:</b> Manus 계정 데이터 백업 기한 8/23 — 회사 일정 아님, 등록 보류.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>■ 다음 근무일(8/17 월) 일정</h2>
+  <div class="tblwrap">
+  <table>
+    <tr><th>일자</th><th>시간</th><th>일정</th><th>비고</th></tr>
+    <tr><td>8/17 (월)</td><td>08:15~10:15</td><td>주간 회의 (Google Meet)</td><td>참석자: 박기웅·김명식·손동규</td></tr>
+    <tr><td>8/17 (월)</td><td>09:00~10:00</td><td>아버지 백병원 예약</td><td class="p1">⚠ 주간회의(08:15~10:15)와 <b>시간 중복</b> — 조정 필요</td></tr>
+    <tr><td>8/18 (화)</td><td>08:30~09:30</td><td>주간회의</td><td>—</td></tr>
+  </table>
+  </div>
+  <p class="p1" style="margin-top:10px">※ 8/17 08:15 주간회의와 09:00 백병원 예약이 겹칩니다. 회의 일부 위임 또는 병원 일정 조정 중 택일 필요.</p>
+</div>
+
+<div class="card">
+  <h2>■ 원자력 사업 브리핑</h2>
+  <p>8/15 기준 원자력 관련 <b>신규 수신 0건</b> (KHNP·한수원·한전KPS·원자력 인증 관련).</p>
+  <ul>
+    <li class="p2"><b>2026 원전해체기술핸드북 수록기관(기업) 모집</b> — 한국원자력산업협회, 마감 <b>8/14 경과</b>. 김명식 이사가 8/13 전달(대표이사·양병원 이사 수신). 신청 완료 여부 확인 필요.</li>
+    <li class="muted">기존 추적 항목(KHNP 유자격등록 보완·재제출, 체코원전 예가 견적, 한울 3·4호기 이송대차 입찰 결과)은 7월 브리핑 기준이며 8/15까지 갱신 정보 없음 — 진행상태 별도 확인 필요.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>■ Manday Tracker</h2>
+  <p><b>0H</b> — 2026-08-15은 광복절·토요일 휴무로 예상 공수 없음. 다음 근무일은 8/17(월).</p>
+</div>
+
+<div class="foot">
+  ⓒ Daily Mail Skill — 정오 업데이트 자동 생성 · 2026-08-15 14:16 KST · ㈜세종기술 품질관리부
+</div>
+
+</div>
+</body>
+</html>
