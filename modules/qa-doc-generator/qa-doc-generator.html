@@ -2401,15 +2401,32 @@ async function saveQaVersionSnapshot(snap, opts){
       itemCount: (snap.items||[]).length, reason: (opts && opts.reason) || "auto", snap
     }));
     await fb.setDoc(fb.doc(fb.db, "t_qaVersionHistory", id), doc);
+    pruneQaVersions(QAG_PID); // v2.17 — 쓸 때마다 이 프로젝트 오래된 이력 정리(용량 최소화)
   } catch(e){ /* 이력 저장은 앱을 절대 깨지 않는다 */ }
+}
+// v2.17 — 이력 자동 정리. 최신 1개는 항상 보관, 나머지는 (최근 20개 이내 && 7일 이내)만 보관.
+function _verKeepDel(arr){
+  const now = Date.now(), WEEK = 7*24*3600*1000, keep = [], del = [];
+  arr.forEach((d,i)=>{ if (i===0 || (i < 20 && (now - (d.at||0)) < WEEK)) keep.push(d); else del.push(d); });
+  return { keep, del };
+}
+async function pruneQaVersions(pid){
+  try {
+    if (!window.fb || !fb.db || !fb.auth?.currentUser) return;
+    const qs = await fb.getDocs(fb.query(fb.collection(fb.db, "t_qaVersionHistory"), fb.where("pid","==",pid)));
+    const arr = qs.docs.map(d=>({ id:d.id, at:(d.data().at||0) })).sort((a,b)=>b.at-a.at);
+    const { del } = _verKeepDel(arr);
+    if (del.length) await Promise.all(del.map(d=> fb.deleteDoc(fb.doc(fb.db, "t_qaVersionHistory", d.id)).catch(()=>{})));
+  } catch(e){ /* 정리는 앱을 깨지 않는다 */ }
 }
 async function loadQaVersionHistory(pid){
   try {
     if (!window.fb || !fb.db || !fb.auth?.currentUser) return [];
     const qs = await fb.getDocs(fb.query(fb.collection(fb.db, "t_qaVersionHistory"), fb.where("pid","==",pid)));
-    const arr = qs.docs.map(d=>({ id:d.id, ...d.data() }));
-    arr.sort((a,b)=>(b.at||0)-(a.at||0));
-    return arr.slice(0, 50);
+    const arr = qs.docs.map(d=>({ id:d.id, ...d.data() })).sort((a,b)=>(b.at||0)-(a.at||0));
+    const { keep, del } = _verKeepDel(arr);
+    if (del.length) Promise.all(del.map(d=> fb.deleteDoc(fb.doc(fb.db, "t_qaVersionHistory", d.id)).catch(()=>{})));
+    return keep;
   } catch(e){ console.error("[QA 저장 이력 조회]", e); return []; }
 }
 // v2.12 — 저장 상태 표시등. state={status:'saving'|'saved'|'offline'|'idle', ts}
