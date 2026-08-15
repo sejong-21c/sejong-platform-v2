@@ -2368,6 +2368,19 @@ function PrintBar({title}){
 }
 
 // ════════════ 15. 메인 App ════════════
+// v2.13 — 경량 오류 로깅. 저장 실패 등을 t_toolErrorLog에 남겨 "안 돼요" 문의 시 원인 확인.
+//   로깅이 앱을 절대 깨지 않게 전부 try/catch·fire-and-forget.
+async function logToolError(kind, message, extra){
+  try {
+    if (!window.fb || !fb.db || !fb.auth?.currentUser) return;
+    const id = `qa_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    await fb.setDoc(fb.doc(fb.db, "t_toolErrorLog", id), {
+      module: "qa-doc-generator", kind: String(kind||""), message: String(message==null?"":message).slice(0,600),
+      pid: QAG_PID, uid: fb.auth.currentUser.uid, email: fb.auth.currentUser.email||"",
+      ua: (navigator.userAgent||"").slice(0,200), at: Date.now(), ...(extra||{})
+    });
+  } catch(e){ /* 로깅은 절대 앱을 깨지 않는다 */ }
+}
 // v2.12 — 저장 상태 표시등. state={status:'saving'|'saved'|'offline'|'idle', ts}
 function SaveBadge({state}){
   const [, setTick] = useState(0);
@@ -2615,7 +2628,7 @@ function App(){
       if (_qaCloudSynced) {
         pushQaGenDocToFirestore(QAG_FS_COLL, QAG_PID, payload)
           .then(()=> setSaveState({status:'saved', ts: Date.now()}))
-          .catch(()=> setSaveState({status:'offline', ts: Date.now()}));
+          .catch((e)=> { setSaveState({status:'offline', ts: Date.now()}); logToolError("cloud-save", e?.message||e, {items: (items||[]).length}); });
       }
     }, 600);
     return () => clearTimeout(t);
@@ -2713,6 +2726,7 @@ function App(){
     if (now - lastQuotaWarnRef.current < 60000) return;
     lastQuotaWarnRef.current = now;
     showMsg("⚠️ 이 기기의 저장 공간이 가득 차서 방금 작업한 내용이 이 브라우저에는 저장되지 않았습니다. 클라우드 저장은 별도로 진행되니 '☁ 지금 클라우드로 업로드'를 눌러 확인해주세요.", 10000);
+    logToolError("local-quota", "localStorage 저장 실패(용량 초과 추정)");
   };
 
   // v3.0 — 프로젝트 저장 / 불러오기 / 삭제
