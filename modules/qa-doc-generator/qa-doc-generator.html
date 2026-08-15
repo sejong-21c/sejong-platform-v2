@@ -13,7 +13,7 @@
   // NCR/CAR와 동일하게 Firestore 문서-청크 방식으로 사진까지 포함해 클라우드 동기화.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -24,7 +24,10 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where, documentId };
+  // v2.15 — IndexedDB 영속 캐시(조회 뷰어와 동일 패턴). 재방문 시 캐시에서 즉시 로드 후 변경분만
+  //   수신, 오프라인에도 읽기/쓰기 큐 동작. (여러 탭 공유 가능)
+  const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  window.fb = { auth: getAuth(fbApp), db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where, documentId };
 </script>
 <style>
 /* ═══════════════════════════════════════════════════════════
