@@ -2368,7 +2368,20 @@ function PrintBar({title}){
 }
 
 // ════════════ 15. 메인 App ════════════
+// v2.12 — 저장 상태 표시등. state={status:'saving'|'saved'|'offline'|'idle', ts}
+function SaveBadge({state}){
+  const [, setTick] = useState(0);
+  useEffect(()=>{ const id=setInterval(()=>setTick(t=>t+1), 15000); return ()=>clearInterval(id); },[]);
+  if(!state || state.status==='idle') return null;
+  const base={fontSize:11, padding:"3px 10px", borderRadius:12, whiteSpace:"nowrap", fontWeight:600, display:"inline-flex", alignItems:"center", gap:4};
+  if(state.status==='saving') return <span style={{...base, background:"#fef3c7", color:"#92400e"}} title="변경 내용을 저장하는 중입니다.">💾 저장 중…</span>;
+  if(state.status==='offline') return <span style={{...base, background:"#fee2e2", color:"#b91c1c"}} title="클라우드 저장에 실패했습니다(인터넷/로그인 확인). 이 브라우저에는 저장돼 있습니다.">⚠ 오프라인 (로컬만 저장)</span>;
+  const s=Math.max(0, Math.floor((Date.now()-(state.ts||0))/1000));
+  const ago = s<60?"방금":(s<3600?`${Math.floor(s/60)}분 전`:`${Math.floor(s/3600)}시간 전`);
+  return <span style={{...base, background:"#dcfce7", color:"#166534"}} title="클라우드에 저장 완료 — 다른 컴퓨터에서도 보입니다.">✓ 저장됨 · {ago}</span>;
+}
 function App(){
+  const [saveState, setSaveState] = useState({status:'idle', ts:0}); // v2.12 저장 상태등
   // v4.2 fix — 예전엔 여기가 실제 있었던 특정 고객사 프로젝트("동성케미컬 SJ2026-030")의
   // 진짜 값 그대로였음. 데이터가 아직 하나도 안 채워진(로컬/클라우드/ITP Builder 전부 없음)
   // 상태에서 이 값이 그대로 화면에 남아있으면, 다른 프로젝트를 열어놓은 것처럼 보이는
@@ -2585,6 +2598,7 @@ function App(){
   useEffect(() => {
     if (applyingRemoteRef.current) return; // v2.11 — 남의 갱신 반영 중엔 저장 안 함(에코 루프 방지)
     lastLocalEditRef.current = Date.now();
+    setSaveState({status:'saving'}); // v2.12 — 편집 감지 → 저장 중 표시
     const t = setTimeout(async () => {
       try {
         const cloud = await loadQaGenDocFromFirestore(QAG_FS_COLL, QAG_PID);
@@ -2597,7 +2611,12 @@ function App(){
       const payload = {proj, items, docData, activeItemId, activeDoc, currentProjId, imgStore, savedAt, __client: QAG_CLIENT_ID};
       const ok = saveLS({...payload, imgStore: stripPhotosForLocalStorage(imgStore)});
       if (!ok) warnLocalSaveFailed();
-      if (_qaCloudSynced) pushQaGenDocFireAndForget(QAG_FS_COLL, QAG_PID, payload); // 첫 클라우드 로드 전엔 보류(덮어쓰기 방지)
+      // v2.12 — 클라우드 저장 성공/실패를 상태등에 반영(연결 전이면 '저장 중' 유지)
+      if (_qaCloudSynced) {
+        pushQaGenDocToFirestore(QAG_FS_COLL, QAG_PID, payload)
+          .then(()=> setSaveState({status:'saved', ts: Date.now()}))
+          .catch(()=> setSaveState({status:'offline', ts: Date.now()}));
+      }
     }, 600);
     return () => clearTimeout(t);
   }, [proj, items, docData, activeItemId, activeDoc, currentProjId, imgTick]);
@@ -2892,6 +2911,7 @@ function App(){
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
       <div className="epc-topbar-actions">
+        <SaveBadge state={saveState}/>
         <button onClick={refreshFromItpBuilder} className="btn-secondary" title="같은 프로젝트(pid)로 열린 ITP Builder의 최신 프로젝트 정보·아이템을 끌어옵니다 (ITP Builder의 '🚀 QA Doc Generator로 바로 전송'과 같은 내용을 QA Gen 쪽에서 요청하는 것)">🔄 ITP 정보 끌어오기</button>
         <button onClick={handleSaveOverwrite} className="btn-secondary" title="현재 프로젝트에 덮어쓰기">💾 저장{currentProjId&&<span style={{fontSize:9,marginLeft:4,color:"#1d9e75"}}>*</span>}</button>
         <button onClick={handleSaveAs} className="btn-secondary" title="새 이름으로 저장">💾+ 다른 이름</button>

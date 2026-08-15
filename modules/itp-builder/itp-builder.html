@@ -1289,8 +1289,21 @@ const parseQuote = async () => { throw new Error("Cowork 연동 대기 - 수동 
 const parseDWG = async () => { throw new Error("Cowork 연동 대기 - 수동 입력 부탁드립니다"); };
 
 // ════════ 9. 메인 App ════════
+// v3.8 — 저장 상태 표시등. state={status:'saving'|'saved'|'offline'|'idle', ts}
+function SaveBadge({state}){
+  const [, setTick] = useState(0);
+  useEffect(()=>{ const id=setInterval(()=>setTick(t=>t+1), 15000); return ()=>clearInterval(id); },[]);
+  if(!state || state.status==='idle') return null;
+  const base={fontSize:11, padding:"3px 10px", borderRadius:12, whiteSpace:"nowrap", fontWeight:600, marginLeft:8, display:"inline-flex", alignItems:"center", gap:4};
+  if(state.status==='saving') return <span style={{...base, background:"#fef3c7", color:"#92400e"}} title="변경 내용을 저장하는 중입니다.">💾 저장 중…</span>;
+  if(state.status==='offline') return <span style={{...base, background:"#fee2e2", color:"#b91c1c"}} title="클라우드 저장에 실패했습니다(인터넷/로그인 확인). 이 브라우저에는 저장돼 있습니다.">⚠ 오프라인 (로컬만 저장)</span>;
+  const s=Math.max(0, Math.floor((Date.now()-(state.ts||0))/1000));
+  const ago = s<60?"방금":(s<3600?`${Math.floor(s/60)}분 전`:`${Math.floor(s/3600)}시간 전`);
+  return <span style={{...base, background:"#dcfce7", color:"#166534"}} title="클라우드에 저장 완료 — 다른 컴퓨터에서도 보입니다.">✓ 저장됨 · {ago}</span>;
+}
 function App(){
   const [step, setStep] = useState(0);
+  const [saveState, setSaveState] = useState({status:'idle', ts:0}); // v3.8 저장 상태등
   // v1.6 — PJT를 클릭해서 들어온 경우(EPC 연결)만 아래 mount effect에서 정보를 채운다.
   // PJT 선택 없이 단독으로 열었다면 예전처럼 빈칸에서 직접 입력.
   const [proj, setProj] = useState({
@@ -1472,12 +1485,18 @@ function App(){
   useEffect(() => {
     if (applyingRemoteRef.current) return; // v3.5 — 남의 갱신 반영 중엔 저장 안 함(에코 루프 방지)
     lastLocalEditRef.current = Date.now();
+    setSaveState({status:'saving'}); // v3.8 — 편집 감지 → 저장 중 표시
     const timer = setTimeout(() => {
       const savedAt = Date.now();
       const payload = {proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt, __client: CLIENT_ID};
       const ok = saveLS({...payload, items: stripDwgForLocalStorage(items)});
       if (!ok) warnLocalSaveFailed();
-      pushToFirestore(payload);
+      // v3.8 — 클라우드 저장 성공/실패를 상태등에 반영(연결 전이면 '저장 중' 유지)
+      if (_itpCloudSynced) {
+        writeItpDocToFirestore(payload)
+          .then(()=> setSaveState({status:'saved', ts: Date.now()}))
+          .catch(()=> setSaveState({status:'offline', ts: Date.now()}));
+      }
     }, 600);
     return () => clearTimeout(timer);
   }, [proj, items, specReqs, quoteItems, revComments, itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList]);
@@ -2428,6 +2447,8 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
         <div className="epc-topbar-title">ITP Builder v1.4</div>
         <div className="epc-topbar-sub">신채완 과장 · ㈜세종기술 품질관리부</div>
       </div>
+      <SaveBadge state={saveState}/>
+      <div style={{flex:1}}/>
       <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}>🔑 API 키{getApiKey()?" ✓":""}</button>
       <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
     </div>
