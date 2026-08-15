@@ -13,7 +13,7 @@
   // NCR/CAR와 동일하게 Firestore 문서-청크 방식으로 사진/도면까지 포함해 클라우드 동기화.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -27,7 +27,7 @@
   // v3.11 — IndexedDB 영속 캐시(조회 뷰어와 동일 패턴). 재방문 시 캐시에서 즉시 로드 후 변경분만
   //   수신, 오프라인에도 읽기/쓰기 큐 동작. (여러 탭 공유 가능)
   const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
-  window.fb = { auth: getAuth(fbApp), db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot };
+  window.fb = { auth: getAuth(fbApp), db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where };
 </script>
 <style>
 /* ═══════════════════════════════════════════════════════════
@@ -1305,6 +1305,34 @@ async function logToolError(kind, message, extra){
     });
   } catch(e){ /* 로깅은 절대 앱을 깨지 않는다 */ }
 }
+// v3.12 — 저장 이력(버전) 복구. 텍스트 상태만 t_itpVersionHistory에 스냅샷(사진·도면 제외).
+//   자동저장 시 10분에 1회(내용 변경 시), "New" 직전엔 강제 1회. 실수로 덮어써도 이전 버전 복원.
+let _lastItpVerAt = 0, _lastItpVerSig = "";
+async function saveItpVersionSnapshot(snap, opts){
+  try {
+    if (!window.fb || !fb.db || !fb.auth?.currentUser) return;
+    const force = !!(opts && opts.force), now = Date.now();
+    if (!force && now - _lastItpVerAt < 10*60*1000) return;         // 10분 throttle
+    const sig = JSON.stringify(snap).length + ":" + (snap.items||[]).length;
+    if (!force && sig === _lastItpVerSig) return;                    // 변경 없음
+    _lastItpVerAt = now; _lastItpVerSig = sig;
+    const id = `${PID}_${now}_${Math.random().toString(36).slice(2,6)}`;
+    const doc = JSON.parse(JSON.stringify({
+      pid: PID, at: now, by: fb.auth.currentUser.email||"", byUid: fb.auth.currentUser.uid,
+      itemCount: (snap.items||[]).length, reason: (opts && opts.reason) || "auto", snap
+    }));
+    await fb.setDoc(fb.doc(fb.db, "t_itpVersionHistory", id), doc);
+  } catch(e){ /* 이력 저장은 앱을 절대 깨지 않는다 */ }
+}
+async function loadItpVersionHistory(pid){
+  try {
+    if (!window.fb || !fb.db || !fb.auth?.currentUser) return [];
+    const qs = await fb.getDocs(fb.query(fb.collection(fb.db, "t_itpVersionHistory"), fb.where("pid","==",pid)));
+    const arr = qs.docs.map(d=>({ id:d.id, ...d.data() }));
+    arr.sort((a,b)=>(b.at||0)-(a.at||0));
+    return arr.slice(0, 50);
+  } catch(e){ console.error("[ITP 저장 이력 조회]", e); return []; }
+}
 // v3.8 — 저장 상태 표시등. state={status:'saving'|'saved'|'offline'|'idle', ts}
 function SaveBadge({state}){
   const [, setTick] = useState(0);
@@ -1320,6 +1348,7 @@ function SaveBadge({state}){
 function App(){
   const [step, setStep] = useState(0);
   const [saveState, setSaveState] = useState({status:'idle', ts:0}); // v3.8 저장 상태등
+  const [historyModal, setHistoryModal] = useState(null); // v3.12 저장 이력 모달 {loading, list}
   // v1.6 — PJT를 클릭해서 들어온 경우(EPC 연결)만 아래 mount effect에서 정보를 채운다.
   // PJT 선택 없이 단독으로 열었다면 예전처럼 빈칸에서 직접 입력.
   const [proj, setProj] = useState({
@@ -1513,6 +1542,8 @@ function App(){
         writeItpDocToFirestore(payload)
           .then(()=> setSaveState({status:'saved', ts: Date.now()}))
           .catch((e)=> { setSaveState({status:'offline', ts: Date.now()}); logToolError("cloud-save", e?.message||e, {items: (items||[]).length}); });
+        // v3.12 — 저장 이력 스냅샷(내부에서 10분 throttle·텍스트만)
+        saveItpVersionSnapshot({ proj, items: stripDwgForLocalStorage(items), specReqs, quoteItems, revComments, itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, witnessCols });
       }
     }, 600);
     return () => clearTimeout(timer);
@@ -2446,8 +2477,34 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
     };
     r.readAsText(file);
   };
+  // v3.12 — 저장 이력(버전) 스냅샷/복원
+  const buildVerSnap = () => ({
+    proj, items: stripDwgForLocalStorage(items), specReqs, quoteItems, revComments,
+    itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, witnessCols
+  });
+  const openHistory = async () => {
+    setHistoryModal({loading:true, list:[]});
+    const list = await loadItpVersionHistory(PID);
+    setHistoryModal({loading:false, list});
+  };
+  const restoreVersion = (entry) => {
+    const snap = entry.snap || {};
+    if (!confirm(`${new Date(entry.at).toLocaleString("ko-KR")} 버전 (아이템 ${entry.itemCount||0}개)으로 복원하시겠습니까?\n지금 화면은 이 버전으로 바뀝니다. (같은 아이템의 첨부 도면은 최대한 유지)`)) return;
+    saveItpVersionSnapshot(buildVerSnap(), {force:true, reason:'before-restore'}); // 복원 직전 현재본도 이력에 남김
+    const curById = new Map(items.map(it=>[it.id, it]));
+    const restoredItems = (snap.items||[]).map(it => { const c = curById.get(it.id); return c?.dwgUrl ? {...it, dwgUrl:c.dwgUrl, dwgName:c.dwgName} : it; });
+    setProj(snap.proj || proj);
+    setItems(restoredItems);
+    setSpecReqs(snap.specReqs||[]); setQuoteItems(snap.quoteItems||[]); setRevComments(snap.revComments||[]);
+    setItpRowsByItem(snap.itpRowsByItem||{}); setItpDocNoByItem(snap.itpDocNoByItem||{}); setItpRevByItem(snap.itpRevByItem||{});
+    if (snap.itpHdrByItem) setItpHdrByItem(snap.itpHdrByItem);
+    if (snap.witnessCols) setWitnessCols(snap.witnessCols);
+    setHistoryModal(null);
+    showMsg(`✓ ${new Date(entry.at).toLocaleString("ko-KR")} 버전으로 복원했습니다 — 자동 저장됩니다. (되돌리려면 Ctrl+Z 또는 이력에서 다시 복원)`, 8000);
+  };
   const handleNew = () => {
     if (!confirm("새 프로젝트를 시작하시겠습니까?")) return;
+    saveItpVersionSnapshot(buildVerSnap(), {force:true, reason:'before-new'}); // v3.12 — New로 지우기 전 이력 저장(복구 가능)
     setProj({no:"", name:"", customer:"", po:"", scope:"", codes:{KS:true, ASME:true, TEMA:false, EN:false, API:false, Others:false}});
     setItems([]); setNewItem({...DEF_ITEM});
     setSpecReqs([]); setQuoteItems([]); setRevComments([]);
@@ -2467,9 +2524,37 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       </div>
       <SaveBadge state={saveState}/>
       <div style={{flex:1}}/>
+      <button onClick={openHistory} className="btn-secondary" style={{marginLeft:8}} title="이전 저장 버전으로 복원 (실수로 지우거나 덮어썼을 때)">🕘 저장 이력</button>
       <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}>🔑 API 키{getApiKey()?" ✓":""}</button>
       <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
     </div>
+
+    {/* v3.12 — 저장 이력 복구 모달 */}
+    {historyModal && <div className="modal-overlay no-print" onClick={()=>setHistoryModal(null)}>
+      <div className="modal-box" onClick={e=>e.stopPropagation()} style={{maxWidth:560, width:"92%", maxHeight:"80vh", display:"flex", flexDirection:"column"}}>
+        <div style={{fontWeight:700, marginBottom:4, fontSize:15}}>🕘 저장 이력 복구</div>
+        <div style={{fontSize:10.5, color:"var(--sjp-text-sub)", marginBottom:10, lineHeight:1.5}}>
+          자동저장 시점(10분 간격)과 'New' 직전에 남긴 버전입니다. 실수로 지우거나 덮어썼을 때 이전 버전으로 되돌릴 수 있습니다.
+          (텍스트 내용만 복원 — 같은 아이템의 첨부 도면은 최대한 유지)
+        </div>
+        <div style={{flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:6}}>
+          {historyModal.loading ? <div style={{padding:24, textAlign:"center", color:"var(--sjp-text-sub)"}}>불러오는 중…</div>
+           : (historyModal.list||[]).length === 0 ? <div style={{padding:24, textAlign:"center", color:"var(--sjp-text-sub)"}}>저장된 이력이 아직 없습니다. (편집을 이어가면 10분마다 자동으로 쌓입니다)</div>
+           : historyModal.list.map(e => (
+            <div key={e.id} style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:"9px 12px", display:"flex", alignItems:"center", gap:10}}>
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{fontSize:12, fontWeight:600, color:"var(--sjp-text-main)"}}>{new Date(e.at).toLocaleString("ko-KR")}</div>
+                <div style={{fontSize:10, color:"var(--sjp-text-sub)", marginTop:2}}>아이템 {e.itemCount||0}개 · {e.by||"-"}{e.reason==='before-new'?" · New 직전":e.reason==='before-restore'?" · 복원 직전":""}</div>
+              </div>
+              <button onClick={()=>restoreVersion(e)} className="btn-primary" style={{whiteSpace:"nowrap", fontSize:11, padding:"6px 12px"}}>이 버전으로 복원</button>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:12, paddingTop:10, borderTop:"0.5px solid var(--sjp-border)", display:"flex", justifyContent:"flex-end"}}>
+          <button onClick={()=>setHistoryModal(null)} className="btn-secondary">닫기</button>
+        </div>
+      </div>
+    </div>}
 
     {showKeyModal && <div className="modal-overlay no-print" onClick={()=>setShowKeyModal(false)}>
       <div className="modal-box" onClick={e=>e.stopPropagation()}>
