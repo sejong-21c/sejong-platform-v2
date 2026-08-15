@@ -2384,6 +2384,34 @@ async function logToolError(kind, message, extra){
     });
   } catch(e){ /* 로깅은 절대 앱을 깨지 않는다 */ }
 }
+// v2.16 — 저장 이력(버전) 복구. 텍스트 상태만 t_qaVersionHistory에 스냅샷(사진 제외).
+//   자동저장 시 10분에 1회(내용 변경 시), 'New' 직전엔 강제 1회. 실수로 덮어써도 이전 버전 복원.
+let _lastQaVerAt = 0, _lastQaVerSig = "";
+async function saveQaVersionSnapshot(snap, opts){
+  try {
+    if (!window.fb || !fb.db || !fb.auth?.currentUser) return;
+    const force = !!(opts && opts.force), now = Date.now();
+    if (!force && now - _lastQaVerAt < 10*60*1000) return;
+    const sig = JSON.stringify(snap).length + ":" + (snap.items||[]).length;
+    if (!force && sig === _lastQaVerSig) return;
+    _lastQaVerAt = now; _lastQaVerSig = sig;
+    const id = `${QAG_PID}_${now}_${Math.random().toString(36).slice(2,6)}`;
+    const doc = JSON.parse(JSON.stringify({
+      pid: QAG_PID, at: now, by: fb.auth.currentUser.email||"", byUid: fb.auth.currentUser.uid,
+      itemCount: (snap.items||[]).length, reason: (opts && opts.reason) || "auto", snap
+    }));
+    await fb.setDoc(fb.doc(fb.db, "t_qaVersionHistory", id), doc);
+  } catch(e){ /* 이력 저장은 앱을 절대 깨지 않는다 */ }
+}
+async function loadQaVersionHistory(pid){
+  try {
+    if (!window.fb || !fb.db || !fb.auth?.currentUser) return [];
+    const qs = await fb.getDocs(fb.query(fb.collection(fb.db, "t_qaVersionHistory"), fb.where("pid","==",pid)));
+    const arr = qs.docs.map(d=>({ id:d.id, ...d.data() }));
+    arr.sort((a,b)=>(b.at||0)-(a.at||0));
+    return arr.slice(0, 50);
+  } catch(e){ console.error("[QA 저장 이력 조회]", e); return []; }
+}
 // v2.12 — 저장 상태 표시등. state={status:'saving'|'saved'|'offline'|'idle', ts}
 function SaveBadge({state}){
   const [, setTick] = useState(0);
@@ -2398,6 +2426,7 @@ function SaveBadge({state}){
 }
 function App(){
   const [saveState, setSaveState] = useState({status:'idle', ts:0}); // v2.12 저장 상태등
+  const [historyModal, setHistoryModal] = useState(null); // v2.16 저장 이력 모달 {loading, list}
   // v4.2 fix — 예전엔 여기가 실제 있었던 특정 고객사 프로젝트("동성케미컬 SJ2026-030")의
   // 진짜 값 그대로였음. 데이터가 아직 하나도 안 채워진(로컬/클라우드/ITP Builder 전부 없음)
   // 상태에서 이 값이 그대로 화면에 남아있으면, 다른 프로젝트를 열어놓은 것처럼 보이는
@@ -2632,6 +2661,8 @@ function App(){
         pushQaGenDocToFirestore(QAG_FS_COLL, QAG_PID, payload)
           .then(()=> setSaveState({status:'saved', ts: Date.now()}))
           .catch((e)=> { setSaveState({status:'offline', ts: Date.now()}); logToolError("cloud-save", e?.message||e, {items: (items||[]).length}); });
+        // v2.16 — 저장 이력 스냅샷(내부에서 10분 throttle·텍스트만)
+        saveQaVersionSnapshot({ proj, items, docData, imgStore: splitImgStoreForCloud(imgStore).small });
       }
     }, 600);
     return () => clearTimeout(t);
@@ -2824,8 +2855,33 @@ function App(){
     }
   };
 
+  // v2.16 — 저장 이력(버전) 스냅샷/복원. 사진은 제외, 리포트 텍스트 데이터(비사진 imgStore)만.
+  const buildVerSnap = () => {
+    const { small } = splitImgStoreForCloud(Object.fromEntries(IMG_STORE));
+    return { proj, items, docData, imgStore: small };
+  };
+  const openHistory = async () => {
+    setHistoryModal({loading:true, list:[]});
+    const list = await loadQaVersionHistory(QAG_PID);
+    setHistoryModal({loading:false, list});
+  };
+  const restoreVersion = (entry) => {
+    const snap = entry.snap || {};
+    if (!confirm(`${new Date(entry.at).toLocaleString("ko-KR")} 버전 (아이템 ${entry.itemCount||0}개)으로 복원하시겠습니까?\n지금 화면은 이 버전으로 바뀝니다. (첨부 사진은 현재 것을 유지)`)) return;
+    saveQaVersionSnapshot(buildVerSnap(), {force:true, reason:'before-restore'}); // 복원 직전 현재본도 이력에 남김
+    setProj(snap.proj || proj);
+    setItems(snap.items || []);
+    setDocData(snap.docData || {});
+    // 비사진 IMG_STORE만 스냅샷으로 교체(사진 data:는 현재 유지)
+    [...IMG_STORE.keys()].forEach(k => { const v = IMG_STORE.get(k); if (!(typeof v === "string" && v.startsWith("data:"))) IMG_STORE.delete(k); });
+    Object.entries(snap.imgStore || {}).forEach(([k,v]) => IMG_STORE.set(k, v));
+    setLoadNonce(n => n + 1);
+    setHistoryModal(null);
+    showMsg(`✓ ${new Date(entry.at).toLocaleString("ko-KR")} 버전으로 복원했습니다 — 자동 저장됩니다. (되돌리려면 Ctrl+Z 또는 이력에서 다시 복원)`, 8000);
+  };
   const handleNew = () => {
-    if (!confirm("새 프로젝트로 초기화하시겠습니까?\n(현재 작업은 저장하지 않으면 사라집니다)")) return;
+    if (!confirm("새 프로젝트로 초기화하시겠습니까?\n(현재 작업은 저장 이력에 남으니 나중에 복원 가능합니다)")) return;
+    saveQaVersionSnapshot(buildVerSnap(), {force:true, reason:'before-new'}); // v2.16 — 지우기 전 이력 저장(복구 가능)
     setProj({no:"", name:"", customer:"", po:""});
     setItems([]); setActiveItemId(null);
     setDocData({});
@@ -2930,7 +2986,8 @@ function App(){
       <div className="epc-topbar-actions">
         <SaveBadge state={saveState}/>
         <button onClick={refreshFromItpBuilder} className="btn-secondary" title="같은 프로젝트(pid)로 열린 ITP Builder의 최신 프로젝트 정보·아이템을 끌어옵니다 (ITP Builder의 '🚀 QA Doc Generator로 바로 전송'과 같은 내용을 QA Gen 쪽에서 요청하는 것)">🔄 ITP 정보 끌어오기</button>
-        {/* v2.14 — 실시간 자동저장 도입으로 수동 저장/이름저장/불러오기/클라우드 업로드 버튼 제거(불필요). New만 유지. */}
+        {/* v2.14 — 실시간 자동저장 도입으로 수동 저장/이름저장/불러오기/클라우드 업로드 버튼 제거(불필요). */}
+        <button onClick={openHistory} className="btn-secondary" title="이전 저장 버전으로 복원 (실수로 지우거나 덮어썼을 때)">🕘 저장 이력</button>
         <button onClick={handleNew} className="btn-secondary" title="현재 화면을 비우고 새 프로젝트를 시작합니다">🗋 New</button>
       </div>
     </div>
@@ -3249,6 +3306,33 @@ function App(){
     <div className="no-print" style={{textAlign:"center", marginTop:20, fontSize:9, color:"var(--sjp-text-muted)"}}>
       QA Doc Generator v1.4 · ㈜세종기술 품질관리부 · ⓒ Designed by Cwkim · 신채완 과장
     </div>
+    {/* v2.16 — 저장 이력 복구 모달 */}
+    {historyModal && <div className="no-print" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}} onClick={()=>setHistoryModal(null)}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:8,padding:20,width:"92%",maxWidth:560,maxHeight:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 4px 20px rgba(0,0,0,.15)"}}>
+        <div style={{fontWeight:700,fontSize:15,marginBottom:4,color:"var(--sjp-text-main)"}}>🕘 저장 이력 복구</div>
+        <div style={{fontSize:10.5,color:"var(--sjp-text-sub)",marginBottom:10,lineHeight:1.5}}>
+          자동저장 시점(10분 간격)과 'New' 직전에 남긴 버전입니다. 실수로 지우거나 덮어썼을 때 이전 버전으로 되돌릴 수 있습니다.
+          (리포트 텍스트 데이터만 복원 — 첨부 사진은 현재 것을 유지)
+        </div>
+        <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
+          {historyModal.loading ? <div style={{padding:24,textAlign:"center",color:"var(--sjp-text-sub)"}}>불러오는 중…</div>
+           : (historyModal.list||[]).length === 0 ? <div style={{padding:24,textAlign:"center",color:"var(--sjp-text-sub)"}}>저장된 이력이 아직 없습니다. (편집을 이어가면 10분마다 자동으로 쌓입니다)</div>
+           : historyModal.list.map(e => (
+            <div key={e.id} style={{border:"1px solid var(--sjp-border)",borderRadius:6,padding:"9px 12px",display:"flex",alignItems:"center",gap:10}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:600,color:"var(--sjp-text-main)"}}>{new Date(e.at).toLocaleString("ko-KR")}</div>
+                <div style={{fontSize:10,color:"var(--sjp-text-sub)",marginTop:2}}>아이템 {e.itemCount||0}개 · {e.by||"-"}{e.reason==='before-new'?" · New 직전":e.reason==='before-restore'?" · 복원 직전":""}</div>
+              </div>
+              <button onClick={()=>restoreVersion(e)} className="btn-primary" style={{background:"var(--sjp-primary)",color:"#fff",padding:"6px 12px",border:"none",borderRadius:4,fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>이 버전으로 복원</button>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:12,paddingTop:10,borderTop:"0.5px solid var(--sjp-border)",display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={()=>setHistoryModal(null)} className="btn-secondary">닫기</button>
+        </div>
+      </div>
+    </div>}
+
     {/* v3.0 — 저장 대화상자 (Save As) */}
     {showSaveDialog && <div className="no-print" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}}>
       <div style={{background:"#fff",borderRadius:8,padding:20,minWidth:400,maxWidth:520,boxShadow:"0 4px 20px rgba(0,0,0,.15)"}}>
