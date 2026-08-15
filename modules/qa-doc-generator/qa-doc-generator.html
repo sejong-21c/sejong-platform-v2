@@ -882,6 +882,35 @@ async function loadQaGenDocFromFirestore(coll, docId) {
   return { ...rest, imgStore: restoredImg };
 }
 
+// v2.11 — 실시간 동기화(onSnapshot). 다른 컴퓨터에서 저장하면 즉시 반영(ITP Builder와 동일 방식).
+//   세션 고유 CLIENT_ID로 내 저장이 에코로 되돌아오면 무시. 첫 스냅샷 전엔 클라우드 저장 보류
+//   (마운트 직후 자동저장이 클라우드보다 먼저 발화해 빈/낡은 로컬로 덮어쓰는 사고 방지).
+const QAG_CLIENT_ID = "c_" + Math.random().toString(36).slice(2) + "_" + Date.now();
+let _qaCloudSynced = false;
+function subscribeQaGenDoc(coll, docId, onData){
+  let unsub = null, first = true, cancelled = false;
+  (async () => {
+    while (!window.fb || !fb.db || !fb.auth?.currentUser) { if (cancelled) return; await new Promise(r => setTimeout(r, 300)); }
+    if (cancelled) return;
+    unsub = fb.onSnapshot(fb.doc(fb.db, coll, docId), async (snap) => {
+      try {
+        if (!snap.exists()) { if (first) { first = false; _qaCloudSynced = true; } return; }
+        const cloud = snap.data();
+        const restoredImg = { ...(cloud.imgStore || {}) };
+        const pointers = cloud.imgStoreChunks || {};
+        await Promise.all(Object.entries(pointers).map(async ([key, {chunkId, totalChunks}]) => {
+          try { restoredImg[key] = await loadChunkedString(coll, chunkId, totalChunks); } catch(e){}
+        }));
+        const { imgStoreChunks, ...rest } = cloud;
+        const isFirst = first; first = false;
+        _qaCloudSynced = true; // 첫 스냅샷 후 저장 허용
+        onData({ ...rest, imgStore: restoredImg }, isFirst);
+      } catch(e){ console.error("[QA Doc Gen 실시간 구독 처리]", e); if (first) { first = false; _qaCloudSynced = true; } }
+    }, (err) => { console.error("[QA Doc Gen onSnapshot]", err); if (first) { first = false; _qaCloudSynced = true; } });
+  })();
+  return () => { cancelled = true; if (unsub) unsub(); };
+}
+
 // ════════════ 6. UI 헬퍼 ════════════
 function FI({value, onChange, placeholder, style={}}){
   return <input value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
@@ -2368,6 +2397,9 @@ function App(){
   // v2.5 — IMG_STORE(리포트 그림·사진·부위별 입력) 변경을 자동저장이 감지하도록 하는 tick.
   const [imgTick, setImgTick] = useState(0);
   useEffect(() => { const fn = () => setImgTick(t => t + 1); _imgListeners.add(fn); return () => _imgListeners.delete(fn); }, []);
+  // v2.11 — 실시간 동기화 가드: 남의 갱신 반영 중엔 저장 안 함(에코 루프 방지), 내가 편집 중이면 남의 갱신으로 덮지 않음.
+  const applyingRemoteRef = useRef(false);
+  const lastLocalEditRef = useRef(0);
   const [msg, setMsg] = useState("");
   // v3.0 — 저장/불러오기 상태
   const [currentProjId, setCurrentProjId] = useState(null);
@@ -2510,29 +2542,39 @@ function App(){
     // 예전 클라우드 스냅샷으로 되돌아가는 사고가 남(ITP Builder 쪽에서 실사용 중 WPS/Welder
     // List가 사라진 원인과 동일한 종류의 버그). savedAt 타임스탬프를 비교해 클라우드가
     // 로컬보다 "진짜로 더 최신"일 때만 반영한다.
-    (async function loadCloudOrSkip(){
-      if (!window.fb || !fb.db) { setTimeout(loadCloudOrSkip, 300); return; }
-      if (!fb.auth?.currentUser) { setTimeout(loadCloudOrSkip, 400); return; }
-      try {
-        const cloud = await loadQaGenDocFromFirestore(QAG_FS_COLL, QAG_PID);
-        if (!cloud) return; // 신규 프로젝트거나 이 기능 이전 데이터 — 로컬 상태 유지
-        if ((cloud.savedAt||0) <= localSavedAt) return; // 로컬이 같거나 더 최신 — 덮어쓰지 않음
-        // v4.3 — 클라우드 쪽에도 예전 bridge 버그로 다른 프로젝트 데이터가 잘못 올라가 있을 수
-        // 있으니 동일하게 검증(위 로컬 검증과 동일한 이유).
-        const cloudTruth = window.SJP?.bridge?.getProject?.(QAG_PID);
-        const cloudProjMismatched = cloudTruth?.no && cloud.proj?.no && cloudTruth.no !== cloud.proj.no;
-        if (cloudProjMismatched) console.warn(`[QA Doc Generator] 클라우드 데이터(${cloud.proj.no})가 이 프로젝트(${cloudTruth.no})와 달라 반영하지 않습니다.`);
-        if (cloud.imgStore) Object.entries(cloud.imgStore).forEach(([k,v]) => IMG_STORE.set(k, v));
-        if (cloud.proj?.no && !cloudProjMismatched) setProj(cloud.proj);
-        if (Array.isArray(cloud.items) && cloud.items.length && !cloudProjMismatched) setItems(cloud.items);
-        if (cloud.docData) setDocData(cloud.docData);
+    // v2.11 — 실시간 구독으로 전환: 다른 컴퓨터에서 저장하면 즉시 반영. 첫 스냅샷=클라우드 원본.
+    //   (기존 savedAt 비교 차단은 컴퓨터 간 시계오차로 '다른 PC 데이터가 안 보이던' 원인이라 제거.
+    //    편집 중엔 남의 갱신으로 덮지 않고, 내 저장 에코는 무시. 아이템/탭 선택은 최초 로드에만 반영.)
+    const applyCloudData = (cloud, isFirst) => {
+      const cloudTruth = window.SJP?.bridge?.getProject?.(QAG_PID);
+      const cloudProjMismatched = cloudTruth?.no && cloud.proj?.no && cloudTruth.no !== cloud.proj.no;
+      if (cloudProjMismatched) { console.warn(`[QA Doc Generator] 클라우드 데이터(${cloud.proj.no})가 이 프로젝트(${cloudTruth.no})와 달라 반영하지 않습니다.`); return; }
+      const hasContent = (Array.isArray(cloud.items) && cloud.items.length) || (cloud.imgStore && Object.keys(cloud.imgStore).length) || (cloud.docData && Object.keys(cloud.docData).length);
+      if (!hasContent && !isFirst) return; // 실시간 중 빈 스냅샷으로 화면 비우지 않음
+      if (cloud.imgStore) Object.entries(cloud.imgStore).forEach(([k,v]) => IMG_STORE.set(k, v));
+      if (cloud.proj?.no) setProj(cloud.proj);
+      if (Array.isArray(cloud.items) && cloud.items.length) setItems(cloud.items);
+      if (cloud.docData) setDocData(cloud.docData);
+      if (isFirst) { // 아이템/리포트 선택 위치는 최초 로드에만 복원(실시간 중 내 화면 이동 방지)
         if (cloud.activeItemId) setActiveItemId(cloud.activeItemId);
         if (cloud.activeDoc) setActiveDoc(cloud.activeDoc);
         if (cloud.currentProjId) setCurrentProjId(cloud.currentProjId);
-        setLoadNonce(n => n+1);
-        showMsg("✓ 클라우드에서 최신 데이터를 불러왔습니다", 4000);
-      } catch (e) { console.error("[QA Doc Generator 클라우드 불러오기]", e); }
-    })();
+      }
+      setLoadNonce(n => n+1);
+      showMsg(isFirst ? "✓ 클라우드에서 최신 데이터를 불러왔습니다" : "🔄 다른 사용자가 저장한 최신 내용을 반영했습니다", 4000);
+    };
+    const unsubCloud = subscribeQaGenDoc(QAG_FS_COLL, QAG_PID, (cloud, isFirst) => {
+      if (cloud.__client === QAG_CLIENT_ID) return; // 내 저장 에코 무시
+      if (!isFirst) {
+        const editing = (Date.now() - lastLocalEditRef.current < 5000) ||
+          (document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName));
+        if (editing) return; // 편집 중이면 남의 갱신으로 덮지 않음(내 편집 우선)
+      }
+      applyingRemoteRef.current = true;
+      applyCloudData(cloud, isFirst);
+      setTimeout(() => { applyingRemoteRef.current = false; }, 0);
+    });
+    return () => { if (unsubCloud) unsubCloud(); };
   }, []);
   // v3.0 — 자동저장은 "마지막 작업" 자동 복원용으로만 유지 (프로젝트 저장은 수동 Save/Save As로 분리)
   // FIX: 이 창을 오래 열어두고 있는 동안 다른 화면(모바일 인스펙션 등)이 이
@@ -2541,6 +2583,8 @@ function App(){
   // 있었음. 저장 직전에 클라우드 최신본을 한 번 확인해, 이 창이 아직 갖고
   // 있지 않은 키만 채워 넣는다(이 창에서 편집 중인 값은 그대로 유지됨).
   useEffect(() => {
+    if (applyingRemoteRef.current) return; // v2.11 — 남의 갱신 반영 중엔 저장 안 함(에코 루프 방지)
+    lastLocalEditRef.current = Date.now();
     const t = setTimeout(async () => {
       try {
         const cloud = await loadQaGenDocFromFirestore(QAG_FS_COLL, QAG_PID);
@@ -2550,12 +2594,28 @@ function App(){
       } catch (e) { /* 오프라인 등 실패 시 그냥 지금 상태로 저장 진행 */ }
       const savedAt = Date.now();
       const imgStore = Object.fromEntries(IMG_STORE);
-      const payload = {proj, items, docData, activeItemId, activeDoc, currentProjId, imgStore, savedAt};
+      const payload = {proj, items, docData, activeItemId, activeDoc, currentProjId, imgStore, savedAt, __client: QAG_CLIENT_ID};
       const ok = saveLS({...payload, imgStore: stripPhotosForLocalStorage(imgStore)});
       if (!ok) warnLocalSaveFailed();
-      pushQaGenDocFireAndForget(QAG_FS_COLL, QAG_PID, payload);
-    }, 1000);
+      if (_qaCloudSynced) pushQaGenDocFireAndForget(QAG_FS_COLL, QAG_PID, payload); // 첫 클라우드 로드 전엔 보류(덮어쓰기 방지)
+    }, 600);
     return () => clearTimeout(t);
+  }, [proj, items, docData, activeItemId, activeDoc, currentProjId, imgTick]);
+
+  // v2.11 — 나갈 때(탭 숨김/닫기) 즉시 클라우드 저장(flush). '작성하다 나가면' 마지막 편집 유실 방지.
+  useEffect(() => {
+    const flush = () => {
+      if (!_qaCloudSynced) return;
+      if (Date.now() - lastLocalEditRef.current > 10000) return; // 최근 편집 없으면 스킵(탭 전환 스팸 방지)
+      const imgStore = Object.fromEntries(IMG_STORE);
+      const payload = {proj, items, docData, activeItemId, activeDoc, currentProjId, imgStore, savedAt: Date.now(), __client: QAG_CLIENT_ID};
+      try { saveLS({...payload, imgStore: stripPhotosForLocalStorage(imgStore)}); } catch(_){}
+      pushQaGenDocToFirestore(QAG_FS_COLL, QAG_PID, payload).catch(()=>{});
+    };
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => { window.removeEventListener("beforeunload", flush); document.removeEventListener("visibilitychange", onHide); };
   }, [proj, items, docData, activeItemId, activeDoc, currentProjId, imgTick]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
