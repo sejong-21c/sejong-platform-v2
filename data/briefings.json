@@ -939,56 +939,16 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-14 16:36 (오후 정리 자동 실행)",
-    "newMails": 11,
-    "processed": 10,
-    "urgentReplies": 1,
-    "ncr": 2,
-    "car": 1,
+    "generatedAt": "2026-08-18 07:58 (오전 정리 자동 실행)",
+    "newMails": 0,
+    "processed": 0,
+    "urgentReplies": 0,
+    "ncr": 0,
+    "car": 0,
     "newProjects": 0,
-    "keyActions": [
-      {
-        "text": "NCR-2026-20 조치계획 최신본 검토 및 회신",
-        "proj": "SJE437-26",
-        "priority": "high"
-      },
-      {
-        "text": "W Tank 코팅 검수항목 답변 초안 발송 확인",
-        "proj": "일반사무",
-        "priority": "high"
-      },
-      {
-        "text": "NCR-2026-10/CAR-007(천안 PPG) 미종결 재확인",
-        "proj": "PPG천안",
-        "priority": "mid"
-      },
-      {
-        "text": "NCR-13, CAR-08 발행이력 누락 확인",
-        "proj": "품질보증",
-        "priority": "mid"
-      },
-      {
-        "text": "퇴직연금(DC형) 가입 신청 (8/31 마감)",
-        "proj": "일반사무",
-        "priority": "low"
-      }
-    ],
-    "urgentList": [
-      {
-        "subject": "Re: (주)세종기술_W Tank 최종견적서 및 요청서류 송부의 件",
-        "from": "nhkwak@sejong-21c.com",
-        "proj": "일반사무"
-      }
-    ],
-    "schedule": [
-      {
-        "title": "[내부품질경영] 냉각탑(Cooling Tower) Procedure 및 로드맵 검토",
-        "date": "2026-08-14",
-        "time": "13:00",
-        "proj": "내부품질경영",
-        "color": "blue"
-      }
-    ]
+    "keyActions": [],
+    "urgentList": [],
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-08-13 (daily-mail-swkim 자동 실행)",
