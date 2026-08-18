@@ -237,6 +237,7 @@ const NCR_DISP   = { '현상태사용':['blue','현상태사용'], '재작업':[
 const NCR_LOCATION_DEF = ['사내','협력사','설치현장'];
 const NCR_CAUSE_DEF    = ['원자재불량','절차미준수','작업자실수','검사미흡','설계불량'];
 const NCR_DETAIL_DEF   = ['설계에러','발주에러','제관불량','각인에러','성형불량','개선불량','조립불량','전처리불량','도장불량','용접불량','관리불량'];
+const NCR_VENDOR_DEF   = []; // 발생장소=협력사일 때 세분화용 업체명 목록 — 처음엔 비워두고 "+"로 직접 추가
 
 /* ═══ 상태 관리 ═══ */
 let state = {};
@@ -246,11 +247,12 @@ function loadState() {
   try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { state = {}; }
   if (!state.ncrs)        state.ncrs = [];
   if (!state.ncrDeleteReqs) state.ncrDeleteReqs = [];
-  if (!state.ncrLists)    state.ncrLists = { location: [...NCR_LOCATION_DEF], cause: [...NCR_CAUSE_DEF], detail: [...NCR_DETAIL_DEF] };
+  if (!state.ncrLists)    state.ncrLists = { location: [...NCR_LOCATION_DEF], cause: [...NCR_CAUSE_DEF], detail: [...NCR_DETAIL_DEF], vendor: [...NCR_VENDOR_DEF] };
   else {
     if (!state.ncrLists.location) state.ncrLists.location = [...NCR_LOCATION_DEF];
     if (!state.ncrLists.cause)    state.ncrLists.cause    = [...NCR_CAUSE_DEF];
     if (!state.ncrLists.detail)   state.ncrLists.detail   = [...NCR_DETAIL_DEF];
+    if (!state.ncrLists.vendor)   state.ncrLists.vendor   = [...NCR_VENDOR_DEF];
     // 잘못된 항목 정리
     const junk = ['우리집'];
     state.ncrLists.location = state.ncrLists.location.filter(v => !junk.includes(v));
@@ -788,6 +790,7 @@ function openNewNCR() {
   const locOpts  = ['', ...(state.ncrLists?.location||NCR_LOCATION_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
   const causeOpts= ['', ...(state.ncrLists?.cause||NCR_CAUSE_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
   const detailOpts=['', ...(state.ncrLists?.detail||NCR_DETAIL_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
+  const vendorOpts=['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
   const dispOpts = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
 
@@ -815,7 +818,11 @@ function openNewNCR() {
     </div>
     <div class="fg">
       <label class="fl">발생장소</label>
-      <div style="display:flex;gap:4px;"><select class="fs" id="ncrLoc" style="flex:1;">${locOpts}</select>${addBtn('location','ncrLoc')}</div>
+      <div style="display:flex;gap:4px;"><select class="fs" id="ncrLoc" style="flex:1;" onchange="document.getElementById('ncrVendorWrap').style.display=this.value==='협력사'?'block':'none'">${locOpts}</select>${addBtn('location','ncrLoc')}</div>
+    </div>
+    <div class="fg" id="ncrVendorWrap" style="display:none;">
+      <label class="fl">협력사명</label>
+      <div style="display:flex;gap:4px;"><select class="fs" id="ncrVendor" style="flex:1;">${vendorOpts}</select>${addBtn('vendor','ncrVendor')}</div>
     </div>
     <div class="fg">
       <label class="fl">불량원인</label>
@@ -843,6 +850,7 @@ function openNewNCR() {
     const grade    = document.getElementById('ncrGrade').value;
     const desc     = document.getElementById('ncrDesc').value.trim();
     const location    = document.getElementById('ncrLoc').value;
+    const vendor      = location==='협력사' ? document.getElementById('ncrVendor').value : '';
     const cause       = document.getElementById('ncrCause').value;
     const causeDetail = document.getElementById('ncrDetail').value;
     const disposition = document.getElementById('ncrDisp').value;
@@ -853,7 +861,7 @@ function openNewNCR() {
     if (!state.ncrs) state.ncrs = [];
     state.ncrs.push({
       id, proj, item, source:'manual', grade, desc, status:'open',
-      location, cause, causeDetail, disposition,
+      location, vendor, cause, causeDetail, disposition,
       issuedBy: state.currentUser,
       issuedAt: issuedAt || new Date().toISOString().slice(0,10),
       carId: null,
@@ -879,6 +887,7 @@ function openNCRMgr(ncrId) {
   const locOpts   = ['', ...(state.ncrLists?.location||NCR_LOCATION_DEF)].map(v=>`<option value="${v}" ${v===n.location?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const causeOpts = ['', ...(state.ncrLists?.cause||NCR_CAUSE_DEF)].map(v=>`<option value="${v}" ${v===n.cause?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const detailOpts= ['', ...(state.ncrLists?.detail||NCR_DETAIL_DEF)].map(v=>`<option value="${v}" ${v===n.causeDetail?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
+  const vendorOpts= ['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${v}" ${v===n.vendor?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const dispOpts  = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${v}" ${v===n.disposition?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
 
@@ -900,7 +909,11 @@ function openNCRMgr(ncrId) {
     </div>
     <div class="fg">
       <label class="fl">발생장소</label>
-      <div style="display:flex;gap:4px;"><select class="fs" id="mgr-loc" style="flex:1;">${locOpts}</select>${addBtn('location','mgr-loc')}</div>
+      <div style="display:flex;gap:4px;"><select class="fs" id="mgr-loc" style="flex:1;" onchange="document.getElementById('mgrVendorWrap').style.display=this.value==='협력사'?'block':'none'">${locOpts}</select>${addBtn('location','mgr-loc')}</div>
+    </div>
+    <div class="fg" id="mgrVendorWrap" style="display:${n.location==='협력사'?'block':'none'};">
+      <label class="fl">협력사명</label>
+      <div style="display:flex;gap:4px;"><select class="fs" id="mgr-vendor" style="flex:1;">${vendorOpts}</select>${addBtn('vendor','mgr-vendor')}</div>
     </div>
     <div class="fg">
       <label class="fl">불량원인</label>
@@ -942,6 +955,7 @@ function openNCRMgr(ncrId) {
     const itemVal        = document.getElementById('mgr-item').value.trim();
     const gradeVal       = document.getElementById('mgr-grade').value;
     const locationVal    = document.getElementById('mgr-loc').value;
+    const vendorVal      = locationVal==='협력사' ? document.getElementById('mgr-vendor').value : '';
     const causeVal       = document.getElementById('mgr-cause').value;
     const causeDetailVal = document.getElementById('mgr-detail').value;
     const dispositionVal = document.getElementById('mgr-disp').value;
@@ -962,6 +976,7 @@ function openNCRMgr(ncrId) {
     current.item        = itemVal;
     current.grade       = gradeVal;
     current.location    = locationVal;
+    current.vendor       = vendorVal;
     current.cause       = causeVal;
     current.causeDetail = causeDetailVal;
     current.disposition = dispositionVal;
@@ -1192,7 +1207,7 @@ function fmtNCRRemain(ms) {
 
 /* ═══ 분류 목록 관리 ═══ */
 function addToNcrList(type, selectId) {
-  const labels = { location:'발생장소', cause:'불량원인', detail:'불량원인 상세' };
+  const labels = { location:'발생장소', cause:'불량원인', detail:'불량원인 상세', vendor:'협력사명' };
   const list = state.ncrLists[type] || [];
   openModal(`📋 ${labels[type]||type} 목록 관리`, `
     <div style="margin-bottom:12px;">
@@ -1289,6 +1304,7 @@ function _ntrFiltered() {
       if (lbl !== ntrDrill.projLabel) return false;
     }
     if (ntrDrill.location && n.location !== ntrDrill.location) return false;
+    if (ntrDrill.vendor && n.vendor !== ntrDrill.vendor) return false;
     if (ntrDrill.cause && n.cause !== ntrDrill.cause) return false;
     if (ntrDrill.causeDetail && n.causeDetail !== ntrDrill.causeDetail) return false;
     if (ntrDrill.disposition && n.disposition !== ntrDrill.disposition) return false;
@@ -1321,7 +1337,7 @@ function toggleNtrDrill(field, val) {
 }
 function clearNtrDrill() { ntrDrill = {}; renderNCRTrend(); }
 function _ntrDrillChips() {
-  const LABELS = { location:'발생장소', cause:'불량원인', causeDetail:'불량원인 상세', disposition:'처리방안', projLabel:'프로젝트', ym:'월', grade:'등급' };
+  const LABELS = { location:'발생장소', vendor:'협력사명', cause:'불량원인', causeDetail:'불량원인 상세', disposition:'처리방안', projLabel:'프로젝트', ym:'월', grade:'등급' };
   const keys = Object.keys(ntrDrill);
   if (!keys.length) return '';
   const chips = keys.map(k => {
@@ -1483,7 +1499,7 @@ function renderNCRTrend() {
     return `<tr style="cursor:pointer;" ${clickAttr}>
       <td style="font-weight:700;color:var(--primary);">${n.id} ${hasFile?LI('file-text','📄'):LI('arrow-up-right','↗')}</td>
       <td>${p}</td><td>${n.item||'-'}</td>
-      <td>${n.location||'-'}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
+      <td>${n.location||'-'}${n.location==='협력사'&&n.vendor?' ('+_htmlEsc(n.vendor)+')':''}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
       <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
       <td><span class="b-pill ${n.status==='closed'?'green':'red'}">${n.status==='closed'?'종결':'진행중'}</span></td>
     </tr>`;
@@ -1507,7 +1523,11 @@ function renderNCRTrend() {
         });
         return Object.entries(m).sort((a,b)=>b[1]-a[1]);
       })(), COLORS, 'projLabel')}</div>
-      <div class="ntr-chart-wrap"><div class="ntr-chart-title">발생장소별</div>${_barSvg(Object.entries(_count(ncrs,'location')).sort((a,b)=>b[1]-a[1]), COLORS, 'location')}</div>
+      <div class="ntr-chart-wrap"><div class="ntr-chart-title">${ntrDrill.location==='협력사'?'협력사별 <span style="font-size:10px;color:var(--text-light);font-weight:400;">(발생장소=협력사 세부)</span>':'발생장소별'}</div>${
+        ntrDrill.location==='협력사'
+          ? _barSvg((()=>{ const m={}; ncrs.forEach(n=>{ const k=n.vendor||'미분류'; m[k]=(m[k]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })(), COLORS, 'vendor')
+          : _barSvg(Object.entries(_count(ncrs,'location')).sort((a,b)=>b[1]-a[1]), COLORS, 'location')
+      }</div>
       <div class="ntr-chart-wrap"><div class="ntr-chart-title">불량원인별</div>${_barSvg(Object.entries(_count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]), COLORS, 'cause')}</div>
       <div class="ntr-chart-wrap"><div class="ntr-chart-title">불량원인 상세별</div>${_barSvg(Object.entries(_count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]), COLORS, 'causeDetail')}</div>
       <div class="ntr-chart-wrap"><div class="ntr-chart-title">처리방안별</div>${_donutSvg(Object.entries(_count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]), COLORS, 'disposition')}</div>
@@ -1532,7 +1552,7 @@ function printNCRTrend() {
   const today = new Date().toLocaleDateString('ko-KR');
   // 화면에서 차트를 클릭해 선택한 드릴다운 필터도 그대로 보고서에 반영되므로,
   // 어떤 조건이 걸려있는지 상단 메타 정보에 같이 표기한다.
-  const DRILL_LABELS = { location:'발생장소', cause:'불량원인', causeDetail:'불량원인상세', disposition:'처리방안', projLabel:'프로젝트', ym:'월' };
+  const DRILL_LABELS = { location:'발생장소', vendor:'협력사명', cause:'불량원인', causeDetail:'불량원인상세', disposition:'처리방안', projLabel:'프로젝트', ym:'월' };
   const drillDesc = Object.keys(ntrDrill).map(k => {
     const val = k==='ym' ? (()=>{ const [y,m]=ntrDrill[k].split('-'); return `${y}년 ${parseInt(m)}월`; })() : _htmlEsc(ntrDrill[k]);
     return `${DRILL_LABELS[k]||k}=${val}`;
@@ -1546,7 +1566,10 @@ function printNCRTrend() {
   const byMonth = _fillMonths(byMonthRaw, fillYr2);
 
   const projEntries = (()=>{ const m={}; ncrs.forEach(n=>{ const lbl=n.proj==='__direct__'?(n.meta?.projDirect||'직접입력'):(getP(n.proj)?.code||'미지정'); m[lbl]=(m[lbl]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
-  const locEntries  = Object.entries(_count(ncrs,'location')).sort((a,b)=>b[1]-a[1]);
+  const locEntries  = ntrDrill.location==='협력사'
+    ? (()=>{ const m={}; ncrs.forEach(n=>{ const k=n.vendor||'미분류'; m[k]=(m[k]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })()
+    : Object.entries(_count(ncrs,'location')).sort((a,b)=>b[1]-a[1]);
+  const locChartTitle = ntrDrill.location==='협력사' ? '협력사별(발생장소=협력사 세부)' : '발생장소별';
   const causeEntries= Object.entries(_count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]);
   const detailEntries=Object.entries(_count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]);
   const dispEntries = Object.entries(_count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]);
@@ -1555,7 +1578,7 @@ function printNCRTrend() {
     const p = n.proj==='__direct__'?(n.meta?.projDirect||'직접입력'):(getP(n.proj)?.code||'-');
     const st = n.status==='closed';
     return `<tr><td style="font-weight:700;">${n.id}</td><td>${p}</td><td>${n.item||'-'}</td>
-      <td>${n.location||'-'}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
+      <td>${n.location||'-'}${n.location==='협력사'&&n.vendor?' ('+_htmlEsc(n.vendor)+')':''}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
       <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
       <td><span class="b-pill ${st?'green':'red'}">${st?'종결':'진행중'}</span></td></tr>`;
   }).join('');
@@ -1603,7 +1626,7 @@ function printNCRTrend() {
     <div class="grid3">
       <div class="ch"><div class="ch-title">${LI('trending-up','📈')} 월별 발생 추이</div>${_lineSvg(byMonth)}</div>
       <div class="ch"><div class="ch-title">프로젝트별</div>${_barSvg(projEntries,COLORS)}</div>
-      <div class="ch"><div class="ch-title">발생장소별</div>${_barSvg(locEntries,COLORS)}</div>
+      <div class="ch"><div class="ch-title">${locChartTitle}</div>${_barSvg(locEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">불량원인별</div>${_barSvg(causeEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">불량원인 상세별</div>${_barSvg(detailEntries,COLORS)}</div>
       <div class="ch"><div class="ch-title">처리방안별</div>${_donutSvg(dispEntries,COLORS)}</div>
@@ -1757,6 +1780,7 @@ function showNCRParseModal(p) {
   const locOpts  = mkOpts(state.ncrLists?.location||NCR_LOCATION_DEF);
   const causeOpts= mkOpts(state.ncrLists?.cause   ||NCR_CAUSE_DEF);
   const detailOpts=mkOpts(state.ncrLists?.detail  ||NCR_DETAIL_DEF);
+  const vendorOpts=mkOpts(state.ncrLists?.vendor  ||NCR_VENDOR_DEF);
   const dispOpts = mkOpts(Object.keys(NCR_DISP));
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
   const badge = v => v ? '<span class="npm-parse-badge found">자동감지</span>' : '<span class="npm-parse-badge manual">직접입력</span>';
@@ -1806,7 +1830,8 @@ function showNCRParseModal(p) {
       <div class="npm-field"><label>상태</label><select id="np-status">${statusOpts}</select></div>
     </div>
     <div class="npm-row">
-      <div class="npm-field"><label>발생장소</label><div style="display:flex;gap:4px;"><select id="np-loc" style="flex:1;">${locOpts}</select>${addBtn('location','np-loc')}</div></div>
+      <div class="npm-field"><label>발생장소</label><div style="display:flex;gap:4px;"><select id="np-loc" onchange="document.getElementById('npVendorWrap').style.display=this.value==='협력사'?'flex':'none'" style="flex:1;">${locOpts}</select>${addBtn('location','np-loc')}</div></div>
+      <div class="npm-field" id="npVendorWrap" style="display:none;"><label>협력사명</label><div style="display:flex;gap:4px;"><select id="np-vendor" style="flex:1;">${vendorOpts}</select>${addBtn('vendor','np-vendor')}</div></div>
       <div class="npm-field"><label>처리방안</label><select id="np-disp">${dispOpts}</select></div>
     </div>
     <div class="npm-row">
@@ -1830,6 +1855,7 @@ async function confirmNCRParse() {
   const wrNo       = document.getElementById('np-wr').value.trim();
   const client     = document.getElementById('np-client').value.trim();
   const location   = document.getElementById('np-loc').value;
+  const vendor     = location==='협력사' ? document.getElementById('np-vendor').value : '';
   const cause      = document.getElementById('np-cause').value;
   const causeDetail= document.getElementById('np-detail').value;
   const disposition= document.getElementById('np-disp').value;
@@ -1852,7 +1878,7 @@ async function confirmNCRParse() {
   if (!state.ncrs) state.ncrs = [];
   state.ncrs.push({
     id, proj, item, source:'file', grade, desc, status,
-    location, cause, causeDetail, disposition,
+    location, vendor, cause, causeDetail, disposition,
     issuedBy: state.currentUser,
     issuedAt: date||new Date().toISOString().slice(0,10),
     carId:null,
