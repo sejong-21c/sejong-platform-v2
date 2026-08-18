@@ -336,16 +336,20 @@ async function syncArrayToFirestore(coll, arr) {
   }
 }
 
-// v29.9.1: localStorage 소유권 분리 — 이 iframe이 소유한 키(ncrs/ncrDeleteReqs/cars)만
+// v29.9.1: localStorage 소유권 분리 — 이 iframe이 소유한 키(ncrs/ncrDeleteReqs/cars/ncrLists)만
 // merge-write 한다. 이전처럼 state 전체를 통째로 쓰면 iframe이 로드 시점에 읽어둔 stale
 // projects/tasks/users가 부모(index.html)가 그 사이 Firestore에서 받아 저장한 최신 값을
 // 역으로 덮어써 양방향 데이터 유실 race가 생김 (부모 touchSession full save와 동일 병).
+// v29.70 fix: ncrLists(발생장소·불량원인·협력사명 등 커스텀 목록)가 이 목록에서 빠져있어서,
+// "+"로 추가한 항목이 메모리에서만 살아있다가 새로고침/재접속하면 사라지던 버그 — 이 iframe이
+// 유일하게 쓰는 키인데도 저장 대상에서 누락돼 있었다.
 function writeOwnedKeysToDisk() {
   const raw = localStorage.getItem(KEY);
   const disk = raw ? JSON.parse(raw) : {};
   disk.ncrs = state.ncrs;
   disk.ncrDeleteReqs = state.ncrDeleteReqs;
   disk.cars = state.cars;
+  disk.ncrLists = state.ncrLists;
   localStorage.setItem(KEY, JSON.stringify(disk));
 }
 // 실제 삭제가 확정된 순간에만 호출 — 배열 diff로는 절대 삭제를 추론하지 않는다.
