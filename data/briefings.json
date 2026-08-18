@@ -28,11 +28,11 @@
     "dashboardHtmlPath": "data/dashboards/kim-2026-08-18-noon.html",
     "newMails": 18,
     "processed": 18,
-    "urgentReplies": 2,
+    "urgentReplies": 3,
     "ncr": 1,
     "car": 2,
     "newProjects": 1,
-    "manday": 1.6,
+    "manday": 5.5,
     "keyActions": [
       {
         "text": "[최우선·오늘 회신] 구매부 김우진 부장이 구매요청서 변경안에 '동의할 수 없음' 공식 회신(8/18 08:26, 대표이사 포함 전사 CC). 쟁점은 양식이 아니라 예산 확인·승인 절차 부재 — 품질부 회신에 ①예산통제 절차 포함 범위 ②기술부 결재란에 협의·합의란 추가 대안 수용 여부 ③대표이사 승인 경로를 명시해야 진행 가능",
@@ -85,12 +85,22 @@
         "priority": "low"
       },
       {
+        "text": "[처리 완료] 오전 브리핑에서 실패했던 Gmail 라벨 API 재시도 성공 — NCR 스레드에 Urgent·NCR_CAR·SJ2026-026_PPG 라벨 부착(답변 대기 건이라 받은편지함 유지), 비드인·회의록 스레드 부서업무 라벨 부착. 신규 캘린더 등록 1건: 10/1 14:00 제6회 명사초청세미나(창원 CECO, 참석 미확정)",
+        "proj": "부서업무",
+        "priority": "low"
+      },
+      {
         "text": "[오전 루틴 후속] 그룹 액션 기한 3건을 Google Calendar에 종일 일정으로 자동 등록 완료 — 8/28 퓨어코아 견적 확정·제출, 9/4 삼영폴리테크 현장배관 수정+컬럼 콘덴서 자켓 제작 완료, 9/15 안전보조원 10명 현장 투입 시작. 참고: Gmail list_labels API 3회 연속 오류로 이번 회차 Project 라벨 자동 부착·INBOX 정리는 미실행",
         "proj": "부서업무",
         "priority": "low"
       }
     ],
     "urgentList": [
+      {
+        "subject": "CAR-2026-010 세창엔텍 시정조치요구서 — 서명 원본 재회신 미도착 (회신기한 8/7, 11일 경과)",
+        "from": "최가람 주임 / 세창엔텍",
+        "proj": "품질보증(공급사)"
+      },
       {
         "subject": "Re: SJ-NCR-2026-10 [천안 PPG Korea] Gasket 발주 오류 — 구매요청서 변경안 동의 불가",
         "from": "김우진 부장 / 구매부 (wjkim@sejong-21c.com)",
