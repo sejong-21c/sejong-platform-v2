@@ -527,6 +527,33 @@ function save() {
 }
 
 function getU(id) { return (state.users||[]).find(u => u.id === id) || {}; }
+
+/* ═══ 원본 서류 이동(보관자) 이력 ═══ */
+// n.custodyLog: [{ holder, date, note, loggedBy, loggedAt }] — 최신 항목이 현재 보관자.
+// 이동 이력이 없으면 발행자가 아직 보관 중인 것으로 간주.
+function _custodyHolder(n) {
+  const log = n.custodyLog || [];
+  if (log.length) return log[log.length - 1].holder;
+  const iss = getU(n.issuedBy);
+  return iss?.name ? `${iss.name} (발행)` : '-';
+}
+function addNCRCustodyEntry(ncrId) {
+  const sel    = document.getElementById('mgr-custody-to');
+  const direct = document.getElementById('mgr-custody-direct');
+  const date   = document.getElementById('mgr-custody-date').value;
+  const note   = document.getElementById('mgr-custody-note').value.trim();
+  let holder = '';
+  if (sel.value === '__direct__') holder = direct.value.trim();
+  else if (sel.value) holder = getU(sel.value)?.name || '';
+  if (!holder) { alert('받는 사람을 선택하거나 입력하세요.'); return; }
+  if (!date) { alert('날짜를 입력하세요.'); return; }
+  const n = (state.ncrs||[]).find(x => x.id === ncrId);
+  if (!n) return;
+  if (!n.custodyLog) n.custodyLog = [];
+  n.custodyLog.push({ holder, date, note, loggedBy: state.currentUser, loggedAt: new Date().toISOString() });
+  save();
+  openNCRMgr(ncrId); // 같은 모달을 새 이력으로 다시 열어 갱신
+}
 function getP(id) { return (state.projects||[]).find(p => p.id === id) || {}; }
 
 // v29.11 fix: 배열 길이(state.ncrs.length + 1) 기준 채번은 항목이 삭제되어 있거나
@@ -739,7 +766,7 @@ function render() {
       <table class="org-table">
         <thead><tr>
           <th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>등급</th>
-          <th>내용</th><th>발행일</th><th>처리방안</th><th>종결일</th><th>상태</th><th>관리</th>
+          <th>내용</th><th>발행일</th><th>처리방안</th><th>종결일</th><th>상태</th><th>현재보관</th><th>관리</th>
         </tr></thead>
         <tbody>
           ${filtered.length ? filtered.map(n => {
@@ -766,6 +793,7 @@ function render() {
               <td style="font-size:11px;">${n.disposition ? `<span class="b-pill ${(NCR_DISP[n.disposition]||['gray'])[0]}">${n.disposition}</span>` : '-'}</td>
               <td style="font-size:11px;white-space:nowrap;color:${n.closedAt?'var(--success)':'var(--text-light)'};">${n.closedAt||'-'}</td>
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
+              <td style="font-size:11px;white-space:nowrap;">${_htmlEsc(_custodyHolder(n))}</td>
               <td style="white-space:nowrap;">
                 <button class="org-ico-btn" onclick="openNCRMgr('${n.id}')" title="상세">${LI('clipboard-list','📋')}</button>
                 ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewNCRFile('${n.id}')" title="파일 보기">${LI('file-text','📄')}</button>` : ''}
@@ -774,7 +802,7 @@ function render() {
                 ${delBtn}
               </td>
             </tr>`;
-          }).join('') : `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light);">등록된 NCR이 없습니다</td></tr>`}
+          }).join('') : `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light);">등록된 NCR이 없습니다</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -894,6 +922,10 @@ function openNCRMgr(ncrId) {
   const vendorOpts= ['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${v}" ${v===n.vendor?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const dispOpts  = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${v}" ${v===n.disposition?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
+  const custodyUserOpts = (state.users||[]).map(u=>`<option value="${u.id}">${u.name} ${u.title||''}</option>`).join('');
+  const custodyLogHtml = (n.custodyLog||[]).length
+    ? [...n.custodyLog].reverse().map(c=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border-light);"><b>${_htmlEsc(c.holder)}</b> <span style="color:var(--text-light);">· ${c.date}${c.note?' · '+_htmlEsc(c.note):''}</span></div>`).join('')
+    : `<div style="font-size:11px;color:var(--text-light);">이동 이력 없음 (발행자가 보관 중)</div>`;
 
   openModal(`📋 NCR 관리 — ${n.id}`, `
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -934,6 +966,23 @@ function openNCRMgr(ncrId) {
     <div class="fg">
       <label class="fl">종결일 <span style="font-size:11px;color:var(--text-light);">(입력 시 자동 종결)</span></label>
       <input class="fi" type="date" id="mgr-closed" value="${n.closedAt||''}">
+    </div>
+    <div class="fg">
+      <label class="fl">${LI('package','📦')} 원본 서류 이동 이력 <span style="font-size:11px;color:var(--text-light);">현재 보관: <b>${_htmlEsc(_custodyHolder(n))}</b></span></label>
+      <div style="border:1px solid var(--border);border-radius:6px;padding:8px;max-height:140px;overflow-y:auto;margin-bottom:8px;">${custodyLogHtml}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="flex:1;min-width:130px;">
+          <select class="fs" id="mgr-custody-to" onchange="document.getElementById('mgr-custody-direct').style.display=this.value==='__direct__'?'block':'none'">
+            <option value="">받는사람 선택</option>
+            <option value="__direct__">✏️ 직접입력</option>
+            ${custodyUserOpts}
+          </select>
+          <input class="fi" id="mgr-custody-direct" placeholder="이름 직접 입력(외부 등)" style="margin-top:4px;display:none;">
+        </div>
+        <input class="fi" type="date" id="mgr-custody-date" value="${new Date().toISOString().slice(0,10)}" style="width:130px;">
+        <input class="fi" id="mgr-custody-note" placeholder="비고(선택)" style="flex:1;min-width:100px;">
+        <button type="button" class="btn btn-sm" onclick="addNCRCustodyEntry('${n.id}')">전달 등록</button>
+      </div>
     </div>
     <div class="fg">
       <label class="fl">첨부파일 업데이트</label>
