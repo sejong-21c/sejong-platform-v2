@@ -1103,33 +1103,28 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-20 07:55 (오전 정리 자동 실행)",
+    "generatedAt": "2026-08-20 15:00 (오후 정리 자동 실행)",
     "newMails": 6,
     "processed": 4,
     "urgentReplies": 0,
     "ncr": 1,
     "car": 1,
-    "newProjects": 0,
+    "newProjects": 1,
     "keyActions": [
       {
-        "text": "SDC PROJECT 맨홀 실린더 수정도면 반영 (COIL SPRING 사양변경)",
-        "proj": "SJ431-25",
+        "text": "SJE2026-049 이노폴 R-7000 구동부 도면 - 기존 SJE2026-018 이노폴 C-400 라벨로 분류, INBOX 제거",
+        "proj": "SJE2026-018",
         "priority": "mid"
       },
       {
-        "text": "AGITATOR SUPPORT 자재 변경(H-BEAM&PIPE) 및 도장사양 반영",
+        "text": "SJE2025-057 삼영폴리테크 PUD Agitator CD-201 도면 출도 - 신규 Project 라벨 생성 및 분류",
         "proj": "SJE2025-057",
         "priority": "mid"
       },
       {
-        "text": "이노폴 체인커플링 구매요청서 발주 처리 대기",
-        "proj": "SJE2026-049",
-        "priority": "low"
-      },
-      {
-        "text": "PPG Korea NCR-2026-10 구매요청서 양식 이견 조율 지속",
-        "proj": "PPG천안",
-        "priority": "mid"
+        "text": "SJ-NCR-2026-10 PPG Korea 열교환기 Gasket 발주오류 NCR/CAR - 품질부-구매부 구매요청서 프로세스 협의 지속 모니터링 필요",
+        "proj": "PPG KOREA 천안",
+        "priority": "high"
       }
     ],
     "urgentList": [],
