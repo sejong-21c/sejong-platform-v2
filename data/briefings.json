@@ -1191,8 +1191,8 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-21 08:01 (오전 정리 자동 실행)",
-    "newMails": 7,
+    "generatedAt": "2026-08-21 07:59 (오후 정리 자동 실행)",
+    "newMails": 0,
     "processed": 7,
     "urgentReplies": 1,
     "ncr": 0,
@@ -1200,49 +1200,69 @@
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "화신종합인쇄사 포스터·현수막 견적/시안 회신 (초안 검토 후 발송)",
-        "proj": "일반사무",
-        "priority": "high"
-      },
-      {
-        "text": "CAR-2026-010 회신 수령 확인 — 기한 8/7 초과, 미회신 시 상위 보고",
+        "text": "CAR-2026-010 회신 확보 (기한 8/7 경과 14일) - 부서장 에스컬레이션 검토",
         "proj": "품질보증",
         "priority": "high"
       },
       {
-        "text": "VE-306 SPRING BALANCE 설계변경(접시→코일)에 따른 ITP/검사기준 개정 여부 검토",
-        "proj": "애경케미칼_청양공장",
+        "text": "세창엔텍 공급자 재평가 8월 중 수행 - 일정 확정 필요",
+        "proj": "품질보증",
+        "priority": "high"
+      },
+      {
+        "text": "포스터·현수막 시안 사내 검토 후 수정 AI 파일 송부 (420x600 / 500x90, 300dpi)",
+        "proj": "일반사무",
         "priority": "mid"
       },
       {
-        "text": "SDC PROJECT 볼트류·방진고무 자재 수입검사 대상 확인",
-        "proj": "SJ431-25",
+        "text": "삼성전기 PACKING information 회신 수신 확인 (곽노한 이사)",
+        "proj": "SJ435-26",
+        "priority": "mid"
+      },
+      {
+        "text": "취업규칙 개정 hwp 원본 보관 여부 확인 회신",
+        "proj": "일반사무",
         "priority": "low"
       },
       {
-        "text": "세창엔텍 공급자 재평가 일정(8월 중) 확정 협의",
-        "proj": "품질보증",
-        "priority": "mid"
+        "text": "SJ431-25 SDC UP/UT-1402B PUMP STRUCTURE 도면·구매요청서 참조 확인 완료",
+        "proj": "SJ431-25",
+        "priority": "low"
       }
     ],
     "urgentList": [
       {
-        "subject": "포스터 및 현수막 견적서 — 시안 확인 및 AI 정사이즈 재작업 회신",
-        "from": "화신종합인쇄사 (hsok0004@daum.net)",
-        "proj": "일반사무"
-      },
-      {
-        "subject": "[Reminder!!!] 시정조치요구서(CAR-2026-010) 회신 독촉",
-        "from": "김시원 대리 (품질관리부)",
+        "subject": "[Reminder!!!] [QC] 시정조치요구서(CAR) CAR-2026-010 회신 미이행",
+        "from": "김시원 대리",
         "proj": "품질보증"
       },
       {
-        "subject": "VE-306 SPRING BALANCE 수정도면 송부 — 설계변경 검사기준 확인",
-        "from": "강재상 사원 (기술부)",
-        "proj": "애경케미칼_청양공장"
+        "subject": "포스터 및 현수막 견적서 - 인쇄 시안 확인 회신 요청",
+        "from": "화신종합인쇄사",
+        "proj": "일반사무"
+      },
+      {
+        "subject": "Re: 더원노무법인 취업규칙 개정 최종 견적서 요청",
+        "from": "양병원 이사",
+        "proj": "일반사무"
       }
     ],
-    "schedule": []
+    "schedule": [
+      {
+        "title": "세창엔텍 공급자 재평가 수행 (CAR-2026-010) - 일자 미정",
+        "date": "2026-08-31",
+        "time": "17:00",
+        "proj": "품질보증",
+        "color": "red"
+      },
+      {
+        "title": "포스터·현수막 최종 AI 파일 송부 및 납기 확정 - 시간 미정",
+        "date": "2026-08-21",
+        "time": "17:00",
+        "proj": "일반사무",
+        "color": "orange"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-08-20 (daily-mail-swkim 자동 실행)",
