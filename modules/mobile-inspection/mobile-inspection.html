@@ -220,6 +220,8 @@ input[type=file]{display:none}
       <p style="font-size:10px;color:#999;margin-top:5px;line-height:1.4">
         ※ 아이템 선택 후 활성화 · ITP Builder 연동 데이터 · ITP/아이템이 등록되지 않은 구매품 등은 "직접 입력"으로 검사 가능
       </p>
+      <!-- v29.42: 선택한 검사항목의 적용코드/판정기준/확인문서(ITP Builder 원본) 참고용 표시 -->
+      <div id="insp-criteria-box" style="display:none;margin-top:8px;padding:10px 12px;background:#fff8e6;border:1px solid #ecd6a3;border-radius:8px;font-size:11.5px;color:#6b5410;line-height:1.6"></div>
 
       <!-- 검사값 입력 영역 (ITP 항목별 동적 필드) -->
       <div id="insp-wrap" style="display:none;margin-top:10px">
@@ -523,7 +525,9 @@ function getDimCheckpointsForItem(pid,itemId){
   if(!itemId) return [];
   const payload=getQAGProjectPayload(pid);
   const rows=payload?.imgStore?.['dim_rows_'+itemId];
-  return Array.isArray(rows) ? rows.map(r=>({point:r.p||'', desc:r.desc||''})) : [];
+  // v29.42: dwg(도면 기준값)도 같이 반환 — 검사자가 측정 포인트 선택 시 무엇을
+  // 기준으로 재야 하는지 바로 보이게 한다. 값(measurePoint)에는 안 넣고 표시에만 씀.
+  return Array.isArray(rows) ? rows.map(r=>({point:r.p||'', desc:r.desc||'', dwg:r.dwg||''})) : [];
 }
 // QA Doc Generator의 Hydrostatic Test 연동 — 가압부(Shell/Jacket/Tube Side/
 // In-Coil/Half-Coil 등, 품목 구성에 따라 자켓·인코일·하프코일 유무로 1~여러
@@ -949,6 +953,12 @@ function renderItpOptionsForItem(itemId){
     opt.value=row.id||String(i);
     opt.dataset.activity=row.activity||'';
     opt.dataset.fieldsKey=fk||'';
+    // v29.42: ITP Builder가 이미 갖고 있는 적용코드/판정기준/확인문서를 검사
+    // 화면에도 그대로 보여준다 — 검사자가 QA Doc/ITP Builder를 따로 열어보지
+    // 않아도 현장에서 바로 무엇을 기준으로 판정할지 확인할 수 있게.
+    opt.dataset.code=row.code||'';
+    opt.dataset.criteria=row.criteria||'';
+    opt.dataset.doc=row.doc||'';
     opt.textContent=seqLabel+row.activity;
     itpSel.appendChild(opt);
   });
@@ -1154,6 +1164,22 @@ const ITP_FIELDS={
   }
 };
 
+// v29.42: ITP Builder가 이미 갖고 있는 적용코드/판정기준/확인문서를 검사 시작
+// 전에 바로 보여준다 — QA Doc/ITP Builder를 따로 열어보지 않아도 현장에서
+// 뭘 기준으로 합부를 판정해야 하는지 확인할 수 있게.
+function renderItpCriteriaBox(selOpt){
+  const box=document.getElementById('insp-criteria-box');
+  const code=selOpt?.dataset?.code||'', criteria=selOpt?.dataset?.criteria||'', doc=selOpt?.dataset?.doc||'';
+  if(!selOpt || !selOpt.value || selOpt.value==='__custom__' || (!code && !criteria && !doc)){
+    box.style.display='none'; box.innerHTML=''; return;
+  }
+  box.style.display='block';
+  box.innerHTML=[
+    code ? `<div><b>적용 코드/도면:</b> ${escapeHtml(code)}</div>` : '',
+    criteria ? `<div><b>판정 기준:</b> ${escapeHtml(criteria)}</div>` : '',
+    doc ? `<div><b>확인 문서:</b> ${escapeHtml(doc)}</div>` : '',
+  ].filter(Boolean).join('');
+}
 async function onItpChange(){
   const itpSel=document.getElementById('itp');
   const itpVal=itpSel.value;
@@ -1161,9 +1187,10 @@ async function onItpChange(){
   // v29.40: "직접 입력" 선택 시 검사항목명 입력칸을 보여준다.
   document.getElementById('itp-custom').style.display = itpVal==='__custom__' ? 'block' : 'none';
   if(itpVal==='__custom__') document.getElementById('itp-custom').focus();
+  const selOpt=itpSel.options[itpSel.selectedIndex];
+  renderItpCriteriaBox(selOpt);
   if(!itpVal){ wrap.style.display='none'; return; }
   wrap.style.display='block';
-  const selOpt=itpSel.options[itpSel.selectedIndex];
   const fieldsKey=selOpt?.dataset?.fieldsKey||'';
   // v29.24: Material/Dimension/Hydrostatic만 QA Doc Generator 데이터를 쓰므로,
   // 그 항목일 때만 클라우드에서 최신본을 받아온 뒤 그린다(다른 항목은 기다릴
@@ -1262,11 +1289,14 @@ function buildField(f, prefix=''){
     } else if(f.source==='dim-checkpoint'){
       // Check Point 라벨(A, B, C...)에 Description을 붙여 표시 — Description이
       // 비어있는(아직 QA Doc Generator에서 안 채운) 행은 제외한다.
+      // v29.42: 저장값(measurePoint)은 그대로 "point. desc"로 유지(기존 데이터
+      // 호환), 화면 표시 텍스트에만 도면 기준값(dwg)을 덧붙여 현장에서 바로
+      // 무엇을 기준으로 재야 하는지 보이게 한다.
       const dimOpts=getDimCheckpointsForItem(MI_PID,currentQagItemId)
         .filter(r=>r.desc.trim())
-        .map(r=>`${r.point}. ${r.desc.trim()}`);
+        .map(r=>({val:`${r.point}. ${r.desc.trim()}`, dwg:r.dwg.trim()}));
       opts = (dimOpts.length
-        ? '<option value="">— 선택 —</option>'+dimOpts.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+        ? '<option value="">— 선택 —</option>'+dimOpts.map(o=>`<option value="${escapeHtml(o.val)}">${escapeHtml(o.val)}${o.dwg?` (기준: ${escapeHtml(o.dwg)})`:''}</option>`).join('')
         : '<option value="">— Dimension Check IR 데이터 없음(QA Doc Generator에서 작성 필요) —</option>')
         + '<option value="__custom__">✏️ 직접 입력...</option>';
     } else {
