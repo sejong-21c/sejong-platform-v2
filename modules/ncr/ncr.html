@@ -532,10 +532,16 @@ function getU(id) { return (state.users||[]).find(u => u.id === id) || {}; }
 // n.custodyLog: [{ holder, date, note, loggedBy, loggedAt }] — 최신 항목이 현재 보관자.
 // 이동 이력이 없으면 발행자가 아직 보관 중인 것으로 간주.
 function _custodyHolder(n) {
+  // 종결 = 품질부에서 원본 회수 완료로 간주 — 이동 이력보다 우선.
+  if (n.status === 'closed') {
+    const cl = getU(n.closedBy);
+    return cl?.name ? `${cl.name}(종결)` : '(종결)';
+  }
   const log = n.custodyLog || [];
   if (log.length) return log[log.length - 1].holder;
-  const iss = getU(n.issuedBy);
-  return iss?.name ? `${iss.name} (발행)` : '-';
+  if (n.issuerName) return `${n.issuerName}(발행)`;
+  const iss = getU(n.issuedBy); // 구버전 레코드 호환(발행자를 직접 지정하기 전엔 전산 등록자로 대체)
+  return iss?.name ? `${iss.name}(발행)` : '-';
 }
 function addNCRCustodyEntry(ncrId) {
   const sel    = document.getElementById('mgr-custody-to');
@@ -825,6 +831,7 @@ function openNewNCR() {
   const vendorOpts=['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
   const dispOpts = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
+  const issuerOpts = (state.users||[]).map(u=>`<option value="${u.id}" ${u.id===state.currentUser?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
 
   openModal('+ NCR 발행', `
     <div class="fg">
@@ -839,6 +846,15 @@ function openNewNCR() {
     <div class="fg" style="display:flex;gap:8px;">
       <div style="flex:1;"><label class="fl">고객명</label><input class="fi" id="ncrClient" placeholder="고객사명"></div>
       <div style="flex:1;"><label class="fl">발행일자</label><input class="fi" type="date" id="ncrIssuedAt"></div>
+    </div>
+    <div class="fg">
+      <label class="fl">발행자 <span style="font-size:11px;color:var(--text-light);">(실제 원본 서류 작성자 — 전산 등록자와 다를 수 있음)</span></label>
+      <select class="fs" id="ncrIssuer" onchange="document.getElementById('ncrIssuerDirect').style.display=this.value==='__direct__'?'block':'none'">
+        <option value="">${'선택 안 함(전산 등록자로 기록)'}</option>
+        <option value="__direct__">✏️ 직접입력</option>
+        ${issuerOpts}
+      </select>
+      <input class="fi" id="ncrIssuerDirect" placeholder="이름 직접 입력(외부 등)" style="margin-top:6px;display:none;">
     </div>
     <div class="fg" style="display:flex;gap:8px;">
       <div style="flex:1;"><label class="fl">도면번호</label><input class="fi" id="ncrDwg" placeholder="도면번호"></div>
@@ -876,6 +892,9 @@ function openNewNCR() {
     const projDirect = document.getElementById('ncrProjDirect').value.trim();
     const client   = document.getElementById('ncrClient').value.trim();
     const issuedAt = document.getElementById('ncrIssuedAt').value;
+    const issuerSel = document.getElementById('ncrIssuer').value;
+    const issuerName = issuerSel === '__direct__' ? document.getElementById('ncrIssuerDirect').value.trim()
+      : issuerSel ? (getU(issuerSel)?.name || '') : '';
     const dwgNo    = document.getElementById('ncrDwg').value.trim();
     const wrNo     = document.getElementById('ncrWr').value.trim();
     const item     = document.getElementById('ncrItem').value.trim();
@@ -894,7 +913,7 @@ function openNewNCR() {
     state.ncrs.push({
       id, proj, item, source:'manual', grade, desc, status:'open',
       location, vendor, cause, causeDetail, disposition,
-      issuedBy: state.currentUser,
+      issuedBy: state.currentUser, issuerName,
       issuedAt: issuedAt || new Date().toISOString().slice(0,10),
       carId: null,
       meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__' ? projDirect : '' }
@@ -935,6 +954,16 @@ function openNCRMgr(ncrId) {
     </div>
     <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="mgr-desc" rows="3">${n.desc}</textarea></div>
     <div class="fg"><label class="fl">아이템</label><input class="fi" id="mgr-item" value="${n.item||''}"></div>
+    <div class="fg">
+      <label class="fl">발행자 <span style="font-size:11px;color:var(--text-light);">(실제 원본 서류 작성자 — 전산 등록자와 다를 수 있음)</span></label>
+      <div style="display:flex;gap:4px;">
+        <input class="fi" id="mgr-issuer" style="flex:1;" value="${_htmlEsc(n.issuerName||'')}" placeholder="이름 입력 또는 오른쪽에서 선택">
+        <select class="fs" style="max-width:150px;flex-shrink:0;" onchange="if(this.value){document.getElementById('mgr-issuer').value=this.options[this.selectedIndex].text.trim();this.value='';}">
+          <option value="">사내 직원 선택…</option>
+          ${custodyUserOpts}
+        </select>
+      </div>
+    </div>
     <div class="fg">
       <label class="fl">등급</label>
       <select class="fs" id="mgr-grade">
@@ -1006,6 +1035,7 @@ function openNCRMgr(ncrId) {
     // 조용히 저장 안 되던(특히 파일) 버그가 있었음.
     const descVal        = document.getElementById('mgr-desc').value.trim();
     const itemVal        = document.getElementById('mgr-item').value.trim();
+    const issuerNameVal  = document.getElementById('mgr-issuer').value.trim();
     const gradeVal       = document.getElementById('mgr-grade').value;
     const locationVal    = document.getElementById('mgr-loc').value;
     const vendorVal      = locationVal==='협력사' ? document.getElementById('mgr-vendor').value : '';
@@ -1027,14 +1057,18 @@ function openNCRMgr(ncrId) {
     if (!current) { window._mgrUploadPromise = null; window._mgrFileName = null; closeModal(); render(); return; }
     current.desc        = descVal || current.desc;
     current.item        = itemVal;
+    current.issuerName  = issuerNameVal;
     current.grade       = gradeVal;
     current.location    = locationVal;
     current.vendor       = vendorVal;
     current.cause       = causeVal;
     current.causeDetail = causeDetailVal;
     current.disposition = dispositionVal;
-    if (closedAtVal) { current.closedAt = closedAtVal; current.status = 'closed'; }
-    else if (current.closedAt && !closedAtVal) { current.closedAt = ''; current.status = 'open'; }
+    if (closedAtVal) {
+      if (current.status !== 'closed') current.closedBy = state.currentUser; // 종결로 처음 전환되는 순간만 기록(회수자)
+      current.closedAt = closedAtVal; current.status = 'closed';
+    }
+    else if (current.closedAt && !closedAtVal) { current.closedAt = ''; current.status = 'open'; current.closedBy = ''; }
     if (attach.chunkId) {
       if (!current.meta) current.meta = {};
       current.meta.fileChunkId = attach.chunkId;
@@ -1049,7 +1083,7 @@ function openNCRMgr(ncrId) {
 function closeNCR(ncrId) {
   if (!confirm(`NCR [${ncrId}]을 종결 처리하시겠습니까?`)) return;
   const n = (state.ncrs||[]).find(x => x.id === ncrId);
-  if (n) { n.status = 'closed'; n.closedAt = new Date().toISOString().slice(0,10); save(); render(); }
+  if (n) { n.status = 'closed'; n.closedAt = new Date().toISOString().slice(0,10); n.closedBy = state.currentUser; save(); render(); }
 }
 
 function createCARfromNCR(ncrId) {
@@ -1077,6 +1111,7 @@ function createCARfromNCR(ncrId) {
       id: carId, ncrId, proj: n.proj, action,
       reqDept: getU(assignee)?.dept || '', // 담당자의 부서를 시정조치요구부서로
       status: 'in-progress',
+      issuedBy: state.currentUser,
       qualReq: '', field: '', cause: '',
       issuedAt: new Date().toISOString().slice(0,10),
       replyDue: due || '',
@@ -1837,6 +1872,7 @@ function showNCRParseModal(p) {
   const dispOpts = mkOpts(Object.keys(NCR_DISP));
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
   const badge = v => v ? '<span class="npm-parse-badge found">자동감지</span>' : '<span class="npm-parse-badge manual">직접입력</span>';
+  const issuerOpts = (state.users||[]).map(u=>`<option value="${u.id}" ${u.id===state.currentUser?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
 
   const filePanel = document.getElementById('ncr-parse-file');
   if (filePanel) {
@@ -1873,6 +1909,15 @@ function showNCRParseModal(p) {
       <div class="npm-field"><label>고객명 ${badge(p.client)}</label><input id="np-client" value="${p.client||''}" placeholder="예: ASK CHEMICALS"></div>
       <div class="npm-field"><label>부품명(번호) ${badge(p.partName)}</label><input id="np-item" value="${p.partName||''}" placeholder="예: CD-02-703"></div>
     </div>
+    <div class="npm-field">
+      <label>발행자 <span style="font-size:11px;color:var(--text-light);">(실제 원본 서류 작성자 — 전산 등록자와 다를 수 있음)</span></label>
+      <select id="np-issuer" onchange="document.getElementById('np-issuer-direct').style.display=this.value==='__direct__'?'block':'none'">
+        <option value="">선택 안 함(전산 등록자로 기록)</option>
+        <option value="__direct__">✏️ 직접입력</option>
+        ${issuerOpts}
+      </select>
+      <input id="np-issuer-direct" placeholder="이름 직접 입력(외부 등)" style="margin-top:6px;display:none;">
+    </div>
     <div class="npm-row">
       <div class="npm-field"><label>도면번호 ${badge(p.dwgNo)}</label><input id="np-dwg" value="${p.dwgNo||''}" placeholder="예: 25-ASK-CD02703-01"></div>
       <div class="npm-field"><label>W.R No. ${badge(p.wrNo)}</label><input id="np-wr" value="${p.wrNo||''}" placeholder="예: SJ433-25"></div>
@@ -1907,6 +1952,9 @@ async function confirmNCRParse() {
   const dwgNo      = document.getElementById('np-dwg').value.trim();
   const wrNo       = document.getElementById('np-wr').value.trim();
   const client     = document.getElementById('np-client').value.trim();
+  const issuerSel  = document.getElementById('np-issuer').value;
+  const issuerName = issuerSel === '__direct__' ? document.getElementById('np-issuer-direct').value.trim()
+    : issuerSel ? (getU(issuerSel)?.name || '') : '';
   const location   = document.getElementById('np-loc').value;
   const vendor     = location==='협력사' ? document.getElementById('np-vendor').value : '';
   const cause      = document.getElementById('np-cause').value;
@@ -1932,7 +1980,8 @@ async function confirmNCRParse() {
   state.ncrs.push({
     id, proj, item, source:'file', grade, desc, status,
     location, vendor, cause, causeDetail, disposition,
-    issuedBy: state.currentUser,
+    issuedBy: state.currentUser, issuerName,
+    closedBy: status === 'closed' ? state.currentUser : '',
     issuedAt: date||new Date().toISOString().slice(0,10),
     carId:null,
     meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__'?projDirect:'', fileChunkId: attach.chunkId, fileChunks: attach.totalChunks, fileName: attach.name }
