@@ -1191,31 +1191,57 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-20 15:00 (오후 정리 자동 실행)",
-    "newMails": 6,
-    "processed": 4,
-    "urgentReplies": 0,
-    "ncr": 1,
+    "generatedAt": "2026-08-21 08:01 (오전 정리 자동 실행)",
+    "newMails": 7,
+    "processed": 7,
+    "urgentReplies": 1,
+    "ncr": 0,
     "car": 1,
-    "newProjects": 1,
+    "newProjects": 0,
     "keyActions": [
       {
-        "text": "SJE2026-049 이노폴 R-7000 구동부 도면 - 기존 SJE2026-018 이노폴 C-400 라벨로 분류, INBOX 제거",
-        "proj": "SJE2026-018",
-        "priority": "mid"
-      },
-      {
-        "text": "SJE2025-057 삼영폴리테크 PUD Agitator CD-201 도면 출도 - 신규 Project 라벨 생성 및 분류",
-        "proj": "SJE2025-057",
-        "priority": "mid"
-      },
-      {
-        "text": "SJ-NCR-2026-10 PPG Korea 열교환기 Gasket 발주오류 NCR/CAR - 품질부-구매부 구매요청서 프로세스 협의 지속 모니터링 필요",
-        "proj": "PPG KOREA 천안",
+        "text": "화신종합인쇄사 포스터·현수막 견적/시안 회신 (초안 검토 후 발송)",
+        "proj": "일반사무",
         "priority": "high"
+      },
+      {
+        "text": "CAR-2026-010 회신 수령 확인 — 기한 8/7 초과, 미회신 시 상위 보고",
+        "proj": "품질보증",
+        "priority": "high"
+      },
+      {
+        "text": "VE-306 SPRING BALANCE 설계변경(접시→코일)에 따른 ITP/검사기준 개정 여부 검토",
+        "proj": "애경케미칼_청양공장",
+        "priority": "mid"
+      },
+      {
+        "text": "SDC PROJECT 볼트류·방진고무 자재 수입검사 대상 확인",
+        "proj": "SJ431-25",
+        "priority": "low"
+      },
+      {
+        "text": "세창엔텍 공급자 재평가 일정(8월 중) 확정 협의",
+        "proj": "품질보증",
+        "priority": "mid"
       }
     ],
-    "urgentList": [],
+    "urgentList": [
+      {
+        "subject": "포스터 및 현수막 견적서 — 시안 확인 및 AI 정사이즈 재작업 회신",
+        "from": "화신종합인쇄사 (hsok0004@daum.net)",
+        "proj": "일반사무"
+      },
+      {
+        "subject": "[Reminder!!!] 시정조치요구서(CAR-2026-010) 회신 독촉",
+        "from": "김시원 대리 (품질관리부)",
+        "proj": "품질보증"
+      },
+      {
+        "subject": "VE-306 SPRING BALANCE 수정도면 송부 — 설계변경 검사기준 확인",
+        "from": "강재상 사원 (기술부)",
+        "proj": "애경케미칼_청양공장"
+      }
+    ],
     "schedule": []
   },
   "swkim@sejong-21c.com": {
