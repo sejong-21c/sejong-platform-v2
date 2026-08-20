@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>일일 통합 브리핑 · 2026-08-21(금) 오전 · 김철우 부장</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#16181d; --muted:#6b7280; --line:#e5e7eb;
+    --red:#c0392b; --redbg:#fdecea; --orange:#b8620a; --orangebg:#fff4e5;
+    --blue:#1d4ed8; --bluebg:#eaf0ff; --green:#0f7a3d; --greenbg:#e8f6ee;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161a; --card:#1c1f25; --ink:#e8eaed; --muted:#9aa2ad; --line:#2e333c;
+      --redbg:#3a1d1a; --orangebg:#3a2a12; --bluebg:#1b2540; --greenbg:#153025;
+      --red:#ff8a7a; --orange:#f0ab54; --blue:#8fb0ff; --green:#6ed49a;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+    line-height:1.6;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 16px 64px}
+  header{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:20px 22px;margin-bottom:16px}
+  h1{margin:0 0 6px;font-size:21px}
+  .sub{color:var(--muted);font-size:13px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
+    gap:10px;margin:18px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;text-align:center}
+  .kpi b{display:block;font-size:24px;line-height:1.2}
+  .kpi span{font-size:12px;color:var(--muted)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;margin-bottom:16px}
+  h2{margin:0 0 12px;font-size:16px;border-bottom:2px solid var(--line);padding-bottom:8px}
+  .lead{background:var(--redbg);border-left:4px solid var(--red);border-radius:8px;
+    padding:14px 16px;margin-bottom:14px;font-size:14px}
+  ol,ul{margin:0;padding-left:20px}
+  li{margin-bottom:9px}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;
+    margin-right:6px;vertical-align:1px;white-space:nowrap}
+  .t-red{background:var(--redbg);color:var(--red)}
+  .t-orange{background:var(--orangebg);color:var(--orange)}
+  .t-blue{background:var(--bluebg);color:var(--blue)}
+  .t-green{background:var(--greenbg);color:var(--green)}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{border-collapse:collapse;width:100%;min-width:560px;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--bluebg);font-weight:600;white-space:nowrap}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .card{border:1px solid var(--line);border-radius:10px;padding:13px 15px;font-size:13.5px}
+  .card h3{margin:0 0 7px;font-size:14px}
+  .card.red{border-left:4px solid var(--red)}
+  .card.orange{border-left:4px solid var(--orange)}
+  .card.blue{border-left:4px solid var(--blue)}
+  .quiet{color:var(--muted);font-size:13px}
+  .plan{list-style:none;padding:0}
+  .plan li{border-left:3px solid var(--line);padding:2px 0 2px 12px;margin-bottom:12px}
+  .plan li.now{border-left-color:var(--red)}
+  .plan .t{font-weight:600;font-size:13px;color:var(--muted)}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>일일 통합 브리핑 — 2026년 8월 21일 (금) 오전</h1>
+  <div class="sub">
+    ㈜세종기술 품질관리부 · 김철우 부장 (cwkim@sejong-21c.com)<br>
+    생성 07:35 KST · 검색범위 <code>newer_than:1d</code> (8/20 07:35 ~ 8/21 07:35) · 발신함 포함
+  </div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b>8</b><span>신규 메일</span></div>
+  <div class="kpi"><b>0</b><span>업무 메일</span></div>
+  <div class="kpi"><b>6</b><span>답변 대기</span></div>
+  <div class="kpi"><b>3</b><span>오늘 마감</span></div>
+  <div class="kpi"><b>1</b><span>CAR 진행</span></div>
+  <div class="kpi"><b>0</b><span>신규 NCR</span></div>
+  <div class="kpi"><b>0</b><span>신규 Project</span></div>
+  <div class="kpi"><b>8.0</b><span>예상 공수(H)</span></div>
+</div>
+
+<section>
+  <h2>Executive Summary</h2>
+  <div class="lead">
+    <b>밤사이 업무 메일은 0건입니다.</b> 신규 8건은 전부 뉴스레터·벤더 안내(Charm, Tasklet, Exa, Docker,
+    BTCC, NLP Cloud, cloudHQ)와 GitHub 키 등록 알림이며, 부장님 조치가 필요한 건은 없습니다.
+    <br><br>
+    <b>따라서 오늘의 위험은 새로 들어온 것이 아니라, 이미 밀려 있는 것입니다.</b>
+    오늘 8/21(금)은 주말 전 마지막 영업일이고 마감이 <b>3건 동시</b>에 걸립니다 —
+    ①울산복합 #4CC 입찰 검토(실질 마지막 검토일), ②추가공사 금액 확정(4일째 미착수),
+    ③에이원정보기술 계약서 회신 희망일. 여기에 유권해석 질의서가 5일 연속 미착수,
+    CAR-2026-010은 3차 독촉에도 회신이 없어 실무 단계가 소진된 상태입니다.
+    <br><br>
+    어제 오전 브리핑이 18:56에 지연 게시되어 권고 항목들이 착수 기회를 얻지 못한 채 전량 이월됐습니다.
+    <b>오늘 오전을 비워두지 않으면 3건 중 최소 1건은 밀립니다.</b>
+  </div>
+  <ul>
+    <li><span class="tag t-red">최우선</span><b>울산복합 #4CC 입찰</b> — 첨부 3건 검토 후 참여 판단.
+      마감 8/24(월) 10:00, 발신자는 8/23(일)까지 입찰 요청. 주말이 끼어 있어 <b>오늘이 실질 마지막 검토일</b>입니다.
+      오늘 미착수 = 이번 회차 참여 사실상 불가.</li>
+    <li><span class="tag t-red">오늘 마감</span><b>추가공사 금액 확정</b> — 주간회의 배정(담당 김철우).
+      8/18·19·20 3일 연속 진척 없음. 오늘 미처리 시 8/24(월) 주간회의에 미완으로 올라갑니다.</li>
+    <li><span class="tag t-red">오늘 회신</span><b>에이원정보기술 유상 유지보수 계약서(초안)</b> — 회신 희망일 오늘.
+      금액·범위 확정이 어려우면 <b>최소한 "검토 기한 연장" 회신이라도</b> 발송해 무응답을 피하는 것을 권합니다.</li>
+    <li><span class="tag t-orange">단계 전환</span><b>CAR-2026-010 세창엔텍</b> — 8/20 08:31 3차 독촉(REMINDER!!!)
+      발송에도 최가람 주임·송기남 차장 회신 없음(회신기한 8/7 기준 14일 경과). 독촉 3회로 실무 단계 소진 →
+      <b>경영층 에스컬레이션 + 8월 중 공급자 재평가 실시일 확정</b>으로 전환할 시점입니다.
+      9월 자체감사 전 종결해야 10월 ISO 19443 재갱신에서 '시정조치 미종결' 지적을 피합니다(잔여 약 6주).</li>
+    <li><span class="tag t-orange">5일째</span><b>독성물질 배관 유권해석 질의서</b> — 주간회의 결정 사항(담당 김철우).
+      8/17~20 연속 미착수. 완성이 목표가 아니라 <b>1페이지 초안 착수</b>가 목표입니다.</li>
+    <li><span class="tag t-blue">4일째</span><b>KHNP 사이버보안센터 호환성 검토 협조요청</b> — 미회신 유지.
+      원전감독법 준수 사항이며 플랫폼 도입이 9월이라 <b>8월 내 회신이 사실상 마감</b>입니다.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>긴급 답변 대기 TOP 5</h2>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>건</th><th>상대</th><th>기한</th><th>상태</th></tr>
+    <tr>
+      <td>1</td>
+      <td>울산복합 #4CC OH PVC 배관 교체·정비편의설비 설치 — 첨부 3건 검토 후 참여 판단</td>
+      <td>김민준 차장 (사내)</td>
+      <td><b>오늘</b> (입찰 8/24 10:00)</td>
+      <td><span class="tag t-red">미착수</span></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>추가공사 금액 확정</td>
+      <td>주간회의 배정</td>
+      <td><b>오늘</b></td>
+      <td><span class="tag t-red">4일째 미착수</span></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>에이원정보기술 스마트공장 유상 유지보수 계약서(초안) 검토·회신</td>
+      <td>송정훈 부사장 (에이원정보기술)</td>
+      <td><b>오늘</b> (회신 희망일)</td>
+      <td><span class="tag t-orange">미회신</span></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>CAR-2026-010 세창엔텍 시정조치요구서 회신 — 3차 독촉에도 무응답</td>
+      <td>최가람 주임 · 송기남 차장</td>
+      <td>기한 8/7 (14일 경과)</td>
+      <td><span class="tag t-red">에스컬레이션 필요</span></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>KHNP 신규 플랫폼 보안솔루션 호환성 검토 협조요청</td>
+      <td>한국수력원자력 사이버보안센터</td>
+      <td>8월 내 (9월 도입)</td>
+      <td><span class="tag t-orange">4일째 미회신</span></td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>주간회의 자료 검토 (8/20 12:35 직수신) — 회의는 8/24(월) 08:15</td>
+      <td>곽노한 이사</td>
+      <td>8/24(월) 회의 전</td>
+      <td><span class="tag t-blue">첨부 검토 대기</span></td>
+    </tr>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>신규 메일 분류 (8건 · 업무 메일 0건)</h2>
+  <div class="scroll">
+  <table>
+    <tr><th>수신(KST)</th><th>발신</th><th>제목</th><th>분류</th><th>조치</th></tr>
+    <tr><td>8/20 17:01</td><td>NLP Cloud</td><td>Your opinion on NLP Cloud</td>
+        <td><span class="tag t-blue">벤더</span></td><td>불요</td></tr>
+    <tr><td>8/20 16:19</td><td>cloudHQ</td><td>New: Password Protected File Sharing</td>
+        <td><span class="tag t-blue">마케팅</span></td><td>불요</td></tr>
+    <tr><td>8/20 21:15</td><td>BTCC</td><td>BTC/USDT 거래 수수료 0% 혜택</td>
+        <td><span class="tag t-blue">광고</span></td><td>불요</td></tr>
+    <tr><td>8/20 22:15</td><td>GitHub</td><td>A new public key was added to cwkim83/pais_project</td>
+        <td><span class="tag t-orange">보안 알림</span></td>
+        <td>개인 PAIS 저장소 SSH 키 등록 — 본인 조치로 추정. 아니면 즉시 키 삭제</td></tr>
+    <tr><td>8/21 01:43</td><td>Docker</td><td>Day Zero at WeAreDevelopers World Congress</td>
+        <td><span class="tag t-blue">행사</span></td><td>불요</td></tr>
+    <tr><td>8/21 01:56</td><td>Exa</td><td>Exa now powers search in Codex, Vercel, Firefox</td>
+        <td><span class="tag t-blue">벤더</span></td><td>불요</td></tr>
+    <tr><td>8/21 04:17</td><td>Tasklet</td><td>Tasklet desktop app for macOS</td>
+        <td><span class="tag t-blue">벤더</span></td><td>불요</td></tr>
+    <tr><td>8/21 04:56</td><td>Charm</td><td>Welcome to Charm™ Hyper</td>
+        <td><span class="tag t-blue">가입 확인</span></td><td>불요</td></tr>
+  </table>
+  </div>
+  <p class="quiet" style="margin-top:10px">
+    발신함(<code>in:sent</code>) 신규 0건. 프로젝트 라벨 매칭 대상 0건이므로 신규 라벨 부착·INBOX 제거는 수행하지 않았습니다.
+    워크오더(작업지시서·발주서·수주통보) 키워드 검색 결과도 0건 → <b>pendingProjects 20건 변동 없음</b>.
+  </p>
+</section>
+
+<section>
+  <h2>Project 현황 (전일 이월 · 신규 진척 없음)</h2>
+  <div class="cards">
+    <div class="card red">
+      <h3>원자력 · 파워플랜트</h3>
+      울산복합 #4CC 입찰 <b>오늘 검토 마감</b> · KHNP 보안솔루션 호환성 검토 4일째 미회신 ·
+      유권해석 질의서 5일째 미착수 · KAIF 제3차 원전기업 인증 ~9/14 18:00
+    </div>
+    <div class="card red">
+      <h3>품질보증 (공급사)</h3>
+      CAR-2026-010 세창엔텍 — 3차 독촉 무응답, 경영층 에스컬레이션 단계.
+      8월 중 공급자 재평가 실시일 확정 필요. 9월 자체감사 → 10월 ISO 19443 재갱신
+    </div>
+    <div class="card orange">
+      <h3>SJ435-26 삼성전기</h3>
+      PACKING 정보(5번 항목) 9일째 회신 없음 — 8/20 신채완 과장 리마인드 발송 ·
+      Agitator Test 결과 보고 5일 연속 미수신(합격 시 미수금 청구 조건 충족)
+    </div>
+    <div class="card orange">
+      <h3>SJ431-25 SDC</h3>
+      UT-1402B PUMP STRUCTURE 볼트류 구매요청서가 양식 문제로 2회 발송(8/20 14:18→14:40) —
+      구매요청서 R&amp;R 논쟁(NCR-2026-10 파생) 미해결 실무 증거
+    </div>
+    <div class="card blue">
+      <h3>애경케미칼 VE-306</h3>
+      SPRING BALANCE 수정도면 출도(접시→코일 스프링 변경) — 사양변경이므로 ITP·검사기준 반영 확인 필요.
+      프로젝트번호 미부여로 라벨 신설 보류
+    </div>
+    <div class="card blue">
+      <h3>SJE2025-057 삼영폴리테크</h3>
+      수주통보서·일정표 미제출 상태로 실무 진행 중 — 영업부에 정식 제출 재요청 필요
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>NCR / CAR 추적</h2>
+  <div class="scroll">
+  <table>
+    <tr><th>번호</th><th>건명</th><th>상태</th><th>다음 조치</th></tr>
+    <tr>
+      <td><b>CAR-2026-010</b></td>
+      <td>세창엔텍 — 반복 불일치 · 부적합 미조치 무단 납품</td>
+      <td><span class="tag t-red">회신 14일 경과</span> 독촉 3회(8/12·8/13·8/20) 모두 무응답</td>
+      <td>경영층 에스컬레이션 · 8월 중 공급자 재평가 실시일 확정 · 9월 자체감사 전 종결</td>
+    </tr>
+    <tr>
+      <td><b>SJ-NCR-2026-10</b></td>
+      <td>천안 PPG Korea 열교환기 Gasket 발주 오류</td>
+      <td><span class="tag t-orange">파생 논쟁 미해결</span> 구매요청서 양식 개정 건 품질부↔구매부 3차 왕복 후 결론 없음(8/18 이후 정지)</td>
+      <td>대표이사·경영층 판단 요청 문서화 — SJ431-25 볼트류 2회 발송 사례를 증거로 첨부</td>
+    </tr>
+    <tr>
+      <td>NCR-13 / CAR-08</td>
+      <td>결번 처리 방침</td>
+      <td><span class="tag t-blue">미결정</span></td>
+      <td>공란 유지 vs 재발행 결정 후 김시원 대리 회신</td>
+    </tr>
+  </table>
+  </div>
+  <p class="quiet" style="margin-top:10px">밤사이 신규 NCR·CAR 발행 0건, 기존 건 회신 0건.</p>
+</section>
+
+<section>
+  <h2>오늘 일정 · 권장 배치</h2>
+  <ul class="plan">
+    <li class="now">
+      <div class="t">오전 09:00~11:30 · 최우선</div>
+      <b>울산복합 #4CC 입찰 첨부 3건 검토</b> — 도급조건·자격요건·QA 요구사항 확인 후 참여 여부 판단.
+      주말이 끼어 오늘이 실질 마지막 검토일입니다. (캘린더 종일 등록 완료)
+    </li>
+    <li class="now">
+      <div class="t">오전 11:30~12:00</div>
+      <b>에이원정보기술 계약서 회신</b> — 확정 회신이 어려우면 검토 기한 연장 회신으로 대체. (캘린더 등록됨)
+    </li>
+    <li class="now">
+      <div class="t">오후 13:30~16:00 · 마감</div>
+      <b>추가공사 금액 확정</b> — 4일째 미착수, 오늘이 마지막 영업일. (캘린더 종일 등록 완료)
+    </li>
+    <li>
+      <div class="t">오후 16:00~17:00</div>
+      <b>CAR-2026-010 경영층 에스컬레이션 문서 작성</b> + 공급자 재평가 실시일 확정
+    </li>
+    <li>
+      <div class="t">오후 17:00~18:00</div>
+      <b>유권해석 질의서 초안 1페이지</b> 착수 · <b>KHNP 호환성 검토</b> 회신기한·서식 확인(전산 담당 협의)
+    </li>
+    <li>
+      <div class="t">종일 · 확인만</div>
+      [SJ435-26] 신안건업 PACKING 정보 회신 확인(캘린더 등록됨) ·
+      삼성전기 Agitator Test 결과 현장 구두 확인 ·
+      주간회의 자료 첨부 검토(회의 8/24 월 08:15)
+    </li>
+  </ul>
+  <p class="quiet" style="margin-top:6px">
+    다가오는 일정: 8/23(일) 울산복합 입찰서 준비 · 8/24(월) 08:15 주간회의 / 10:00 울산복합 입찰 마감 ·
+    8/28 퓨어코아 견적 제출 · 8/31 취업규칙 개정·안전관리계획서·CAR-010 종결 목표 ·
+    9/14 18:00 KAIF 인증 신청 마감 · 9월 자체감사 · 10월 ISO 19443 재갱신
+  </p>
+</section>
+
+<footer>
+  daily-mail 스킬 자동 생성 · 2026-08-21 07:35 KST · Step 7(답변 동시작성) 건너뜀 — 스케줄 자동 실행<br>
+  자동처리: 캘린더 신규 등록 2건(추가공사 금액 확정 / 울산복합 검토 목표일) · 라벨 부착 0건 · WO 감지 0건
+</footer>
+
+</div>
+</body>
+</html>
