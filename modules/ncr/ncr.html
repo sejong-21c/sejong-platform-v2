@@ -529,34 +529,40 @@ function save() {
 function getU(id) { return (state.users||[]).find(u => u.id === id) || {}; }
 
 /* ═══ 원본 서류 이동(보관자) 이력 ═══ */
-// n.custodyLog: [{ holder, date, note, loggedBy, loggedAt }] — 최신 항목이 현재 보관자.
-// 이동 이력이 없으면 발행자가 아직 보관 중인 것으로 간주.
+// n.custodyLog: [{ holder, dept, date, note, loggedBy, loggedAt }] — 최신 항목이 현재 보관자.
+// 이동 이력이 없으면 발행자가 아직 보관 중인 것으로 간주. dept는 사내 직원일 때만 채워짐
+// (외부/직접입력은 소속을 알 수 없어 비워둠).
+function _custodyName(name, dept) { return dept ? `${name}(${dept})` : name; }
+function _custodyTag(name, dept, tag) {
+  if (!name) return `(${tag})`;
+  return dept ? `${name}(${dept}·${tag})` : `${name}(${tag})`;
+}
 function _custodyHolder(n) {
   // 종결 = 품질부에서 원본 회수 완료로 간주 — 이동 이력보다 우선.
   if (n.status === 'closed') {
     const cl = getU(n.closedBy);
-    return cl?.name ? `${cl.name}(종결)` : '(종결)';
+    return _custodyTag(cl?.name, cl?.dept, '종결');
   }
   const log = n.custodyLog || [];
-  if (log.length) return log[log.length - 1].holder;
-  if (n.issuerName) return `${n.issuerName}(발행)`;
+  if (log.length) { const last = log[log.length - 1]; return _custodyName(last.holder, last.dept); }
+  if (n.issuerName) return _custodyTag(n.issuerName, n.issuerDept, '발행');
   const iss = getU(n.issuedBy); // 구버전 레코드 호환(발행자를 직접 지정하기 전엔 전산 등록자로 대체)
-  return iss?.name ? `${iss.name}(발행)` : '-';
+  return iss?.name ? _custodyTag(iss.name, iss.dept, '발행') : '-';
 }
 function addNCRCustodyEntry(ncrId) {
   const sel    = document.getElementById('mgr-custody-to');
   const direct = document.getElementById('mgr-custody-direct');
   const date   = document.getElementById('mgr-custody-date').value;
   const note   = document.getElementById('mgr-custody-note').value.trim();
-  let holder = '';
+  let holder = '', dept = '';
   if (sel.value === '__direct__') holder = direct.value.trim();
-  else if (sel.value) holder = getU(sel.value)?.name || '';
+  else if (sel.value) { const u = getU(sel.value); holder = u?.name || ''; dept = u?.dept || ''; }
   if (!holder) { alert('받는 사람을 선택하거나 입력하세요.'); return; }
   if (!date) { alert('날짜를 입력하세요.'); return; }
   const n = (state.ncrs||[]).find(x => x.id === ncrId);
   if (!n) return;
   if (!n.custodyLog) n.custodyLog = [];
-  n.custodyLog.push({ holder, date, note, loggedBy: state.currentUser, loggedAt: new Date().toISOString() });
+  n.custodyLog.push({ holder, dept, date, note, loggedBy: state.currentUser, loggedAt: new Date().toISOString() });
   save();
   openNCRMgr(ncrId); // 같은 모달을 새 이력으로 다시 열어 갱신
 }
@@ -895,6 +901,7 @@ function openNewNCR() {
     const issuerSel = document.getElementById('ncrIssuer').value;
     const issuerName = issuerSel === '__direct__' ? document.getElementById('ncrIssuerDirect').value.trim()
       : issuerSel ? (getU(issuerSel)?.name || '') : '';
+    const issuerDept = issuerSel && issuerSel !== '__direct__' ? (getU(issuerSel)?.dept || '') : '';
     const dwgNo    = document.getElementById('ncrDwg').value.trim();
     const wrNo     = document.getElementById('ncrWr').value.trim();
     const item     = document.getElementById('ncrItem').value.trim();
@@ -913,7 +920,7 @@ function openNewNCR() {
     state.ncrs.push({
       id, proj, item, source:'manual', grade, desc, status:'open',
       location, vendor, cause, causeDetail, disposition,
-      issuedBy: state.currentUser, issuerName,
+      issuedBy: state.currentUser, issuerName, issuerDept,
       issuedAt: issuedAt || new Date().toISOString().slice(0,10),
       carId: null,
       meta: { client, dwgNo, wrNo, projDirect: proj==='__direct__' ? projDirect : '' }
@@ -941,9 +948,9 @@ function openNCRMgr(ncrId) {
   const vendorOpts= ['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${v}" ${v===n.vendor?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const dispOpts  = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${v}" ${v===n.disposition?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
-  const custodyUserOpts = (state.users||[]).map(u=>`<option value="${u.id}">${u.name} ${u.title||''}</option>`).join('');
+  const custodyUserOpts = (state.users||[]).map(u=>`<option value="${u.id}" data-name="${_htmlEsc(u.name||'')}" data-dept="${_htmlEsc(u.dept||'')}">${u.name} ${u.title||''}</option>`).join('');
   const custodyLogHtml = (n.custodyLog||[]).length
-    ? [...n.custodyLog].reverse().map(c=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border-light);"><b>${_htmlEsc(c.holder)}</b> <span style="color:var(--text-light);">· ${c.date}${c.note?' · '+_htmlEsc(c.note):''}</span></div>`).join('')
+    ? [...n.custodyLog].reverse().map(c=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border-light);"><b>${_htmlEsc(c.holder)}</b>${c.dept?` <span style="color:var(--text-light);">(${_htmlEsc(c.dept)})</span>`:''} <span style="color:var(--text-light);">· ${c.date}${c.note?' · '+_htmlEsc(c.note):''}</span></div>`).join('')
     : `<div style="font-size:11px;color:var(--text-light);">이동 이력 없음 (발행자가 보관 중)</div>`;
 
   openModal(`📋 NCR 관리 — ${n.id}`, `
@@ -957,8 +964,8 @@ function openNCRMgr(ncrId) {
     <div class="fg">
       <label class="fl">발행자 <span style="font-size:11px;color:var(--text-light);">(실제 원본 서류 작성자 — 전산 등록자와 다를 수 있음)</span></label>
       <div style="display:flex;gap:4px;">
-        <input class="fi" id="mgr-issuer" style="flex:1;" value="${_htmlEsc(n.issuerName||'')}" placeholder="이름 입력 또는 오른쪽에서 선택">
-        <select class="fs" style="max-width:150px;flex-shrink:0;" onchange="if(this.value){document.getElementById('mgr-issuer').value=this.options[this.selectedIndex].text.trim();this.value='';}">
+        <input class="fi" id="mgr-issuer" data-dept="${_htmlEsc(n.issuerDept||'')}" style="flex:1;" value="${_htmlEsc(n.issuerName||'')}" oninput="this.dataset.dept=''" placeholder="이름 입력 또는 오른쪽에서 선택">
+        <select class="fs" style="max-width:150px;flex-shrink:0;" onchange="if(this.value){const _o=this.selectedOptions[0],_i=document.getElementById('mgr-issuer');_i.value=_o.dataset.name||_o.text.trim();_i.dataset.dept=_o.dataset.dept||'';this.value='';}">
           <option value="">사내 직원 선택…</option>
           ${custodyUserOpts}
         </select>
@@ -1036,6 +1043,7 @@ function openNCRMgr(ncrId) {
     const descVal        = document.getElementById('mgr-desc').value.trim();
     const itemVal        = document.getElementById('mgr-item').value.trim();
     const issuerNameVal  = document.getElementById('mgr-issuer').value.trim();
+    const issuerDeptVal  = document.getElementById('mgr-issuer').dataset.dept || '';
     const gradeVal       = document.getElementById('mgr-grade').value;
     const locationVal    = document.getElementById('mgr-loc').value;
     const vendorVal      = locationVal==='협력사' ? document.getElementById('mgr-vendor').value : '';
@@ -1058,6 +1066,7 @@ function openNCRMgr(ncrId) {
     current.desc        = descVal || current.desc;
     current.item        = itemVal;
     current.issuerName  = issuerNameVal;
+    current.issuerDept  = issuerDeptVal;
     current.grade       = gradeVal;
     current.location    = locationVal;
     current.vendor       = vendorVal;
@@ -1955,6 +1964,7 @@ async function confirmNCRParse() {
   const issuerSel  = document.getElementById('np-issuer').value;
   const issuerName = issuerSel === '__direct__' ? document.getElementById('np-issuer-direct').value.trim()
     : issuerSel ? (getU(issuerSel)?.name || '') : '';
+  const issuerDept = issuerSel && issuerSel !== '__direct__' ? (getU(issuerSel)?.dept || '') : '';
   const location   = document.getElementById('np-loc').value;
   const vendor     = location==='협력사' ? document.getElementById('np-vendor').value : '';
   const cause      = document.getElementById('np-cause').value;
@@ -1980,7 +1990,7 @@ async function confirmNCRParse() {
   state.ncrs.push({
     id, proj, item, source:'file', grade, desc, status,
     location, vendor, cause, causeDetail, disposition,
-    issuedBy: state.currentUser, issuerName,
+    issuedBy: state.currentUser, issuerName, issuerDept,
     closedBy: status === 'closed' ? state.currentUser : '',
     issuedAt: date||new Date().toISOString().slice(0,10),
     carId:null,

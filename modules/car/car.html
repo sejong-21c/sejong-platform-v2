@@ -467,17 +467,23 @@ function getP(id) { return (state.projects||[]).find(p => p.id === id) || {}; }
 function getU(id) { return (state.users||[]).find(u => u.id === id) || {}; }
 
 /* ═══ 원본 서류 이동(보관자) 이력 ═══ */
-// c.custodyLog: [{ holder, date, note, loggedBy, loggedAt }] — 최신 항목이 현재 보관자.
-// 이동 이력이 없으면 발행자가 아직 보관 중인 것으로 간주.
+// c.custodyLog: [{ holder, dept, date, note, loggedBy, loggedAt }] — 최신 항목이 현재 보관자.
+// 이동 이력이 없으면 발행자가 아직 보관 중인 것으로 간주. dept는 사내 직원일 때만 채워짐
+// (외부/직접입력은 소속을 알 수 없어 비워둠).
+function _custodyName(name, dept) { return dept ? `${name}(${dept})` : name; }
+function _custodyTag(name, dept, tag) {
+  if (!name) return `(${tag})`;
+  return dept ? `${name}(${dept}·${tag})` : `${name}(${tag})`;
+}
 function _custodyHolder(c) {
   // 종결 = 품질부에서 원본 회수 완료로 간주 — 이동 이력보다 우선.
   if (c.status === 'closed') {
     const cl = getU(c.closedBy);
-    return cl?.name ? `${cl.name}(종결)` : '(종결)';
+    return _custodyTag(cl?.name, cl?.dept, '종결');
   }
   const log = c.custodyLog || [];
-  if (log.length) return log[log.length - 1].holder;
-  if (c.issuerName) return `${c.issuerName}(발행)`;
+  if (log.length) { const last = log[log.length - 1]; return _custodyName(last.holder, last.dept); }
+  if (c.issuerName) return _custodyTag(c.issuerName, c.issuerDept, '발행');
   return '미기록';
 }
 function addCARCustodyEntry(carId) {
@@ -485,15 +491,15 @@ function addCARCustodyEntry(carId) {
   const direct = document.getElementById('mgr-custody-direct');
   const date   = document.getElementById('mgr-custody-date').value;
   const note   = document.getElementById('mgr-custody-note').value.trim();
-  let holder = '';
+  let holder = '', dept = '';
   if (sel.value === '__direct__') holder = direct.value.trim();
-  else if (sel.value) holder = getU(sel.value)?.name || '';
+  else if (sel.value) { const u = getU(sel.value); holder = u?.name || ''; dept = u?.dept || ''; }
   if (!holder) { alert('받는 사람을 선택하거나 입력하세요.'); return; }
   if (!date) { alert('날짜를 입력하세요.'); return; }
   const c = (state.cars||[]).find(x => x.id === carId);
   if (!c) return;
   if (!c.custodyLog) c.custodyLog = [];
-  c.custodyLog.push({ holder, date, note, loggedBy: state.currentUser, loggedAt: new Date().toISOString() });
+  c.custodyLog.push({ holder, dept, date, note, loggedBy: state.currentUser, loggedAt: new Date().toISOString() });
   save();
   openCARMgr(carId); // 같은 모달을 새 이력으로 다시 열어 갱신
 }
@@ -825,6 +831,7 @@ function openNewCAR() {
     const issuerSel   = document.getElementById('carIssuer').value;
     const issuerName  = issuerSel === '__direct__' ? document.getElementById('carIssuerDirect').value.trim()
       : issuerSel ? (getU(issuerSel)?.name || '') : '';
+    const issuerDept  = issuerSel && issuerSel !== '__direct__' ? (getU(issuerSel)?.dept || '') : '';
     const qualReq     = document.getElementById('carQualReq').value;
     const field       = document.getElementById('carField').value;
     const cause       = document.getElementById('carCause').value;
@@ -844,7 +851,7 @@ function openNewCAR() {
       id,
       ncrId: null, proj: '', action, reqContent, reqContentSummary, causeDetail, result, reqDept, status: 'in-progress',
       qualReq, field, cause,
-      issuedBy: state.currentUser, issuerName,
+      issuedBy: state.currentUser, issuerName, issuerDept,
       issuedAt: issuedAt || today,
       replyDue: replyDue || '',
       repliedAt: '', actionAt: '', closedAt: null,
@@ -866,9 +873,9 @@ function openCARMgr(carId) {
   const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
   const p  = getP(c.proj);
   const projName = c.proj==='__direct__' ? (c.meta?.projDirect||'직접입력') : (p?.code ? `${p.code} ${p.name}` : '-');
-  const custodyUserOpts = (state.users||[]).map(u=>`<option value="${u.id}">${u.name} ${u.title||''}</option>`).join('');
+  const custodyUserOpts = (state.users||[]).map(u=>`<option value="${u.id}" data-name="${_htmlEsc(u.name||'')}" data-dept="${_htmlEsc(u.dept||'')}">${u.name} ${u.title||''}</option>`).join('');
   const custodyLogHtml = (c.custodyLog||[]).length
-    ? [...c.custodyLog].reverse().map(x=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border-light);"><b>${_htmlEsc(x.holder)}</b> <span style="color:var(--text-light);">· ${x.date}${x.note?' · '+_htmlEsc(x.note):''}</span></div>`).join('')
+    ? [...c.custodyLog].reverse().map(x=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border-light);"><b>${_htmlEsc(x.holder)}</b>${x.dept?` <span style="color:var(--text-light);">(${_htmlEsc(x.dept)})</span>`:''} <span style="color:var(--text-light);">· ${x.date}${x.note?' · '+_htmlEsc(x.note):''}</span></div>`).join('')
     : `<div style="font-size:11px;color:var(--text-light);">이동 이력 없음</div>`;
   openModal(`📋 CAR 관리 — ${c.id}`, `
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -883,8 +890,8 @@ function openCARMgr(carId) {
     <div class="fg">
       <label class="fl">발행자 <span style="font-size:11px;color:var(--text-light);">(실제 원본 서류 작성자 — 전산 등록자와 다를 수 있음)</span></label>
       <div style="display:flex;gap:4px;">
-        <input class="fi" id="mgr-issuer" style="flex:1;" value="${_htmlEsc(c.issuerName||'')}" placeholder="이름 입력 또는 오른쪽에서 선택">
-        <select class="fs" style="max-width:150px;flex-shrink:0;" onchange="if(this.value){document.getElementById('mgr-issuer').value=this.options[this.selectedIndex].text.trim();this.value='';}">
+        <input class="fi" id="mgr-issuer" data-dept="${_htmlEsc(c.issuerDept||'')}" style="flex:1;" value="${_htmlEsc(c.issuerName||'')}" oninput="this.dataset.dept=''" placeholder="이름 입력 또는 오른쪽에서 선택">
+        <select class="fs" style="max-width:150px;flex-shrink:0;" onchange="if(this.value){const _o=this.selectedOptions[0],_i=document.getElementById('mgr-issuer');_i.value=_o.dataset.name||_o.text.trim();_i.dataset.dept=_o.dataset.dept||'';this.value='';}">
           <option value="">사내 직원 선택…</option>
           ${custodyUserOpts}
         </select>
@@ -969,6 +976,7 @@ function openCARMgr(carId) {
     // 조용히 저장 안 되던(특히 파일) 버그가 있었음.
     const ncrIdVal     = document.getElementById('mgr-ncrId').value.trim();
     const issuerNameVal= document.getElementById('mgr-issuer').value.trim();
+    const issuerDeptVal= document.getElementById('mgr-issuer').dataset.dept || '';
     const actionVal    = document.getElementById('mgr-action').value.trim();
     const reqContentVal= document.getElementById('mgr-reqContent').value.trim();
     const reqContentSummaryVal = document.getElementById('mgr-reqContentSummary').value.trim();
@@ -1023,6 +1031,7 @@ function openCARMgr(carId) {
     }
     current.action    = actionVal || current.action;
     current.issuerName = issuerNameVal;
+    current.issuerDept = issuerDeptVal;
     current.reqContent  = reqContentVal;
     current.reqContentSummary = reqContentSummaryVal;
     current.causeDetail = causeDetailVal;
@@ -1835,6 +1844,7 @@ async function confirmCARParse() {
   const issuerSel  = document.getElementById('cp-issuer').value;
   const issuerName = issuerSel === '__direct__' ? document.getElementById('cp-issuer-direct').value.trim()
     : issuerSel ? (getU(issuerSel)?.name || '') : '';
+  const issuerDept = issuerSel && issuerSel !== '__direct__' ? (getU(issuerSel)?.dept || '') : '';
   const reqDept  = _getCheckedDepts('cp-reqDeptGrid');
   const qualReq  = document.getElementById('cp-qualReq').value;
   const field    = document.getElementById('cp-field').value;
@@ -1865,7 +1875,7 @@ async function confirmCARParse() {
   state.cars.push({
     id, ncrId, proj: '', action, reqContent, reqContentSummary, causeDetail, result, reqDept, status,
     qualReq, field, cause,
-    issuedBy: state.currentUser, issuerName,
+    issuedBy: state.currentUser, issuerName, issuerDept,
     issuedAt: date || today,
     replyDue: replyDue || '',
     repliedAt: '', actionAt: '',
