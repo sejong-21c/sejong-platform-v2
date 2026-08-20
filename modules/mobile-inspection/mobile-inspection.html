@@ -443,13 +443,17 @@ function loadITPBuilderState(){
 // 즉시 렌더링한 뒤 클라우드에서 더 최신 저장본을 받아오면 갱신한다.
 let _itpCloudFetchTried=false;
 async function fetchCloudITPBuilderState(){
-  if (MI_PID==='standalone' || _itpCloudFetchTried) return;
+  console.log('[ITP 진단] MI_PID =', MI_PID);
+  if (MI_PID==='standalone' || _itpCloudFetchTried) { console.log('[ITP 진단] pid가 standalone이거나 이미 조회 시도함 — 클라우드 조회 안 함'); return; }
   if (!window.fb || !fb.db) { setTimeout(fetchCloudITPBuilderState, 300); return; }
   _itpCloudFetchTried=true;
   try {
     const snap = await fb.getDoc(fb.doc(fb.db,'t_itpBuilderDocs',MI_PID));
-    if (!snap.exists()) return;
+    if (!snap.exists()) { console.log('[ITP 진단] t_itpBuilderDocs/'+MI_PID+' 문서 자체가 존재하지 않음'); return; }
     const cloud = snap.data();
+    console.log('[ITP 진단] 클라우드 문서 받음 — items:', (cloud.items||[]).map(it=>({id:it.id, tag:it.tag, name:it.name})));
+    console.log('[ITP 진단] itpRowsByItem 키:', Object.keys(cloud.itpRowsByItem||{}));
+    console.log('[ITP 진단] legacy itpRows 개수:', (cloud.itpRows||[]).length);
     // v29.41.1 fix: 원래 savedAt(로컬 vs 클라우드) 시각을 비교해서 "더 최신"일 때만
     // 갈아끼우려 했는데, 결재 상신 등 일부 저장 경로는 savedAt을 안 찍어 둘 다
     // 0으로 비교돼 조건이 항상 거짓이 되는 경우가 있었다(그래서 클라우드 데이터를
@@ -883,6 +887,7 @@ function initFromITPBuilder(){
   itemSel.innerHTML='<option value="">— 아이템 선택 —</option>';
   const localItems=state?.items||[];
   const items=localItems.length?localItems:getBridgeItems();
+  console.log('[ITP 진단] 아이템 드롭다운 소스 =', localItems.length?'ITP Builder(state.items)':'WBS 브릿지(getBridgeItems)', '/ 아이템 목록:', items.map(it=>({id:it.id, tag:it.tag, name:it.name})));
   items.forEach(it=>{
     const label=[it.tag, it.name].filter(Boolean).join(' / ');
     const opt=document.createElement('option');
@@ -922,9 +927,10 @@ function initFromITPBuilder(){
 // 등록 화면 드롭다운)과 renderItpChecklistForItem(등록이력 체크리스트)이
 // 공유하는 헬퍼.
 function getActiveItpRows(itemId){
-  if(!_itpState) return [];
+  if(!_itpState) { console.log('[ITP 진단] _itpState가 없음 — ITP 항목 0개'); return []; }
   const perItemRows=itemId && _itpState.itpRowsByItem && _itpState.itpRowsByItem[itemId];
   const rows=(perItemRows && perItemRows.length) ? perItemRows : (_itpState.itpRows||[]);
+  console.log('[ITP 진단] getActiveItpRows(', itemId, ') — itpRowsByItem 매칭:', perItemRows?perItemRows.length:0, '건 / 최종 사용:', (perItemRows&&perItemRows.length)?'itpRowsByItem['+itemId+']':'legacy itpRows', '/ 총', rows.length, '건');
   return rows
     .filter(r=>r.active!==false)
     .sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
