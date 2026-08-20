@@ -460,14 +460,16 @@ async function fetchCloudITPBuilderState(){
     // 받아와도 절대 적용이 안 됨 — 실사용 중 발견). mobile-inspection은 ITP
     // 데이터를 절대 쓰지 않는 읽기 전용 소비자라 "로컬이 더 최신일 수 있다"는
     // 걱정 자체가 필요 없다 — 클라우드 조회에 성공하면 항상 그걸 신뢰한다.
-    try { localStorage.setItem(ITP_BUILDER_KEY, JSON.stringify(cloud)); } catch(e){}
+    // 오프라인 대비용 로컬 캐시 저장 — 실패(용량 초과 등)해도 화면 렌더링과는 무관하다.
+    // 화면은 아래 initFromITPBuilder(cloud)로 메모리 값을 직접 반영하므로 이 저장의
+    // 성공 여부에 의존하지 않는다.
+    try { localStorage.setItem(ITP_BUILDER_KEY, JSON.stringify(cloud)); } catch(e){ console.warn('[ITP 진단] 로컬 캐시 저장 실패(화면 표시엔 영향 없음):', e.message); }
     // 사용자가 이미 아이템을 고른 뒤라면 드롭다운을 통째로 다시 그려 선택을 날리지
     // 않고, _itpState만 갱신 — 다음 아이템 선택 시부터 최신 ITP가 반영된다.
     const itemSel=document.getElementById('item');
     const hadSelection = itemSel && itemSel.value;
-    _itpState = cloud;
-    if (!hadSelection) initFromITPBuilder();
-    else showToast('☁️ 클라우드에서 최신 ITP를 받았습니다 — 아이템을 다시 선택하면 반영됩니다');
+    if (!hadSelection) initFromITPBuilder(cloud);
+    else { _itpState = cloud; showToast('☁️ 클라우드에서 최신 ITP를 받았습니다 — 아이템을 다시 선택하면 반영됩니다'); }
   } catch(e) { console.warn('[ITP Builder 클라우드 조회 실패]', e); }
 }
 
@@ -859,8 +861,14 @@ function getQagItemId(pid, tag, fallbackId){
   return fallbackId||tag||'';
 }
 
-function initFromITPBuilder(){
-  const state=loadITPBuilderState();
+// v29.41.2 fix: 항상 loadITPBuilderState()(localStorage 재조회)로 state를 만들었는데,
+// fetchCloudITPBuilderState()가 클라우드에서 받은 최신 데이터를 localStorage에 먼저
+// 써넣은 뒤 이 함수를 불렀다 — 그 write가 조용히 실패하면(용량 초과 등, catch로 무시됨)
+// 여기서 다시 읽을 때 예전 값(WBS 브릿지로 폴백되던 빈 상태)으로 되돌아가 버렸다
+// (VDS 수평콘덴서 건: 클라우드 조회는 성공했는데 화면엔 반영이 안 되는 증상으로 확인).
+// preloadedState를 넘기면 localStorage를 거치지 않고 그 값을 바로 쓴다.
+function initFromITPBuilder(preloadedState){
+  const state = preloadedState !== undefined ? preloadedState : loadITPBuilderState();
   _itpState=state;
   const badge=document.getElementById('proj-badge');
   const itemSel=document.getElementById('item');
