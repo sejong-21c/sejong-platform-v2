@@ -443,17 +443,13 @@ function loadITPBuilderState(){
 // 즉시 렌더링한 뒤 클라우드에서 더 최신 저장본을 받아오면 갱신한다.
 let _itpCloudFetchTried=false;
 async function fetchCloudITPBuilderState(){
-  console.log('[ITP 진단] MI_PID =', MI_PID);
-  if (MI_PID==='standalone' || _itpCloudFetchTried) { console.log('[ITP 진단] pid가 standalone이거나 이미 조회 시도함 — 클라우드 조회 안 함'); return; }
+  if (MI_PID==='standalone' || _itpCloudFetchTried) return;
   if (!window.fb || !fb.db) { setTimeout(fetchCloudITPBuilderState, 300); return; }
   _itpCloudFetchTried=true;
   try {
     const snap = await fb.getDoc(fb.doc(fb.db,'t_itpBuilderDocs',MI_PID));
-    if (!snap.exists()) { console.log('[ITP 진단] t_itpBuilderDocs/'+MI_PID+' 문서 자체가 존재하지 않음'); return; }
+    if (!snap.exists()) return;
     const cloud = snap.data();
-    console.log('[ITP 진단] 클라우드 문서 받음 — items:', (cloud.items||[]).map(it=>({id:it.id, tag:it.tag, name:it.name})));
-    console.log('[ITP 진단] itpRowsByItem 키:', Object.keys(cloud.itpRowsByItem||{}));
-    console.log('[ITP 진단] legacy itpRows 개수:', (cloud.itpRows||[]).length);
     // v29.41.1 fix: 원래 savedAt(로컬 vs 클라우드) 시각을 비교해서 "더 최신"일 때만
     // 갈아끼우려 했는데, 결재 상신 등 일부 저장 경로는 savedAt을 안 찍어 둘 다
     // 0으로 비교돼 조건이 항상 거짓이 되는 경우가 있었다(그래서 클라우드 데이터를
@@ -462,8 +458,9 @@ async function fetchCloudITPBuilderState(){
     // 걱정 자체가 필요 없다 — 클라우드 조회에 성공하면 항상 그걸 신뢰한다.
     // 오프라인 대비용 로컬 캐시 저장 — 실패(용량 초과 등)해도 화면 렌더링과는 무관하다.
     // 화면은 아래 initFromITPBuilder(cloud)로 메모리 값을 직접 반영하므로 이 저장의
-    // 성공 여부에 의존하지 않는다.
-    try { localStorage.setItem(ITP_BUILDER_KEY, JSON.stringify(cloud)); } catch(e){ console.warn('[ITP 진단] 로컬 캐시 저장 실패(화면 표시엔 영향 없음):', e.message); }
+    // 성공 여부에 의존하지 않는다. (2026-08-20 VDS 수평콘덴서 건: 도면 등 첨부가 많은
+    // 프로젝트는 실제로 이 저장이 용량 초과로 자주 실패함 — 정상 상황이라 조용히 무시.)
+    try { localStorage.setItem(ITP_BUILDER_KEY, JSON.stringify(cloud)); } catch(e){}
     // 사용자가 이미 아이템을 고른 뒤라면 드롭다운을 통째로 다시 그려 선택을 날리지
     // 않고, _itpState만 갱신 — 다음 아이템 선택 시부터 최신 ITP가 반영된다.
     const itemSel=document.getElementById('item');
@@ -895,7 +892,6 @@ function initFromITPBuilder(preloadedState){
   itemSel.innerHTML='<option value="">— 아이템 선택 —</option>';
   const localItems=state?.items||[];
   const items=localItems.length?localItems:getBridgeItems();
-  console.log('[ITP 진단] 아이템 드롭다운 소스 =', localItems.length?'ITP Builder(state.items)':'WBS 브릿지(getBridgeItems)', '/ 아이템 목록:', items.map(it=>({id:it.id, tag:it.tag, name:it.name})));
   items.forEach(it=>{
     const label=[it.tag, it.name].filter(Boolean).join(' / ');
     const opt=document.createElement('option');
@@ -935,10 +931,9 @@ function initFromITPBuilder(preloadedState){
 // 등록 화면 드롭다운)과 renderItpChecklistForItem(등록이력 체크리스트)이
 // 공유하는 헬퍼.
 function getActiveItpRows(itemId){
-  if(!_itpState) { console.log('[ITP 진단] _itpState가 없음 — ITP 항목 0개'); return []; }
+  if(!_itpState) return [];
   const perItemRows=itemId && _itpState.itpRowsByItem && _itpState.itpRowsByItem[itemId];
   const rows=(perItemRows && perItemRows.length) ? perItemRows : (_itpState.itpRows||[]);
-  console.log('[ITP 진단] getActiveItpRows(', itemId, ') — itpRowsByItem 매칭:', perItemRows?perItemRows.length:0, '건 / 최종 사용:', (perItemRows&&perItemRows.length)?'itpRowsByItem['+itemId+']':'legacy itpRows', '/ 총', rows.length, '건');
   return rows
     .filter(r=>r.active!==false)
     .sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
