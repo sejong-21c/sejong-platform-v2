@@ -450,17 +450,20 @@ async function fetchCloudITPBuilderState(){
     const snap = await fb.getDoc(fb.doc(fb.db,'t_itpBuilderDocs',MI_PID));
     if (!snap.exists()) return;
     const cloud = snap.data();
-    const localSavedAt = _itpState?.savedAt || 0;
-    const cloudSavedAt = cloud?.savedAt || 0;
-    if (!_itpState || cloudSavedAt > localSavedAt) {
-      try { localStorage.setItem(ITP_BUILDER_KEY, JSON.stringify(cloud)); } catch(e){}
-      // 사용자가 이미 아이템을 고른 뒤라면 드롭다운을 통째로 다시 그려 선택을 날리지
-      // 않고, _itpState만 갱신 — 다음 아이템 선택 시부터 최신 ITP가 반영된다.
-      const itemSel=document.getElementById('item');
-      _itpState = cloud;
-      if (!itemSel || !itemSel.value) initFromITPBuilder();
-      else showToast('☁️ 클라우드에서 최신 ITP를 받았습니다 — 아이템을 다시 선택하면 반영됩니다');
-    }
+    // v29.41.1 fix: 원래 savedAt(로컬 vs 클라우드) 시각을 비교해서 "더 최신"일 때만
+    // 갈아끼우려 했는데, 결재 상신 등 일부 저장 경로는 savedAt을 안 찍어 둘 다
+    // 0으로 비교돼 조건이 항상 거짓이 되는 경우가 있었다(그래서 클라우드 데이터를
+    // 받아와도 절대 적용이 안 됨 — 실사용 중 발견). mobile-inspection은 ITP
+    // 데이터를 절대 쓰지 않는 읽기 전용 소비자라 "로컬이 더 최신일 수 있다"는
+    // 걱정 자체가 필요 없다 — 클라우드 조회에 성공하면 항상 그걸 신뢰한다.
+    try { localStorage.setItem(ITP_BUILDER_KEY, JSON.stringify(cloud)); } catch(e){}
+    // 사용자가 이미 아이템을 고른 뒤라면 드롭다운을 통째로 다시 그려 선택을 날리지
+    // 않고, _itpState만 갱신 — 다음 아이템 선택 시부터 최신 ITP가 반영된다.
+    const itemSel=document.getElementById('item');
+    const hadSelection = itemSel && itemSel.value;
+    _itpState = cloud;
+    if (!hadSelection) initFromITPBuilder();
+    else showToast('☁️ 클라우드에서 최신 ITP를 받았습니다 — 아이템을 다시 선택하면 반영됩니다');
   } catch(e) { console.warn('[ITP Builder 클라우드 조회 실패]', e); }
 }
 
