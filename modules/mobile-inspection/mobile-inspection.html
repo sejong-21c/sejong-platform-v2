@@ -2052,10 +2052,18 @@ function writeMeasuredValuesBackToQAG(pid, qagItemId, fieldsKey, inspData){
 // v29.45.1: 되돌려쓰기(writeEquipmentBackToQAG)와 동일하게 fieldsKey로 범위를
 // 나눈다 — Visual & Dimension(07)이면 Dimension/Nozzle 장비만, Hydrostatic(08)
 // 이면 Hydro 장비만 대상. 서로 다른 검사 항목의 장비가 섞여 들어가면 안 된다.
+// v29.48: QA Doc Generator에 사람이 직접 적은 텍스트는 괄호 하나에 코드를
+// 여러 개 콤마로 나열하는 경우가 있다(예: "버니어캘리퍼스 (SJ-P-59, SJ-P-60)"
+// — 가압부 하나에 장비 두 개를 쓴 경우). 이걸 쪼개지 않고 통째로 "코드 하나"로
+// 읽으면 DB에서 못 찾아 미등록 처리되므로, 괄호 안도 콤마 기준으로 나눈다.
 function _extractEquipCodesFromJoined(s, into){
   (s||'').split('/').forEach(part=>{
     const m=/\(([^()]+)\)\s*$/.exec(part.trim());
-    if(m) into.add(m[1].trim());
+    if(!m) return;
+    m[1].split(',').forEach(code=>{
+      code=code.trim();
+      if(code) into.add(code);
+    });
   });
 }
 async function autoPopulateEquipmentFromQAG(itemId, fieldsKey){
