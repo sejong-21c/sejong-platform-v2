@@ -863,7 +863,8 @@
     meetingMinutes: { coll: 'meetingMinutes' },             // 회의록
     assets: { coll: 't_devices' },                          // 자산 기기 대장 (modules/asset-registry)
     licenses: { coll: 't_licenses' },                       // 소프트웨어 라이선스
-    itpDocs: { coll: 't_itpBuilderDocs', projOnly: true, slim: slimItpDoc } // ITP/QA 생성 문서 상태
+    itpDocs: { coll: 't_itpBuilderDocs', projOnly: true, slim: slimItpDoc }, // ITP/QA 생성 문서 상태
+    aiAuditLog: { coll: 't_aiAuditLog' }                    // v29.77: AI 변경 기록 (누가 언제 무엇을 바꿨나)
   };
   // ITP 문서는 items[].rows가 수백 줄이라 통째로 넘기면 토큰 폭탄 — 상태 확인에 필요한 것만 남긴다
   function slimItpDoc(d) {
@@ -947,7 +948,7 @@
   // 컬렉션별 대표 날짜 필드. 없으면 문서 안의 모든 YYYY-MM-DD 문자열·epoch(ms) 숫자로 판정.
   var DATE_FIELD = {
     tasks: 'due', events: 'date', ncrs: 'issuedAt', cars: 'issuedAt',
-    meetingReservations: 'date', meetingMinutes: 'date', measurementCheckouts: 'checkedOutAt'
+    meetingReservations: 'date', meetingMinutes: 'date', measurementCheckouts: 'checkedOutAt', aiAuditLog: 'atText'
   };
   function docDates(doc, field) {
     if (field) {
@@ -1456,7 +1457,7 @@
     + 'quotes(견적), approvals(기안/결재), events(일정), okrs(목표), wbsData(WBS 공정표), wbsRec(제작공정 검사실적), '
     + 'ncrs(부적합보고서 NCR), cars(시정조치요구서 CAR), measurementTools(측정기구 대장), '
     + 'measurementCheckouts(측정기구 반출/반납), meetingReservations(회의실 예약), meetingMinutes(회의록), '
-    + 'assets(자산 기기 대장 PC·노트북), licenses(소프트웨어 라이선스), itpDocs(ITP·QA 생성 문서 승인상태), mobileDrafts(모바일 점검 임시저장)';
+    + 'assets(자산 기기 대장 PC·노트북), licenses(소프트웨어 라이선스), itpDocs(ITP·QA 생성 문서 승인상태), mobileDrafts(모바일 점검 임시저장), aiAuditLog(AI로 바꾼 변경 기록 — 누가 언제 무엇을)';
   // v29.54: 공용 필터 파라미터 정의 — 세 provider 형식(Gemini/Claude/OpenAI)이 같이 쓴다
   var QUERY_STATE_PARAMS = {
     collection: '조회할 컬렉션 (필수)',
@@ -1898,6 +1899,7 @@
     return parts.join(' · ');
   }
   ai.currentScreenContext = currentScreenContext; // 테스트/콘솔 확인용
+  ai.exec = function (name, args) { return executeFunctionCall(name, args || {}); }; // v29.77: 테스트/콘솔 확인용 (모델 없이 액션 실행)
   function buildSystemInstruction() {
     var ctx = '';
     try { ctx = currentScreenContext(); } catch (e) {}
@@ -2593,6 +2595,32 @@
     if (el._md) el._md.innerHTML = renderMarkdown(text);
   }
 
+  // v29.77 (로드맵 17-d): AI 변경 기록 — 확인 카드로 실행된 모든 행동을 t_aiAuditLog에 한 줄.
+  // 여기 한 곳에만 걸면 지금 3개 액션과 앞으로 추가되는 것까지 자동으로 남는다(빼먹기 방지).
+  // 사람이 카드에서 본 문구(cardLines)를 그대로 저장한다 — 나중에 "무엇을 승인했나"가 그대로 재현된다.
+  // 기록 실패가 본 작업을 막아선 안 되므로 await 하지 않고 조용히 경고만 남긴다.
+  function logAiAction(actionName, resolved, label, errMsg) {
+    try {
+      if (!window.fb || !fb.db || !state || !state.currentUser) return;
+      var u = (state.users || []).find(function (x) { return x.id === state.currentUser; }) || {};
+      fb.setDoc(fb.doc(fb.collection(fb.db, 't_aiAuditLog')), {
+        action: actionName,
+        label: label || '',
+        by: state.currentUser,
+        byName: (u.name || '') + (u.title ? ' ' + u.title : ''),
+        target: resolved.pid || resolved.taskId || resolved.channelId || '',
+        updates: resolved.updates || null,
+        summary: (resolved.cardLines || []).join(' / '),
+        ok: !errMsg,
+        error: errMsg || '',
+        at: Date.now(),
+        atText: new Date().toLocaleString('ko-KR'),
+      }).catch(function (e) { console.warn('[AI 변경기록] 저장 실패(작업은 정상):', e.message || e); });
+    } catch (e) {
+      console.warn('[AI 변경기록] 저장 실패(작업은 정상):', e.message || e);
+    }
+  }
+
   function renderConfirmCard(actionName, def, resolved) {
     var box = $id('aiMessages');
     var card = document.createElement('div');
@@ -2611,8 +2639,10 @@
       try {
         await def.commit(resolved);
         appendMsg('system', '✓ ' + label + ' 완료');
+        logAiAction(actionName, resolved, label, null);
       } catch (e) {
         appendMsg('system', label + ' 실패: ' + (e.message || e));
+        logAiAction(actionName, resolved, label, e.message || String(e));
       }
     };
     card.querySelector('[data-act="cancel"]').onclick = function () { card.remove(); };
