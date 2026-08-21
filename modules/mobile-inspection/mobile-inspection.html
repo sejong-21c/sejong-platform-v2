@@ -244,6 +244,19 @@ input[type=file]{display:none}
   </div>
   <div class="step">
     <div class="step-num">3</div>
+    <div class="step-title">사용 장비</div>
+    <label style="font-size:12px;color:#888;margin-bottom:6px;display:block">QR 스캔으로 등록 — 측정기구 반입출 관리 연동, 검교정 상태 자동 확인</label>
+    <div id="equipment-chip-list" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+    <button type="button" onclick="openEquipmentScan()" style="width:100%;padding:9px 12px;background:#0f6e56;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px">
+      <i class="ti ti-qrcode" aria-hidden="true"></i> QR 스캔으로 장비 추가
+    </button>
+    <div style="display:flex;gap:6px">
+      <input type="text" id="equipment-add-input" placeholder="QR/바코드 스캐너 커서 · 관리번호 직접 입력도 가능" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addEquipmentByCode(this.value);this.value='';}">
+      <button type="button" onclick="addEquipmentByCode(document.getElementById('equipment-add-input').value);document.getElementById('equipment-add-input').value='';" style="padding:0 16px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">+ 추가</button>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
     <div class="step-title">사진 업로드</div>
     <div class="upload-zone" id="drop-zone">
       <i class="ti ti-photo uz-icon" aria-hidden="true"></i>
@@ -261,19 +274,8 @@ input[type=file]{display:none}
     <canvas id="crop-canvas" style="display:none"></canvas>
   </div>
   <div class="step">
-    <div class="step-num">4</div>
+    <div class="step-num">5</div>
     <div class="step-title">합부 판정</div>
-    <div style="margin-bottom:14px">
-      <label style="font-size:12px;color:#888;margin-bottom:6px;display:block">사용 장비 (QR 스캔으로 등록 — 측정기구 반입출 관리 연동, 검교정 상태 자동 확인)</label>
-      <div id="equipment-chip-list" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
-      <button type="button" onclick="openEquipmentScan()" style="width:100%;padding:9px 12px;background:#0f6e56;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px">
-        <i class="ti ti-qrcode" aria-hidden="true"></i> QR 스캔으로 장비 추가
-      </button>
-      <div style="display:flex;gap:6px">
-        <input type="text" id="equipment-add-input" placeholder="QR/바코드 스캐너 커서 · 관리번호 직접 입력도 가능" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addEquipmentByCode(this.value);this.value='';}">
-        <button type="button" onclick="addEquipmentByCode(document.getElementById('equipment-add-input').value);document.getElementById('equipment-add-input').value='';" style="padding:0 16px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">+ 추가</button>
-      </div>
-    </div>
     <div style="margin-bottom:14px">
       <label style="font-size:12px;color:#888;margin-bottom:6px;display:block">검사자 (여러 명 선택 가능 — ITP Builder에 업로드된 목록에서 토글)</label>
       <div id="inspector-toggle-grid" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
