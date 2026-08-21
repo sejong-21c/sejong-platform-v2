@@ -1045,7 +1045,6 @@ function onItemChange(){
     currentQagItemId=getQagItemId(MI_PID, currentItemTag, currentItemId);
     renderItpOptionsForItem(currentItemId);
     itpSel.disabled=false;
-    autoPopulateEquipmentFromQAG(currentQagItemId);
   }else{
     currentItemId='';
     currentItemTag='';
@@ -1259,7 +1258,14 @@ async function onItpChange(){
   renderInspFields(fieldsKey);
   document.getElementById('insp-fields').style.display='block';
   document.getElementById('insp-toggle-ic').innerHTML='<i class="ti ti-chevron-up" aria-hidden="true"></i>';
+  // v29.45: 검사 항목(fieldsKey)이 확정된 지금 시점에 그 항목과 연동되는
+  // 측정장비만 불러온다 — Visual & Dimension(07)이면 Dimension/Nozzle 쪽
+  // 장비만, Hydrostatic(08)이면 Hydro 장비만. 아이템만 고른 단계(onItemChange)
+  // 에서는 아직 어느 검사인지 몰라 fieldsKey별로 나눠 부를 수 없다.
+  if(fieldsKey==='07' || fieldsKey==='08') await autoPopulateEquipmentFromQAG(currentQagItemId, fieldsKey);
   // v29.36: 이 아이템·검사 항목에 임시저장된 내용이 있으면 이어서 작성할지 물어본다.
+  // (QAG 장비 자동 반영 뒤에 실행해야, 임시저장에 저장된 장비 목록이 최종적으로
+  // 이긴다 — applyDraftToForm이 selectedEquipment를 통째로 덮어쓰기 때문)
   checkAndOfferDraftRestore();
 }
 
@@ -2043,27 +2049,33 @@ function writeMeasuredValuesBackToQAG(pid, qagItemId, fieldsKey, inspData){
 // 코드(serial)를 바로 꺼내고, noz_set.mEqN·hydro_set_*.mEqH는 "이름 (코드)"
 // 문자열을 이어붙인 것이라 정규식으로 코드만 복원한다(둘 다 이 화면이 쓴
 // 형식이라 안전). 이미 있는 코드(QR로 방금 스캔한 것 포함)는 건너뛴다.
+// v29.45.1: 되돌려쓰기(writeEquipmentBackToQAG)와 동일하게 fieldsKey로 범위를
+// 나눈다 — Visual & Dimension(07)이면 Dimension/Nozzle 장비만, Hydrostatic(08)
+// 이면 Hydro 장비만 대상. 서로 다른 검사 항목의 장비가 섞여 들어가면 안 된다.
 function _extractEquipCodesFromJoined(s, into){
   (s||'').split('/').forEach(part=>{
     const m=/\(([^()]+)\)\s*$/.exec(part.trim());
     if(m) into.add(m[1].trim());
   });
 }
-async function autoPopulateEquipmentFromQAG(itemId){
-  if(!itemId) return;
+async function autoPopulateEquipmentFromQAG(itemId, fieldsKey){
+  if(!itemId || (fieldsKey!=='07' && fieldsKey!=='08')) return;
   const payload=getQAGProjectPayload(MI_PID);
   const store=payload?.imgStore||{};
   const codes=new Set();
-  const dimSet=store['dim_set_'+itemId];
-  if(dimSet && dimSet.mEq){
-    try{
-      const arr=JSON.parse(dimSet.mEq);
-      if(Array.isArray(arr)) arr.forEach(e=>{ if(e && e.serial) codes.add(String(e.serial).trim()); });
-    }catch(e){ /* v1.8 이전 자유 텍스트 형식은 코드 추출 불가 — 건너뜀 */ }
+  if(fieldsKey==='07'){
+    const dimSet=store['dim_set_'+itemId];
+    if(dimSet && dimSet.mEq){
+      try{
+        const arr=JSON.parse(dimSet.mEq);
+        if(Array.isArray(arr)) arr.forEach(e=>{ if(e && e.serial) codes.add(String(e.serial).trim()); });
+      }catch(e){ /* v1.8 이전 자유 텍스트 형식은 코드 추출 불가 — 건너뜀 */ }
+    }
+    _extractEquipCodesFromJoined(store['noz_set_'+itemId]?.mEqN, codes);
+  } else if(fieldsKey==='08'){
+    Object.keys(store).filter(k=>k.startsWith('hydro_set_'+itemId+'_'))
+      .forEach(k=>_extractEquipCodesFromJoined(store[k]?.mEqH, codes));
   }
-  _extractEquipCodesFromJoined(store['noz_set_'+itemId]?.mEqN, codes);
-  Object.keys(store).filter(k=>k.startsWith('hydro_set_'+itemId+'_'))
-    .forEach(k=>_extractEquipCodesFromJoined(store[k]?.mEqH, codes));
   const hasCode=c=>selectedEquipment.some(e=>e.code.toUpperCase()===c.toUpperCase());
   const newCodes=[...codes].filter(c=>c && !hasCode(c));
   if(!newCodes.length) return;
