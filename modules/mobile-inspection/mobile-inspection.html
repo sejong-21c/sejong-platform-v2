@@ -10,7 +10,7 @@
   // 부장님 공지 규칙에 따라 반드시 't_'로 시작(t_mobileInspection).
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -21,9 +21,11 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query, where };
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+<!-- jsQR: 카메라 QR 인식 — 측정기구 반입출 관리(measurement-tools.html)와 동일 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f2;min-height:100vh;color:#1a1a18}
@@ -262,6 +264,17 @@ input[type=file]{display:none}
     <div class="step-num">4</div>
     <div class="step-title">합부 판정</div>
     <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:#888;margin-bottom:6px;display:block">사용 장비 (QR 스캔으로 등록 — 측정기구 반입출 관리 연동, 검교정 상태 자동 확인)</label>
+      <div id="equipment-chip-list" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+      <button type="button" onclick="openEquipmentScan()" style="width:100%;padding:9px 12px;background:#0f6e56;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px">
+        <i class="ti ti-qrcode" aria-hidden="true"></i> QR 스캔으로 장비 추가
+      </button>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="equipment-add-input" placeholder="QR/바코드 스캐너 커서 · 관리번호 직접 입력도 가능" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addEquipmentByCode(this.value);this.value='';}">
+        <button type="button" onclick="addEquipmentByCode(document.getElementById('equipment-add-input').value);document.getElementById('equipment-add-input').value='';" style="padding:0 16px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">+ 추가</button>
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
       <label style="font-size:12px;color:#888;margin-bottom:6px;display:block">검사자 (여러 명 선택 가능 — ITP Builder에 업로드된 목록에서 토글)</label>
       <div id="inspector-toggle-grid" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
       <div style="display:flex;gap:6px">
@@ -321,6 +334,7 @@ input[type=file]{display:none}
       <tr><td>검사 일시</td><td id="det-date">—</td></tr>
       <tr><td>검사 단계</td><td id="det-stage">—</td></tr>
       <tr><td>검사자</td><td id="det-inspectors">—</td></tr>
+      <tr><td>사용 장비</td><td id="det-equipment">—</td></tr>
       <tr><td>합부 판정</td><td id="det-note">—</td></tr>
     </table>
   </div>
@@ -422,6 +436,14 @@ input[type=file]{display:none}
 
 <div class="toast" id="toast"></div>
 
+<!-- v29.43: 사용 장비 QR 스캔 모달 — 측정기구 반입출 관리(measurement-tools.html)와 동일한 jsQR 카메라 스캔 패턴 -->
+<div id="camera-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:400;display:none;flex-direction:column;align-items:center;justify-content:center">
+  <button id="camera-close" onclick="closeCameraScan()" style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:8px 18px;cursor:pointer;font-size:14px">닫기 (ESC)</button>
+  <video id="camera-video" playsinline muted style="max-width:90vw;max-height:70vh;border-radius:8px;background:#000"></video>
+  <canvas id="camera-canvas" style="display:none"></canvas>
+  <div id="camera-msg" style="color:#fff;margin-top:18px;font-size:14px">QR 코드를 카메라에 비춰주세요</div>
+</div>
+
 <script>
 const STORE_KEY='sejong_insp_records'; // 이전 버전 마이그레이션용
 const MI_PID = new URLSearchParams(window.location.search).get('pid') || 'standalone';
@@ -432,6 +454,7 @@ function loadInspectorMasterList(){
   try { const v = JSON.parse(localStorage.getItem(MASTER_INSPECTOR_KEY)||'null'); return Array.isArray(v) ? v : []; } catch(e) { return []; }
 }
 let selectedInspectors = []; // 이번 등록 건에 토글로 선택된 검사자(이름) 목록
+let selectedEquipment = []; // 이번 등록 건에 QR 스캔/직접입력으로 추가된 사용 장비 목록 [{code,name,spec,nextCalibration,unregistered}]
 
 function loadITPBuilderState(){
   try{ const v=JSON.parse(localStorage.getItem(ITP_BUILDER_KEY)||'null'); return v||null; }catch(e){ return null; }
@@ -836,6 +859,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   initFromITPBuilder();
   fetchCloudITPBuilderState(); // 로컬 캐시가 없거나 오래된 경우 클라우드에서 보강
   renderInspectorToggles();
+  renderEquipmentChips();
   renderHist();
   startInspFirestoreSync();
 });
@@ -2191,6 +2215,7 @@ async function saveDraft(){
       result:document.querySelector('#result-grid .stage-btn.sel')?.dataset.val||'합격',
       failNote:document.getElementById('fail-note').value||'',
       inspectors:[...selectedInspectors],
+      equipment:[...selectedEquipment],
       photos,
       savedAt:new Date().toISOString()
     };
@@ -2296,6 +2321,7 @@ async function applyDraftToForm(draft){
   if(draft.date) document.getElementById('insp-date').value=draft.date;
   if(draft.failNote) document.getElementById('fail-note').value=draft.failNote;
   if(Array.isArray(draft.inspectors)){ selectedInspectors=[...draft.inspectors]; renderInspectorToggles(); }
+  if(Array.isArray(draft.equipment)){ selectedEquipment=[...draft.equipment]; renderEquipmentChips(); }
   if(Array.isArray(draft.photos) && draft.photos.length){
     pendingFiles.length=0;
     for(const p of draft.photos){
@@ -2315,6 +2341,127 @@ async function deleteDraftForCurrentSelection(item, itpVal){
 }
 
 // ── 합부 판정 ────────────────────────────
+// ── 사용 장비 등록 (QR 스캔 — 측정기구 반입출 관리 연동) ──
+// v29.43: "측정기구 반입출 관리"(modules/measurement-tools/measurement-tools.html)가
+// 이미 QR 라벨 발급·검교정 관리를 하고 있어(컬렉션 measurementTools, 필드
+// code/name/spec/nextCalibration), 그 QR 코드를 그대로 스캔해 이번 검사에
+// 쓴 장비로 등록한다. 카메라 스캔은 그 모듈과 동일한 jsQR 패턴(라이브
+// 캔버스 프레임에서 QR 인식)을 재사용— 하드웨어 스캐너(USB/블루투스)는
+// 보통 텍스트 입력처럼 동작하므로 아래 텍스트 입력창으로도 그대로 등록된다.
+const CAL_WARN_DAYS_MI = 30;
+function _mtoolsDaysUntil(dateStr){
+  if(!dateStr) return null;
+  const d=new Date(dateStr); if(isNaN(d)) return null;
+  const now=new Date(); now.setHours(0,0,0,0);
+  const target=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  return Math.round((target-now)/86400000);
+}
+async function lookupEquipmentByCode(code){
+  if(!window.fb || !fb.db) return null;
+  try{
+    const snap=await fb.getDocs(fb.query(fb.collection(fb.db,'measurementTools'), fb.where('code','==',code)));
+    if(snap.empty) return null;
+    const d=snap.docs[0].data();
+    return { code:d.code||code, name:d.name||'', spec:d.spec||'', nextCalibration:d.nextCalibration||'' };
+  }catch(e){ console.error('[측정기구 조회 실패]',e); return null; }
+}
+async function addEquipmentByCode(rawCode){
+  const code=String(rawCode||'').trim();
+  if(!code) return;
+  if(selectedEquipment.some(e=>e.code.toUpperCase()===code.toUpperCase())){
+    showToast('이미 추가된 장비입니다: '+code); return;
+  }
+  const found=await lookupEquipmentByCode(code);
+  if(found){
+    selectedEquipment=[...selectedEquipment, found];
+    const days=_mtoolsDaysUntil(found.nextCalibration);
+    if(days!=null && days<0) showToast('⚠️ '+found.name+'('+code+') — 검교정 기한 '+Math.abs(days)+'일 경과, 사용 전 확인 필요');
+    else if(days!=null && days<=CAL_WARN_DAYS_MI) showToast('⚠️ '+found.name+'('+code+') — 검교정 기한 '+days+'일 남음');
+  }else{
+    // 측정기구 반입출 관리에 등록되지 않은 코드도(수기 관리 장비 등) 코드만으로 추가 가능
+    selectedEquipment=[...selectedEquipment, { code, name:'', spec:'', nextCalibration:'', unregistered:true }];
+    showToast('⚠️ "측정기구 반입출 관리"에 등록되지 않은 코드입니다 — 그대로 기록만 합니다: '+code);
+  }
+  renderEquipmentChips();
+}
+function removeEquipment(code){
+  selectedEquipment=selectedEquipment.filter(e=>e.code!==code);
+  renderEquipmentChips();
+}
+function renderEquipmentChips(){
+  const wrap=document.getElementById('equipment-chip-list');
+  if(!wrap) return;
+  if(!selectedEquipment.length){
+    wrap.innerHTML='<span style="font-size:12px;color:#aaa">등록된 장비가 없습니다 — QR 스캔 또는 관리번호 입력으로 추가하세요</span>';
+    return;
+  }
+  wrap.innerHTML=selectedEquipment.map(e=>{
+    const days=_mtoolsDaysUntil(e.nextCalibration);
+    const danger = e.unregistered ? false : (days!=null && days<0);
+    const warn = e.unregistered ? false : (days!=null && days>=0 && days<=CAL_WARN_DAYS_MI);
+    const bg = danger?'#fdecea':(warn?'#fff8e6':'#eef7f3');
+    const fg = danger?'#c0392b':(warn?'#854f0b':'#0f6e56');
+    const label = e.unregistered ? `${escapeHtml(e.code)} (미등록)` : `${escapeHtml(e.code)}${e.name?' · '+escapeHtml(e.name):''}`;
+    const calNote = e.unregistered ? '' : (days==null?'' : (days<0?` · 검교정 ${Math.abs(days)}일 경과`:` · 검교정 D-${days}`));
+    return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 8px 5px 10px;border-radius:14px;background:${bg};color:${fg};font-size:11.5px;font-weight:600">
+      ${label}${calNote}
+      <button type="button" onclick="removeEquipment('${e.code.replace(/'/g,"\\'")}')" style="background:none;border:none;color:${fg};cursor:pointer;font-size:13px;padding:0;line-height:1">✕</button>
+    </span>`;
+  }).join('');
+}
+let _equipCamAnim=null;
+function openEquipmentScan(){
+  const modal=document.getElementById('camera-modal');
+  const video=document.getElementById('camera-video');
+  const canvas=document.getElementById('camera-canvas');
+  const msg=document.getElementById('camera-msg');
+  modal.style.display='flex';
+  msg.textContent='카메라 접근중...';
+  navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' } } }).then(stream=>{
+    _camStream=stream; video.srcObject=stream;
+    return video.play();
+  }).then(()=>{
+    msg.textContent='장비 QR 코드를 카메라에 비춰주세요';
+    _camScanning=true;
+    const ctx=canvas.getContext('2d');
+    const tick=()=>{
+      if(!_camScanning) return;
+      if(video.readyState===video.HAVE_ENOUGH_DATA){
+        canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+        ctx.drawImage(video,0,0,canvas.width,canvas.height);
+        const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+        const qr=window.jsQR ? jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}) : null;
+        if(qr && qr.data){
+          msg.textContent='✅ 인식됨: '+qr.data;
+          const code=qr.data;
+          closeCameraScan();
+          addEquipmentByCode(code);
+          return;
+        }
+      }
+      _equipCamAnim=requestAnimationFrame(tick);
+    };
+    _equipCamAnim=requestAnimationFrame(tick);
+  }).catch(e=>{
+    msg.textContent='❌ 카메라 접근 실패: '+(e.message||e);
+    console.error(e);
+  });
+}
+let _camStream=null, _camScanning=false;
+function closeCameraScan(){
+  _camScanning=false;
+  if(_equipCamAnim) cancelAnimationFrame(_equipCamAnim);
+  if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
+  document.getElementById('camera-modal').style.display='none';
+  const el=document.getElementById('equipment-add-input'); if(el) el.focus();
+}
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    const m=document.getElementById('camera-modal');
+    if(m && m.style.display==='flex') closeCameraScan();
+  }
+});
+
 // ── 검사자 토글 선택 (ITP Builder 업로드 목록 + 직접 추가) ──
 function renderInspectorToggles(){
   const grid = document.getElementById('inspector-toggle-grid');
@@ -2552,7 +2699,7 @@ async function submitUpload(){
       pf.style.width=pct+'%';
       pl.textContent=`업로드 중... ${pct}%`;
     }
-    const rec={id:recId,pid:MI_PID,proj,item,date,stage,itpId:itpVal,itpName,fieldsKey,result,note,inspData,inspectors:[...selectedInspectors],photos};
+    const rec={id:recId,pid:MI_PID,proj,item,date,stage,itpId:itpVal,itpName,fieldsKey,result,note,inspData,inspectors:[...selectedInspectors],equipment:[...selectedEquipment],photos};
 
     const results=loadResults();
     results.unshift(rec);
@@ -2577,6 +2724,7 @@ async function submitUpload(){
     document.getElementById('fail-note').value='';
     selectResult('합격');
     selectedInspectors=[];renderInspectorToggles();
+    selectedEquipment=[];renderEquipmentChips();
     showToast('✅ 등록 완료! ITP에 반영되었습니다');
     switchTab('hist');openDetail(rec.id);
   }catch(e){
@@ -2783,6 +2931,7 @@ async function openDetail(id){
   document.getElementById('det-date').textContent=rec.date.replace('T',' ');
   document.getElementById('det-stage').textContent=rec.stage;
   document.getElementById('det-inspectors').textContent=(rec.inspectors&&rec.inspectors.length)?rec.inspectors.join(', '):'—';
+  document.getElementById('det-equipment').textContent=(rec.equipment&&rec.equipment.length)?rec.equipment.map(e=>e.name?`${e.code}(${e.name})`:e.code).join(', '):'—';
   document.getElementById('det-note').textContent=rec.note||'없음';
   const inspDataHtml=renderInspDataDetail(rec);
   document.getElementById('det-inspdata').innerHTML=inspDataHtml;
