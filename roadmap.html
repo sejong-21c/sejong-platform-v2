@@ -323,7 +323,7 @@ const ROADMAP = [
 ]},
 { id:"p17", n:"PHASE 17", t:"AI 수정 권한 — 두뇌가 판단하고 고친다", s:"설계서 modules/ai-assistant/PLAN-UPDATE-ACTIONS.md", items:[
   {id:"p17-a", t:"권한 문지기 + 프로젝트 일정 변경", d:"canEditProject(PM·관리자 판정) + update_project_schedule. 전/후 확인 카드, 권한 없으면 카드 대신 PM 안내. 순수 함수는 shared/ai-perm.mjs + test/ai-perm.test.mjs(17개)로 못박음. WBS 연쇄 없음 실측 확인", ev:"v29.75 · 2026-08-21", base:"done"},
-  {id:"p17-b", t:"상태·진행률 / 업무 담당 변경", d:"update_project_status, reassign_task — 같은 문지기 재사용", ev:"", base:"todo"},
+  {id:"p17-b", t:"상태·진행률 / 업무 담당 변경", d:"update_project_status(진행중·완료·마감예정, 진행률) + reassign_task(담당자·마감일). 문지기 재사용 + 업무는 '내 업무는 내가 넘긴다' 한 겹. WBS가 있는 프로젝트의 진행률·상태는 자동계산에 되돌려지므로 판정에서 거부(조용한 무효 방지). 가상 업무(브리핑·부서스케줄·OKR)는 대상 제외. 테스트 43개", ev:"v29.76 · 2026-08-21", base:"done"},
   {id:"p17-c", t:"Firestore 규칙 점검·강화", d:"projects 쓰기가 사내 전원에게 열려 있음(화면 판정은 편의지 보안이 아님) — 길 B(PM 제한 규칙)는 기존 화면 영향 조사 후 별도 진행", ev:"설계서 3겹 항목", base:"todo"},
   {id:"p17-d", t:"AI 변경 기록", d:"누가 언제 AI로 무엇을 바꿨는지 t_aiAuditLog 한 줄 — 수정 권한을 켠 순간 기록이 실질적 통제", ev:"", base:"todo"},
 ]},

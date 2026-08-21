@@ -542,6 +542,174 @@
     }
   });
 
+  // ── v29.76 (로드맵 17-b): 상태·진행률 / 업무 담당 변경 ──────────────
+  // 문지기는 17-a 것을 그대로 쓰고, 업무는 '내 업무는 내가 넘길 수 있다' 한 겹만 더한다.
+  // ai-perm.mjs와 동기 유지 (검증: node test/ai-perm.test.mjs).
+  function judgeEditTask(me, task, proj, users) {
+    me = me || {};
+    if (!me.id) return { ok: false, why: '로그인 정보를 읽지 못했습니다 — 새로고침 후 다시 시도해주세요' };
+    if (me.grade === 'super' || me.grade === 'exec') return { ok: true, why: '관리자' };
+    if (task && task.assignee === me.id) return { ok: true, why: '내 업무' };
+    if (proj && proj.pm && proj.pm === me.id) return { ok: true, why: '이 프로젝트 PM' };
+    var who = (users || []).find(function (u) { return u.id === (task && task.assignee); });
+    return {
+      ok: false,
+      why: who
+        ? ('이 업무 담당자는 ' + who.name + '님입니다 — 담당자·PM·관리자만 바꿀 수 있습니다')
+        : '이 업무의 담당자·PM 또는 관리자만 바꿀 수 있습니다',
+    };
+  }
+  var PROJ_STATUS_KO = { active: '진행중', done: '완료', 'pre-close': '마감예정' };
+  function checkProjectStatusChange(proj, status, progress, wbsProgress) {
+    proj = proj || {};
+    var upd = {}, given = false;
+    if (status != null && String(status).trim() !== '') {
+      given = true;
+      var s = String(status).trim();
+      if (!PROJ_STATUS_KO[s]) {
+        var hit = Object.keys(PROJ_STATUS_KO).find(function (k) { return PROJ_STATUS_KO[k] === s; });
+        if (!hit) return { ok: false, why: '상태는 진행중·완료·마감예정 중 하나여야 합니다 (받은 값: ' + s + ')' };
+        s = hit;
+      }
+      if (wbsProgress != null && s === 'done' && wbsProgress < 100) {
+        return { ok: false, why: 'WBS 진척률이 ' + wbsProgress + '%라 완료로 바꾸면 자동으로 되돌아갑니다 — WBS를 100%로 채우거나 마감예정을 쓰세요.' };
+      }
+      if (wbsProgress != null && s === 'active' && wbsProgress >= 100) {
+        return { ok: false, why: 'WBS 진척률이 100%라 진행중으로 바꾸면 자동으로 되돌아갑니다 — WBS를 먼저 조정하세요.' };
+      }
+      if (s !== (proj.status || 'active')) upd.status = s;
+    }
+    if (progress != null && String(progress).trim() !== '') {
+      given = true;
+      var n = Number(progress);
+      if (!isFinite(n) || n < 0 || n > 100) return { ok: false, why: '진행률은 0~100 사이 숫자여야 합니다 (받은 값: ' + progress + ')' };
+      n = Math.round(n);
+      if (wbsProgress != null) {
+        return { ok: false, why: '이 프로젝트 진행률은 WBS에서 자동 계산됩니다(현재 ' + wbsProgress + '%) — 여기서 바꿔도 되돌아가니 WBS 화면에서 조정하세요.' };
+      }
+      if (n !== (proj.progress || 0)) upd.progress = n;
+    }
+    if (!given) return { ok: false, why: '바꿀 상태나 진행률을 알려주세요.' };
+    if (!Object.keys(upd).length) return { ok: false, why: '이미 그 값입니다 — 바뀌는 내용이 없습니다.' };
+    return { ok: true, updates: upd, label: upd.status ? PROJ_STATUS_KO[upd.status] : null };
+  }
+  function checkReassign(task, assigneeId, due) {
+    var D = /^\d{4}-\d{2}-\d{2}$/;
+    task = task || {};
+    var upd = {}, given = false;
+    if (assigneeId != null && String(assigneeId).trim() !== '') {
+      given = true;
+      var a = String(assigneeId).trim();
+      if (a !== task.assignee) upd.assignee = a;
+    }
+    if (due != null && String(due).trim() !== '') {
+      given = true;
+      var d = String(due).trim();
+      if (!D.test(d)) return { ok: false, why: '마감일 형식이 잘못됐습니다 (YYYY-MM-DD로 주세요): ' + d };
+      if (d !== task.due) upd.due = d;
+    }
+    if (!given) return { ok: false, why: '바꿀 담당자나 마감일을 알려주세요.' };
+    if (!Object.keys(upd).length) return { ok: false, why: '이미 그 값입니다 — 바뀌는 내용이 없습니다.' };
+    return { ok: true, updates: upd };
+  }
+  // 17-a의 프로젝트 찾기를 두 액션이 함께 쓴다
+  function findProjectForEdit(q) {
+    q = String(q || '').toLowerCase().trim();
+    if (!q) return { error: '어느 프로젝트인지 이름이나 코드를 알려주세요.' };
+    var hits = (state.projects || []).filter(function (p) {
+      return !p.hidden && (((p.code || '') + ' ' + (p.name || '')).toLowerCase().indexOf(q) !== -1);
+    });
+    if (!hits.length) return { error: '"' + q + '" 프로젝트를 찾지 못했습니다.' };
+    if (hits.length > 1) {
+      return { error: '해당하는 프로젝트가 ' + hits.length + '개입니다. 코드로 정확히 알려주세요: ' + hits.slice(0, 5).map(function (p) { return (p.code || '') + ' ' + (p.name || ''); }).join(', ') + (hits.length > 5 ? ' 외' : '') };
+    }
+    return { proj: hits[0] };
+  }
+
+  registerAction('update_project_status', {
+    description: '프로젝트 상태(진행중/완료/마감예정) 또는 진행률(0~100) 변경 — PM 또는 관리자만 가능. 확인 카드에서 사용자가 눌러야 반영된다. "리뉴시스템 마감예정으로 바꿔줘", "진행률 80으로 올려줘" 같은 요청에 사용',
+    params: {
+      project: '프로젝트 이름 또는 코드 (일부만 입력해도 됨)',
+      status: '새 상태 — 진행중 / 완료 / 마감예정 (바꿀 때만)',
+      progress: '새 진행률 0~100 (바꿀 때만)',
+    },
+    direct: true,
+    resolve: function (v) {
+      var f = findProjectForEdit(v.project);
+      if (f.error) return { error: f.error };
+      var p = f.proj;
+      var me = (typeof getU === 'function' ? getU(state.currentUser) : null);
+      var perm = judgeEditProject(me, p, state.users);
+      if (!perm.ok) return { error: perm.why };
+      // WBS 행이 있으면 progress·status가 index.html reconcileProjectProgress()에 의해
+      // 되돌려진다 — 계산값을 넘겨 충돌하는 요청은 판정 단계에서 거부한다.
+      var hasWbs = !!(state.wbs && (state.wbs[p.id] || []).length);
+      var wbsPct = hasWbs && typeof computeProjectProgress === 'function' ? computeProjectProgress(p.id) : null;
+      var chk = checkProjectStatusChange(p, v.status, v.progress, wbsPct);
+      if (!chk.ok) return { error: chk.why };
+      return {
+        pid: p.id, updates: chk.updates,
+        cardLines: [
+          '프로젝트: ' + (p.code ? p.code + ' ' : '') + (p.name || ''),
+          chk.updates.status ? ('상태: ' + (PROJ_STATUS_KO[p.status] || '진행중') + '  →  ' + chk.label) : null,
+          chk.updates.progress != null ? ('진행률: ' + (p.progress || 0) + '%  →  ' + chk.updates.progress + '%') : null,
+          '내 권한: ' + perm.why,
+        ].filter(Boolean),
+        confirmLabel: chk.updates.status ? '상태 변경' : '진행률 변경',
+      };
+    },
+    commit: function (resolved) {
+      return fb.setDoc(fb.doc(fb.db, 'projects', resolved.pid), resolved.updates, { merge: true });
+    }
+  });
+
+  registerAction('reassign_task', {
+    description: '업무의 담당자 또는 마감일 변경 — 담당자 본인·프로젝트 PM·관리자만 가능. 확인 카드에서 사용자가 눌러야 반영된다. "이 업무 담당을 김대리로 바꿔줘", "OO 업무 마감을 다음 주 금요일로" 같은 요청에 사용',
+    params: {
+      title: '업무 이름 (일부만 입력해도 됨)',
+      assignee: '새 담당자 이름 (바꿀 때만)',
+      due: '새 마감일 YYYY-MM-DD (바꿀 때만)',
+    },
+    direct: true,
+    resolve: function (v) {
+      var t = String(v.title || '').toLowerCase().trim();
+      if (!t) return { error: '어떤 업무인지 이름을 알려주세요.' };
+      // 실제 tasks 문서만 대상 — 칸반에는 브리핑·부서스케줄·OKR 가상 업무가 섞여 있고
+      // 그것들은 tasks 컬렉션에 없어서 여기서 고칠 수 없다(complete_task는 moveTask가 처리).
+      var hits = (state.tasks || []).filter(function (x) { return (x.title || '').toLowerCase().indexOf(t) !== -1; });
+      if (!hits.length) return { error: '"' + v.title + '" 업무를 찾지 못했습니다 (업무관리에 등록된 업무에서 검색 — 브리핑·부서 스케줄 항목은 이 도구로 바꿀 수 없습니다).' };
+      if (hits.length > 1) {
+        return { error: '해당하는 업무가 ' + hits.length + '개입니다. 정확한 이름을 알려주세요: ' + hits.slice(0, 5).map(function (x) { return '"' + x.title + '"'; }).join(', ') + (hits.length > 5 ? ' 외' : '') };
+      }
+      var task = hits[0];
+      var proj = (state.projects || []).find(function (p) { return p.id === task.proj; });
+      var me = (typeof getU === 'function' ? getU(state.currentUser) : null);
+      var perm = judgeEditTask(me, task, proj, state.users);
+      if (!perm.ok) return { error: perm.why };
+      var newU = null;
+      if (v.assignee && String(v.assignee).trim()) {
+        newU = typeof findUser === 'function' ? findUser(v.assignee) : null;
+        if (!newU) return { error: '"' + v.assignee + '" 직원을 찾지 못했습니다 — 정확한 이름을 알려주세요.' };
+      }
+      var chk = checkReassign(task, newU && newU.id, v.due);
+      if (!chk.ok) return { error: chk.why };
+      var oldU = (state.users || []).find(function (u) { return u.id === task.assignee; });
+      return {
+        taskId: task.id, updates: chk.updates,
+        cardLines: [
+          '업무: ' + (task.title || '') + (proj ? ' (' + (proj.code || proj.name) + ')' : ''),
+          chk.updates.assignee ? ('담당: ' + (oldU ? oldU.name : '(미지정)') + '  →  ' + newU.name) : null,
+          chk.updates.due ? ('마감: ' + (task.due || '(없음)') + '  →  ' + chk.updates.due) : null,
+          '내 권한: ' + perm.why,
+        ].filter(Boolean),
+        confirmLabel: chk.updates.assignee ? '담당 변경' : '마감 변경',
+      };
+    },
+    commit: function (resolved) {
+      return fb.setDoc(fb.doc(fb.db, 'tasks', resolved.taskId), resolved.updates, { merge: true });
+    }
+  });
+
   // Layer 3 — 메신저 iframe을 열지 않고 같은 messages 컬렉션에 직접 기록.
   // 폼을 채우는 대신 채팅창 안 인라인 확인 카드로 처리(아래 renderConfirmCard 참고).
   registerAction('send_message', {
@@ -1343,6 +1511,7 @@
     '"엑셀로/PDF로 뽑아줘·저장해줘" 요청은 export_result 도구로 처리한다 — 직전 query_state 결과가 파일이 되므로, 아직 조회 전이면 먼저 query_state를 호출해라.',
     '"OO 업무 끝났어/완료 처리해줘" 요청은 complete_task 도구로 처리한다 — 채팅에 확인 카드가 뜨고 사용자가 [완료 처리]를 눌러야 실제 반영된다는 것을 답변에 알려줘라.',
     '"프로젝트 마감을 미뤄줘/시작일 바꿔줘" 같은 프로젝트 일정 변경은 update_project_schedule 도구로 처리한다 — PM 또는 관리자만 가능하고, 확인 카드에서 사용자가 [일정 변경]을 눌러야 반영된다. 날짜는 반드시 YYYY-MM-DD로 변환해서 넘겨라("4월 말"이면 그 해 4월의 마지막 날). 권한이 없다고 거부되면 안내 문구(누가 PM인지)를 그대로 전해라. WBS(공정표) 행 수정은 이 도구로 하지 않는다 — 그건 여전히 미지원.',
+    '프로젝트 상태(진행중·완료·마감예정)나 진행률 변경은 update_project_status, 업무의 담당자·마감일 변경은 reassign_task 도구로 처리한다 — 둘 다 확인 카드를 눌러야 반영된다. 진행률은 WBS가 있는 프로젝트에선 자동 계산되어 거부될 수 있으니, 거부 이유를 그대로 전해라. 업무 담당자는 이름만 넘기면 된다(내부 ID 쓰지 말 것).',
     '품질 매뉴얼·절차서·규정 등 사내 문서 내용 질문은 search_docs로 검색해서 답하고, 반드시 출처(문서명)를 함께 표시해라. 검색 결과가 비었거나 오류면 그 사실을 그대로 알리고 지어내지 마라.',
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
