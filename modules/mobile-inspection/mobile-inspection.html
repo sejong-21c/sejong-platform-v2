@@ -1045,6 +1045,7 @@ function onItemChange(){
     currentQagItemId=getQagItemId(MI_PID, currentItemTag, currentItemId);
     renderItpOptionsForItem(currentItemId);
     itpSel.disabled=false;
+    autoPopulateEquipmentFromQAG(currentQagItemId);
   }else{
     currentItemId='';
     currentItemTag='';
@@ -1970,15 +1971,108 @@ function writeEquipmentBackToQAG(pid, qagItemId, fieldsKey, inspData, equipment)
   try { localStorage.setItem(KEY, JSON.stringify(payload)); } catch(e){}
   return patches;
 }
-async function writeEquipmentBackToQAGCloud(pid, patches){
+// v29.45: Firestore imgStore 부분 merge — 사용 장비/실측값 되돌려쓰기가
+// 공통으로 쓰는 클라우드 반영 로직이라 하나로 묶는다(label은 실패 토스트 문구용).
+async function writeQAGPatchesToCloud(pid, patches, label){
   if(!patches || !Object.keys(patches).length) return;
   if(!window.fb || !fb.db || !fb.auth || !fb.auth.currentUser) return;
   try {
     await fb.setDoc(fb.doc(fb.db, 't_qaGenDocs', pid), { imgStore: patches }, { merge: true });
   } catch(e){
-    console.error('[QA Doc Generator 사용 장비 클라우드 반영 실패]', e);
-    notifySyncError(`사용 장비 클라우드 반영 실패: ${e.message||e}`);
+    console.error(`[QA Doc Generator ${label} 클라우드 반영 실패]`, e);
+    notifySyncError(`${label} 클라우드 반영 실패: ${e.message||e}`);
   }
+}
+// v29.45: 위 장비 되돌려쓰기와 반대 방향(Mobile→QAG) — 이번엔 장비가 아니라
+// 실측값 자체를 되돌려 쓴다. 대상은 이 화면이 QA Doc Generator에서 측정
+// 포인트/노즐 "정의"를 읽어오는 두 성적서로 한정(사용자가 애초에 QADOC 연동
+// 대상으로 지정한 범위 = Dimension Check IR·Nozzle Orientation IR):
+//   - Dimension Check IR(dim_rows_아이템ID: [{p,desc,dwg,actual,remark}])
+//     — p(Check Point)가 같은 행을 찾아 actual을 갱신.
+//   - Nozzle Orientation IR(noz_set_아이템ID.noz: [{no,pos,h,l,ap,ah,al,...}])
+//     — no(노즐 번호)가 같은 행을 찾아 ap/ah/al(POS'/H/L 실측 칸)을 갱신.
+function writeMeasuredValuesBackToQAG(pid, qagItemId, fieldsKey, inspData){
+  if(!qagItemId || fieldsKey!=='07') return null;
+  const KEY = 'sjp_qa_doc_generator_v1__'+pid;
+  let payload;
+  try { payload = JSON.parse(localStorage.getItem(KEY)||'null'); } catch(e){ return null; }
+  if(!payload || !payload.imgStore) return null;
+  const patches = {};
+  if(Array.isArray(inspData?.dimPoints) && inspData.dimPoints.length){
+    const dimRowsKey = 'dim_rows_'+qagItemId;
+    const rows = payload.imgStore[dimRowsKey];
+    if(Array.isArray(rows)){
+      let changed=false;
+      inspData.dimPoints.forEach(pt=>{
+        const point=(pt.measurePoint||'').trim();
+        const val=(pt.measureValue||'').trim();
+        if(!point || !val) return;
+        const row=rows.find(r=>(r.p||'').trim()===point);
+        if(row && row.actual!==val){ row.actual=val; changed=true; }
+      });
+      if(changed) patches[dimRowsKey]=rows;
+    }
+  }
+  if(Array.isArray(inspData?.nozzlePoints) && inspData.nozzlePoints.length){
+    const nozKey = 'noz_set_'+qagItemId;
+    const nozSet = payload.imgStore[nozKey];
+    if(nozSet && Array.isArray(nozSet.noz)){
+      let changed=false;
+      inspData.nozzlePoints.forEach(pt=>{
+        const no=(pt.nozzleNo||'').trim();
+        if(!no) return;
+        const row=nozSet.noz.find(r=>(r.no||'').trim()===no);
+        if(!row) return;
+        [['posValue','ap'],['hValue','ah'],['lValue','al']].forEach(([srcKey,tgtKey])=>{
+          const v=(pt[srcKey]||'').trim();
+          if(v && row[tgtKey]!==v){ row[tgtKey]=v; changed=true; }
+        });
+      });
+      if(changed) patches[nozKey]=nozSet;
+    }
+  }
+  if(!Object.keys(patches).length) return null;
+  Object.assign(payload.imgStore, patches);
+  try { localStorage.setItem(KEY, JSON.stringify(payload)); } catch(e){}
+  return patches;
+}
+// v29.45: 반대로 QAG→Mobile 방향 — 이 아이템에 대해 QA Doc Generator 쪽에
+// 이미 기록돼 있는 측정장비(mEq/mEqN/mEqH)를 모바일 "사용 장비" 목록에도
+// 미리 채워 넣는다. 이 화면이 저장하는 형식(위 writeEquipmentBackToQAG)을
+// 그대로 역으로 해석 — dim_set.mEq는 JSON 배열([{name,serial,active}])이라
+// 코드(serial)를 바로 꺼내고, noz_set.mEqN·hydro_set_*.mEqH는 "이름 (코드)"
+// 문자열을 이어붙인 것이라 정규식으로 코드만 복원한다(둘 다 이 화면이 쓴
+// 형식이라 안전). 이미 있는 코드(QR로 방금 스캔한 것 포함)는 건너뛴다.
+function _extractEquipCodesFromJoined(s, into){
+  (s||'').split('/').forEach(part=>{
+    const m=/\(([^()]+)\)\s*$/.exec(part.trim());
+    if(m) into.add(m[1].trim());
+  });
+}
+async function autoPopulateEquipmentFromQAG(itemId){
+  if(!itemId) return;
+  const payload=getQAGProjectPayload(MI_PID);
+  const store=payload?.imgStore||{};
+  const codes=new Set();
+  const dimSet=store['dim_set_'+itemId];
+  if(dimSet && dimSet.mEq){
+    try{
+      const arr=JSON.parse(dimSet.mEq);
+      if(Array.isArray(arr)) arr.forEach(e=>{ if(e && e.serial) codes.add(String(e.serial).trim()); });
+    }catch(e){ /* v1.8 이전 자유 텍스트 형식은 코드 추출 불가 — 건너뜀 */ }
+  }
+  _extractEquipCodesFromJoined(store['noz_set_'+itemId]?.mEqN, codes);
+  Object.keys(store).filter(k=>k.startsWith('hydro_set_'+itemId+'_'))
+    .forEach(k=>_extractEquipCodesFromJoined(store[k]?.mEqH, codes));
+  const hasCode=c=>selectedEquipment.some(e=>e.code.toUpperCase()===c.toUpperCase());
+  const newCodes=[...codes].filter(c=>c && !hasCode(c));
+  if(!newCodes.length) return;
+  for(const code of newCodes){
+    const found=await lookupEquipmentByCode(code);
+    if(hasCode(code)) continue; // 조회하는 동안 다른 경로로 이미 추가됐으면 중복 방지
+    selectedEquipment=[...selectedEquipment, found || { code, name:'', spec:'', nextCalibration:'', unregistered:true }];
+  }
+  renderEquipmentChips();
 }
 // v29.24: getQAGProjectPayload()는 로컬 캐시(localStorage)만 보므로, 다른
 // 기기·다른 사람이 방금 입력한 최신 BOM(Heat No. 포함)을 보려면 t_qaGenDocs
@@ -2763,9 +2857,13 @@ async function submitUpload(){
       const upd = writeHeatNoBackToQAG(MI_PID, currentQagItemId, inspData.materials);
       if(upd) writeHeatNoBackToQAGCloud(MI_PID, upd.bomKey, upd.bomRows);
     }
+    if(fieldsKey==='07'){
+      const valPatches = writeMeasuredValuesBackToQAG(MI_PID, currentQagItemId, fieldsKey, inspData);
+      if(valPatches) writeQAGPatchesToCloud(MI_PID, valPatches, '실측값');
+    }
     if(selectedEquipment.length && (fieldsKey==='07' || fieldsKey==='08')){
       const eqPatches = writeEquipmentBackToQAG(MI_PID, currentQagItemId, fieldsKey, inspData, selectedEquipment);
-      if(eqPatches) writeEquipmentBackToQAGCloud(MI_PID, eqPatches);
+      if(eqPatches) writeQAGPatchesToCloud(MI_PID, eqPatches, '사용 장비');
     }
     deleteDraftForCurrentSelection(item, itpVal); // 등록 완료했으니 임시저장은 정리
 
