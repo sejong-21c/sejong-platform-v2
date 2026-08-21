@@ -10,7 +10,7 @@
   // 이 대시보드는 읽기 전용(never writes ncrs/cars) — 실시간 구독만 한다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot, doc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, onSnapshot, doc, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -21,7 +21,7 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const fbApp = initializeApp(firebaseConfig);
-  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, getDoc, getDocs };
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, getDoc, getDocs, setDoc, deleteDoc };
 </script>
 <style>
 :root {
@@ -89,6 +89,29 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   .kpi-grid { grid-template-columns: repeat(3, 1fr); }
   .qd-grid { grid-template-columns: 1fr; }
 }
+
+/* v29.1 — 품질경향분석 보고서(양식 SJ-QTA-YY-N). 실제 결재 서식을 그대로
+   흉내내야 해서 이 화면 다른 카드들과 달리 검은 테두리 표 레이아웃을 쓴다. */
+.qt-toggle-btn { background: #fff; }
+.qt-panel { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px; }
+.qt-hist-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px dashed var(--border); }
+.qt-hist-bar select { padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; }
+.qt-doc { border: 2px solid #333; }
+.qt-doc table { width: 100%; border-collapse: collapse; }
+.qt-doc td, .qt-doc th { border: 1px solid #333; padding: 6px 10px; font-size: 12.5px; vertical-align: middle; }
+.qt-doc .qt-label { background: #F5F5F5; font-weight: 700; white-space: nowrap; width: 110px; }
+.qt-doc .qt-title { font-size: 22px; font-weight: 800; text-align: center; letter-spacing: 1px; }
+.qt-doc input, .qt-doc textarea { width: 100%; border: none; background: transparent; font-family: inherit; font-size: 12.5px; resize: vertical; padding: 2px; }
+.qt-doc input:focus, .qt-doc textarea:focus { outline: 1.5px solid var(--primary); background: var(--primary-lighter); }
+.qt-result-box { padding: 12px 14px; white-space: pre-wrap; line-height: 1.7; font-size: 12.5px; min-height: 90px; }
+.qt-section-hdr { text-align: center; font-weight: 700; background: #F5F5F5; }
+.qt-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+@media print {
+  body * { visibility: hidden; }
+  .qt-doc, .qt-doc * { visibility: visible; }
+  .qt-doc { position: absolute; left: 0; top: 0; width: 100%; border: none; }
+  .qt-actions, .qt-hist-bar, .qt-noprint { display: none !important; }
+}
 </style>
 </head>
 <body>
@@ -113,6 +136,7 @@ function loadState() {
   if (!state.cars)     state.cars = [];
   if (!state.projects) state.projects = [];
   if (!state.users)    state.users = [];
+  if (!state.trendReports) state.trendReports = [];
 }
 
 function startFirestoreSync() {
@@ -122,6 +146,7 @@ function startFirestoreSync() {
   subscribeNcrsColl();
   subscribeCarsColl();
   subscribeProjectsColl();
+  subscribeTrendReportsColl();
 }
 // v29.17 fix: 인증 확인 후에도 토큰 리프레시 타이밍 등으로 아주 드물게
 // permission-denied가 한 번 나면 그 뒤론 재구독 없이 리스너가 영구히 죽어
@@ -147,6 +172,15 @@ function subscribeProjectsColl() {
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     render();
   }, e => { console.error('[projects 구독]', e); setTimeout(subscribeProjectsColl, 3000); });
+}
+// v29.1: 품질경향분석 보고서(회차별 저장본) — t_ 프리픽스 컬렉션이라
+// firestore.rules의 공용 와일드카드 규칙(97-99행)에 이미 포함돼 있어 별도
+// 규칙 추가가 필요 없다.
+function subscribeTrendReportsColl() {
+  fb.onSnapshot(fb.collection(fb.db, 't_qualityTrendReports'), snap => {
+    state.trendReports = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    render();
+  }, e => { console.error('[trendReports 구독]', e); setTimeout(subscribeTrendReportsColl, 3000); });
 }
 
 function getP(id) { return (state.projects||[]).find(p => p.id === id) || null; }
@@ -331,6 +365,282 @@ function lineSvg(periodData) {
 /* ═══ 필터 옵션 갱신 ═══ */
 function setFilter(key, val) { qf[key] = val; render(); }
 
+/* ═══ 품질경향분석 보고서 (SJ-QTA-YY-N 양식) ═══
+   대표이사 보고용 정식 문서를 그대로 재현한다 — 원본 서식은 표지(1페이지)만
+   확보돼 있어(분석결과 서술 + 개선요구사항 표 + 결재란), 나머지 상세 분석
+   (품질요건별/발생분야별/원인별/작업대상별/불량원인별/처리방안별)은 이미
+   이 화면에 있는 발생장소별/불량원인별/불량원인상세별/처리방안별/등급별/
+   CAR상태별 차트를 그대로 첨부 자료로 재활용한다(사용자 확인 완료).
+   AI는 초안만 채우고 사람이 검토·수정 후 저장 버튼을 눌러야 실제로
+   Firestore에 반영된다("AI가 직접 저장하지 않는다" 원칙 준수). */
+const QT_TARGETS_DEFAULT = '1. 시정조치요구서(내부감사시 시정조치 내용 포함), 2. 불일치사항보고서, 3. PJT 결과 평가서';
+const QT_PURPOSE_DEFAULT = '세종기술 품질문제점의 경향을 분석하고 발생된 문제점의 재발 방지함에 목적이 있음';
+const QT_ITEMS_LABEL = '품질요건별, 발생분야별, 원인별, 작업대상별, 불량원인별, 처리방안별';
+let qt = { open: false, current: null, generating: false, saving: false };
+// car.html의 AI 요약 기능과 동일한 패턴(회사 공용 게이트웨이 9Router 직접 호출) 재사용.
+function _aiGatewayUrl() {
+  try { return (localStorage.getItem('sjp_ai_gateway_url') || '').trim() || 'https://sejong-ai-gateway.cwkim-65d.workers.dev'; }
+  catch(e) { return 'https://sejong-ai-gateway.cwkim-65d.workers.dev'; }
+}
+
+function qtNextDocNo(reports) {
+  const yy = new Date().getFullYear().toString().slice(2);
+  const usedSeq = reports.filter(r => r.docNo && r.docNo.startsWith(`SJ-QTA-${yy}-`))
+    .map(r => parseInt(r.docNo.split('-').pop(), 10)).filter(n => !isNaN(n));
+  const seq = (usedSeq.length ? Math.max(...usedSeq) : 0) + 1;
+  return `SJ-QTA-${yy}-${seq}`;
+}
+function qtPeriodLabel() {
+  const parts = [];
+  parts.push(qf.year ? `${qf.year}년` : '전체 기간');
+  if (qf.quarter) parts.push(`${qf.quarter}분기`);
+  if (qf.proj) parts.push(projFullLabel({ proj: qf.proj, meta: (state.ncrs||[]).find(n=>n.proj===qf.proj)?.meta }));
+  return parts.join(' · ');
+}
+function qtNewDraft() {
+  qt.current = {
+    id: null,
+    docNo: qtNextDocNo(state.trendReports || []),
+    analysisDate: new Date().toISOString().slice(0,10),
+    periodLabel: qtPeriodLabel(),
+    targets: QT_TARGETS_DEFAULT,
+    purpose: QT_PURPOSE_DEFAULT,
+    resultText: '',
+    improvements: [],
+    ceoInstruction: '',
+    preparedBy: '', reviewedBy: '', approvedBy: ''
+  };
+  render();
+}
+function qtOpenPanel() {
+  qt.open = true;
+  if (!qt.current) {
+    const latest = (state.trendReports||[]).slice().sort((a,b)=>(b.analysisDate||'').localeCompare(a.analysisDate||''))[0];
+    if (latest) qt.current = JSON.parse(JSON.stringify(latest));
+    else qtNewDraft();
+  }
+  render();
+  setTimeout(() => { const el = document.getElementById('qt-panel'); if (el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40);
+}
+function qtClosePanel() { qt.open = false; render(); }
+function qtLoadReport(id) {
+  if (!id) { qtNewDraft(); return; }
+  const r = (state.trendReports||[]).find(x => x.id === id);
+  if (r) qt.current = JSON.parse(JSON.stringify(r));
+  render();
+}
+function qtSetField(key, val) { if (qt.current) { qt.current[key] = val; } }
+function qtAddImprovement() {
+  if (!qt.current) return;
+  qt.current.improvements = qt.current.improvements || [];
+  qt.current.improvements.push({ req:'', team:'', carNo:'', due:'', remark:'' });
+  render();
+}
+function qtRemoveImprovement(i) {
+  if (!qt.current) return;
+  qt.current.improvements.splice(i, 1);
+  render();
+}
+function qtSetImprovement(i, key, val) {
+  if (!qt.current || !qt.current.improvements[i]) return;
+  qt.current.improvements[i][key] = val;
+}
+// 필터 조건(qf)이 적용된 NCR/CAR를 문장으로 풀어 AI에게 넘길 통계 블록을 만든다.
+// count()는 이미 위에서 정의된 헬퍼(각 항목의 등장 횟수를 센다)를 재사용.
+function qtBuildStatsBlock(ncrs, cars) {
+  const top = (obj, n) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0, n||5)
+    .map(([k,v]) => `${k} ${v}건`).join(', ') || '데이터 없음';
+  const openNcr = ncrs.filter(n => n.status !== 'closed').length;
+  const openCar = cars.filter(c => c.status !== 'closed').length;
+  const today = new Date().toISOString().slice(0,10);
+  const overdueCar = cars.filter(c => c.status !== 'closed' && c.replyDue && c.replyDue < today).length;
+  return [
+    `분석대상 건수: 불일치사항보고서(NCR) ${ncrs.length}건(진행중 ${openNcr}건), 시정조치요구서(CAR) ${cars.length}건(진행중 ${openCar}건, 회신기한 초과 ${overdueCar}건)`,
+    `발생장소별: ${top(count(ncrs,'location'))}`,
+    `불량원인별: ${top(count(ncrs,'cause'))}`,
+    `불량원인 상세별: ${top(count(ncrs,'causeDetail'))}`,
+    `처리방안별: ${top(count(ncrs,'disposition'))}`,
+    `등급별: ${top(count(ncrs,'grade'))}`,
+    `CAR 상태별: ${top(count(cars,'status'))}`,
+    `CAR 발생분야별: ${top(count(cars,'field'))}`
+  ].join('\n');
+}
+async function qtRunAi() {
+  if (!qt.current) return;
+  if (!window.fb || !fb.auth?.currentUser) { alert('로그인 확인 중입니다 — 잠시 후 다시 시도하세요'); return; }
+  const ncrs = filteredNcrs(), cars = filteredCars();
+  if (!ncrs.length && !cars.length) { alert('현재 필터 조건에 해당하는 NCR/CAR 데이터가 없습니다. 상단 필터를 조정해 주세요.'); return; }
+  qt.generating = true; render();
+  try {
+    const statsBlock = qtBuildStatsBlock(ncrs, cars);
+    const idToken = await fb.auth.currentUser.getIdToken();
+    const res = await fetch(_aiGatewayUrl() + '/v1/9router/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({
+        model: 'cc/claude-opus-4-7',
+        max_tokens: 1300,
+        messages: [
+          { role: 'system', content: '너는 ㈜세종기술 품질관리부의 품질경향분석 담당자다. 주어진 NCR(불일치사항보고서)·CAR(시정조치요구서) 통계를 바탕으로 사내 "품질경향분석 보고서"의 분석결과 문단과 개선요구사항을 작성한다. 반드시 아래 JSON 형식으로만 답하고, 그 앞뒤로 다른 텍스트·코드블록 표시(```)를 절대 붙이지 마라.\n{"resultText":"□ 문장...\\n\\n□ 문장...","improvements":[{"req":"...","team":"...","remark":""}]}\nresultText는 "□ "로 시작하는 문단 3~5개를 빈 줄(\\n\\n)로 구분해서 한국어로 작성하고, 통계에 나온 구체적 건수를 인용해 경향·근본원인·개선방향을 서술한다(과장하지 말고 주어진 수치 범위 안에서만 판단). improvements는 통계에서 드러난 문제에 대한 구체적 개선요구사항을 0~3개까지만 제안한다(team은 통계상 원인에 맞는 팀명 예: 품질관리부/설계팀/생산팀/구매팀/현장관리팀, req는 한 문장, remark는 선택적 참고사항 또는 빈 문자열).' },
+            { role: 'user', content: `분석기간: ${qt.current.periodLabel}\n\n${statsBlock}` }
+          ]
+        })
+      });
+    if (!res.ok) { const t = await res.text().catch(()=>''); throw new Error(`AI 게이트웨이 오류 (${res.status}) ${t.slice(0,150)}`); }
+    const data = await res.json();
+    const raw = (data.choices?.[0]?.message?.content || '').trim();
+    const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/,'').trim();
+    let parsed;
+    try { parsed = JSON.parse(jsonStr); } catch(e) { throw new Error('AI 응답을 해석하지 못했습니다: ' + raw.slice(0,200)); }
+    qt.current.resultText = parsed.resultText || '';
+    qt.current.improvements = Array.isArray(parsed.improvements)
+      ? parsed.improvements.map(x => ({ req:x.req||'', team:x.team||'', carNo:'', due:'', remark:x.remark||'' }))
+      : [];
+  } catch(e) {
+    alert('❌ AI 경향분석 실패: ' + (e.message || e));
+  } finally {
+    qt.generating = false; render();
+  }
+}
+async function qtSaveReport() {
+  if (!qt.current) return;
+  if (!window.fb || !fb.db || !fb.auth?.currentUser) { alert('로그인 확인 중입니다 — 잠시 후 다시 시도하세요'); return; }
+  qt.saving = true; render();
+  try {
+    const id = qt.current.id || qt.current.docNo;
+    const payload = { ...qt.current, id, updatedAt: new Date().toISOString(), updatedBy: fb.auth.currentUser.email };
+    if (!qt.current.id) { payload.createdAt = payload.updatedAt; payload.createdBy = payload.updatedBy; }
+    await fb.setDoc(fb.doc(fb.db, 't_qualityTrendReports', id), payload, { merge: true });
+    qt.current.id = id;
+    showToastQt('저장되었습니다: ' + id);
+  } catch(e) {
+    alert('❌ 저장 실패: ' + (e.message || e));
+  } finally {
+    qt.saving = false; render();
+  }
+}
+async function qtDeleteReport(id) {
+  if (!id) return;
+  if (!confirm(`${id} 보고서를 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
+  try {
+    await fb.deleteDoc(fb.doc(fb.db, 't_qualityTrendReports', id));
+    if (qt.current && qt.current.id === id) qtNewDraft();
+  } catch(e) { alert('❌ 삭제 실패: ' + (e.message||e)); }
+}
+function qtPrint() { window.print(); }
+function showToastQt(msg) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 16px;border-radius:20px;font-size:12px;z-index:999;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+function qtImprovementsRowsHtml() {
+  const rows = (qt.current.improvements || []);
+  const body = rows.map((r,i) => `<tr>
+    <td><input value="${_qdHtmlEsc(r.req||'')}" onchange="qtSetImprovement(${i},'req',this.value)" placeholder="예: 인력 충원 검토"></td>
+    <td><input value="${_qdHtmlEsc(r.team||'')}" onchange="qtSetImprovement(${i},'team',this.value)" placeholder="책임팀"></td>
+    <td><input value="${_qdHtmlEsc(r.carNo||'')}" onchange="qtSetImprovement(${i},'carNo',this.value)" placeholder="CAR-2026-001"></td>
+    <td><input type="date" value="${_qdHtmlEsc(r.due||'')}" onchange="qtSetImprovement(${i},'due',this.value)"></td>
+    <td style="display:flex;gap:4px;align-items:center;">
+      <input value="${_qdHtmlEsc(r.remark||'')}" onchange="qtSetImprovement(${i},'remark',this.value)" style="flex:1;">
+      <span class="qt-noprint" style="cursor:pointer;color:var(--danger);font-size:11px;" onclick="qtRemoveImprovement(${i})" title="행 삭제">✕</span>
+    </td>
+  </tr>`).join('');
+  return body || `<tr><td colspan="5" style="text-align:center;color:var(--text-lighter);">아직 개선요구사항이 없습니다 — AI 경향분석을 실행하거나 "+ 행 추가"를 눌러 직접 입력하세요.</td></tr>`;
+}
+function qtPanelHtml() {
+  if (!qt.open) {
+    return `<div class="qd-section" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div><h4 style="margin:0;">${LI('file-chart-column','📈')} 품질경향분석 보고서 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— NCR/CAR 경향을 AI로 분석해 정식 보고서 양식(SJ-QTA)으로 작성합니다. 저장된 보고서 ${(state.trendReports||[]).length}건.</span></h4></div>
+      <button class="btn btn-primary qt-toggle-btn" onclick="qtOpenPanel()">${LI('sparkles','✨')} 품질경향분석 보고서 열기</button>
+    </div>`;
+  }
+  if (!qt.current) qtNewDraft();
+  const c = qt.current;
+  const sorted = (state.trendReports||[]).slice().sort((a,b)=>(b.docNo||'').localeCompare(a.docNo||''));
+  return `<div id="qt-panel" class="qt-panel">
+    <div class="qt-hist-bar qt-noprint">
+      <b style="font-size:13px;">${LI('file-chart-column','📈')} 품질경향분석 보고서</b>
+      <select onchange="qtLoadReport(this.value)">
+        <option value="">+ 새 보고서 작성</option>
+        ${sorted.map(r => `<option value="${r.id}" ${c.id===r.id?'selected':''}>${r.docNo} (${r.analysisDate||'-'})</option>`).join('')}
+      </select>
+      <span style="margin-left:auto;display:flex;gap:6px;">
+        <button class="btn" onclick="qtPrint()">${LI('printer','🖨️')} 인쇄/PDF</button>
+        ${c.id ? `<button class="btn" style="color:var(--danger);" onclick="qtDeleteReport('${c.id}')">${LI('trash-2','🗑️')} 삭제</button>` : ''}
+        <button class="btn" onclick="qtClosePanel()">${LI('x','✕')} 닫기</button>
+      </span>
+    </div>
+
+    <div class="qt-doc">
+      <table>
+        <tr>
+          <td style="width:60px;text-align:center;font-size:24px;">📊</td>
+          <td class="qt-title" colspan="3">품질경향분석 보고서</td>
+          <td class="qt-label" style="width:80px;">Doc.No.</td>
+          <td style="width:130px;font-weight:700;">${_qdHtmlEsc(c.docNo)}</td>
+        </tr>
+        <tr>
+          <td class="qt-label">분석항목</td>
+          <td colspan="3">${_qdHtmlEsc(QT_ITEMS_LABEL)}</td>
+          <td class="qt-label">Page</td>
+          <td>1 / 4</td>
+        </tr>
+        <tr>
+          <td class="qt-label">분석대상</td>
+          <td colspan="3"><input value="${_qdHtmlEsc(c.targets)}" onchange="qtSetField('targets',this.value)"></td>
+          <td class="qt-label">분석일자</td>
+          <td><input type="date" value="${_qdHtmlEsc(c.analysisDate)}" onchange="qtSetField('analysisDate',this.value)"></td>
+        </tr>
+        <tr>
+          <td class="qt-label">분석목적</td>
+          <td colspan="5"><input value="${_qdHtmlEsc(c.purpose)}" onchange="qtSetField('purpose',this.value)"></td>
+        </tr>
+        <tr>
+          <td class="qt-label" style="vertical-align:top;">분석결과</td>
+          <td colspan="5" style="padding:0;">
+            <div class="qt-actions qt-noprint" style="margin:8px 10px;">
+              <span style="font-size:11px;color:var(--text-light);align-self:center;">분석기간: <b>${_qdHtmlEsc(c.periodLabel||qtPeriodLabel())}</b> (상단 필터로 조정 후 다시 실행하면 그 조건으로 재분석합니다)</span>
+              <button class="btn btn-primary" style="margin-left:auto;" onclick="qtRunAi()" ${qt.generating?'disabled':''}>${qt.generating?LI('hourglass','⏳')+' AI 분석 중...':LI('sparkles','✨')+' AI 경향분석 실행'}</button>
+            </div>
+            <textarea class="qt-result-box" rows="10" placeholder="상단 &quot;AI 경향분석 실행&quot; 버튼을 누르면 현재 필터 조건의 NCR/CAR 통계를 바탕으로 자동 작성됩니다. 직접 입력·수정도 가능합니다." onchange="qtSetField('resultText',this.value)">${_qdHtmlEsc(c.resultText||'')}</textarea>
+          </td>
+        </tr>
+      </table>
+
+      <table style="margin-top:-1px;">
+        <tr><td class="qt-section-hdr" colspan="5">개선 및 시정조치 요구사항</td></tr>
+        <tr>
+          <th style="width:28%;">개선요구사항</th><th style="width:14%;">책임팀</th><th style="width:16%;">시정조치요구서 번호</th><th style="width:12%;">완료시한</th><th>비 고</th>
+        </tr>
+        ${qtImprovementsRowsHtml()}
+        <tr class="qt-noprint"><td colspan="5" style="text-align:center;"><span style="cursor:pointer;color:var(--primary);font-size:12px;" onclick="qtAddImprovement()">${LI('plus','➕')} 행 추가</span></td></tr>
+      </table>
+
+      <table style="margin-top:-1px;">
+        <tr><td class="qt-label" style="vertical-align:top;">대표이사<br>지시사항</td>
+          <td><textarea rows="3" placeholder="대표이사 검토 후 직접 기재" onchange="qtSetField('ceoInstruction',this.value)">${_qdHtmlEsc(c.ceoInstruction||'')}</textarea></td>
+        </tr>
+      </table>
+
+      <table style="margin-top:-1px;">
+        <tr><td class="qt-section-hdr">작성</td><td class="qt-section-hdr">검토</td><td class="qt-section-hdr">승인</td></tr>
+        <tr>
+          <td><input value="${_qdHtmlEsc(c.preparedBy||'')}" onchange="qtSetField('preparedBy',this.value)" placeholder="이름"></td>
+          <td><input value="${_qdHtmlEsc(c.reviewedBy||'')}" onchange="qtSetField('reviewedBy',this.value)" placeholder="이름"></td>
+          <td><input value="${_qdHtmlEsc(c.approvedBy||'')}" onchange="qtSetField('approvedBy',this.value)" placeholder="이름"></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="qt-actions qt-noprint">
+      <button class="btn btn-primary" onclick="qtSaveReport()" ${qt.saving?'disabled':''}>${qt.saving?LI('hourglass','⏳')+' 저장 중...':LI('save','💾')+' 저장'}</button>
+      <span style="font-size:11px;color:var(--text-lighter);align-self:center;">${LI('info','ℹ️')} 상세 분석 차트(품질요건별·발생분야별·원인별·작업대상별·불량원인별·처리방안별)는 바로 아래 기존 차트를 함께 인쇄/첨부해 주세요.</span>
+    </div>
+  </div>`;
+}
+
 /* ═══ 메인 렌더 ═══ */
 function render() {
   loadState();
@@ -428,6 +738,8 @@ function render() {
       </select>
       <span class="cnt">NCR ${ncrs.length}건 · CAR ${cars.length}건</span>
     </div>
+
+    ${qtPanelHtml()}
 
     <div class="kpi-grid">
       ${_qdKpiCard('ncr','all',    'NCR 전체',        ncrs.length,                  '',                '건')}
