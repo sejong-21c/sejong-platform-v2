@@ -1928,6 +1928,58 @@ async function writeHeatNoBackToQAGCloud(pid, bomKey, bomRows){
     notifySyncError(`Heat No. 클라우드 반영 실패: ${e.message||e}`);
   }
 }
+// v29.44: 검사에 등록한 사용 장비(QR 스캔)를 QA Doc Generator의 해당
+// 성적서 "Measuring Equipment" 칸에 되돌려 쓴다 — Heat No. 되돌려쓰기와
+// 동일한 패턴(로컬 즉시 반영 + Firestore 부분 merge). 지금은 이 화면에서
+// 실제로 QA Doc Generator 데이터를 쓰는 3개 성적서만 대상:
+//   - Dimension Check IR(dim_set_아이템ID.mEq) — QA Doc Generator가 이미
+//     v1.8부터 이 필드에 JSON 배열([{name,serial,active}])이 저장돼 있으면
+//     "이름 (시리얼)" 형식으로 풀어서 보여주게 대비해 둔 상태라 그대로 맞춰 씀.
+//   - Nozzle Orientation IR(noz_set_아이템ID.mEqN) — 아이템당 1칸이라 여러
+//     장비를 " / "로 이어붙인 문자열로 저장.
+//   - Hydrostatic Test Report(hydro_set_아이템ID_가압부명.mEqH) — 가압부별로
+//     따로 있어, 이번에 등록한 가압부 이름마다 각각 반영.
+function writeEquipmentBackToQAG(pid, qagItemId, fieldsKey, inspData, equipment){
+  if(!qagItemId || !Array.isArray(equipment) || !equipment.length) return null;
+  const KEY = 'sjp_qa_doc_generator_v1__'+pid;
+  let payload;
+  try { payload = JSON.parse(localStorage.getItem(KEY)||'null'); } catch(e){ return null; }
+  if(!payload || !payload.imgStore) return null;
+  const eqJoined = equipment.map(e=>e.name?`${e.name} (${e.code})`:e.code).join(' / ');
+  const patches = {};
+  if(fieldsKey==='07'){
+    if(Array.isArray(inspData?.dimPoints) && inspData.dimPoints.length){
+      const dimKey = 'dim_set_'+qagItemId;
+      const eqArr = equipment.map(e=>({name:e.name||e.code, serial:e.code, active:true}));
+      patches[dimKey] = { ...(payload.imgStore[dimKey]||{}), mEq: JSON.stringify(eqArr) };
+    }
+    if(Array.isArray(inspData?.nozzlePoints) && inspData.nozzlePoints.length){
+      const nozKey = 'noz_set_'+qagItemId;
+      patches[nozKey] = { ...(payload.imgStore[nozKey]||{}), mEqN: eqJoined };
+    }
+  } else if(fieldsKey==='08'){
+    (inspData?.hydroParts||[]).forEach(h=>{
+      const part=(h.name||'').trim();
+      if(!part) return;
+      const hydroKey = `hydro_set_${qagItemId}_${part}`;
+      patches[hydroKey] = { ...(payload.imgStore[hydroKey]||{}), mEqH: eqJoined };
+    });
+  }
+  if(!Object.keys(patches).length) return null;
+  Object.assign(payload.imgStore, patches);
+  try { localStorage.setItem(KEY, JSON.stringify(payload)); } catch(e){}
+  return patches;
+}
+async function writeEquipmentBackToQAGCloud(pid, patches){
+  if(!patches || !Object.keys(patches).length) return;
+  if(!window.fb || !fb.db || !fb.auth || !fb.auth.currentUser) return;
+  try {
+    await fb.setDoc(fb.doc(fb.db, 't_qaGenDocs', pid), { imgStore: patches }, { merge: true });
+  } catch(e){
+    console.error('[QA Doc Generator 사용 장비 클라우드 반영 실패]', e);
+    notifySyncError(`사용 장비 클라우드 반영 실패: ${e.message||e}`);
+  }
+}
 // v29.24: getQAGProjectPayload()는 로컬 캐시(localStorage)만 보므로, 다른
 // 기기·다른 사람이 방금 입력한 최신 BOM(Heat No. 포함)을 보려면 t_qaGenDocs
 // 컬렉션에서 한 번 받아와 로컬 캐시에 얹어둬야 한다. items도 같이 덮어써야
@@ -2710,6 +2762,10 @@ async function submitUpload(){
     if(fieldsKey==='02' && inspData.materials){
       const upd = writeHeatNoBackToQAG(MI_PID, currentQagItemId, inspData.materials);
       if(upd) writeHeatNoBackToQAGCloud(MI_PID, upd.bomKey, upd.bomRows);
+    }
+    if(selectedEquipment.length && (fieldsKey==='07' || fieldsKey==='08')){
+      const eqPatches = writeEquipmentBackToQAG(MI_PID, currentQagItemId, fieldsKey, inspData, selectedEquipment);
+      if(eqPatches) writeEquipmentBackToQAGCloud(MI_PID, eqPatches);
     }
     deleteDraftForCurrentSelection(item, itpVal); // 등록 완료했으니 임시저장은 정리
 
