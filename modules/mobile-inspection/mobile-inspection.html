@@ -2525,8 +2525,17 @@ async function lookupEquipmentByCode(code){
     return { code:d.code||code, name:d.name||'', spec:d.spec||'', nextCalibration:d.nextCalibration||'' };
   }catch(e){ console.error('[측정기구 조회 실패]',e); return null; }
 }
-async function addEquipmentByCode(rawCode){
-  const code=String(rawCode||'').trim();
+// v29.46: 쉼표/세미콜론/줄바꿈으로 관리번호를 한 번에 여러 개 입력(또는 QR
+// 스캐너가 연속 스캔하며 구분자를 붙여 넣는 경우)하면, 예전엔 그 문자열
+// 전체를 코드 하나로 취급해 DB에 없는 코드로("미등록") 통째로 잘못
+// 등록됐다 — 구분자 기준으로 나눠 각각 따로 조회·추가한다.
+async function addEquipmentByCode(rawInput){
+  const codes = String(rawInput||'').split(/[,;\n\r\t]+/).map(s=>s.trim()).filter(Boolean);
+  for(const code of codes){
+    await addOneEquipmentCode(code);
+  }
+}
+async function addOneEquipmentCode(code){
   if(!code) return;
   if(selectedEquipment.some(e=>e.code.toUpperCase()===code.toUpperCase())){
     showToast('이미 추가된 장비입니다: '+code); return;
