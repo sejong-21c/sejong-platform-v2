@@ -251,7 +251,8 @@ input[type=file]{display:none}
       <i class="ti ti-qrcode" aria-hidden="true"></i> QR 스캔으로 장비 추가
     </button>
     <div style="display:flex;gap:6px">
-      <input type="text" id="equipment-add-input" placeholder="QR/바코드 스캐너 커서 · 관리번호 직접 입력도 가능" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addEquipmentByCode(this.value);this.value='';}">
+      <input type="text" id="equipment-add-input" list="equipment-code-list" placeholder="QR/바코드 스캐너 커서 · 관리번호 직접 입력도 가능" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addEquipmentByCode(this.value);this.value='';}">
+      <datalist id="equipment-code-list"></datalist>
       <button type="button" onclick="addEquipmentByCode(document.getElementById('equipment-add-input').value);document.getElementById('equipment-add-input').value='';" style="padding:0 16px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">+ 추가</button>
     </div>
   </div>
@@ -862,6 +863,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   fetchCloudITPBuilderState(); // 로컬 캐시가 없거나 오래된 경우 클라우드에서 보강
   renderInspectorToggles();
   renderEquipmentChips();
+  loadEquipmentCodeList();
   renderHist();
   startInspFirestoreSync();
 });
@@ -2523,6 +2525,24 @@ function _mtoolsDaysUntil(dateStr){
   const now=new Date(); now.setHours(0,0,0,0);
   const target=new Date(d.getFullYear(),d.getMonth(),d.getDate());
   return Math.round((target-now)/86400000);
+}
+// v29.49: "측정기구 반입출 관리"에 등록된 전체 장비 코드를 관리번호 입력창의
+// <datalist>에 채워, 몇 글자만 타이핑해도(예: "01" → "SJ-P-01") 브라우저
+// 자동완성 드롭다운으로 뜨게 한다. 목록은 자주 안 바뀌므로 이 화면을 여는
+// 동안은 한 번만 불러와 캐시한다.
+let _equipCodeListLoaded=false;
+async function loadEquipmentCodeList(){
+  if(_equipCodeListLoaded || !window.fb || !fb.db) return;
+  const dl=document.getElementById('equipment-code-list');
+  if(!dl) return;
+  try{
+    const snap=await fb.getDocs(fb.collection(fb.db,'measurementTools'));
+    dl.innerHTML=snap.docs.map(doc=>{
+      const d=doc.data();
+      return `<option value="${escapeHtml(d.code||'')}">${escapeHtml(d.name||'')}</option>`;
+    }).join('');
+    _equipCodeListLoaded=true;
+  }catch(e){ console.error('[측정기구 자동완성 목록 불러오기 실패]', e); }
 }
 // v29.47: "측정기구 반입출 관리"(measurement-tools.html) 자체 조회(findByCode)는
 // 대소문자 구분 없이 찾는데(tools.find + toUpperCase 비교), 여긴 Firestore
