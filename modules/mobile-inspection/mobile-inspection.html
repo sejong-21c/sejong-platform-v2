@@ -2516,12 +2516,20 @@ function _mtoolsDaysUntil(dateStr){
   const target=new Date(d.getFullYear(),d.getMonth(),d.getDate());
   return Math.round((target-now)/86400000);
 }
+// v29.47: "측정기구 반입출 관리"(measurement-tools.html) 자체 조회(findByCode)는
+// 대소문자 구분 없이 찾는데(tools.find + toUpperCase 비교), 여긴 Firestore
+// where('code','==',code)로 직접 질의해서 대소문자까지 정확히 일치해야만
+// 찾아졌다 — 등록된 코드와 대소문자가 다르면 "미등록"으로 잘못 뜨는 원인.
+// 그 모듈과 똑같이 전체 목록을 받아 클라이언트에서 대소문자 없이 비교한다.
 async function lookupEquipmentByCode(code){
   if(!window.fb || !fb.db) return null;
+  const target=String(code||'').trim().toUpperCase();
+  if(!target) return null;
   try{
-    const snap=await fb.getDocs(fb.query(fb.collection(fb.db,'measurementTools'), fb.where('code','==',code)));
-    if(snap.empty) return null;
-    const d=snap.docs[0].data();
+    const snap=await fb.getDocs(fb.collection(fb.db,'measurementTools'));
+    const match=snap.docs.find(doc=>String(doc.data().code||'').trim().toUpperCase()===target);
+    if(!match) return null;
+    const d=match.data();
     return { code:d.code||code, name:d.name||'', spec:d.spec||'', nextCalibration:d.nextCalibration||'' };
   }catch(e){ console.error('[측정기구 조회 실패]',e); return null; }
 }
