@@ -1265,44 +1265,39 @@
     ]
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-08-20 (daily-mail-swkim 자동 실행)",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-20-morning.html",
-    "newMails": 5,
-    "processed": 4,
+    "generatedAt": "2026-08-21 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-21-morning.html",
+    "newMails": 7,
+    "processed": 5,
     "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
-    "manday": 0.4,
+    "manday": 0.45,
     "keyActions": [
       {
-        "text": "[CAR-2026-010] 세창엔텍 시정조치요구서 — 수기 서명 원본 회신 여전히 미확인(이월). 마지막 확인 8/13, 이후 신규 메일 없음 — 회신 여부 직접 확인 필요",
+        "text": "[CAR-2026-010] 세창엔텍 시정조치요구서 — 어제(8/19) 23:31 본인이 재차 [Reminder!!!] 회신 촉구 메일 발송, 아직 회신 없음. 회신기한 8/7 기준 2주 이상 경과 — 오늘 중 회신 여부 직접 확인 필요",
         "proj": "CAR-2026-010",
         "priority": "mid"
       },
       {
-        "text": "[SJ-NCR-2026-10] PPG Korea Gasket 발주 오류 — 구매요청서 양식 개정 두고 품질부(cwkim)·구매부(wjkim) 내부 논쟁 3차 왕복(8/17~8/18), 결론 미도출. 본인은 CC 참조, 직접 회신 불요·결론 시 절차서 반영 확인만 필요",
+        "text": "[SJ-NCR-2026-10] PPG Korea Gasket 발주 오류 — 8/18 이후 관련 신규 메일 없음, 소강 상태로 추정. 본인은 CC 참조, 직접 회신 불요·결론 시 절차서 반영 확인만 필요",
         "proj": "SJ-NCR-2026-10",
         "priority": "low"
       },
       {
-        "text": "[SJE2025-057] 삼영폴리테크 93번 성적서(93A/93B.pdf) 수신(강문환 소장) — 내용 확인 후 Drive 보관",
-        "proj": "SJE2025-057",
-        "priority": "low"
-      },
-      {
-        "text": "[SJE2025-057] CD-201 SUPPORT 자재변경(H-BEAM&PIPE) 수정도면 수신 — 본인 CC, 생산부 처리 확인만 필요",
-        "proj": "SJE2025-057",
-        "priority": "low"
-      },
-      {
-        "text": "[SJ431-25] SDC 맨홀 실린더(MT-1201) COIL SPRING 사양변경 수정도면 수신 — 본인 CC, 반영 확인만 필요",
+        "text": "[SJ431-25] SDC PROJECT UT/UP-1402B PUMP STRUCTURE 도면 1건 + 구매요청서 2건(재송부 포함) 수신 — 본인 CC, 생산부·구매부 처리 확인만 필요",
         "proj": "SJ431-25",
         "priority": "low"
       },
       {
-        "text": "[SJE2026-049] 이노폴 체인커플링 구매요청서 송부 — 본인 CC, 발주 진행 확인만 필요",
-        "proj": "SJE2026-049",
+        "text": "애경캐미칼 SPRING BALANCE(VE-306) 교체 수정도면 수신 — Project 라벨 미부착(정식 수주통보 아님). 기존 진행 건인지 확인 후 필요 시 라벨 매핑 추가 권장",
+        "proj": "애경캐미칼",
+        "priority": "low"
+      },
+      {
+        "text": "포스터·현수막 시안 견적 요청(신채완 과장 발신, 화신종합인쇄사) — Project 무관 부서 행정 건, 별도 조치 불요",
+        "proj": "부서업무",
         "priority": "low"
       }
     ],
