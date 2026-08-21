@@ -529,6 +529,27 @@ function getDimCheckpointsForItem(pid,itemId){
   // 기준으로 재야 하는지 바로 보이게 한다. 값(measurePoint)에는 안 넣고 표시에만 씀.
   return Array.isArray(rows) ? rows.map(r=>({point:r.p||'', desc:r.desc||'', dwg:r.dwg||''})) : [];
 }
+// v29.42.1: QA Doc Generator의 Nozzle Orientation IR 연동 — 저장 시
+// localStorage['sjp_qa_gen_proj:'+pid].imgStore['noz_set_'+아이템ID]에
+// {noz:[{no,sz,pos,h,l,ap,ah,al,remark}], std, mEqN} 형태로 저장된다.
+// 노즐 하나당 각도(POS')·높이(H)·길이(L) 3개 측정포인트로 풀어서 반환한다
+// (pos/h/l = 도면 기준값, ap/ah/al = QA Doc Generator 쪽 실측 칸 — 여기선
+// 도면 기준값만 참고용으로 가져오고, 현장 실측값은 이 화면에서 새로 입력).
+function getNozzleCheckpointsForItem(pid,itemId){
+  if(!itemId) return [];
+  const payload=getQAGProjectPayload(pid);
+  const rows=payload?.imgStore?.['noz_set_'+itemId]?.noz;
+  if(!Array.isArray(rows)) return [];
+  const out=[];
+  rows.forEach(r=>{
+    const no=(r.no||'').trim();
+    if(!no) return;
+    out.push({label:`${no} 각도(POS')`, dwg:(r.pos||'').trim()});
+    out.push({label:`${no} 높이(H)`, dwg:(r.h||'').trim()});
+    out.push({label:`${no} 길이(L)`, dwg:(r.l||'').trim()});
+  });
+  return out;
+}
 // QA Doc Generator의 Hydrostatic Test 연동 — 가압부(Shell/Jacket/Tube Side/
 // In-Coil/Half-Coil 등, 품목 구성에 따라 자켓·인코일·하프코일 유무로 1~여러
 // 개소가 생김)마다 localStorage['sjp_qa_gen_proj:'+pid].imgStore['hydro_set_'+
@@ -1099,13 +1120,23 @@ const ITP_FIELDS={
     fields:[]
   },
   '06':{name:'NDE — Non-Destructive', fields:[], note:'📷 사진만 등록 · PC 환경에서 Accept + NDE Report 업로드'},
-  '07':{name:'Dimension Report', fields:[
-    {key:'measurePoint', label:'측정 포인트', type:'select', source:'dim-checkpoint',
-      hint:'QA Doc Generator Dimension Check IR에서 자동 불러오기'},
-    {key:'measureValue', label:'측정값', type:'text', ph:'mm'},
-    {key:'multiPoints', label:'추가 포인트 (자유 기록)', type:'textarea',
-      ph:'A: 1500 mm\nB: 6000 mm\nC: 1200 mm\n...'}
-  ]},
+  // v29.42.1: 측정 포인트 1개+자유기록 텍스트뿐이던 걸, 치수/노즐 방향을
+  // 각각 필요한 만큼 행으로 추가하는 목록형(material-list 등과 동일 패턴)으로
+  // 변경 — QA Doc Generator에 Dimension Check IR(dim_rows_)과 Nozzle
+  // Orientation IR(noz_set_)이 서로 다른 표라 소스를 분리해 별도 섹션으로 둔다.
+  '07':{name:'Visual & Dimension Check', specialType:'dim-nozzle-list',
+    dimPointFields:[
+      {key:'measurePoint', label:'측정 포인트', type:'select', source:'dim-checkpoint',
+        hint:'QA Doc Generator Dimension Check IR에서 자동 불러오기'},
+      {key:'measureValue', label:'측정값', type:'text', ph:'mm'}
+    ],
+    nozzlePointFields:[
+      {key:'measurePoint', label:'측정 포인트', type:'select', source:'nozzle-checkpoint',
+        hint:'QA Doc Generator Nozzle Orientation IR에서 자동 불러오기'},
+      {key:'measureValue', label:'측정값', type:'text', ph:'mm 또는 °'}
+    ],
+    fields:[]
+  },
   // 품목 구성(자켓/인코일/하프코일 유무)에 따라 가압부(Shell/Jacket/Tube Side
   // 등)가 1개소에서 여러 개소까지 달라지므로, 가압부마다 하나씩 추가하는
   // 목록형으로 구성. 설계 시험 압력은 QA Doc Generator의 Test Pressure를
@@ -1248,6 +1279,12 @@ function renderInspFields(itpId){
     bindFieldEvents(itpId);
     return;
   }
+  // v29.42.1 — 특수 모드: Visual & Dimension Check 치수/노즐 방향 측정포인트 목록
+  if(def.specialType==='dim-nozzle-list'){
+    wrap.innerHTML=buildDimNozzleList(def);
+    bindFieldEvents(itpId);
+    return;
+  }
   let html='';
   (def.fields||[]).forEach(f=>{
     html+=buildField(f);
@@ -1273,7 +1310,7 @@ function buildField(f, prefix=''){
     // v2.3 — QA Doc Generator 연동 select(BOM 자재 파트, Dimension Check IR
     // 측정 포인트)는 둘 다 "자료 없어도 직접 입력 가능" 패턴을 공유하므로
     // source 값에 따라 옵션만 다르게 만들고 나머지는 공통 처리한다.
-    const needsCustom = f.source==='bom-description' || f.source==='dim-checkpoint';
+    const needsCustom = f.source==='bom-description' || f.source==='dim-checkpoint' || f.source==='nozzle-checkpoint';
     if(f.source==='bom-description'){
       // Part No.(= BOM 테이블 행 번호, QA Doc Generator와 동일하게 1부터)를 라벨
       // 앞에 붙여, Description이 같은 자재(예: Shell Plate가 여러 장)도 서로
@@ -1298,6 +1335,15 @@ function buildField(f, prefix=''){
       opts = (dimOpts.length
         ? '<option value="">— 선택 —</option>'+dimOpts.map(o=>`<option value="${escapeHtml(o.val)}">${escapeHtml(o.val)}${o.dwg?` (기준: ${escapeHtml(o.dwg)})`:''}</option>`).join('')
         : '<option value="">— Dimension Check IR 데이터 없음(QA Doc Generator에서 작성 필요) —</option>')
+        + '<option value="__custom__">✏️ 직접 입력...</option>';
+    } else if(f.source==='nozzle-checkpoint'){
+      // v29.42.1: 노즐마다 각도(POS')/높이(H)/길이(L) 3개 포인트로 풀어서 표시.
+      // 저장값(measurePoint)은 라벨 그대로("N-1 각도(POS')"), 도면 기준값은
+      // 표시 텍스트에만 덧붙인다(dim-checkpoint와 동일 규칙).
+      const nozOpts=getNozzleCheckpointsForItem(MI_PID,currentQagItemId);
+      opts = (nozOpts.length
+        ? '<option value="">— 선택 —</option>'+nozOpts.map(o=>`<option value="${escapeHtml(o.label)}">${escapeHtml(o.label)}${o.dwg?` (기준: ${escapeHtml(o.dwg)})`:''}</option>`).join('')
+        : '<option value="">— Nozzle Orientation IR 데이터 없음(QA Doc Generator에서 작성 필요) —</option>')
         + '<option value="__custom__">✏️ 직접 입력...</option>';
     } else {
       opts = (f.options||[]).map(o => {
@@ -1560,6 +1606,64 @@ function addHydroRow(presetName, presetDesignP){
 function autoPopulateHydroRows(){
   getHydroPartsForItem(MI_PID,currentQagItemId).forEach(p=>addHydroRow(p.part, p.testP));
 }
+
+// v29.42.1 — Visual & Dimension Check: 치수(Dimension) / 노즐 방향(Nozzle
+// Orientation) 측정포인트를 각각 필요한 만큼 추가하는 목록 빌더. QA Doc
+// Generator 쪽 표가 서로 달라(dim_rows_ / noz_set_) 섹션을 분리해 둔다.
+function buildDimNozzleList(def){
+  let html = `<div style="margin-bottom:6px;font-size:12.5px;font-weight:600;color:#185fa5">📏 치수 측정 (Dimension)</div>`;
+  html += '<div id="dim-point-list-container" style="display:flex;flex-direction:column;gap:8px"></div>';
+  html += `<button type="button" onclick="addDimPointRow()" style="margin-top:8px;width:100%;padding:9px;background:#185fa5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+    <i class="ti ti-plus" aria-hidden="true"></i> 치수 포인트 추가
+  </button>`;
+  html += `<div style="margin:16px 0 6px;font-size:12.5px;font-weight:600;color:#0f6e56">🔩 노즐 방향 측정 (Nozzle Orientation)</div>`;
+  html += '<div id="nozzle-point-list-container" style="display:flex;flex-direction:column;gap:8px"></div>';
+  html += `<button type="button" onclick="addNozzlePointRow()" style="margin-top:8px;width:100%;padding:9px;background:#0f6e56;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+    <i class="ti ti-plus" aria-hidden="true"></i> 노즐 포인트 추가
+  </button>`;
+  html += `<p style="font-size:11px;color:#999;margin-top:8px;line-height:1.5">치수·노즐 방향 각각 필요한 만큼 포인트를 추가해 기록하세요. 해당 없는 섹션은 비워둬도 됩니다.</p>`;
+  return html;
+}
+let _dimPointCounter = 0;
+function addDimPointRow(){
+  const def = ITP_FIELDS['07'];
+  if(!def || !def.dimPointFields) return;
+  const container = document.getElementById('dim-point-list-container');
+  if(!container) return;
+  const idx = _dimPointCounter++;
+  const div = document.createElement('div');
+  div.className = 'dim-point-entry';
+  div.style.cssText = 'padding:10px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
+  let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <strong style="font-size:12px;color:#185fa5">치수 포인트 #${idx+1}</strong>
+    <button type="button" onclick="removeDimPointRow(this)" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
+  </div>`;
+  def.dimPointFields.forEach(f=>{ inner += buildField(f, `dimpt${idx}`); });
+  div.innerHTML = inner;
+  container.appendChild(div);
+  bindFieldEvents('07');
+}
+function removeDimPointRow(btn){ btn.closest('.dim-point-entry').remove(); }
+let _nozzlePointCounter = 0;
+function addNozzlePointRow(){
+  const def = ITP_FIELDS['07'];
+  if(!def || !def.nozzlePointFields) return;
+  const container = document.getElementById('nozzle-point-list-container');
+  if(!container) return;
+  const idx = _nozzlePointCounter++;
+  const div = document.createElement('div');
+  div.className = 'nozzle-point-entry';
+  div.style.cssText = 'padding:10px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
+  let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <strong style="font-size:12px;color:#0f6e56">노즐 포인트 #${idx+1}</strong>
+    <button type="button" onclick="removeNozzlePointRow(this)" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
+  </div>`;
+  def.nozzlePointFields.forEach(f=>{ inner += buildField(f, `nozpt${idx}`); });
+  div.innerHTML = inner;
+  container.appendChild(div);
+  bindFieldEvents('07');
+}
+function removeNozzlePointRow(btn){ btn.closest('.nozzle-point-entry').remove(); }
 
 // Material Inspection 자재 행 목록 빌더
 function buildMaterialList(def){
@@ -1913,6 +2017,12 @@ function renderInspDataDetail(rec){
   if(def.specialType==='custom-checklist'){
     return renderInspEntryList(data.customChecks, def.customFields, '입력된 검사항목이 없습니다', 'itemName', '검사항목');
   }
+  if(def.specialType==='dim-nozzle-list'){
+    return `<div style="font-size:11.5px;font-weight:600;color:#185fa5;margin-bottom:4px">📏 치수 측정</div>`
+      + renderInspEntryList(data.dimPoints, def.dimPointFields, '입력된 치수 포인트가 없습니다', 'measurePoint', '포인트')
+      + `<div style="font-size:11.5px;font-weight:600;color:#0f6e56;margin:8px 0 4px">🔩 노즐 방향 측정</div>`
+      + renderInspEntryList(data.nozzlePoints, def.nozzlePointFields, '입력된 노즐 포인트가 없습니다', 'measurePoint', '포인트');
+  }
   if(def.fields && def.fields.length){
     return `<table style="width:100%;border-collapse:collapse">${renderFieldRows(def.fields, data)}</table>`;
   }
@@ -1992,6 +2102,38 @@ function collectInspData(){
         hydro[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
       });
       data.hydroParts.push(hydro);
+    });
+  }
+  // v29.42.1 — dim-nozzle-list(치수/노즐 방향 측정포인트) 별도 수집. 측정
+  // 포인트를 안 고른(손 안 댄) 빈 행은 저장하지 않는다.
+  const dimPointEntries = document.querySelectorAll('#insp-fields .dim-point-entry');
+  if(dimPointEntries.length){
+    data.dimPoints = [];
+    dimPointEntries.forEach(entry=>{
+      const mpInput = entry.querySelector('.insp-field[data-key$=".measurePoint"]');
+      if(!(mpInput?.value||'').trim()) return;
+      const pt = {};
+      entry.querySelectorAll('.insp-field').forEach(el=>{
+        const parts = el.dataset.key.split('.');
+        const fld = parts.slice(1).join('.');
+        pt[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
+      });
+      data.dimPoints.push(pt);
+    });
+  }
+  const nozzlePointEntries = document.querySelectorAll('#insp-fields .nozzle-point-entry');
+  if(nozzlePointEntries.length){
+    data.nozzlePoints = [];
+    nozzlePointEntries.forEach(entry=>{
+      const mpInput = entry.querySelector('.insp-field[data-key$=".measurePoint"]');
+      if(!(mpInput?.value||'').trim()) return;
+      const pt = {};
+      entry.querySelectorAll('.insp-field').forEach(el=>{
+        const parts = el.dataset.key.split('.');
+        const fld = parts.slice(1).join('.');
+        pt[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
+      });
+      data.nozzlePoints.push(pt);
     });
   }
   // v29.40 — custom-checklist(직접 입력 검사항목) 별도 수집. material-list와
@@ -2143,6 +2285,10 @@ async function applyDraftToForm(draft){
     else if(def.specialType==='head-list') restoreListEntries('head-list-container', addHeadRow, ()=>{_headCounter=0;}, draft.inspData?.heads);
     else if(def.specialType==='hydro-list') restoreListEntries('hydro-list-container', addHydroRow, ()=>{_hydroCounter=0;}, draft.inspData?.hydroParts);
     else if(def.specialType==='custom-checklist') restoreListEntries('custom-list-container', addCustomCheckRow, ()=>{_customCounter=0;}, draft.inspData?.customChecks);
+    else if(def.specialType==='dim-nozzle-list'){
+      restoreListEntries('dim-point-list-container', addDimPointRow, ()=>{_dimPointCounter=0;}, draft.inspData?.dimPoints);
+      restoreListEntries('nozzle-point-list-container', addNozzlePointRow, ()=>{_nozzlePointCounter=0;}, draft.inspData?.nozzlePoints);
+    }
     else (def.fields||[]).forEach(f=>restoreFieldValue(f, draft.inspData||{}));
   }
   if(document.querySelector('#insp-fields .material-entry')) updateMaterialOverallResult();
