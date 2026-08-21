@@ -459,6 +459,89 @@
     }
   });
 
+  // ── v29.75 (로드맵 17-a): 프로젝트 일정 변경 — 두 번째 '수정' 액션 ──────
+  // complete_task와 같은 기계(direct + resolve/commit + 확인 카드)를 쓴다.
+  // 권한 문지기: PM 또는 관리자(grade super/exec)만. 권한이 없으면 카드를 아예 만들지 않는다.
+  // 아래 두 순수 함수는 modules/shared/ai-perm.mjs와 동기 유지 (검증: node test/ai-perm.test.mjs).
+  // 안전 확인(2026-08-21): projects의 start/end는 merge setDoc으로만 갱신되고 wbsData로
+  // 연쇄되는 경로 없음 (v30.3부터 자동 코드의 wbsData 쓰기 자체가 금지·제거됨).
+  function judgeEditProject(me, proj, users) {
+    me = me || {};
+    if (!me.id) return { ok: false, why: '로그인 정보를 읽지 못했습니다 — 새로고침 후 다시 시도해주세요' };
+    if (me.grade === 'super' || me.grade === 'exec') return { ok: true, why: '관리자' };
+    if (proj && proj.pm && proj.pm === me.id) return { ok: true, why: '이 프로젝트 PM' };
+    var pm = (users || []).find(function (u) { return u.id === (proj && proj.pm); });
+    return {
+      ok: false,
+      why: pm
+        ? ('이 프로젝트의 PM은 ' + pm.name + '님입니다 — PM 또는 관리자만 일정을 바꿀 수 있습니다')
+        : '이 프로젝트의 PM 또는 관리자만 일정을 바꿀 수 있습니다',
+    };
+  }
+  function checkScheduleChange(proj, start, end) {
+    var D = /^\d{4}-\d{2}-\d{2}$/;
+    proj = proj || {};
+    var upd = {};
+    var given = false;
+    if (start != null && String(start).trim() !== '') {
+      given = true; start = String(start).trim();
+      if (!D.test(start)) return { ok: false, why: '시작일 형식이 잘못됐습니다 (YYYY-MM-DD로 주세요): ' + start };
+      if (start !== proj.start) upd.start = start;
+    }
+    if (end != null && String(end).trim() !== '') {
+      given = true; end = String(end).trim();
+      if (!D.test(end)) return { ok: false, why: '마감일 형식이 잘못됐습니다 (YYYY-MM-DD로 주세요): ' + end };
+      if (end !== proj.end) upd.end = end;
+    }
+    if (!given) return { ok: false, why: '바꿀 날짜(시작일 또는 마감일)를 알려주세요.' };
+    if (!Object.keys(upd).length) return { ok: false, why: '이미 그 값입니다 — 바뀌는 내용이 없습니다.' };
+    var ns = upd.start || proj.start, ne = upd.end || proj.end;
+    if (ns && ne && ns > ne) return { ok: false, why: '시작일(' + ns + ')이 마감일(' + ne + ')보다 늦습니다 — 날짜를 확인해주세요.' };
+    return { ok: true, updates: upd };
+  }
+
+  registerAction('update_project_schedule', {
+    description: '프로젝트 시작일/마감일 변경 — PM 또는 관리자만 가능. 확인 카드에서 사용자가 [일정 변경]을 눌러야 실제 반영된다. "SJE2026-001 마감을 4월 말로 미뤄줘" 같은 요청에 사용',
+    params: {
+      project: '프로젝트 이름 또는 코드 (일부만 입력해도 됨)',
+      start: '새 시작일 YYYY-MM-DD (바꿀 때만)',
+      end: '새 마감일 YYYY-MM-DD (바꿀 때만)',
+    },
+    direct: true,
+    resolve: function (v) {
+      var q = String(v.project || '').toLowerCase().trim();
+      if (!q) return { error: '어느 프로젝트인지 이름이나 코드를 알려주세요.' };
+      var hits = (state.projects || []).filter(function (p) {
+        return !p.hidden && (((p.code || '') + ' ' + (p.name || '')).toLowerCase().indexOf(q) !== -1);
+      });
+      if (!hits.length) return { error: '"' + v.project + '" 프로젝트를 찾지 못했습니다.' };
+      if (hits.length > 1) {
+        return { error: '해당하는 프로젝트가 ' + hits.length + '개입니다. 코드로 정확히 알려주세요: ' + hits.slice(0, 5).map(function (p) { return (p.code || '') + ' ' + (p.name || ''); }).join(', ') + (hits.length > 5 ? ' 외' : '') };
+      }
+      var p = hits[0];
+      var me = (typeof getU === 'function' ? getU(state.currentUser) : null);
+      var perm = judgeEditProject(me, p, state.users);
+      if (!perm.ok) return { error: perm.why };            // 권한 없으면 카드를 만들지 않는다
+      var chk = checkScheduleChange(p, v.start, v.end);
+      if (!chk.ok) return { error: chk.why };
+      var pmU = (state.users || []).find(function (u) { return u.id === p.pm; });
+      return {
+        pid: p.id, updates: chk.updates,
+        cardLines: [
+          '프로젝트: ' + (p.code ? p.code + ' ' : '') + (p.name || ''),
+          chk.updates.start ? ('시작: ' + (p.start || '(없음)') + '  →  ' + chk.updates.start) : null,
+          chk.updates.end ? ('마감: ' + (p.end || '(없음)') + '  →  ' + chk.updates.end) : null,
+          'PM: ' + (pmU ? pmU.name : '(미지정)') + ' · 내 권한: ' + perm.why,
+        ].filter(Boolean),
+        confirmLabel: '일정 변경',
+      };
+    },
+    commit: function (resolved) {
+      // 바뀌는 필드만 merge — projects 문서의 다른 필드·wbsData는 절대 건드리지 않는다
+      return fb.setDoc(fb.doc(fb.db, 'projects', resolved.pid), resolved.updates, { merge: true });
+    }
+  });
+
   // Layer 3 — 메신저 iframe을 열지 않고 같은 messages 컬렉션에 직접 기록.
   // 폼을 채우는 대신 채팅창 안 인라인 확인 카드로 처리(아래 renderConfirmCard 참고).
   registerAction('send_message', {
@@ -1259,6 +1342,7 @@
     '"오늘 뭐 해야 해", "브리핑" 같은 요청은 get_briefing 도구로 처리한다 — 지연 업무와 오늘 마감을 맨 앞에 강조하고, 일정→결재→알림 순으로 간결히 요약해라.',
     '"엑셀로/PDF로 뽑아줘·저장해줘" 요청은 export_result 도구로 처리한다 — 직전 query_state 결과가 파일이 되므로, 아직 조회 전이면 먼저 query_state를 호출해라.',
     '"OO 업무 끝났어/완료 처리해줘" 요청은 complete_task 도구로 처리한다 — 채팅에 확인 카드가 뜨고 사용자가 [완료 처리]를 눌러야 실제 반영된다는 것을 답변에 알려줘라.',
+    '"프로젝트 마감을 미뤄줘/시작일 바꿔줘" 같은 프로젝트 일정 변경은 update_project_schedule 도구로 처리한다 — PM 또는 관리자만 가능하고, 확인 카드에서 사용자가 [일정 변경]을 눌러야 반영된다. 날짜는 반드시 YYYY-MM-DD로 변환해서 넘겨라("4월 말"이면 그 해 4월의 마지막 날). 권한이 없다고 거부되면 안내 문구(누가 PM인지)를 그대로 전해라. WBS(공정표) 행 수정은 이 도구로 하지 않는다 — 그건 여전히 미지원.',
     '품질 매뉴얼·절차서·규정 등 사내 문서 내용 질문은 search_docs로 검색해서 답하고, 반드시 출처(문서명)를 함께 표시해라. 검색 결과가 비었거나 오류면 그 사실을 그대로 알리고 지어내지 마라.',
     'quotes(견적) 데이터만 사용자 브라우저에 저장되어 다른 직원 화면과 다를 수 있다 — 견적 질문에는 이 점을 알려줘라.',
     '답변에 내부 ID(무작위 영숫자 코드, 예: RWqHYJ..., pu_17831...)를 절대 그대로 쓰지 마라. 조회 데이터에는 담당자가 이름으로 변환돼 있다 — 혹시 변환 안 된 ID가 남아 있으면 그 값은 빼고 "(미확인 사용자)"라고 표기해라.',
