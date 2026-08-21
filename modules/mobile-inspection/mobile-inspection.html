@@ -529,26 +529,20 @@ function getDimCheckpointsForItem(pid,itemId){
   // 기준으로 재야 하는지 바로 보이게 한다. 값(measurePoint)에는 안 넣고 표시에만 씀.
   return Array.isArray(rows) ? rows.map(r=>({point:r.p||'', desc:r.desc||'', dwg:r.dwg||''})) : [];
 }
-// v29.42.1: QA Doc Generator의 Nozzle Orientation IR 연동 — 저장 시
+// v29.42.1/.2: QA Doc Generator의 Nozzle Orientation IR 연동 — 저장 시
 // localStorage['sjp_qa_gen_proj:'+pid].imgStore['noz_set_'+아이템ID]에
 // {noz:[{no,sz,pos,h,l,ap,ah,al,remark}], std, mEqN} 형태로 저장된다.
-// 노즐 하나당 각도(POS')·높이(H)·길이(L) 3개 측정포인트로 풀어서 반환한다
-// (pos/h/l = 도면 기준값, ap/ah/al = QA Doc Generator 쪽 실측 칸 — 여기선
-// 도면 기준값만 참고용으로 가져오고, 현장 실측값은 이 화면에서 새로 입력).
+// 노즐 하나를 고르면 각도(POS')·높이(H)·길이(L) 3개를 한 번에 입력하므로,
+// 노즐 단위(도면 기준값 3개 포함)로 반환한다 — pos/h/l = 도면 기준값,
+// ap/ah/al = QA Doc Generator 쪽 실측 칸(참고용, 여기선 안 씀).
 function getNozzleCheckpointsForItem(pid,itemId){
   if(!itemId) return [];
   const payload=getQAGProjectPayload(pid);
   const rows=payload?.imgStore?.['noz_set_'+itemId]?.noz;
   if(!Array.isArray(rows)) return [];
-  const out=[];
-  rows.forEach(r=>{
-    const no=(r.no||'').trim();
-    if(!no) return;
-    out.push({label:`${no} 각도(POS')`, dwg:(r.pos||'').trim()});
-    out.push({label:`${no} 높이(H)`, dwg:(r.h||'').trim()});
-    out.push({label:`${no} 길이(L)`, dwg:(r.l||'').trim()});
-  });
-  return out;
+  return rows
+    .map(r=>({no:(r.no||'').trim(), pos:(r.pos||'').trim(), h:(r.h||'').trim(), l:(r.l||'').trim()}))
+    .filter(r=>r.no);
 }
 // QA Doc Generator의 Hydrostatic Test 연동 — 가압부(Shell/Jacket/Tube Side/
 // In-Coil/Half-Coil 등, 품목 구성에 따라 자켓·인코일·하프코일 유무로 1~여러
@@ -1130,10 +1124,14 @@ const ITP_FIELDS={
         hint:'QA Doc Generator Dimension Check IR에서 자동 불러오기'},
       {key:'measureValue', label:'측정값', type:'text', ph:'mm'}
     ],
+    // v29.42.2: 노즐 하나를 고르면 각도/높이/길이 3개 실측값을 한 번에
+    // 입력한다(전엔 이 3개를 각각 별도 포인트로 골라 하나씩 입력해야 했음).
     nozzlePointFields:[
-      {key:'measurePoint', label:'측정 포인트', type:'select', source:'nozzle-checkpoint',
+      {key:'nozzleNo', label:'노즐 선택', type:'select', source:'nozzle-select',
         hint:'QA Doc Generator Nozzle Orientation IR에서 자동 불러오기'},
-      {key:'measureValue', label:'측정값', type:'text', ph:'mm 또는 °'}
+      {key:'posValue', label:'각도(POS\') 실측값', type:'text', ph:'° (예: 0)'},
+      {key:'hValue', label:'높이(H) 실측값', type:'text', ph:'mm'},
+      {key:'lValue', label:'길이(L) 실측값', type:'text', ph:'mm'}
     ],
     fields:[]
   },
@@ -1310,7 +1308,7 @@ function buildField(f, prefix=''){
     // v2.3 — QA Doc Generator 연동 select(BOM 자재 파트, Dimension Check IR
     // 측정 포인트)는 둘 다 "자료 없어도 직접 입력 가능" 패턴을 공유하므로
     // source 값에 따라 옵션만 다르게 만들고 나머지는 공통 처리한다.
-    const needsCustom = f.source==='bom-description' || f.source==='dim-checkpoint' || f.source==='nozzle-checkpoint';
+    const needsCustom = f.source==='bom-description' || f.source==='dim-checkpoint' || f.source==='nozzle-select';
     if(f.source==='bom-description'){
       // Part No.(= BOM 테이블 행 번호, QA Doc Generator와 동일하게 1부터)를 라벨
       // 앞에 붙여, Description이 같은 자재(예: Shell Plate가 여러 장)도 서로
@@ -1336,13 +1334,15 @@ function buildField(f, prefix=''){
         ? '<option value="">— 선택 —</option>'+dimOpts.map(o=>`<option value="${escapeHtml(o.val)}">${escapeHtml(o.val)}${o.dwg?` (기준: ${escapeHtml(o.dwg)})`:''}</option>`).join('')
         : '<option value="">— Dimension Check IR 데이터 없음(QA Doc Generator에서 작성 필요) —</option>')
         + '<option value="__custom__">✏️ 직접 입력...</option>';
-    } else if(f.source==='nozzle-checkpoint'){
-      // v29.42.1: 노즐마다 각도(POS')/높이(H)/길이(L) 3개 포인트로 풀어서 표시.
-      // 저장값(measurePoint)은 라벨 그대로("N-1 각도(POS')"), 도면 기준값은
-      // 표시 텍스트에만 덧붙인다(dim-checkpoint와 동일 규칙).
-      const nozOpts=getNozzleCheckpointsForItem(MI_PID,currentQagItemId);
-      opts = (nozOpts.length
-        ? '<option value="">— 선택 —</option>'+nozOpts.map(o=>`<option value="${escapeHtml(o.label)}">${escapeHtml(o.label)}${o.dwg?` (기준: ${escapeHtml(o.dwg)})`:''}</option>`).join('')
+    } else if(f.source==='nozzle-select'){
+      // v29.42.2: 노즐 하나를 고르면 각도/높이/길이 3칸을 한 번에 입력하므로,
+      // 옵션에는 노즐 번호와 3개 도면 기준값을 한꺼번에 참고용으로 보여준다.
+      // 저장값(nozzleNo)은 노즐 번호만("N-1") — 이후 QA Doc Generator 실측칸
+      // (ap/ah/al)에 되돌려 쓸 때 이 번호로 매칭할 수 있게 순수 값으로 둔다.
+      const nozRows=getNozzleCheckpointsForItem(MI_PID,currentQagItemId);
+      const fmtRef=r=>`(POS 기준: ${r.pos||'—'} · H 기준: ${r.h?r.h+'mm':'—'} · L 기준: ${r.l?r.l+'mm':'—'})`;
+      opts = (nozRows.length
+        ? '<option value="">— 선택 —</option>'+nozRows.map(r=>`<option value="${escapeHtml(r.no)}">${escapeHtml(r.no)} ${escapeHtml(fmtRef(r))}</option>`).join('')
         : '<option value="">— Nozzle Orientation IR 데이터 없음(QA Doc Generator에서 작성 필요) —</option>')
         + '<option value="__custom__">✏️ 직접 입력...</option>';
     } else {
@@ -2021,7 +2021,7 @@ function renderInspDataDetail(rec){
     return `<div style="font-size:11.5px;font-weight:600;color:#185fa5;margin-bottom:4px">📏 치수 측정</div>`
       + renderInspEntryList(data.dimPoints, def.dimPointFields, '입력된 치수 포인트가 없습니다', 'measurePoint', '포인트')
       + `<div style="font-size:11.5px;font-weight:600;color:#0f6e56;margin:8px 0 4px">🔩 노즐 방향 측정</div>`
-      + renderInspEntryList(data.nozzlePoints, def.nozzlePointFields, '입력된 노즐 포인트가 없습니다', 'measurePoint', '포인트');
+      + renderInspEntryList(data.nozzlePoints, def.nozzlePointFields, '입력된 노즐 포인트가 없습니다', 'nozzleNo', '노즐');
   }
   if(def.fields && def.fields.length){
     return `<table style="width:100%;border-collapse:collapse">${renderFieldRows(def.fields, data)}</table>`;
@@ -2125,8 +2125,8 @@ function collectInspData(){
   if(nozzlePointEntries.length){
     data.nozzlePoints = [];
     nozzlePointEntries.forEach(entry=>{
-      const mpInput = entry.querySelector('.insp-field[data-key$=".measurePoint"]');
-      if(!(mpInput?.value||'').trim()) return;
+      const noInput = entry.querySelector('.insp-field[data-key$=".nozzleNo"]');
+      if(!(noInput?.value||'').trim()) return;
       const pt = {};
       entry.querySelectorAll('.insp-field').forEach(el=>{
         const parts = el.dataset.key.split('.');
