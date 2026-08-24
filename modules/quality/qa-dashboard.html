@@ -644,73 +644,238 @@ function qtDocStaticHtml(c) {
     </tr>
   </table>`;
 }
-function qtNcrListTableHtml(ncrs) {
-  if (!ncrs.length) return `<div style="text-align:center;color:#999;padding:20px;">해당 조건의 NCR이 없습니다</div>`;
-  const rows = ncrs.map(n => {
-    const p = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (getP(n.proj)?.code||'-');
-    return `<tr>
-      <td>${_qdHtmlEsc(n.id)}</td><td>${_qdHtmlEsc(p)}</td><td>${_qdHtmlEsc(n.item||'-')}</td>
-      <td>${_qdHtmlEsc(n.location||'-')}</td><td>${_qdHtmlEsc(n.cause||'-')}</td><td>${_qdHtmlEsc(n.causeDetail||'-')}</td>
-      <td>${_qdHtmlEsc(n.disposition||'-')}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
-      <td>${n.status==='closed'?'종결':'진행중'}</td>
-    </tr>`;
+// v29.1.9: 사용자가 새로 만든 차트/목록 대신, NCR/CAR 모듈 자체의 "경향분석 →
+// 보고서 출력"이 실제로 뽑아내는 그 인쇄물(색상·KPI 카드·차트까지)을 그대로
+// 붙임1·2(NCR)·4·5(CAR)에 넣어달라고 요청함 — modules/ncr/ncr.html의
+// printNCRTrend(), modules/car/car.html의 printCARTrend()에서 쓰는 _barSvg/
+// _donutSvg/_lineSvg·KPI·표 마크업을 그대로 이식한다(원본이 바뀌면 같이 갱신).
+// onClickField 인자는 원본 그대로 남겨두되 항상 생략해서 호출 — 그러면
+// `onClickField && ntrDrill[...]` 단축평가로 그 분기가 실행되지 않아
+// ntrDrill/toggleNtrDrill/_drillEsc(이 파일엔 없음)를 참조할 일이 없다.
+function _trBarSvg(entries, colors, onClickField) {
+  if (!entries.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
+  const max = Math.max(...entries.map(e=>e[1]), 1);
+  const n = entries.length;
+  const W = 300, PL = 10, PR = 10, PT = 28, PB = n > 5 ? 60 : 38;
+  const H = 170;
+  const iW = W - PL - PR, iH = H - PT - PB;
+  const gap = iW / n;
+  const bW = Math.max(8, Math.min(40, Math.floor(gap * 0.55)));
+  const rotate = n > 5;
+  const bars = entries.map(([label, val], i) => {
+    const bH = val === 0 ? 0 : Math.max(4, Math.round(val / max * iH));
+    const cx = PL + Math.round(i * gap + gap / 2);
+    const by = PT + iH - bH;
+    const valY = by - 6;
+    const lblY = H - PB + (rotate ? 4 : 14);
+    const lbl = _qdHtmlEsc(String(label).length > 7 ? String(label).slice(0, 6) + '…' : label);
+    const anchor = rotate ? 'end' : 'middle';
+    const selected = onClickField && ntrDrill[onClickField] === label;
+    const gAttrs = onClickField ? ` style="cursor:pointer;" onclick="toggleNtrDrill('${onClickField}','${_drillEsc(label)}')"` : '';
+    return `<g${gAttrs}>
+      <rect x="${cx - bW/2}" y="${by}" width="${bW}" height="${bH}" rx="3" fill="${colors[i % colors.length]}"${selected?' stroke="#111" stroke-width="2.5"':''}/>
+      <text x="${cx}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${val}</text>
+      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="${selected?'#111':'#666'}" font-weight="${selected?'700':'400'}"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${lbl}</text>
+    </g>`;
   }).join('');
-  return `<table><thead><tr><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<svg viewBox="-2 -4 ${W+4} ${H+8}" style="width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible;">
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
+    ${bars}
+  </svg>`;
 }
-function qtCarListTableHtml(cars) {
-  if (!cars.length) return `<div style="text-align:center;color:#999;padding:20px;">해당 조건의 CAR이 없습니다</div>`;
-  const rows = cars.map(c => {
-    const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
-    return `<tr>
-      <td>${_qdHtmlEsc(c.id)}</td><td>${_qdHtmlEsc(c.ncrId||'단독')}</td><td>${_qdHtmlEsc(c.reqDept||'-')}</td>
-      <td>${_qdHtmlEsc(c.field||'-')}</td><td>${_qdHtmlEsc(c.cause||'-')}</td><td>${c.issuedAt||'-'}</td>
-      <td>${c.replyDue||'-'}</td><td>${c.closedAt||'-'}</td><td>${st[1]}</td>
-    </tr>`;
+function _trDonutSvg(entries, colors, onClickField) {
+  if (!entries.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  if (!total) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
+  const cx=75, cy=75, R=58, ri=34;
+  const mid_r = (R + ri) / 2;
+  const LX = 148, rowH = 20;
+  const H = Math.max(160, entries.length * rowH + 24);
+  let angle = -Math.PI/2;
+  const slices = entries.map(([label,val],i) => {
+    const a = (val/total)*2*Math.PI;
+    const x1=cx+R*Math.cos(angle), y1=cy+R*Math.sin(angle);
+    angle += a;
+    const x2=cx+R*Math.cos(angle), y2=cy+R*Math.sin(angle);
+    const lg = a>Math.PI?1:0;
+    const midA = angle - a/2;
+    const tx = cx + mid_r * Math.cos(midA);
+    const ty = cy + mid_r * Math.sin(midA);
+    const pct = Math.round(val/total*100);
+    const selected = onClickField && ntrDrill[onClickField] === label;
+    const gAttrs = onClickField ? ` style="cursor:pointer;" onclick="toggleNtrDrill('${onClickField}','${_drillEsc(label)}')"` : '';
+    return `<g${gAttrs}><path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${cx},${cy} Z" fill="${colors[i%colors.length]}"${selected?' stroke="#111" stroke-width="2"':''}/>
+    ${a > 0.4 ? `<text x="${tx.toFixed(1)}" y="${(ty+3.5).toFixed(1)}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">${pct}%</text>` : ''}</g>`;
+  });
+  const legend = entries.map(([label,val],i) => {
+    const lbl = _qdHtmlEsc(String(label).length > 8 ? String(label).slice(0,7)+'…' : label);
+    const selected = onClickField && ntrDrill[onClickField] === label;
+    const gAttrs = onClickField ? ` style="cursor:pointer;" onclick="toggleNtrDrill('${onClickField}','${_drillEsc(label)}')"` : '';
+    return `<g transform="translate(${LX},${(H-entries.length*rowH)/2+i*rowH})"${gAttrs}>
+      <rect width="10" height="10" rx="2" fill="${colors[i%colors.length]}"${selected?' stroke="#111" stroke-width="1.5"':''}/>
+      <text x="15" y="9" font-size="11" fill="${selected?'#111':'#444'}" font-weight="${selected?'700':'400'}">${lbl} (${val})</text>
+    </g>`;
+  });
+  return `<svg viewBox="0 0 280 ${H}" style="width:100%;max-width:380px;margin:0 auto;display:block;overflow:visible;">
+    <circle cx="${cx}" cy="${cy}" r="${R+1}" fill="#f5f5f5"/>
+    ${slices.join('')}
+    <circle cx="${cx}" cy="${cy}" r="${ri}" fill="#fff"/>
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="13" fill="#444" font-weight="700">${total}</text>
+    <text x="${cx}" y="${cy+11}" text-anchor="middle" font-size="10" fill="#999">건</text>
+    ${legend.join('')}
+  </svg>`;
+}
+function _trLineSvgBase(monthData, accent, H=160) {
+  const keys = Object.keys(monthData).sort();
+  if (!keys.length) return '<div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">데이터 없음</div>';
+  const vals = keys.map(k => monthData[k]);
+  const maxV = Math.max(...vals, 1);
+  const n = keys.length;
+  const sameYr = new Set(keys.map(k=>k.slice(0,4))).size===1;
+  const W=300, PL=40, PR=20, PT=30, PB=46;
+  const iW=W-PL-PR, iH=H-PT-PB;
+  const xs = n===1 ? [PL+Math.round(iW/2)] : keys.map((_,i)=>PL+Math.round(i/(n-1)*iW));
+  const ys = vals.map(v=>PT+iH-Math.round(v/maxV*iH));
+  const path = xs.map((x,i)=>`${i===0?'M':'L'}${x},${ys[i]}`).join(' ');
+  const area = path+` L${xs[xs.length-1]},${PT+iH} L${xs[0]},${PT+iH} Z`;
+  const BASE = H-PB;
+  const pts = xs.map((x,i) => {
+    const lbl = sameYr ? (parseInt(keys[i].slice(5))+'월') : keys[i].slice(2);
+    const v = vals[i];
+    return `<g>
+    <circle cx="${x}" cy="${ys[i]}" r="3.5" fill="${accent}"/>
+    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="#888">${lbl}</text>
+    <text x="${x}" y="${BASE+27}" text-anchor="middle" font-size="9" font-weight="${v>0?'700':'400'}" fill="${v>0?accent:'#bbb'}">(${v})</text>
+    </g>`;
   }).join('');
-  return `<table><thead><tr><th>CAR No.</th><th>연계 NCR</th><th>시정조치요구부서</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>종결일</th><th>상태</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:760px;margin:0 auto;display:block;overflow:visible;">
+    <path d="${area}" fill="${accent}" opacity="0.08"/>
+    <path d="${path}" fill="none" stroke="${accent}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${pts}
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${BASE}" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="${PL}" y1="${BASE}" x2="${W-PR}" y2="${BASE}" stroke="#e0e0e0" stroke-width="1"/>
+  </svg>`;
+}
+function _trNcrLineSvg(monthData) { return _trLineSvgBase(monthData, '#7c3aed'); }
+function _trCarLineSvg(monthData) { return _trLineSvgBase(monthData, '#0369a1'); }
+function _trFillMonths(raw) {
+  const out={};
+  const ks=Object.keys(raw).sort();
+  if (!ks.length) return out;
+  let [y,m]=[parseInt(ks[0].slice(0,4)),parseInt(ks[0].slice(5))];
+  const [ey,em]=[parseInt(ks[ks.length-1].slice(0,4)),parseInt(ks[ks.length-1].slice(5))];
+  while (y<ey||(y===ey&&m<=em)) {
+    const k=y+'-'+String(m).padStart(2,'0'); out[k]=raw[k]||0;
+    m++; if(m>12){m=1;y++;}
+  }
+  return out;
+}
+function _trFmtDept(d) { return Array.isArray(d) ? (d.join(', ')||'-') : (d||'-'); }
+const TR_COLORS_NCR = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
+const TR_COLORS_CAR = ['#0369a1','#2563eb','#059669','#d97706','#dc2626','#0891b2','#84cc16','#f59e0b','#ec4899','#6366f1','#14b8a6'];
+function qtNcrTrendChartsHtml(ncrs) {
+  const byMonthRaw = {};
+  ncrs.forEach(n => { const ym=(n.issuedAt||'').slice(0,7); if(ym) byMonthRaw[ym]=(byMonthRaw[ym]||0)+1; });
+  const byMonth = _trFillMonths(byMonthRaw);
+  const projEntries = (()=>{ const m={}; ncrs.forEach(n=>{ const lbl=n.proj==='__direct__'?(n.meta?.projDirect||'직접입력'):(getP(n.proj)?.code||'미지정'); m[lbl]=(m[lbl]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
+  const locEntries = Object.entries(count(ncrs,'location')).sort((a,b)=>b[1]-a[1]);
+  const causeEntries = Object.entries(count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]);
+  const detailEntries = Object.entries(count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]);
+  const dispEntries = Object.entries(count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]);
+  return `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;border-bottom:2px solid #7c3aed;padding-bottom:6px;">
+    <h1 style="font-size:16px;margin:0;color:#7c3aed;">📊 NCR 품질 경향분석 보고서</h1>
+    <span style="font-size:9.5px;color:#888;">기간: ${_qdHtmlEsc(qt.current.periodLabel||qtPeriodLabel())} &nbsp;|&nbsp; 세종기술 품질관리부</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px;">
+    <div style="background:#f5f3ff;border-radius:6px;padding:5px 10px;text-align:center;"><div style="font-size:17px;font-weight:800;color:#7c3aed;line-height:1.2;">${ncrs.length}</div><div style="font-size:9px;color:#888;">전체 건수</div></div>
+    <div style="background:#f5f3ff;border-radius:6px;padding:5px 10px;text-align:center;"><div style="font-size:17px;font-weight:800;color:#dc2626;line-height:1.2;">${ncrs.filter(n=>n.status!=='closed').length}</div><div style="font-size:9px;color:#888;">진행 중</div></div>
+    <div style="background:#f5f3ff;border-radius:6px;padding:5px 10px;text-align:center;"><div style="font-size:17px;font-weight:800;color:#059669;line-height:1.2;">${ncrs.filter(n=>n.status==='closed').length}</div><div style="font-size:9px;color:#888;">종결</div></div>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#7c3aed;margin:2px 0 4px;">📊 항목별 분포</div>
+  <div class="qp-chart-grid">
+    <div class="qp-chart-box"><div class="t">📈 월별 발생 추이</div>${_trNcrLineSvg(byMonth)}</div>
+    <div class="qp-chart-box"><div class="t">프로젝트별</div>${_trBarSvg(projEntries,TR_COLORS_NCR)}</div>
+    <div class="qp-chart-box"><div class="t">발생장소별</div>${_trBarSvg(locEntries,TR_COLORS_NCR)}</div>
+    <div class="qp-chart-box"><div class="t">불량원인별</div>${_trBarSvg(causeEntries,TR_COLORS_NCR)}</div>
+    <div class="qp-chart-box"><div class="t">불량원인 상세별</div>${_trBarSvg(detailEntries,TR_COLORS_NCR)}</div>
+    <div class="qp-chart-box"><div class="t">처리방안별</div>${_trDonutSvg(dispEntries,TR_COLORS_NCR)}</div>
+  </div>`;
+}
+function qtNcrTrendListHtml(ncrs) {
+  const rows = ncrs.map(n => {
+    const p = n.proj==='__direct__'?(n.meta?.projDirect||'직접입력'):(getP(n.proj)?.code||'-');
+    const st = n.status==='closed';
+    return `<tr><td style="font-weight:700;">${_qdHtmlEsc(n.id)}</td><td>${_qdHtmlEsc(p)}</td><td>${_qdHtmlEsc(n.item||'-')}</td>
+      <td>${_qdHtmlEsc(n.location||'-')}${n.location==='협력사'&&n.vendor?' ('+_qdHtmlEsc(n.vendor)+')':''}</td><td>${_qdHtmlEsc(n.cause||'-')}</td><td>${_qdHtmlEsc(n.causeDetail||'-')}</td>
+      <td>${_qdHtmlEsc(n.disposition||'-')}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
+      <td><span class="b-pill ${st?'green':'red'}">${st?'종결':'진행중'}</span></td></tr>`;
+  }).join('');
+  return `<div style="font-size:12px;font-weight:700;color:#7c3aed;margin:0 0 6px;">📋 상세 목록 (${ncrs.length}건)</div>
+  <table style="font-size:10px;"><thead><tr style="background:#f5f3ff;color:#7c3aed;"><th>NCR No.</th><th>프로젝트</th><th>아이템</th><th>발생장소</th><th>불량원인</th><th>원인상세</th><th>처리방안</th><th>발행일</th><th>종결일</th><th>상태</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="10" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
+  </table>`;
+}
+function qtCarTrendChartsHtml(cars) {
+  const byMonthRaw={};
+  cars.forEach(c=>{ const ym=(c.issuedAt||'').slice(0,7); if(ym) byMonthRaw[ym]=(byMonthRaw[ym]||0)+1; });
+  const byMonth=_trFillMonths(byMonthRaw);
+  const qualEntries=Object.entries(count(cars,'qualReq')).sort((a,b)=>b[1]-a[1]);
+  const fieldEntries=Object.entries(count(cars,'field')).sort((a,b)=>b[1]-a[1]);
+  const causeEntries=Object.entries(count(cars,'cause')).sort((a,b)=>b[1]-a[1]);
+  const statusEntries=Object.entries(count(cars,'status')).map(([k,v])=>[CAR_STATUS[k]?.[1]||k,v]).sort((a,b)=>b[1]-a[1]);
+  return `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;border-bottom:2px solid #0369a1;padding-bottom:4px;">
+    <h1 style="font-size:14px;margin:0;color:#0369a1;">📊 CAR 품질 경향분석 보고서</h1>
+    <span style="font-size:8.5px;color:#888;">기간: ${_qdHtmlEsc(qt.current.periodLabel||qtPeriodLabel())} &nbsp;|&nbsp; 세종기술 품질관리부</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px;">
+    <div style="background:#f0f9ff;border-radius:5px;padding:5px 8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#0369a1;line-height:1.2;">${cars.length}</div><div style="font-size:8px;color:#888;">전체 건수</div></div>
+    <div style="background:#f0f9ff;border-radius:5px;padding:5px 8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#d97706;line-height:1.2;">${cars.filter(c=>c.status==='in-progress').length}</div><div style="font-size:8px;color:#888;">조치 중</div></div>
+    <div style="background:#f0f9ff;border-radius:5px;padding:5px 8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#059669;line-height:1.2;">${cars.filter(c=>c.status==='closed').length}</div><div style="font-size:8px;color:#888;">완료</div></div>
+  </div>
+  <div style="font-size:9px;font-weight:700;color:#0369a1;margin:0 0 4px;">📊 항목별 분포</div>
+  <div class="qp-chart-grid">
+    <div class="qp-chart-box"><div class="t">📈 월별 발생 추이</div>${_trCarLineSvg(byMonth)}</div>
+    <div class="qp-chart-box"><div class="t">품질요건별</div>${_trBarSvg(qualEntries,TR_COLORS_CAR)}</div>
+    <div class="qp-chart-box"><div class="t">발생분야별</div>${_trBarSvg(fieldEntries,TR_COLORS_CAR)}</div>
+    <div class="qp-chart-box"><div class="t">원인별</div>${_trDonutSvg(causeEntries,TR_COLORS_CAR)}</div>
+    <div class="qp-chart-box"><div class="t">상태별</div>${_trDonutSvg(statusEntries,TR_COLORS_CAR)}</div>
+  </div>`;
+}
+function qtCarTrendListHtml(cars) {
+  const rows=cars.map(c=>{
+    const st=CAR_STATUS[c.status]||CAR_STATUS['in-progress'];
+    return `<tr><td style="font-weight:700;">${_qdHtmlEsc(c.id)}</td>
+      <td>${_qdHtmlEsc(_trFmtDept(c.reqDept))}</td><td>${_qdHtmlEsc(c.qualReq||'-')}</td><td>${_qdHtmlEsc(c.field||'-')}</td><td>${_qdHtmlEsc(c.cause||'-')}</td>
+      <td>${c.issuedAt||'-'}</td><td>${c.replyDue||'-'}</td><td>${c.repliedAt||'-'}</td><td>${c.actionAt||'-'}</td><td>${c.closedAt||'-'}</td>
+      <td><span class="b-pill ${st[0]}">${st[1]}</span></td></tr>`;
+  }).join('');
+  return `<div style="font-size:9px;font-weight:700;color:#0369a1;margin:0 0 4px;">📋 상세 목록 (${cars.length}건)</div>
+  <table style="font-size:9px;"><thead><tr style="background:#f0f9ff;color:#0369a1;"><th>CAR No.</th><th>요구부서</th><th>품질요건</th><th>발생분야</th><th>원인</th><th>발행일</th><th>회신기한</th><th>회신일</th><th>조치일</th><th>종결일</th><th>상태</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="11" style="text-align:center;padding:8px;color:#aaa;">데이터 없음</td></tr>'}</tbody>
+  </table>`;
 }
 // v29.1.6: 원본 SJ-QTA 4페이지 양식의 2~3페이지(품질경향분석 자료집계표 —
 // NCR/CAR 각각 QAP요건·발생분야·원인 등을 √ 체크하는 원자료 매트릭스)를
-// 별도 붙임으로 재현한다. NCR/CAR 각각 [상세 차트 → 목록 → 자료집계표] 3종
-// 세트로 총 6개 붙임을 만든다(사용자가 지정한 순서·제목 그대로).
+// 별도 붙임으로 재현한다.
 function _qtCheckCell(matched) {
   return `<td style="text-align:center;${matched?'background:#eef7f3;font-weight:700;':''}">${matched?'√':''}</td>`;
-}
-function qtNcrChartsHtml(ncrs) {
-  const periodData = {};
-  ncrs.forEach(n => { const d=n.issuedAt||''; if(!d) return; const key=`${d.slice(0,4)}-${d.slice(5,7)}`; periodData[key]=(periodData[key]||0)+1; });
-  return `<h4 style="font-size:11px;margin:10px 0 6px;">월별 발생 추이</h4>
-  <div class="qp-chart-box">${lineSvg(periodData)}</div>
-  <div class="qp-chart-grid" style="margin-top:10px;">
-    <div class="qp-chart-box"><div class="t">발생장소별</div>${barSvg(Object.entries(count(ncrs,'location')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-    <div class="qp-chart-box"><div class="t">불량원인별</div>${barSvg(Object.entries(count(ncrs,'cause')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-    <div class="qp-chart-box"><div class="t">불량원인 상세별</div>${barSvg(Object.entries(count(ncrs,'causeDetail')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-    <div class="qp-chart-box"><div class="t">처리방안별</div>${donutSvg(Object.entries(count(ncrs,'disposition')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-    <div class="qp-chart-box"><div class="t">등급별</div>${donutSvg(Object.entries(count(ncrs,'grade')).map(([k,v])=>[NCR_GRADE[k]?.[1]||k, v]).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-  </div>`;
-}
-function qtCarChartsHtml(cars) {
-  const periodData = {};
-  cars.forEach(c => { const d=c.issuedAt||''; if(!d) return; const key=`${d.slice(0,4)}-${d.slice(5,7)}`; periodData[key]=(periodData[key]||0)+1; });
-  const qualCount = {};
-  cars.forEach(c => { const q=c.qualReq; if(q){ const short=q.split('.')[0]; qualCount[short]=(qualCount[short]||0)+1; } });
-  return `<h4 style="font-size:11px;margin:10px 0 6px;">월별 발생 추이</h4>
-  <div class="qp-chart-box">${lineSvg(periodData)}</div>
-  <div class="qp-chart-grid" style="margin-top:10px;">
-    <div class="qp-chart-box"><div class="t">품질요건별</div>${barSvg(Object.entries(qualCount).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-    <div class="qp-chart-box"><div class="t">발생분야별</div>${barSvg(Object.entries(count(cars,'field')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-    <div class="qp-chart-box"><div class="t">원인별</div>${donutSvg(Object.entries(count(cars,'cause')).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-    <div class="qp-chart-box"><div class="t">상태별</div>${donutSvg(Object.entries(count(cars,'status')).map(([k,v])=>[CAR_STATUS[k]?.[1]||k, v]).sort((a,b)=>b[1]-a[1]), COLORS)}</div>
-  </div>`;
 }
 function qtQualReqLegendHtml() {
   return `<div style="font-size:9px;color:#555;margin-top:6px;">품질요건 번호: ${CAR_QUAL_REQ.map((t,i)=>`${i+1}=${_qdHtmlEsc(t.replace(/^\d+장\.\s*/,''))}`).join(' · ')}</div>`;
 }
-function qtNcrMatrixHtml(ncrs) {
+// v29.1.9: 붙임3·6은 건수가 많으면 한 페이지를 넘어갈 수 있다(강제 축소
+// 폐지) — 그 대신 넘어간 다음 페이지에서도 제목(머릿글)과 컬럼 헤더가 보이도록
+// <thead>에 같이 넣고(Chrome은 표가 여러 페이지에 걸치면 <thead>를 매 페이지
+// 위에 반복해서 찍어준다), 페이지 하단 안내문은 <tfoot>에 넣어 마찬가지로
+// 매 페이지 아래에 반복되게 한다(꼬릿말).
+function qtNcrMatrixHtml(ncrs, title) {
   if (!ncrs.length) return `<div style="text-align:center;color:#999;padding:20px;">해당 조건의 NCR이 없습니다</div>`;
   const causeList = _qtNcrCauseList(), detailList = _qtNcrDetailList(), dispList = NCR_DISP_KEYS_FALLBACK;
   const qapN = CAR_QUAL_REQ.length;
-  const thead = `<tr>
+  const totalCols = 1 + qapN + causeList.length + detailList.length + dispList.length + 1;
+  const thead = `<tr><th colspan="${totalCols}" style="text-align:left;font-size:11px;font-weight:700;background:#fff;border-left:none;border-right:none;padding:4px 2px;">${_qdHtmlEsc(title||'')}</th></tr>
+  <tr>
     <th rowspan="2">NCR No.</th>
     <th colspan="${qapN}">QAP 요건별</th>
     <th colspan="${causeList.length}">불량원인별</th>
@@ -723,6 +888,7 @@ function qtNcrMatrixHtml(ncrs) {
     ${detailList.map(c=>`<th style="font-size:8px;padding:2px;">${_qdHtmlEsc(c)}</th>`).join('')}
     ${dispList.map(c=>`<th style="font-size:8px;padding:2px;">${_qdHtmlEsc(c)}</th>`).join('')}
   </tr>`;
+  const tfoot = `<tr><td colspan="${totalCols}" style="text-align:center;font-size:8px;color:#888;border-left:none;border-right:none;padding:3px;">㈜세종기술 품질관리부 — 품질경향분석 자료집계표 (NCR ${ncrs.length}건)</td></tr>`;
   const rows = ncrs.map(n => {
     const remark = (n.location==='협력사' && n.vendor) ? `${n.location}(${n.vendor})` : (n.location||'-');
     return `<tr>
@@ -735,11 +901,13 @@ function qtNcrMatrixHtml(ncrs) {
     </tr>`;
   }).join('');
   return `<div style="font-size:10px;color:#a15c00;background:#fff8e6;padding:5px 8px;border-radius:4px;margin-bottom:6px;">⚠ NCR에는 품질요건(QAP 1~18) 분류 데이터가 없어 그 칸은 항상 비어 있습니다.</div>
-  <table style="font-size:9px;"><thead>${thead}</thead><tbody>${rows}</tbody></table>`;
+  <table style="font-size:9px;"><thead>${thead}</thead><tfoot>${tfoot}</tfoot><tbody>${rows}</tbody></table>`;
 }
-function qtCarMatrixHtml(cars) {
+function qtCarMatrixHtml(cars, title) {
   if (!cars.length) return `<div style="text-align:center;color:#999;padding:20px;">해당 조건의 CAR이 없습니다</div>`;
-  const thead = `<tr>
+  const totalCols = 1 + CAR_QUAL_REQ.length + CAR_FIELD.length + CAR_CAUSE.length + 1;
+  const thead = `<tr><th colspan="${totalCols}" style="text-align:left;font-size:11px;font-weight:700;background:#fff;border-left:none;border-right:none;padding:4px 2px;">${_qdHtmlEsc(title||'')}</th></tr>
+  <tr>
     <th rowspan="2">CAR No.</th>
     <th colspan="${CAR_QUAL_REQ.length}">QAP 요건별</th>
     <th colspan="${CAR_FIELD.length}">발생분야별</th>
@@ -750,6 +918,7 @@ function qtCarMatrixHtml(cars) {
     ${CAR_FIELD.map(c=>`<th style="font-size:8px;padding:2px;">${_qdHtmlEsc(c)}</th>`).join('')}
     ${CAR_CAUSE.map(c=>`<th style="font-size:8px;padding:2px;">${_qdHtmlEsc(c)}</th>`).join('')}
   </tr>`;
+  const tfoot = `<tr><td colspan="${totalCols}" style="text-align:center;font-size:8px;color:#888;border-left:none;border-right:none;padding:3px;">㈜세종기술 품질관리부 — 품질경향분석 자료집계표 (CAR ${cars.length}건)</td></tr>`;
   const rows = cars.map(c => `<tr>
     <td style="font-size:9px;white-space:nowrap;">${_qdHtmlEsc(c.id)}</td>
     ${CAR_QUAL_REQ.map(q=>_qtCheckCell(c.qualReq===q)).join('')}
@@ -757,20 +926,25 @@ function qtCarMatrixHtml(cars) {
     ${CAR_CAUSE.map(k=>_qtCheckCell(c.cause===k)).join('')}
     <td style="font-size:9px;white-space:nowrap;">${_qdHtmlEsc(c.reqDept||'-')}</td>
   </tr>`).join('');
-  return `<table style="font-size:9px;"><thead>${thead}</thead><tbody>${rows}</tbody></table>${qtQualReqLegendHtml()}`;
+  return `<table style="font-size:9px;"><thead>${thead}</thead><tfoot>${tfoot}</tfoot><tbody>${rows}</tbody></table>${qtQualReqLegendHtml()}`;
 }
 function qtPrint() {
   if (!qt.current) return;
   const ncrs = filteredNcrs(), cars = filteredCars();
   const w = window.open('', '_blank');
   if (!w) { alert('팝업이 차단되었습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요.'); return; }
-  const period = _qdHtmlEsc(qt.current.periodLabel||qtPeriodLabel());
+  const t3 = `📑 붙임3. 불일치보고서 품질경향분석 자료집계표`;
+  const t6 = `📑 붙임6. 시정조치요구서 품질경향분석 자료집계표`;
   const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <title>${_qdHtmlEsc(qt.current.docNo)} 품질경향분석 보고서</title>
 <style>
-/* v29.1.7: 1페이지(결재 서식)는 세로, 붙임(차트·목록·자료집계표)은 표가
+/* v29.1.9: 1페이지(결재 서식)는 세로, 붙임(차트·목록·자료집계표)은 표가
    넓어 가로가 필요 — CSS Paged Media 이름 붙은 페이지(named page)로 페이지별
-   방향을 다르게 준다. .qp-page에만 "wide"(가로) 페이지를 지정. */
+   방향을 다르게 준다. .qp-page에만 "wide"(가로) 페이지를 지정.
+   붙임은 강제로 1페이지에 욱여넣지 않는다 — 내용이 많으면(특히 붙임3·6
+   자료집계표, 붙임2·5 목록) 여러 페이지에 자연스럽게 걸치도록 두고, 그 대신
+   각 표의 <thead>/<tfoot>에 제목·컬럼헤더·안내문을 넣어 Chrome이 표가
+   페이지를 넘어갈 때마다 위/아래에 자동으로 반복해 찍도록 한다. */
 @page { size: A4 portrait; margin: 16mm; }
 @page wide { size: A4 landscape; margin: 12mm 14mm; }
 * { box-sizing: border-box; }
@@ -781,61 +955,27 @@ td, th { border: 1px solid #333; padding: 6px 9px; font-size: 12px; vertical-ali
 .qp-title { font-size: 22px; font-weight: 800; text-align: center; }
 .qp-result { white-space: pre-wrap; line-height: 1.7; padding: 12px; font-size: 12px; }
 .qp-section-hdr { text-align: center; font-weight: 700; background: #F5F5F5; }
-/* 붙임은 각각 정확히 1페이지로 끝나야 해서(내용량과 무관하게), 페이지당
-   가용 높이만큼 박스를 고정해 두고 onload 스크립트가 실측해서 넘치면
-   scale()로 줄인다(표가 아무리 길어도 항상 1장에 다 들어가게). */
-.qp-page { page: wide; page-break-before: always; height: 182mm; overflow: hidden; position: relative; }
-.qp-fit { transform-origin: top left; }
+.qp-page { page: wide; page-break-before: always; }
 h3 { font-size: 14px; margin: 0 0 8px; }
-h4 { margin: 0; }
-.qp-chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.qp-chart-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .qp-chart-box { border: 1px solid #ccc; border-radius: 6px; padding: 6px; }
-.qp-chart-box .t { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
-.qp-chart-box svg { width: 100% !important; max-width: none !important; }
+.qp-chart-box .t { font-size: 11px; font-weight: 700; margin-bottom: 4px; color: #888; }
+.b-pill { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 9px; font-weight: 600; }
+.b-pill.green { background: #d1fae5; color: #065f46; }
+.b-pill.red { background: #fee2e2; color: #991b1b; }
+.b-pill.blue { background: #dbeafe; color: #1e40af; }
+.b-pill.orange { background: #ffedd5; color: #9a3412; }
 tr { page-break-inside: avoid; }
 @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>
 ${qtDocStaticHtml(qt.current)}
-<div class="qp-page"><div class="qp-fit">
-  <h3>📊 붙임1. 불일치보고서 상세 분석 차트 (${period})</h3>
-  ${qtNcrChartsHtml(ncrs)}
-</div></div>
-<div class="qp-page"><div class="qp-fit">
-  <h3>📋 붙임2. 불일치보고서(NCR) 목록 (${ncrs.length}건)</h3>
-  ${qtNcrListTableHtml(ncrs)}
-</div></div>
-<div class="qp-page"><div class="qp-fit">
-  <h3>📑 붙임3. 불일치보고서 품질경향분석 자료집계표</h3>
-  ${qtNcrMatrixHtml(ncrs)}
-</div></div>
-<div class="qp-page"><div class="qp-fit">
-  <h3>📊 붙임4. 시정조치요구서 상세 분석 차트 (${period})</h3>
-  ${qtCarChartsHtml(cars)}
-</div></div>
-<div class="qp-page"><div class="qp-fit">
-  <h3>📋 붙임5. 시정조치요구서(CAR) 목록 (${cars.length}건)</h3>
-  ${qtCarListTableHtml(cars)}
-</div></div>
-<div class="qp-page"><div class="qp-fit">
-  <h3>📑 붙임6. 시정조치요구서 품질경향분석 자료집계표</h3>
-  ${qtCarMatrixHtml(cars)}
-</div></div>
-<script>
-window.onload=()=>{
-  document.querySelectorAll('.qp-page').forEach(page=>{
-    const fit = page.querySelector('.qp-fit');
-    if (!fit) return;
-    const scaleW = page.clientWidth / fit.scrollWidth;
-    const scaleH = page.clientHeight / fit.scrollHeight;
-    const scale = Math.min(1, scaleW, scaleH);
-    if (scale < 1) {
-      fit.style.transform = 'scale(' + scale + ')';
-      fit.style.width = (100/scale) + '%';
-    }
-  });
-  window.print();
-};
-<\/script>
+<div class="qp-page">${qtNcrTrendChartsHtml(ncrs)}</div>
+<div class="qp-page">${qtNcrTrendListHtml(ncrs)}</div>
+<div class="qp-page">${qtNcrMatrixHtml(ncrs, t3)}</div>
+<div class="qp-page">${qtCarTrendChartsHtml(cars)}</div>
+<div class="qp-page">${qtCarTrendListHtml(cars)}</div>
+<div class="qp-page">${qtCarMatrixHtml(cars, t6)}</div>
+<script>window.onload=()=>{window.print();}<\/script>
 </body></html>`;
   w.document.write(html);
   w.document.close();
