@@ -606,9 +606,12 @@ async function qtDeleteReport(id) {
 // 있음), 목록은 드릴다운과 무관하게 현재 필터(qf) 기준 전체 NCR/CAR를 담는다.
 function qtDocStaticHtml(c) {
   const impList = c.improvements||[];
+  // v29.1.14: 대표이사 지시사항을 받아 시정조치를 추가로 적을 수 있도록,
+  // 실제 항목 뒤에 빈 행을 1개 더 얹어서 인쇄한다(항목이 0건이어도 최소
+  // 1행은 항상 보이게 되는 효과도 겸함).
   const impRows = impList.map(r => `<tr>
     <td>${_qdHtmlEsc(r.req||'')}</td><td>${_qdHtmlEsc(r.team||'')}</td><td>${_qdHtmlEsc(r.carNo||'')}</td><td>${_qdHtmlEsc(r.due||'')}</td><td>${_qdHtmlEsc(r.remark||'')}</td>
-  </tr>`).join('') || `<tr><td colspan="5" style="text-align:center;color:#999;">-</td></tr>`;
+  </tr>`).join('') + `<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>`;
   const resultMinH = _qtResultBoxMinHeight(impList.length);
   const ceoH = _qtCeoBoxHeight(c.ceoInstruction);
   return `
@@ -621,15 +624,15 @@ function qtDocStaticHtml(c) {
       <td style="width:110px;font-weight:700;">${_qdHtmlEsc(c.docNo)}</td>
     </tr>
     <tr>
-      <td class="qp-label">분석항목</td><td colspan="3">${_qdHtmlEsc(QT_ITEMS_LABEL)}</td>
+      <td class="qp-label" style="width:90px;">분석항목</td><td colspan="3">${_qdHtmlEsc(QT_ITEMS_LABEL)}</td>
       <td class="qp-label">Page</td><td>${_qdHtmlEsc(c.pageLabel||'1 / 7')}</td>
     </tr>
     <tr>
-      <td class="qp-label">분석대상</td><td colspan="3">${_qdHtmlEsc(c.targets)}</td>
+      <td class="qp-label" style="width:90px;">분석대상</td><td colspan="3">${_qdHtmlEsc(c.targets)}</td>
       <td class="qp-label">분석일자</td><td>${_qdHtmlEsc(c.analysisDate)}</td>
     </tr>
-    <tr><td class="qp-label">분석목적</td><td colspan="5">${_qdHtmlEsc(c.purpose)}</td></tr>
-    <tr><td class="qp-label" style="vertical-align:top;">분석결과</td><td id="qt-result-cell" colspan="5" class="qp-result" style="height:${resultMinH}px;">${_qdHtmlEsc(c.resultText||'-')}</td></tr>
+    <tr><td class="qp-label" style="width:90px;">분석목적</td><td colspan="5">${_qdHtmlEsc(c.purpose)}</td></tr>
+    <tr><td class="qp-label" style="width:90px;vertical-align:top;">분석결과</td><td id="qt-result-cell" colspan="5" class="qp-result" style="height:${resultMinH}px;">${_qdHtmlEsc(c.resultText||'-')}</td></tr>
   </table>
   <table style="margin-top:-1px;">
     <tr><td class="qp-section-hdr" colspan="5">개선 및 시정조치 요구사항</td></tr>
@@ -637,7 +640,7 @@ function qtDocStaticHtml(c) {
     ${impRows}
   </table>
   <table style="margin-top:-1px;">
-    <tr><td class="qp-label" style="vertical-align:top;">대표이사<br>지시사항</td><td style="height:${ceoH}px;vertical-align:top;">${_qdHtmlEsc(c.ceoInstruction||'')}</td></tr>
+    <tr><td class="qp-label" style="width:90px;vertical-align:top;">대표이사<br>지시사항</td><td style="height:${ceoH}px;vertical-align:top;">${_qdHtmlEsc(c.ceoInstruction||'')}</td></tr>
   </table>
   <table style="margin-top:-1px;">
     <tr><td class="qp-section-hdr">작성</td><td class="qp-section-hdr">검토</td><td class="qp-section-hdr">승인</td></tr>
@@ -1063,23 +1066,23 @@ function qtPanelHtml() {
           <td style="width:130px;font-weight:700;"><input value="${_qdHtmlEsc(c.docNo)}" onchange="qtSetField('docNo',this.value)"></td>
         </tr>
         <tr>
-          <td class="qt-label">분석항목</td>
+          <td class="qt-label" style="width:80px;">분석항목</td>
           <td colspan="3">${_qdHtmlEsc(QT_ITEMS_LABEL)}</td>
           <td class="qt-label">Page</td>
           <td><input value="${_qdHtmlEsc(c.pageLabel||'1 / 7')}" onchange="qtSetField('pageLabel',this.value)"></td>
         </tr>
         <tr>
-          <td class="qt-label">분석대상</td>
+          <td class="qt-label" style="width:80px;">분석대상</td>
           <td colspan="3"><input value="${_qdHtmlEsc(c.targets)}" onchange="qtSetField('targets',this.value)"></td>
           <td class="qt-label">분석일자</td>
           <td><input type="date" value="${_qdHtmlEsc(c.analysisDate)}" onchange="qtSetField('analysisDate',this.value)"></td>
         </tr>
         <tr>
-          <td class="qt-label">분석목적</td>
+          <td class="qt-label" style="width:80px;">분석목적</td>
           <td colspan="5"><input value="${_qdHtmlEsc(c.purpose)}" onchange="qtSetField('purpose',this.value)"></td>
         </tr>
         <tr>
-          <td class="qt-label" style="vertical-align:top;">분석결과</td>
+          <td class="qt-label" style="width:80px;vertical-align:top;">분석결과</td>
           <td colspan="5" style="padding:0;">
             <div class="qt-actions qt-noprint" style="margin:8px 10px;">
               <span style="font-size:11px;color:var(--text-light);align-self:center;">분석기간: <b>${_qdHtmlEsc(c.periodLabel||qtPeriodLabel())}</b> (상단 필터로 조정 후 다시 실행하면 그 조건으로 재분석합니다)</span>
@@ -1100,7 +1103,7 @@ function qtPanelHtml() {
       </table>
 
       <table style="margin-top:-1px;">
-        <tr><td class="qt-label" style="vertical-align:top;">대표이사<br>지시사항</td>
+        <tr><td class="qt-label" style="width:80px;vertical-align:top;">대표이사<br>지시사항</td>
           <td style="padding:0;"><textarea class="qt-ceo-box" rows="2" style="min-height:44px;" placeholder="대표이사 검토 후 직접 기재" oninput="qtSetField('ceoInstruction',this.value);_qtAutoGrow(this);">${_qdHtmlEsc(c.ceoInstruction||'')}</textarea></td>
         </tr>
       </table>
