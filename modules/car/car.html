@@ -314,13 +314,27 @@ function _trimForLocalCache(arr, dateField) {
   if (!Array.isArray(arr) || arr.length <= LOCAL_CACHE_MAX_RECORDS) return arr;
   return [...arr].sort((a,b) => (b[dateField]||'').localeCompare(a[dateField]||'')).slice(0, LOCAL_CACHE_MAX_RECORDS);
 }
+// v29.72: 실사용 진단 결과 — 청크 분할 시스템(v29.12) 도입 이전에 등록된
+// 옛 첨부파일은 meta.fileDataUrl에 base64가 통째로 박혀 있어(레코드 1건이
+// 500KB대) 20건만으로도 로컬 저장공간을 거의 다 채웠다. Firestore 원본과
+// 화면(state.cars, 메모리)엔 그대로 두고, 로컬 디스크 캐시에서만 이 무거운
+// 필드를 벗겨낸다 — 오프라인 상태에서 그 특정 옛 첨부파일을 여는 극히 드문
+// 경우만 재접속 전까지 못 열 뿐, 나머지 기능·조회엔 전혀 영향 없다.
+function _stripHeavyMetaForCache(arr) {
+  if (!Array.isArray(arr)) return arr;
+  return arr.map(r => {
+    if (!r || !r.meta || !r.meta.fileDataUrl) return r;
+    const { fileDataUrl, ...restMeta } = r.meta;
+    return { ...r, meta: restMeta };
+  });
+}
 // v29.9.1: localStorage 소유권 분리 — 이 iframe이 소유한 키(cars/carDeleteReqs)만 merge-write.
 // state 전체를 쓰면 로드 시점의 stale projects/users/ncrs가 다른 창(부모·NCR iframe)이
 // 그 사이 저장한 최신 값을 덮어써 양방향 데이터 유실 race가 생김.
 function writeOwnedKeysToDisk() {
   const raw = localStorage.getItem(KEY);
   const disk = raw ? JSON.parse(raw) : {};
-  disk.cars = _trimForLocalCache(state.cars, 'issuedAt');
+  disk.cars = _stripHeavyMetaForCache(_trimForLocalCache(state.cars, 'issuedAt'));
   disk.carDeleteReqs = state.carDeleteReqs;
   localStorage.setItem(KEY, JSON.stringify(disk));
 }

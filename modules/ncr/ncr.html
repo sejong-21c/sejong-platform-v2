@@ -352,12 +352,28 @@ function _trimForLocalCache(arr, dateField) {
   if (!Array.isArray(arr) || arr.length <= LOCAL_CACHE_MAX_RECORDS) return arr;
   return [...arr].sort((a,b) => (b[dateField]||'').localeCompare(a[dateField]||'')).slice(0, LOCAL_CACHE_MAX_RECORDS);
 }
+// v29.72: 실사용 진단 결과 — 청크 분할 시스템(v29.12) 도입 이전에 등록된
+// 옛 첨부파일은 meta.fileDataUrl에 base64가 통째로 박혀 있어(레코드 1건이
+// 250~530KB) NCR 20건만으로 로컬 저장공간 4.3MB를 차지, 300건 제한을
+// 두어도 이런 레거시 레코드가 몇 건만 있으면 여전히 용량을 넘겼다.
+// Firestore 원본과 화면(state.ncrs, 메모리)엔 그대로 두고, 로컬 디스크
+// 캐시에서만 이 무거운 필드를 벗겨낸다 — 오프라인 상태에서 그 특정 옛
+// 첨부파일을 여는 극히 드문 경우만 재접속 전까지 못 열 뿐, 나머지
+// 기능·조회엔 전혀 영향 없다.
+function _stripHeavyMetaForCache(arr) {
+  if (!Array.isArray(arr)) return arr;
+  return arr.map(r => {
+    if (!r || !r.meta || !r.meta.fileDataUrl) return r;
+    const { fileDataUrl, ...restMeta } = r.meta;
+    return { ...r, meta: restMeta };
+  });
+}
 function writeOwnedKeysToDisk() {
   const raw = localStorage.getItem(KEY);
   const disk = raw ? JSON.parse(raw) : {};
-  disk.ncrs = _trimForLocalCache(state.ncrs, 'issuedAt');
+  disk.ncrs = _stripHeavyMetaForCache(_trimForLocalCache(state.ncrs, 'issuedAt'));
   disk.ncrDeleteReqs = state.ncrDeleteReqs;
-  disk.cars = _trimForLocalCache(state.cars, 'issuedAt');
+  disk.cars = _stripHeavyMetaForCache(_trimForLocalCache(state.cars, 'issuedAt'));
   disk.ncrLists = state.ncrLists;
   localStorage.setItem(KEY, JSON.stringify(disk));
 }
