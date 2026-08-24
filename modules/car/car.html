@@ -1192,13 +1192,25 @@ async function loadAttachmentDataUrl(coll, chunkId, totalChunks) {
 // 반려(취소)할 수 있다. 아무 조치가 없으면 24시간 경과 후 자동으로 삭제된다.
 const CAR_DELETE_WAIT_MS = 24 * 60 * 60 * 1000;
 
+// v29.73: 같은 CAR에 이미 대기 중(pending)인 삭제 요청이 있는데도 중복으로
+// 계속 쌓이던 문제 — 화면 버튼은 pending이면 숨겨지지만(다른 탭·스냅샷
+// 지연·콘솔 직접 호출 등 경로로는) 함수 자체엔 방어가 없어 실제로 같은
+// CAR에 12건까지 중복 등록된 사례가 있었다. 함수 진입 시점과 제출 시점
+// 둘 다에서 확인한다(모달이 열려있는 동안 다른 경로로 먼저 등록될 수 있어
+// 이중 방어).
+function _findPendingCarDeleteReq(carId) {
+  return (state.carDeleteReqs||[]).find(r => r.carId === carId && r.status === 'pending');
+}
 function requestCARDelete(carId) {
+  const existing = _findPendingCarDeleteReq(carId);
+  if (existing) { alert(`이미 이 CAR에 대기 중인 삭제 요청이 있습니다 (사유: ${existing.reason} · 요청일: ${existing.requestedAt}). 중복 요청 대신 기존 요청을 반려/조기승인해 주세요.`); return; }
   openModal(`🗑️ CAR 삭제 요청 — ${carId}`, `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">삭제 요청 후 24시간 동안 삭제 대기 상태가 되며, 그 사이 품질관리부장이 조기승인(즉시삭제) 또는 반려할 수 있습니다. 아무 조치가 없으면 24시간 후 자동 삭제됩니다.</div>
     <div class="fg"><label class="fl">삭제 사유</label><textarea class="fi" id="del-reason" rows="3" placeholder="삭제 사유를 입력하세요"></textarea></div>
   `, () => {
     const reason = document.getElementById('del-reason').value.trim();
     if (!reason) { alert('삭제 사유를 입력하세요.'); return; }
+    if (_findPendingCarDeleteReq(carId)) { alert('그 사이 이미 삭제 요청이 등록됐습니다. 목록을 새로고침해 주세요.'); closeModal(); render(); return; }
     if (!state.carDeleteReqs) state.carDeleteReqs = [];
     const now = Date.now();
     state.carDeleteReqs.push({ id: 'cdr'+now, carId, requestedBy: state.currentUser, requestedAt: new Date().toISOString().slice(0,10), scheduledDeleteAt: now + CAR_DELETE_WAIT_MS, reason, status: 'pending' });
