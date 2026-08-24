@@ -92,7 +92,6 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 
 /* v29.1 — 품질경향분석 보고서(양식 SJ-QTA-YY-N). 실제 결재 서식을 그대로
    흉내내야 해서 이 화면 다른 카드들과 달리 검은 테두리 표 레이아웃을 쓴다. */
-.qt-toggle-btn { background: #fff; }
 .qt-panel { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px; }
 .qt-hist-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px dashed var(--border); }
 .qt-hist-bar select { padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; }
@@ -1007,7 +1006,7 @@ function qtPanelHtml() {
   if (!qt.open) {
     return `<div class="qd-section" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div><h4 style="margin:0;">${LI('file-chart-column','📈')} 품질경향분석 보고서 <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— NCR/CAR 경향을 AI로 분석해 정식 보고서 양식(SJ-QTA)으로 작성합니다. 저장된 보고서 ${(state.trendReports||[]).length}건.</span></h4></div>
-      <button class="btn btn-primary qt-toggle-btn" onclick="qtOpenPanel()">${LI('sparkles','✨')} 품질경향분석 보고서 열기</button>
+      <button class="btn btn-primary" onclick="qtOpenPanel()">${LI('sparkles','✨')} 품질경향분석 보고서 열기</button>
     </div>`;
   }
   if (!qt.current) qtNewDraft();
