@@ -2012,7 +2012,12 @@ function writeMeasuredValuesBackToQAG(pid, qagItemId, fieldsKey, inspData){
     if(Array.isArray(rows)){
       let changed=false;
       inspData.dimPoints.forEach(pt=>{
-        const point=(pt.measurePoint||'').trim();
+        // v29.46: measurePoint 저장값은 select 옵션 형식 그대로 "포인트라벨. 설명"
+        // (예: "A. Shell ID")인데, QAG의 r.p는 순수 라벨("A")만 갖고 있어서
+        // 전체 문자열로 비교하면 항상 불일치 — 매번 매칭 실패로 조용히
+        // 아무것도 안 바뀌던 버그(실사용 리포트로 확인). 앞부분 라벨만 떼어서 비교한다.
+        const rawPoint=(pt.measurePoint||'').trim();
+        const point = rawPoint.includes('.') ? rawPoint.slice(0, rawPoint.indexOf('.')).trim() : rawPoint;
         const val=(pt.measureValue||'').trim();
         if(!point || !val) return;
         const row=rows.find(r=>(r.p||'').trim()===point);
