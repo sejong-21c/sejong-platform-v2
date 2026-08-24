@@ -103,6 +103,7 @@ body { font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
 .qt-doc input, .qt-doc textarea { width: 100%; border: none; background: transparent; font-family: inherit; font-size: 12.5px; resize: vertical; padding: 2px; }
 .qt-doc input:focus, .qt-doc textarea:focus { outline: 1.5px solid var(--primary); background: var(--primary-lighter); }
 .qt-result-box { padding: 12px 14px; white-space: pre-wrap; line-height: 1.7; font-size: 12.5px; min-height: 90px; overflow: hidden; resize: none; }
+.qt-ceo-box { overflow: hidden; resize: none; }
 .qt-section-hdr { text-align: center; font-weight: 700; background: #F5F5F5; }
 .qt-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
 /* v29.1.5: 인쇄는 이 화면을 그대로 찍는 대신 qtPrint()가 새 창에 독립 인쇄
@@ -609,6 +610,7 @@ function qtDocStaticHtml(c) {
     <td>${_qdHtmlEsc(r.req||'')}</td><td>${_qdHtmlEsc(r.team||'')}</td><td>${_qdHtmlEsc(r.carNo||'')}</td><td>${_qdHtmlEsc(r.due||'')}</td><td>${_qdHtmlEsc(r.remark||'')}</td>
   </tr>`).join('') || `<tr><td colspan="5" style="text-align:center;color:#999;">-</td></tr>`;
   const resultMinH = _qtResultBoxMinHeight(impList.length);
+  const ceoH = _qtCeoBoxHeight(c.ceoInstruction);
   return `
   <table>
     <tr>
@@ -634,7 +636,7 @@ function qtDocStaticHtml(c) {
     ${impRows}
   </table>
   <table style="margin-top:-1px;">
-    <tr><td class="qp-label" style="vertical-align:top;">대표이사<br>지시사항</td><td style="height:140px;vertical-align:top;">${_qdHtmlEsc(c.ceoInstruction||'')}</td></tr>
+    <tr><td class="qp-label" style="vertical-align:top;">대표이사<br>지시사항</td><td style="height:${ceoH}px;vertical-align:top;">${_qdHtmlEsc(c.ceoInstruction||'')}</td></tr>
   </table>
   <table style="margin-top:-1px;">
     <tr><td class="qp-section-hdr">작성</td><td class="qp-section-hdr">검토</td><td class="qp-section-hdr">승인</td></tr>
@@ -1073,7 +1075,7 @@ function qtPanelHtml() {
 
       <table style="margin-top:-1px;">
         <tr><td class="qt-label" style="vertical-align:top;">대표이사<br>지시사항</td>
-          <td style="padding:0;"><textarea rows="8" style="min-height:140px;" placeholder="대표이사 검토 후 직접 기재" onchange="qtSetField('ceoInstruction',this.value)">${_qdHtmlEsc(c.ceoInstruction||'')}</textarea></td>
+          <td style="padding:0;"><textarea class="qt-ceo-box" rows="2" style="min-height:44px;" placeholder="대표이사 검토 후 직접 기재" oninput="qtSetField('ceoInstruction',this.value);_qtAutoGrow(this);">${_qdHtmlEsc(c.ceoInstruction||'')}</textarea></td>
         </tr>
       </table>
 
@@ -1315,9 +1317,10 @@ function render() {
 
     ${qdRenderDrillSection(ncrs, cars)}
   `;
-  // v29.1.6: 분석결과 textarea는 스크롤 없이 내용만큼 늘어나야 해서(사용자
-  // 피드백), rows 고정 대신 매 렌더링·입력마다 실제 내용 높이로 다시 맞춘다.
-  document.querySelectorAll('.qt-result-box').forEach(_qtAutoGrow);
+  // v29.1.6/.12: 분석결과·대표이사 지시사항 textarea는 스크롤 없이 내용만큼만
+  // 늘어나야 해서(사용자 피드백 — 지시사항 칸이 빈 채로도 항상 커서 보기
+  // 안 좋았음), rows 고정 대신 매 렌더링·입력마다 실제 내용 높이로 다시 맞춘다.
+  document.querySelectorAll('.qt-result-box, .qt-ceo-box').forEach(_qtAutoGrow);
 }
 // v29.1.10: 개선요구사항이 적으면 그 표가 짧아져서 1페이지 하단에 빈 여백이
 // 많이 남는다는 피드백 — 개선요구사항 행 수에 반비례해서 분석결과 칸의
@@ -1326,6 +1329,15 @@ function render() {
 // 픽셀 단위 정밀함보다 "빈 여백 체감"을 줄이는 게 목적).
 function _qtResultBoxMinHeight(improvementsCount) {
   return Math.max(90, 420 - (improvementsCount||0) * 34);
+}
+// v29.1.12: 대표이사 지시사항은 비어 있으면 좁게, 실제로 뭔가 적으면 그만큼
+// 늘어나야 한다는 피드백 — 인쇄본은 JS로 실측할 수 없으니(새 창을 열자마자
+// 바로 그리는 정적 HTML) 줄바꿈·글자 수로 필요한 줄 수를 대략 추정해서
+// 높이를 계산한다(라이브 화면은 _qtAutoGrow가 실제 scrollHeight로 처리).
+function _qtCeoBoxHeight(text) {
+  if (!text) return 44;
+  const lines = text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 60)), 0);
+  return Math.min(200, Math.max(44, lines * 22 + 20));
 }
 function _qtAutoGrow(el) {
   el.style.height = 'auto';
