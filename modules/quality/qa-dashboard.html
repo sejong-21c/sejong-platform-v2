@@ -605,9 +605,11 @@ async function qtDeleteReport(id) {
 // donutSvg를 그대로 재호출(순수 문자열 반환이라 새 창 문서에 바로 끼워넣을 수
 // 있음), 목록은 드릴다운과 무관하게 현재 필터(qf) 기준 전체 NCR/CAR를 담는다.
 function qtDocStaticHtml(c) {
-  const impRows = (c.improvements||[]).map(r => `<tr>
+  const impList = c.improvements||[];
+  const impRows = impList.map(r => `<tr>
     <td>${_qdHtmlEsc(r.req||'')}</td><td>${_qdHtmlEsc(r.team||'')}</td><td>${_qdHtmlEsc(r.carNo||'')}</td><td>${_qdHtmlEsc(r.due||'')}</td><td>${_qdHtmlEsc(r.remark||'')}</td>
   </tr>`).join('') || `<tr><td colspan="5" style="text-align:center;color:#999;">-</td></tr>`;
+  const resultMinH = _qtResultBoxMinHeight(impList.length);
   return `
   <table>
     <tr>
@@ -625,7 +627,7 @@ function qtDocStaticHtml(c) {
       <td class="qp-label">분석일자</td><td>${_qdHtmlEsc(c.analysisDate)}</td>
     </tr>
     <tr><td class="qp-label">분석목적</td><td colspan="5">${_qdHtmlEsc(c.purpose)}</td></tr>
-    <tr><td class="qp-label" style="vertical-align:top;">분석결과</td><td colspan="5" class="qp-result">${_qdHtmlEsc(c.resultText||'-')}</td></tr>
+    <tr><td class="qp-label" style="vertical-align:top;">분석결과</td><td colspan="5" class="qp-result" style="height:${resultMinH}px;">${_qdHtmlEsc(c.resultText||'-')}</td></tr>
   </table>
   <table style="margin-top:-1px;">
     <tr><td class="qp-section-hdr" colspan="5">개선 및 시정조치 요구사항</td></tr>
@@ -633,7 +635,7 @@ function qtDocStaticHtml(c) {
     ${impRows}
   </table>
   <table style="margin-top:-1px;">
-    <tr><td class="qp-label" style="vertical-align:top;">대표이사<br>지시사항</td><td style="height:70px;vertical-align:top;">${_qdHtmlEsc(c.ceoInstruction||'')}</td></tr>
+    <tr><td class="qp-label" style="vertical-align:top;">대표이사<br>지시사항</td><td style="height:140px;vertical-align:top;">${_qdHtmlEsc(c.ceoInstruction||'')}</td></tr>
   </table>
   <table style="margin-top:-1px;">
     <tr><td class="qp-section-hdr">작성</td><td class="qp-section-hdr">검토</td><td class="qp-section-hdr">승인</td></tr>
@@ -1072,7 +1074,7 @@ function qtPanelHtml() {
 
       <table style="margin-top:-1px;">
         <tr><td class="qt-label" style="vertical-align:top;">대표이사<br>지시사항</td>
-          <td style="padding:0;"><textarea rows="4" style="min-height:70px;" placeholder="대표이사 검토 후 직접 기재" onchange="qtSetField('ceoInstruction',this.value)">${_qdHtmlEsc(c.ceoInstruction||'')}</textarea></td>
+          <td style="padding:0;"><textarea rows="8" style="min-height:140px;" placeholder="대표이사 검토 후 직접 기재" onchange="qtSetField('ceoInstruction',this.value)">${_qdHtmlEsc(c.ceoInstruction||'')}</textarea></td>
         </tr>
       </table>
 
@@ -1318,9 +1320,21 @@ function render() {
   // 피드백), rows 고정 대신 매 렌더링·입력마다 실제 내용 높이로 다시 맞춘다.
   document.querySelectorAll('.qt-result-box').forEach(_qtAutoGrow);
 }
+// v29.1.10: 개선요구사항이 적으면 그 표가 짧아져서 1페이지 하단에 빈 여백이
+// 많이 남는다는 피드백 — 개선요구사항 행 수에 반비례해서 분석결과 칸의
+// 최소 높이를 키워, 두 영역의 합이 페이지 하단까지 채워지도록 보정한다.
+// (표 한 행 ≈ 34px, 행이 0건일 때 분석결과에 420px을 배정하는 대략치 —
+// 픽셀 단위 정밀함보다 "빈 여백 체감"을 줄이는 게 목적).
+function _qtResultBoxMinHeight(improvementsCount) {
+  return Math.max(90, 420 - (improvementsCount||0) * 34);
+}
 function _qtAutoGrow(el) {
   el.style.height = 'auto';
-  el.style.height = (el.scrollHeight + 2) + 'px';
+  const natural = el.scrollHeight + 2;
+  const minH = el.classList.contains('qt-result-box') && qt.current
+    ? _qtResultBoxMinHeight((qt.current.improvements||[]).length)
+    : 0;
+  el.style.height = Math.max(natural, minH) + 'px';
 }
 
 // v29.22: 차트에서 클릭한 드릴 필터가 걸린 NCR/CAR 상세 목록 섹션.
