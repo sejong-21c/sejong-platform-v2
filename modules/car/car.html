@@ -302,13 +302,25 @@ async function syncArrayToFirestore(coll, arr) {
   // v29.67: 클라우드 저장이 끝난 뒤에만 색인 (삭제요청 컬렉션은 색인 대상 아님)
   if (coll === 't_cars') autoIndexCars(changed);
 }
+// v29.71: CAR은 삭제 승인 전까진 계속 쌓이기만 해서, 매번 전체 배열을
+// 로컬에 통째로 다시 쓰다 보면 브라우저 localStorage 용량 한도(보통
+// 5~10MB)를 넘겨 "로컬 저장 공간 부족" 경고가 뜨는 사고가 반복됐다. 이
+// 로컬 캐시는 오프라인 대비·부팅 속도용 사본일 뿐 진짜 원본이 아니므로
+// (Firestore가 로그인 시 항상 다시 채워줌 — index.html의 CACHE_SKIP_KEYS와
+// 같은 원칙), 로컬엔 최신 N건만 남기고 나머지는 뺀다. 화면에 보이는
+// state.cars(메모리)는 그대로 전체라 기능·조회에는 영향 없다.
+const LOCAL_CACHE_MAX_RECORDS = 300;
+function _trimForLocalCache(arr, dateField) {
+  if (!Array.isArray(arr) || arr.length <= LOCAL_CACHE_MAX_RECORDS) return arr;
+  return [...arr].sort((a,b) => (b[dateField]||'').localeCompare(a[dateField]||'')).slice(0, LOCAL_CACHE_MAX_RECORDS);
+}
 // v29.9.1: localStorage 소유권 분리 — 이 iframe이 소유한 키(cars/carDeleteReqs)만 merge-write.
 // state 전체를 쓰면 로드 시점의 stale projects/users/ncrs가 다른 창(부모·NCR iframe)이
 // 그 사이 저장한 최신 값을 덮어써 양방향 데이터 유실 race가 생김.
 function writeOwnedKeysToDisk() {
   const raw = localStorage.getItem(KEY);
   const disk = raw ? JSON.parse(raw) : {};
-  disk.cars = state.cars;
+  disk.cars = _trimForLocalCache(state.cars, 'issuedAt');
   disk.carDeleteReqs = state.carDeleteReqs;
   localStorage.setItem(KEY, JSON.stringify(disk));
 }
