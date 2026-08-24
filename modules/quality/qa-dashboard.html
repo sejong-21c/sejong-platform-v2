@@ -633,11 +633,15 @@ function qtDocStaticHtml(c) {
     ${impRows}
   </table>
   <table style="margin-top:-1px;">
-    <tr><td class="qp-label" style="vertical-align:top;">대표이사<br>지시사항</td><td>${_qdHtmlEsc(c.ceoInstruction||'')}</td></tr>
+    <tr><td class="qp-label" style="vertical-align:top;">대표이사<br>지시사항</td><td style="height:70px;vertical-align:top;">${_qdHtmlEsc(c.ceoInstruction||'')}</td></tr>
   </table>
   <table style="margin-top:-1px;">
     <tr><td class="qp-section-hdr">작성</td><td class="qp-section-hdr">검토</td><td class="qp-section-hdr">승인</td></tr>
-    <tr><td>${_qdHtmlEsc(c.preparedBy||'')}</td><td>${_qdHtmlEsc(c.reviewedBy||'')}</td><td>${_qdHtmlEsc(c.approvedBy||'')}</td></tr>
+    <tr style="height:90px;">
+      <td style="vertical-align:top;">${_qdHtmlEsc(c.preparedBy||'')}</td>
+      <td style="vertical-align:top;">${_qdHtmlEsc(c.reviewedBy||'')}</td>
+      <td style="vertical-align:top;">${_qdHtmlEsc(c.approvedBy||'')}</td>
+    </tr>
   </table>`;
 }
 function qtNcrListTableHtml(ncrs) {
@@ -928,16 +932,16 @@ function qtPanelHtml() {
 
       <table style="margin-top:-1px;">
         <tr><td class="qt-label" style="vertical-align:top;">대표이사<br>지시사항</td>
-          <td><textarea rows="3" placeholder="대표이사 검토 후 직접 기재" onchange="qtSetField('ceoInstruction',this.value)">${_qdHtmlEsc(c.ceoInstruction||'')}</textarea></td>
+          <td style="padding:0;"><textarea rows="4" style="min-height:70px;" placeholder="대표이사 검토 후 직접 기재" onchange="qtSetField('ceoInstruction',this.value)">${_qdHtmlEsc(c.ceoInstruction||'')}</textarea></td>
         </tr>
       </table>
 
       <table style="margin-top:-1px;">
         <tr><td class="qt-section-hdr">작성</td><td class="qt-section-hdr">검토</td><td class="qt-section-hdr">승인</td></tr>
-        <tr>
-          <td><input value="${_qdHtmlEsc(c.preparedBy||'')}" onchange="qtSetField('preparedBy',this.value)" placeholder="이름"></td>
-          <td><input value="${_qdHtmlEsc(c.reviewedBy||'')}" onchange="qtSetField('reviewedBy',this.value)" placeholder="이름"></td>
-          <td><input value="${_qdHtmlEsc(c.approvedBy||'')}" onchange="qtSetField('approvedBy',this.value)" placeholder="이름"></td>
+        <tr style="height:90px;">
+          <td style="vertical-align:top;padding:0;"><input value="${_qdHtmlEsc(c.preparedBy||'')}" onchange="qtSetField('preparedBy',this.value)" placeholder="이름" style="height:100%;padding:8px 10px;"></td>
+          <td style="vertical-align:top;padding:0;"><input value="${_qdHtmlEsc(c.reviewedBy||'')}" onchange="qtSetField('reviewedBy',this.value)" placeholder="이름" style="height:100%;padding:8px 10px;"></td>
+          <td style="vertical-align:top;padding:0;"><input value="${_qdHtmlEsc(c.approvedBy||'')}" onchange="qtSetField('approvedBy',this.value)" placeholder="이름" style="height:100%;padding:8px 10px;"></td>
         </tr>
       </table>
     </div>
