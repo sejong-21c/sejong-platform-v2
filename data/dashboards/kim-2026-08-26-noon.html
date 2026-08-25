@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>정오 업데이트 · 2026-08-26 · 김철우 부장</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#fff; --ink:#1a2230; --muted:#5d6b7f; --line:#e2e8f0;
+    --red:#d93025; --orange:#e8710a; --blue:#1a73e8; --green:#137333; --purple:#7c3aed;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px;background:var(--bg);color:var(--ink);
+       font-family:"Malgun Gothic","맑은 고딕",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+       font-size:14px;line-height:1.65}
+  .wrap{max-width:1180px;margin:0 auto}
+  header{background:linear-gradient(135deg,#1a2230,#2d3e50);color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:18px}
+  header h1{margin:0 0 6px;font-size:22px;letter-spacing:-.4px}
+  header .sub{opacity:.82;font-size:13px}
+  .warnbar{background:#fff4e5;border:1px solid #f5c384;border-left:5px solid var(--orange);
+           border-radius:10px;padding:14px 18px;margin-bottom:18px;font-size:13.5px}
+  .warnbar b{color:#a2570a}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-bottom:18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:13px 14px;text-align:center}
+  .kpi .n{font-size:26px;font-weight:700;line-height:1.15}
+  .kpi .l{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .kpi.red .n{color:var(--red)} .kpi.orange .n{color:var(--orange)}
+  .kpi.blue .n{color:var(--blue)} .kpi.green .n{color:var(--green)} .kpi.purple .n{color:var(--purple)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px 24px;margin-bottom:16px}
+  section > h2{margin:0 0 14px;font-size:16px;padding-bottom:9px;border-bottom:2px solid var(--line);letter-spacing:-.3px}
+  .summary{font-size:14px;line-height:1.85}
+  .summary p{margin:0 0 11px}
+  .summary .lead{background:#eef4ff;border-left:4px solid var(--blue);padding:12px 15px;border-radius:0 8px 8px 0}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:#f7f9fc;font-weight:600;font-size:12.5px;color:var(--muted);white-space:nowrap}
+  tbody tr:hover{background:#fafcff}
+  .pill{display:inline-block;padding:2px 9px;border-radius:11px;font-size:11px;font-weight:600;white-space:nowrap}
+  .p-high{background:#fce8e6;color:var(--red)}
+  .p-mid{background:#fef0e3;color:var(--orange)}
+  .p-low{background:#e8f0fe;color:var(--blue)}
+  .p-done{background:#e6f4ea;color:var(--green)}
+  .tag{display:inline-block;padding:1px 7px;border-radius:5px;background:#eef1f6;color:var(--muted);font-size:11px}
+  ul.acts{margin:0;padding-left:19px}
+  ul.acts li{margin-bottom:11px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
+  .box{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fbfcfe}
+  .box h3{margin:0 0 9px;font-size:13.5px}
+  .box.ok{background:#f1f9f3;border-color:#bfe3c9}
+  .box.warn{background:#fff6f5;border-color:#f2c4bf}
+  .d{font-weight:700;padding:1px 7px;border-radius:5px;background:#fce8e6;color:var(--red);font-size:11.5px}
+  .d.soft{background:#fef0e3;color:var(--orange)}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;padding:14px 0 4px}
+  code{background:#eef1f6;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>정오 업데이트 — 2026년 8월 26일 (수)</h1>
+  <div class="sub">㈜세종기술 품질관리부 · 김철우 부장 (cwkim@sejong-21c.com) · 권한 L3 · Asia/Seoul<br>
+  스케줄 12:00 · <b>실제 실행 08:05</b> · 검색범위 2026-08-21 07:35 ~ 08-26 08:05</div>
+</header>
+
+<div class="warnbar">
+  <b>⚠️ 브리핑 5일 공백 — 이번 회차는 정오 증분이 아니라 누적 따라잡기입니다.</b><br>
+  직전 기록이 <b>8/21 오전(07:35)</b>이며 8/21 정오·오후와 8/24·8/25가 전량 미기록입니다.
+  그 사이 <b>8/24(월) 주간회의에서 김철우 부장 배정 액션이 11건 신규 발생</b>했고, 그중 <b>닥트 보수(수요일=오늘)</b>와
+  <b>철골 도비 확정(이번 주)</b>이 오늘·모레로 압축된 상태로 발견됐습니다.
+</div>
+
+<div class="kpis">
+  <div class="kpi blue"><div class="n">68</div><div class="l">신규 메일(5일 누적)</div></div>
+  <div class="kpi blue"><div class="n">34</div><div class="l">업무 분류 처리</div></div>
+  <div class="kpi red"><div class="n">8</div><div class="l">긴급 답변 대기</div></div>
+  <div class="kpi orange"><div class="n">11</div><div class="l">주간회의 신규 배정</div></div>
+  <div class="kpi purple"><div class="n">1</div><div class="l">신규 NCR</div></div>
+  <div class="kpi purple"><div class="n">2</div><div class="l">진행 중 NCR/CAR</div></div>
+  <div class="kpi green"><div class="n">2</div><div class="l">신규 수주</div></div>
+  <div class="kpi green"><div class="n">4</div><div class="l">해소·종결</div></div>
+</div>
+
+<section>
+  <h2>Executive Summary</h2>
+  <div class="summary">
+    <p class="lead"><b>오늘 2시간 안에 끝나는 일이 하나 있습니다 — 10:10 이노폴 사내 KOM.</b>
+    8/26 07:28 접수된 SJE2026-062 이노폴 토너배관공사(납기 11/26) 건으로, 참석 요청은 기술부·구매부이지만
+    신규 PJT의 ITP·검사계획이 품질관리부 소관이므로 여기서 품질요구사항을 확정하지 않으면 이후 ITP를 근거 없이 작성해야 합니다.</p>
+
+    <p><b>가장 큰 변화는 8/24 주간회의입니다.</b> 김철우 부장 배정 액션이 11건으로 늘었고,
+    8월 잔여 영업일은 4일(8/26~8/31)뿐입니다. 전량 소화는 불가하므로
+    오늘은 <b>①10:10 KOM 참석 ②KHNP 보안플랫폼 명단(D-4) ③철골 도비 업체 확정 착수</b> 3건으로 좁히고,
+    나머지 8건은 8/31 주간회의 전까지 분산 배치하는 것을 권합니다.</p>
+
+    <p><b>풀린 것도 있습니다.</b> 8/18 이후 정지돼 있던 <b>구매요청서 R&amp;R 교착</b>이 주간회의에서 정식 액션으로 배정되며 해결 경로가 생겼습니다.
+    준비 중이던 대표이사 판단 요청 문서는 불필요해졌고, 대신 <b>양식 개선안 작성</b>으로 전환하십시오.
+    에이원 유지보수 계약(체결 불가 회신 완료), 이노비즈 포상(추천명단 제외 통보), NCR-2026-22(조치방안 확정)도 각각 닫혔습니다.</p>
+
+    <p><b>반대로 5일째 멈춘 것은 CAR-2026-010입니다.</b> 8/21에 부장님이 생산부 회신자료를 반려하고 재작성을 지시했으나 재회신이 없습니다.
+    독촉 3회 → 반려 → 재정지이므로 실무 라인 소진은 확정됐습니다. 8월 잔여 4일 안에 공급자 재평가 실시일을 못 박아야
+    9월 자체감사 전 종결이 가능하고, 10월 ISO 19443 재갱신에서 “시정조치 미종결” 지적을 피할 수 있습니다(잔여 약 5주).</p>
+  </div>
+</section>
+
+<section>
+  <h2>긴급 답변 대기 TOP 8</h2>
+  <table>
+    <thead><tr><th>#</th><th>건명</th><th>발신·근거</th><th>Project</th><th>기한</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><b>SJE2026-062 이노폴 토너배관공사 사내 KOM</b> — 30분. 신규 PJT ITP·품질요구사항 확정 기회. P&amp;ID 개정 후속 필요</td><td>정상진 부장</td><td><span class="tag">SJE2026-062</span></td><td><span class="d">오늘 10:10</span></td></tr>
+      <tr><td>2</td><td><b>닥트 보수</b> — 플랜지 타입 닥트 부품 준비. 지정 작업일이 오늘</td><td>8/24 주간회의 배정</td><td><span class="tag">부서업무</span></td><td><span class="d">오늘</span></td></tr>
+      <tr><td>3</td><td><b>KHNP 기술정보 전주기 보안관리 플랫폼 사용자 명단</b>(붙임2 양식, 최대 5명) 제출. 8일째 미회신·원전감독법 준수 사항</td><td>한수원 사이버보안센터</td><td><span class="tag">원자력</span></td><td><span class="d">8/30 · D-4</span></td></tr>
+      <tr><td>4</td><td><b>SJ2026-040 츄고쿠삼화페인트 TK-1201·1202 FINAL DOC</b> — 용접 검사서류는 품질부 발행분. 유럽산 변경 자재 밀시트 정합성 확인 필요</td><td>정상진 부장 → 황서윤 대리 (CC)</td><td><span class="tag">SJ2026-040</span></td><td><span class="d soft">고객 종결 대기</span></td></tr>
+      <tr><td>5</td><td><b>CAR-2026-010 세창엔텍</b> — 8/21 회신자료 반려·재작성 지시 후 5일째 무응답. 경영층 에스컬레이션 + 공급자 재평가 실시일 확정</td><td>생산부 (회신 의무자)</td><td><span class="tag">품질보증</span></td><td><span class="d">8/31</span></td></tr>
+      <tr><td>6</td><td><b>철골 도비 업체 확정</b> + 안전 도비 8명 계약 · 단기 계약서 작성·삼성 신고 (9/15 투입 연계)</td><td>8/24 주간회의 배정</td><td><span class="tag">부서업무</span></td><td><span class="d">8/28</span></td></tr>
+      <tr><td>7</td><td><b>Chiller 사양서 rev.B 검토의견 회신</b> — “AI로 작성, 현재 검토중” 명시분이므로 기술 타당성 검증 필요</td><td>김시원 대리</td><td><span class="tag">내부품질경영</span></td><td><span class="d soft">미정</span></td></tr>
+      <tr><td>8</td><td><b>ISO 통합(9001/14001/45001) 사후심사</b> 일정 조율 회신 — 품질·환경 사후1차 / 안전보건 사후2차, 심사일자 미기재</td><td>아이티에스인증원</td><td><span class="tag">품질보증</span></td><td><span class="d soft">일정 조율</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>8/24 주간회의 — 김철우 부장 배정 액션 11건 (신규·최대 변화)</h2>
+  <table>
+    <thead><tr><th>#</th><th>액션</th><th>기한</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>닥트 보수 — 수요일 보수작업용 플랜지 타입 닥트 부품 준비</td><td><span class="d">오늘 8/26</span></td><td><span class="pill p-high">오늘 착수</span></td></tr>
+      <tr><td>2</td><td>철골 도비 업체 확정 + 9/15 투입 일정 조율</td><td><span class="d">8/28</span></td><td><span class="pill p-high">오늘 착수</span></td></tr>
+      <tr><td>3</td><td>안전 도비 인원 8명 계약 (9/15부터 투입)</td><td>9/15</td><td><span class="pill p-high">2번과 연계</span></td></tr>
+      <tr><td>4</td><td>양이사 협의 → 단기 계약서 작성 · 삼성에 신고</td><td>미정</td><td><span class="pill p-high">2·3번과 연계</span></td></tr>
+      <tr><td>5</td><td>구매요청서 양식 표준화 — 비고란에 예산 외 구매 사유·근거 명시 / 긴급 건은 사전 부서장 확인</td><td>미정</td><td><span class="pill p-high">R&amp;R 교착 해소분</span></td></tr>
+      <tr><td>6</td><td>예산 확인 절차 수립 — 구매팀 접수 시 예산 편성 여부 사전 확인, 초과 시 지정 승인권자 결재</td><td>미정</td><td><span class="pill p-high">5번과 한 묶음</span></td></tr>
+      <tr><td>7</td><td>구매요청서 양식 변경안 구매부장(김우진) 협의</td><td>미정</td><td><span class="pill p-mid">협의 필요</span></td></tr>
+      <tr><td>8</td><td>경영방침 포스터 설치 위치·사이즈 확정</td><td><span class="d soft">8/31</span></td><td><span class="pill p-mid">인쇄 발주 선행조건</span></td></tr>
+      <tr><td>9</td><td>노무사에 취업규칙·업무지침 검토 의뢰</td><td>8월 말</td><td><span class="pill p-mid">이월</span></td></tr>
+      <tr><td>10</td><td>동성케미컬 베트남 수출 일정 확인·공유 / 삼영폴리테크 작업 일정 현장 협의 / 연구 설비 설치 자료·리포트 작성</td><td>미정</td><td><span class="pill p-mid">분산 배치</span></td></tr>
+      <tr><td>11</td><td>전 직원 대상 AI 활용 교육 시간 마련 (데이터 분석·업무 효율화)</td><td>미정</td><td><span class="pill p-low">중장기</span></td></tr>
+    </tbody>
+  </table>
+  <p style="margin:12px 0 0;font-size:12.5px;color:var(--muted)">
+  ※ 회의록 출처: Gemini 자동 생성 “주간 회의” 회의록(2026-08-24 11:08 KST). 자동 생성분이라 인명·고유명사 오기 가능(예: “서명 폴리테크”→삼영폴리테크, “시원택”→확인 필요).<br>
+  ※ 타부서 배정분 참고 — 추가공사 금액 확정은 <b>정성기 상무</b>(BGF 현장, 이번 주 내)로 재배정되어 부장님 액션에서 이탈했습니다.
+  안전관리계획서는 박영덕 주임(15일 이전 접수), 예산 관리 주체 확정은 김민준 차장, 실행예산 편성 절차 수립은 경영층 배정입니다.
+  </p>
+</section>
+
+<section>
+  <h2>NCR / CAR 추적</h2>
+  <table>
+    <thead><tr><th>번호</th><th>건명</th><th>진척 (8/21~8/26)</th><th>다음 단계</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>NCR-2026-22</b></td>
+        <td>진양화성 Hopper — PD Outlet Nozzle 높이 문제</td>
+        <td>8/21 09:31 발행 → 8/21 13:33 기술부 조치사항 회신 → 8/21 13:47 부장님 발생원인 검토 의견 → 8/25 09:24 조치방안 확정본 공유(권오근 부장 앞)</td>
+        <td>생산부 작업 완료 후 검사신청 접수 확인</td>
+        <td><span class="pill p-done">정상 사이클</span></td>
+      </tr>
+      <tr>
+        <td><b>CAR-2026-010</b></td>
+        <td>세창엔텍 — 협력업체 반복 불일치 및 불일치 미조치 무단 납품</td>
+        <td>8/21 09:12 부장님이 생산부 회신자료 반려(발생원인 조치 내용 누락 / 조치결과 항목은 생산부 작성 대상 아님) → <b>이후 5일간 재회신 없음</b></td>
+        <td>경영층 에스컬레이션 + 8월 중 공급자 재평가 실시일 확정</td>
+        <td><span class="pill p-high">5일째 정지</span></td>
+      </tr>
+      <tr>
+        <td><b>SJ-NCR-2026-10</b></td>
+        <td>천안 PPG Korea 열교환기 Gasket 발주 오류 (구매요청서 R&amp;R 파생)</td>
+        <td>8/18 이후 메일 정지 → <b>8/24 주간회의에서 정식 액션으로 배정되며 교착 해제</b> (김철우 4건 + 김민준 차장 2건 + 경영층 1건)</td>
+        <td>구매요청서 양식 개선안 작성 → 구매부장 협의</td>
+        <td><span class="pill p-done">해결 경로 확보</span></td>
+      </tr>
+      <tr>
+        <td><b>26-CAR-009</b></td>
+        <td>진양화성(SJE437-26) — 에너지관리공단 제출서류·실자재 불일치</td>
+        <td>8/7 조치방안 접수·이견 없음 회신 완료. 이후 갱신 없음</td>
+        <td>조치 이행기록 제출 여부 확인</td>
+        <td><span class="pill p-mid">이행기록 대기</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>신규 수주 2건 — pendingProjects 20 → 22</h2>
+  <div class="grid2">
+    <div class="box">
+      <h3>SJE2026-062 · 이노폴 토너배관공사</h3>
+      <table>
+        <tr><th>발주처</th><td>이노폴</td></tr>
+        <tr><th>납기</th><td><b>2026-11-26</b></td></tr>
+        <tr><th>통보</th><td>8/26 07:28 정상진 부장 (수신: 공장장·김홍란 이사·이재기 부장·한승남 부장 / 부장님 CC)</td></tr>
+        <tr><th>KOM</th><td><b>오늘 10:10, 30분</b> — 기술부·구매부 참석 요청</td></tr>
+        <tr><th>후속</th><td>P&amp;ID 개정 작업 필요. 고객사 P&amp;ID는 사내 서버<br><code>\\Sjserver\세종기술\0. PROJECT\2026\SJE2026-062 이노폴(토너배관공사)</code></td></tr>
+        <tr><th>첨부</th><td>수주통보서 PDF / UNPRICE 견적(SJQ260618R4) / 구매요청서 xlsx / 견적용 BOM xlsx</td></tr>
+        <tr><th>품질부</th><td>ITP 작성 대상. 시작일·품목 상세는 첨부 미파싱으로 공란 — KOM 후 보완</td></tr>
+      </table>
+    </div>
+    <div class="box warn">
+      <h3>삼성전기 원료1동 수열합성 W탱크 — <span style="color:var(--red)">번호 미부여</span></h3>
+      <table>
+        <tr><th>발주처</th><td>삼성전기(주) 부산사업장</td></tr>
+        <tr><th>통보</th><td>8/21 13:51 김민준 차장</td></tr>
+        <tr><th>조치</th><td>8/21 14:00 부장님이 신채완 과장·김시원 대리에게 <b>“ITP 작성 바랍니다”</b> 지시 완료</td></tr>
+        <tr><th>범위</th><td>제작 · 납품</td></tr>
+        <tr><th>주의</th><td><b>통보서에 프로젝트번호가 없어 Gmail 라벨 신설을 보류</b>했습니다. pendingProjects에는 임시번호 <code>SJ2026-063</code>으로 등재 — <b>영업부에 정식 번호 부여 요청 필요</b>. 기존 SJ435-26(원료3동 6라인 증설)과는 별건입니다.</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>원자력 Part</h2>
+  <div class="summary">
+    <p>8/21 이후 <b>신규 접수는 0건</b>이고, 대신 기존 3건의 시한이 눌렸습니다.</p>
+  </div>
+  <table>
+    <thead><tr><th>구분</th><th>건명</th><th>현재 상태 · 판단</th><th>기한</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill p-high">인증</span></td><td>KHNP 기술정보 전주기 보안관리 플랫폼 사용자 명단</td>
+        <td>8/18 수신 후 8일째 미회신. 원전감독법 준수 사항. <b>명단 5명 선정은 전산 담당과 30분 협의로 끝나므로 오늘 처리 가능한 유일한 원자력 건.</b> 병행 조치(DRM·문서중앙화 제조사 호환성 요청, 수신 전용PC 운영)는 명단 제출과 분리 진행</td><td><span class="d">8/30 · D-4</span></td></tr>
+      <tr><td><span class="pill p-high">인증</span></td><td>CAR-2026-010 세창엔텍</td>
+        <td>독촉 3회 → 반려 → 5일 재정지. 실무 라인 소진 확정. 8월 잔여 4일 안에 공급자 재평가 실시일 확정 필요</td><td><span class="d">8/31</span></td></tr>
+      <tr><td><span class="pill p-high">입찰</span></td><td>울산복합 #4CC OH PVC 배관 교체작업 및 정비편의설비 설치</td>
+        <td><b>마감 8/24 10:00 경과, 8/21 이후 관련 메일 0건.</b> 첨부 3건 검토가 8/21까지 미착수였으므로 미참여 종결 추정 — 김민준 차장에게 참여 여부만 확인하면 이 건은 닫힙니다. 8/25 <b>비드큐</b> 신규 안내 수신으로 비드인과 2개 업체 비교 가능</td><td><span class="d soft">결과 확인</span></td></tr>
+      <tr><td><span class="pill p-high">기술</span></td><td>독성물질 취급 배관 연결·용접 기준 유권해석 질의서</td>
+        <td><b>주간회의에서 “[담당자] 급성 독성 관련 법적 문구를 카피하여 전달”로 변형되어 부장님 직접 배정에서 제외</b>됐습니다. 질의서 작성 취소인지 담당 이관인지 확인 필요 — ISO 19443·원자력 절차 정합성 직결이므로 방치 금지</td><td><span class="d soft">확인 필요</span></td></tr>
+      <tr><td><span class="pill p-high">인증</span></td><td>ISO 19443·원자력 QA 재갱신 → 9월 자체감사</td>
+        <td>신규로 <b>ISO 통합(9001/14001/45001) 사후심사</b>가 8/24 안내됨(품질·환경 사후1차 / 안전보건 사후2차). 세 일정을 함께 배치해야 부서 절차서 정비를 한 번에 활용 가능</td><td>9월~10월</td></tr>
+      <tr><td><span class="pill p-mid">기술</span></td><td>원자력 배관 필링 업체 5곳 검토 → 다음 주 미팅</td>
+        <td>8/24 주간회의 신규 결정(담당 재문). 신규 공급자 선정이므로 공급자 평가 절차·ISO 19443 요구사항 사전 안내 필요</td><td>다음 주</td></tr>
+      <tr><td><span class="pill p-mid">교육</span></td><td>25기 원자력품질 선임감사자과정 (9/15~9/18)</td>
+        <td>참석 미확정. <b>9/15 안전 도비 10명 투입 + 철골 도비 투입일과 3중 중복</b> — 주간회의 배정 액션이 9/15에 몰려 있어 참석 시 현장 대응 공백 발생</td><td>9/15</td></tr>
+      <tr><td><span class="pill p-mid">추적</span></td><td>KHNP 유자격등록 반송 보완·재제출 / 체코원전 예가 견적 / 한울 3·4호기 이송대차 입찰 결과</td>
+        <td>7월 이후 갱신 없음, 진행상태 확인 필요</td><td>—</td></tr>
+      <tr><td><span class="pill p-mid">인증</span></td><td>KAIF 2026년 제3차 원전기업 인증제도</td>
+        <td>신청자격·구비서류 확인 필요. ISO 19443 재갱신 자료와 중복 활용 가능</td><td>9/14 18:00</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>해소·종결된 건 (5일 공백 사이)</h2>
+  <div class="grid2">
+    <div class="box ok">
+      <h3>✔ 에이원정보기술 유상 유지보수 계약</h3>
+      <p style="margin:0">8/21 10:39 부장님이 <b>“현 시점에서는 유상 유지보수 계약을 체결할 수 없다”</b> 최종 회신 발송 → 종결.
+      단, <b>스마트공장 수준확인 지원사업</b>은 별건으로 8/24 19:29 공고문·서식 재송부됨(2027년 구축사업 가점) — 신청 여부는 여전히 미결정.</p>
+    </div>
+    <div class="box ok">
+      <h3>✔ 구매요청서 R&amp;R 교착 해제</h3>
+      <p style="margin:0">8/18 이후 정지돼 있던 SJ-NCR-2026-10 파생 논쟁이 8/24 주간회의에서 정식 액션으로 배정.
+      <b>대표이사 판단 요청 문서 준비는 불필요</b>해졌고, 양식 개선안 작성으로 전환.</p>
+    </div>
+    <div class="box ok">
+      <h3>✔ 이노비즈 2026 혁신 유공 포상</h3>
+      <p style="margin:0">이노비즈협회 8/25 10:53 통보로 <b>당사가 추천명단에서 제외</b>(신채완 과장 8/25 10:55 전달).
+      “11월 이노비즈 포상 준비” 액션은 종료. 전시회 참여만 잔존 — 관람 희망자는 금주 내 문자·메일 신청.</p>
+    </div>
+    <div class="box ok">
+      <h3>✔ SJ435-26 삼성전기 PACKING (9일 미종결분)</h3>
+      <p style="margin:0">8/21 신안건업 입고순서 list 회신 → 8/24 16:09 김시원 대리 미팅 요청 → 8/24 13:24 신채완 과장이
+      PACKING LIST 도면 대비 <b>수량 2배 표기</b> 등 질의 발송. 부장님은 CC 참조, <b>직접 회신 불요</b> — 승인본 기준 검사 진행 여부만 확인.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>주의가 필요한 진행 건</h2>
+  <table>
+    <thead><tr><th>건명</th><th>내용</th><th>품질 관점 리스크</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>SJ435-26 TA-6104A~D<br>MIXING TANK 25M3</b></td>
+        <td>도면이 3일간 <b>3회 출도</b> — 8/24 16:00(TAILING LUG 추가) → 8/25 08:15(도면 미첨부로 재송부) → 8/25 13:20(260825 추가 수정)</td>
+        <td>같은 장비 도면이 사흘에 세 번 바뀌면 <b>ITP 검사항목·치수 기준이 어느 rev 근거인지 불명확</b>해집니다. 최종 rev 확정 후 검사기준 재고정 필요. 재송부 사유가 “도면 미첨부”인 점은 <b>출도 관리 절차의 반복 결함</b>으로 기록 대상</td>
+      </tr>
+      <tr>
+        <td><b>냉각탑 · Chiller 사양서</b></td>
+        <td>8/24 13:10 냉각탑 구매-검사 사유서 검토본 Review 실시 / Chiller 사양서 초안 8/24 → rev.B 8/25 공유</td>
+        <td>김시원 대리가 <b>“AI로 작성하였고, 현재 검토중”</b>이라 명시 — 기술적 타당성 검증이 특히 필요. 손용우 차장 Road-map 순차 아이템이며 부장님 검토의견 미회신</td>
+      </tr>
+      <tr>
+        <td><b>Synology NAS 드라이브 경고</b></td>
+        <td>8/23 08:14~08:15 crazy4eu / DS416j 드라이브 1에서 <b>I/O 오류 + UNC 오류</b> 발생. 재시도 후 정상 작동 중이나 불량 섹터 가능성</td>
+        <td>품질기록·프로젝트 도면이 NAS에 있다면 데이터 유실 시 <b>ISO 문서관리 요건 위배</b>로 직결. 즉시 백업 + SMART 확장 테스트 권고 (이번 주 내)</td>
+      </tr>
+      <tr>
+        <td><b>주간업무일지 보고라인</b></td>
+        <td>김민식 차장 8/22 17:19 — <b>“이번부터는 김부장님한테로 보내면 되나요”</b> (근무일이 8월부터 월·화로 변경, 전주 미제출)</td>
+        <td>한 줄 회신으로 끝나는 건. 방치 시 주간보고 라인이 계속 불확실</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>다가오는 일정</h2>
+  <table>
+    <thead><tr><th>일자</th><th>일정</th><th>Project</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td><b>8/26 (수)</b></td><td><b>SJE2026-062 이노폴 사내 KOM 10:10~10:40</b></td><td>SJE2026-062</td><td><span class="pill p-done">캘린더 등록 완료</span></td></tr>
+      <tr><td><b>8/26 (수)</b></td><td>닥트 보수 — 플랜지 타입 닥트 부품 준비</td><td>부서업무</td><td><span class="pill p-done">종일 등록 완료</span></td></tr>
+      <tr><td>8/26 (수)</td><td>신공장 공사 준비 완료 목표 (주간회의: 26일까지 준비)</td><td>부서업무</td><td>팀 배정</td></tr>
+      <tr><td>8/27 (목)</td><td>신공장 현장 출발</td><td>부서업무</td><td>팀 배정</td></tr>
+      <tr><td><b>8/28 (금)</b></td><td>철골 도비 업체 확정 + 9/15 투입 일정 조율</td><td>부서업무</td><td><span class="pill p-done">종일 등록 완료</span></td></tr>
+      <tr><td>8/28 (금)</td><td>퓨어코아 프로젝트 견적 확정·제출</td><td>부서업무</td><td>기등록</td></tr>
+      <tr><td>8/28 (금)</td><td>전시회 관람 희망자 신청 마감 (금주 내 문자·메일)</td><td>부서업무</td><td>주간회의</td></tr>
+      <tr><td><b>8/30 (일)</b></td><td>KHNP 보안관리 플랫폼 사용자 명단(최대 5명) 제출 마감</td><td>원자력</td><td>기등록 · <span class="d">D-4</span></td></tr>
+      <tr><td>8/31 (월)</td><td>주간회의 08:15~10:15 (Google Meet) — 배정 액션 11건 진척 보고</td><td>부서업무</td><td>기등록</td></tr>
+      <tr><td><b>8/31 (월)</b></td><td>경영방침 포스터 설치 위치·사이즈 확정</td><td>부서업무</td><td><span class="pill p-done">종일 등록 완료</span></td></tr>
+      <tr><td>8/31 (월)</td><td>CAR-2026-010 종결 목표 — 세창엔텍 공급자 재평가 실시</td><td>품질보증</td><td>기등록</td></tr>
+      <tr><td>8/31 (월)</td><td>SJ435-26 삼성전기 AGITATOR 납기 (변경분) 09:00</td><td>SJ435-26</td><td>기등록</td></tr>
+      <tr><td>8/31 (월)</td><td>취업규칙 개정·노사 검토 완료 / 안전관리계획서 접수(박영덕 주임)</td><td>부서업무</td><td>—</td></tr>
+      <tr><td>9/14 (월)</td><td>KAIF 2026년 제3차 원전기업 인증제도 신청 마감 18:00</td><td>원자력</td><td>기등록</td></tr>
+      <tr><td>9/15 (화)</td><td>안전 도비 10명 투입 / 철골 도비 투입 · 25기 원자력품질 선임감사자과정(~9/18)</td><td>원자력</td><td>3중 중복</td></tr>
+      <tr><td>9월 중</td><td>품질보증시스템 자체 감사 (일자 미확정)</td><td>품질보증</td><td>—</td></tr>
+      <tr><td>10월 중</td><td>ISO 19443 재갱신 + ISO 통합 9001/14001/45001 사후심사</td><td>품질보증</td><td>일정 조율 필요</td></tr>
+      <tr><td>11/26 (목)</td><td>SJE2026-062 이노폴 토너배관공사 납기</td><td>SJE2026-062</td><td>신규</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>자동 처리 결과</h2>
+  <table>
+    <thead><tr><th>항목</th><th>결과</th></tr></thead>
+    <tbody>
+      <tr><td>Gmail 라벨 신규 생성</td><td><b>1건</b> — <code>SJE2026-062_이노폴_토너배관공사</code> (Label_57, MINT)</td></tr>
+      <tr><td>Gmail 라벨 신규 부착</td><td><b>4스레드</b> — 이노폴 KOM → SJE2026-062 + Urgent + Schedule / 츄고쿠 FINAL DOC → SJ2026-040 + Urgent / ISO 사후심사 → Schedule + 부서업무 / SJ435-26 수정도면 → SJ435-26</td></tr>
+      <tr><td>INBOX 제거</td><td><b>미실시</b> — 5일 공백으로 부장님 미확인 메일이 다수이므로 은닉 방지를 위해 보류</td></tr>
+      <tr><td>Calendar 신규 등록</td><td><b>4건</b> — 이노폴 KOM(8/26 10:10 시간지정) / 닥트 보수(8/26 종일) / 철골 도비 확정(8/28 종일) / 경영방침 포스터(8/31 종일)<br><span style="color:var(--muted);font-size:12px">※ 종일 3건은 최초 등록 시 UTC 해석으로 하루 앞당겨져 생성되어 즉시 정정 완료</span></td></tr>
+      <tr><td>WO 메일 감지</td><td><b>2건</b> — pendingProjects 20 → 22건 (SJE2026-062 / 삼성전기 W탱크 임시번호 SJ2026-063)</td></tr>
+      <tr><td>Step 7 (답변 동시작성)</td><td>건너뜀 — 스케줄 자동 실행</td></tr>
+      <tr><td>Manday</td><td>8H (예상)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  ⓒ daily-mail 스킬 · 정오 업데이트 자동 생성 · 2026-08-26 08:05 (Asia/Seoul)<br>
+  ㈜세종기술 품질관리부 · 김철우 부장 · SJ FLOW 연동 <code>data/briefings.json</code>
+</footer>
+
+</div>
+</body>
+</html>
