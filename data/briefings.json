@@ -1191,73 +1191,66 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-26 07:50 (오후 정리 자동 실행)",
+    "generatedAt": "2026-08-26 08:00 (오전 정리 자동 실행)",
     "newMails": 10,
-    "processed": 7,
-    "urgentReplies": 3,
+    "processed": 6,
+    "urgentReplies": 2,
     "ncr": 1,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "NCR-2026-22 조치 작업 완료 확인 후 검사 신청 접수 및 검사 일정 확정",
-        "proj": "SJE437-26 진양화성",
+        "text": "삼성전기 철골 납품순서·PACKING 협의 미팅 (오늘 13:00) 신안건업 참석 확답 확인",
+        "proj": "SJ435-26",
         "priority": "high"
       },
       {
-        "text": "냉동기 Chiller 사양서 rev.B 변경점(rev.A 대조) 검토 후 의견 회신 — 회신 기한 미지정",
-        "proj": "품질보증/Procedure",
+        "text": "취업규칙 변경 필요 부분 정리안 회신 (양병원 이사 지시, 3일 지연) — 초안 작성 완료",
+        "proj": "일반사무",
         "priority": "high"
       },
       {
-        "text": "SJ435-26 TA-6104A~D MIXING TANK 25M3 구도면 회수·폐기 확인 및 ITP 도면 rev 정합성 점검",
-        "proj": "SJ435-26 삼성전기",
+        "text": "NCR-2026-22 진양화성 Hopper-PD Outlet Nozzle 조치방안 확정, 작업 완료 후 검사 신청 대기",
+        "proj": "SJE437-26",
+        "priority": "high"
+      },
+      {
+        "text": "PACKING LIST VB 21~27 수량 도면 대비 2배 표기 건 신안건업 회신 대기",
+        "proj": "SJ435-26",
         "priority": "mid"
       },
       {
-        "text": "8월 거래명세서 내역 대조 후 이상 여부 회신 (월말 마감)",
-        "proj": "일반사무/정산",
+        "text": "냉동기(Chiller) 사양서 rev.B 검토의견 회신 (AI 작성 초안 교차검토 필요)",
+        "proj": "품질보증",
         "priority": "mid"
       },
       {
-        "text": "한국ASK케미칼즈 TE·TG 개선 회의록 내 품질관리부 액션아이템 확인 후 WBS 반영",
-        "proj": "SJ433-25 ASK CHEM A-1",
-        "priority": "mid"
-      },
-      {
-        "text": "법인차량 세차서비스 견적서 미회신 재독촉 (8/21 약속 기한 경과)",
-        "proj": "일반사무/구매",
+        "text": "출장세차 견적 취합 — 닥쓰 조건 수신, 송오토 견적 기한 초과 미도착",
+        "proj": "일반사무",
         "priority": "low"
       }
     ],
     "urgentList": [
       {
-        "subject": "Re: [NCR] 불일치보고서 (NCR-2026-22) 진양화성_Hopper-PD Outlet Nozzle 높이 문제 — 조치방안 확정, 작업 후 검사 신청 요청",
-        "from": "김시원 대리 (swkim@sejong-21c.com)",
-        "proj": "SJE437-26 진양화성"
+        "subject": "Fwd: 더원노무법인 김태오노무사 : 취업규칙 신고 건 — 변경 필요 부분 정리 요청",
+        "from": "양병원 이사",
+        "proj": "일반사무"
       },
       {
-        "subject": "Re: 세종기술_구매 및 검사 procedure 공유건_냉동기 Chiller_rev.B — 검토의견 회신 요청",
-        "from": "김시원 대리 (swkim@sejong-21c.com)",
-        "proj": "품질보증/Procedure"
-      },
-      {
-        "subject": "거래명세서(8월) 세종기술 — 내역 대조 후 회신 필요",
-        "from": "강문환 소장 (sikumchi5897@naver.com)",
-        "proj": "일반사무/정산"
-      },
-      {
-        "subject": "[이노비즈협회] 2026년 중소기업 혁신 유공 포상 추천명단 제외 안내 — 제한 해제 시점·재신청 요건 확인",
-        "from": "박선호 (shpark01@innobiz.or.kr)",
-        "proj": "일반사무/대외"
-      },
-      {
-        "subject": "Re: [세종기술] 법인차량 세차서비스 견적요청건 — 견적서 미회신 (기한 경과)",
-        "from": "송규호 대표 (songkh@songautocar.com)",
-        "proj": "일반사무/구매"
+        "subject": "[세종기술] (SJ435-26)삼성전기_PACKING 관련 미팅 요청건 — 금일 13시 참석 확답",
+        "from": "김시원 대리",
+        "proj": "SJ435-26"
       }
     ],
-    "schedule": []
+    "schedule": [
+      {
+        "title": "[SJ435-26] 삼성전기 철골 납품순서·PACKING 협의 미팅 (신안건업)",
+        "date": "2026-08-26",
+        "time": "13:00",
+        "proj": "SJ435-26",
+        "color": "blue"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-08-25 (daily-mail-swkim 자동 실행)",
