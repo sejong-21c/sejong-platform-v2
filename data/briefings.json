@@ -1265,43 +1265,52 @@
     ]
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-08-21 (daily-mail-swkim 자동 실행)",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-21-morning.html",
-    "newMails": 7,
-    "processed": 5,
+    "generatedAt": "2026-08-25 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-25-morning.html",
+    "newMails": 5,
+    "processed": 4,
     "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
-    "manday": 0.45,
+    "manday": 0.4,
     "keyActions": [
       {
-        "text": "[CAR-2026-010] 세창엔텍 시정조치요구서 — 어제(8/19) 23:31 본인이 재차 [Reminder!!!] 회신 촉구 메일 발송, 아직 회신 없음. 회신기한 8/7 기준 2주 이상 경과 — 오늘 중 회신 여부 직접 확인 필요",
-        "proj": "CAR-2026-010",
+        "text": "[SJ435-26] PACKING LIST 수량 불일치 질의 회신 확인 — 신채완 과장이 신안건업(이재훈 차장)에 질의(8/24 13:24): 1F 미분쇄 시트5 VB21~27 도면 대비 2배수 표기, FGP1/FGP2/AGP2/GP30 위치 특정 불가, 6F 본혼합 시트4 HR24 누락 의심. 검사담당자 질의이며 승인은 기술부·PM 확정 필요(승인 없이는 검사 진행 불가). 회신에 따라 NCR 전환 여부 판단 필요",
+        "proj": "SJ435-26",
         "priority": "mid"
       },
       {
-        "text": "[SJ-NCR-2026-10] PPG Korea Gasket 발주 오류 — 8/18 이후 관련 신규 메일 없음, 소강 상태로 추정. 본인은 CC 참조, 직접 회신 불요·결론 시 절차서 반영 확인만 필요",
-        "proj": "SJ-NCR-2026-10",
+        "text": "[SJ435-26] 철골 PACKING/납품순서 협의 미팅 회신 확인 — 본인이 신안건업(주현중 공장장)에 미팅 요청(8/24 16:09), 희망일시 8/26(수) 13시 제안(대안 9/7 이후). 상대측 확정 회신 전이라 캘린더에 임시 등록만 해둠 — 회신 확인 후 확정/조정 필요",
+        "proj": "SJ435-26",
+        "priority": "mid"
+      },
+      {
+        "text": "[SJ435-26] TA-6104A~D MIXING TANK 25M3 수정도면(TAILING LUG 추가) 수신 확인 — 강재상 사원 발신, 생산부 송기남 차장 수신, 본인 CC·UNREAD. 참조 확인만 필요",
+        "proj": "SJ435-26",
         "priority": "low"
       },
       {
-        "text": "[SJ431-25] SDC PROJECT UT/UP-1402B PUMP STRUCTURE 도면 1건 + 구매요청서 2건(재송부 포함) 수신 — 본인 CC, 생산부·구매부 처리 확인만 필요",
-        "proj": "SJ431-25",
+        "text": "냉동기(Chiller) 사양서 초안(SJ-PS-CHIL-001 rev.A) 검토의견 회신 대기 — 본인이 8/24 10:56 발송(AI 작성, 본인도 검토 중). 관계자 검토의견 회신 확인 필요",
+        "proj": "구매·검사 Procedure",
         "priority": "low"
       },
       {
-        "text": "애경캐미칼 SPRING BALANCE(VE-306) 교체 수정도면 수신 — Project 라벨 미부착(정식 수주통보 아님). 기존 진행 건인지 확인 후 필요 시 라벨 매핑 추가 권장",
-        "proj": "애경캐미칼",
-        "priority": "low"
-      },
-      {
-        "text": "포스터·현수막 시안 견적 요청(신채완 과장 발신, 화신종합인쇄사) — Project 무관 부서 행정 건, 별도 조치 불요",
+        "text": "출장세차 업체 견적 전달(신채완 과장 → 양병원 이사, 본인 CC) — Project 무관 부서 행정 건, 별도 조치 불요",
         "proj": "부서업무",
         "priority": "low"
       }
     ],
     "urgentList": [],
-    "schedule": []
+    "schedule": [
+      {
+        "title": "SJ435-26 삼성전기 철골 PACKING/납품순서 협의 미팅(신안건업) — 임시 등록, 상대측 회신 대기",
+        "date": "2026-08-26",
+        "time": "13:00",
+        "proj": "SJ435-26",
+        "dept": "품질관리부",
+        "color": "blue"
+      }
+    ]
   }
 }
