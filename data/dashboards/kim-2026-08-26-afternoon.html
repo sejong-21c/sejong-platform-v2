@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>오후 마감 점검 — 2026-08-26 (품질관리부 김철우 부장)</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#fff; --line:#e3e6ea; --tx:#1c2530; --tx2:#5b6773;
+    --red:#d93025; --org:#e8710a; --grn:#137333; --blu:#1a73e8; --gry:#80868b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#15181c; --card:#1e2227; --line:#31363c; --tx:#e6e9ed; --tx2:#a3adb8;
+           --red:#f28b82; --org:#fdb95d; --grn:#81c995; --blu:#8ab4f8; --gry:#9aa0a6; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px;background:var(--bg);color:var(--tx);
+       font-family:"Malgun Gothic","맑은 고딕",-apple-system,sans-serif;font-size:14px;line-height:1.6}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:21px;margin:0 0 4px}
+  .sub{color:var(--tx2);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  h2{font-size:15px;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .kpi{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .kpi div{flex:1 1 110px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+  .kpi b{display:block;font-size:24px;line-height:1.2}
+  .kpi span{font-size:12px;color:var(--tx2)}
+  .tblwrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:rgba(128,134,139,.10);font-weight:600;white-space:nowrap}
+  .tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+  .t-red{background:rgba(217,48,37,.14);color:var(--red)}
+  .t-org{background:rgba(232,113,10,.14);color:var(--org)}
+  .t-grn{background:rgba(19,115,51,.14);color:var(--grn)}
+  .t-blu{background:rgba(26,115,232,.14);color:var(--blu)}
+  .t-gry{background:rgba(128,134,139,.16);color:var(--gry)}
+  .lead{background:rgba(26,115,232,.07);border-left:4px solid var(--blu);padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:14px}
+  .done{background:rgba(19,115,51,.08);border-left:4px solid var(--grn);padding:12px 14px;border-radius:0 8px 8px 0}
+  .warn{background:rgba(217,48,37,.07);border-left:4px solid var(--red);padding:10px 14px;border-radius:0 8px 8px 0;margin-top:10px}
+  .note{background:rgba(232,113,10,.08);border-left:4px solid var(--org);padding:10px 14px;border-radius:0 8px 8px 0;margin-top:10px}
+  ul{margin:0;padding-left:18px} li{margin-bottom:6px}
+  .foot{color:var(--tx2);font-size:12px;text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>오후 마감 점검 — 2026년 8월 26일 (수)</h1>
+<div class="sub">㈜세종기술 품질관리부 · 김철우 부장 (cwkim@sejong-21c.com) · 권한 L3(최종 승인) · 16:30 스케줄 / 실제 실행 <b>08:12 KST</b> · 검색범위 <code>newer_than:1d</code> (2026-08-25 08:12 ~ 08-26 08:12)</div>
+
+<div class="warn" style="margin-bottom:14px">
+<b>⚠ 실행 시차 안내 —</b> 이 회차는 <b>16:30 마감 슬롯이 08:12에 실행</b>된 것입니다. 같은 날 <b>정오 슬롯이 7분 전인 08:05에 실행·완료</b>되었으므로, 그 사이 <b>신규 수신 0건 · 신규 발신 0건</b>입니다. 따라서 아래 &ldquo;오늘 처리 완료&rdquo;는 <b>업무 시작 전이라 비어 있는 것이 정상</b>이며, 이 문서는 하루를 결산한 기록이 아니라 <b>업무 시작 직전의 확정 상태와 오늘·내일 액션을 고정한 기록</b>입니다. 실제 마감 결산은 오늘 업무 종료 후 재실행이 필요합니다.
+</div>
+
+<div class="lead">
+<b>결론 —</b> 미처리·회신 대기는 <b>8건</b>이고, 그중 <b>오늘 안에 시각이 박힌 것은 2건</b>입니다 — <b>10:10 이노폴 사내 KOM</b>(약 2시간 뒤)과 <b>닥트 보수용 플랜지 타입 부품 준비</b>(오늘이 지정 작업일). 마감이 임박한 것은 <b>KHNP 보안 플랫폼 사용자 명단 D-4(8/30)</b>와 <b>철골 도비 업체 이번 주 내 확정(8/28)</b>입니다.<br>
+<b>가장 오래 정지한 건은 CAR-2026-010(세창엔텍)</b>입니다 — 독촉 3회 후 8/21 반려·재작성 지시까지 갔는데 <b>5일째 재회신이 없습니다</b>. 실무 라인으로는 더 진행되지 않는다는 결론이 확정된 상태이므로, 이번 주에 <b>경영층 에스컬레이션 + 8월 중 공급자 재평가 실시일 확정</b>으로 전환해야 9월 자체감사 전 종결이 가능하고 10월 ISO 19443 재갱신에서 &ldquo;시정조치 미종결&rdquo; 지적을 피할 수 있습니다(잔여 약 5주).<br>
+<b>내일(8/27 목)은 신공장 현장 출발</b>이므로 사무실 처리가 필요한 건은 <b>오늘 안에 끝내야</b> 합니다. 신규 NCR·CAR·WO 메일은 이 회차 기준 0건이며, 캘린더 신규 등록은 <b>1건(이노폴 납기 11/26)</b>입니다.
+</div>
+
+<div class="kpi">
+  <div><b>0</b><span>신규 수신<br>(08:05~08:12)</span></div>
+  <div><b>0</b><span>오늘 처리 완료<br>(발신 0건)</span></div>
+  <div><b>8</b><span>미처리·회신 대기</span></div>
+  <div><b>2</b><span>오늘 시각 확정 액션</span></div>
+  <div><b>1</b><span>NCR 진행<br>(NCR-2026-22)</span></div>
+  <div><b>1</b><span>CAR 진행<br>(CAR-2026-010)</span></div>
+  <div><b>1</b><span>캘린더 신규 등록</span></div>
+</div>
+
+<div class="card">
+<h2>① 미처리 · 긴급 답변 대기 (8건)</h2>
+<div class="tblwrap">
+<table>
+<tr><th>우선</th><th>건명</th><th>Project</th><th>상대</th><th>기한 · 상태</th></tr>
+<tr><td><span class="tag t-red">1</span></td>
+    <td><b>SJE2026-062 이노폴 토너배관공사 사내 KOM</b> — 신규 PJT의 ITP·검사계획이 품질관리부 소관. KOM에서 품질요구사항을 확정하지 않으면 이후 ITP를 근거 없이 작성해야 함. P&amp;ID 개정이 후속 과제</td>
+    <td>SJE2026-062</td><td>정상진 부장</td>
+    <td><span class="tag t-red">오늘 10:10 (30분)</span><br>캘린더 등록 완료</td></tr>
+<tr><td><span class="tag t-red">2</span></td>
+    <td><b>닥트 보수 — 플랜지 타입 닥트 부품 준비</b>. 8/24 주간회의 김철우 배정 액션이며 오늘이 지정된 보수 작업일. 오전 중 자재 확인 필요</td>
+    <td>부서업무</td><td>주간회의 배정</td>
+    <td><span class="tag t-red">오늘 (작업일)</span><br>캘린더 종일 등록</td></tr>
+<tr><td><span class="tag t-red">3</span></td>
+    <td><b>KHNP 기술정보 전주기 보안관리 플랫폼 사용자 명단 제출</b> (붙임2 양식, 기업당 최대 5명). 병행으로 자사 DRM·문서중앙화 제조사에 호환성 기술협조 요청, 확보 전까지 한수원 기술정보 수신 전용PC 운영 요구. 명단 선정은 전산 담당과 30분 협의로 종결 가능</td>
+    <td>원자력</td><td>한수원 사이버보안센터</td>
+    <td><span class="tag t-red">D-4 · 8/30 마감</span><br>8일째 미회신 · 원전감독법</td></tr>
+<tr><td><span class="tag t-red">4</span></td>
+    <td><b>CAR-2026-010 세창엔텍</b> — 반복 불일치·불일치 미조치 무단 납품. 독촉 3회(8/12·8/13·8/20) → 8/21 09:12 부장님이 생산부 회신자료 반려(발생 원인에 대한 조치 내용 누락 / 조치결과 항목은 생산부 작성 대상 아님)·재작성 지시 → <b>5일째 재회신 없음</b></td>
+    <td>품질보증(공급사)</td><td>생산부 (회신 의무자)</td>
+    <td><span class="tag t-red">8/31 종결 목표</span><br>경영층 에스컬레이션 전환</td></tr>
+<tr><td><span class="tag t-org">5</span></td>
+    <td><b>SJ2026-040 츄고쿠삼화페인트 TK-1201·1202 FINAL DOC 제출</b> — 고객사(이현주 팀장) 교체작업 완료·정상 사용 중, 업무 종결을 위해 Tank도면·자재 밀시트·용접 검사서류 요구. <b>용접 검사서류는 품질관리부 발행분</b>이라 황서윤 대리 단독 처리 불가. 국산 부재 부족으로 ASME 유럽산 변경 구매 이력이 있어 밀시트 원산지 정합성 확인 필요</td>
+    <td>SJ2026-040</td><td>정상진 부장 → 황서윤 대리 (김철우 CC)</td>
+    <td><span class="tag t-org">기한 명시 없음</span><br>고객사 종결 요청건</td></tr>
+<tr><td><span class="tag t-org">6</span></td>
+    <td><b>철골 도비 업체 이번 주 내 확정</b> + 안전 도비 8명 계약 · 단기 계약서 작성·삼성 신고 (9/15 투입 연계)</td>
+    <td>부서업무</td><td>주간회의 배정</td>
+    <td><span class="tag t-org">8/28 (이번 주)</span><br>캘린더 종일 등록</td></tr>
+<tr><td><span class="tag t-org">7</span></td>
+    <td><b>Chiller 사양서 rev.B 검토의견 회신</b> — 손용우 차장 Road-map 순차 아이템. 김시원 대리가 &ldquo;AI로 작성, 현재 검토중&rdquo;이라 명시했으므로 기술적 타당성 검증이 특히 필요</td>
+    <td>내부품질경영</td><td>김시원 대리</td>
+    <td><span class="tag t-org">회신 대기</span><br>8/25 09:15 rev.B 수신</td></tr>
+<tr><td><span class="tag t-org">8</span></td>
+    <td><b>ISO 통합(9001/14001/45001) 사후심사 일정 조율 회신</b> — 품질·환경 사후 1차, 안전보건 사후 2차. 심사일자가 메일에 없어 조율 필요. 9월 자체감사·10월 ISO 19443 재갱신과 함께 배치해야 절차서 정비를 한 번에 활용 가능</td>
+    <td>품질보증</td><td>아이티에스인증원</td>
+    <td><span class="tag t-org">일자 미정</span><br>양병원 이사 CC</td></tr>
+</table>
+</div>
+<div class="note"><b>한 줄 회신으로 끝나는 건 —</b> 주간업무일지(2026.08.24) 김민식 차장이 8/22 17:19 &ldquo;이번부터는 김부장님한테로 보내면 되나요&rdquo;라고 <b>보고라인 확인</b>을 요청했습니다(근무일이 8월부터 월·화로 변경). 방치하면 주간보고 라인이 계속 불확실해집니다.</div>
+</div>
+
+<div class="card">
+<h2>② 오늘 처리 완료 요약</h2>
+<div class="done">
+<b>0건 —</b> 08:12 기준 <b>업무 시작 전</b>이며, 김철우 부장 계정의 <b>업무 메일 발신은 8/21 이후 0건</b>입니다(8/22~8/23 발신 2건은 Synology NAS 자동 알림). 이 슬롯이 정상 시각(16:30)에 실행됐다면 아래 항목의 실제 진척이 기록됐을 자리입니다.
+</div>
+<div class="note" style="margin-top:12px">
+<b>정오 회차(08:05)에서 확정된 자동처리 —</b> Gmail 라벨 신규 생성 1건(SJE2026-062_이노폴_토너배관공사) · 라벨 부착 4스레드 · 캘린더 등록 4건(이노폴 KOM 10:10 / 닥트보수 8/26 / 철골도비 8/28 / 경영방침 포스터 8/31) · WO 메일 2건 감지로 pendingProjects에 <b>SJE2026-062 이노폴</b>·<b>SJ2026-063 삼성전기 원료1동 W탱크</b> 추가. INBOX 제거는 미실시(부장님 미확인 메일 은닉 방지).
+</div>
+</div>
+
+<div class="card">
+<h2>③ 내일(8/27 목)로 넘어가는 액션 아이템</h2>
+<div class="warn" style="margin-top:0">
+<b>내일은 신공장 현장 출발일입니다</b>(8/24 주간회의 결정 — 26일까지 준비, 27일 출발). <b>사무실에서만 처리 가능한 건은 오늘 안에 끝내야</b> 하며, 그렇지 않으면 8/28(금)로 밀려 &ldquo;이번 주 내&rdquo; 마감건과 정면 충돌합니다.
+</div>
+<div class="tblwrap" style="margin-top:12px">
+<table>
+<tr><th>구분</th><th>항목</th><th>이월 사유 · 처리 위치</th></tr>
+<tr><td><span class="tag t-red">현장 동행</span></td><td>신공장 현장 출발 — 공사 준비 상태 확인</td><td>8/24 주간회의 결정. 현장 처리</td></tr>
+<tr><td><span class="tag t-red">오늘 끝낼 것</span></td><td>KHNP 보안 플랫폼 사용자 명단 5명 확정·회신</td><td>D-4. 출장 중 전산 담당 협의가 어려우므로 <b>오늘 처리 권고</b></td></tr>
+<tr><td><span class="tag t-red">오늘 끝낼 것</span></td><td>CAR-2026-010 경영층 에스컬레이션 문서 착수</td><td>5일 정지. 재평가 실시일 확정이 8월 내 마감</td></tr>
+<tr><td><span class="tag t-org">이월</span></td><td>철골 도비 업체 확정 (8/28 마감)</td><td>출장 복귀 후 8/28 하루만 남음 — 오늘 후보 정리 권고</td></tr>
+<tr><td><span class="tag t-org">이월</span></td><td>SJ2026-040 FINAL DOC 용접 검사서류 취합</td><td>품질부 발행 서류 검색·정리 필요. 사무실 작업</td></tr>
+<tr><td><span class="tag t-org">이월</span></td><td>Chiller 사양서 rev.B 검토의견 회신</td><td>기술 검증 필요 — 이동 중 처리 부적합</td></tr>
+<tr><td><span class="tag t-org">이월</span></td><td>ISO 통합 사후심사 일정 조율 회신</td><td>일정 조율만이므로 이동 중에도 회신 가능</td></tr>
+<tr><td><span class="tag t-blu">이월</span></td><td>구매요청서 양식 개선안 작성 (주간회의 배정 4개 세부항목)</td><td>8/31 주간회의 진척 보고 대상</td></tr>
+<tr><td><span class="tag t-blu">이월</span></td><td>주간업무일지 보고라인 회신 / 스마트공장 수준확인 신청 여부 결정 / 전시회 관람 신청(금주 내)</td><td>단문 처리 가능 — 이동 중 소화 대상</td></tr>
+</table>
+</div>
+</div>
+
+<div class="card">
+<h2>④ NCR / CAR 진척</h2>
+<div class="tblwrap">
+<table>
+<tr><th>번호</th><th>건명</th><th>진척</th><th>다음 조치</th></tr>
+<tr><td><span class="tag t-org">NCR-2026-22</span></td>
+    <td>진양화성 Hopper — PD Outlet Nozzle 높이 문제 (SJE437-26)</td>
+    <td>8/21 09:31 발행 → 8/21 13:33 기술부 이영주 대리 조치사항 회신 → 8/21 13:47 부장님 발생원인 검토의견 회신 → <b>8/25 09:24 조치방안 확정본 공유</b>(권오근 부장 앞, 작업 후 검사신청 요청). <b>5일 만에 발행→조치방안 확정, 정상 사이클</b></td>
+    <td>생산부 작업 완료 후 <b>검사신청 접수 여부</b> 확인. 별건으로 8/21 SJE437-26 PRODUCT HOPPER N-2 OUTLET 노즐 하향 수정도면 출도됨</td></tr>
+<tr><td><span class="tag t-red">CAR-2026-010</span></td>
+    <td>세창엔텍 — 공급사 반복 불일치 및 불일치 품목 무단 납품</td>
+    <td>8/5 발행(회신기한 8/7) → 독촉 8/12·8/13·8/20(REMINDER!!!) → 8/13 최가람 주임 대리 회신(원본 미사용·전산 작성으로 반려) → <b>8/21 09:12 부장님 반려·재작성 지시</b> → <b>8/21~8/26 재회신 0건 (5일 정지)</b></td>
+    <td><span class="tag t-red">실무 라인 소진</span> 경영층 에스컬레이션 + <b>8월 중 공급자 재평가 실시일 확정</b>. 9월 자체감사 전 종결해야 10월 ISO 19443 재갱신 &ldquo;시정조치 미종결&rdquo; 지적 회피 (잔여 약 5주)</td></tr>
+<tr><td><span class="tag t-gry">SJ-NCR-2026-10</span></td>
+    <td>천안 PPG Korea 열교환기 Gasket 발주 오류 (파생: 구매요청서 R&amp;R 논쟁)</td>
+    <td>8/14 공유 → 8/17~8/18 구매부 김우진 부장과 3왕복 논쟁 후 정지 → <b>8/24 주간회의에서 정식 액션으로 배정되어 교착 해제</b></td>
+    <td>대표이사 판단 요청 문서는 불필요. <b>양식 개선안 작성으로 전환</b> — ①비고란 예산 외 구매 사유·근거 명시 ②긴급 건 사전 부서장 확인 ③구매팀 접수 시 예산 편성 여부 사전 확인 ④예산 초과 시 지정 승인권자 결재</td></tr>
+</table>
+</div>
+<div class="note"><b>이 회차 신규 NCR/CAR 0건.</b> 품질부 관점의 신규 리스크는 <b>SJ435-26 TA-6104A~D MIXING TANK 25M3 도면이 3일간 3회 출도</b>된 건입니다(8/24 16:00 TAILING LUG 추가 → 8/25 08:15 도면 미첨부로 재송부 → 8/25 13:20 추가 수정). 같은 장비 도면이 사흘에 세 번 바뀌면 ITP 검사항목·치수 기준의 근거 rev가 불명확해집니다. <b>최종 rev 확정 후 검사기준 재고정</b>이 필요하고, 재송부 사유가 &ldquo;도면 미첨부&rdquo;인 점은 <b>출도 관리 절차의 반복 결함으로 기록 대상</b>입니다.</div>
+</div>
+
+<div class="card">
+<h2>⑤ 내일(8/27) 및 향후 일정 미리보기</h2>
+<div class="tblwrap">
+<table>
+<tr><th>일자</th><th>시각</th><th>일정</th><th>구분</th></tr>
+<tr><td><b>8/27 (목)</b></td><td>종일</td><td><b>신공장 현장 출발</b> (8/24 주간회의 결정 — 26일 준비 완료, 27일 출발)</td><td><span class="tag t-org">출장</span></td></tr>
+<tr><td>8/28 (금)</td><td>—</td><td><b>철골 도비 업체 확정</b> (이번 주 내) + 9/15 투입 일정 조율</td><td><span class="tag t-red">마감</span></td></tr>
+<tr><td>8/28 (금)</td><td>—</td><td>퓨어코아 프로젝트 견적 확정·제출 / 전시회 관람 희망자 신청 마감(금주 내 문자·메일)</td><td><span class="tag t-org">마감</span></td></tr>
+<tr><td>8/30 (일)</td><td>—</td><td><b>KHNP 기술정보 보안관리 플랫폼 사용자 명단 제출 마감</b> — 주말이므로 실질 마감은 8/28(금)</td><td><span class="tag t-red">마감</span></td></tr>
+<tr><td>8/31 (월)</td><td>08:15</td><td>주간회의 08:15~10:15 (Google Meet) — <b>8/24 배정 액션 11건 진척 보고</b></td><td><span class="tag t-blu">회의</span></td></tr>
+<tr><td>8/31 (월)</td><td>09:00</td><td>SJ435-26 삼성전기 AGITATOR 납기 (변경분)</td><td><span class="tag t-org">납기</span></td></tr>
+<tr><td>8/31 (월)</td><td>—</td><td>CAR-2026-010 종결 목표(세창엔텍 재평가 실시) / 경영방침 포스터 위치·사이즈 확정 / 취업규칙 개정·노사 검토 완료 / 안전관리계획서 제출</td><td><span class="tag t-red">마감</span></td></tr>
+<tr><td>9/14 (월)</td><td>18:00</td><td>KAIF 2026년 제3차 원전기업 인증제도 신청 마감</td><td><span class="tag t-red">마감</span></td></tr>
+<tr><td>9/15 (화)</td><td>—</td><td>안전 도비 10명 투입 / 철골 도비 투입 · 25기 원자력품질 선임감사자과정 9/15~9/18 (참석 미확정)</td><td><span class="tag t-org">투입</span></td></tr>
+<tr><td>9월 중</td><td>—</td><td>품질보증시스템 자체 감사 (일자 미확정)</td><td><span class="tag t-red">감사</span></td></tr>
+<tr><td>10월 중</td><td>—</td><td>ISO 19443 · 원자력 QA 재갱신 · ISO 통합(9001/14001/45001) 사후심사 일정 조율 필요</td><td><span class="tag t-red">인증</span></td></tr>
+<tr><td>11/26 (목)</td><td>—</td><td><b>SJE2026-062 이노폴 토너배관공사 납기</b> (이 회차에서 캘린더 신규 등록)</td><td><span class="tag t-org">납기</span></td></tr>
+</table>
+</div>
+</div>
+
+<div class="card">
+<h2>⑥ 자동처리 결과 (이 회차)</h2>
+<ul>
+<li><b>Gmail 라벨</b> — 신규 생성 0건 · 신규 부착 0건 (정오 회차 08:05 이후 신규 수신이 없음)</li>
+<li><b>캘린더 신규 등록 1건</b> — SJE2026-062 이노폴 토너배관공사 <b>납기 2026-11-26</b>(종일). 오늘 10:10 KOM·닥트보수·철골도비·경영방침 포스터 4건은 정오 회차에서 이미 등록되어 <b>중복 등록 회피</b></li>
+<li><b>모호 일정 미등록</b> — SJ2026-040 FINAL DOC 제출(기한 명시 없음), ISO 통합 사후심사(심사일자 미기재), 스마트공장 수준확인 신청(여부 미결정) → 날짜가 확정되지 않아 등록하지 않음</li>
+<li><b>WO 메일 0건</b> — pendingProjects 22건 전량 유지 (SJE2026-062·SJ2026-063은 정오 회차에서 추가 완료)</li>
+<li><b>Step 7(답변 동시작성) 건너뜀</b> — 스케줄 자동 실행</li>
+<li><b>지표 정정</b> — 정오 회차의 <code>car=0</code>을 <b><code>car=1</code></b>로 정정했습니다. CAR-2026-010이 미종결 상태이며, 직전 8/21 기록도 진행 중 기준으로 1건을 계상하고 있었습니다</li>
+</ul>
+</div>
+
+<div class="foot">ⓒ 2026 ㈜세종기술 품질관리부 · daily-mail 오후 마감 점검 자동 생성 · 생성 2026-08-26 08:12 KST (16:30 슬롯 지연 실행)</div>
+</div>
+</body>
+</html>
