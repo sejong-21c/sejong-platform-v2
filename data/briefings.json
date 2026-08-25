@@ -1191,78 +1191,73 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-21 07:59 (오후 정리 자동 실행)",
-    "newMails": 0,
+    "generatedAt": "2026-08-26 07:50 (오후 정리 자동 실행)",
+    "newMails": 10,
     "processed": 7,
-    "urgentReplies": 1,
-    "ncr": 0,
-    "car": 1,
+    "urgentReplies": 3,
+    "ncr": 1,
+    "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "CAR-2026-010 회신 확보 (기한 8/7 경과 14일) - 부서장 에스컬레이션 검토",
-        "proj": "품질보증",
+        "text": "NCR-2026-22 조치 작업 완료 확인 후 검사 신청 접수 및 검사 일정 확정",
+        "proj": "SJE437-26 진양화성",
         "priority": "high"
       },
       {
-        "text": "세창엔텍 공급자 재평가 8월 중 수행 - 일정 확정 필요",
-        "proj": "품질보증",
+        "text": "냉동기 Chiller 사양서 rev.B 변경점(rev.A 대조) 검토 후 의견 회신 — 회신 기한 미지정",
+        "proj": "품질보증/Procedure",
         "priority": "high"
       },
       {
-        "text": "포스터·현수막 시안 사내 검토 후 수정 AI 파일 송부 (420x600 / 500x90, 300dpi)",
-        "proj": "일반사무",
+        "text": "SJ435-26 TA-6104A~D MIXING TANK 25M3 구도면 회수·폐기 확인 및 ITP 도면 rev 정합성 점검",
+        "proj": "SJ435-26 삼성전기",
         "priority": "mid"
       },
       {
-        "text": "삼성전기 PACKING information 회신 수신 확인 (곽노한 이사)",
-        "proj": "SJ435-26",
+        "text": "8월 거래명세서 내역 대조 후 이상 여부 회신 (월말 마감)",
+        "proj": "일반사무/정산",
         "priority": "mid"
       },
       {
-        "text": "취업규칙 개정 hwp 원본 보관 여부 확인 회신",
-        "proj": "일반사무",
-        "priority": "low"
+        "text": "한국ASK케미칼즈 TE·TG 개선 회의록 내 품질관리부 액션아이템 확인 후 WBS 반영",
+        "proj": "SJ433-25 ASK CHEM A-1",
+        "priority": "mid"
       },
       {
-        "text": "SJ431-25 SDC UP/UT-1402B PUMP STRUCTURE 도면·구매요청서 참조 확인 완료",
-        "proj": "SJ431-25",
+        "text": "법인차량 세차서비스 견적서 미회신 재독촉 (8/21 약속 기한 경과)",
+        "proj": "일반사무/구매",
         "priority": "low"
       }
     ],
     "urgentList": [
       {
-        "subject": "[Reminder!!!] [QC] 시정조치요구서(CAR) CAR-2026-010 회신 미이행",
-        "from": "김시원 대리",
-        "proj": "품질보증"
+        "subject": "Re: [NCR] 불일치보고서 (NCR-2026-22) 진양화성_Hopper-PD Outlet Nozzle 높이 문제 — 조치방안 확정, 작업 후 검사 신청 요청",
+        "from": "김시원 대리 (swkim@sejong-21c.com)",
+        "proj": "SJE437-26 진양화성"
       },
       {
-        "subject": "포스터 및 현수막 견적서 - 인쇄 시안 확인 회신 요청",
-        "from": "화신종합인쇄사",
-        "proj": "일반사무"
+        "subject": "Re: 세종기술_구매 및 검사 procedure 공유건_냉동기 Chiller_rev.B — 검토의견 회신 요청",
+        "from": "김시원 대리 (swkim@sejong-21c.com)",
+        "proj": "품질보증/Procedure"
       },
       {
-        "subject": "Re: 더원노무법인 취업규칙 개정 최종 견적서 요청",
-        "from": "양병원 이사",
-        "proj": "일반사무"
+        "subject": "거래명세서(8월) 세종기술 — 내역 대조 후 회신 필요",
+        "from": "강문환 소장 (sikumchi5897@naver.com)",
+        "proj": "일반사무/정산"
+      },
+      {
+        "subject": "[이노비즈협회] 2026년 중소기업 혁신 유공 포상 추천명단 제외 안내 — 제한 해제 시점·재신청 요건 확인",
+        "from": "박선호 (shpark01@innobiz.or.kr)",
+        "proj": "일반사무/대외"
+      },
+      {
+        "subject": "Re: [세종기술] 법인차량 세차서비스 견적요청건 — 견적서 미회신 (기한 경과)",
+        "from": "송규호 대표 (songkh@songautocar.com)",
+        "proj": "일반사무/구매"
       }
     ],
-    "schedule": [
-      {
-        "title": "세창엔텍 공급자 재평가 수행 (CAR-2026-010) - 일자 미정",
-        "date": "2026-08-31",
-        "time": "17:00",
-        "proj": "품질보증",
-        "color": "red"
-      },
-      {
-        "title": "포스터·현수막 최종 AI 파일 송부 및 납기 확정 - 시간 미정",
-        "date": "2026-08-21",
-        "time": "17:00",
-        "proj": "일반사무",
-        "color": "orange"
-      }
-    ]
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-08-25 (daily-mail-swkim 자동 실행)",
