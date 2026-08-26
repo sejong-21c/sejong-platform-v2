@@ -833,12 +833,13 @@ const TOOLS = {
   'asset':     { name: '자산 관리 대장',    icon: '🖥️', li: 'monitor', desc: 'PC·노트북·라이선스 통합 대장', status: 'live', ver: 'v1.0' },
   'agitator':  { name: '교반기 선정·설계',  icon: '🌀', li: 'fan', desc: '점도·비중·탱크 제원 → 임펠러 형식·치수·동력·모터·축 산출 · 협력업체 검토서 대조', status: 'live', ver: 'v1.0' },
   'pvcalc':    { name: '압력용기 계산 도구',  icon: '⚙️', li: 'cylinder', desc: '인허가 기준별 계산 — ASME VIII-1(셸·경판·외압·노즐보강·플랜지·새들·풍지진) · 에너지공단/KOSHA/KGS 준비중', status: 'live', ver: 'v1.1' },
+  'purchase':  { name: '구매부 업무일지',    icon: '🛒', li: 'shopping-cart', desc: '프로젝트별 업무 현황 + 발주(PO) 목록 관리 (구매부 전용)', status: 'live', ver: 'v1.0' },
 };
 // 회의 모듈은 부서 도구가 아니라 대메뉴(NAV 'meeting')로 노출 — 전 직원 자유 사용
 const DEPTS = [
   { id: 'sales',        icon: '💼', li: 'briefcase', name: '영업부',     tools: ['deptsch'] },
   { id: 'design',       icon: '📐', li: 'pencil-ruler', name: '기술부',     tools: ['deptsch', 'agitator', 'pvcalc'] },
-  { id: 'purchase',     icon: '🛒', li: 'shopping-cart', name: '구매부',     tools: ['deptsch'] },
+  { id: 'purchase',     icon: '🛒', li: 'shopping-cart', name: '구매부',     tools: ['deptsch', 'purchase'] },
   { id: 'production',   icon: '🏭', li: 'factory', name: '생산부',     tools: ['deptsch'] },
   { id: 'quality',      icon: '📦', li: 'package-check', name: '품질관리부', tools: ['deptsch', 'itp', 'itpview', 'qa', 'qaview', 'ncr', 'car', 'qadash', 'mobile', 'mtools'] },
   { id: 'construction', icon: '🏗️', li: 'hard-hat', name: '현장시공',   tools: ['deptsch'] },
@@ -1247,6 +1248,8 @@ const QAVIEW_BUILD = 'a7'; // a7: 영속 캐시(점검 A3)
 // v1.0: 교반기 선정·설계 (기술부). 모듈 재배포할 때마다 이 번호를 올려야
 //       브라우저가 예전 캐시를 계속 보여주는 문제가 생기지 않는다.
 const AGITATOR_BUILD = 'a7';
+// v1.0: 구매부 업무일지 + 발주(PO) 목록 (구매부 전용). 모듈 재배포할 때마다 bump.
+const PURCHASE_BUILD = 'a1';
 // v1.0: 압력용기 예비계산 (기술부). 교반기와 달리 별도 모듈 HTML 을 두지 않고
 //       tools/pvcalc/web/index.html(단독 실행판)을 그대로 iframe 한다 —
 //       탭 8개 UI 를 플랫폼용으로 다시 만들면 사본이 갈리기 때문.
@@ -2848,6 +2851,7 @@ function iframeViewKey() {
   if (v.selectedTool === 'mtools') return 'mtools';
   if (v.selectedTool === 'asset') return 'asset';
   if (v.selectedTool === 'agitator') return 'agitator';
+  if (v.selectedTool === 'purchase') return 'purchase';
   if (v.selectedTool === 'pvcalc') return 'pvcalc';
   if (v.cur === 'manday') return 'manday';
   if (v.cur === 'messenger') return 'messenger';
@@ -2928,6 +2932,7 @@ function render() {
   if (view.selectedTool === 'qaview') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/qa-viewer/qa-viewer.html?v=${QAVIEW_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="QA Doc 조회"></iframe></div>`; return; }
   if (view.selectedTool === 'mtools') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/measurement-tools/measurement-tools.html?v=${MTOOLS_BUILD}" allow="camera" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="측정기구 반입출 관리"></iframe></div>`; return; }
   if (view.selectedTool === 'agitator') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/agitator/agitator.html?v=${AGITATOR_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="교반기 선정·설계"></iframe></div>`; return; }
+  if (view.selectedTool === 'purchase') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="modules/purchase/purchase.html?v=${PURCHASE_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="구매부 업무일지"></iframe></div>`; return; }
   // pvcalc 는 단독 실행판을 그대로 iframe 한다 (모듈 사본 없음 — tools/pvcalc/README.md 참조).
   // fb=1 이 붙어야 재료 표가 부서 공유(Firestore t_pvcalcMaterials)로 저장된다.
   if (view.selectedTool === 'pvcalc') { content.innerHTML = `<div style="flex:1;position:relative;overflow:hidden;"><iframe src="tools/pvcalc/web/index.html?fb=1&v=${PVCALC_BUILD}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="압력용기 예비계산"></iframe></div>`; return; }

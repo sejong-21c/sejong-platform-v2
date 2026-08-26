@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>구매부 업무일지</title>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
+    authDomain: "sejong-platform.firebaseapp.com",
+    projectId: "sejong-platform",
+    storageBucket: "sejong-platform.firebasestorage.app",
+    messagingSenderId: "884301297710",
+    appId: "1:884301297710:web:82b2e065119f7c5d9d87bf",
+    measurementId: "G-8LJDWYVJ5G"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, setDoc, deleteDoc, collection, onSnapshot };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800;900&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+html, body { margin:0; padding:0; height:100%; background:#FAF8F3; }
+
+:root{
+  --paper:#FAF8F3;
+  --kraft:#E7DFCB;
+  --kraft-dark:#D8CBA8;
+  --ink:#1E2A22;
+  --ink-soft:#5B6459;
+  --line:#D9D2BE;
+  --today:#C23B22;
+  --today-bg:#FBEAE3;
+  --pending:#2E4C7A;
+  --pending-bg:#E7EDF5;
+  --done:#7C7561;
+  --done-bg:#EFEBDF;
+  --brass:#A9791F;
+  --white:#FFFFFF;
+  --shadow: 0 1px 0 rgba(30,42,34,0.05), 0 6px 16px rgba(30,42,34,0.06);
+}
+
+*{ box-sizing:border-box; }
+
+.dd-root{
+  font-family:'Noto Sans KR', sans-serif;
+  color:var(--ink);
+  background:var(--paper);
+  min-height:100%;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:22px 14px 60px;
+}
+
+.dd-mono{ font-family:'IBM Plex Mono', monospace; }
+
+.dd-shell{
+  width:100%;
+  max-width:1180px;
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:10px;
+  overflow:hidden;
+  box-shadow:var(--shadow);
+}
+
+/* ---------- Header ---------- */
+.dd-header{
+  background:var(--ink);
+  color:var(--paper);
+  padding:22px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  flex-wrap:wrap;
+  border-bottom:4px solid var(--brass);
+}
+.dd-title-block{ display:flex; flex-direction:column; gap:4px; }
+.dd-eyebrow{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:#C9BE9E;
+}
+.dd-title{
+  font-family:'Gothic A1', sans-serif;
+  font-weight:800;
+  font-size:26px;
+  letter-spacing:-0.01em;
+}
+.dd-subtitle{ font-size:13px; color:#B9C2B4; }
+
+.dd-stamp{
+  width:96px; height:96px; border-radius:50%;
+  border:3px dashed var(--today);
+  color:var(--today);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transform:rotate(-8deg);
+  flex-shrink:0;
+  background:rgba(194,59,34,0.06);
+}
+.dd-stamp .dd-stamp-label{ font-size:9px; font-weight:700; letter-spacing:.12em; font-family:'IBM Plex Mono',monospace;}
+.dd-stamp .dd-stamp-num{ font-family:'Gothic A1',sans-serif; font-weight:900; font-size:26px; line-height:1;}
+.dd-stamp .dd-stamp-date{ font-size:9px; font-family:'IBM Plex Mono',monospace; margin-top:2px;}
+
+/* ---------- Layout ---------- */
+.dd-body{ display:grid; grid-template-columns:240px 1fr; min-height:560px; }
+@media (max-width:760px){ .dd-body{ grid-template-columns:1fr; } }
+
+.dd-sidebar{
+  background:var(--kraft);
+  border-right:1px solid var(--kraft-dark);
+  padding:18px 14px;
+}
+.dd-sidebar-title{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-soft); margin:2px 6px 10px;
+}
+.dd-proj-item{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 10px; border-radius:6px; cursor:pointer;
+  font-size:13px; color:var(--ink); margin-bottom:3px;
+  border:1px solid transparent;
+}
+.dd-proj-item:hover{ background:var(--kraft-dark); }
+.dd-proj-item.active{ background:var(--white); border-color:var(--kraft-dark); font-weight:700; }
+.dd-proj-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dd-proj-count{
+  font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft);
+  background:var(--white); border-radius:10px; padding:1px 7px; flex-shrink:0; margin-left:6px;
+}
+.dd-add-btn{
+  width:100%; margin-top:12px; padding:10px 12px; border-radius:6px;
+  background:var(--ink); color:var(--paper); border:none; cursor:pointer;
+  font-family:'Noto Sans KR'; font-weight:700; font-size:13px;
+}
+.dd-add-btn:hover{ background:#30402F; }
+
+.dd-main{ padding:22px 26px 30px; }
+
+/* ---------- Stats row ---------- */
+.dd-stats{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+.dd-stat{
+  flex:1; min-width:120px; border:1px solid var(--line); border-radius:8px; padding:12px 14px;
+  background:var(--paper);
+}
+.dd-stat-num{ font-family:'Gothic A1',sans-serif; font-weight:800; font-size:22px; }
+.dd-stat-label{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+.dd-stat.today .dd-stat-num{ color:var(--today); }
+.dd-stat.pending .dd-stat-num{ color:var(--pending); }
+
+/* ---------- Toolbar ---------- */
+.dd-toolbar{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  flex-wrap:wrap; margin-bottom:16px;
+}
+.dd-tabs{ display:flex; gap:6px; background:var(--kraft); padding:4px; border-radius:8px; }
+.dd-tab{
+  padding:7px 13px; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer;
+  color:var(--ink-soft); border:none; background:transparent; font-family:'Noto Sans KR';
+}
+.dd-tab.active{ background:var(--white); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+
+.dd-search{
+  border:1px solid var(--line); border-radius:6px; padding:7px 12px; font-size:13px;
+  font-family:'Noto Sans KR'; width:220px; background:var(--paper);
+}
+.dd-search:focus{ outline:2px solid var(--brass); outline-offset:1px; }
+
+.dd-report-btn{
+  border:1px solid var(--ink); background:var(--white); color:var(--ink);
+  border-radius:6px; padding:8px 13px; font-size:13px; font-weight:700; cursor:pointer;
+  font-family:'Noto Sans KR';
+}
+.dd-report-btn:hover{ background:var(--ink); color:var(--paper); }
+
+/* ---------- Project cards ---------- */
+.dd-card{
+  border:1px solid var(--line); border-radius:8px; margin-bottom:14px; overflow:hidden;
+}
+.dd-card-head{
+  display:flex; align-items:baseline; gap:10px; padding:11px 16px;
+  background:var(--paper); border-bottom:1px solid var(--line);
+}
+.dd-card-code{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; color:var(--brass); }
+.dd-card-name{ font-family:'Gothic A1',sans-serif; font-weight:700; font-size:15px; }
+.dd-card-body{ padding:4px 0; }
+
+.dd-task{
+  display:flex; gap:12px; align-items:flex-start; padding:11px 16px;
+  border-bottom:1px solid #F0EDE3;
+  border-left:3px solid transparent;
+}
+.dd-task:last-child{ border-bottom:none; }
+.dd-task.today{ border-left-color:var(--today); background:var(--today-bg); }
+.dd-task.pending{ border-left-color:var(--pending); background:var(--pending-bg); }
+.dd-task.done{ border-left-color:var(--done); }
+
+.dd-task-badge{
+  flex-shrink:0; margin-top:2px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+  font-weight:700; letter-spacing:.04em; padding:2px 7px; border-radius:10px; white-space:nowrap;
+}
+.dd-task.today .dd-task-badge{ background:var(--today); color:white; }
+.dd-task.pending .dd-task-badge{ background:var(--pending); color:white; }
+.dd-task.done .dd-task-badge{ background:var(--done-bg); color:var(--done); }
+
+.dd-task-main{ flex:1; min-width:0; }
+.dd-task-content{ font-size:13.5px; line-height:1.5; }
+.dd-task.done .dd-task-content{ color:var(--ink-soft); }
+.dd-task-detail{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+.dd-task-meta{
+  font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); margin-top:4px;
+  display:flex; gap:10px; flex-wrap:wrap;
+}
+
+.dd-task-actions{ display:flex; gap:6px; flex-shrink:0; }
+.dd-icon-btn{
+  border:1px solid var(--line); background:var(--white); border-radius:6px; cursor:pointer;
+  padding:5px 9px; font-size:11px; font-family:'Noto Sans KR'; font-weight:600; color:var(--ink-soft);
+}
+.dd-icon-btn:hover{ background:var(--kraft); color:var(--ink); }
+.dd-icon-btn.resolve:hover{ background:var(--done-bg); border-color:var(--done); color:var(--done); }
+.dd-icon-btn.del:hover{ background:#FBEAE3; border-color:var(--today); color:var(--today); }
+
+.dd-empty{
+  text-align:center; padding:50px 20px; color:var(--ink-soft); font-size:13px;
+}
+
+/* ---------- Modal ---------- */
+.dd-modal-bg{
+  position:fixed; inset:0; background:rgba(30,42,34,0.45); display:flex;
+  align-items:center; justify-content:center; z-index:50; padding:16px;
+}
+.dd-modal{
+  background:var(--white); border-radius:10px; width:100%; max-width:440px;
+  padding:22px 24px; box-shadow:0 20px 50px rgba(0,0,0,0.3);
+}
+.dd-modal h3{ font-family:'Gothic A1',sans-serif; font-size:17px; margin:0 0 14px; }
+.dd-field{ margin-bottom:11px; }
+.dd-field label{ display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:4px; }
+.dd-field input, .dd-field textarea{
+  width:100%; border:1px solid var(--line); border-radius:6px; padding:8px 10px;
+  font-family:'Noto Sans KR'; font-size:13px; background:var(--paper);
+}
+.dd-field input:focus, .dd-field textarea:focus{ outline:2px solid var(--brass); outline-offset:1px; }
+.dd-field textarea{ resize:vertical; min-height:50px; }
+.dd-row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.dd-modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+.dd-btn-primary{
+  background:var(--ink); color:var(--paper); border:none; border-radius:6px; padding:9px 16px;
+  font-weight:700; font-size:13px; cursor:pointer; font-family:'Noto Sans KR';
+}
+.dd-btn-ghost{
+  background:transparent; border:1px solid var(--line); border-radius:6px; padding:9px 16px;
+  font-weight:700; font-size:13px; cursor:pointer; font-family:'Noto Sans KR'; color:var(--ink-soft);
+}
+
+/* ---------- Toast ---------- */
+.dd-toast{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(10px);
+  background:var(--ink); color:var(--paper); padding:10px 18px; border-radius:7px;
+  font-size:13px; opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; z-index:60;
+}
+.dd-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+.dd-sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+
+/* ---------- Mode switcher (업무 현황 / 발주 목록) ---------- */
+:root{
+  --po-ok:#3F7A56; --po-ok-bg:#E6F1EA;
+}
+.dd-mode-bar{
+  display:flex; gap:0; background:var(--ink); padding:0 22px;
+}
+.dd-mode-tab{
+  border:none; background:transparent; color:#9AA69C; cursor:pointer;
+  font-family:'Noto Sans KR'; font-weight:700; font-size:13.5px;
+  padding:12px 18px; border-bottom:3px solid transparent;
+}
+.dd-mode-tab.active{ color:var(--paper); border-bottom-color:var(--brass); }
+.dd-mode-tab:hover{ color:var(--paper); }
+
+/* ---------- PO (발주) module ---------- */
+.po-wrap{ padding:22px 26px 30px; }
+.po-stats{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+.po-stat{ flex:1; min-width:130px; border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:var(--paper); }
+.po-stat .num{ font-family:'Gothic A1',sans-serif; font-weight:800; font-size:22px; }
+.po-stat .lbl{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+.po-stat.overdue .num{ color:var(--today); }
+.po-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.po-select{
+  border:1px solid var(--line); border-radius:6px; padding:7px 10px; font-size:13px;
+  font-family:'Noto Sans KR'; background:var(--paper);
+}
+.po-table-wrap{ border:1px solid var(--line); border-radius:8px; overflow:auto; background:var(--white); }
+.po-table{ width:100%; border-collapse:collapse; font-size:13px; min-width:960px; }
+.po-table thead th{
+  position:sticky; top:0; background:var(--ink); color:var(--paper); text-align:left;
+  padding:9px 10px; font-size:11px; font-weight:700; letter-spacing:.03em; white-space:nowrap; font-family:'Noto Sans KR';
+}
+.po-table tbody td{ padding:9px 10px; border-bottom:1px solid #F0EDE3; vertical-align:middle; }
+.po-table tbody tr:hover{ background:#FBFAF6; }
+.po-table tbody tr.overdue{ background:var(--today-bg); }
+.po-no{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--brass); }
+.po-amount{ font-family:'IBM Plex Mono',monospace; text-align:right; display:block; }
+.po-proj{ max-width:220px; }
+.po-proj .p1{ font-weight:700; font-size:13px; }
+.po-proj .p2{ font-size:11.5px; color:var(--ink-soft); }
+.po-stamp{
+  width:28px; height:28px; border-radius:6px; border:1.5px dashed #D8CBA8;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; color:#BEB393; background:var(--white);
+  user-select:none; margin:0 auto;
+}
+.po-stamp[data-v="O"]{ border-style:solid; border-color:var(--po-ok); background:var(--po-ok-bg); color:var(--po-ok); }
+.po-stamp[data-v="X"]{ border-style:solid; border-color:var(--today); background:var(--today-bg); color:var(--today); }
+.po-badge{ display:inline-block; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; font-family:'Noto Sans KR'; }
+.po-badge.overdue{ background:var(--today-bg); color:var(--today); }
+.po-badge.ontime{ background:var(--po-ok-bg); color:var(--po-ok); }
+.po-rowbtn{ background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:12px; padding:2px 4px; font-family:'Noto Sans KR'; }
+.po-rowbtn:hover{ color:var(--ink); }
+.po-rowbtn.danger:hover{ color:var(--today); }
+.po-help{ font-size:11.5px; color:var(--ink-soft); margin-top:12px; line-height:1.6; }
+.po-empty{ text-align:center; padding:50px 20px; color:var(--ink-soft); font-size:13px; }
+
+/* PO modal (reuses .dd-modal-bg pattern, distinct id) */
+.po-modal{ max-width:600px; position:relative; }
+.po-modal-close{
+  position:absolute; top:14px; right:14px; width:28px; height:28px; border-radius:6px;
+  border:none; background:var(--kraft); color:var(--ink-soft); font-size:15px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.po-modal-close:hover{ background:var(--kraft-dark); color:var(--ink); }
+.po-form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+.po-form-grid .full{ grid-column:1/-1; }
+.po-asap-row{ display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12px; color:var(--ink-soft); }
+.po-banner{
+  background:#FBF3E4; color:var(--brass); border:1px solid #EAD9AF; border-radius:7px;
+  padding:9px 12px; font-size:12.5px; margin-bottom:14px; display:none;
+}
+.po-field input.auto-filled, .po-field textarea.auto-filled{ background:#FBF3E4; border-color:#EAD9AF; }
+.po-field input.err{ border-color:var(--today); background:var(--today-bg); }
+.po-err-msg{ color:var(--today); font-size:11px; margin-top:3px; display:none; }
+.po-err-msg.show{ display:block; }
+.po-spinner-overlay{
+  position:fixed; inset:0; background:rgba(30,42,34,.4); display:flex; align-items:center;
+  justify-content:center; z-index:60; color:#fff; font-size:13.5px; font-weight:700; font-family:'Noto Sans KR';
+}
+
+/* Supplier stats table (재사용: 같은 톤) */
+.po-stat-table{ width:100%; border-collapse:collapse; font-size:13px; }
+.po-stat-table th{ text-align:left; padding:9px 10px; font-size:11.5px; color:var(--ink-soft); border-bottom:1px solid var(--line); font-family:'Noto Sans KR'; }
+.po-stat-table td{ padding:9px 10px; border-bottom:1px solid #F0EDE3; }
+.po-rate-bar-wrap{ background:#EFEBDF; border-radius:5px; height:8px; width:100px; overflow:hidden; display:inline-block; vertical-align:middle; }
+.po-rate-bar{ height:100%; background:var(--today); }
+
+/* ---------- 접근 제한 화면 ---------- */
+#pxAccessDenied{
+  position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+  flex-direction:column; gap:10px; font-family:'Noto Sans KR', sans-serif;
+  background:var(--paper); color:var(--ink-soft); text-align:center; padding:24px;
+}
+#pxAccessDenied .pxIcon{ font-size:40px; }
+#pxAccessDenied .pxTitle{ font-size:18px; font-weight:700; color:var(--ink); font-family:'Gothic A1',sans-serif; }
+#pxAccessDenied .pxDesc{ font-size:13px; max-width:360px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div id="pxAccessDenied">
+  <div class="pxIcon">🔒</div>
+  <div class="pxTitle">접근 권한이 없습니다</div>
+  <div class="pxDesc">이 페이지는 구매부 전용입니다. 접근이 필요하면 시스템 관리자에게 문의해 주세요.</div>
+</div>
+
+<div class="dd-root" id="pxRoot" style="display:none;">
+  <div class="dd-shell" id="ddShell">
+    <div class="dd-header">
+      <div class="dd-title-block">
+        <div class="dd-eyebrow">PURCHASING · DAILY WORK LOG</div>
+        <div class="dd-title">구매부 업무일지</div>
+        <div class="dd-subtitle" id="ddSubtitle">불러오는 중…</div>
+      </div>
+      <div class="dd-stamp">
+        <div class="dd-stamp-label">TODAY</div>
+        <div class="dd-stamp-num" id="ddStampNum">0</div>
+        <div class="dd-stamp-date" id="ddStampDate">--</div>
+      </div>
+    </div>
+
+    <div class="dd-mode-bar" id="ddModeBar">
+      <button class="dd-mode-tab active" data-mode="tasks">📋 업무 현황</button>
+      <button class="dd-mode-tab" data-mode="po">📦 발주 목록</button>
+    </div>
+
+    <div id="viewTasks">
+    <div class="dd-body">
+      <div class="dd-sidebar">
+        <div class="dd-sidebar-title">프로젝트</div>
+        <div id="ddProjectList"></div>
+        <button class="dd-add-btn" id="ddOpenAddTop">+ 새 업무 추가</button>
+      </div>
+
+      <div class="dd-main">
+        <div class="dd-stats" id="ddStats"></div>
+
+        <div class="dd-toolbar">
+          <div class="dd-tabs" id="ddTabs">
+            <button class="dd-tab active" data-filter="all">전체</button>
+            <button class="dd-tab" data-filter="today">오늘</button>
+            <button class="dd-tab" data-filter="pending">미처리</button>
+            <button class="dd-tab" data-filter="done">완료</button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <input class="dd-search" id="ddSearch" placeholder="업무 내용, 프로젝트 검색…" />
+            <button class="dd-report-btn" id="ddReportBtn">일일 리포트 복사</button>
+            <button class="dd-report-btn" id="ddExportBtn" title="현재 데이터를 JSON 파일로 저장">백업 저장</button>
+            <button class="dd-report-btn" id="ddImportBtn" title="백업 파일 불러오기">백업 불러오기</button>
+            <input type="file" id="ddImportFile" accept="application/json" style="display:none;" />
+          </div>
+        </div>
+
+        <div id="ddTaskList"></div>
+      </div>
+    </div>
+    </div>
+
+    <div id="viewPO" style="display:none;">
+      <div class="po-wrap">
+        <div class="po-stats" id="poStats"></div>
+
+        <div class="po-toolbar">
+          <div class="dd-tabs" id="poSubTabs">
+            <button class="dd-tab active" data-po-tab="list">발주 목록</button>
+            <button class="dd-tab" data-po-tab="stats">공급사별 현황</button>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input class="dd-search" id="poSearch" placeholder="주문번호 · 공사명 · 공급사 검색" />
+            <select class="po-select" id="poStatusFilter">
+              <option value="all">전체 상태</option>
+              <option value="progress">진행중</option>
+              <option value="delivered">납품완료</option>
+              <option value="overdue">지연</option>
+              <option value="cancelled">취소/보류</option>
+            </select>
+            <button class="dd-report-btn" id="poFromPdfBtn">📄 PDF 자동등록</button>
+            <input type="file" id="poPdfInput" accept="application/pdf" style="display:none;">
+            <button class="dd-report-btn" id="poNewBtn">+ 새 발주 등록</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+          <button class="dd-report-btn" id="poCsvBtn">CSV 내보내기</button>
+          <button class="dd-report-btn" id="poBackupBtn">💾 백업 저장</button>
+          <button class="dd-report-btn" id="poRestoreBtn">📂 백업 불러오기</button>
+          <input type="file" id="poRestoreInput" accept="application/json" style="display:none;">
+        </div>
+
+        <div id="poListView">
+          <div class="po-table-wrap">
+            <table class="po-table">
+              <thead>
+                <tr>
+                  <th>주문번호</th>
+                  <th>공사명 / 공급사</th>
+                  <th>주문일자</th>
+                  <th>납품요청일</th>
+                  <th style="text-align:right">금액</th>
+                  <th style="text-align:center">발주</th>
+                  <th style="text-align:center">납품</th>
+                  <th style="text-align:center">검수</th>
+                  <th style="text-align:center">결제</th>
+                  <th>지연</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="poTableBody"></tbody>
+            </table>
+          </div>
+          <div class="po-empty" id="poEmpty" style="display:none;">등록된 발주가 없습니다. [+ 새 발주 등록]으로 첫 발주를 기록해보세요.</div>
+          <p class="po-help">
+            스탬프(□)를 클릭하면 <b>공란 → O(정상완료) → X(취소/불량)</b> 순으로 상태가 바뀝니다. 납품요청일이 지났는데 '납품'이 O가 아니면 자동으로 지연 처리됩니다.<br>
+            데이터는 회사 플랫폼(Firestore)에 저장되어 구매부 전 직원이 같은 내용을 실시간으로 봅니다. 그래도 가끔 "💾 백업 저장"으로 받아두시면 안전합니다.
+          </p>
+        </div>
+        <div id="poStatsView" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dd-modal-bg" id="ddModalBg" style="display:none;">
+  <div class="dd-modal">
+    <h3 id="ddModalTitle">새 업무 추가</h3>
+    <div class="dd-field">
+      <label>프로젝트 (공사번호 / 고객사)</label>
+      <input id="fProject" list="ddProjectOptions" placeholder="예: 삼성전기 (SJ435-26)" />
+      <datalist id="ddProjectOptions"></datalist>
+    </div>
+    <div class="dd-field">
+      <label>업무 내용</label>
+      <textarea id="fContent" placeholder="예: 압력트랜스미터 발주 완료"></textarea>
+    </div>
+    <div class="dd-field">
+      <label>상세 내용 / 비고 (선택)</label>
+      <input id="fDetail" placeholder="특이사항이 있으면 입력" />
+    </div>
+    <div class="dd-row2">
+      <div class="dd-field">
+        <label>요청자</label>
+        <input id="fRequester" placeholder="김대훈 대리" />
+      </div>
+      <div class="dd-field">
+        <label>요청일자</label>
+        <input id="fRequestDate" type="date" />
+      </div>
+    </div>
+    <div class="dd-modal-actions">
+      <button class="dd-btn-ghost" id="ddCancelBtn">취소</button>
+      <button class="dd-btn-primary" id="ddSaveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="dd-toast" id="ddToast"></div>
+
+<div class="dd-modal-bg" id="poModalBg" style="display:none;">
+  <div class="dd-modal po-modal">
+    <button class="po-modal-close" id="poModalCloseX" aria-label="닫기">✕</button>
+    <h3 id="poModalTitle">새 발주 등록</h3>
+    <div class="po-banner" id="poBanner">📄 PDF에서 자동으로 값을 채웠습니다. 저장 전에 내용을 꼭 확인해주세요 (특히 금액·품목).</div>
+    <div class="po-form-grid">
+      <div class="dd-field po-field"><label>주문번호 *</label><input type="text" id="pf_poNumber" placeholder="SJ-SS-PO-260810-01"><div class="po-err-msg" id="poErrPoNumber">주문번호를 입력해주세요</div></div>
+      <div class="dd-field po-field"><label>주문일자</label><input type="date" id="pf_orderDate"></div>
+      <div class="dd-field po-field full"><label>공사명 / PROJECT</label><input type="text" id="pf_project" placeholder="[SJ435-26] 삼성전기 BT-6LINE PROJECT"></div>
+      <div class="dd-field po-field"><label>공급사</label><input type="text" id="pf_supplier" placeholder="부경금속볼트"></div>
+      <div class="dd-field po-field"><label>공급사 담당자</label><input type="text" id="pf_supplierContact" placeholder="임채동 이사님"></div>
+      <div class="dd-field po-field"><label>주문담당(당사)</label><input type="text" id="pf_orderer" placeholder="구매부 김대훈 대리"></div>
+      <div class="dd-field po-field">
+        <label>납품요청일</label>
+        <input type="date" id="pf_dueDate">
+        <div class="po-asap-row"><input type="checkbox" id="pf_asap"> <label for="pf_asap" style="margin:0;font-weight:400;">A.S.A.P (특정일자 없음)</label></div>
+      </div>
+      <div class="dd-field po-field full"><label>품목 요약</label><input type="text" id="pf_items" placeholder="케미칼 앙카볼트/헤비너트/평와셔/스프링와셔 외 3종"></div>
+      <div class="dd-field po-field"><label>금액 (원)</label><input type="number" id="pf_amount" placeholder="1797400"></div>
+      <div class="dd-field po-field"><label>결제조건</label><input type="text" id="pf_payment" placeholder="잔금 100% / 월말 계산서"></div>
+      <div class="dd-field po-field full"><label>비고</label><textarea id="pf_notes" placeholder="특이사항, 협의 내용 등"></textarea></div>
+    </div>
+    <div class="dd-modal-actions" style="justify-content:space-between;">
+      <button class="dd-btn-ghost" id="poDeleteBtn" style="display:none; color:var(--today); border-color:var(--today);">이 발주 삭제</button>
+      <div style="display:flex; gap:8px;">
+        <button class="dd-btn-ghost" id="poCancelBtn">취소</button>
+        <button class="dd-btn-primary" id="poSaveBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* ═══════════════════════════════════════════════════════════════════════
+     구매부 업무일지 + 발주 목록 — 세종플랫폼 모듈
+     Firestore 컬렉션:
+       - t_purchaseTasks : 프로젝트별 업무일지
+       - t_purchasePOs   : 발주(PO) 목록
+     메인 앱과 localStorage(SJ_FLOW_V04)를 공유하여 사용자 정보(부서)를 읽는다.
+     이 모듈은 구매부 소속 + super/exec 등급만 접근 가능.
+  ═══════════════════════════════════════════════════════════════════════ */
+
+  const PKEY = 'SJ_FLOW_V04';
+  const MODULE_KEY = 'PURCHASE_LOCAL_V01';
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  let platformState = {};
+  function loadPlatformState(){
+    try { platformState = JSON.parse(localStorage.getItem(PKEY) || '{}'); } catch(e){ platformState = {}; }
+    if (!platformState.users) platformState.users = [];
+  }
+  function currentUser(){
+    const uid2 = platformState.currentUser;
+    if (!uid2) return null;
+    return (platformState.users||[]).find(u=>u.id===uid2) || null;
+  }
+  function isPurchaseDept(){
+    const u = currentUser();
+    return !!(u && (u.dept === '구매부' || u.grade === 'super' || u.grade === 'exec'));
+  }
+
+  loadPlatformState();
+  if (!isPurchaseDept()){
+    document.getElementById('pxAccessDenied').style.display = 'flex';
+    return; // 이하 로직 전부 스킵
+  }
+  document.getElementById('pxRoot').style.display = 'flex';
+
+  // 2026-08-26 백업 파일(업무일지_백업_20260826.json)의 실제 업무 기록 65건을
+  // 최초 1회(컬렉션이 비어 있을 때)에 한해 초기 데이터로 밀어 넣는다.
+  const SEED_TASKS = [
+ {"id":"t-mt9kxav67i78","project":"구매부","content":"IDS 로브펌프 대성펌프 입고일이 25->29일 도착예정","detail":"배편이 늦어짐","requester":"","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9kwjddi5lg","project":"이노폴R-6000,7000 수정작업","content":"BTM. Y-VALVE (성일밸브) 10월 20일 입고 예정","detail":"","requester":"","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9kw72hpbqa","project":"이노폴R-6000,7000 수정작업","content":"로터리 기어펌프(펌펙스) 9월 5일 입고 예정","detail":"","requester":"","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9kvsf64o25","project":"이노폴R-6000,7000 수정작업","content":"체인카플링 입고 완료","detail":"","requester":"","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9kuzop7h9f","project":"이노폴 토너배관 공사(SJE2026-062)","content":"열매순환펌프 모터 방폭등급 변경","detail":"비방폭->eG3로","requester":"","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9ktr56xwp3","project":"구매부","content":"SS400 PLATE 두께 및 폭 사이즈 정리 요청 TO 일광스틸","detail":"","requester":"강하준 대리","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9kt09d7dv3","project":"디앤케이켐텍 펜탄버퍼탱크 추가 배관 및 D동 레졸배관 추가","content":"민영길 직장에게 전달 완료","detail":"","requester":"","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9ksdub6gd7","project":"구매부","content":"구매품 팻말 준비 필요\n이노폴,","detail":"","requester":"","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9krwc23vit","project":"한국ASK 케미칼 (SJ433-25)","content":"냉각수 펌프 다이 및 관련 볼트 준비 완료","detail":"","requester":"김대훈 대리","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt9dp43eljsm","project":"진양화성","content":"동양에이지 캔바스 수령하러 가야함","detail":"","requester":"","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":false},
+ {"id":"t-mt99nt6fmbpp","project":"이노폴 토너배관 공사(SJE2026-062)","content":"오늘 10시 10분에 KOM","detail":"","requester":"정상진 부장","requestDate":"2026-08-26","dateAdded":"2026-08-25","resolved":true},
+ {"id":"t-mt8ck96981u4","project":"HAK 시흥공장(SJ2026-029)","content":"유볼트,접지,앵글에 대한 자재는 챙겨야함","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt8axem33jp0","project":"한국ASK 케미칼 (SJ433-25)","content":"대표이사님 회의록 작성 및 공유완료","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt896c469cwy","project":"일삼(SJ432-25)","content":"자동밸브 잔금 계산서 하자이행증권","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt822pn73uts","project":"이노폴 토너배관 공사(SJE2026-062)","content":"펌프 및 열교환기 - 에스피 아이 보일러 계약 진행","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt81yogzhbp9","project":"구매부","content":"보온공사 및 덕트공사 금액 정리 요청 -> 영업부","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt81uqa4saxz","project":"HAK 시흥공장(SJ2026-029)","content":"FLAME ARRESTER 발주 완료","detail":"","requester":"이영주 대리","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt80u1y3zj8n","project":"디앤케이켐텍 펜탄버퍼탱크 추가 배관 및 D동 레졸배관 추가","content":"배관자재 내일까지 요청","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt80ts3f0hzg","project":"디앤케이켐텍 펜탄버퍼탱크 추가 배관 및 D동 레졸배관 추가","content":"고압 나사소켓 20A -3EA 추가 요청","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt80sy6jejms","project":"SDC 추가공사","content":"PSV 기술검토 요청완료","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt7vstrixyf4","project":"디앤케이켐텍 펜탄버퍼탱크 추가 배관 및 D동 레졸배관 추가","content":"유창수도 발주 요청","detail":"","requester":"","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt7v9alddjwm","project":"BGF","content":"보온공사 관련 고객사 승인 후 진행 예정","detail":"","requester":"김영광 대리","requestDate":"2026-08-24","dateAdded":"2026-08-24","resolved":false},
+ {"id":"t-mt7v8sht80jw","project":"한국ASK 케미칼 (SJ433-25)","content":"TG,TE 이번주 금요일 해체 가능\n해체 후 FM TECH에 온도테스트 후 차주 월요일 설치 예정","detail":"TE 해체시 알람 발생 문제. 박해일 부장 고객사와 확인중","requester":"","requestDate":"2026-08-24","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt7v7k937fwh","project":"국도화학(SJ2026-020) T-8405 제작 및 납품","content":"테프론 라이닝 및 FRP 코팅 견적서 전달 완료","detail":"","requester":"김민준 차장","requestDate":"2026-08-24","dateAdded":"2026-08-24","resolved":true},
+ {"id":"t-mt7v60ad1tea","project":"동진산업","content":"드럼리프트 400KG 4EA - 카스 문의중","detail":"","requester":"고병선 대리","requestDate":"2026-08-24","dateAdded":"2026-08-24","resolved":false},
+ {"id":"t-mt7v58mbafy8","project":"동진산업","content":"산업용리프트 / 견적문의중","detail":"","requester":"대표이사님","requestDate":"2026-08-25","dateAdded":"2026-08-24","resolved":false},
+ {"id":"t-mt70dtq07rg8","project":"SDC 추가공사","content":"AOD PUMP,파열판 발주 완료","detail":"","requester":"","requestDate":"2026-08-24","dateAdded":"2026-08-23","resolved":true},
+ {"id":"t-mt70dbsgma02","project":"우방프로젝트","content":"자동밸브 견적요청 완료 - SB자동밸브","detail":"","requester":"김민준 차장","requestDate":"2026-08-24","dateAdded":"2026-08-23","resolved":true},
+ {"id":"t-mt709r7auq51","project":"우방프로젝트","content":"펌프 - 한영뉴텍 견적요청 완료","detail":"","requester":"김민준 차장","requestDate":"2026-08-24","dateAdded":"2026-08-23","resolved":true},
+ {"id":"t-mt708ybabq64","project":"삼성전기 (SJ435-26)","content":"동선테크 김성은 사장 내방신청완료","detail":"","requester":"김민준 차장","requestDate":"2026-08-24","dateAdded":"2026-08-23","resolved":true},
+ {"id":"t-mt6kwrr4vc6o","project":"HAK 밀양공장","content":"최종성적서 - 로드셀, 배관자재 요청","detail":"","requester":"이영주 대리","requestDate":"2026-08-24","dateAdded":"2026-08-23","resolved":false},
+ {"id":"t-mt6jl0unsjly","project":"삼영폴리테크(SJE2026-057)","content":"자재 성적서 정리필요.\n유창은 완료","detail":"","requester":"","requestDate":"2026-08-24","dateAdded":"2026-08-23","resolved":true},
+ {"id":"t-mt6i6pt9hefm","project":"삼성전기 (SJ435-26)","content":"8월 28일까지 앙카볼트 입고 예정","detail":"","requester":"","requestDate":"2026-08-24","dateAdded":"2026-08-23","resolved":false},
+ {"id":"t-mt6i0jejv85x","project":"삼영폴리테크(SJE2026-057)","content":"칼럼 자재 입고 완료 - 이미 제작 완료됨.","detail":"","requester":"","requestDate":"2026-08-24","dateAdded":"2026-08-23","resolved":true},
+ {"id":"t-mt2lqpcie9qm","project":"일삼(SJ432-25)","content":"부속품_에스피아이보일러에 택배 발송완료","detail":"","requester":"","requestDate":"2026-08-21","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt2lphcatk4d","project":"동진산업","content":"구매품 견적요청건...사양이 없음...","detail":"","requester":"고병선 대리","requestDate":"2026-08-21","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt2bigdsfz07","project":"시온텍 연구과제(SJ2026-051)","content":"원심펌프 발주서 메일 전달 완료 TO 청화테크","detail":"","requester":"","requestDate":"2026-08-21","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt270wnaih7p","project":"진양화성","content":"연질 테프론(유창문의)\n개당 84만원_한승남 부장 대기","detail":"","requester":"","requestDate":"2026-08-21","dateAdded":"2026-08-20","resolved":false},
+ {"id":"t-mt16msblmwxr","project":"BGF","content":"추가 감압변 자료 발송 완료 TO 김영광 대리","detail":"","requester":"","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":false},
+ {"id":"t-mt16auxul48t","project":"조광페인트 PAA PROJECT 추가공사","content":"강화유리, 가스켓 발송 완료 from 유창수도","detail":"","requester":"고병선 대리","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt168096k7x5","project":"삼성전기 (SJ435-26)","content":"남동PVC 발주 완료","detail":"","requester":"","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt167rka62yb","project":"삼성전기 (SJ435-26)","content":"호프펌프 결제요청 10월 8일","detail":"","requester":"","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":false},
+ {"id":"t-mt1153b4dlv0","project":"시온텍 연구과제(SJ2026-051)","content":"PT,TE,TG 발주요청(구두상)\n발주서 청화테크에 보내놓음.","detail":"","requester":"","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt0wjzlqsurd","project":"조광페인트 PAA PROJECT 추가공사","content":"테프론 라이닝 압력계 발주 완료","detail":"","requester":"","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt0uard4l05w","project":"조광페인트 PAA PROJECT 추가공사","content":"테프론 라이닝 자재 입고일은 정순화 상무님이 컨트롤 하기로함.","detail":"","requester":"","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt0u8zps6mqj","project":"SDC 추가공사","content":"원심펌프 UP-1402B 입고 완료. (성적서 입수완료)\n펌프다이 제작요청","detail":"","requester":"","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mt0u87u9jq42","project":"한국ASK 케미칼 (SJ433-25)","content":"새로 발주되는 압력계,온도계 \n리스트 정리해서 접수하기로 함.","detail":"","requester":"강하준 대리","requestDate":"2026-08-20","dateAdded":"2026-08-20","resolved":true},
+ {"id":"t-mssinw301niv","project":"삼성전기 (SJ435-26)","content":"호스펌프 중도금 선 발행건 8월 27일자로 수정요청","detail":"","requester":"","requestDate":"2026-08-14","dateAdded":"2026-08-14","resolved":false},
+ {"id":"t-mssikyh9ei8k","project":"시온텍 연구과제(SJ2026-051)","content":"계장계기류 - FMTECH 화요일에 재제출예정","detail":"기술검토 후 코멘트 사항 반영","requester":"김대훈 대리","requestDate":"2026-08-14","dateAdded":"2026-08-14","resolved":true},
+ {"id":"t-msr2iz30jaz5","project":"한국ASK 케미칼 (SJ433-25)","content":"효성 펌프 8월 28일자는 확정이오나, 당기는 일정에 대해서는 아직 회신 없다고 함.","detail":"","requester":"","requestDate":"2026-08-13","dateAdded":"2026-08-12","resolved":false},
+ {"id":"t-msr161fzjy8e","project":"조광페인트 PAA PROJECT 추가공사","content":"일반 배관자재 - 유창수도 발주 완료","detail":"","requester":"","requestDate":"2026-08-12","dateAdded":"2026-08-12","resolved":true},
+ {"id":"t-msr15sni12cq","project":"조광페인트 PAA PROJECT 추가공사","content":"PFA LINED 배관자재 발주 완료 - 신신플라테크","detail":"","requester":"","requestDate":"2026-08-13","dateAdded":"2026-08-12","resolved":false},
+ {"id":"t-msr0okmvlbuy","project":"SDC (SJ431-25)","content":"캡너트 M20 4개 구매요청","detail":"","requester":"","requestDate":"2026-08-13","dateAdded":"2026-08-12","resolved":true},
+ {"id":"t-msp9jjtwfej4","project":"구매부","content":"펌프 설치 후 얼라이먼트 요구하는 업체들 종종...","detail":"","requester":"","requestDate":"2026-08-12","dateAdded":"2026-08-11","resolved":false},
+ {"id":"t-mso1upa5kz01","project":"시온텍 연구과제(SJ2026-051)","content":"진공펌프-청화테크에 공급계약서 직인 날인 요청 메일 발송완료","detail":"","requester":"","requestDate":"2026-08-11","dateAdded":"2026-08-10","resolved":true},
+ {"id":"t-mseawnqjgv8s","project":"구매부","content":"계산서 꼬리표 정리 필요.","detail":"1.인허가 2.마이크로콘트롤밸브 3.기술안전지도","requester":"","requestDate":"2026-08-04","dateAdded":"2026-08-04","resolved":true},
+ {"id":"t-mrynb3xy0whn","project":"SDC (SJ431-25)","content":"배관공사 추가작업에 대한 사장님 결재 요청","detail":"","requester":"김대훈 대리","requestDate":"2026-07-23","dateAdded":"2026-07-23","resolved":false},
+ {"id":"t-mru5bipfxy4q","project":"애경케미칼","content":"맨홀  관련 작업건 발주서 발송 완료 - 동백피앤씨","detail":"","requester":"김민준 차장","requestDate":"2026-07-21","dateAdded":"2026-07-21","resolved":true},
+ {"id":"t-mrsxcs8we95m","project":"구매품 문제점","content":"전기공사 계약할 때 외함접지 무조건 체크","detail":"","requester":"","requestDate":"2026-07-20","dateAdded":"2026-07-20","resolved":false},
+ {"id":"t-mr9u8uubc9oi","project":"구매품 문제점","content":"스팀보일러 - 배수구 쪽 체크밸브 무조건 포함시킬 것.\n법적사항이라서 매번 추가 조치중...,","detail":"","requester":"박광원 차장","requestDate":"2026-07-07","dateAdded":"2026-07-06","resolved":false},
+ {"id":"seed-4","project":"삼성전기 (SJ435-26)","content":"고압세척기 - 입찰견적서 회신 완료","detail":"납기가 길지않아서 HOLDING중","requestDate":"2026-06-30","requester":"김대훈 대리","dateAdded":"2026-06-30","resolved":true}
+  ];
+
+  let tasks = [];
+  let poRecords = [];
+  const view = { filter:'all', search:'', activeProject:null };
+
+  function uid(){ return 't-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function poUid(){ return 'po_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+  /* ══════════ 로컬 캐시 (즉시 렌더용) ══════════ */
+  function loadLocalCache(){
+    try {
+      const disk = JSON.parse(localStorage.getItem(MODULE_KEY) || '{}');
+      tasks = disk.tasks || [];
+      poRecords = disk.poRecords || [];
+    } catch(e){ tasks = []; poRecords = []; }
+  }
+  function writeLocalCache(){
+    try { localStorage.setItem(MODULE_KEY, JSON.stringify({ tasks, poRecords })); } catch(e){}
+  }
+
+  /* ══════════ Firestore 동기화 (측정기구 반입출 모듈 패턴 준용) ══════════ */
+  const _lastSynced = { t_purchaseTasks: [], t_purchasePOs: [] };
+  async function syncArrayToFirestore(coll, arr){
+    if (!window.fb || !fb.db) return;
+    const current = arr || [];
+    const prevMap = new Map((_lastSynced[coll]||[]).map(x => [x.id, x]));
+    const currMap = new Map(current.map(x => [x.id, x]));
+    const jobs = [];
+    currMap.forEach((x, id) => {
+      const prev = prevMap.get(id);
+      if (!prev || JSON.stringify(prev) !== JSON.stringify(x)) {
+        jobs.push(fb.setDoc(fb.doc(fb.db, coll, id), x).catch(e => console.error(`[${coll}]`, e)));
+      }
+    });
+    if (jobs.length) await Promise.all(jobs);
+    _lastSynced[coll] = JSON.parse(JSON.stringify(current));
+  }
+  function deleteFirestoreDoc(coll, id){
+    if (!window.fb || !fb.db) return;
+    fb.deleteDoc(fb.doc(fb.db, coll, id)).catch(e => console.error(`[${coll} 삭제]`, e));
+  }
+  // 백업 불러오기(전체 교체)처럼 배열을 통째로 갈아끼울 때, 사라진 기록은
+  // Firestore에서도 명시적으로 지워줘야 한다(syncArrayToFirestore는 추가/수정만 처리).
+  async function replaceAllInFirestore(coll, newArr){
+    const oldIds = new Set((_lastSynced[coll]||[]).map(x=>x.id));
+    const newIds = new Set(newArr.map(x=>x.id));
+    const toDelete = [...oldIds].filter(id=>!newIds.has(id));
+    if (toDelete.length && window.fb && fb.db){
+      await Promise.all(toDelete.map(id => fb.deleteDoc(fb.doc(fb.db, coll, id)).catch(()=>{})));
+    }
+    await syncArrayToFirestore(coll, newArr);
+  }
+  function mergeServerSnapshot(localArr, serverDocs, prevSynced){
+    const serverIds = new Set(serverDocs.map(d => d.id));
+    const prevSyncedIds = new Set((prevSynced||[]).map(d => d.id));
+    const notYetSynced = (localArr||[]).filter(n => !serverIds.has(n.id) && !prevSyncedIds.has(n.id));
+    return [...serverDocs, ...notYetSynced];
+  }
+
+  let _taskSeedTried = false;
+  function startFirestoreSync(){
+    if (!window.fb || !fb.db) { setTimeout(startFirestoreSync, 300); return; }
+    if (!fb.auth || !fb.auth.currentUser) { setTimeout(startFirestoreSync, 400); return; }
+    fb.onSnapshot(fb.collection(fb.db, 't_purchaseTasks'), snap => {
+      const serverDocs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      if (!_taskSeedTried){
+        _taskSeedTried = true;
+        if (serverDocs.length === 0 && tasks.length === 0 && SEED_TASKS.length){
+          tasks = SEED_TASKS.slice();
+          writeLocalCache();
+          syncArrayToFirestore('t_purchaseTasks', tasks);
+        }
+      }
+      tasks = mergeServerSnapshot(tasks, serverDocs, _lastSynced.t_purchaseTasks);
+      _lastSynced.t_purchaseTasks = JSON.parse(JSON.stringify(serverDocs));
+      writeLocalCache();
+      render();
+    }, e => console.error('[t_purchaseTasks 구독]', e));
+    fb.onSnapshot(fb.collection(fb.db, 't_purchasePOs'), snap => {
+      const serverDocs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      poRecords = mergeServerSnapshot(poRecords, serverDocs, _lastSynced.t_purchasePOs);
+      _lastSynced.t_purchasePOs = JSON.parse(JSON.stringify(serverDocs));
+      writeLocalCache();
+      poRenderAll();
+    }, e => console.error('[t_purchasePOs 구독]', e));
+  }
+
+  function persist(){
+    writeLocalCache();
+    syncArrayToFirestore('t_purchaseTasks', tasks);
+  }
+
+  function toast(msg){
+    const el = document.getElementById('ddToast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(()=> el.classList.remove('show'), 1800);
+  }
+
+  function computeStatus(t){
+    if (t.resolved) return 'done';
+    if (t.dateAdded === todayStr) return 'today';
+    return 'pending';
+  }
+
+  function fmtDate(d){
+    if (!d) return '-';
+    const [y,m,day] = d.split('-');
+    return `${y.slice(2)}.${m}.${day}`;
+  }
+
+  function getProjects(){
+    const seen = [];
+    tasks.forEach(t=>{ if (t.project && !seen.includes(t.project)) seen.push(t.project); });
+    return seen;
+  }
+
+  function filteredTasks(){
+    return tasks.filter(t=>{
+      const status = computeStatus(t);
+      if (view.filter !== 'all' && status !== view.filter) return false;
+      if (view.activeProject && t.project !== view.activeProject) return false;
+      if (view.search){
+        const s = view.search.toLowerCase();
+        const hay = (t.project + ' ' + t.content + ' ' + (t.detail||'') + ' ' + (t.requester||'')).toLowerCase();
+        if (!hay.includes(s)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderStats(){
+    const all = tasks;
+    const todayTotal = all.filter(t=>t.dateAdded===todayStr).length;
+    const todayOpen = all.filter(t=>t.dateAdded===todayStr && !t.resolved).length;
+    const todayDone = todayTotal - todayOpen;
+    const pendingCount = all.filter(t=>computeStatus(t)==='pending').length;
+    const projectCount = getProjects().length;
+    document.getElementById('ddStats').innerHTML = `
+      <div class="dd-stat today"><div class="dd-stat-num">${todayOpen}</div><div class="dd-stat-label">오늘 등록 (미완료) · 총 ${todayTotal}건 중 ${todayDone}건 완료</div></div>
+      <div class="dd-stat pending"><div class="dd-stat-num">${pendingCount}</div><div class="dd-stat-label">미처리</div></div>
+      <div class="dd-stat"><div class="dd-stat-num">${projectCount}</div><div class="dd-stat-label">진행 프로젝트</div></div>
+      <div class="dd-stat"><div class="dd-stat-num">${all.length}</div><div class="dd-stat-label">전체 기록</div></div>
+    `;
+    document.getElementById('ddStampNum').textContent = todayOpen;
+    const dt = new Date();
+    document.getElementById('ddStampDate').textContent = `${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
+    const weekday = ['일','월','화','수','목','금','토'][dt.getDay()];
+    document.getElementById('ddSubtitle').textContent = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')} (${weekday}) · 미처리 ${pendingCount}건이 대기 중이에요`;
+  }
+
+  function renderSidebar(){
+    const projects = getProjects();
+    const wrap = document.getElementById('ddProjectList');
+    const allActive = view.activeProject === null;
+    let html = `<div class="dd-proj-item ${allActive?'active':''}" data-project="">
+        <span class="dd-proj-name">전체 보기</span>
+        <span class="dd-proj-count">${tasks.length}</span>
+      </div>`;
+    projects.forEach(p=>{
+      const count = tasks.filter(t=>t.project===p).length;
+      const pending = tasks.filter(t=>t.project===p && computeStatus(t)!=='done').length;
+      const active = view.activeProject === p;
+      html += `<div class="dd-proj-item ${active?'active':''}" data-project="${escapeAttr(p)}">
+        <span class="dd-proj-name">${escapeHtml(p)}</span>
+        <span class="dd-proj-count">${pending>0? pending+'/' : ''}${count}</span>
+      </div>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.dd-proj-item').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        view.activeProject = el.dataset.project || null;
+        render();
+      });
+    });
+
+    const datalist = document.getElementById('ddProjectOptions');
+    datalist.innerHTML = projects.map(p=>`<option value="${escapeAttr(p)}"></option>`).join('');
+  }
+
+  function statusLabel(s){
+    return s==='today' ? '오늘' : s==='pending' ? '미처리' : '완료';
+  }
+
+  function renderTasks(){
+    const list = filteredTasks();
+    const container = document.getElementById('ddTaskList');
+    if (list.length === 0){
+      container.innerHTML = `<div class="dd-empty">조건에 맞는 업무가 없어요. 다른 필터를 선택하거나 새 업무를 추가해 보세요.</div>`;
+      return;
+    }
+    const groups = {};
+    const order = [];
+    list.forEach(t=>{
+      if (!groups[t.project]) { groups[t.project] = []; order.push(t.project); }
+      groups[t.project].push(t);
+    });
+
+    let html = '';
+    order.forEach(proj=>{
+      html += `<div class="dd-card">
+        <div class="dd-card-head">
+          <span class="dd-card-name">${escapeHtml(proj)}</span>
+        </div>
+        <div class="dd-card-body">`;
+      groups[proj].sort((a,b)=> (b.dateAdded||'').localeCompare(a.dateAdded||''));
+      groups[proj].forEach(t=>{
+        const status = computeStatus(t);
+        html += `<div class="dd-task ${status}" data-id="${t.id}">
+          <span class="dd-task-badge">${statusLabel(status)}</span>
+          <div class="dd-task-main">
+            <div class="dd-task-content">${escapeHtml(t.content)}</div>
+            ${t.detail ? `<div class="dd-task-detail">${escapeHtml(t.detail)}</div>` : ''}
+            <div class="dd-task-meta">
+              <span>등록 ${fmtDate(t.dateAdded)}</span>
+              ${t.requester ? `<span>${escapeHtml(t.requester)}</span>` : ''}
+            </div>
+          </div>
+          <div class="dd-task-actions">
+            ${status !== 'done' ? `<button class="dd-icon-btn resolve" data-action="resolve" data-id="${t.id}">완료 처리</button>` : `<button class="dd-icon-btn resolve" data-action="reopen" data-id="${t.id}">다시 열기</button>`}
+            <button class="dd-icon-btn del" data-action="delete" data-id="${t.id}">삭제</button>
+          </div>
+        </div>`;
+      });
+      html += `</div></div>`;
+    });
+    container.innerHTML = html;
+
+    container.querySelectorAll('[data-action]').forEach(btn=>{
+      btn.addEventListener('click', onTaskAction);
+    });
+  }
+
+  function onTaskAction(e){
+    const id = e.currentTarget.dataset.id;
+    const action = e.currentTarget.dataset.action;
+    const t = tasks.find(x=>x.id===id);
+    if (!t) return;
+    if (action === 'resolve'){ t.resolved = true; toast('완료로 표시했어요'); }
+    if (action === 'reopen'){ t.resolved = false; toast('다시 미처리로 옮겼어요'); }
+    if (action === 'delete'){
+      if (!confirm('이 업무를 삭제할까요?')) return;
+      tasks = tasks.filter(x=>x.id!==id);
+      deleteFirestoreDoc('t_purchaseTasks', id);
+      toast('삭제했어요');
+    }
+    persist();
+    render();
+  }
+
+  function escapeHtml(s){
+    return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  function render(){
+    renderStats();
+    renderSidebar();
+    renderTasks();
+  }
+
+  // ---- Tabs ----
+  document.getElementById('ddTabs').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.dd-tab');
+    if (!btn) return;
+    document.querySelectorAll('#ddTabs .dd-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    view.filter = btn.dataset.filter;
+    render();
+  });
+
+  // ---- Search ----
+  document.getElementById('ddSearch').addEventListener('input', (e)=>{
+    view.search = e.target.value.trim();
+    render();
+  });
+
+  // ---- Modal ----
+  const modalBg = document.getElementById('ddModalBg');
+  function openModal(){
+    document.getElementById('fProject').value = view.activeProject || '';
+    document.getElementById('fContent').value = '';
+    document.getElementById('fDetail').value = '';
+    document.getElementById('fRequester').value = '';
+    document.getElementById('fRequestDate').value = todayStr;
+    modalBg.style.display = 'flex';
+    setTimeout(()=>document.getElementById('fProject').focus(), 30);
+  }
+  function closeModal(){ modalBg.style.display = 'none'; }
+
+  document.getElementById('ddOpenAddTop').addEventListener('click', openModal);
+  document.getElementById('ddCancelBtn').addEventListener('click', closeModal);
+  modalBg.addEventListener('click', (e)=>{ if (e.target === modalBg) closeModal(); });
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && modalBg.style.display==='flex') closeModal(); });
+
+  document.getElementById('ddSaveBtn').addEventListener('click', ()=>{
+    const project = document.getElementById('fProject').value.trim();
+    const content = document.getElementById('fContent').value.trim();
+    const detail = document.getElementById('fDetail').value.trim();
+    const requester = document.getElementById('fRequester').value.trim();
+    const requestDate = document.getElementById('fRequestDate').value || todayStr;
+    if (!project || !content){
+      toast('프로젝트와 업무 내용은 꼭 입력해 주세요');
+      return;
+    }
+    tasks.unshift({
+      id: uid(),
+      project, content, detail, requester,
+      requestDate,
+      dateAdded: todayStr,
+      resolved: false
+    });
+    persist();
+    closeModal();
+    render();
+    toast('오늘 업무로 등록했어요');
+  });
+
+  // ---- Report copy ----
+  document.getElementById('ddReportBtn').addEventListener('click', ()=>{
+    const relevant = tasks.filter(t=> computeStatus(t) !== 'done');
+    const groups = {};
+    const order = [];
+    relevant.forEach(t=>{
+      if (!groups[t.project]) { groups[t.project] = []; order.push(t.project); }
+      groups[t.project].push(t);
+    });
+    const dt = new Date();
+    let lines = [`[ 구매부 일일 업무 현황 ]  ${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`, ''];
+    if (order.length === 0){
+      lines.push('오늘 등록된 업무 및 미처리 건이 없습니다.');
+    }
+    order.forEach(proj=>{
+      lines.push(`■ ${proj}`);
+      groups[proj].forEach(t=>{
+        const status = computeStatus(t);
+        const tag = status === 'today' ? '[오늘]' : '[미처리]';
+        const req = t.requester ? ` / ${t.requester}` : '';
+        lines.push(`  ${tag} ${t.content}${req}`);
+        if (t.detail) lines.push(`     - ${t.detail}`);
+      });
+      lines.push('');
+    });
+    const text = lines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(()=>toast('리포트를 클립보드에 복사했어요')).catch(()=>fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+  });
+
+  function fallbackCopy(text){
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('리포트를 클립보드에 복사했어요'); }
+    catch(e){ toast('복사에 실패했어요. 콘솔에 출력했어요.'); console.log(text); }
+    document.body.removeChild(ta);
+  }
+
+  // ---- Backup export / import ----
+  document.getElementById('ddExportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(tasks, null, 1)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dt = new Date();
+    a.href = url;
+    a.download = `업무일지_백업_${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('백업 파일을 저장했어요');
+  });
+
+  document.getElementById('ddImportBtn').addEventListener('click', ()=>{
+    document.getElementById('ddImportFile').click();
+  });
+
+  document.getElementById('ddImportFile').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt)=>{
+      try {
+        const parsed = JSON.parse(evt.target.result);
+        if (!Array.isArray(parsed)) throw new Error('invalid format');
+        if (!confirm(`백업 파일에서 ${parsed.length}건의 업무를 불러올까요? 현재 데이터는 덮어써져요.`)) return;
+        tasks = parsed;
+        writeLocalCache();
+        await replaceAllInFirestore('t_purchaseTasks', tasks);
+        render();
+        toast('백업을 불러왔어요');
+      } catch(err){
+        toast('올바른 백업 파일이 아니에요');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // =====================================================================
+  // PO (발주 목록) module — shares persist helpers/toast/escapeHtml/uid
+  // =====================================================================
+  let poEditingId = null;
+  let poCurrentTab = 'list';
+
+  function poFmtAmount(n){ n = Number(n)||0; return n.toLocaleString('ko-KR'); }
+  function poFmtDate(d){
+    if(!d) return '<span style="color:var(--ink-soft);">-</span>';
+    if(d === 'ASAP') return '<span style="color:var(--ink-soft);">A.S.A.P</span>';
+    return d;
+  }
+  function poIsOverdue(r){
+    if(r.delivered === 'O') return false;
+    if(r.status === 'cancelled') return false;
+    if(!r.dueDate) return false;
+    if(r.dueDate === 'ASAP'){
+      const orderD = new Date(r.orderDate);
+      const diffDays = (Date.now() - orderD.getTime()) / 86400000;
+      return diffDays > 7;
+    }
+    return new Date(r.dueDate) < new Date(todayStr);
+  }
+  function poDeriveStatus(r){
+    if(r.status === 'cancelled') return 'cancelled';
+    if(poIsOverdue(r)) return 'overdue';
+    if(r.delivered === 'O') return 'delivered';
+    return 'progress';
+  }
+  function poNextStamp(v){
+    if(v === '' || v === undefined) return 'O';
+    if(v === 'O') return 'X';
+    return '';
+  }
+
+  function poPersist(){
+    writeLocalCache();
+    syncArrayToFirestore('t_purchasePOs', poRecords);
+  }
+
+  function poComputeSummary(){
+    const total = poRecords.length;
+    const progress = poRecords.filter(r=>poDeriveStatus(r)==='progress').length;
+    const overdue = poRecords.filter(r=>poDeriveStatus(r)==='overdue').length;
+    const thisMonth = todayStr.slice(0,7);
+    const monthAmount = poRecords
+      .filter(r=>(r.orderDate||'').slice(0,7) === thisMonth)
+      .reduce((s,r)=>s+(Number(r.amount)||0),0);
+    return {total, progress, overdue, monthAmount};
+  }
+
+  function poRenderSummary(){
+    const s = poComputeSummary();
+    document.getElementById('poStats').innerHTML = `
+      <div class="po-stat"><div class="num">${s.total}건</div><div class="lbl">전체 발주</div></div>
+      <div class="po-stat"><div class="num">${s.progress}건</div><div class="lbl">진행중 (납품 대기)</div></div>
+      <div class="po-stat ${s.overdue>0?'overdue':''}"><div class="num">${s.overdue}건</div><div class="lbl">지연 (납품요청일 초과)</div></div>
+      <div class="po-stat"><div class="num" style="font-size:17px;">₩${poFmtAmount(s.monthAmount)}</div><div class="lbl">이번달 발주금액</div></div>
+    `;
+  }
+
+  function poStampCell(id, field, value){
+    const label = value === 'O' ? 'O' : value === 'X' ? 'X' : '—';
+    return `<div class="po-stamp" data-v="${value||''}" data-id="${id}" data-field="${field}">${label}</div>`;
+  }
+
+  function poRenderTable(){
+    const search = document.getElementById('poSearch').value.trim().toLowerCase();
+    const statusFilter = document.getElementById('poStatusFilter').value;
+
+    let list = poRecords.filter(r=>{
+      if(search){
+        const hay = [r.poNumber, r.project, r.supplier].join(' ').toLowerCase();
+        if(!hay.includes(search)) return false;
+      }
+      if(statusFilter !== 'all' && poDeriveStatus(r) !== statusFilter) return false;
+      return true;
+    });
+    list.sort((a,b)=>(b.orderDate||'').localeCompare(a.orderDate||''));
+
+    const tbody = document.getElementById('poTableBody');
+    document.getElementById('poEmpty').style.display = poRecords.length === 0 ? 'block' : 'none';
+
+    tbody.innerHTML = list.map(r=>{
+      const overdue = poDeriveStatus(r) === 'overdue';
+      return `
+      <tr class="${overdue?'overdue':''}">
+        <td><span class="po-no">${escapeHtml(r.poNumber||'-')}</span></td>
+        <td class="po-proj">
+          <div class="p1">${escapeHtml(r.project||'-')}</div>
+          <div class="p2">${escapeHtml(r.supplier||'-')}${r.supplierContact? ' · '+escapeHtml(r.supplierContact):''}</div>
+        </td>
+        <td>${r.orderDate||'-'}</td>
+        <td>${poFmtDate(r.dueDate)}</td>
+        <td><span class="po-amount">₩${poFmtAmount(r.amount)}</span></td>
+        <td style="text-align:center">${poStampCell(r.id,'ordered', r.ordered)}</td>
+        <td style="text-align:center">${poStampCell(r.id,'delivered', r.delivered)}</td>
+        <td style="text-align:center">${poStampCell(r.id,'inspected', r.inspected)}</td>
+        <td style="text-align:center">${poStampCell(r.id,'paid', r.paid)}</td>
+        <td>${overdue? '<span class="po-badge overdue">지연</span>' : (r.delivered==='O' ? '<span class="po-badge ontime">정상</span>' : '')}</td>
+        <td style="white-space:nowrap;">
+          <button class="po-rowbtn" data-action="po-edit" data-id="${r.id}">수정</button>
+          <button class="po-rowbtn danger" data-action="po-delete" data-id="${r.id}">삭제</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('.po-stamp').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const id = el.dataset.id, field = el.dataset.field;
+        const r = poRecords.find(x=>x.id===id);
+        if(!r) return;
+        r[field] = poNextStamp(r[field]);
+        poPersist();
+        poRenderAll();
+      });
+    });
+    tbody.querySelectorAll('[data-action="po-edit"]').forEach(el=>{
+      el.addEventListener('click', ()=> poOpenEdit(el.dataset.id));
+    });
+    tbody.querySelectorAll('[data-action="po-delete"]').forEach(el=>{
+      el.addEventListener('click', ()=> poDeleteRecord(el.dataset.id));
+    });
+  }
+
+  function poRenderStats(){
+    const bySupplier = {};
+    poRecords.forEach(r=>{
+      const key = r.supplier || '(미지정)';
+      if(!bySupplier[key]) bySupplier[key] = {total:0, overdue:0, amount:0, delivered:0};
+      bySupplier[key].total++;
+      bySupplier[key].amount += Number(r.amount)||0;
+      if(poDeriveStatus(r)==='overdue') bySupplier[key].overdue++;
+      if(r.delivered==='O') bySupplier[key].delivered++;
+    });
+    const rows = Object.entries(bySupplier).sort((a,b)=>b[1].total-a[1].total);
+    const wrap = document.getElementById('poStatsView');
+    if(rows.length === 0){
+      wrap.innerHTML = '<div class="po-empty">발주 데이터가 없습니다.</div>';
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="po-table-wrap">
+      <table class="po-stat-table">
+        <thead><tr><th>공급사</th><th>발주건수</th><th>납품완료</th><th>지연건수</th><th>지연율</th><th>총 발주금액</th></tr></thead>
+        <tbody>
+          ${rows.map(([name, s])=>{
+            const rate = s.total ? Math.round(s.overdue/s.total*100) : 0;
+            return `<tr>
+              <td>${escapeHtml(name)}</td>
+              <td>${s.total}건</td>
+              <td>${s.delivered}건</td>
+              <td>${s.overdue}건</td>
+              <td>
+                <span class="po-rate-bar-wrap"><span class="po-rate-bar" style="width:${rate}%"></span></span>
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; margin-left:6px;">${rate}%</span>
+              </td>
+              <td><span class="po-amount" style="text-align:left;display:inline;">₩${poFmtAmount(s.amount)}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      </div>
+      <p class="po-help">지연율이 높은 공급사는 다음 발주 시 리드타임을 여유있게 잡거나, 벤더 재선정을 검토해보세요. 통상 <b>지연율 10% 이하</b>를 우수 공급사 기준으로 봅니다.</p>
+    `;
+  }
+
+  function poRenderAll(){
+    poRenderSummary();
+    if(poCurrentTab === 'list') poRenderTable();
+    else poRenderStats();
+  }
+
+  // ---- PO modal open/close ----
+  const poModalBg = document.getElementById('poModalBg');
+  function poClearErr(){
+    document.getElementById('pf_poNumber').classList.remove('err');
+    document.getElementById('poErrPoNumber').classList.remove('show');
+  }
+  function poClearAutoFilled(){
+    ['pf_poNumber','pf_project','pf_supplier','pf_supplierContact','pf_orderer','pf_items','pf_amount','pf_payment','pf_notes','pf_orderDate','pf_dueDate']
+      .forEach(id=>document.getElementById(id).classList.remove('auto-filled'));
+  }
+  function poOpenNew(){
+    poEditingId = null;
+    document.getElementById('poModalTitle').textContent = '새 발주 등록';
+    document.getElementById('poBanner').style.display = 'none';
+    poClearErr(); poClearAutoFilled();
+    ['pf_poNumber','pf_project','pf_supplier','pf_supplierContact','pf_orderer','pf_items','pf_amount','pf_payment','pf_notes']
+      .forEach(id=>document.getElementById(id).value = '');
+    document.getElementById('pf_orderDate').value = todayStr;
+    document.getElementById('pf_dueDate').value = '';
+    document.getElementById('pf_dueDate').disabled = false;
+    document.getElementById('pf_asap').checked = false;
+    document.getElementById('poDeleteBtn').style.display = 'none';
+    poModalBg.style.display = 'flex';
+  }
+  function poOpenEdit(id){
+    const r = poRecords.find(x=>x.id===id);
+    if(!r) return;
+    poEditingId = id;
+    document.getElementById('poModalTitle').textContent = '발주 수정';
+    document.getElementById('poBanner').style.display = 'none';
+    poClearErr(); poClearAutoFilled();
+    document.getElementById('pf_poNumber').value = r.poNumber||'';
+    document.getElementById('pf_orderDate').value = r.orderDate||'';
+    document.getElementById('pf_project').value = r.project||'';
+    document.getElementById('pf_supplier').value = r.supplier||'';
+    document.getElementById('pf_supplierContact').value = r.supplierContact||'';
+    document.getElementById('pf_orderer').value = r.orderer||'';
+    const isAsap = r.dueDate === 'ASAP';
+    document.getElementById('pf_asap').checked = isAsap;
+    document.getElementById('pf_dueDate').value = isAsap ? '' : (r.dueDate||'');
+    document.getElementById('pf_dueDate').disabled = isAsap;
+    document.getElementById('pf_items').value = r.items||'';
+    document.getElementById('pf_amount').value = r.amount||'';
+    document.getElementById('pf_payment').value = r.payment||'';
+    document.getElementById('pf_notes').value = r.notes||'';
+    document.getElementById('poDeleteBtn').style.display = 'inline-block';
+    poModalBg.style.display = 'flex';
+  }
+  function poCloseModal(){ poModalBg.style.display = 'none'; }
+
+  function poSaveForm(){
+    const poField = document.getElementById('pf_poNumber');
+    const poNumber = poField.value.trim();
+    if(!poNumber){
+      poField.classList.add('err');
+      document.getElementById('poErrPoNumber').classList.add('show');
+      poField.focus();
+      toast('주문번호를 입력해주세요 — 필수 항목입니다');
+      return;
+    }
+    poClearErr();
+
+    const asap = document.getElementById('pf_asap').checked;
+    const data = {
+      poNumber,
+      orderDate: document.getElementById('pf_orderDate').value || todayStr,
+      project: document.getElementById('pf_project').value.trim(),
+      supplier: document.getElementById('pf_supplier').value.trim(),
+      supplierContact: document.getElementById('pf_supplierContact').value.trim(),
+      orderer: document.getElementById('pf_orderer').value.trim(),
+      dueDate: asap ? 'ASAP' : (document.getElementById('pf_dueDate').value || ''),
+      items: document.getElementById('pf_items').value.trim(),
+      amount: Number(document.getElementById('pf_amount').value)||0,
+      payment: document.getElementById('pf_payment').value.trim(),
+      notes: document.getElementById('pf_notes').value.trim(),
+    };
+
+    if(poEditingId){
+      const r = poRecords.find(x=>x.id===poEditingId);
+      Object.assign(r, data);
+    } else {
+      poRecords.push(Object.assign({
+        id: poUid(), ordered:'O', delivered:'', inspected:'', paid:'', status:'active'
+      }, data));
+    }
+    poPersist();
+    poCloseModal();
+    poRenderAll();
+    toast('발주가 저장되었어요');
+  }
+
+  function poDeleteRecord(id){
+    const r = poRecords.find(x=>x.id===id);
+    if(!r) return;
+    if(!confirm(`'${r.poNumber||'이 발주'}' 기록을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    poRecords = poRecords.filter(x=>x.id!==id);
+    deleteFirestoreDoc('t_purchasePOs', id);
+    writeLocalCache();
+    poRenderAll();
+    toast('삭제했어요');
+  }
+
+  document.getElementById('poNewBtn').addEventListener('click', poOpenNew);
+  document.getElementById('poCancelBtn').addEventListener('click', poCloseModal);
+  document.getElementById('poModalCloseX').addEventListener('click', poCloseModal);
+  document.getElementById('poSaveBtn').addEventListener('click', poSaveForm);
+  document.getElementById('poDeleteBtn').addEventListener('click', ()=>{ if(poEditingId) poDeleteRecord(poEditingId); poCloseModal(); });
+  poModalBg.addEventListener('click', (e)=>{ if(e.target === poModalBg) poCloseModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && poModalBg.style.display === 'flex') poCloseModal(); });
+  document.getElementById('pf_poNumber').addEventListener('input', poClearErr);
+  document.getElementById('pf_asap').addEventListener('change', (e)=>{
+    document.getElementById('pf_dueDate').disabled = e.target.checked;
+    if(e.target.checked) document.getElementById('pf_dueDate').value = '';
+  });
+
+  document.getElementById('poSearch').addEventListener('input', poRenderTable);
+  document.getElementById('poStatusFilter').addEventListener('change', poRenderTable);
+
+  document.getElementById('poSubTabs').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.dd-tab');
+    if(!btn) return;
+    document.querySelectorAll('#poSubTabs .dd-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    poCurrentTab = btn.dataset.poTab;
+    document.getElementById('poListView').style.display = poCurrentTab === 'list' ? 'block' : 'none';
+    document.getElementById('poStatsView').style.display = poCurrentTab === 'stats' ? 'block' : 'none';
+    poRenderAll();
+  });
+
+  document.getElementById('poCsvBtn').addEventListener('click', ()=>{
+    const header = ['주문번호','공사명','공급사','공급사담당자','주문담당','주문일자','납품요청일','품목','금액','결제조건','발주','납품','검수','결제','비고'];
+    const rows = poRecords.map(r=>[
+      r.poNumber, r.project, r.supplier, r.supplierContact, r.orderer,
+      r.orderDate, r.dueDate, r.items, r.amount, r.payment,
+      r.ordered, r.delivered, r.inspected, r.paid, r.notes
+    ]);
+    const csv = [header, ...rows].map(row => row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `발주목록_${todayStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('poBackupBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(poRecords, null, 1)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `발주목록_백업_${todayStr}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('발주 백업 파일을 저장했어요');
+  });
+  document.getElementById('poRestoreBtn').addEventListener('click', ()=> document.getElementById('poRestoreInput').click());
+  document.getElementById('poRestoreInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt)=>{
+      try{
+        const incoming = JSON.parse(evt.target.result);
+        if(!Array.isArray(incoming)) throw new Error('invalid format');
+        const merge = confirm(`백업 파일에 ${incoming.length}건의 발주가 있습니다.\n\n[확인] = 현재 목록에 추가로 합치기\n[취소] = 현재 목록을 백업 내용으로 완전히 교체`);
+        if(merge){
+          const existingIds = new Set(poRecords.map(r=>r.id));
+          incoming.forEach(r=>{ if(!existingIds.has(r.id)) poRecords.push(r); });
+          poPersist();
+        } else {
+          poRecords = incoming;
+          writeLocalCache();
+          await replaceAllInFirestore('t_purchasePOs', poRecords);
+        }
+        poRenderAll();
+        toast('발주 백업을 불러왔어요');
+      }catch(err){
+        toast('올바른 백업 파일이 아니에요');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // ---- PDF auto-fill (tuned to the Sejong Technology PO template) ----
+  if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  function poMergeRowText(rowWords, xMin=-Infinity, xMax=Infinity){
+    const ws = rowWords.filter(w=>w.x>=xMin && w.x<xMax).sort((a,b)=>a.x-b.x);
+    if(ws.length===0) return '';
+    let out = ws[0].text;
+    let prevEnd = ws[0].x + ws[0].width;
+    for(let i=1;i<ws.length;i++){
+      const w = ws[i];
+      const gap = w.x - prevEnd;
+      out += (gap < 3 ? '' : ' ') + w.text;
+      prevEnd = w.x + w.width;
+    }
+    return out.replace(/\s+/g,' ').trim();
+  }
+  function poParseKoreanDate(text){
+    const m = (text||'').match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+    if(m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+    const iso = (text||'').match(/(\d{4})-(\d{2})-(\d{2})/);
+    return iso ? iso[0] : null;
+  }
+  function poIsAsapText(text){ return /A\.?\s*S\.?\s*A\.?\s*P/i.test(text||''); }
+  function poToNumber(text){ return parseInt(String(text||'').replace(/[^\d]/g,''),10) || 0; }
+
+  async function poExtractFromPdf(file){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({scale:1});
+    const content = await page.getTextContent();
+    const pageHeight = viewport.height;
+
+    const words = content.items
+      .map(it=>({ text: it.str, x: it.transform[4], top: pageHeight - it.transform[5], width: it.width || (it.str.length*6) }))
+      .filter(w=>w.text && w.text.trim().length>0);
+
+    words.sort((a,b)=> a.top-b.top || a.x-b.x);
+    const rows = [];
+    words.forEach(w=>{
+      let row = rows.find(r=> Math.abs(r.top-w.top) <= 4);
+      if(!row){ row = {top:w.top, words:[]}; rows.push(row); }
+      row.words.push(w);
+    });
+    rows.sort((a,b)=>a.top-b.top);
+
+    function findRow(re){ return rows.find(r=> re.test(poMergeRowText(r.words))); }
+    const out = {};
+
+    const rProject = findRow(/공사명/);
+    if(rProject){
+      out.project = poMergeRowText(rProject.words, 90, 295);
+      const d = poParseKoreanDate(poMergeRowText(rProject.words, 355));
+      if(d) out.orderDate = d;
+    }
+    const rPoNo = findRow(/주문번호/);
+    if(rPoNo){
+      out.poNumber = poMergeRowText(rPoNo.words, 90, 295);
+      const dueRaw = poMergeRowText(rPoNo.words, 355);
+      if(poIsAsapText(dueRaw)) out.asap = true;
+      else { const d = poParseKoreanDate(dueRaw); if(d) out.dueDate = d; }
+    }
+    const rSupplier = findRow(/공급사/);
+    if(rSupplier) out.supplier = poMergeRowText(rSupplier.words, 90, 295);
+    const rContact = findRow(/담당자/);
+    if(rContact){
+      out.supplierContact = poMergeRowText(rContact.words, 90, 295);
+      const orderer = poMergeRowText(rContact.words, 355);
+      if(orderer) out.orderer = orderer;
+    }
+
+    const headerRow = findRow(/Q'?ty/i);
+    const grandIdx = rows.findIndex(r=> /Grand\s*Total/i.test(poMergeRowText(r.words)));
+    const finalIdx = rows.findIndex(r=> /Final.*Nego/i.test(poMergeRowText(r.words)));
+    if(headerRow){
+      const headerIdx = rows.indexOf(headerRow);
+      const stopIdx = grandIdx > -1 ? grandIdx : rows.length;
+      const itemRows = rows.slice(headerIdx+1, stopIdx).filter(r=> /^\d+$/.test(poMergeRowText(r.words,0,40)));
+      if(itemRows.length){
+        out.items = itemRows.map(r=>{
+          const desc = poMergeRowText(r.words,40,295);
+          const qty = poMergeRowText(r.words,295,343);
+          const unit = poMergeRowText(r.words,343,383);
+          return unit ? `${desc} (${qty} ${unit})` : (qty ? `${desc} (${qty})` : desc);
+        }).join(', ');
+      }
+    }
+    if(finalIdx > -1) out.amount = poToNumber(poMergeRowText(rows[finalIdx].words, 455, 520));
+    else if(grandIdx > -1) out.amount = poToNumber(poMergeRowText(rows[grandIdx].words, 455, 520));
+
+    const rBalance = findRow(/잔금/);
+    if(rBalance){
+      const pct = poMergeRowText(rBalance.words).match(/\(\s*(\d+)\s*%\)/);
+      const trailing = poMergeRowText(rBalance.words, 260);
+      out.payment = `잔금 ${pct?pct[1]:'?'}% ${trailing}`.trim();
+    }
+    const rPlace = findRow(/납품장소/);
+    if(rPlace) out.deliveryPlace = poMergeRowText(rPlace.words, 90);
+
+    return out;
+  }
+
+  function poMarkAutoFilled(id){ document.getElementById(id).classList.add('auto-filled'); }
+
+  async function poHandlePdfFile(file){
+    if(!file) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'po-spinner-overlay';
+    overlay.textContent = 'PDF 분석 중...';
+    document.body.appendChild(overlay);
+    try{
+      const data = await poExtractFromPdf(file);
+      poOpenNew();
+      document.getElementById('poBanner').style.display = 'block';
+      if(data.poNumber){ document.getElementById('pf_poNumber').value = data.poNumber; poMarkAutoFilled('pf_poNumber'); }
+      if(data.orderDate){ document.getElementById('pf_orderDate').value = data.orderDate; poMarkAutoFilled('pf_orderDate'); }
+      if(data.project){ document.getElementById('pf_project').value = data.project; poMarkAutoFilled('pf_project'); }
+      if(data.supplier){ document.getElementById('pf_supplier').value = data.supplier; poMarkAutoFilled('pf_supplier'); }
+      if(data.supplierContact){ document.getElementById('pf_supplierContact').value = data.supplierContact; poMarkAutoFilled('pf_supplierContact'); }
+      if(data.orderer){ document.getElementById('pf_orderer').value = data.orderer; poMarkAutoFilled('pf_orderer'); }
+      if(data.asap){ document.getElementById('pf_asap').checked = true; document.getElementById('pf_dueDate').disabled = true; }
+      else if(data.dueDate){ document.getElementById('pf_dueDate').value = data.dueDate; poMarkAutoFilled('pf_dueDate'); }
+      if(data.items){ document.getElementById('pf_items').value = data.items; poMarkAutoFilled('pf_items'); }
+      if(data.amount){ document.getElementById('pf_amount').value = data.amount; poMarkAutoFilled('pf_amount'); }
+      if(data.payment){ document.getElementById('pf_payment').value = data.payment; poMarkAutoFilled('pf_payment'); }
+      if(data.deliveryPlace){ document.getElementById('pf_notes').value = `납품장소: ${data.deliveryPlace}`; poMarkAutoFilled('pf_notes'); }
+
+      if(!data.poNumber && !data.project) toast('PDF에서 항목을 거의 인식하지 못했습니다 — 직접 입력해주세요');
+      else toast('PDF 인식 완료 — 내용을 확인하고 저장하세요');
+    }catch(err){
+      console.error(err);
+      toast('PDF 인식 중 오류가 발생했습니다. 직접 입력해주세요');
+      poOpenNew();
+    }finally{
+      overlay.remove();
+      document.getElementById('poPdfInput').value = '';
+    }
+  }
+  document.getElementById('poFromPdfBtn').addEventListener('click', ()=> document.getElementById('poPdfInput').click());
+  document.getElementById('poPdfInput').addEventListener('change', (e)=> poHandlePdfFile(e.target.files[0]));
+
+  // ---- Mode switch (업무 현황 <-> 발주 목록) ----
+  document.getElementById('ddModeBar').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.dd-mode-tab');
+    if(!btn) return;
+    document.querySelectorAll('.dd-mode-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const mode = btn.dataset.mode;
+    document.getElementById('viewTasks').style.display = mode === 'tasks' ? 'block' : 'none';
+    document.getElementById('viewPO').style.display = mode === 'po' ? 'block' : 'none';
+  });
+
+  /* ══════════ 부팅 ══════════ */
+  function boot(){
+    loadLocalCache();
+    render();
+    poRenderAll();
+    startFirestoreSync();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+
+})();
+</script>
+</body>
+</html>
