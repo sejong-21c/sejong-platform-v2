@@ -1371,7 +1371,7 @@ function addChannelRow(){
   div.className = 'channel-entry';
   div.style.cssText = 'padding:12px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
   let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #f0ede8">
-    <strong style="font-size:13px;color:#185fa5">Channel #${idx+1}</strong>
+    <strong class="channel-title" style="font-size:13px;color:#185fa5">Channel #${idx+1}</strong>
     <button type="button" onclick="this.closest('.channel-entry').remove()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
   </div>`;
   def.channelFields.forEach(f=>{
@@ -1379,6 +1379,15 @@ function addChannelRow(){
   });
   div.innerHTML = inner;
   container.appendChild(div);
+  // Channel 이름을 입력하면 그 값을 카드 제목에 그대로 반영 — 비어있으면
+  // 기본 "Channel #n"으로 되돌아간다(Joint 카드와 동일한 패턴).
+  const nameInput = div.querySelector(`input[data-key="channel${idx}.name"]`);
+  const titleEl = div.querySelector('.channel-title');
+  if(nameInput && titleEl){
+    const updateTitle = () => { titleEl.textContent = nameInput.value.trim() || `Channel #${idx+1}`; };
+    updateTitle();
+    nameInput.addEventListener('input', updateTitle);
+  }
   bindFieldEvents('03');
 }
 function getBendingDesignForItem(pid,itemId){
