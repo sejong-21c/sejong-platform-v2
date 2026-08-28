@@ -1110,7 +1110,18 @@ const ITP_FIELDS={
     {key:'jacketThkZones', label:'Jacket 구간별 Thickness', type:'multi-zone',
       zones:['A','B','C','D'], ph:'mm',
       showIf:{key:'hasJacket', value:true}}
-  ]},
+  ],
+  // v29.49 — 콘덴서/열교환기는 Shell 양쪽에 Channel이 붙는다(보통 1개씩 총
+  // 2개, 간혹 양쪽 2개씩 총 4개까지도 있음) — 개수가 고정이 아니라 Hydro
+  // 가압부·경판처럼 필요한 만큼 추가하는 목록형으로 둔다.
+  channelFields:[
+    {key:'name', label:'Channel 이름', type:'text', ph:'예: Channel-A (Head측)'},
+    {key:'id', label:'ID (Inside Diameter)', type:'minmax', ph:'mm'},
+    {key:'length', label:'Length', type:'text', ph:'mm'},
+    {key:'thkZones', label:'구간별 Thickness', type:'multi-zone',
+      zones:['A','B','C','D'], ph:'mm'}
+  ]
+  },
   // 경판(Head)이 보통 2~3개(상부/하부, 필요 시 중간) 쓰이므로, 경판마다
   // 전체 측정값 세트를 하나씩 추가하는 목록형으로 구성한다.
   '04':{name:'Forming Inspection', specialType:'head-list',
@@ -1334,8 +1345,41 @@ function renderInspFields(itpId){
   (def.fields||[]).forEach(f=>{
     html+=buildField(f);
   });
+  // v29.49 — Bending Inspection: 콘덴서/열교환기의 Channel(양쪽 각 1개가
+  // 보통이나 개수가 고정이 아님)을 필요한 만큼 추가할 수 있게 한다.
+  if(itpId==='03' && def.channelFields){
+    html+=`<div style="margin-top:14px;padding-top:12px;border-top:1px dashed #d6d3cb">
+      <div style="font-size:12.5px;font-weight:600;color:#185fa5;margin-bottom:8px">🔀 Channel (콘덴서/열교환기 — 양쪽 각 1개가 보통, 필요 시 개소 추가)</div>
+      <div id="channel-list-container" style="display:flex;flex-direction:column;gap:10px"></div>
+      <button type="button" onclick="addChannelRow()" style="margin-top:10px;width:100%;padding:10px;background:#185fa5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+        <i class="ti ti-plus" aria-hidden="true"></i> Channel 추가
+      </button>
+    </div>`;
+  }
   wrap.innerHTML=html;
   bindFieldEvents(itpId);
+}
+// Channel 추가 (Bending 전용 — 콘덴서/열교환기)
+let _channelCounter = 0;
+function addChannelRow(){
+  const def = ITP_FIELDS['03'];
+  if(!def || !def.channelFields) return;
+  const container = document.getElementById('channel-list-container');
+  if(!container) return;
+  const idx = _channelCounter++;
+  const div = document.createElement('div');
+  div.className = 'channel-entry';
+  div.style.cssText = 'padding:12px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;position:relative';
+  let inner = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #f0ede8">
+    <strong style="font-size:13px;color:#185fa5">Channel #${idx+1}</strong>
+    <button type="button" onclick="this.closest('.channel-entry').remove()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px"><i class="ti ti-trash" aria-hidden="true"></i></button>
+  </div>`;
+  def.channelFields.forEach(f=>{
+    inner += buildField(f, `channel${idx}`);
+  });
+  div.innerHTML = inner;
+  container.appendChild(div);
+  bindFieldEvents('03');
 }
 function getBendingDesignForItem(pid,itemId){
   if(!itemId) return null;
@@ -2343,7 +2387,13 @@ function renderInspDataDetail(rec){
       + renderInspEntryList(data.nozzlePoints, def.nozzlePointFields, '입력된 노즐 포인트가 없습니다', 'nozzleNo', '노즐');
   }
   if(def.fields && def.fields.length){
-    return `<table style="width:100%;border-collapse:collapse">${renderFieldRows(def.fields, data)}</table>`;
+    let out = `<table style="width:100%;border-collapse:collapse">${renderFieldRows(def.fields, data)}</table>`;
+    // Bending(03)의 Channel은 별도 목록형이라 기본 필드 표 뒤에 이어 붙인다.
+    if(rec.fieldsKey==='03' && def.channelFields && Array.isArray(data.channels) && data.channels.length){
+      out += `<div style="font-size:11.5px;font-weight:600;color:#185fa5;margin:8px 0 4px">🔀 Channel</div>`
+        + renderInspEntryList(data.channels, def.channelFields, '입력된 Channel이 없습니다', 'name', 'Channel');
+    }
+    return out;
   }
   return ''; // 사진만 등록하는 단계(NDE/표면처리/포장 등) — 표시할 검사값 없음
 }
@@ -2421,6 +2471,20 @@ function collectInspData(){
         hydro[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
       });
       data.hydroParts.push(hydro);
+    });
+  }
+  // Bending(콘덴서/열교환기) Channel 목록 별도 수집
+  const channelEntries = document.querySelectorAll('#insp-fields .channel-entry');
+  if(channelEntries.length){
+    data.channels = [];
+    channelEntries.forEach(entry=>{
+      const channel = {};
+      entry.querySelectorAll('.insp-field').forEach(el=>{
+        const parts = el.dataset.key.split('.');
+        const fld = parts.slice(1).join('.');
+        channel[fld] = el.type==='checkbox' ? el.checked : (el.value||'');
+      });
+      data.channels.push(channel);
     });
   }
   // v29.42.1 — dim-nozzle-list(치수/노즐 방향 측정포인트) 별도 수집. 측정
@@ -2609,7 +2673,14 @@ async function applyDraftToForm(draft){
       restoreListEntries('dim-point-list-container', addDimPointRow, ()=>{_dimPointCounter=0;}, draft.inspData?.dimPoints);
       restoreListEntries('nozzle-point-list-container', addNozzlePointRow, ()=>{_nozzlePointCounter=0;}, draft.inspData?.nozzlePoints);
     }
-    else (def.fields||[]).forEach(f=>restoreFieldValue(f, draft.inspData||{}));
+    else {
+      (def.fields||[]).forEach(f=>restoreFieldValue(f, draft.inspData||{}));
+      // Bending(03)은 specialType이 아니라 일반 필드지만, Channel만 별도
+      // 목록형이라 여기서 같이 복원해줘야 한다.
+      if(draft.fieldsKey==='03' && def.channelFields){
+        restoreListEntries('channel-list-container', addChannelRow, ()=>{_channelCounter=0;}, draft.inspData?.channels);
+      }
+    }
   }
   if(document.querySelector('#insp-fields .material-entry')) updateMaterialOverallResult();
   else if(draft.result) selectResult(draft.result);
