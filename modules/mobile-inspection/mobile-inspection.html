@@ -1322,11 +1322,58 @@ function renderInspFields(itpId){
     return;
   }
   let html='';
+  // v29.48 — Bending Inspection: QA Doc Generator의 설계값(치수·Bevel Angle)을
+  // 참고용으로만 보여준다. QAG 쪽 밴딩 리포트는 Shell/Channel × 지점별(A-B/
+  // C-D/E-F/G-H) 그리드라 모바일의 단일값 입력 폼과 구조가 근본적으로 달라
+  // 실측값을 직접 매칭해 되돌려쓰면 엉뚱한 지점에 값이 들어갈 위험이 크다 —
+  // 그래서 "이 값 기준으로 재세요"라는 참고 표시로 범위를 한정한다.
+  if(itpId==='03'){
+    const ref=getBendingDesignForItem(MI_PID,currentQagItemId);
+    if(ref) html+=buildBendingRefBox(ref);
+  }
   (def.fields||[]).forEach(f=>{
     html+=buildField(f);
   });
   wrap.innerHTML=html;
   bindFieldEvents(itpId);
+}
+function getBendingDesignForItem(pid,itemId){
+  if(!itemId) return null;
+  const payload=getQAGProjectPayload(pid);
+  const items=payload?.items;
+  if(!Array.isArray(items)) return null;
+  const it=items.find(x=>String(x.id!=null?x.id:x.tag)===String(itemId));
+  if(!it) return null;
+  const isPipe=!!it.shell_is_pipe;
+  const idVal=isPipe?(it.shell_od||''):(it.shell_id||'');
+  const len=it.shell_len||'';
+  const thk=it.shell_thk||'';
+  const fDesign=(it.bevel_f!=null && it.bevel_f!=='')?it.bevel_f:'2';
+  const fTol=(it.bevel_f_tol!=null && it.bevel_f_tol!=='')?it.bevel_f_tol:'± 0.8';
+  const θ2Design=(it.bevel_theta2!=null && it.bevel_theta2!=='')?it.bevel_theta2:'';
+  const θ2Tol=(it.bevel_theta2_tol!=null && it.bevel_theta2_tol!=='')?it.bevel_theta2_tol:'';
+  // θ1은 QA Doc Generator BendingPreview와 동일하게 Joint SL의 root_angle/2로 계산
+  const slJoint=(it.joint_details||[]).find(j=>(j.joint_no||'').toUpperCase().startsWith('SL'));
+  const θ1Design=(slJoint && slJoint.root_angle)?(parseFloat(slJoint.root_angle)/2).toFixed(1):'';
+  if(!idVal && !len && !thk && !θ1Design && !θ2Design) return null;
+  return {isPipe, idVal, len, thk, fDesign, fTol, θ1Design, θ2Design, θ2Tol};
+}
+function buildBendingRefBox(ref){
+  const rows=[];
+  if(ref.idVal) rows.push([ref.isPipe?'OD (Outside Diameter)':'ID (Inside Diameter)', ref.idVal+' mm']);
+  if(ref.len) rows.push(['Length', ref.len+' mm']);
+  if(ref.thk) rows.push(['Thickness', ref.thk+' mm']);
+  if(ref.fDesign) rows.push(['Bevel Angle F', ref.fDesign+' mm ('+ref.fTol+')']);
+  if(ref.θ1Design) rows.push(['Bevel Angle θ₁ (Joint SL 기준)', ref.θ1Design+'° (± 2.5°)']);
+  if(ref.θ2Design && ref.θ2Design!=='N/A') rows.push(['Bevel Angle θ₂', ref.θ2Design+'° ('+ref.θ2Tol+')']);
+  if(!rows.length) return '';
+  let html='<div style="margin-bottom:12px;padding:10px;background:#eef3fb;border:1px dashed #185fa5;border-radius:7px">';
+  html+='<div style="font-size:11px;font-weight:600;color:#185fa5;margin-bottom:6px"><i class="ti ti-link" aria-hidden="true"></i> 설계값 참고 (QA Doc Generator) — 아래 값 기준으로 실측해 입력하세요</div>';
+  rows.forEach(([label,val])=>{
+    html+=`<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:12px;color:#333"><span style="color:#555">${escapeHtml(label)}</span><span style="font-weight:600">${escapeHtml(val)}</span></div>`;
+  });
+  html+='</div>';
+  return html;
 }
 
 // 입력 컴포넌트 빌더 (단일 필드)
