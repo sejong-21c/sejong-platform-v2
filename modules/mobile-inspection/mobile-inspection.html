@@ -1551,7 +1551,13 @@ function getJointsForItem(pid,itemId){
   const payload=getQAGProjectPayload(pid);
   const rec=payload?.imgStore?.['fitup_'+itemId];
   if(!rec || !Array.isArray(rec.joints)) return [];
-  return rec.joints.map(j=>({no:j.no||'', weld:j.weld||'', desc:j.desc||''}));
+  // v29.47.2: 모바일 Fit-up 검사는 Main 용접부(쉘/자켓/경판 seam — 예: SC-01,
+  // SL-01)만 대상. QA Doc Generator는 노즐 부착 용접(Shell-to-Nozzle,
+  // Pipe-to-Flange)도 같은 Joint 목록에 담는데, 이건 "N-"로 시작하는 별도
+  // 체계라 여기서는 제외한다.
+  return rec.joints
+    .filter(j=>!/^N-/i.test((j.no||'').trim()))
+    .map(j=>({no:j.no||'', weld:j.weld||'', desc:j.desc||''}));
 }
 function autoPopulateJointRows(){
   getJointsForItem(MI_PID,currentQagItemId).forEach(j=>addJoint(j.no, j.weld, j.desc));
