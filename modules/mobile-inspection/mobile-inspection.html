@@ -1264,7 +1264,7 @@ async function onItpChange(){
   // 측정장비만 불러온다 — Visual & Dimension(07)이면 Dimension/Nozzle 쪽
   // 장비만, Hydrostatic(08)이면 Hydro 장비만. 아이템만 고른 단계(onItemChange)
   // 에서는 아직 어느 검사인지 몰라 fieldsKey별로 나눠 부를 수 없다.
-  if(fieldsKey==='07' || fieldsKey==='08') await autoPopulateEquipmentFromQAG(currentQagItemId, fieldsKey);
+  if(fieldsKey==='05' || fieldsKey==='07' || fieldsKey==='08') await autoPopulateEquipmentFromQAG(currentQagItemId, fieldsKey);
   // v29.36: 이 아이템·검사 항목에 임시저장된 내용이 있으면 이어서 작성할지 물어본다.
   // (QAG 장비 자동 반영 뒤에 실행해야, 임시저장에 저장된 장비 목록이 최종적으로
   // 이긴다 — applyDraftToForm이 selectedEquipment를 통째로 덮어쓰기 때문)
@@ -1283,6 +1283,7 @@ function renderInspFields(itpId){
   if(def.specialType==='joint-list'){
     wrap.innerHTML=buildJointList(def);
     bindFieldEvents(itpId);
+    autoPopulateJointRows();
     return;
   }
   // v2.1 — 특수 모드: Material Inspection 자재 행 목록
@@ -1493,7 +1494,7 @@ function buildJointList(def){
 
 // Joint 추가 (Fit-up 전용)
 let _jointCounter = 0;
-function addJoint(){
+function addJoint(presetNo, presetWeld){
   const def = ITP_FIELDS['05'];
   if(!def || !def.jointFields) return;
   const container = document.getElementById('joint-list-container');
@@ -1511,15 +1512,38 @@ function addJoint(){
   });
   div.innerHTML = inner;
   container.appendChild(div);
+  if(presetNo){
+    const noInput = div.querySelector(`input[data-key="joint${idx}.jointNo"]`);
+    if(noInput) noInput.value = presetNo;
+  }
+  if(presetWeld){
+    // QA Doc Generator 내부값은 Butt/Fillet, 모바일 화면 표시는 Groove/Fillet.
+    const weldSelect = div.querySelector(`select[data-key="joint${idx}.weldType"]`);
+    if(weldSelect) weldSelect.value = presetWeld==='Butt' ? 'Groove' : presetWeld;
+  }
   // Joint No.를 입력하면 그 값을 제목에 그대로 반영 — 비어있으면 기본
   // "Joint #n"으로 되돌아간다(L-seam/C-seam 공통 Fit-up 필드 정의라 둘 다 적용).
   const jointNoInput = div.querySelector(`input[data-key="joint${idx}.jointNo"]`);
   const titleEl = div.querySelector('.joint-title');
   if (jointNoInput && titleEl){
+    if (jointNoInput.value.trim()) titleEl.textContent = jointNoInput.value.trim();
     jointNoInput.addEventListener('input', () => {
       titleEl.textContent = jointNoInput.value.trim() || `Joint #${idx+1}`;
     });
   }
+}
+// QA Doc Generator의 Fit-up & Welding IR(fitup_아이템ID)에 이미 등록된 Joint
+// 목록(Joint No./Weld Type)을 자동으로 불러와 행을 미리 만들어 둔다 — 아직
+// 저장된 게 없으면 아무 행도 만들지 않고 "Joint 추가"로 시작한다.
+function getJointsForItem(pid,itemId){
+  if(!itemId) return [];
+  const payload=getQAGProjectPayload(pid);
+  const rec=payload?.imgStore?.['fitup_'+itemId];
+  if(!rec || !Array.isArray(rec.joints)) return [];
+  return rec.joints.map(j=>({no:j.no||'', weld:j.weld||''}));
+}
+function autoPopulateJointRows(){
+  getJointsForItem(MI_PID,currentQagItemId).forEach(j=>addJoint(j.no, j.weld));
 }
 
 // Forming Inspection 경판 목록 빌더
@@ -1973,6 +1997,11 @@ function writeEquipmentBackToQAG(pid, qagItemId, fieldsKey, inspData, equipment)
       const hydroKey = `hydro_set_${qagItemId}_${part}`;
       patches[hydroKey] = { ...(payload.imgStore[hydroKey]||{}), mEqH: eqJoined };
     });
+  } else if(fieldsKey==='05'){
+    // Fit-up은 가압부처럼 여러 개소가 아니라 아이템 전체에 측정장비 1세트
+    // (fitup_아이템ID.mEq)만 있다 — 하이드로처럼 개소별로 나눌 필요가 없다.
+    const fitupKey = 'fitup_'+qagItemId;
+    patches[fitupKey] = { ...(payload.imgStore[fitupKey]||{}), mEq: eqJoined };
   }
   if(!Object.keys(patches).length) return null;
   Object.assign(payload.imgStore, patches);
@@ -2000,7 +2029,7 @@ async function writeQAGPatchesToCloud(pid, patches, label){
 //   - Nozzle Orientation IR(noz_set_아이템ID.noz: [{no,pos,h,l,ap,ah,al,...}])
 //     — no(노즐 번호)가 같은 행을 찾아 ap/ah/al(POS'/H/L 실측 칸)을 갱신.
 function writeMeasuredValuesBackToQAG(pid, qagItemId, fieldsKey, inspData){
-  if(!qagItemId || fieldsKey!=='07') return null;
+  if(!qagItemId || (fieldsKey!=='07' && fieldsKey!=='05')) return null;
   const KEY = 'sjp_qa_doc_generator_v1__'+pid;
   let payload;
   try { payload = JSON.parse(localStorage.getItem(KEY)||'null'); } catch(e){ return null; }
@@ -2042,6 +2071,31 @@ function writeMeasuredValuesBackToQAG(pid, qagItemId, fieldsKey, inspData){
         });
       });
       if(changed) patches[nozKey]=nozSet;
+    }
+  }
+  if(Array.isArray(inspData?.joints) && inspData.joints.length){
+    const fitupKey = 'fitup_'+qagItemId;
+    const rec = payload.imgStore[fitupKey];
+    if(rec && Array.isArray(rec.joints)){
+      let changed=false;
+      const joints = rec.joints.map(j=>({...j}));
+      inspData.joints.forEach(pt=>{
+        const no=(pt.jointNo||'').trim();
+        if(!no) return;
+        const row=joints.find(r=>(r.no||'').trim().toUpperCase()===no.toUpperCase());
+        if(!row) return;
+        const min=(pt['rootGap.min']||'').trim();
+        const max=(pt['rootGap.max']||'').trim();
+        const rootGap = min && max ? `${min}~${max}` : (min || max);
+        if(rootGap && row.rootGap!==rootGap){ row.rootGap=rootGap; changed=true; }
+        const wt=(pt.weldType||'').trim();
+        if(wt){
+          // 모바일 화면 표시는 Groove/Fillet, QAG 내부 저장값은 Butt/Fillet.
+          const mapped = wt==='Groove' ? 'Butt' : wt;
+          if(row.weld!==mapped){ row.weld=mapped; changed=true; }
+        }
+      });
+      if(changed) patches[fitupKey] = { ...rec, joints };
     }
   }
   if(!Object.keys(patches).length) return null;
@@ -2090,6 +2144,8 @@ async function autoPopulateEquipmentFromQAG(itemId, fieldsKey){
   } else if(fieldsKey==='08'){
     Object.keys(store).filter(k=>k.startsWith('hydro_set_'+itemId+'_'))
       .forEach(k=>_extractEquipCodesFromJoined(store[k]?.mEqH, codes));
+  } else if(fieldsKey==='05'){
+    _extractEquipCodesFromJoined(store['fitup_'+itemId]?.mEq, codes);
   }
   const hasCode=c=>selectedEquipment.some(e=>e.code.toUpperCase()===c.toUpperCase());
   const newCodes=[...codes].filter(c=>c && !hasCode(c));
@@ -2919,11 +2975,11 @@ async function submitUpload(){
       const upd = writeHeatNoBackToQAG(MI_PID, currentQagItemId, inspData.materials);
       if(upd) writeHeatNoBackToQAGCloud(MI_PID, upd.bomKey, upd.bomRows);
     }
-    if(fieldsKey==='07'){
+    if(fieldsKey==='05' || fieldsKey==='07'){
       const valPatches = writeMeasuredValuesBackToQAG(MI_PID, currentQagItemId, fieldsKey, inspData);
       if(valPatches) writeQAGPatchesToCloud(MI_PID, valPatches, '실측값');
     }
-    if(selectedEquipment.length && (fieldsKey==='07' || fieldsKey==='08')){
+    if(selectedEquipment.length && (fieldsKey==='05' || fieldsKey==='07' || fieldsKey==='08')){
       const eqPatches = writeEquipmentBackToQAG(MI_PID, currentQagItemId, fieldsKey, inspData, selectedEquipment);
       if(eqPatches) writeQAGPatchesToCloud(MI_PID, eqPatches, '사용 장비');
     }
