@@ -1135,6 +1135,8 @@ const ITP_FIELDS={
     ],
     jointFields:[
       {key:'jointNo', label:'Joint No.', type:'text', ph:'예: SS-01'},
+      {key:'jointName', label:'항목명', type:'readonly-text',
+        ph:'QA Doc Generator Fit-up IR에서 자동 불러오기'},
       {key:'weldType', label:'Weld Type', type:'select', options:['Groove','Fillet']},
       {key:'grooveAngle', label:'Groove Angle', type:'minmax', ph:'°'},
       {key:'rootGap', label:'Root Gap', type:'minmax', ph:'mm'}
@@ -1494,7 +1496,7 @@ function buildJointList(def){
 
 // Joint 추가 (Fit-up 전용)
 let _jointCounter = 0;
-function addJoint(presetNo, presetWeld){
+function addJoint(presetNo, presetWeld, presetName){
   const def = ITP_FIELDS['05'];
   if(!def || !def.jointFields) return;
   const container = document.getElementById('joint-list-container');
@@ -1516,6 +1518,10 @@ function addJoint(presetNo, presetWeld){
     const noInput = div.querySelector(`input[data-key="joint${idx}.jointNo"]`);
     if(noInput) noInput.value = presetNo;
   }
+  if(presetName){
+    const nameInput = div.querySelector(`input[data-key="joint${idx}.jointName"]`);
+    if(nameInput) nameInput.value = presetName;
+  }
   if(presetWeld){
     // QA Doc Generator 내부값은 Butt/Fillet, 모바일 화면 표시는 Groove/Fillet.
     const weldSelect = div.querySelector(`select[data-key="joint${idx}.weldType"]`);
@@ -1523,27 +1529,32 @@ function addJoint(presetNo, presetWeld){
   }
   // Joint No.를 입력하면 그 값을 제목에 그대로 반영 — 비어있으면 기본
   // "Joint #n"으로 되돌아간다(L-seam/C-seam 공통 Fit-up 필드 정의라 둘 다 적용).
+  // 항목명(jointName)이 있으면 "Joint No. · 항목명" 형태로 더 알아보기 쉽게 붙인다.
   const jointNoInput = div.querySelector(`input[data-key="joint${idx}.jointNo"]`);
+  const jointNameInput = div.querySelector(`input[data-key="joint${idx}.jointName"]`);
   const titleEl = div.querySelector('.joint-title');
+  const updateTitle = () => {
+    const no = jointNoInput.value.trim();
+    const name = jointNameInput ? jointNameInput.value.trim() : '';
+    titleEl.textContent = no ? (name ? `${no} · ${name}` : no) : `Joint #${idx+1}`;
+  };
   if (jointNoInput && titleEl){
-    if (jointNoInput.value.trim()) titleEl.textContent = jointNoInput.value.trim();
-    jointNoInput.addEventListener('input', () => {
-      titleEl.textContent = jointNoInput.value.trim() || `Joint #${idx+1}`;
-    });
+    updateTitle();
+    jointNoInput.addEventListener('input', updateTitle);
   }
 }
 // QA Doc Generator의 Fit-up & Welding IR(fitup_아이템ID)에 이미 등록된 Joint
-// 목록(Joint No./Weld Type)을 자동으로 불러와 행을 미리 만들어 둔다 — 아직
-// 저장된 게 없으면 아무 행도 만들지 않고 "Joint 추가"로 시작한다.
+// 목록(Joint No./항목명/Weld Type)을 자동으로 불러와 행을 미리 만들어 둔다 —
+// 아직 저장된 게 없으면 아무 행도 만들지 않고 "Joint 추가"로 시작한다.
 function getJointsForItem(pid,itemId){
   if(!itemId) return [];
   const payload=getQAGProjectPayload(pid);
   const rec=payload?.imgStore?.['fitup_'+itemId];
   if(!rec || !Array.isArray(rec.joints)) return [];
-  return rec.joints.map(j=>({no:j.no||'', weld:j.weld||''}));
+  return rec.joints.map(j=>({no:j.no||'', weld:j.weld||'', desc:j.desc||''}));
 }
 function autoPopulateJointRows(){
-  getJointsForItem(MI_PID,currentQagItemId).forEach(j=>addJoint(j.no, j.weld));
+  getJointsForItem(MI_PID,currentQagItemId).forEach(j=>addJoint(j.no, j.weld, j.desc));
 }
 
 // Forming Inspection 경판 목록 빌더
