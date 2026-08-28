@@ -1285,55 +1285,42 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-28 08:27 (오전 정리 자동 실행)",
-    "newMails": 0,
-    "processed": 0,
+    "generatedAt": "2026-08-28 16:32 (오후 정리 자동 실행)",
+    "newMails": 1,
+    "processed": 1,
     "urgentReplies": 0,
     "ncr": 1,
     "car": 1,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "취업규칙 변경 수정본 회신 완료 — 양병원 이사 재검토 회신 대기",
-        "proj": "경영지원",
-        "priority": "mid"
-      },
-      {
-        "text": "NCR-2026-22 조치방안 확정 — 작업 완료 후 검사 신청 접수 대기",
-        "proj": "NCR-2026-22",
+        "text": "신안건업 이재훈 차장 PACKING LIST 질의(8/24 발송) 미회신 4영업일 경과 — 차주 월요일 리마인드 및 유선 확인",
+        "proj": "SJ435-26",
         "priority": "high"
       },
       {
-        "text": "26-CAR-010 재작성본 접수(8/26) — 재작성 내용 검토 필요",
-        "proj": "26-CAR-010",
+        "text": "Master Schedule PDF 내 출고일·검사일 확인 후 캘린더 확정 등록",
+        "proj": "SJ435-26",
         "priority": "high"
       },
       {
-        "text": "보일러 통합사양서 rev.A 검토의견 회신 (검토일 9/4)",
-        "proj": "구매·검사절차",
-        "priority": "mid"
-      },
-      {
-        "text": "냉동기 Chiller 사양서 rev.B 확인 후 이견 시 회신",
-        "proj": "구매·검사절차",
-        "priority": "low"
-      },
-      {
-        "text": "삼성전기 PACKING LIST 수량 상이 질의 회신 대기 · 출고 상차 입회자 지정",
+        "text": "제품 상차 입회 일정 확정 및 세종기술 관리자 지정",
         "proj": "SJ435-26",
         "priority": "mid"
+      },
+      {
+        "text": "SJ-NCR-2026-10 파생 구매요청서 양식 개정 — 품질/구매 이견, 경영진 결정 대기",
+        "proj": "PPG KOREA 천안",
+        "priority": "mid"
+      },
+      {
+        "text": "더원노무법인 취업규칙 정리본 검토 회신 대기 (8/28 10:31 발송)",
+        "proj": "일반사무",
+        "priority": "low"
       }
     ],
     "urgentList": [],
-    "schedule": [
-      {
-        "title": "보일러 통합사양서 rev.A 검토 (시간 미확정)",
-        "date": "2026-09-04",
-        "time": "미정",
-        "proj": "구매·검사절차",
-        "color": "blue"
-      }
-    ]
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-08-26 (daily-mail-swkim 자동 실행)",
