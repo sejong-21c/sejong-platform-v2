@@ -2478,6 +2478,7 @@ function App(){
   // v2.11 — 실시간 동기화 가드: 남의 갱신 반영 중엔 저장 안 함(에코 루프 방지), 내가 편집 중이면 남의 갱신으로 덮지 않음.
   const applyingRemoteRef = useRef(false);
   const lastLocalEditRef = useRef(0);
+  const applyCloudRef = useRef(null); // v2.18 — 강제 불러오기 버튼이 재사용할 applyCloudData 참조
   const [msg, setMsg] = useState("");
   // v3.0 — 저장/불러오기 상태
   const [currentProjId, setCurrentProjId] = useState(null);
@@ -2641,6 +2642,7 @@ function App(){
       setLoadNonce(n => n+1);
       showMsg(isFirst ? "✓ 클라우드에서 최신 데이터를 불러왔습니다" : "🔄 다른 사용자가 저장한 최신 내용을 반영했습니다", 4000);
     };
+    applyCloudRef.current = applyCloudData; // v2.18 — 강제 불러오기 버튼에서 재사용
     const unsubCloud = subscribeQaGenDoc(QAG_FS_COLL, QAG_PID, (cloud, isFirst) => {
       if (cloud.__client === QAG_CLIENT_ID) return; // 내 저장 에코 무시
       if (!isFirst) {
@@ -2875,6 +2877,24 @@ function App(){
     }
   };
 
+  // v2.18 — 강제 불러오기: 실시간이 안 걸렸거나 다른 PC 최신본이 안 보일 때, 지금 프로젝트(pid)의
+  //   클라우드 문서를 다시 당겨와 화면에 반영. 어느 pid를 몇 개 불러왔는지 표시해 진단도 겸함.
+  const forceReloadFromCloud = async () => {
+    showMsg("🔄 클라우드에서 다시 불러오는 중…", 30000);
+    try {
+      const start = Date.now();
+      while (!window.fb || !fb.db || !fb.auth?.currentUser) {
+        if (Date.now() - start > 6000) { showMsg("⚠ 로그인 세션을 확인할 수 없습니다. 로그인 상태 확인 후 다시 시도해주세요.", 8000); return; }
+        await new Promise(r => setTimeout(r, 300));
+      }
+      const cloud = await loadQaGenDocFromFirestore(QAG_FS_COLL, QAG_PID);
+      if (!cloud) { showMsg(`⚠ 이 프로젝트(ID: ${QAG_PID})에는 클라우드에 저장된 QA 문서가 없습니다. 작성했던 것과 '같은 프로젝트'를 열었는지 확인하세요.`, 12000); return; }
+      applyingRemoteRef.current = true;
+      if (applyCloudRef.current) applyCloudRef.current(cloud, true);
+      setTimeout(() => { applyingRemoteRef.current = false; }, 0);
+      showMsg(`✓ 클라우드에서 불러왔습니다 — 프로젝트 ID: ${QAG_PID} · 아이템 ${(cloud.items||[]).length}개`, 9000);
+    } catch(e){ showMsg(`⚠ 불러오기 실패: ${e.message||e}`, 8000); logToolError("force-reload", e?.message||e); }
+  };
   // v2.16 — 저장 이력(버전) 스냅샷/복원. 사진은 제외, 리포트 텍스트 데이터(비사진 imgStore)만.
   const buildVerSnap = () => {
     const { small } = splitImgStoreForCloud(Object.fromEntries(IMG_STORE));
@@ -3007,6 +3027,7 @@ function App(){
         <SaveBadge state={saveState}/>
         <button onClick={refreshFromItpBuilder} className="btn-secondary" title="같은 프로젝트(pid)로 열린 ITP Builder의 최신 프로젝트 정보·아이템을 끌어옵니다 (ITP Builder의 '🚀 QA Doc Generator로 바로 전송'과 같은 내용을 QA Gen 쪽에서 요청하는 것)">🔄 ITP 정보 끌어오기</button>
         {/* v2.14 — 실시간 자동저장 도입으로 수동 저장/이름저장/불러오기/클라우드 업로드 버튼 제거(불필요). */}
+        <button onClick={forceReloadFromCloud} className="btn-secondary" title="다른 PC에서 저장한 최신본이 안 보일 때, 클라우드에서 강제로 다시 불러옵니다">🔄 클라우드 불러오기</button>
         <button onClick={openHistory} className="btn-secondary" title="이전 저장 버전으로 복원 (실수로 지우거나 덮어썼을 때)">🕘 저장 이력</button>
         <button onClick={handleNew} className="btn-secondary" title="현재 화면을 비우고 새 프로젝트를 시작합니다">🗋 New</button>
       </div>

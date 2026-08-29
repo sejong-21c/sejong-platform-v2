@@ -1473,6 +1473,7 @@ function App(){
   //   내가 최근에 편집 중이면 남의 갱신으로 화면을 덮지 않는다.
   const applyingRemoteRef = useRef(false);
   const lastLocalEditRef = useRef(0);
+  const applyCloudRef = useRef(null); // v3.14 — 강제 불러오기 버튼이 재사용할 applyCloudData 참조
 
   useEffect(() => {
     const s = loadLS();
@@ -1534,6 +1535,7 @@ function App(){
       if (cloud.inspectorList?.length) { setInspectorList(cloud.inspectorList); saveMasterList("inspector", cloud.inspectorList); }
       showMsg(isFirst ? "✓ 클라우드에서 최신 데이터를 불러왔습니다" : "🔄 다른 사용자가 저장한 최신 내용을 반영했습니다", 4000);
     };
+    applyCloudRef.current = applyCloudData; // v3.14 — 강제 불러오기 버튼에서 재사용
     const unsubCloud = subscribeItpDoc((cloud, isFirst) => {
       if (cloud.__client === CLIENT_ID) return; // 내 저장 에코 무시
       if (!isFirst) {
@@ -2497,6 +2499,29 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
     };
     r.readAsText(file);
   };
+  // v3.14 — 강제 불러오기: 실시간이 안 걸렸거나 다른 PC 최신본이 안 보일 때, 지금 프로젝트(pid)의
+  //   클라우드 문서를 다시 당겨와 화면에 반영. 어느 pid를 몇 개 불러왔는지 표시해 진단도 겸함.
+  const forceReloadFromCloud = async () => {
+    showMsg("🔄 클라우드에서 다시 불러오는 중…", 30000);
+    try {
+      const start = Date.now();
+      while (!window.fb || !fb.db || !fb.auth?.currentUser) {
+        if (Date.now() - start > 6000) { showMsg("⚠ 로그인 세션을 확인할 수 없습니다. 로그인 상태 확인 후 다시 시도해주세요.", 8000); return; }
+        await new Promise(r => setTimeout(r, 300));
+      }
+      const snap = await fb.getDoc(fb.doc(fb.db, ITP_FS_COLL, PID));
+      if (!snap.exists()) { showMsg(`⚠ 이 프로젝트(ID: ${PID})에는 클라우드에 저장된 ITP가 없습니다. 작성했던 것과 '같은 프로젝트'를 열었는지 확인하세요.`, 12000); return; }
+      const cloud = snap.data();
+      const items = await Promise.all((cloud.items||[]).map(async it => {
+        if (!it.dwgChunkId) return it;
+        try { const dwgUrl = await loadChunkedString(ITP_FS_COLL, it.dwgChunkId, it.dwgChunks); const {dwgChunkId, dwgChunks, ...rest} = it; return {...rest, dwgUrl}; } catch(e){ return it; }
+      }));
+      applyingRemoteRef.current = true;
+      if (applyCloudRef.current) applyCloudRef.current({...cloud, items}, true);
+      setTimeout(() => { applyingRemoteRef.current = false; }, 0);
+      showMsg(`✓ 클라우드에서 불러왔습니다 — 프로젝트 ID: ${PID} · 아이템 ${(cloud.items||[]).length}개`, 9000);
+    } catch(e){ showMsg(`⚠ 불러오기 실패: ${e.message||e}`, 8000); logToolError("force-reload", e?.message||e); }
+  };
   // v3.12 — 저장 이력(버전) 스냅샷/복원
   const buildVerSnap = () => ({
     proj, items: stripDwgForLocalStorage(items), specReqs, quoteItems, revComments,
@@ -2544,6 +2569,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       </div>
       <SaveBadge state={saveState}/>
       <div style={{flex:1}}/>
+      <button onClick={forceReloadFromCloud} className="btn-secondary" style={{marginLeft:8}} title="다른 PC에서 저장한 최신본이 안 보일 때, 클라우드에서 강제로 다시 불러옵니다">🔄 클라우드 불러오기</button>
       <button onClick={openHistory} className="btn-secondary" style={{marginLeft:8}} title="이전 저장 버전으로 복원 (실수로 지우거나 덮어썼을 때)">🕘 저장 이력</button>
       <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}>🔑 API 키{getApiKey()?" ✓":""}</button>
       <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
