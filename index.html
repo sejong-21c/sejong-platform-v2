@@ -1236,7 +1236,7 @@ const MTOOLS_BUILD = 'b7';
 // v29.71 fix: mobile-inspection.html iframe만 이 버전 번호 관례가 아예 빠져있었음 — 파일을
 // 몇 번을 고쳐도 브라우저가 예전 캐시를 계속 보여줘서 "고쳤는데 반영이 안 됨" 실사용 문제로
 // 이어졌다(2026-08-20 VDS 수평콘덴서 ITP 목록 미표시 건에서 확인). 다른 모듈과 동일한 관례로 추가.
-const MOBILE_BUILD = 'c2'; // v29.53: 임시저장 목록을 "임시등록" 탭으로 분리, 아이템/ITP 드롭다운에 임시저장 표시, 전체 프로젝트 모아보기
+const MOBILE_BUILD = 'c3'; // v29.54: "임시등록" 탭 제거 — 드롭다운 표시 + 프로젝트 배지 + 전체 모아보기로 충분
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MEETING_BUILD = 'b7'; // b7: v29.69 회의록 저장 시 AI 자동 학습
 const ROADMAP_BUILD = 'a11'; // PHASE 17 — a·b·d 완료, c는 조사 후 보류
@@ -3530,6 +3530,17 @@ function resumeMobileDraftFromOverview(pid, docId) {
   view.mobileResumeDraftId = docId;
   render();
 }
+// v29.54: 모바일 인스펙션의 "임시등록" 탭을 없애면서, 그 탭에 있던 삭제
+// 기능을 여기(전체 모아보기)로 옮김 — 이제 임시저장 삭제는 이 화면에서만 가능.
+async function deleteMobileDraft(docId, label) {
+  if (!confirm(`'${label}' 임시저장을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+  try {
+    await fb.deleteDoc(fb.doc(fb.db, 't_mobileInspectionDrafts', docId));
+  } catch (e) {
+    console.error('[임시저장 삭제]', e);
+    alert('삭제 실패: ' + (e.message || e));
+  }
+}
 function renderMobileDraftsOverview() {
   ensureMobileDraftsSync();
   const drafts = [...(state.mobileInspectionDrafts || [])].sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
@@ -3552,7 +3563,10 @@ function renderMobileDraftsOverview() {
             <div style="font-size:13.5px;font-weight:600;margin-top:2px;">${d.item || '(품목명 없음)'} · ${d.itpName || ''}</div>
             <div style="font-size:11px;color:var(--text-lighter);margin-top:2px;">${savedLabel} 저장</div>
           </div>
-          <button class="btn btn-sm btn-primary" onclick="resumeMobileDraftFromOverview('${d.pid}','${d.id}')">이어서 작성</button>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="btn btn-sm btn-primary" onclick="resumeMobileDraftFromOverview('${d.pid}','${d.id}')">이어서 작성</button>
+            <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="deleteMobileDraft('${d.id}', '${(d.item||'').replace(/'/g,"\\'")} · ${(d.itpName||'').replace(/'/g,"\\'")}')">삭제</button>
+          </div>
         </div>`;
       }).join('')}
     </div>

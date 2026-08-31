@@ -197,23 +197,7 @@ input[type=file]{display:none}
 
 <div class="tab-bar">
   <button id="tab-upload" class="active" onclick="switchTab('upload')">새 등록</button>
-  <button id="tab-draft" onclick="switchTab('draft')">임시등록<span id="tab-draft-badge" style="display:none;margin-left:5px;background:#c0392b;color:#fff;font-size:10px;font-weight:700;border-radius:9px;padding:1px 6px;">0</span></button>
   <button id="tab-hist" onclick="switchTab('hist')">등록 이력</button>
-</div>
-
-<!-- v29.52: 임시저장 목록을 "새 등록" 화면에 끼워 넣지 않고 별도 탭으로 분리
-     — 새 등록 화면을 열 때마다 박스가 떠 있는 게 아니라, 필요할 때만
-     "임시등록" 탭에서 보고 이어서 작성/삭제한다. -->
-<div id="draft-screen" style="display:none">
-<div class="wrap">
-  <div id="draft-list-box" style="margin-bottom:14px;padding:12px 14px;background:#fff8e6;border:1px solid #ecd6a3;border-radius:10px">
-    <div style="font-size:12.5px;font-weight:700;color:#8a6100;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-      <i class="ti ti-device-floppy" aria-hidden="true"></i> 임시저장된 검사 (<span id="draft-count">0</span>건)
-    </div>
-    <div id="draft-list-items"></div>
-    <div id="draft-list-empty" style="display:none;text-align:center;padding:30px 10px;color:#999;font-size:13px">임시저장된 검사가 없습니다.</div>
-  </div>
-</div>
 </div>
 
 <div id="upload-screen">
@@ -903,7 +887,10 @@ async function handleDraftBoot(){
   }
   if(!AUTO_DRAFT) return;
   if(drafts.length===1) await resumeDraft(drafts[0].docId);
-  else if(drafts.length>1) switchTab('draft');
+  // v29.54: 여러 건이면 어느 걸 이어할지 여기서 정할 수 없다 — 아이템/ITP
+  // 드롭다운의 📝 표시를 보고 고르거나, 프로젝트 목록의 "전체 모아보기"에서
+  // 콕 집어 들어오도록 안내만 한다("임시등록" 탭은 없앰).
+  else if(drafts.length>1) showToast(`📝 이 프로젝트에 임시저장 ${drafts.length}건 — 아이템/ITP 드롭다운의 📝 표시를 확인하세요`);
 }
 
 // ── ITP Builder 연동 초기화 ─────────────────
@@ -2659,10 +2646,9 @@ async function saveDraft(){
     btn.disabled=false; btn.innerHTML=origHtml;
   }
 }
-// v29.51 — 임시저장 목록: 프로젝트 안의 모든 임시저장을 한눈에 보고, 클릭
-// 한 번으로 그 아이템·검사 항목으로 바로 이동하거나 삭제할 수 있게 한다.
-// (이전엔 저장했던 것과 완전히 같은 아이템·검사 항목을 다시 선택해야만
-// 자동으로 이어서 작성할지 물어봤다 — 어디까지 했는지 기억해야 해서 불편했음)
+// v29.53 — 임시저장 목록: 이 화면 안에는 목록 UI를 따로 두지 않고(아이템/ITP
+// 드롭다운의 📝 표시 + index.html의 프로젝트 배지·전체 모아보기 타일로 이미
+// 충분해 별도 탭은 없앰), 여기서는 그 표시에 쓸 원본 데이터만 들고 있는다.
 let _draftListCache=[];
 // v29.52: 재시도(fb/인증 준비 대기) 중에도 최종 목록을 기다렸다가 받을 수
 // 있게 Promise로 감싼다 — 부팅 시 자동 이어쓰기(AUTO_DRAFT)가 이 결과를 써야 함.
@@ -2688,44 +2674,12 @@ function refreshDraftList(){
   });
 }
 function renderDraftList(){
-  const listEl=document.getElementById('draft-list-items');
-  const emptyEl=document.getElementById('draft-list-empty');
-  const badgeEl=document.getElementById('tab-draft-badge');
   markItemDraftOptions();
   markItpDraftOptions();
-  if(!listEl) return;
-  document.getElementById('draft-count').textContent=_draftListCache.length;
-  if(badgeEl){
-    badgeEl.style.display=_draftListCache.length?'inline-block':'none';
-    badgeEl.textContent=_draftListCache.length;
-  }
-  if(!_draftListCache.length){
-    listEl.innerHTML='';
-    if(emptyEl) emptyEl.style.display='block';
-    return;
-  }
-  if(emptyEl) emptyEl.style.display='none';
-  const sorted=[..._draftListCache].sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''));
-  listEl.innerHTML=sorted.map((d,i)=>{
-    const savedLabel=(d.savedAt||'').slice(0,16).replace('T',' ');
-    const isLast=i===sorted.length-1;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;${isLast?'':'border-bottom:1px solid #f0e0b8;'}">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12.5px;font-weight:600;color:#3a3a38;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(d.item||'(품목명 없음)')} · ${escapeHtml(d.itpName||'')}</div>
-        <div style="font-size:11px;color:#999">${escapeHtml(savedLabel)} 저장</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
-        <button type="button" onclick="resumeDraft('${escapeAttr(d.docId)}')" style="padding:6px 10px;font-size:11.5px;font-weight:600;color:#185fa5;background:#fff;border:1px solid #185fa5;border-radius:6px;cursor:pointer">이어서 작성</button>
-        <button type="button" onclick="deleteDraft('${escapeAttr(d.docId)}')" style="padding:6px 10px;font-size:11.5px;font-weight:600;color:#c0392b;background:#fff;border:1px solid #c0392b;border-radius:6px;cursor:pointer">삭제</button>
-      </div>
-    </div>`;
-  }).join('');
 }
-function escapeAttr(s){ return String(s==null?'':s).replace(/[\\'"]/g, c=>'\\'+c); }
 async function resumeDraft(docId){
   const d=_draftListCache.find(x=>x.docId===docId);
   if(!d) return;
-  switchTab('upload'); // 임시등록 탭에서 눌렀을 수 있으니 입력 화면으로 먼저 전환
   const itemSel=document.getElementById('item');
   const hasItemOption=[...itemSel.options].some(o=>o.value===d.item);
   if(hasItemOption){
@@ -2749,19 +2703,6 @@ async function resumeDraft(docId){
   }
   await onItpChange(); // 이 안에서 임시저장 이어쓰기 확인 팝업이 자동으로 뜬다
   document.getElementById('insp-wrap')?.scrollIntoView({behavior:'smooth', block:'start'});
-}
-async function deleteDraft(docId){
-  const d=_draftListCache.find(x=>x.docId===docId);
-  if(!d) return;
-  if(!confirm(`'${d.item} · ${d.itpName}' 임시저장을 삭제할까요? 되돌릴 수 없습니다.`)) return;
-  try{
-    await fb.deleteDoc(fb.doc(fb.db,'t_mobileInspectionDrafts',docId));
-    showToast('🗑️ 임시저장을 삭제했어요');
-    refreshDraftList();
-  }catch(e){
-    console.error('[임시저장 삭제]', e);
-    showToast('❌ 삭제 실패: '+(e.message||e));
-  }
 }
 // 자재/조인트/경판/가압부 등 반복 행 목록에 임시저장 값을 되돌려 넣는다 —
 // 컨테이너를 비우고 카운터를 리셋한 뒤, 행마다 addFn()으로 빈 행을 새로
@@ -3325,13 +3266,12 @@ async function submitUpload(){
 
 // ── 탭 & 이력 ────────────────────────────
 function switchTab(tab){
-  ['upload','draft','hist'].forEach(t=>{
+  ['upload','hist'].forEach(t=>{
     document.getElementById(t+'-screen').style.display=t===tab?'block':'none';
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
   });
   document.getElementById('detail-screen').style.display='none';
   if(tab==='upload') { initFromITPBuilder(); renderInspectorToggles(); }
-  if(tab==='draft') refreshDraftList();
   if(tab==='hist') renderHist();
 }
 
