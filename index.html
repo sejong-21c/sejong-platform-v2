@@ -1236,7 +1236,7 @@ const MTOOLS_BUILD = 'b7';
 // v29.71 fix: mobile-inspection.html iframe만 이 버전 번호 관례가 아예 빠져있었음 — 파일을
 // 몇 번을 고쳐도 브라우저가 예전 캐시를 계속 보여줘서 "고쳤는데 반영이 안 됨" 실사용 문제로
 // 이어졌다(2026-08-20 VDS 수평콘덴서 ITP 목록 미표시 건에서 확인). 다른 모듈과 동일한 관례로 추가.
-const MOBILE_BUILD = 'c1'; // v29.51: 임시저장 목록 추가 — 바로 이어서 작성/삭제 가능
+const MOBILE_BUILD = 'c2'; // v29.53: 임시저장 목록을 "임시등록" 탭으로 분리, 아이템/ITP 드롭다운에 임시저장 표시, 전체 프로젝트 모아보기
 // meeting.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const MEETING_BUILD = 'b7'; // b7: v29.69 회의록 저장 시 AI 자동 학습
 const ROADMAP_BUILD = 'a11'; // PHASE 17 — a·b·d 완료, c는 조사 후 보류
@@ -1859,6 +1859,9 @@ let view = {
   itpSelectedItem: null,
   qaSelectedProj: null,  // QA Doc 선택 프로젝트
   mobileSelectedProj: null, // Mobile 선택 프로젝트
+  mobileAutoDraft: false, // v29.52: 임시저장 배지로 들어왔으면 바로 이어서 작성
+  mobileDraftsOverview: false, // v29.53: 전체 프로젝트 임시저장 모아보기 화면
+  mobileResumeDraftId: null, // v29.53: 모아보기에서 특정 임시저장을 콕 집어 이어서 작성
   qaSelectedItem: null,
   qaSelectedDoc: 'BOM',
   expandedDepts: { quality: true },
@@ -2919,6 +2922,8 @@ function render() {
     content.innerHTML = renderQADocFrame(); return;
   }
   if (view.selectedTool === 'mobile') {
+    // v29.53: 전체 프로젝트 임시저장 모아보기 — 프로젝트 선택 전 단계에서 분기
+    if (view.mobileDraftsOverview) { content.innerHTML = `<div class="content-pad">${renderMobileDraftsOverview()}</div>`; return; }
     // Mobile 2단계: 프로젝트 미선택 → 카드 / 선택됨 → 도구
     if (!view.mobileSelectedProj) { content.innerHTML = `<div class="content-pad">${renderMobileProjects()}</div>`; return; }
     content.innerHTML = renderMobileFrame(); return;
@@ -3478,6 +3483,15 @@ function renderMobileProjects() {
   const hideToggleBtn = hiddenCount > 0
     ? `<button class="btn btn-sm" onclick="toggleShowHidden()" title="${showHidden?'숨김 프로젝트 감추기':'숨김 프로젝트 보이기'}">${showHidden?'🙈':'👁'} 숨김 ${hiddenCount}</button>`
     : '';
+  // v29.53: 프로젝트마다 배지로 따로 들어가지 않아도, 전체 프로젝트의
+  // 임시저장을 한 화면에서 모아보고 바로 이어서 작성할 수 있는 타일.
+  const allDraftCount = (state.mobileInspectionDrafts || []).length;
+  const draftsTile = allDraftCount > 0 ? `
+        <div class="proj" style="border:1.5px dashed var(--primary);background:var(--primary-lighter);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;" onclick="openMobileDraftsOverview()">
+          <div style="font-size:26px;">📝</div>
+          <div style="font-weight:700;color:var(--primary);">임시저장 ${allDraftCount}건</div>
+          <div style="font-size:11px;color:var(--text-light);">전체 프로젝트 모아보기 →</div>
+        </div>` : '';
   return `
     <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
       <div style="font-size:12px;color:var(--text-light);">프로젝트를 선택하세요 · 현장 검사 사진 등록</div>
@@ -3501,14 +3515,51 @@ function renderMobileProjects() {
           <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
           <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
-          ${draftCount>0?`<div title="클릭하면 이 프로젝트로 들어가 임시저장 목록에서 바로 이어서 작성할 수 있습니다" style="margin-top:6px;font-size:11px;color:#856404;background:#fff3cd;border-radius:6px;padding:3px 8px;display:inline-block;font-weight:600;cursor:pointer;">📝 임시저장 ${draftCount}건 · 이어서 작성 →</div>`:''}
+          ${draftCount>0?`<div onclick="event.stopPropagation();openMobileProj('${p.id}', true);" title="클릭하면 바로 이어서 작성할 수 있습니다" style="margin-top:6px;font-size:11px;color:#856404;background:#fff3cd;border-radius:6px;padding:3px 8px;display:inline-block;font-weight:600;cursor:pointer;">📝 임시저장 ${draftCount}건 · 이어서 작성 →</div>`:''}
         </div>
       `;}).join('')}
+      ${draftsTile}
     </div>
   `;
 }
-function openMobileProj(pid) { view.mobileSelectedProj = pid; render(); }
-function closeMobileProj() { view.mobileSelectedProj = null; render(); }
+function openMobileDraftsOverview() { view.mobileDraftsOverview = true; render(); }
+function closeMobileDraftsOverview() { view.mobileDraftsOverview = false; render(); }
+function resumeMobileDraftFromOverview(pid, docId) {
+  view.mobileDraftsOverview = false;
+  view.mobileSelectedProj = pid;
+  view.mobileResumeDraftId = docId;
+  render();
+}
+function renderMobileDraftsOverview() {
+  ensureMobileDraftsSync();
+  const drafts = [...(state.mobileInspectionDrafts || [])].sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
+  const rows = drafts.map(d => {
+    const p = getP(d.pid);
+    return { ...d, projLabel: p ? `${p.code} ${p.name}` : '(알 수 없는 프로젝트)' };
+  });
+  return `
+    <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
+      <div style="font-size:12px;color:var(--text-light);">전체 프로젝트의 임시저장 검사를 모아봅니다</div>
+      <button class="back-btn" onclick="closeMobileDraftsOverview()">← 프로젝트 목록</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-width:760px;">
+      ${rows.length === 0 ? `<div style="text-align:center;padding:40px;color:var(--text-lighter);">임시저장된 검사가 없습니다.</div>` : ''}
+      ${rows.map(d => {
+        const savedLabel = (d.savedAt || '').slice(0, 16).replace('T', ' ');
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);">
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:11px;color:var(--primary);font-weight:600;">${d.projLabel}</div>
+            <div style="font-size:13.5px;font-weight:600;margin-top:2px;">${d.item || '(품목명 없음)'} · ${d.itpName || ''}</div>
+            <div style="font-size:11px;color:var(--text-lighter);margin-top:2px;">${savedLabel} 저장</div>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="resumeMobileDraftFromOverview('${d.pid}','${d.id}')">이어서 작성</button>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+function openMobileProj(pid, autoDraft) { view.mobileSelectedProj = pid; view.mobileAutoDraft = !!autoDraft; render(); }
+function closeMobileProj() { view.mobileSelectedProj = null; view.mobileAutoDraft = false; view.mobileResumeDraftId = null; render(); }
 
 /* ═════════════ 📅 부서 스케줄 (부서 도구) ═════════════ */
 // 1단계: '부서 자체 업무' 카드 + 프로젝트 카드 목록
@@ -3772,9 +3823,16 @@ function renderQADocFrame() {
 // ══════════ Mobile Inspection iframe (modules/mobile-inspection/mobile-inspection.html) ══════════
 function renderMobileFrame() {
   const pid = view.mobileSelectedProj;
+  // v29.52: 1회성 플래그라 읽는 즉시 꺼둔다 — 안 그러면 뒤로가기 후 프로젝트를
+  // 그냥 클릭해서 다시 들어와도 계속 자동 이어쓰기가 걸림.
+  const autoDraft = view.mobileAutoDraft; view.mobileAutoDraft = false;
+  // v29.53: 전체 모아보기에서 특정 임시저장을 콕 집어 들어온 경우 — 이것도 1회성.
+  const resumeDraftId = view.mobileResumeDraftId; view.mobileResumeDraftId = null;
   const p = getP(pid);
   const mp = new URLSearchParams({ embed: '1', v: MOBILE_BUILD });
   if (p) { mp.set('proj', p.code); mp.set('pid', p.id); }
+  if (autoDraft) mp.set('autoDraft', '1');
+  if (resumeDraftId) mp.set('draftId', resumeDraftId);
   const mobilePath = `modules/mobile-inspection/mobile-inspection.html?${mp.toString()}`;
   return `<div style="height:100%;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">

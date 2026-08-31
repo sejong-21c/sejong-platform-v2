@@ -197,20 +197,27 @@ input[type=file]{display:none}
 
 <div class="tab-bar">
   <button id="tab-upload" class="active" onclick="switchTab('upload')">새 등록</button>
+  <button id="tab-draft" onclick="switchTab('draft')">임시등록<span id="tab-draft-badge" style="display:none;margin-left:5px;background:#c0392b;color:#fff;font-size:10px;font-weight:700;border-radius:9px;padding:1px 6px;">0</span></button>
   <button id="tab-hist" onclick="switchTab('hist')">등록 이력</button>
 </div>
 
-<div id="upload-screen">
+<!-- v29.52: 임시저장 목록을 "새 등록" 화면에 끼워 넣지 않고 별도 탭으로 분리
+     — 새 등록 화면을 열 때마다 박스가 떠 있는 게 아니라, 필요할 때만
+     "임시등록" 탭에서 보고 이어서 작성/삭제한다. -->
+<div id="draft-screen" style="display:none">
 <div class="wrap">
-  <!-- v29.51: 임시저장된 검사를 바로 이어서 작성/삭제할 수 있는 목록. 이전엔
-       임시저장했던 것과 똑같은 아이템·검사 항목을 다시 골라야만 자동으로
-       물어봤는데, 그러려면 어디까지 했는지 기억해야 해서 불편했다. -->
-  <div id="draft-list-box" style="display:none;margin-bottom:14px;padding:12px 14px;background:#fff8e6;border:1px solid #ecd6a3;border-radius:10px">
+  <div id="draft-list-box" style="margin-bottom:14px;padding:12px 14px;background:#fff8e6;border:1px solid #ecd6a3;border-radius:10px">
     <div style="font-size:12.5px;font-weight:700;color:#8a6100;margin-bottom:8px;display:flex;align-items:center;gap:6px">
       <i class="ti ti-device-floppy" aria-hidden="true"></i> 임시저장된 검사 (<span id="draft-count">0</span>건)
     </div>
     <div id="draft-list-items"></div>
+    <div id="draft-list-empty" style="display:none;text-align:center;padding:30px 10px;color:#999;font-size:13px">임시저장된 검사가 없습니다.</div>
   </div>
+</div>
+</div>
+
+<div id="upload-screen">
+<div class="wrap">
   <div class="step">
     <div class="step-num">1</div>
     <div class="step-title">프로젝트 & 아이템</div>
@@ -459,6 +466,12 @@ input[type=file]{display:none}
 <script>
 const STORE_KEY='sejong_insp_records'; // 이전 버전 마이그레이션용
 const MI_PID = new URLSearchParams(window.location.search).get('pid') || 'standalone';
+// v29.52: 프로젝트 카드의 "임시저장 N건" 배지를 클릭해 들어오면 index.html이
+// 이 값을 붙여준다 — 임시저장이 1건이면 바로 이어서 작성하고, 여러 건이면
+// "임시등록" 탭으로 바로 이동해 고를 수 있게 한다.
+const AUTO_DRAFT = new URLSearchParams(window.location.search).get('autoDraft')==='1';
+// v29.53: 전체 프로젝트 임시저장 모아보기 화면에서 특정 건을 콕 집어 들어온 경우.
+const RESUME_DRAFT_ID = new URLSearchParams(window.location.search).get('draftId')||'';
 const MASTER_INSPECTOR_KEY = `sjp_master_inspector_list__${MI_PID}`;
 const ITP_BUILDER_KEY = `sjp_itp_builder_v1__${MI_PID}`;
 const INSP_RESULTS_KEY = `sjp_insp_results__${MI_PID}`;
@@ -875,8 +888,23 @@ window.addEventListener('DOMContentLoaded', ()=>{
   loadEquipmentCodeList();
   renderHist();
   startInspFirestoreSync();
-  refreshDraftList();
+  handleDraftBoot();
 });
+// v29.52: 임시저장 목록을 불러온 뒤, 배지를 눌러 "바로 이어서 작성" 의도로
+// 들어온 경우(AUTO_DRAFT) 1건이면 즉시 이어서 작성 화면을 열고, 여러 건이면
+// 고를 수 있게 "임시등록" 탭으로 이동한다.
+async function handleDraftBoot(){
+  const drafts=await refreshDraftList();
+  if(!drafts) return;
+  if(RESUME_DRAFT_ID){
+    if(drafts.some(d=>d.docId===RESUME_DRAFT_ID)) await resumeDraft(RESUME_DRAFT_ID);
+    else showToast('⚠️ 해당 임시저장을 찾을 수 없습니다(이미 삭제되었을 수 있음)');
+    return;
+  }
+  if(!AUTO_DRAFT) return;
+  if(drafts.length===1) await resumeDraft(drafts[0].docId);
+  else if(drafts.length>1) switchTab('draft');
+}
 
 // ── ITP Builder 연동 초기화 ─────────────────
 // v29.15: 현재 ITP Builder는 프로젝트 전체가 ITP 체크리스트 하나를 공유하고
@@ -962,6 +990,7 @@ function initFromITPBuilder(preloadedState){
   customItemOpt.textContent='✏️ 직접 입력 (구매품 등 미등록 품목)';
   itemSel.appendChild(customItemOpt);
   itemSel.disabled=false; // 직접 입력 옵션이 항상 있으므로 아이템이 0개여도 잠그지 않음
+  markItemDraftOptions();
 
   // ITP 드롭다운은 아이템 선택 전엔 비워둔다 — onItemChange에서 선택된
   // 아이템 기준으로 채운다(아이템별 ITP 대비).
@@ -1023,6 +1052,27 @@ function renderItpOptionsForItem(itemId){
   customOpt.dataset.fieldsKey='CUSTOM';
   customOpt.textContent='✏️ 직접 입력 (검사항목 직접 작성)';
   itpSel.appendChild(customOpt);
+  markItpDraftOptions();
+}
+// v29.53: 아이템/ITP 드롭다운 옵션에 임시저장이 있는 항목을 표시 — 별도
+// 화면(임시등록 탭)을 열지 않아도 어떤 항목·검사단계에 이어서 작성할 게
+// 있는지 목록을 훑어보면서 바로 알 수 있게 한다.
+function markDraftOptionsInSelect(selectEl, matchFn){
+  if(!selectEl) return;
+  [...selectEl.options].forEach(opt=>{
+    if(!opt.value || opt.value==='__custom__' || opt.dataset.draftMarked) return;
+    if(matchFn(opt)){
+      opt.textContent += ' 📝';
+      opt.dataset.draftMarked='1';
+    }
+  });
+}
+function markItemDraftOptions(){
+  markDraftOptionsInSelect(document.getElementById('item'), opt=>_draftListCache.some(d=>d.item===opt.value));
+}
+function markItpDraftOptions(){
+  const currentItemLabel=document.getElementById('item')?.value||'';
+  markDraftOptionsInSelect(document.getElementById('itp'), opt=>_draftListCache.some(d=>d.item===currentItemLabel && d.itpId===opt.value));
 }
 
 // v29.40 — 아이템/ITP를 "직접 입력"으로 고르면 select의 원시 값은
@@ -2614,30 +2664,47 @@ async function saveDraft(){
 // (이전엔 저장했던 것과 완전히 같은 아이템·검사 항목을 다시 선택해야만
 // 자동으로 이어서 작성할지 물어봤다 — 어디까지 했는지 기억해야 해서 불편했음)
 let _draftListCache=[];
-async function refreshDraftList(){
-  const box=document.getElementById('draft-list-box');
-  if(!box) return;
-  if(MI_PID==='standalone'){ box.style.display='none'; return; }
-  if(!window.fb || !fb.db){ setTimeout(refreshDraftList, 300); return; }
-  // 인증 세션 복원 전에 조회하면 permission-denied만 나므로, 로그인 확인 후 조회.
-  if(!fb.auth || !fb.auth.currentUser){ setTimeout(refreshDraftList, 400); return; }
-  try{
-    const q=fb.query(fb.collection(fb.db,'t_mobileInspectionDrafts'), fb.where('pid','==',MI_PID));
-    const snap=await fb.getDocs(q);
-    _draftListCache=snap.docs.map(d=>({docId:d.id, ...d.data()}));
-  }catch(e){
-    console.error('[임시저장 목록 조회]', e);
-    _draftListCache=[];
-  }
-  renderDraftList();
+// v29.52: 재시도(fb/인증 준비 대기) 중에도 최종 목록을 기다렸다가 받을 수
+// 있게 Promise로 감싼다 — 부팅 시 자동 이어쓰기(AUTO_DRAFT)가 이 결과를 써야 함.
+function refreshDraftList(){
+  return new Promise(resolve=>{
+    const attempt=async ()=>{
+      if(MI_PID==='standalone'){ _draftListCache=[]; renderDraftList(); resolve(_draftListCache); return; }
+      if(!window.fb || !fb.db){ setTimeout(attempt, 300); return; }
+      // 인증 세션 복원 전에 조회하면 permission-denied만 나므로, 로그인 확인 후 조회.
+      if(!fb.auth || !fb.auth.currentUser){ setTimeout(attempt, 400); return; }
+      try{
+        const q=fb.query(fb.collection(fb.db,'t_mobileInspectionDrafts'), fb.where('pid','==',MI_PID));
+        const snap=await fb.getDocs(q);
+        _draftListCache=snap.docs.map(d=>({docId:d.id, ...d.data()}));
+      }catch(e){
+        console.error('[임시저장 목록 조회]', e);
+        _draftListCache=[];
+      }
+      renderDraftList();
+      resolve(_draftListCache);
+    };
+    attempt();
+  });
 }
 function renderDraftList(){
-  const box=document.getElementById('draft-list-box');
   const listEl=document.getElementById('draft-list-items');
-  if(!box || !listEl) return;
-  if(!_draftListCache.length){ box.style.display='none'; return; }
-  box.style.display='block';
+  const emptyEl=document.getElementById('draft-list-empty');
+  const badgeEl=document.getElementById('tab-draft-badge');
+  markItemDraftOptions();
+  markItpDraftOptions();
+  if(!listEl) return;
   document.getElementById('draft-count').textContent=_draftListCache.length;
+  if(badgeEl){
+    badgeEl.style.display=_draftListCache.length?'inline-block':'none';
+    badgeEl.textContent=_draftListCache.length;
+  }
+  if(!_draftListCache.length){
+    listEl.innerHTML='';
+    if(emptyEl) emptyEl.style.display='block';
+    return;
+  }
+  if(emptyEl) emptyEl.style.display='none';
   const sorted=[..._draftListCache].sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''));
   listEl.innerHTML=sorted.map((d,i)=>{
     const savedLabel=(d.savedAt||'').slice(0,16).replace('T',' ');
@@ -2658,6 +2725,7 @@ function escapeAttr(s){ return String(s==null?'':s).replace(/[\\'"]/g, c=>'\\'+c
 async function resumeDraft(docId){
   const d=_draftListCache.find(x=>x.docId===docId);
   if(!d) return;
+  switchTab('upload'); // 임시등록 탭에서 눌렀을 수 있으니 입력 화면으로 먼저 전환
   const itemSel=document.getElementById('item');
   const hasItemOption=[...itemSel.options].some(o=>o.value===d.item);
   if(hasItemOption){
@@ -3257,12 +3325,13 @@ async function submitUpload(){
 
 // ── 탭 & 이력 ────────────────────────────
 function switchTab(tab){
-  ['upload','hist'].forEach(t=>{
+  ['upload','draft','hist'].forEach(t=>{
     document.getElementById(t+'-screen').style.display=t===tab?'block':'none';
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
   });
   document.getElementById('detail-screen').style.display='none';
   if(tab==='upload') { initFromITPBuilder(); renderInspectorToggles(); }
+  if(tab==='draft') refreshDraftList();
   if(tab==='hist') renderHist();
 }
 
