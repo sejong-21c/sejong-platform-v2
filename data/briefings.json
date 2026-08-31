@@ -1223,42 +1223,68 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-28 16:32 (오후 정리 자동 실행)",
-    "newMails": 1,
-    "processed": 1,
-    "urgentReplies": 0,
+    "generatedAt": "2026-08-31 16:32 (오후 정리 자동 실행)",
+    "newMails": 4,
+    "processed": 4,
+    "urgentReplies": 2,
     "ncr": 1,
     "car": 1,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "신안건업 이재훈 차장 PACKING LIST 질의(8/24 발송) 미회신 4영업일 경과 — 차주 월요일 리마인드 및 유선 확인",
-        "proj": "SJ435-26",
+        "text": "냉각탑·냉동기 procedure rev.B 검토 미팅 진행 여부 확인 및 차주 재소집 일정 확정",
+        "proj": "품질보증",
         "priority": "high"
       },
       {
-        "text": "Master Schedule PDF 내 출고일·검사일 확인 후 캘린더 확정 등록",
-        "proj": "SJ435-26",
+        "text": "보일러 통합사양서 rev.A 검토의견 회신 발송 (09/04 검토 전)",
+        "proj": "품질보증",
         "priority": "high"
       },
       {
-        "text": "제품 상차 입회 일정 확정 및 세종기술 관리자 지정",
+        "text": "09/04(금) 보일러 검토 회의 시간 확정 요청",
+        "proj": "품질보증",
+        "priority": "mid"
+      },
+      {
+        "text": "SJ435-26 철골 PLATE·발끝막이 FB 자재 재질증명서(MTC) 요구 여부 확인",
         "proj": "SJ435-26",
         "priority": "mid"
       },
       {
-        "text": "SJ-NCR-2026-10 파생 구매요청서 양식 개정 — 품질/구매 이견, 경영진 결정 대기",
+        "text": "SJ-NCR-2026-10 구매요청서 양식 개선안 경영진 판단 요청",
         "proj": "PPG KOREA 천안",
         "priority": "mid"
-      },
-      {
-        "text": "더원노무법인 취업규칙 정리본 검토 회신 대기 (8/28 10:31 발송)",
-        "proj": "일반사무",
-        "priority": "low"
       }
     ],
-    "urgentList": [],
-    "schedule": []
+    "urgentList": [
+      {
+        "subject": "Re: 구매 및 검사 procedure 공유건_냉각탑 & 냉동기_rev.B — 미팅 13:30→15:00 변경 및 검토자 불참",
+        "from": "김시원 대리 / 손용우 차장",
+        "proj": "품질보증"
+      },
+      {
+        "subject": "Re: 구매 및 검사 procedure 공유건_보일러_rev.A — 검토의견 회신 요청",
+        "from": "김시원 대리",
+        "proj": "품질보증"
+      }
+    ],
+    "schedule": [
+      {
+        "title": "냉각탑·냉동기 procedure rev.B 검토 미팅 (시간 확정 필요)",
+        "date": "2026-08-31",
+        "time": "15:00",
+        "proj": "품질보증",
+        "color": "red"
+      },
+      {
+        "title": "보일러 통합사양서 rev.A 검토 회의 (시간 미정)",
+        "date": "2026-09-04",
+        "time": "미정",
+        "proj": "품질보증",
+        "color": "orange"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-08-31 (daily-mail-swkim 자동 실행)",
