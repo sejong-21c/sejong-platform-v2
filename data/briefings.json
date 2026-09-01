@@ -1230,66 +1230,51 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-08-31 16:32 (오후 정리 자동 실행)",
-    "newMails": 4,
-    "processed": 4,
-    "urgentReplies": 2,
-    "ncr": 1,
-    "car": 1,
+    "generatedAt": "2026-09-02 07:30 (오전 정리 자동 실행)",
+    "newMails": 2,
+    "processed": 2,
+    "urgentReplies": 1,
+    "ncr": 0,
+    "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "냉각탑·냉동기 procedure rev.B 검토 미팅 진행 여부 확인 및 차주 재소집 일정 확정",
-        "proj": "품질보증",
+        "text": "K-005 MIXING TANK QVD 전달 가능일 회신 (기술부 이영주 대리, 전체 답장)",
+        "proj": "SJ2026-029",
         "priority": "high"
       },
       {
-        "text": "보일러 통합사양서 rev.A 검토의견 회신 발송 (09/04 검토 전)",
+        "text": "구동부 잔여 품질서류(방폭·시운전·런아웃 보고서) 입수 후 QVD 반영",
+        "proj": "SJ2026-029",
+        "priority": "mid"
+      },
+      {
+        "text": "냉각탑·냉동기 구매/검사 Procedure rev.B 미팅 후속 확인",
         "proj": "품질보증",
-        "priority": "high"
-      },
-      {
-        "text": "09/04(금) 보일러 검토 회의 시간 확정 요청",
-        "proj": "품질보증",
-        "priority": "mid"
-      },
-      {
-        "text": "SJ435-26 철골 PLATE·발끝막이 FB 자재 재질증명서(MTC) 요구 여부 확인",
-        "proj": "SJ435-26",
-        "priority": "mid"
-      },
-      {
-        "text": "SJ-NCR-2026-10 구매요청서 양식 개선안 경영진 판단 요청",
-        "proj": "PPG KOREA 천안",
-        "priority": "mid"
+        "priority": "low"
       }
     ],
     "urgentList": [
       {
-        "subject": "Re: 구매 및 검사 procedure 공유건_냉각탑 & 냉동기_rev.B — 미팅 13:30→15:00 변경 및 검토자 불참",
-        "from": "김시원 대리 / 손용우 차장",
-        "proj": "품질보증"
-      },
-      {
-        "subject": "Re: 구매 및 검사 procedure 공유건_보일러_rev.A — 검토의견 회신 요청",
-        "from": "김시원 대리",
-        "proj": "품질보증"
+        "subject": "[(SJ2026-029) 3TON MIXING TANK 교체공사] FINAL DOCUMENT 자료 요청 건 - K-005 QVD 전달 가능일 회신",
+        "from": "이영주 대리 (기술부)",
+        "proj": "SJ2026-029"
       }
     ],
     "schedule": [
       {
-        "title": "냉각탑·냉동기 procedure rev.B 검토 미팅 (시간 확정 필요)",
-        "date": "2026-08-31",
-        "time": "15:00",
-        "proj": "품질보증",
-        "color": "red"
+        "title": "배관·덕트 MILL SHEET 회신 기한 (구매부)",
+        "date": "2026-09-10",
+        "time": "17:00",
+        "proj": "SJ2026-029",
+        "color": "orange"
       },
       {
-        "title": "보일러 통합사양서 rev.A 검토 회의 (시간 미정)",
-        "date": "2026-09-04",
-        "time": "미정",
-        "proj": "품질보증",
-        "color": "orange"
+        "title": "FLAME ARRESTER 입고 예정 (입고 후 성적서 회신)",
+        "date": "2026-09-14",
+        "time": "17:00",
+        "proj": "SJ2026-029",
+        "color": "blue"
       }
     ]
   },
