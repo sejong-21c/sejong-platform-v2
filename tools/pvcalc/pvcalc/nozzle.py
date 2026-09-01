@@ -397,6 +397,10 @@ def ug45_neck_thickness(P, Rn, Sn, CA=0.0, units="SI",
     r = CalcResult("Nozzle neck minimum thickness", "ASME BPVC VIII-1 UG-45")
     mm = units.upper() == "SI"
     ug16_min = 1.5 if mm else 0.0625  # UG-16(b) minimum, excl. CA
+    # 표 키가 float 라 문자열 "3" 은 조용히 t_b3 를 건너뛰어 과잉 요구두께가 나온다
+    # (2026-09-01 SP-101 대조에서 발견). 숫자로 강제 — 못 바꾸면 크게 실패.
+    if nps is not None:
+        nps = float(nps)
 
     r.add_input("P", float(P))
     r.add_input("Rn (corroded)", float(Rn))
