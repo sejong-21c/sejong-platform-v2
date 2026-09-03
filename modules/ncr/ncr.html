@@ -297,8 +297,23 @@ function autoIndexNcrs(items) {
 }
 // FIX: '유령 삭제' 방지 로직 적용됨!
 const _lastSynced = { t_ncrs: [], t_ncrDeleteReqs: [], t_cars: [] };
+// v29.73: 부팅 직후 state.ncrs는 로컬 디스크 캐시(레거시 첨부파일의
+// fileDataUrl이 빠진 축소 사본일 수 있음)로 채워져 있다가, Firestore 첫
+// 스냅샷이 도착해야 원본으로 교체된다. 그 사이(스냅샷 도착 전) 사용자가
+// 아무 저장(다른 NCR 편집 등)이나 하면, syncArrayToFirestore가 _lastSynced를
+// 빈 배열 기준으로 diff해 이 축소 사본 전체를 그대로 서버에 덮어써 버려서
+// 레거시 첨부파일 참조(fileChunkId 등)가 영구히 사라지는 사고로 이어질 수
+// 있었다(실사용 리포트로 확인 — fileName은 남아있는데 파일 참조만 없어짐).
+// 각 컬렉션의 첫 실시간 스냅샷을 받기 전에는 클라우드 쓰기를 보류한다.
+const _firstSnapshotReceived = { t_ncrs: false, t_ncrDeleteReqs: false, t_cars: false };
+const _collToStateKey = { t_ncrs: 'ncrs', t_ncrDeleteReqs: 'ncrDeleteReqs', t_cars: 'cars' };
 async function syncArrayToFirestore(coll, arr) {
   if (!window.fb || !fb.db) return;
+  if (!_firstSnapshotReceived[coll]) {
+    const key = _collToStateKey[coll];
+    setTimeout(() => syncArrayToFirestore(coll, key ? state[key] : arr), 500);
+    return;
+  }
   const current = arr || [];
   const prevMap = new Map((_lastSynced[coll]||[]).map(x => [x.id, x]));
   const currMap = new Map(current.map(x => [x.id, x]));
@@ -498,6 +513,7 @@ function subscribeNcrsColl() {
     const serverDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => ({ ...d.data(), id: d.id }));
     state.ncrs = mergeServerSnapshot(state.ncrs, serverDocs, (_lastSynced.t_ncrs||[]).concat(persistedSyncedObjs('t_ncrs')));
     _lastSynced.t_ncrs = JSON.parse(JSON.stringify(serverDocs));
+    _firstSnapshotReceived.t_ncrs = true;
     markSyncedIds('t_ncrs', serverDocs);
     repairLocalOnlyDocs('t_ncrs', state.ncrs, serverDocs);
     try { writeOwnedKeysToDisk(); } catch(e) {}
@@ -509,6 +525,7 @@ function subscribeNcrDeleteReqsColl() {
     const serverDocs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     state.ncrDeleteReqs = mergeServerSnapshot(state.ncrDeleteReqs, serverDocs, (_lastSynced.t_ncrDeleteReqs||[]).concat(persistedSyncedObjs('t_ncrDeleteReqs')));
     _lastSynced.t_ncrDeleteReqs = JSON.parse(JSON.stringify(serverDocs));
+    _firstSnapshotReceived.t_ncrDeleteReqs = true;
     markSyncedIds('t_ncrDeleteReqs', serverDocs);
     repairLocalOnlyDocs('t_ncrDeleteReqs', state.ncrDeleteReqs, serverDocs);
     try { writeOwnedKeysToDisk(); } catch(e) {}
@@ -523,6 +540,7 @@ function subscribeCarsRefColl() {
     const serverDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => ({ ...d.data(), id: d.id }));
     state.cars = mergeServerSnapshot(state.cars, serverDocs, (_lastSynced.t_cars||[]).concat(persistedSyncedObjs('t_cars')));
     _lastSynced.t_cars = JSON.parse(JSON.stringify(serverDocs));
+    _firstSnapshotReceived.t_cars = true;
     markSyncedIds('t_cars', serverDocs);
     repairLocalOnlyDocs('t_cars', state.cars, serverDocs);
     try { writeOwnedKeysToDisk(); } catch(e) {}

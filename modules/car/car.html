@@ -283,8 +283,21 @@ function autoIndexCars(items) {
 // 서버에 아직 반영 안 된 구버전 스냅샷으로 state.cars를 되돌리는 순간 방금 등록한
 // 문서가 즉시 삭제되는 버그가 있었음. 이제 삭제는 여기서 추론하지 않고, 실제 삭제가
 // 확정되는 지점(deleteFirestoreDoc 호출부)에서만 명시적으로 수행한다.
+// v29.73: 부팅 직후 state.cars는 로컬 디스크 캐시(레거시 첨부파일의
+// fileDataUrl이 빠진 축소 사본일 수 있음)로 채워져 있다가, Firestore 첫
+// 스냅샷이 도착해야 원본으로 교체된다. 그 사이 사용자가 아무 저장이나 하면
+// syncArrayToFirestore가 이 축소 사본 전체를 그대로 서버에 덮어써 버려
+// 레거시 첨부파일 참조가 영구히 사라지는 사고로 이어질 수 있었다(ncr.html과
+// 동일 원인, 실사용 리포트로 확인). 첫 스냅샷을 받기 전엔 클라우드 쓰기를 보류.
+const _firstSnapshotReceived = { t_cars: false, t_carDeleteReqs: false };
+const _collToStateKey = { t_cars: 'cars', t_carDeleteReqs: 'carDeleteReqs' };
 async function syncArrayToFirestore(coll, arr) {
   if (!window.fb || !fb.db) return;
+  if (!_firstSnapshotReceived[coll]) {
+    const key = _collToStateKey[coll];
+    setTimeout(() => syncArrayToFirestore(coll, key ? state[key] : arr), 500);
+    return;
+  }
   const current = arr || [];
   const prevMap = new Map((_lastSynced[coll]||[]).map(x => [x.id, x]));
   const currMap = new Map(current.map(x => [x.id, x]));
@@ -448,6 +461,7 @@ function subscribeCarsColl() {
     const serverDocs = snap.docs.filter(d => !d.id.startsWith('chunk__')).map(d => ({ ...d.data(), id: d.id }));
     state.cars = mergeServerSnapshot(state.cars, serverDocs, (_lastSynced.t_cars||[]).concat(persistedSyncedObjs('t_cars')));
     _lastSynced.t_cars = JSON.parse(JSON.stringify(serverDocs));
+    _firstSnapshotReceived.t_cars = true;
     markSyncedIds('t_cars', serverDocs);
     repairLocalOnlyDocs('t_cars', state.cars, serverDocs);
     try { writeOwnedKeysToDisk(); } catch(e) {}
@@ -466,6 +480,7 @@ function subscribeCarDeleteReqsColl() {
     const serverDocs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     state.carDeleteReqs = mergeServerSnapshot(state.carDeleteReqs, serverDocs, (_lastSynced.t_carDeleteReqs||[]).concat(persistedSyncedObjs('t_carDeleteReqs')));
     _lastSynced.t_carDeleteReqs = JSON.parse(JSON.stringify(serverDocs));
+    _firstSnapshotReceived.t_carDeleteReqs = true;
     markSyncedIds('t_carDeleteReqs', serverDocs);
     repairLocalOnlyDocs('t_carDeleteReqs', state.carDeleteReqs, serverDocs);
     try { writeOwnedKeysToDisk(); } catch(e) {}
