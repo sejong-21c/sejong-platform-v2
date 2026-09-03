@@ -1230,70 +1230,44 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-09-02 16:30 (오후 정리 자동 실행)",
-    "newMails": 4,
-    "processed": 4,
-    "urgentReplies": 2,
-    "ncr": 1,
+    "generatedAt": "2026-09-03 13:18 (오전 정리 자동 실행)",
+    "newMails": 1,
+    "processed": 1,
+    "urgentReplies": 0,
+    "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "NCR-2026-23 조치확인란 작성·회신 (권오근 부장 L3 서명 대기)",
-        "proj": "SJ435-26 삼성전기",
+        "text": "SJE2026-001 리뉴시스템건 자재·검사·수압 인폼 누락 확인 — 송기남 차장/김대훈 대리 회신 대기, 미회신 시 유선 확인",
+        "proj": "SJE2026-019",
         "priority": "high"
       },
       {
-        "text": "SJE2026-001 리뉴시스템 QVD 자료 존부 확인 회신 대기 (송기남 차장·김대훈 대리)",
-        "proj": "SJE2026-001",
-        "priority": "high"
-      },
-      {
-        "text": "SJ2026-029 FINAL DOCUMENT 자료 제출가능일 회신 (답변 초안 작성 완료)",
-        "proj": "SJ2026-029 HAK 시화",
+        "text": "BF-203 자재성적서(zip) 수령 → 김시원 대리 전달 완료, QVD 편철 반영 확인",
+        "proj": "SJE2026-019",
         "priority": "mid"
       },
       {
-        "text": "고려검사기술 비파괴검사 성적서 발행일자 조정 결과 확인",
-        "proj": "SJ435-26 삼성전기",
+        "text": "SJ2026-029 FINAL DOCUMENT 자료 취합 현황 점검 (배관·덕트 성적서 9/10, FLAME ARRESTER 9/14 입고)",
+        "proj": "SJ2026-029",
         "priority": "mid"
-      },
-      {
-        "text": "K-005 구동부 잔여 품질서류(방폭·시운전·런아웃) 수취 추적",
-        "proj": "SJ2026-029 HAK 시화",
-        "priority": "low"
       }
     ],
-    "urgentList": [
-      {
-        "subject": "[NCR] 불일치보고서 (NCR-2026-23) 삼성전기 4.2m3 Tank 9종 Tailing lug 부착 불일치 - 조치확인란 작성 요청",
-        "from": "김시원 대리 (품질관리부)",
-        "proj": "SJ435-26 삼성전기"
-      },
-      {
-        "subject": "260709 [세종이앤씨, 리뉴시스템] QVD 요청건 - 자재/검사/수압 인폼 부재",
-        "from": "강하준 대리 (기술부)",
-        "proj": "SJE2026-001"
-      },
-      {
-        "subject": "[(SJ2026-029) 3TON MIXING TANK 교체공사] FINAL DOCUMENT 자료 요청 건",
-        "from": "이영주 대리 (기술부)",
-        "proj": "SJ2026-029 HAK 시화"
-      }
-    ],
+    "urgentList": [],
     "schedule": [
       {
-        "title": "배관·덕트자재 MILL SHEET 회신 마감 (시간 미확정)",
+        "title": "배관자재·덕트자재 성적서 회신 예정",
         "date": "2026-09-10",
         "time": "17:00",
-        "proj": "SJ2026-029 HAK 시화",
+        "proj": "SJ2026-029",
         "color": "orange"
       },
       {
-        "title": "FLAME ARRESTER 입고 후 성적서 회신 예정 (시간 미확정)",
+        "title": "FLAME ARRESTER 입고 → 성적서 회신",
         "date": "2026-09-14",
         "time": "17:00",
-        "proj": "SJ2026-029 HAK 시화",
+        "proj": "SJ2026-029",
         "color": "orange"
       }
     ]
