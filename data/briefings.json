@@ -1273,28 +1273,59 @@
     ]
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-08-31 (daily-mail-swkim 자동 실행)",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-08-31-morning.html",
-    "newMails": 0,
-    "processed": 0,
-    "urgentReplies": 0,
+    "generatedAt": "2026-09-03 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-09-03-morning.html",
+    "newMails": 2,
+    "processed": 2,
+    "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
-    "manday": 0,
+    "manday": 2,
     "keyActions": [
       {
-        "text": "[SJ437-26] NCR-2026-22 진양화성 Hopper-PD Outlet Nozzle 높이 문제 — 조치방안·최종 NCR 공유(8/25 00:24) 이후 6일째 상태 갱신 메일 없음. 자동 검색으로는 후속 확인이 어려워 직접 연락 확인 권장",
-        "proj": "SJ437-26",
+        "text": "[SJE2026-001] 신채완 과장이 \"자재·검사·수압 관련 인폼 없이 진행됨\"을 지적 — 송기남 차장·김대훈 대리에게 자료 확인 요청(9/2 07:21). 품질부는 참조자이나 잠재적 NCR 소지가 있어 후속 회신 확인 권장",
+        "proj": "SJE2026-001",
+        "priority": "high"
+      },
+      {
+        "text": "[SJE2026-001] BF-203B Bucket Filter 자재성적서(zip) 수신(9/3 11:02, 강하준 대리→신채완 과장 경유) — Drive 폴더 확인됨, 품질 검토 착수 필요",
+        "proj": "SJE2026-001",
         "priority": "mid"
       },
       {
-        "text": "계측기 검교정 의뢰 회신 — 트레스칼코리아 윤주항 과장 발신(8/25) 성적서 5건, 구체적 마감일 미명시로 캘린더 미등록 상태인 이월 건. 처리 여부 확인 필요",
-        "proj": "품질업무·검교정",
+        "text": "[SJ2026-029] FLAME ARRESTER 9/14 입고 예정 · 배관/덕트자재 성적서 9/10까지 회신 예정(김대훈 대리) — 시각 미기재로 캘린더 미등록, 임박 시 리마인드 필요",
+        "proj": "SJ2026-029",
+        "priority": "mid"
+      },
+      {
+        "text": "[SJ437-26] NCR-2026-22 진양화성 Hopper-PD Outlet Nozzle 높이 문제 — 8/31 기준 6일째 갱신 없던 건, 오늘 검색범위에도 관련 메일 없어 상태 계속 미확인. 직접 연락 확인 권장",
+        "proj": "SJ437-26",
         "priority": "low"
       }
     ],
-    "urgentList": [],
-    "schedule": []
+    "urgentList": [
+      {
+        "subject": "SJE2026-001 자재/검사/수압 인폼 없이 진행됨 — 관련 자료 확인 요청",
+        "from": "신채완 과장 (cwshin@sejong-21c.com)",
+        "proj": "SJE2026-001"
+      }
+    ],
+    "schedule": [
+      {
+        "title": "[SJ2026-029] 배관자재·덕트자재 성적서 회신 예정 (시각 미기재 — 확인 필요)",
+        "date": "2026-09-10",
+        "proj": "SJ2026-029",
+        "dept": "품질관리부",
+        "color": "amber"
+      },
+      {
+        "title": "[SJ2026-029] FLAME ARRESTER 입고 예정 (시각 미기재 — 확인 필요)",
+        "date": "2026-09-14",
+        "proj": "SJ2026-029",
+        "dept": "품질관리부",
+        "color": "amber"
+      }
+    ]
   }
 }

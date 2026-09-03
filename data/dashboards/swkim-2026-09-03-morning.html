@@ -1,0 +1,257 @@
+<title>세종기술 아침 통합 브리핑 · 2026-09-03</title>
+<style>
+:root {
+  --navy: #0b2545; --blue: #13315c; --accent: #2563eb;
+  --line: #e2e8f0; --bg: #f4f6fb; --card: #ffffff;
+  --ink: #1e293b; --mut: #64748b;
+  --red: #dc2626; --amber: #d97706; --green: #16a34a;
+  --redbg: #fef2f2; --ambbg: #fffbeb; --grnbg: #f0fdf4; --grybg: #f1f5f9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --navy: #7ba0d6; --blue: #93b4dd; --accent: #60a5fa;
+    --line: #262c36; --bg: #0f1319; --card: #171b22;
+    --ink: #e7eaf0; --mut: #94a3b8;
+    --red: #f87171; --amber: #fbbf24; --green: #4ade80;
+    --redbg: rgba(248,113,113,0.12); --ambbg: rgba(251,191,36,0.12);
+    --grnbg: rgba(74,222,128,0.12); --grybg: rgba(148,163,184,0.10);
+  }
+}
+:root[data-theme="light"] {
+  --navy: #0b2545; --blue: #13315c; --accent: #2563eb;
+  --line: #e2e8f0; --bg: #f4f6fb; --card: #ffffff;
+  --ink: #1e293b; --mut: #64748b;
+  --red: #dc2626; --amber: #d97706; --green: #16a34a;
+  --redbg: #fef2f2; --ambbg: #fffbeb; --grnbg: #f0fdf4; --grybg: #f1f5f9;
+}
+:root[data-theme="dark"] {
+  --navy: #7ba0d6; --blue: #93b4dd; --accent: #60a5fa;
+  --line: #262c36; --bg: #0f1319; --card: #171b22;
+  --ink: #e7eaf0; --mut: #94a3b8;
+  --red: #f87171; --amber: #fbbf24; --green: #4ade80;
+  --redbg: rgba(248,113,113,0.12); --ambbg: rgba(251,191,36,0.12);
+  --grnbg: rgba(74,222,128,0.12); --grybg: rgba(148,163,184,0.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Pretendard', -apple-system, sans-serif;
+  background: var(--bg); color: var(--ink); line-height: 1.5; padding: 24px;
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 900px; margin: 0 auto; }
+header {
+  background: linear-gradient(135deg, var(--navy), var(--blue));
+  color: #fff; border-radius: 14px; padding: 22px 26px;
+  box-shadow: 0 6px 20px rgba(11, 37, 69, .18);
+}
+:root[data-theme="dark"] header, [data-theme="dark"] header { color: #0b2545; }
+@media (prefers-color-scheme: dark) { header { color: #0b2545; } }
+header .top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+header .sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+.badge-time { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+.kpi { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 11px 13px; }
+.kpi .n { font-size: 22px; font-weight: 800; }
+.kpi .n small { font-size: 13px; font-weight: 700; }
+.kpi .l { font-size: 11.5px; opacity: .82; margin-top: 2px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-top: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+h2 { font-size: 15px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+h2 .ico { font-size: 17px; }
+.secnote { font-size: 11px; color: var(--mut); font-weight: 400; margin-left: auto; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.p-red { background: var(--redbg); color: var(--red); border: 1px solid #fecaca; }
+.p-amb { background: var(--ambbg); color: var(--amber); border: 1px solid #fde68a; }
+.p-grn { background: var(--grnbg); color: var(--green); border: 1px solid #bbf7d0; }
+.p-gry { background: var(--grybg); color: var(--mut); border: 1px solid var(--line); }
+.cat { font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 6px; margin-left: 5px; vertical-align: middle; background: #e0e7ff; color: #3730a3; }
+.chip-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.chip { border: 1px solid var(--line); border-radius: 8px; padding: 11px 14px; background: var(--grybg); text-decoration: none; color: inherit; display: block; }
+.chip .k { font-size: 10.5px; color: var(--mut); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 6px; }
+.chip .v { display: flex; align-items: baseline; gap: 6px; }
+.chip .v .num { font-size: 22px; font-weight: 800; color: var(--ink); }
+.chip .v .unit { font-size: 12px; color: var(--mut); }
+.chip.tot .v .num { color: var(--accent); }
+.action-list { list-style: none; padding: 0; margin: 0; }
+.action-list li { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.action-list li:last-child { border-bottom: none; }
+.action-list .num { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--red); color: #fff; font-size: 11px; font-weight: 800; }
+.action-list .mid .num { background: var(--amber); }
+.action-list .low .num { background: var(--mut); }
+.action-list .desc { font-size: 13px; color: var(--ink); line-height: 1.45; }
+.action-list .desc small { display: block; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
+.action-list .tag { font-size: 10.5px; font-weight: 700; color: var(--accent); background: #dbeafe; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.action-list .due { font-size: 11px; font-weight: 700; color: var(--red); white-space: nowrap; }
+.action-list .mid .due { color: var(--amber); }
+.mail-item { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); align-items: center; text-decoration: none; color: inherit; }
+.mail-item:last-child { border-bottom: none; }
+.mail-item .av { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent); background: #dbeafe; }
+.mail-item .body { min-width: 0; }
+.mail-item .subj { font-size: 12.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .from { font-size: 11px; color: var(--mut); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .stamp { font-size: 11px; color: var(--mut); font-weight: 600; }
+.note { font-size: 11.5px; color: var(--mut); margin-top: 10px; line-height: 1.6; }
+.note b { color: var(--ink); }
+.alertbox { border-left: 4px solid var(--red); background: var(--redbg); border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 12px; }
+.alertbox .h { font-weight: 700; color: var(--red); font-size: 12.5px; margin-bottom: 6px; }
+.alertbox ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+.alertbox li { margin: 3px 0; }
+.alertbox b { color: var(--navy); }
+.warnbox { border-left: 4px solid var(--amber); background: var(--ambbg); border-radius: 8px; padding: 12px 14px; font-size: 12.5px; margin-bottom: 12px; }
+.warnbox .h { font-weight: 700; color: var(--amber); font-size: 12.5px; margin-bottom: 4px; }
+.mandaybox { display: flex; align-items: baseline; gap: 10px; }
+.mandaybox .num { font-size: 26px; font-weight: 800; color: var(--accent); }
+.mandaybox .unit { font-size: 13px; color: var(--mut); }
+table.simple { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.simple th { text-align: left; font-size: 11px; color: var(--mut); text-transform: uppercase; letter-spacing: .05em; padding: 6px 8px; border-bottom: 2px solid var(--line); }
+table.simple td { padding: 8px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.simple tr:last-child td { border-bottom: none; }
+footer { text-align: center; color: var(--mut); font-size: 11.5px; margin-top: 18px; padding-top: 12px; }
+@media (max-width: 700px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="top">
+      <div>
+        <h1>☀️ 세종기술 아침 통합 브리핑</h1>
+        <div class="sub">2026년 9월 3일 (목) · 김시원 대리 · ㈜세종기술 품질관리부</div>
+      </div>
+      <span class="badge-time">자동 생성 (daily-mail 루틴)</span>
+    </div>
+    <div class="summary">
+      <div class="kpi"><div class="n">2<small>건</small></div><div class="l">최근 24시간 메일 (수신 1 · 발신 1)</div></div>
+      <div class="kpi"><div class="n">1<small>건</small></div><div class="l">긴급 확인 대기 (SJE2026-001 인폼 누락)</div></div>
+      <div class="kpi"><div class="n">0<small>건</small></div><div class="l">NCR/CAR 오늘 신규 (잠재 이슈 1건 모니터링)</div></div>
+      <div class="kpi"><div class="n">0<small>건</small></div><div class="l">신규 Project 확정 (후보 0건)</div></div>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="ico">🔴</span> 오늘 확인할 액션 아이템</h2>
+    <ol class="action-list">
+      <li>
+        <span class="num">1</span>
+        <div class="desc">
+          <b>[SJE2026-001] 신채완 과장이 "자재·검사·수압 관련 인폼 없이 진행됨"을 지적 — 송기남 차장·김대훈 대리에게 자료 확인 요청(9/2 07:21)</b>
+          <small>품질부는 참조자이나, 정보 미공유 상태로 검사가 진행됐다면 잠재적 NCR 소지가 있어 후속 회신 확인 권장</small>
+        </div>
+        <span class="tag">SJE2026-001</span>
+      </li>
+      <li class="mid">
+        <span class="num">2</span>
+        <div class="desc">
+          <b>[SJE2026-001] BF-203B Bucket Filter 자재성적서(zip) 수신 — 강하준 대리→신채완 과장 경유로 본인 참조 전달(9/3 11:02)</b>
+          <small>Drive 폴더 "#SJE2026-001 리뉴기존설비 개선작업_BF-203B BUCKET FILTER 200L" 확인됨. 품질 검토 착수 필요</small>
+        </div>
+        <span class="tag">SJE2026-001</span>
+      </li>
+      <li class="mid">
+        <span class="num">3</span>
+        <div class="desc">
+          <b>[SJ2026-029] FLAME ARRESTER 9/14 입고 예정 · 배관/덕트자재 성적서 9/10까지 회신 예정(김대훈 대리, 9/1 회신)</b>
+          <small>날짜만 명확하고 시각 미기재로 캘린더 자동등록 대상 아님 — "확인 필요" 목록 참고, 임박 시 리마인드 권장</small>
+        </div>
+        <span class="tag">SJ2026-029</span>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="ico">📬</span> 메일 자동 분류 요약 <span class="secnote">최근 24시간 · 수신 1건 · 발신 1건 (경계 스레드 1건 별도)</span></h2>
+    <div class="chip-strip">
+      <a class="chip tot" href="https://mail.google.com/mail/u/0/#search/newer_than%3A1d" target="_blank" rel="noopener"><div class="k">신규 메일 →</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></a>
+      <div class="chip"><div class="k">라벨 부착</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></div>
+      <div class="chip"><div class="k">INBOX 유지</div><div class="v"><span class="num">2</span><span class="unit">건</span></div></div>
+      <div class="chip"><div class="k">신규 Project 후보</div><div class="v"><span class="num">0</span><span class="unit">건</span></div></div>
+    </div>
+    <div class="note">
+      "BF-203 자재성적서" 스레드와 "QVD 요청건" 스레드 모두 본문에서 <b>SJE2026-001</b>이 확인되어 해당 Project 라벨을 부착했습니다(INBOX는 유지, 보관 처리하지 않음). "SJ2026-029 FINAL DOCUMENT" 스레드는 8/31~9/1 발신 메일 기준으로 검색 경계값(newer_than:1d)에 걸려 함께 조회됐으나 이미 올바른 Project 라벨이 부착되어 있어 추가 조치는 없습니다. 정식 수주통보 메일은 없어 신규 Project 후보도 없습니다.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ico">📮</span> 신규 메일</h2>
+    <div class="mail-item">
+      <div class="av">신</div>
+      <div class="body">
+        <div class="subj">Fwd: BF-203 자재성적서 첨부 <span class="cat">SJE2026-001</span></div>
+        <div class="from">신채완 과장 → 김시원 (원 발신: 김대훈 대리, 경유: 강하준 대리) · INBOX</div>
+      </div>
+      <div class="stamp">09/03 11:02</div>
+    </div>
+    <div class="mail-item">
+      <div class="av">김</div>
+      <div class="body">
+        <div class="subj">Re: 260709 [세종이앤씨, 리뉴시스템] QVD 요청건 <span class="cat">SJE2026-001</span></div>
+        <div class="from">김시원(발신) → 강하준 대리 · QVD 4건 회신</div>
+      </div>
+      <div class="stamp">09/03 13:28</div>
+    </div>
+    <div class="note">경계 스레드 1건("SJ2026-029 FINAL DOCUMENT", 8/31~9/1 발신분)은 오늘 신규 발신이 아니라 목록에서 제외했습니다.</div>
+  </section>
+
+  <section>
+    <h2><span class="ico">📎</span> 첨부파일 목록</h2>
+    <table class="simple">
+      <tr><th>메일</th><th>첨부파일</th></tr>
+      <tr><td>BF-203 자재성적서</td><td>2.자재성적서.zip, (스크린샷 이미지 1건)</td></tr>
+      <tr><td>QVD 요청건 회신 (김시원 발신)</td><td>SJ2026-019_RT301-01_QVD.pdf, SJE2025-078_HE-501_QVD, SJE2025-078_TW-501_QVD 등 (총 28.7MB, 다건)</td></tr>
+    </table>
+    <div class="note">파일명만 정리했으며 실제 다운로드는 진행하지 않았습니다.</div>
+  </section>
+
+  <section>
+    <h2><span class="ico">📅</span> Calendar 자동 등록 결과</h2>
+    <table class="simple">
+      <tr><th>일시</th><th>제목</th><th>근거 메일</th></tr>
+      <tr><td colspan="3" style="color:var(--mut);">오늘 신규 등록 없음 — 날짜+시간이 모두 명확한 일정이 발견되지 않았습니다</td></tr>
+    </table>
+    <div class="warnbox">
+      <div class="h">⚠️ 확인 필요 (시각 미기재 — 자동 등록 보류)</div>
+      <ul>
+        <li><b>[SJ2026-029]</b> 배관자재·덕트자재 성적서 회신 예정 — <b>2026-09-10</b> (시각 미기재)</li>
+        <li><b>[SJ2026-029]</b> FLAME ARRESTER 입고 예정 — <b>2026-09-14</b> (시각 미기재)</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ico">🗓️</span> 오늘 일정</h2>
+    <div class="note">list_events 조회 결과 오늘(9/3) 개인 캘린더에 등록된 일정이 없습니다.</div>
+  </section>
+
+  <section>
+    <h2><span class="ico">🧪</span> NCR 추적</h2>
+    <table class="simple">
+      <tr><th>구분</th><th>Project</th><th>내용</th><th>상태</th></tr>
+      <tr>
+        <td>잠재 이슈(신규 아님)</td>
+        <td>SJE2026-001</td>
+        <td>신채완 과장 지적 — 자재/검사/수압 관련 인폼 없이 진행된 것으로 보임</td>
+        <td><span class="pill p-amb">구매부·기술부 확인 요청 중(9/2) — 정식 NCR 발행 여부 미확정</span></td>
+      </tr>
+      <tr>
+        <td>이월 NCR(참고)</td>
+        <td>SJ437-26</td>
+        <td>NCR-2026-22 진양화성 Hopper-PD Outlet Nozzle 높이 문제</td>
+        <td><span class="pill p-gry">지난 확인(8/31) 이후 갱신 여부 미확인 — 오늘 검색범위(newer_than:1d)에 해당 메일 없음, 별도 확인 권장</span></td>
+      </tr>
+    </table>
+    <div class="note">오늘 검색 범위(newer_than:1d)에 정식 NCR/CAR 발행 메일은 없습니다.</div>
+  </section>
+
+  <section>
+    <h2><span class="ico">⏱️</span> Manday Tracker (예상 공수)</h2>
+    <div class="mandaybox"><span class="num">~2</span><span class="unit">H (예상) — BF-203B 자재성적서 검토 1H, SJE2026-001 인폼 이슈 후속확인 0.5H, SJ2026-029 일정 트래킹 0.5H</span></div>
+    <div class="note">실제 공수는 17:30 manday-tally 스케줄에서 별도 집계됩니다.</div>
+  </section>
+
+  <footer>
+    ㈜세종기술 · 아침 통합 브리핑 (daily-mail-swkim) · 2026-09-03 생성<br>
+    daily-mail 자동 스케줄(daily-mail-swkim) 실행<br>
+    ⓒ Designed by Quality Control Dept.
+  </footer>
+
+</div>
