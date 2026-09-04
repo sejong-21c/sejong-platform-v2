@@ -1230,47 +1230,48 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-09-03 13:18 (오전 정리 자동 실행)",
-    "newMails": 1,
-    "processed": 1,
-    "urgentReplies": 0,
-    "ncr": 0,
+    "generatedAt": "2026-09-04 16:32 (오후 정리 자동 실행)",
+    "newMails": 4,
+    "processed": 4,
+    "urgentReplies": 1,
+    "ncr": 1,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "SJE2026-001 리뉴시스템건 자재·검사·수압 인폼 누락 확인 — 송기남 차장/김대훈 대리 회신 대기, 미회신 시 유선 확인",
-        "proj": "SJE2026-019",
+        "text": "보일러 통합사양서 rev.A + 공기압축기 사양서 초안 검토의견 회신 (기한 미지정 → 김시원 대리 확인 필요)",
+        "proj": "품질보증",
         "priority": "high"
       },
       {
-        "text": "BF-203 자재성적서(zip) 수령 → 김시원 대리 전달 완료, QVD 편철 반영 확인",
-        "proj": "SJE2026-019",
+        "text": "SJ435-26 스프레이 노즐 제작 일정 및 ITP 검사 시점 생산부 확인",
+        "proj": "SJ435-26",
         "priority": "mid"
       },
       {
-        "text": "SJ2026-029 FINAL DOCUMENT 자료 취합 현황 점검 (배관·덕트 성적서 9/10, FLAME ARRESTER 9/14 입고)",
-        "proj": "SJ2026-029",
+        "text": "SJ-NCR-2026-10 구매요청서 양식 개선 논의 재기동 (8/18 이후 3주 정체)",
+        "proj": "PPG Korea 천안",
         "priority": "mid"
+      },
+      {
+        "text": "AIELP AI 교육 요약 수신 확인 회신 및 품질업무 AX 적용 지점 정리",
+        "proj": "일반사무",
+        "priority": "low"
       }
     ],
-    "urgentList": [],
-    "schedule": [
+    "urgentList": [
       {
-        "title": "배관자재·덕트자재 성적서 회신 예정",
-        "date": "2026-09-10",
-        "time": "17:00",
-        "proj": "SJ2026-029",
-        "color": "orange"
+        "subject": "Re: 세종기술_구매 및 검사 procedure 공유건_보일러_rev.A (검토의견 회신)",
+        "from": "김시원 대리",
+        "proj": "품질보증"
       },
       {
-        "title": "FLAME ARRESTER 입고 → 성적서 회신",
-        "date": "2026-09-14",
-        "time": "17:00",
-        "proj": "SJ2026-029",
-        "color": "orange"
+        "subject": "AIELP - AI 교육 강의 내용 요약 및 전달 (수신 확인 회신)",
+        "from": "김철우 부장",
+        "proj": "일반사무"
       }
-    ]
+    ],
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-09-03 (daily-mail-swkim 자동 실행)",
