@@ -1230,48 +1230,80 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-09-04 16:32 (오후 정리 자동 실행)",
-    "newMails": 4,
-    "processed": 4,
-    "urgentReplies": 1,
-    "ncr": 1,
-    "car": 0,
-    "newProjects": 0,
+    "generatedAt": "2026-09-07 07:47 (오전 정리 자동 실행)",
+    "newMails": 0,
+    "processed": 19,
+    "urgentReplies": 3,
+    "ncr": 2,
+    "car": 1,
+    "newProjects": 2,
     "keyActions": [
       {
-        "text": "보일러 통합사양서 rev.A + 공기압축기 사양서 초안 검토의견 회신 (기한 미지정 → 김시원 대리 확인 필요)",
-        "proj": "품질보증",
+        "text": "원료1동 수열합성 W탱크 ITP 작성 착수 — 9/11 승인도면 배포 마감과 연동",
+        "proj": "SJ-WO-2026-064",
         "priority": "high"
       },
       {
-        "text": "SJ435-26 스프레이 노즐 제작 일정 및 ITP 검사 시점 생산부 확인",
+        "text": "신안건업 PACKING LIST VB 21~27 수량 2배수 오류 회신 촉구 (14일 미회신)",
         "proj": "SJ435-26",
+        "priority": "high"
+      },
+      {
+        "text": "SJ-NCR-2026-10 구매요청서 양식 개정 논의 결론 확인",
+        "proj": "PPG 천안",
         "priority": "mid"
       },
       {
-        "text": "SJ-NCR-2026-10 구매요청서 양식 개선 논의 재기동 (8/18 이후 3주 정체)",
-        "proj": "PPG Korea 천안",
+        "text": "26-CAR-009 특별품질교육 이행기록 제출 여부 확인",
+        "proj": "SJE437-26",
         "priority": "mid"
       },
       {
-        "text": "AIELP AI 교육 요약 수신 확인 회신 및 품질업무 AX 적용 지점 정리",
-        "proj": "일반사무",
+        "text": "중앙하이프론 성적서 접수 회신 및 잔여 품목 요청",
+        "proj": "품질보증",
         "priority": "low"
       }
     ],
     "urgentList": [
       {
-        "subject": "Re: 세종기술_구매 및 검사 procedure 공유건_보일러_rev.A (검토의견 회신)",
-        "from": "김시원 대리",
-        "proj": "품질보증"
+        "subject": "Fwd: [수주통보] 삼성전기(주)_원료1동 수열합성 W탱크 제작 및 납품 — ITP 작성 지시",
+        "from": "김철우 부장",
+        "proj": "SJ-WO-2026-064"
       },
       {
-        "subject": "AIELP - AI 교육 강의 내용 요약 및 전달 (수신 확인 회신)",
-        "from": "김철우 부장",
-        "proj": "일반사무"
+        "subject": "[세종기술] (SJ435-26) 삼성전기_PACKING LIST 수량 질의 미회신",
+        "from": "신안건업 이재훈 차장",
+        "proj": "SJ435-26"
+      },
+      {
+        "subject": "SJ-NCR-2026-10 [천안 PPG Korea] 열교환기 Gasket 발주 오류 / 구매요청서 양식 개정 논의",
+        "from": "김우진 부장",
+        "proj": "PPG 천안"
       }
     ],
-    "schedule": []
+    "schedule": [
+      {
+        "title": "승인도면 생산부 배포 마감 (시간 미확정)",
+        "date": "2026-09-11",
+        "time": "17:00",
+        "proj": "SJ-WO-2026-064",
+        "color": "red"
+      },
+      {
+        "title": "W탱크 납품 요청일 (일자 확인 필요)",
+        "date": "2027-01-10",
+        "time": "09:00",
+        "proj": "SJ-WO-2026-064",
+        "color": "orange"
+      },
+      {
+        "title": "공사 납기 종료",
+        "date": "2027-01-31",
+        "time": "17:00",
+        "proj": "SJ-WO-2026-064",
+        "color": "blue"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-09-03 (daily-mail-swkim 자동 실행)",
