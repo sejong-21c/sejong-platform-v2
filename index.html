@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <!-- v29.30: index.html은 항상 서버에서 최신본을 재검증하도록 강제.
      이게 없으면 브라우저가 옛 index.html을 캐시해, 배포된 수정(예: 유휴 로그아웃
      시간 변경)이 하드 새로고침 전까지 반영 안 돼 '고쳤는데 그대로'인 현상이 생김.
@@ -398,40 +398,158 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 .qa-form-row label { min-width: 110px; font-size: 11px; color: var(--text-light); font-weight: 600; }
 .qa-doc-head { background: var(--bg); padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
-/* ═══ 로그인 화면 (2단: 좌 소개 + 우 파란 패널) ═══ */
-.login-wrap { position:absolute; inset:0; display:grid; grid-template-columns:1fr minmax(340px,480px); background:#fff; overflow:auto; max-width:100%; }
-.login-left { padding:48px 56px; display:flex; flex-direction:column; }
-.login-brand { flex-shrink:0; }
-.login-logo { display:flex; align-items:center; gap:14px; font-size:30px; font-weight:800; color:var(--primary); white-space:nowrap; }
-.login-logo-dot { width:26px; height:18px; border-radius:9px; background:linear-gradient(90deg,#2563eb,#7dd3fc); display:inline-block; }
-.login-hero { flex:1; display:flex; flex-direction:column; justify-content:flex-start; padding-top:48px; }
-.login-hero h1 { font-size:38px; font-weight:800; color:#1a2b3c; line-height:1.25; letter-spacing:-.5px; }
-.login-feat { margin-top:18px; font-size:13px; color:#64748b; line-height:1.7; }
-.login-foot { font-size:12px; color:#94a3b8; font-weight:600; }
-.login-right { background:linear-gradient(160deg,#3b82f6 0%,#2563eb 100%); display:flex; align-items:center; justify-content:center; padding:40px; }
-.login-form { width:100%; max-width:300px; box-sizing:border-box; }
-.login-form-brand { display:none; }   /* 2컬럼(데스크탑)에선 왼쪽 브랜드가 있으므로 숨김 — 단일 컬럼에서만 노출 */
-.login-form h2 { color:#fff; font-size:22px; font-weight:700; }
-.login-sub { color:rgba(255,255,255,.8); font-size:13px; margin:6px 0 26px; }
-.login-label { display:block; color:rgba(255,255,255,.9); font-size:12px; font-weight:600; margin-bottom:6px; }
-.login-input { width:100%; padding:11px 14px; border:none; border-radius:8px; background:rgba(255,255,255,.16); color:#fff; font-size:14px; margin-bottom:16px; box-sizing:border-box; }
-.login-input::placeholder { color:rgba(255,255,255,.6); }
-.login-input:focus { outline:2px solid rgba(255,255,255,.5); background:rgba(255,255,255,.22); }
-.login-btn { width:100%; padding:12px; border:none; border-radius:8px; background:#fff; color:#2563eb; font-size:14px; font-weight:700; cursor:pointer; transition:.15s; }
-.login-btn:hover { background:#f0f6ff; }
-.login-quick { margin-top:26px; text-align:center; }
-.login-quick-title { font-size:11px; color:rgba(255,255,255,.7); margin-bottom:10px; }
-.login-quick-btns { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
-.login-quick-btns button { padding:6px 10px; border:1px solid rgba(255,255,255,.4); border-radius:6px; background:rgba(255,255,255,.12); color:#fff; font-size:11px; cursor:pointer; transition:.15s; }
-.login-quick-btns button:hover { background:rgba(255,255,255,.25); }
-/* v29.36: 태블릿(아이패드 가로 ~1194px 포함)에서 우측 로그인 패널이 화면 밖으로 잘리던 문제 —
-   2컬럼 전환점을 1200px로 올려 그 이하는 단일 컬럼(파란 로그인 패널 전체폭)으로 표시. */
-@media(max-width:1200px){
-  .login-wrap{ grid-template-columns:1fr; }
-  .login-left{ display:none; }
-  .login-right{ padding:40px 28px; }
-  .login-form{ max-width:360px; }
-  .login-form-brand{ display:block; }
+/* ═══ 로그인 화면 (에디토리얼 그리드: 좌 브랜드 레일 + 전면 배경 영상 + 우상단 로그인 모듈) ═══ */
+/* v30.16: 로그인 화면 리디자인 — 배경 = Higgsfield로 생성한 세종기술 전경 이미지 2컷(assets/login/hero-1.jpg 바다·항만 전경,
+   hero-2.jpg 저각 역동 컷; ≤1280px는 -m 1280px판)을 켄번즈(느린 줌·팬) + 28초 주기 크로스페이드로 "움직이는" 배경으로 깐다.
+   층 구조(아래→위): ③ 브랜드 그라디언트(CSS) ← ② 포스터 jpg(CSS 배경) ← 이미지 2컷(<img>, 애니메이션) ← ① <video>(LOGIN_HERO_VIDEO 설정 시에만 렌더,
+   실제 재생 시작 후 페이드인해 이미지 위를 덮음) ← 스크림 ← 콘텐츠. 감속 모션이면 애니메이션·영상 없이 1컷 정지.
+   영상 파일이 생기면 index.html 상단 상수 LOGIN_HERO_VIDEO 에 경로만 넣으면 된다(무료 Higgsfield 플랜은 영상 생성 불가라 현재 비움).
+   감속 모션·데이터 절약·2G·mp4 미지원·로드 실패 시 showLogin()의 JS가 <video>를 제거한다.
+   ≥1200px: 좌 128px 흰 레일(회사 로고 가로 배치 · 모노 캡션) + 무대 12컬럼(히어로 카피 좌하단 · 로그인 패널 우상단).
+   <1200px: v29.36 태블릿 잘림 수정 유지 — 단일 컬럼(상단 레일 바 + 히어로 + 하단 시트), 아이패드 가로 1194/세로 834 잘림 없음. 가로 스크롤 없음.
+   ≤767px: 시트가 화면 하단 전폭(한 손 조작), 안전영역(env) 반영, 영상 위 블러 없음. */
+.login-wrap { --lg-ink:#03091f; --lg-navy:#0032A0; --lg-sky:#9cc3ff; --lg-mono:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+  --lg-poster:url("assets/login/hero-1.jpg");
+  position:absolute; inset:0; height:100%; height:100dvh; display:grid; grid-template-columns:128px minmax(0,1fr); grid-template-rows:minmax(100%,auto);
+  background:#061233; color:#fff; overflow-x:hidden; overflow-y:auto; max-width:100%; -webkit-font-smoothing:antialiased; }
+@media (max-width:1280px) { .login-wrap { --lg-poster:url("assets/login/hero-1-m.jpg"); } }
+.login-wrap h1, .login-wrap h2, .login-feat, .login-sub, .login-quick, .login-dev-note { word-break:keep-all; overflow-wrap:break-word; }
+
+/* ── 좌측 브랜드 레일(흰 여백지 스파인): 회사 로고(가로, 흰 바탕 PNG가 그대로 어울림) · 모노 캡션(세로) ── */
+.login-rail { position:relative; z-index:4; background:#fff; color:var(--lg-navy); display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:18px; padding:22px 8px 20px; border-right:1px solid rgba(0,50,160,.12); box-shadow:8px 0 32px rgba(0,0,0,.28); }
+.login-logo { flex:0 0 auto; width:100%; min-height:44px; display:flex; align-items:center; justify-content:center; }
+.login-logo-img { display:block; height:40px; width:auto; max-width:100%; }
+.login-logo-dot { width:34px; height:22px; border-radius:11px; flex:none; background:linear-gradient(90deg,#0032A0,#1976D2 60%,#7dd3fc); display:inline-block; }
+.login-rail-rule { flex:0 0 auto; width:1px; height:36px; background:rgba(0,50,160,.28); }
+.login-rail-mid { flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.login-rail-txt { writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; font-family:var(--lg-mono); font-size:12px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--lg-navy); }
+.login-rail-meta { writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; font-family:var(--lg-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:#4b5a70; }
+
+/* ── 무대(영상 영역): 배경 3층 = 그라디언트(③) ← 포스터(②) ← 영상(①), 그 위에 스크림 + 12컬럼 콘텐츠 ── */
+.login-stage { position:relative; min-width:0; display:flex; flex-direction:column; isolation:isolate; }
+.login-media { position:absolute; inset:0; z-index:0; overflow:hidden; background-color:#061233;
+  background-image:
+    var(--lg-poster),
+    radial-gradient(70% 55% at 78% 8%, rgba(37,99,235,.55) 0%, rgba(37,99,235,0) 70%),
+    radial-gradient(55% 28% at 50% 102%, rgba(255,166,64,.30) 0%, rgba(255,166,64,0) 72%),
+    radial-gradient(40% 40% at 12% 78%, rgba(125,211,252,.16) 0%, rgba(125,211,252,0) 65%),
+    linear-gradient(165deg, #0b2a7a 0%, #071a4f 40%, #061233 70%, #03091f 100%);
+  background-size:cover, auto, auto, auto, auto; background-position:center; background-repeat:no-repeat; }
+/* 이미지 2컷 켄번즈: inset -4%로 여유를 두고 scale·translate로 천천히 움직이며 28초 주기로 교차. transform/opacity만 → 컴포지터 전용 */
+.login-shot { position:absolute; inset:-4%; width:108%; height:108%; object-fit:cover; object-position:center 42%; opacity:0; will-change:opacity,transform; animation-duration:28s,28s; animation-timing-function:ease-in-out,ease-in-out; animation-iteration-count:infinite,infinite; }
+.login-shot.is-a { animation-name:lgFadeA,lgKbA; }
+.login-shot.is-b { animation-name:lgFadeB,lgKbB; }
+@keyframes lgFadeA { 0%,42% { opacity:1; } 52%,92% { opacity:0; } 100% { opacity:1; } }
+@keyframes lgFadeB { 0%,42% { opacity:0; } 52%,92% { opacity:1; } 100% { opacity:0; } }
+@keyframes lgKbA { 0% { transform:scale(1) translate(0,0); } 50% { transform:scale(1.07) translate(-1.6%,-1%); } 100% { transform:scale(1) translate(0,0); } }
+@keyframes lgKbB { 0% { transform:scale(1.07) translate(1.4%,.6%); } 50% { transform:scale(1) translate(0,-.8%); } 100% { transform:scale(1.07) translate(1.4%,.6%); } }
+.login-video { position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; object-position:center; opacity:0; transition:opacity .9s ease; pointer-events:none; }
+.login-video.is-playing { opacity:1; }
+/* 스크림: 우상단→좌하단 대각선(히어로 카피 보호) + 상단(패널·캡션 보호)/좌측/하단 가장자리 보강. 본문 4.5:1 이상 확보용 */
+.login-scrim { position:absolute; inset:0; z-index:2; pointer-events:none;
+  background:
+    linear-gradient(212deg, rgba(3,9,31,.14) 0%, rgba(3,9,31,.34) 42%, rgba(3,9,31,.76) 72%, rgba(3,9,31,.92) 100%),
+    linear-gradient(90deg, rgba(3,9,31,.5) 0%, rgba(3,9,31,0) 46%),
+    linear-gradient(180deg, rgba(3,9,31,.66) 0%, rgba(3,9,31,0) 36%),
+    linear-gradient(0deg, rgba(3,9,31,.72) 0%, rgba(3,9,31,0) 24%); }
+
+/* ── 12컬럼 콘텐츠 그리드 ── */
+.login-grid { position:relative; z-index:3; flex:1 1 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-template-rows:auto 1fr auto; column-gap:24px; row-gap:24px; padding:36px 48px calc(26px + env(safe-area-inset-bottom,0px)) 48px; }
+.login-head { grid-column:1/8; grid-row:1; display:flex; align-items:center; gap:14px; min-width:0; font-family:var(--lg-mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:rgba(255,255,255,.9); white-space:nowrap; overflow:hidden; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+.login-head b { font-weight:700; color:#fff; letter-spacing:.24em; }
+.login-head span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.login-rule { flex:0 0 40px; height:1px; background:rgba(255,255,255,.42); }
+.login-hero { grid-column:1/8; grid-row:2; align-self:end; max-width:640px; padding-bottom:6px; }
+.login-eyebrow { display:flex; align-items:center; gap:14px; margin-bottom:20px; font-size:12px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--lg-sky); text-shadow:0 1px 2px rgba(0,0,0,.5); }
+.login-eyebrow::before { content:""; flex:0 0 28px; height:2px; border-radius:1px; background:var(--lg-sky); }
+.login-hero h1 { font-size:clamp(36px,3.4vw,52px); font-weight:800; line-height:1.18; letter-spacing:-.02em; color:#fff; text-wrap:balance; text-shadow:0 2px 4px rgba(0,0,0,.35), 0 8px 40px rgba(0,0,0,.35); }
+.login-hero h1 em { font-style:normal; color:var(--lg-sky); }
+.login-feat { margin-top:18px; max-width:560px; font-size:15px; line-height:1.75; color:rgba(255,255,255,.86); text-shadow:0 1px 2px rgba(0,0,0,.55); }
+.login-feat b { color:#fff; font-weight:600; }
+.login-foot { grid-column:1/13; grid-row:3; display:flex; justify-content:space-between; align-items:flex-end; gap:12px 24px; flex-wrap:wrap; padding-top:14px; border-top:1px solid rgba(255,255,255,.16); font-size:12px; font-weight:600; color:rgba(255,255,255,.78); text-shadow:0 1px 2px rgba(0,0,0,.5); }
+.login-foot-mono { font-family:var(--lg-mono); font-weight:400; font-size:11px; letter-spacing:.16em; text-transform:uppercase; }
+
+/* ── 로그인 패널(우상단, 5컬럼 폭 안에서 최대 388px). 블러 미지원 브라우저는 @supports 밖의 진한 단색 ── */
+.login-panel { grid-column:8/13; grid-row:1/3; align-self:start; justify-self:end; width:100%; max-width:388px; position:relative;
+  background:rgba(8,18,48,.94); border:1px solid rgba(255,255,255,.14); border-radius:16px; padding:26px 28px 24px; box-shadow:0 24px 64px rgba(0,0,0,.38); }
+@supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))) {
+  .login-panel { background:rgba(8,18,48,.82); -webkit-backdrop-filter:blur(18px) saturate(1.3); backdrop-filter:blur(18px) saturate(1.3); }
+}
+.login-panel-cap { display:flex; justify-content:space-between; gap:12px; margin-bottom:18px; font-family:var(--lg-mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:rgba(255,255,255,.8); }
+.login-panel h2 { color:#fff; font-size:22px; font-weight:700; letter-spacing:-.01em; }
+.login-sub { color:rgba(255,255,255,.9); font-size:13.5px; line-height:1.6; margin:6px 0 20px; }
+/* 오류: 색 + "!" 아이콘(::before) + 테두리 + role=alert — 색만으로 전달하지 않음. JS가 textContent + style.display='block' 으로 채움 */
+#loginErr { position:relative; margin:0 0 14px; padding:10px 12px 10px 36px; border-radius:8px; background:rgba(244,67,54,.18); border:1px solid rgba(255,138,128,.5); color:#ffd9d6; font-size:12.5px; line-height:1.5; text-align:left; word-break:keep-all; }
+#loginErr::before { content:"!"; position:absolute; left:12px; top:10px; width:16px; height:16px; border-radius:50%; background:#ff8a80; color:#2b0a08; font-weight:800; font-size:11px; line-height:16px; text-align:center; }
+.login-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:48px; padding:12px 16px; border:none; border-radius:10px; background:#fff; color:#3c4043; font:inherit; font-size:15px; font-weight:700; letter-spacing:-.01em; cursor:pointer; box-shadow:0 1px 0 rgba(0,0,0,.08), 0 10px 28px rgba(0,0,0,.28); transition:background .15s, transform .15s, box-shadow .15s; }
+.login-btn svg { flex:0 0 auto; }
+.login-btn:hover { background:#f3f7ff; }
+.login-btn:active { transform:translateY(1px); box-shadow:0 1px 0 rgba(0,0,0,.08), 0 4px 14px rgba(0,0,0,.28); }
+.login-btn:focus-visible { outline:3px solid #7dd3fc; outline-offset:3px; }
+.login-quick { margin-top:18px; font-size:12px; line-height:1.65; text-align:center; color:rgba(255,255,255,.86); }
+.login-dev { margin-top:16px; padding-top:16px; border-top:1px dashed rgba(255,255,255,.24); }
+.login-dev .login-btn { min-height:44px; background:rgba(255,255,255,.1); color:#fff; border:1px dashed rgba(255,255,255,.45); box-shadow:none; font-size:13px; font-weight:600; }
+.login-dev .login-btn:hover { background:rgba(255,255,255,.18); }
+.login-dev-note { margin-top:6px; font-size:10.5px; line-height:1.5; text-align:center; color:rgba(255,255,255,.72); }
+
+/* 조용한 등장: 히어로 카피 세 줄만 0.9s 동안 살짝 올라온다(transform/opacity만). 감속 모션이면 없음 */
+@keyframes loginRise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+.login-hero > * { animation:loginRise .9s cubic-bezier(.2,.7,.2,1) both; }
+.login-hero > :nth-child(2) { animation-delay:.08s; }
+.login-hero > :nth-child(3) { animation-delay:.16s; }
+@media (prefers-reduced-motion:reduce) {
+  .login-video { display:none; }   /* JS 제거와 이중 안전망 */
+  .login-shot { animation:none; }  /* 감속 모션: 1컷 정지 */
+  .login-shot.is-a { opacity:1; }
+  .login-shot.is-b { display:none; }
+  .login-hero > * { animation:none; }
+  .login-btn, .login-video { transition:none; }
+}
+
+/* ── 태블릿(768~1199, 아이패드 가로 1194 포함): 단일 컬럼 — 상단 레일 바 · 히어로 중앙 · 하단 시트(480px 중앙) ── */
+@media (max-width:1199.98px) {
+  .login-wrap { grid-template-columns:minmax(0,1fr); grid-template-rows:auto 1fr; }
+  .login-rail { flex-direction:row; justify-content:flex-start; gap:16px; height:56px; padding:0 22px; border-right:none; border-bottom:1px solid rgba(0,50,160,.12); box-shadow:0 6px 24px rgba(0,0,0,.2); }
+  .login-logo { width:auto; min-height:0; }
+  .login-logo-img { height:32px; }
+  .login-logo-dot { width:26px; height:16px; }
+  .login-rail-rule { height:18px; }
+  .login-rail-mid { flex:1 1 auto; justify-content:flex-end; overflow:visible; }
+  .login-rail-txt, .login-rail-meta { writing-mode:horizontal-tb; transform:none; }
+  .login-rail-txt { font-size:11px; letter-spacing:.2em; }
+  .login-scrim { background:linear-gradient(180deg, rgba(3,9,31,.62) 0%, rgba(3,9,31,.40) 38%, rgba(3,9,31,.48) 68%, rgba(3,9,31,.84) 100%); }
+  .login-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:auto 1fr auto auto; row-gap:18px; padding:24px 32px calc(20px + env(safe-area-inset-bottom,0px)); }
+  .login-head { grid-column:1; grid-row:1; }
+  .login-hero { grid-column:1; grid-row:2; align-self:center; max-width:620px; padding-bottom:0; }
+  .login-eyebrow { margin-bottom:14px; }
+  .login-hero h1 { font-size:clamp(30px,4.2vw,42px); }
+  .login-feat { font-size:14px; margin-top:14px; }
+  .login-panel { grid-column:1; grid-row:3; align-self:end; justify-self:center; max-width:480px; }
+  .login-foot { grid-column:1; grid-row:4; }
+}
+
+/* ── 휴대폰(≤767, 375×667 기준): 레일 바 축소, 시트가 화면 하단 전폭(한 손 조작), 푸터가 시트 면을 이어받음, 영상 위 블러 없음 ── */
+@media (max-width:767.98px) {
+  .login-rail { height:52px; padding:0 16px; gap:12px; }
+  .login-logo-img { height:28px; }
+  .login-rail-txt, .login-rail-rule { display:none; }
+  .login-rail-meta { font-size:10px; }
+  .login-scrim { background:linear-gradient(180deg, rgba(3,9,31,.55) 0%, rgba(3,9,31,.35) 35%, rgba(3,9,31,.86) 100%); }
+  .login-grid { row-gap:14px; padding:14px 20px 0; }
+  .login-head { font-size:11px; letter-spacing:.12em; }
+  .login-head b, .login-head .login-rule { display:none; }
+  .login-eyebrow { font-size:11px; letter-spacing:.18em; margin-bottom:10px; }
+  .login-hero h1 { font-size:clamp(26px,7.4vw,32px); }
+  .login-feat { margin-top:12px; font-size:12.5px; line-height:1.65; }
+  .login-panel { max-width:none; width:auto; justify-self:stretch; margin:0 -20px; padding:20px 20px 16px; border-radius:20px 20px 0 0; border-bottom:none; box-shadow:0 -18px 48px rgba(0,0,0,.35); background:rgba(8,18,48,.94); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .login-panel-cap { margin-bottom:10px; font-size:11px; }
+  .login-panel h2 { font-size:20px; }
+  .login-sub { font-size:13px; margin-bottom:14px; }
+  .login-quick { margin-top:12px; font-size:11.5px; }
+  .login-dev { margin-top:12px; padding-top:12px; }
+  .login-dev .login-btn { font-size:12.5px; padding:10px 12px; }
+  .login-foot { margin:-14px -20px 0; padding:10px 20px calc(12px + env(safe-area-inset-bottom,0px)); border-top:1px solid rgba(255,255,255,.12); background:rgba(8,18,48,.94); font-size:11px; }
+  .login-foot-mono { display:none; }
 }
 
 .table { width: 100%; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); border-collapse: collapse; overflow: hidden; }
@@ -1233,6 +1351,9 @@ const QADASH_BUILD = 'b30'; // v29.1.14: 항목명 라벨칸 폭 통일 + 개선
 const ITPBUILDER_BUILD = 'c32'; // c32: 클라우드 강제 불러오기 버튼(+pid 진단)
 const QADOC_BUILD = 'c24'; // c24: 클라우드 강제 불러오기 버튼(+pid 진단)
 const MTOOLS_BUILD = 'b7';
+// v30.16: 로그인 화면 배경 영상 경로. 비어 있으면 <video>를 렌더하지 않고 이미지 2컷 모션만 쓴다(불필요한 404 없음).
+// Higgsfield 등으로 mp4(H.264 yuv420p, 무음, faststart, ≤8MB 권장)를 만들면 assets/login/sejong-hero.mp4 로 넣고 여기에 경로를 적는다.
+const LOGIN_HERO_VIDEO = '';
 // v29.71 fix: mobile-inspection.html iframe만 이 버전 번호 관례가 아예 빠져있었음 — 파일을
 // 몇 번을 고쳐도 브라우저가 예전 캐시를 계속 보여줘서 "고쳤는데 반영이 안 됨" 실사용 문제로
 // 이어졌다(2026-08-20 VDS 수평콘덴서 ITP 목록 미표시 건에서 확인). 다른 모듈과 동일한 관례로 추가.
@@ -2068,46 +2189,55 @@ function showLogin() {
   const ov = document.getElementById('authOverlay');
   ov.innerHTML = `
     <div class="login-wrap">
-      <div class="login-left">
-        <div class="login-brand">
-          <div class="login-logo">
-            <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="height:68px;width:auto;display:none;">
-            <span class="login-logo-dot"></span>
-            <span class="login-logo-txt">Sejong Technology WorkFlow System</span>
+      <aside class="login-rail" aria-label="세종기술">
+        <div class="login-logo">
+          <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="display:none;">
+          <span class="login-logo-dot" aria-hidden="true"></span>
+        </div>
+        <span class="login-rail-rule" aria-hidden="true"></span>
+        <div class="login-rail-mid"><span class="login-rail-txt">Chemical Plant Equipment</span></div>
+        <span class="login-rail-rule" aria-hidden="true"></span>
+        <div class="login-rail-meta">Busan · Korea</div>
+      </aside>
+      <div class="login-stage">
+        <div class="login-media" aria-hidden="true">
+          <img class="login-shot is-a" alt="" decoding="async" fetchpriority="high" src="assets/login/hero-1.jpg" srcset="assets/login/hero-1-m.jpg 1280w, assets/login/hero-1.jpg 1920w" sizes="100vw">
+          <img class="login-shot is-b" alt="" decoding="async" loading="lazy" src="assets/login/hero-2.jpg" srcset="assets/login/hero-2-m.jpg 1280w, assets/login/hero-2.jpg 1920w" sizes="100vw">
+        </div>
+        ${LOGIN_HERO_VIDEO ? `<video class="login-video" autoplay muted loop playsinline preload="auto" poster="assets/login/hero-1.jpg" aria-hidden="true" tabindex="-1" disablepictureinpicture disableremoteplayback>
+          <source src="${LOGIN_HERO_VIDEO}" type="video/mp4">
+        </video>` : ''}
+        <div class="login-scrim" aria-hidden="true"></div>
+        <div class="login-grid">
+          <div class="login-head"><b>SJ FLOW</b><span class="login-rule" aria-hidden="true"></span><span>Sejong Technology WorkFlow System</span></div>
+          <div class="login-hero">
+            <p class="login-eyebrow">We are building the future</p>
+            <h1>세종기술 <em>통합 협업</em><br>플랫폼</h1>
+            <p class="login-feat"><b>WBS · 간트차트 · ITP · NCR · 견적 · OKR · 결재.</b><br>품질·설계·영업·생산까지, 하나의 워크플로우로 묶습니다.</p>
           </div>
+          <section class="login-panel" aria-labelledby="loginTitle">
+            <div class="login-panel-cap"><span>Access</span><span>Google SSO</span></div>
+            <h2 id="loginTitle">로그인</h2>
+            <p class="login-sub">${COMPANY_DOMAIN} 사내 Google 계정으로 로그인하세요.</p>
+            <div id="loginErr" role="alert" style="display:none;"></div>
+            <button class="login-btn" type="button" onclick="doGoogleLoginFast()">
+              ${GOOGLE_G_SVG}<span>Google 계정으로 로그인</span>
+            </button>
+            <div class="login-quick">${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.<br>처음 로그인하면 자동으로 계정이 생성됩니다.</div>
+            ${IS_LOCAL_ENV ? `
+            <div class="login-dev">
+              <button class="login-btn" type="button" onclick="enterLocalDevMode()">🛠 로컬 테스트 모드로 들어가기 (Google 로그인 없이)</button>
+              <div class="login-dev-note">인터넷/사내망 문제로 Google 로그인이 안 될 때 이 브라우저에서만 우회 진입합니다.<br>프로젝트·WBS 등 클라우드 동기화 기능은 온라인 상태가 아니면 반영되지 않습니다.</div>
+            </div>` : ''}
+          </section>
+          <div class="login-foot"><span>V1.0 Sejong EPC System ⓒ Designed by Cwkim</span><span class="login-foot-mono">Pressure Vessel · Heat Exchanger · Plant Machinery</span></div>
         </div>
-        <div class="login-hero">
-          <h1>세종기술 <span style="color:var(--primary);">통합 협업</span><br>플랫폼</h1>
-          <p class="login-feat">WBS · 간트차트 · ITP · NCR · 견적 · OKR · 결재.<br>품질·설계·영업·생산까지, 하나의 워크플로우로 묶습니다.</p>
-        </div>
-        <div class="login-foot">V1.0 Sejong EPC System ⓒ Designed by Cwkim</div>
       </div>
-      <div class="login-right">
-        <div class="login-form">
-          <div class="login-form-brand" style="text-align:center;margin-bottom:22px;">
-            <div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px;">세종기술 통합 협업 플랫폼</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:4px;">Sejong Technology WorkFlow System</div>
-          </div>
-          <h2>로그인</h2>
-          <p class="login-sub">${COMPANY_DOMAIN} 사내 Google 계정으로 로그인하세요.</p>
-          <div id="loginErr" style="display:none;color:#fee;font-size:12px;margin:6px 0 14px;text-align:center;"></div>
-          <button class="login-btn" onclick="doGoogleLoginFast()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#3c4043;">
-            ${GOOGLE_G_SVG}<span>Google 계정으로 로그인</span>
-          </button>
-          <div class="login-quick">
-            <div style="font-size:11px;color:rgba(255,255,255,.75);text-align:center;line-height:1.6;">${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.<br>처음 로그인하면 자동으로 계정이 생성됩니다.</div>
-          </div>
-          ${IS_LOCAL_ENV ? `
-          <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.2);">
-            <button class="login-btn" onclick="enterLocalDevMode()" style="background:rgba(255,255,255,.12);color:#fff;border:1px dashed rgba(255,255,255,.4);">🛠 로컬 테스트 모드로 들어가기 (Google 로그인 없이)</button>
-            <div style="font-size:10px;color:rgba(255,255,255,.6);text-align:center;margin-top:6px;line-height:1.5;">인터넷/사내망 문제로 Google 로그인이 안 될 때 이 브라우저에서만 우회 진입합니다.<br>프로젝트·WBS 등 클라우드 동기화 기능은 온라인 상태가 아니면 반영되지 않습니다.</div>
-          </div>` : ''}
-        </div>
-      </div>
-    </div>`;
+    </div>
+  `;
   ov.style.display = 'block';
   document.querySelector('.app').style.display = 'none';
-  // 로그인 화면 좌상단에 회사 로고(사이드바 로고) 재사용
+  // 로그인 화면 좌측 브랜드 레일에 회사 로고(사이드바 로고) 재사용 — 로고가 뜨면 대체 마크(.login-logo-dot)는 숨김
   try {
     const _logo = document.querySelector('.sb-logo img');
     const _ll = document.getElementById('loginLogoImg');
@@ -2115,6 +2245,33 @@ function showLogin() {
       _ll.src = _logo.getAttribute('src');
       _ll.style.display = '';
       const dot = ov.querySelector('.login-logo-dot'); if (dot) dot.style.display = 'none';
+    }
+  } catch (e) {}
+  // v30.16: 배경 영상 폴백. 감속 모션·데이터 절약·2G·mp4 미지원이면 <video> 제거(포스터 CSS 배경만 남음),
+  // <video>/<source> 로드·디코드 실패 시에도 제거. 실제 재생이 시작된 뒤에만 .is-playing 으로 페이드인(포스터→영상 끊김 없음).
+  // 로그인 완료로 오버레이가 display:none 되면 IntersectionObserver가 영상을 일시정지(백그라운드 디코딩 CPU 절약),
+  // 요소가 문서에서 떨어지면(재호출·제거) 옵저버도 해제. 영상 요소·API가 없어도 절대 throw 하지 않는다. 전역 상태·타이머·localStorage 없음.
+  try {
+    const _v = ov.querySelector('.login-video');
+    if (_v) {
+      let _io = null;
+      const _drop = () => { try { if (_io) _io.disconnect(); _v.remove(); } catch (e) {} };
+      const _rm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      const _c = navigator.connection, _sd = !!(_c && (_c.saveData || /(^|-)2g$/.test(_c.effectiveType || '')));
+      if (_rm || _sd || typeof _v.canPlayType !== 'function' || !_v.canPlayType('video/mp4')) { _drop(); }
+      else {
+        _v.muted = true;
+        _v.addEventListener('playing', () => _v.classList.add('is-playing'), { once: true });
+        _v.addEventListener('error', _drop, { once: true });
+        _v.querySelectorAll('source').forEach(s => s.addEventListener('error', _drop, { once: true }));
+        if ('IntersectionObserver' in window) {
+          _io = new IntersectionObserver(es => es.forEach(e => {
+            if (!_v.isConnected) { _drop(); return; }
+            const p = e.isIntersecting ? _v.play() : _v.pause(); if (p && typeof p.catch === 'function') p.catch(() => {});
+          })); _io.observe(_v);
+        }
+        const _p = _v.play(); if (_p && typeof _p.catch === 'function') _p.catch(() => {});
+      }
     }
   } catch (e) {}
 }
