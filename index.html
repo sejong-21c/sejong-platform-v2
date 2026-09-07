@@ -398,32 +398,27 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 .qa-form-row label { min-width: 110px; font-size: 11px; color: var(--text-light); font-weight: 600; }
 .qa-doc-head { background: var(--bg); padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
-/* ═══ 로그인 화면 (에디토리얼 그리드: 좌 브랜드 레일 + 전면 배경 영상 + 우상단 로그인 모듈) ═══ */
+/* ═══ 로그인 화면 (에디토리얼 그리드: 전면 배경 + 좌상단 로고 배지 + 좌하단 히어로 + 우상단 로그인 모듈) ═══ */
 /* v30.16: 로그인 화면 리디자인 — 배경 = Higgsfield로 생성한 세종기술 전경 이미지 2컷(assets/login/hero-1.jpg 바다·항만 전경,
    hero-2.jpg 저각 역동 컷; ≤1280px는 -m 1280px판)을 켄번즈(느린 줌·팬) + 28초 주기 크로스페이드로 "움직이는" 배경으로 깐다.
    층 구조(아래→위): ③ 브랜드 그라디언트(CSS) ← ② 포스터 jpg(CSS 배경) ← 이미지 2컷(<img>, 애니메이션) ← ① <video>(LOGIN_HERO_VIDEO 설정 시에만 렌더,
    실제 재생 시작 후 페이드인해 이미지 위를 덮음) ← 스크림 ← 콘텐츠. 감속 모션이면 애니메이션·영상 없이 1컷 정지.
    영상 파일이 생기면 index.html 상단 상수 LOGIN_HERO_VIDEO 에 경로만 넣으면 된다(무료 Higgsfield 플랜은 영상 생성 불가라 현재 비움).
    감속 모션·데이터 절약·2G·mp4 미지원·로드 실패 시 showLogin()의 JS가 <video>를 제거한다.
-   ≥1200px: 좌 128px 흰 레일(회사 로고 가로 배치 · 모노 캡션) + 무대 12컬럼(히어로 카피 좌하단 · 로그인 패널 우상단).
-   <1200px: v29.36 태블릿 잘림 수정 유지 — 단일 컬럼(상단 레일 바 + 히어로 + 하단 시트), 아이패드 가로 1194/세로 834 잘림 없음. 가로 스크롤 없음.
+   ≥1200px: 전면 무대 12컬럼(상단 좌측 로고 배지 + 모노 캡션 · 히어로 카피 좌하단 · 로그인 패널 우상단). v30.16.1: 흰 좌측 레일 제거(사용자 요청).
+   <1200px: v29.36 태블릿 잘림 수정 유지 — 단일 컬럼(헤드 + 히어로 + 하단 시트), 아이패드 가로 1194/세로 834 잘림 없음. 가로 스크롤 없음.
    ≤767px: 시트가 화면 하단 전폭(한 손 조작), 안전영역(env) 반영, 영상 위 블러 없음. */
 .login-wrap { --lg-ink:#03091f; --lg-navy:#0032A0; --lg-sky:#9cc3ff; --lg-mono:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
   --lg-poster:url("assets/login/hero-1.jpg");
-  position:absolute; inset:0; height:100%; height:100dvh; display:grid; grid-template-columns:128px minmax(0,1fr); grid-template-rows:minmax(100%,auto);
+  position:absolute; inset:0; height:100%; height:100dvh; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(100%,auto);
   background:#061233; color:#fff; overflow-x:hidden; overflow-y:auto; max-width:100%; -webkit-font-smoothing:antialiased; }
 @media (max-width:1280px) { .login-wrap { --lg-poster:url("assets/login/hero-1-m.jpg"); } }
 .login-wrap h1, .login-wrap h2, .login-feat, .login-sub, .login-quick, .login-dev-note { word-break:keep-all; overflow-wrap:break-word; }
 
-/* ── 좌측 브랜드 레일(흰 여백지 스파인): 회사 로고(가로, 흰 바탕 PNG가 그대로 어울림) · 모노 캡션(세로) ── */
-.login-rail { position:relative; z-index:4; background:#fff; color:var(--lg-navy); display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:18px; padding:22px 8px 20px; border-right:1px solid rgba(0,50,160,.12); box-shadow:8px 0 32px rgba(0,0,0,.28); }
-.login-logo { flex:0 0 auto; width:100%; min-height:44px; display:flex; align-items:center; justify-content:center; }
-.login-logo-img { display:block; height:40px; width:auto; max-width:100%; }
+/* ── 로고 배지(헤드 줄 맨 왼쪽): 사이드바 로고 PNG는 흰 바탕 불투명이라 어두운 배경 위에는 흰 배지 안에 넣는다 ── */
+.login-logo { flex:0 0 auto; display:flex; align-items:center; justify-content:center; min-height:44px; padding:6px 12px; border-radius:10px; background:#fff; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+.login-logo-img { display:block; height:32px; width:auto; max-width:160px; }
 .login-logo-dot { width:34px; height:22px; border-radius:11px; flex:none; background:linear-gradient(90deg,#0032A0,#1976D2 60%,#7dd3fc); display:inline-block; }
-.login-rail-rule { flex:0 0 auto; width:1px; height:36px; background:rgba(0,50,160,.28); }
-.login-rail-mid { flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-.login-rail-txt { writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; font-family:var(--lg-mono); font-size:12px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--lg-navy); }
-.login-rail-meta { writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; font-family:var(--lg-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:#4b5a70; }
 
 /* ── 무대(영상 영역): 배경 3층 = 그라디언트(③) ← 포스터(②) ← 영상(①), 그 위에 스크림 + 12컬럼 콘텐츠 ── */
 .login-stage { position:relative; min-width:0; display:flex; flex-direction:column; isolation:isolate; }
@@ -455,7 +450,7 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 
 /* ── 12컬럼 콘텐츠 그리드 ── */
 .login-grid { position:relative; z-index:3; flex:1 1 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-template-rows:auto 1fr auto; column-gap:24px; row-gap:24px; padding:36px 48px calc(26px + env(safe-area-inset-bottom,0px)) 48px; }
-.login-head { grid-column:1/8; grid-row:1; display:flex; align-items:center; gap:14px; min-width:0; font-family:var(--lg-mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:rgba(255,255,255,.9); white-space:nowrap; overflow:hidden; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+.login-head { grid-column:1/8; grid-row:1; display:flex; align-items:center; gap:18px; min-width:0; font-family:var(--lg-mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:rgba(255,255,255,.9); white-space:nowrap; overflow:hidden; text-shadow:0 1px 2px rgba(0,0,0,.6); }
 .login-head b { font-weight:700; color:#fff; letter-spacing:.24em; }
 .login-head span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .login-rule { flex:0 0 40px; height:1px; background:rgba(255,255,255,.42); }
@@ -508,15 +503,9 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 
 /* ── 태블릿(768~1199, 아이패드 가로 1194 포함): 단일 컬럼 — 상단 레일 바 · 히어로 중앙 · 하단 시트(480px 중앙) ── */
 @media (max-width:1199.98px) {
-  .login-wrap { grid-template-columns:minmax(0,1fr); grid-template-rows:auto 1fr; }
-  .login-rail { flex-direction:row; justify-content:flex-start; gap:16px; height:56px; padding:0 22px; border-right:none; border-bottom:1px solid rgba(0,50,160,.12); box-shadow:0 6px 24px rgba(0,0,0,.2); }
-  .login-logo { width:auto; min-height:0; }
-  .login-logo-img { height:32px; }
+  .login-logo { min-height:40px; padding:5px 10px; }
+  .login-logo-img { height:28px; }
   .login-logo-dot { width:26px; height:16px; }
-  .login-rail-rule { height:18px; }
-  .login-rail-mid { flex:1 1 auto; justify-content:flex-end; overflow:visible; }
-  .login-rail-txt, .login-rail-meta { writing-mode:horizontal-tb; transform:none; }
-  .login-rail-txt { font-size:11px; letter-spacing:.2em; }
   .login-scrim { background:linear-gradient(180deg, rgba(3,9,31,.62) 0%, rgba(3,9,31,.40) 38%, rgba(3,9,31,.48) 68%, rgba(3,9,31,.84) 100%); }
   .login-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:auto 1fr auto auto; row-gap:18px; padding:24px 32px calc(20px + env(safe-area-inset-bottom,0px)); }
   .login-head { grid-column:1; grid-row:1; }
@@ -530,14 +519,14 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 
 /* ── 휴대폰(≤767, 375×667 기준): 레일 바 축소, 시트가 화면 하단 전폭(한 손 조작), 푸터가 시트 면을 이어받음, 영상 위 블러 없음 ── */
 @media (max-width:767.98px) {
-  .login-rail { height:52px; padding:0 16px; gap:12px; }
-  .login-logo-img { height:28px; }
-  .login-rail-txt, .login-rail-rule { display:none; }
-  .login-rail-meta { font-size:10px; }
+  .login-logo { min-height:36px; padding:4px 8px; border-radius:8px; }
+  .login-logo-img { height:24px; }
+  .login-head { gap:12px; }
   .login-scrim { background:linear-gradient(180deg, rgba(3,9,31,.55) 0%, rgba(3,9,31,.35) 35%, rgba(3,9,31,.86) 100%); }
   .login-grid { row-gap:14px; padding:14px 20px 0; }
   .login-head { font-size:11px; letter-spacing:.12em; }
   .login-head b, .login-head .login-rule { display:none; }
+  .login-head span:last-child { white-space:normal; line-height:1.4; }
   .login-eyebrow { font-size:11px; letter-spacing:.18em; margin-bottom:10px; }
   .login-hero h1 { font-size:clamp(26px,7.4vw,32px); }
   .login-feat { margin-top:12px; font-size:12.5px; line-height:1.65; }
@@ -2189,16 +2178,6 @@ function showLogin() {
   const ov = document.getElementById('authOverlay');
   ov.innerHTML = `
     <div class="login-wrap">
-      <aside class="login-rail" aria-label="세종기술">
-        <div class="login-logo">
-          <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="display:none;">
-          <span class="login-logo-dot" aria-hidden="true"></span>
-        </div>
-        <span class="login-rail-rule" aria-hidden="true"></span>
-        <div class="login-rail-mid"><span class="login-rail-txt">Chemical Plant Equipment</span></div>
-        <span class="login-rail-rule" aria-hidden="true"></span>
-        <div class="login-rail-meta">Busan · Korea</div>
-      </aside>
       <div class="login-stage">
         <div class="login-media" aria-hidden="true">
           <img class="login-shot is-a" alt="" decoding="async" fetchpriority="high" src="assets/login/hero-1.jpg" srcset="assets/login/hero-1-m.jpg 1280w, assets/login/hero-1.jpg 1920w" sizes="100vw">
@@ -2209,7 +2188,13 @@ function showLogin() {
         </video>` : ''}
         <div class="login-scrim" aria-hidden="true"></div>
         <div class="login-grid">
-          <div class="login-head"><b>SJ FLOW</b><span class="login-rule" aria-hidden="true"></span><span>Sejong Technology WorkFlow System</span></div>
+          <div class="login-head">
+            <div class="login-logo" aria-label="㈜세종기술">
+              <img id="loginLogoImg" class="login-logo-img" alt="㈜세종기술" style="display:none;">
+              <span class="login-logo-dot" aria-hidden="true"></span>
+            </div>
+            <b>SJ FLOW</b><span class="login-rule" aria-hidden="true"></span><span>Sejong Technology WorkFlow System</span>
+          </div>
           <div class="login-hero">
             <p class="login-eyebrow">We are building the future</p>
             <h1>세종기술 <em>통합 협업</em><br>플랫폼</h1>
@@ -2237,7 +2222,7 @@ function showLogin() {
   `;
   ov.style.display = 'block';
   document.querySelector('.app').style.display = 'none';
-  // 로그인 화면 좌측 브랜드 레일에 회사 로고(사이드바 로고) 재사용 — 로고가 뜨면 대체 마크(.login-logo-dot)는 숨김
+  // 로그인 화면 상단 로고 배지에 회사 로고(사이드바 로고) 재사용 — 로고가 뜨면 대체 마크(.login-logo-dot)는 숨김
   try {
     const _logo = document.querySelector('.sb-logo img');
     const _ll = document.getElementById('loginLogoImg');
