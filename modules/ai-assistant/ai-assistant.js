@@ -1,6 +1,9 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.79: 뇌 영상을 WebGL 루마 키(밝기=투명도)로 그려 **진짜 투명** — 검은 배경이 사라지고 뇌만
+ * 떠 있어 패널이 흰색이든 어떤 배경이든 그대로 얹힌다(부장님: "흰색이 아니라 투명, 밤이건 낮이건").
+ * 영상 위에는 조준된 기록 라벨만 남기고 대기 뉴런·연결선·펄스는 안 그린다.
  * v29.78: 자비스 뇌 그래픽 몸체를 Higgsfield 렌더 영상(assets/orb-neurons.mp4 — 뉴런 신호가
  * 촤르르륵 점화)으로 교체. 크기 고정·두근거림 없음, 반응은 재생 속도(대기 0.6× · 스캔 2.0× · 조준 1.3×).
  * 캔버스는 위에서 기록 라벨·타게팅 브래킷만 그린다(손으로 그린 윤곽·글로우는 영상 있을 때 생략).
@@ -1627,7 +1630,35 @@
     // 크기 고정, 두근거림 없음(부장님 조건). 반응은 재생 속도로만.
     // 영상은 캔버스 **아래** 층에 깔고, 박스를 어두운 "홀로그램 스크린"으로 칠한다 —
     // 검은 배경 영상이 밝은 패널 위에 네모로 떠 보이지 않게. 못 열리면 조용히 걷어내고 예전 그림으로.
-    var vid = null;
+    var vid = null, fx = null;   // fx: 루마 키 렌더러 { canvas, draw(gain) }
+    // v29.79: 부장님 — "흰 배경이 아니라 **투명**, 밤이건 낮이건 뒤에 어떤 이미지든 붙일 수 있게."
+    // mp4 는 알파를 못 담으므로 검은 배경 영상을 WebGL 로 그리면서 픽셀 밝기를 알파로 쓴다(루마 키):
+    // 검은 배경 = 완전 투명, 빛나는 뉴런 = 불투명. 패널 배경은 그대로(흰색)이고 뇌만 떠 있다.
+    function makeLumaKey(video) {
+      var canvas = document.createElement('canvas'); canvas.id = 'aiBrainFx';
+      var gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false });
+      if (!gl) return null;
+      function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; }
+      var prog = gl.createProgram();
+      gl.attachShader(prog, sh(gl.VERTEX_SHADER, 'attribute vec2 p;varying vec2 t;void main(){t=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}'));
+      gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, 'precision mediump float;uniform sampler2D u;uniform float g;varying vec2 t;void main(){vec3 c=texture2D(u,t).rgb;float l=max(c.r,max(c.g,c.b));float a=clamp(l*g,0.,1.);gl_FragColor=vec4(c*min(1.,a/max(l,1e-4)),a);}'));
+      gl.linkProgram(prog); gl.useProgram(prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      var p = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(p); gl.vertexAttribPointer(p, 2, gl.FLOAT, false, 0, 0);
+      gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      var gLoc = gl.getUniformLocation(prog, 'g');
+      canvas.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;';
+      return { canvas: canvas, draw: function (gain) {
+        if (video.readyState < 2) return;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.uniform1f(gLoc, gain);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      } };
+    }
     function ensureVideo() {
       if (vid !== null) return vid || null;
       var b = box(); if (!b) return null;
@@ -1635,15 +1666,29 @@
         var v = document.createElement('video');
         v.id = 'aiBrainVideo'; v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = !REDUCED; v.preload = 'auto';
         v.setAttribute('aria-hidden', 'true');
-        v.src = 'assets/orb-neurons.mp4?v=29.78';
-        v.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:100%;aspect-ratio:1/1;object-fit:cover;pointer-events:none;' +
-          '-webkit-mask-image:radial-gradient(circle,#000 56%,transparent 72%);mask-image:radial-gradient(circle,#000 56%,transparent 72%);';
-        b.style.background = '#06101c';
+        v.src = 'assets/orb-neurons.mp4?v=29.79';
+        // 영상은 텍스처 공급원일 뿐 — 화면엔 안 보인다(display:none 은 디코딩이 멈출 수 있어 투명 2px)
+        v.style.cssText = 'position:absolute;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;';
+        fx = makeLumaKey(v);
+        if (!fx) { vid = false; return null; }                 // WebGL 없으면 예전 손그림 뇌로
         b.insertBefore(v, b.firstChild);
-        v.addEventListener('error', function () { try { v.remove(); } catch (e) {} vid = false; b.style.background = ''; });
+        b.insertBefore(fx.canvas, cv);                          // 2D 캔버스(라벨) 바로 아래 층
+        v.addEventListener('error', function () { try { v.remove(); fx.canvas.remove(); } catch (e) {} vid = false; fx = null; });
         vid = v;
       } catch (e) { vid = false; }
       return vid || null;
+    }
+    // 뇌 영상을 박스 높이에 맞춘 정사각(고정 크기)으로 그린다 — 숨쉬기 없음
+    function drawVideo() {
+      if (!vid || !fx) return false;
+      var S = Math.round(H);
+      if (fx.canvas.getAttribute('data-s') !== String(S)) {
+        fx.canvas.setAttribute('data-s', S);
+        fx.canvas.style.width = fx.canvas.style.height = S + 'px';
+        fx.canvas.width = fx.canvas.height = Math.min(1080, Math.round(S * Math.min(window.devicePixelRatio || 1, 2)));
+      }
+      fx.draw(1.9);   // 밝기→알파 이득. 흰 패널에서 뇌 몸통이 충분히 진하게 보이는 값
+      return true;
     }
     function setRate(m) {
       var v = ensureVideo(); if (!v) return;
@@ -1747,7 +1792,7 @@
       var cx = geom.ox + geom.bw / 2, cy = geom.oy + geom.bh / 2;
       ringRot += .006 * speed;
       outlineRun = (outlineRun + .0012 * speed) % 1;
-      var vidOn = !!(vid && vid.parentNode);   // 영상 몸체가 있으면 윤곽·글로우·스캔링은 영상이 대신한다
+      var vidOn = drawVideo();   // 영상 몸체를 투명 캔버스에 그렸으면 윤곽·글로우·스캔링은 영상이 대신한다
       // 패널이 숨어 있다가 열리면 자동재생이 안 붙을 수 있다 — 프레임이 돈다는 건 보인다는 뜻이니 다시 켠다(1초 간격)
       if (vidOn && vid.paused && !REDUCED && ts - (vid.__tryAt || 0) > 1000) { vid.__tryAt = ts; try { vid.play().catch(function () {}); } catch (e) {} }
 
@@ -1797,9 +1842,9 @@
       }
       }   // !vidOn
 
-      // ── 신경 연결선
+      // ── 신경 연결선 (영상 몸체가 있으면 연결선·펄스·대기 뉴런은 영상이 대신한다 — 겹치면 "뒤에 남은 것"으로 보인다)
       ctx.lineWidth = 1;
-      links.forEach(function (L) {
+      if (!vidOn) links.forEach(function (L) {
         var a = neurons[L[0]], b = neurons[L[1]];
         ctx.strokeStyle = 'rgba(37,99,235,' + ((a.hot || b.hot) ? .40 : .10) + ')';
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
@@ -1808,9 +1853,9 @@
       // ── 신경 신호 (펄스)
       var maxP = mode === 'think' ? 14 : (mode === 'reveal' ? 8 : 4);
       var prob = mode === 'think' ? .6 : (mode === 'reveal' ? .35 : .12);
-      if (pulses.length < maxP && Math.random() < prob) spawnPulse(mode === 'reveal');
+      if (!vidOn && pulses.length < maxP && Math.random() < prob) spawnPulse(mode === 'reveal');
       pulses = pulses.filter(function (p) { p.t += p.sp * (mode === 'idle' ? .55 : 1); return p.t <= 1; });
-      pulses.forEach(function (p) {
+      if (!vidOn) pulses.forEach(function (p) {
         var a = neurons[p.a], b = neurons[p.b];
         ctx.fillStyle = 'rgba(37,99,235,.95)'; ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 8;
         ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t, 1.6, 0, 7); ctx.fill();
@@ -1824,6 +1869,7 @@
       }
       neurons.forEach(function (n, i) {
         n.flash *= .93;
+        if (vidOn && !n.hot && n.flash < .3) return;   // 영상 위에는 조준된(hot)·번쩍이는 기록 라벨만 남긴다
         var col = NCOLOR[n.type] || NCOLOR.etc;
         var tw = .55 + .45 * Math.sin(ts / 400 + n.tw);   // 반짝임
         var r = n.hot ? 3.8 : (n.label ? 2.2 : 1.6);
@@ -1837,9 +1883,7 @@
           ctx.font = (n.hot ? '700 ' : '') + '9px ui-monospace,Consolas,monospace';
           var label = String(n.label).slice(0, 18), lw2 = ctx.measureText(label).width;
           var lx = Math.max(3, Math.min(n.x + 7, W - lw2 - 7)), ly = Math.max(10, Math.min(n.y + 3, H - 4));
-          // 영상 위(어두운 스크린)에서는 밝은 글자, 예전 흰 패널에서는 진한 파랑
-          ctx.fillStyle = vidOn ? (n.hot ? '#e0f2fe' : 'rgba(191,219,254,' + (.4 + .6 * n.flash) + ')')
-                                : (n.hot ? '#1e3a8a' : 'rgba(30,64,175,' + (.3 + .6 * n.flash) + ')');
+          ctx.fillStyle = n.hot ? '#1e3a8a' : 'rgba(30,64,175,' + (.3 + .6 * n.flash) + ')';
           ctx.fillText(label, lx, ly);
           if (n.hot) { ctx.strokeStyle = col; ctx.lineWidth = 1.2; bracket(lx - 4, ly - 10, lw2 + 8, 14); }
         }
