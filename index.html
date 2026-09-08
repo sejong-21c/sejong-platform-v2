@@ -589,6 +589,10 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
 .ai-fab:hover { background: var(--primary-hover); }
 .ai-panel { position: fixed; right: 24px; bottom: 92px; width: 360px; height: 480px; min-width: 300px; min-height: 340px; max-width: 96vw; max-height: 92vh; resize: both; background: var(--white); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.22); display: none; flex-direction: column; overflow: hidden; z-index: 1700; }
 .ai-panel.open { display: flex; }
+/* v29.80 팝업 모드(?aipop=1): 앱 본체·🤖 버튼은 숨기고 패널을 창 전체로. 로그인(#authOverlay)·모달(#modal)은 살려둔다 */
+html.ai-popup .app, html.ai-popup #aiFab, html.ai-popup #aiPanelResizer, html.ai-popup #aiPopBtn, html.ai-popup #aiMaxBtn { display: none !important; }
+html.ai-popup #aiPanel { display: flex !important; position: fixed !important; left: 0 !important; top: 0 !important; right: auto !important; bottom: auto !important;
+  width: 100vw !important; height: 100vh !important; max-width: none !important; max-height: none !important; border-radius: 0; box-shadow: none; resize: none; }
 /* v29.71: 컴퓨터(넓은 화면)에선 처음부터 큼직하게 — 사용자가 직접 조절한 크기(localStorage)가 있으면 그게 우선 */
 @media (min-width: 1100px) { .ai-panel { width: min(640px, 46vw); height: min(700px, 82vh); } }
 /* v29.72: 좁은 화면(휴대폰)에선 뉴런 박스를 접어 채팅 공간 확보 — 캔버스 폭 0이면 그리기도 자동 중단 */
@@ -863,6 +867,34 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
   }
 })();
 </script>
+<script>
+// v29.80: AI 비서 "새 창" — 같은 앱을 ?aipop=1 로 팝업에 띄우고 패널만 전체 화면으로 보인다.
+// 별도 페이지를 만들지 않는 이유: 로그인 세션(Firebase)·프로젝트/NCR 데이터·게이트웨이 설정을
+// 그대로 써야 하는데, 그건 이 index.html 이 부팅하면서 다 갖추기 때문이다.
+(function () {
+  var pop = new URLSearchParams(location.search).get('aipop') === '1';
+  if (pop) document.documentElement.classList.add('ai-popup');
+  window.openAiPopup = function () {
+    var u = new URL(location.href); u.searchParams.set('aipop', '1'); u.hash = '';
+    var w = window.open(u.toString(), 'sjp_ai_popup', 'width=680,height=860,resizable=yes,scrollbars=no');
+    if (!w) { alert('팝업이 막혔어요. 주소창 오른쪽 팝업 차단 아이콘에서 이 사이트를 허용해 주세요.'); return; }
+    var p = document.getElementById('aiPanel'); if (p) p.classList.remove('open');   // 본창 패널은 접는다 — 대화는 팝업에서
+  };
+  // 팝업 안에서 ✕ 는 창을 닫는다(패널만 닫으면 빈 창이 남는다). 본창에서는 예전처럼 패널 접기.
+  window.aiPanelClose = function () {
+    if (document.documentElement.classList.contains('ai-popup')) { window.close(); return; }
+    if (window.toggleAiPanel) toggleAiPanel();
+  };
+  if (pop) document.addEventListener('DOMContentLoaded', function () {
+    // 부팅 뒤 패널을 연다 — toggleAiPanel 은 ai-assistant.js(defer) 가 덮어쓴 것이라 뇌·자리잡기까지 같이 돈다
+    setTimeout(function () {
+      var p = document.getElementById('aiPanel');
+      if (p && !p.classList.contains('open') && window.toggleAiPanel) toggleAiPanel();
+      try { document.title = 'AI 비서 · 세종플랫폼'; } catch (e) {}
+    }, 300);
+  });
+})();
+</script>
 <div class="ai-panel" id="aiPanel">
   <div class="ai-panel-resizer" id="aiPanelResizer" title="드래그해서 크기 조절"></div>
   <!-- v29.72: 상단 = [뉴런 박스(좌측 고정 크기)] [🤖 + 모드탭(가로, 확장 가능)] [창 버튼] — "AI 비서" 글자 대신 🤖 -->
@@ -877,8 +909,9 @@ i[data-lucide] > svg { font-size: 13px; color: initial; }
         <div style="flex:1;"></div>
         <button class="icon-btn" title="새 대화 (기록 비우기)" onclick="if(window.clearAiChat)clearAiChat()">🧹</button>
         <button class="icon-btn" title="API 키 설정" onclick="openAiKeyModal()">🔑</button>
-        <button class="icon-btn" title="크게/작게" onclick="toggleAiPanelMax()">⤢</button>
-        <button class="icon-btn" title="닫기" onclick="toggleAiPanel()">✕</button>
+        <button class="icon-btn" id="aiPopBtn" title="새 창에서 열기 — AI 비서만 따로 띄워 쓰기" onclick="openAiPopup()">⧉</button>
+        <button class="icon-btn" id="aiMaxBtn" title="크게/작게" onclick="toggleAiPanelMax()">⤢</button>
+        <button class="icon-btn" title="닫기" onclick="aiPanelClose()">✕</button>
       </div>
       <!-- 모드 탭 — 가로 나열, 새 모드가 생기면 오른쪽으로 계속 늘어난다 (넘치면 줄바꿈) -->
       <div id="aiModeBar" style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-content:flex-start;margin-top:8px;overflow-y:auto;">
@@ -7993,7 +8026,7 @@ window.addEventListener('resize', () => {
 </script>
 <!-- v30.13(점검 B2): defer — 119KB 파싱이 HTML 파싱·첫 화면 표시를 막지 않게.
      이 파일 뒤에 오는 인라인 스크립트(lucide 옵저버)는 AI 함수를 참조하지 않으므로 순서 안전. -->
-<script defer src="modules/ai-assistant/ai-assistant.js?v=29.79.0"></script>
+<script defer src="modules/ai-assistant/ai-assistant.js?v=29.80.0"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

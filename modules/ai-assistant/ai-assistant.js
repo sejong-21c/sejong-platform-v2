@@ -1,6 +1,8 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.80: 루마 키에 바닥값(0.07) — 압축 영상의 근검정이 옅은 정사각형으로 비치던 것 제거, 패널 배경과 이어짐.
+ *          index.html 쪽: 패널 머리에 ⧉ "새 창" 버튼 — ?aipop=1 로 같은 앱을 팝업에 띄워 AI 비서만 전체 화면.
  * v29.79: 뇌 영상을 WebGL 루마 키(밝기=투명도)로 그려 **진짜 투명** — 검은 배경이 사라지고 뇌만
  * 떠 있어 패널이 흰색이든 어떤 배경이든 그대로 얹힌다(부장님: "흰색이 아니라 투명, 밤이건 낮이건").
  * 영상 위에는 조준된 기록 라벨만 남기고 대기 뉴런·연결선·펄스는 안 그린다.
@@ -1641,7 +1643,8 @@
       function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; }
       var prog = gl.createProgram();
       gl.attachShader(prog, sh(gl.VERTEX_SHADER, 'attribute vec2 p;varying vec2 t;void main(){t=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}'));
-      gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, 'precision mediump float;uniform sampler2D u;uniform float g;varying vec2 t;void main(){vec3 c=texture2D(u,t).rgb;float l=max(c.r,max(c.g,c.b));float a=clamp(l*g,0.,1.);gl_FragColor=vec4(c*min(1.,a/max(l,1e-4)),a);}'));
+      // 바닥값 0.07: 압축 영상의 "거의 검정"(rgb 8~18)을 완전 투명으로 — 안 그러면 정사각형 경계가 옅게 비친다(v29.80 부장님 신고)
+      gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, 'precision mediump float;uniform sampler2D u;uniform float g;varying vec2 t;void main(){vec3 c=texture2D(u,t).rgb;float l=max(c.r,max(c.g,c.b));float a=clamp((l-.07)/.93*g,0.,1.);gl_FragColor=vec4(c*min(1.,a/max(l,1e-4)),a);}'));
       gl.linkProgram(prog); gl.useProgram(prog);
       gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
