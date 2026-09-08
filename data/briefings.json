@@ -1230,48 +1230,56 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-09-08 08:17 (오전 정리 자동 실행)",
-    "newMails": 2,
-    "processed": 2,
-    "urgentReplies": 2,
+    "generatedAt": "2026-09-09 07:30 (오전 정리 자동 실행)",
+    "newMails": 5,
+    "processed": 3,
+    "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "PPG 천안 R-C201 Jacket 검사방법·잔여수명 평가 기술회신 발송 (초안 작성 완료)",
-        "proj": "PPG KOREA 천안",
+        "text": "더원노무법인 취업규칙 개정 작업 착수 요청 회신 (700,000원 승인 완료, 초안 작성됨)",
+        "proj": "일반사무(노무)",
         "priority": "high"
       },
       {
-        "text": "고객사에 설비 정지일정·맨홀 개방 가능여부·과거 두께측정 기록 3개 항목 역질의",
-        "proj": "PPG KOREA 천안",
+        "text": "9/10 쇼트·하도검사 출발/검사 시각 확정 (신안건업)",
+        "proj": "SJ435-26",
         "priority": "high"
       },
       {
-        "text": "취업규칙 개정 확정 견적서 재발행 요청 및 사내 결재 진행",
-        "proj": "일반사무",
+        "text": "P-1301 SUPPORT 제작 착수일 및 ITP 적용 범위 확인",
+        "proj": "SJ431-25",
         "priority": "mid"
       },
       {
-        "text": "2년 전 취업규칙 hwp 원본 파일 보관 여부 확인",
+        "text": "2년 전 취업규칙 원본 HWP 파일 소재 확인",
+        "proj": "일반사무(노무)",
+        "priority": "mid"
+      },
+      {
+        "text": "중소조선연구원 2027 교육훈련 수요조사 담당 부서 이관",
         "proj": "일반사무",
         "priority": "low"
       }
     ],
     "urgentList": [
       {
-        "subject": "Fwd: 천안공장 R-C201 상태 및 잔여 수명 조사 가능 여부",
-        "from": "정상진 부장 (영업구매부)",
-        "proj": "PPG KOREA 천안"
-      },
-      {
-        "subject": "Re: 더원노무법인 부산사무소입니다. : 견적서 첨부",
-        "from": "김태오 노무사 (더원노무법인)",
-        "proj": "일반사무"
+        "subject": "Re: 더원노무법인 부산사무소입니다. : 견적서 첨부 — 작업진행 요청",
+        "from": "양병원 이사",
+        "proj": "일반사무(노무)"
       }
     ],
-    "schedule": []
+    "schedule": [
+      {
+        "title": "[SJ435-26] 원료3동 6라인 증설공사 쇼트검사/하도검사 (신안건업, 시간 미정)",
+        "date": "2026-09-10",
+        "time": "종일",
+        "proj": "SJ435-26",
+        "color": "green"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-09-03 (daily-mail-swkim 자동 실행)",
