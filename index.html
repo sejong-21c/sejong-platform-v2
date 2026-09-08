@@ -23,7 +23,8 @@
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getAuth, GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged
+    getAuth, GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged,
+    signInWithEmailAndPassword
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
@@ -43,6 +44,8 @@
   window.fb = {
     auth: getAuth(fbApp), db: getFirestore(fbApp),
     GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged,
+    signInWithEmailAndPassword, // v30.16.3: 초청(예외) 계정용 이메일 로그인
+
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit, documentId, // documentId: v29.59 AI 비서 ITP 문서 범위 쿼리용
   };
@@ -2214,6 +2217,16 @@ function showLogin() {
               ${GOOGLE_G_SVG}<span>Google 계정으로 로그인</span>
             </button>
             <div class="login-quick">${COMPANY_DOMAIN} 계정만 로그인할 수 있습니다.<br>처음 로그인하면 자동으로 계정이 생성됩니다.</div>
+            <!-- v30.16.3: 초청(예외) 계정 — 이메일+비밀번호 로그인. EXTRA_ACCOUNTS에 등록된 이메일만 통과(handleAuthChange) -->
+            <button type="button" onclick="const b=document.getElementById('guestLoginBox');b.style.display=b.style.display==='none'?'block':'none';"
+              style="margin-top:12px;border:none;background:none;color:rgba(255,255,255,.55);font-size:11.5px;cursor:pointer;text-decoration:underline;">초청 계정으로 로그인</button>
+            <div id="guestLoginBox" style="display:none;margin-top:8px;">
+              <input id="gLoginEmail" type="email" placeholder="이메일" autocomplete="username"
+                style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:13px;">
+              <input id="gLoginPw" type="password" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doEmailLogin()"
+                style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:13px;">
+              <button class="login-btn" type="button" onclick="doEmailLogin()"><span>초청 계정 로그인</span></button>
+            </div>
             ${IS_LOCAL_ENV ? `
             <div class="login-dev">
               <button class="login-btn" type="button" onclick="enterLocalDevMode()">🛠 로컬 테스트 모드로 들어가기 (Google 로그인 없이)</button>
@@ -2283,6 +2296,25 @@ async function doGoogleLoginFast() {
     }
   }
 }
+
+// v30.16.3: 초청(예외) 계정 이메일 로그인 — Firebase 콘솔 Authentication에 만든 이메일/비밀번호 계정 전용.
+// 로그인 성공해도 EXTRA_ACCOUNTS/사내 도메인이 아니면 handleAuthChange가 즉시 차단한다.
+window.doEmailLogin = async function () {
+  const email = (document.getElementById('gLoginEmail')?.value || '').trim();
+  const pw = document.getElementById('gLoginPw')?.value || '';
+  if (!email || !pw) return;
+  showAuthLoading();
+  try {
+    await fb.signInWithEmailAndPassword(fb.auth, email, pw);
+  } catch (e) {
+    console.warn('[초청 로그인] 실패', e.code);
+    showLogin();
+    setTimeout(() => {
+      const err = document.getElementById('loginErr');
+      if (err) { err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.'; err.style.display = 'block'; }
+    }, 50);
+  }
+};
 
 function doGoogleLoginRedirect() {
   showAuthLoading();
