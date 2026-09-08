@@ -1,6 +1,9 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.78: 자비스 뇌 그래픽 몸체를 Higgsfield 렌더 영상(assets/orb-neurons.mp4 — 뉴런 신호가
+ * 촤르르륵 점화)으로 교체. 크기 고정·두근거림 없음, 반응은 재생 속도(대기 0.6× · 스캔 2.0× · 조준 1.3×).
+ * 캔버스는 위에서 기록 라벨·타게팅 브래킷만 그린다(손으로 그린 윤곽·글로우는 영상 있을 때 생략).
  * v29.66: 파일 첨부(📎) — PDF/이미지는 Gemini·Claude 멀티모달로, Excel/CSV/TXT는
  * 텍스트 변환해 동봉. 부적합 내용이면 create_ncr(폼 프리필)로 연결 — AI 직접 저장 금지
  * 원칙 유지, WBS 자동 조작 금지 규칙에 따라 WBS 쓰기는 미지원(추출·정리까지만).
@@ -1620,6 +1623,33 @@
     ];
     function box() { return $id('aiBrain'); }
     function visible() { var b = box(); return !!(b && b.offsetWidth > 10); }
+    // v29.78: 뉴런 신호 영상 몸체 — 손으로 그린 뇌 대신 Higgsfield 렌더(assets/orb-neurons.mp4).
+    // 크기 고정, 두근거림 없음(부장님 조건). 반응은 재생 속도로만.
+    // 영상은 캔버스 **아래** 층에 깔고, 박스를 어두운 "홀로그램 스크린"으로 칠한다 —
+    // 검은 배경 영상이 밝은 패널 위에 네모로 떠 보이지 않게. 못 열리면 조용히 걷어내고 예전 그림으로.
+    var vid = null;
+    function ensureVideo() {
+      if (vid !== null) return vid || null;
+      var b = box(); if (!b) return null;
+      try {
+        var v = document.createElement('video');
+        v.id = 'aiBrainVideo'; v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = !REDUCED; v.preload = 'auto';
+        v.setAttribute('aria-hidden', 'true');
+        v.src = 'assets/orb-neurons.mp4?v=29.78';
+        v.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:100%;aspect-ratio:1/1;object-fit:cover;pointer-events:none;' +
+          '-webkit-mask-image:radial-gradient(circle,#000 56%,transparent 72%);mask-image:radial-gradient(circle,#000 56%,transparent 72%);';
+        b.style.background = '#06101c';
+        b.insertBefore(v, b.firstChild);
+        v.addEventListener('error', function () { try { v.remove(); } catch (e) {} vid = false; b.style.background = ''; });
+        vid = v;
+      } catch (e) { vid = false; }
+      return vid || null;
+    }
+    function setRate(m) {
+      var v = ensureVideo(); if (!v) return;
+      var r = m === 'think' ? 2.0 : (m === 'reveal' ? 1.3 : 0.6);
+      try { v.playbackRate = r; if (!REDUCED && v.paused) v.play().catch(function () {}); } catch (e) {}
+    }
     var geom = null;   // {ox,oy,bw,bh} 뇌를 박스 안에 맞춘 변환
     function fit() {
       var bh = H * .86, bw = bh * 1.30;
@@ -1669,7 +1699,7 @@
     }
     function ensure() {
       var b = box(); if (!b || !visible()) return false;
-      if (!cv) { cv = $id('aiBrainCanvas'); if (!cv) return false; ctx = cv.getContext('2d'); }
+      if (!cv) { cv = $id('aiBrainCanvas'); if (!cv) return false; ctx = cv.getContext('2d'); ensureVideo(); setRate(mode); }
       var r = b.getBoundingClientRect();
       if (Math.abs(r.width - W) > 2 || Math.abs(r.height - H) > 2) {
         var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1717,7 +1747,11 @@
       var cx = geom.ox + geom.bw / 2, cy = geom.oy + geom.bh / 2;
       ringRot += .006 * speed;
       outlineRun = (outlineRun + .0012 * speed) % 1;
+      var vidOn = !!(vid && vid.parentNode);   // 영상 몸체가 있으면 윤곽·글로우·스캔링은 영상이 대신한다
+      // 패널이 숨어 있다가 열리면 자동재생이 안 붙을 수 있다 — 프레임이 돈다는 건 보인다는 뜻이니 다시 켠다(1초 간격)
+      if (vidOn && vid.paused && !REDUCED && ts - (vid.__tryAt || 0) > 1000) { vid.__tryAt = ts; try { vid.play().catch(function () {}); } catch (e) {} }
 
+      if (!vidOn) {
       // ── 뇌 글로우 (숨쉬듯)
       var glowA = mode === 'think' ? .30 : (.10 + .07 * breath);
       var g = ctx.createRadialGradient(cx, cy, 4, cx, cy, geom.bw * .55);
@@ -1761,6 +1795,7 @@
         ctx.beginPath(); ctx.arc(x, y, k === 0 ? 2.2 : 1.4, 0, 7); ctx.fill();
         ctx.shadowBlur = 0;
       }
+      }   // !vidOn
 
       // ── 신경 연결선
       ctx.lineWidth = 1;
@@ -1802,7 +1837,9 @@
           ctx.font = (n.hot ? '700 ' : '') + '9px ui-monospace,Consolas,monospace';
           var label = String(n.label).slice(0, 18), lw2 = ctx.measureText(label).width;
           var lx = Math.max(3, Math.min(n.x + 7, W - lw2 - 7)), ly = Math.max(10, Math.min(n.y + 3, H - 4));
-          ctx.fillStyle = n.hot ? '#1e3a8a' : 'rgba(30,64,175,' + (.3 + .6 * n.flash) + ')';
+          // 영상 위(어두운 스크린)에서는 밝은 글자, 예전 흰 패널에서는 진한 파랑
+          ctx.fillStyle = vidOn ? (n.hot ? '#e0f2fe' : 'rgba(191,219,254,' + (.4 + .6 * n.flash) + ')')
+                                : (n.hot ? '#1e3a8a' : 'rgba(30,64,175,' + (.3 + .6 * n.flash) + ')');
           ctx.fillText(label, lx, ly);
           if (n.hot) { ctx.strokeStyle = col; ctx.lineWidth = 1.2; bracket(lx - 4, ly - 10, lw2 + 8, 14); }
         }
@@ -1831,6 +1868,7 @@
       mode = 'idle';
       neurons.forEach(function (n) { n.hot = 0; });
       caption('SYSTEM ONLINE');
+      setRate('idle');
       start();
     }
     return {
@@ -1841,6 +1879,7 @@
         assignData();   // 최신 기록으로 라벨 갱신 (뉴런 자리는 유지 — 화면이 튀지 않게)
         mode = 'think';
         caption('지식 스캔 중…');
+        setRate('think');
         start();
       },
       reveal: function (matches) {
@@ -1860,6 +1899,7 @@
         });
         if (!names.length) { toIdle(); return; }
         mode = 'reveal';
+        setRate('reveal');
         caption('근거: ' + names.join(' · ') + '  → 지식 지도에서 보기', function () {
           try { if (typeof switchMod === 'function') switchMod('knowledge'); } catch (e) {}
         });
