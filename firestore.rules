@@ -6,14 +6,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 예외 허용 계정 — index.html의 EXTRA_ACCOUNTS와 반드시 함께 유지
+    function isAllowedEmail() {
+      return request.auth != null && (
+        request.auth.token.email.matches('.*@sejong-21c[.]com$')
+        || request.auth.token.email == 'hkaiedu@naver.com'
+      );
+    }
     function isCompanyUser() {
-      return request.auth != null && request.auth.token.email.matches('.*@sejong-21c[.]com$');
+      return isAllowedEmail();
     }
 
     match /users/{userId} {
       allow read: if isCompanyUser();
       allow create: if request.auth != null && request.auth.uid == userId
-                    && request.auth.token.email.matches('.*@sejong-21c[.]com$');
+                    && isAllowedEmail();
       allow update: if request.auth != null && (
         request.auth.uid == userId ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade == 'super'
@@ -23,7 +30,7 @@ service cloud.firestore {
     }
     match /userState/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid
-                        && request.auth.token.email.matches('.*@sejong-21c[.]com$');
+                        && isAllowedEmail();
     }
     match /pendingUsers/{docId} {
       allow read, write: if isCompanyUser();
