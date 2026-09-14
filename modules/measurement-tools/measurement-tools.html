@@ -1072,6 +1072,14 @@ function openQuoteModal() {
         <input class="fi" id="qt-writer" value="${esc(currentUserName())}">
       </div>
       <div class="fg">
+        <label class="fl">담당자 연락처</label>
+        <input class="fi" id="qt-phone" placeholder="예: 010-1234-5678">
+      </div>
+      <div class="fg">
+        <label class="fl">이메일 주소</label>
+        <input class="fi" id="qt-email" type="email" value="${esc((currentUser()||{}).email||'')}" placeholder="예: qc@sejong-21c.com">
+      </div>
+      <div class="fg">
         <label class="fl">희망 회신일</label>
         <input class="fi" type="date" id="qt-duedate">
       </div>
@@ -1093,6 +1101,8 @@ function generateQuoteRequest() {
   const org = document.getElementById('qt-org').value.trim();
   if (!org) { alert('수신처(교정기관명)를 입력하세요.'); return; }
   const writer = document.getElementById('qt-writer').value.trim();
+  const phone = document.getElementById('qt-phone').value.trim();
+  const email = document.getElementById('qt-email').value.trim();
   const dueDate = document.getElementById('qt-duedate').value;
   const note = document.getElementById('qt-note').value.trim();
   const markWait = document.getElementById('qt-markwait').checked;
@@ -1151,7 +1161,8 @@ function generateQuoteRequest() {
     </div>
     <table class="meta-tbl">
       <tr><td class="k">수신</td><td>${esc(org)} 귀중</td><td class="k">발신</td><td>(주)세종기술 품질관리부</td></tr>
-      <tr><td class="k">담당자</td><td>${esc(writer)||'-'}</td><td class="k">희망 회신일</td><td>${dueDate?fmtDate(dueDate):'-'}</td></tr>
+      <tr><td class="k">담당자</td><td>${esc(writer)||'-'}</td><td class="k">연락처</td><td>${esc(phone)||'-'}</td></tr>
+      <tr><td class="k">이메일</td><td>${esc(email)||'-'}</td><td class="k">희망 회신일</td><td>${dueDate?fmtDate(dueDate):'-'}</td></tr>
     </table>
     <div class="body-text">
       귀사의 무궁한 발전을 기원합니다.<br>
