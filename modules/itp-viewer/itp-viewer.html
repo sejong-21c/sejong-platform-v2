@@ -393,7 +393,7 @@ function _fetchCoverUsersMap() {
 function renderItpCoverHtml(doc, it) {
   _fetchItpCoverHistory(doc.pid, it.id);
   _fetchCoverUsersMap();
-  const history = _coverHistoryCache[doc.pid + '__' + it.id];
+  let history = _coverHistoryCache[doc.pid + '__' + it.id];
   const usersMap = _coverUsersMap || {};
   const proj = doc.proj || {};
   const nameOf = uid => (uid && usersMap[uid]) || uid || '';
@@ -403,6 +403,15 @@ function renderItpCoverHtml(doc, it) {
   const TH = 'border:1px solid #000;padding:5px 4px;font-size:10px;font-weight:700;text-align:center;vertical-align:middle;';
   const TD = 'border:1px solid #000;padding:5px 4px;font-size:10px;text-align:center;vertical-align:middle;height:20px;';
   const fld = 'font-size:13px;font-weight:700;text-decoration:underline;display:inline-block;min-width:120px;';
+  // v2.8: approvals 컬렉션 조회 결과가 비어 있어도(예: itemId 필드가 없던 구버전 프로젝트 단위
+  // 승인 건), 이 아이템이 실제로는 승인된 상태(getItemApproval)라면 그 정보만으로라도
+  // 최소 1행(Rev 0)을 만들어 보여준다 — "승인 완료"인데 "이력 없음"이라 나오는 모순 방지.
+  if (history !== null && history.length === 0) {
+    const ia = getItemApproval(doc, it.id);
+    if (ia && ia.status === 'approved') {
+      history = [{ decidedAt: Number(ia.approvedAt) || null, approvalLine: [{ role: '승인', uid: ia.approvedBy }], _legacyFallback: true }];
+    }
+  }
   const rowsHtml = history === null
     ? `<tr><td colspan="6" style="${TD}color:#999;">개정 이력 조회 중...</td></tr>`
     : (history.length === 0

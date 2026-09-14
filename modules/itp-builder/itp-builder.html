@@ -903,17 +903,31 @@ function ITPCoverSheet({proj, item, pid}){
     let cancelled = false;
     (async () => {
       if (!window.fb || !fb.db || !pid || !itemId) { setHistory([]); return; }
+      let rows = [];
       try {
         const q = fb.query(fb.collection(fb.db, "approvals"),
           fb.where("projId", "==", pid), fb.where("itemId", "==", itemId),
           fb.where("type", "==", "itp"), fb.where("status", "==", "approved"));
         const snap = await fb.getDocs(q);
-        const rows = snap.docs.map(d => d.data()).sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
-        if (!cancelled) setHistory(rows);
+        rows = snap.docs.map(d => d.data()).sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
       } catch(e) {
         console.error("[ITP 갑지 개정이력 조회]", e);
-        if (!cancelled) setHistory([]);
       }
+      // v2.8: approvals 컬렉션에 이 아이템의 itemId로 매칭되는 이력이 없어도(예: itemId
+      // 필드가 없던 구버전 프로젝트 단위 승인 건), 승인 스냅샷(t_itpApproved)이 실제로는
+      // 이 아이템을 승인됨으로 갖고 있다면 그 정보만으로라도 최소 1행(Rev 0)을 만든다 —
+      // "승인 완료"인데 "이력 없음"이라 나오는 모순 방지.
+      if (!rows.length) {
+        try {
+          const snapDoc = await fb.getDoc(fb.doc(fb.db, "t_itpApproved", pid));
+          const sd = snapDoc.exists() ? snapDoc.data() : null;
+          const ia = sd && ((sd.itpApprovalByItem||{})[itemId] || (sd.approvalStatus === "approved" ? {status:"approved", approvedBy: sd.approvedBy, approvedAt: sd.approvedAt} : null));
+          if (ia && ia.status === "approved") {
+            rows = [{ decidedAt: Number(ia.approvedAt) || null, approvalLine: [{ role: "승인", uid: ia.approvedBy }] }];
+          }
+        } catch(e) { /* 스냅샷 조회 실패는 조용히 무시 — 이력 없음으로 표시 */ }
+      }
+      if (!cancelled) setHistory(rows);
       const um = await _getUsersMap();
       if (!cancelled) setUsersMap(um);
     })();
