@@ -874,8 +874,30 @@ function LogoCell(){
 // itemId 일치, status:"approved") 중 승인 완료된 건만 결재일 순으로 나열해
 // 그 순번(0부터)을 그대로 Rev No.로 쓴다 — itpApprovalByItem의 approvalCount와
 // 항상 같은 수가 나오므로 별도 카운터를 새로 만들 필요가 없다.
+// v2.7 — 회사 표준 갑지 양식(기존 종이 서식 스캔본) 그대로 재현: 중앙 제목
+// "Inspection And Test Plan" + Project Name/Client/Manufacturer/JOB No. 라벨
+// 필드 + 하단 개정이력 표(Rev./Date/Prepared/Checked/Approved by(자사·발주처)).
+// uid는 표시용 이름으로 바꿔야 해서 users 컬렉션을 한 번만 불러와 캐싱한다
+// (전체 인쇄 시 아이템 수만큼 컴포넌트가 뜨므로 매번 다시 불러오지 않게).
+let _cachedUsersMap = null, _usersMapPromise = null;
+function _getUsersMap(){
+  if (_cachedUsersMap) return Promise.resolve(_cachedUsersMap);
+  if (!_usersMapPromise) {
+    _usersMapPromise = (async () => {
+      const map = {};
+      try {
+        const snap = await fb.getDocs(fb.collection(fb.db, "users"));
+        snap.docs.forEach(d => { const u = d.data(); map[d.id] = u.name || d.id; });
+      } catch(e) { console.warn("[ITP 갑지] 사용자 목록 조회 실패:", e.message); }
+      _cachedUsersMap = map;
+      return map;
+    })();
+  }
+  return _usersMapPromise;
+}
 function ITPCoverSheet({proj, item, pid}){
   const [history, setHistory] = useState(null); // null=조회중, []=이력없음
+  const [usersMap, setUsersMap] = useState(_cachedUsersMap || {});
   const itemId = item && item.id;
   useEffect(() => {
     let cancelled = false;
@@ -892,58 +914,65 @@ function ITPCoverSheet({proj, item, pid}){
         console.error("[ITP 갑지 개정이력 조회]", e);
         if (!cancelled) setHistory([]);
       }
+      const um = await _getUsersMap();
+      if (!cancelled) setUsersMap(um);
     })();
     return () => { cancelled = true; };
   }, [pid, itemId]);
 
-  const TH = {border:"1px solid #555", padding:"5px 8px", background:"#f5f5f5", fontSize:10.5, fontWeight:700, textAlign:"center", verticalAlign:"middle", whiteSpace:"nowrap"};
-  const TD = {border:"1px solid #888", padding:"5px 8px", fontSize:10.5, verticalAlign:"middle"};
-  const fmtDate = ts => ts ? new Date(ts).toLocaleDateString("ko-KR") : "-";
-  const chainSummary = line => (Array.isArray(line) && line.length)
-    ? line.map(s => `${s.role||""} ${s.uid||""}${s.status==="approved"?" ✓":s.status==="rejected"?" ✗":""}`.trim()).join(" → ")
-    : "-";
-  const activeCodes = Object.keys(proj.codes||{}).filter(c => proj.codes[c]).join(", ") || "-";
+  const nameOf = uid => (uid && usersMap[uid]) || uid || "";
+  const roleName = (line, role) => { const s = (Array.isArray(line)?line:[]).find(x => x.role === role); return s ? nameOf(s.uid) : ""; };
+  const fmtDate = ts => ts ? new Date(ts).toISOString().slice(0,10) : "";
+  const itemLabel = item ? [item.name, item.tag].filter(Boolean).join(" / ") : "";
 
-  return <div style={{fontFamily:"Arial,sans-serif", fontSize:10.5, minHeight:"260mm"}}>
+  const TH = {border:"1px solid #000", padding:"5px 4px", fontSize:10, fontWeight:700, textAlign:"center", verticalAlign:"middle"};
+  const TD = {border:"1px solid #000", padding:"5px 4px", fontSize:10, textAlign:"center", verticalAlign:"middle", height:20};
+  const fld = {fontSize:13, fontWeight:700, textDecoration:"underline", display:"inline-block", minWidth:120};
+
+  return <div style={{fontFamily:"Arial,sans-serif", fontSize:12, minHeight:"260mm", border:"1.5px solid #000", padding:"26px 30px", display:"flex", flexDirection:"column"}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}}`}</style>
-    <table style={{width:"100%", borderCollapse:"collapse", marginBottom:16}}>
-      <tbody>
-        <tr>
-          <td rowSpan={5} style={{border:"1px solid #555", padding:"4px 6px", textAlign:"left", verticalAlign:"middle", width:"32%"}}><LogoCell/></td>
-          <td colSpan={3} style={{border:"1px solid #555", padding:"14px 10px", textAlign:"center", fontSize:17, fontWeight:800}}>검사계획서 갑지<div style={{fontSize:10, fontWeight:400, color:"#666", marginTop:2}}>Inspection &amp; Test Plan — Cover Sheet</div></td>
-        </tr>
-        <tr><td style={TH}>Project No.</td><td style={TD} colSpan={2}>{proj.no||"-"}</td></tr>
-        <tr><td style={TH}>프로젝트명</td><td style={TD} colSpan={2}>{proj.name||"-"}</td></tr>
-        <tr><td style={TH}>발주처</td><td style={TD} colSpan={2}>{proj.customer||"-"}</td></tr>
-        <tr><td style={TH}>아이템명 / Tag No.</td><td style={TD} colSpan={2}>{(item&&(item.name||item.tag))||"-"}{item&&item.tag&&item.name?` / ${item.tag}`:""}</td></tr>
-      </tbody>
-    </table>
-    <table style={{width:"100%", borderCollapse:"collapse", marginBottom:20}}>
-      <tbody>
-        <tr><td style={TH}>PO No.</td><td style={TD}>{proj.po||"-"}</td><td style={TH}>Scope</td><td style={TD}>{proj.scope||"-"}</td></tr>
-        <tr><td style={TH}>적용 코드</td><td style={TD} colSpan={3}>{activeCodes}</td></tr>
-      </tbody>
-    </table>
-
-    <div style={{fontSize:12.5, fontWeight:700, marginBottom:6}}>개정 이력 (Revision History)</div>
-    <table style={{width:"100%", borderCollapse:"collapse"}}>
-      <colgroup><col style={{width:"8%"}}/><col style={{width:"16%"}}/><col style={{width:"52%"}}/><col style={{width:"24%"}}/></colgroup>
-      <thead><tr>
-        <th style={TH}>Rev</th><th style={TH}>승인일자</th><th style={TH}>결재선 (검토 → 승인)</th><th style={TH}>비고</th>
-      </tr></thead>
-      <tbody>
-        {history === null && <tr><td colSpan={4} style={{...TD, textAlign:"center", color:"#999"}}>개정 이력 조회 중...</td></tr>}
-        {history !== null && history.length === 0 && <tr><td colSpan={4} style={{...TD, textAlign:"center", color:"#999"}}>승인 완료 이력이 없습니다(Rev 0 — 최초 발행 전)</td></tr>}
-        {history !== null && history.map((h, i) => (
-          <tr key={i}>
-            <td style={{...TD, textAlign:"center", fontWeight:700}}>{i}</td>
-            <td style={{...TD, textAlign:"center"}}>{fmtDate(h.decidedAt)}</td>
-            <td style={TD}>{chainSummary(h.approvalLine)}</td>
-            <td style={TD}>{h.decisionNote||"-"}</td>
+    <div style={{textAlign:"center", margin:"36px 0 56px"}}>
+      <span style={{fontSize:20, fontWeight:700, textDecoration:"underline"}}>Inspection And Test Plan</span>
+    </div>
+    <div style={{lineHeight:2.4, marginBottom:50}}>
+      <div><span style={fld}>Project Name :</span> &nbsp;{proj.name||""}</div>
+      <div><span style={fld}>Client :</span> &nbsp;{proj.customer||""}</div>
+      <div><span style={fld}>Manufacturer :</span> &nbsp;SEJONG TECH CO., LTD.</div>
+      <div><span style={fld}>JOB No. :</span> &nbsp;{proj.no||""}</div>
+      <div><span style={fld}>Item / Tag No. :</span> &nbsp;{itemLabel}</div>
+    </div>
+    <div style={{marginTop:"auto"}}>
+      <table style={{width:"100%", borderCollapse:"collapse"}}>
+        <colgroup><col style={{width:"8%"}}/><col style={{width:"15%"}}/><col style={{width:"19%"}}/><col style={{width:"19%"}}/><col style={{width:"19%"}}/><col style={{width:"20%"}}/></colgroup>
+        <tbody>
+          {history === null && <tr><td colSpan={6} style={{...TD, color:"#999"}}>개정 이력 조회 중...</td></tr>}
+          {history !== null && history.length === 0 && <tr><td colSpan={6} style={{...TD, color:"#999"}}>승인 이력 없음(최초 발행 전)</td></tr>}
+          {history !== null && history.map((h, i) => (
+            <tr key={i}>
+              <td style={{...TD, fontWeight:700}}>{i===0?"0":String.fromCharCode(64+i) /* 0, A, B, C... */}</td>
+              <td style={TD}>{fmtDate(h.decidedAt)}</td>
+              <td style={TD}>{roleName(h.approvalLine, "작성")}</td>
+              <td style={TD}>{roleName(h.approvalLine, "검토")}</td>
+              <td style={TD}>{roleName(h.approvalLine, "승인")}</td>
+              <td style={TD}></td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th style={TH} rowSpan={2}>Rev.</th>
+            <th style={TH} rowSpan={2}>Date</th>
+            <th style={TH} rowSpan={2}>Prepared by</th>
+            <th style={TH} rowSpan={2}>Checked by</th>
+            <th style={{...TH, borderBottom:"none"}} colSpan={2}>Approved by</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+          <tr>
+            <th style={TH}>Sejong Tech</th>
+            <th style={TH}>Client</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   </div>;
 }
 function EPCSlots({jobNo}){
@@ -3180,7 +3209,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       {/* v2.6: 갑지가 프로젝트 단위 1장이 아니라, 이제 아이템마다 그 아이템의 프리뷰
           바로 앞에 하나씩 붙는다(개별/전체 인쇄 모드 공통) — 승인이 아이템 단위이므로. */}
       {!printAllMode && selectedItem && <>
-        <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom:16}}>
+        <div className="itp-print-page" style={{background:"#fff", marginBottom:16}}>
           <ITPCoverSheet proj={proj} item={selectedItem} pid={PID}/>
         </div>
         <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff"}}>
@@ -3195,7 +3224,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       </>}
 
       {printAllMode && items.map((it, idx) => <React.Fragment key={it.id}>
-        <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom:16}}>
+        <div className="itp-print-page" style={{background:"#fff", marginBottom:16}}>
           <ITPCoverSheet proj={proj} item={it} pid={PID}/>
         </div>
         <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom: idx < items.length-1 ? 16 : 0}}>
