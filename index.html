@@ -7740,6 +7740,53 @@ function openItpApprovalDoc(aid) {
   if (a.itemTag) qs.set('tag', a.itemTag);
   window.open('modules/itp-builder/itp-builder.html?' + qs.toString(), '_blank', 'noopener');
 }
+// v30.x: 결재문서는 "승인완료"인데 ITP 조회엔 미승인으로 남는 사고 복구용 —
+// decideApproval의 ITP 스탬프 쓰기가 (예: Firestore 규칙 문제로) 조용히 실패했던
+// 과거 건들이 이 모순 상태로 남아있을 수 있다. 이 결재문서 자체는 이미 승인
+// 완료 상태이니, 그 정보를 기준으로 t_itpBuilderDocs/t_itpApproved만 다시 써서
+// 맞춘다(멱등 — 이미 맞아 있어도 그대로 다시 쓸 뿐 문제 없음).
+async function resyncItpApprovalStamp(aid) {
+  const a = (state.approvals || []).find(x => x.id === aid);
+  if (!a || a.type !== 'itp' || !a.projId || a.status !== 'approved') return;
+  if (!confirm('이 결재문서(이미 승인완료)를 기준으로 ITP 조회의 승인 상태를 다시 맞출까요?')) return;
+  try {
+    const _iref = fb.doc(fb.db, 't_itpBuilderDocs', a.projId);
+    const _isnap = await fb.getDoc(_iref);
+    if (!_isnap.exists()) return alert('원본 ITP 문서(t_itpBuilderDocs)를 찾을 수 없습니다.');
+    const _icur = _isnap.data();
+    if (a.itemId) {
+      const _prevA = (_icur.itpApprovalByItem || {})[a.itemId] || {};
+      const _itemApproval = {
+        status: 'approved',
+        approvedBy: a.decidedBy || _prevA.approvedBy || null,
+        approvedAt: a.decidedAt || _prevA.approvedAt || Date.now(),
+        approvalId: aid,
+        approvedSig: (_icur.itpContentSigByItem || {})[a.itemId] || _prevA.approvedSig || null,
+        approvalCount: Math.max(Number(_prevA.approvalCount) || 0, 1),
+      };
+      await fb.setDoc(_iref, { itpApprovalByItem: { [a.itemId]: _itemApproval } }, { merge: true });
+      await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), {
+        proj: _icur.proj, items: _icur.items,
+        itpRowsByItem: { [a.itemId]: (_icur.itpRowsByItem || {})[a.itemId] || [] },
+        itpDocNoByItem: { [a.itemId]: (_icur.itpDocNoByItem || {})[a.itemId] || '' },
+        itpHdrByItem: { [a.itemId]: (_icur.itpHdrByItem || {})[a.itemId] || {} },
+        itpRevByItem: { [a.itemId]: (_icur.itpRevByItem || {})[a.itemId] || '0' },
+        itpApprovalByItem: { [a.itemId]: _itemApproval },
+        snapshotAt: Date.now(),
+      }, { merge: true });
+    } else {
+      const _ipatch = {
+        approvalStatus: 'approved', approvedBy: a.decidedBy || null, approvedAt: a.decidedAt || Date.now(),
+        approvalId: aid, approvedSig: _icur.contentSig || null,
+      };
+      await fb.setDoc(_iref, _ipatch, { merge: true });
+      await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), { ..._icur, ..._ipatch, snapshotAt: Date.now(), liveStatus: 'approved' });
+    }
+    alert('✅ 동기화 완료 — ITP 조회에서 다시 확인해보세요.');
+  } catch (e) {
+    alert('❌ 동기화 실패: ' + (e.message || e) + '\n\nFirebase 콘솔 → Firestore → 보안 규칙에서 t_itpBuilderDocs/t_itpApproved 쓰기 권한을 확인해주세요.');
+  }
+}
 // 결재 상세 · 승인/반려 액션 모달
 function openApprovalDetail(aid) {
   const a = (state.approvals || []).find(x => x.id === aid);
@@ -7769,8 +7816,9 @@ function openApprovalDetail(aid) {
       ${_renderStampBox(line)}
     </div>
     ${a.type==='itp' && a.projId?`
-      <div style="margin-bottom:10px;">
+      <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-sm btn-primary" onclick="openItpApprovalDoc('${a.id}')">${LI('file-text','📄')} 결재 문서 확인 (ITP 열람)</button>
+        ${a.status==='approved'?`<button class="btn btn-sm" title="이 결재는 승인완료인데 ITP 조회에는 미승인으로 보인다면 눌러주세요" onclick="resyncItpApprovalStamp('${a.id}')">${LI('refresh-cw','🔄')} ITP 조회 상태 재동기화</button>`:''}
       </div>
     `:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px;">
@@ -7975,7 +8023,15 @@ async function decideApproval(aid, decision) {
           try { await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), { liveStatus: 'rejected' }, { merge: true }); } catch (e) {}
         }
       }
-    } catch (e) { console.warn('ITP 승인 스탬프 실패:', e.message); }
+    } catch (e) {
+      // v30.x: 예전엔 여기서 조용히 삼키고 아래로 계속 진행했다 — 그 결과 ITP 쪽 상태
+      // 갱신(t_itpBuilderDocs/t_itpApproved)은 실패했는데 approvals 문서만 "승인완료"로
+      // 저장되어, 결재 상세엔 승인됐다고 나오는데 ITP 조회엔 그대로 미승인으로 보이는
+      // 모순이 생겼다(예: Firestore 보안규칙 누락 등으로 이 쓰기만 거부된 경우).
+      // wbs-shadow와 동일하게 실패 시 결재 확정 자체를 막아 되돌린다 — 재시도할 수 있게.
+      console.error('ITP 승인 스탬프 실패 — 결재 확정을 중단합니다:', e);
+      return alert('⚠️ ITP 승인 처리 중 오류가 발생해 결재를 확정하지 않았습니다.\n\n오류: ' + (e.message || e) + '\n\nFirebase 콘솔 → Firestore → 보안 규칙에서 t_itpBuilderDocs/t_itpApproved 쓰기 권한을 확인해주세요. 문제가 해결되면 다시 승인해주세요.');
+    }
   }
   try {
     await fb.setDoc(fb.doc(fb.db, 'approvals', aid), patch, { merge: true });
