@@ -922,34 +922,48 @@ function ITPCoverSheet({proj, item, pid}){
 
   const nameOf = uid => (uid && usersMap[uid]) || uid || "";
   const roleName = (line, role) => { const s = (Array.isArray(line)?line:[]).find(x => x.role === role); return s ? nameOf(s.uid) : ""; };
-  const fmtDate = ts => ts ? new Date(ts).toISOString().slice(0,10) : "";
+  const fmtDate = ts => { if (!ts) return ""; const d = new Date(ts); return String(d.getFullYear()).slice(2) + "." + String(d.getMonth()+1).padStart(2,"0") + "." + String(d.getDate()).padStart(2,"0"); };
   const itemLabel = item ? [item.name, item.tag].filter(Boolean).join(" / ") : "";
 
   const TH = {border:"1px solid #000", padding:"5px 4px", fontSize:10, fontWeight:700, textAlign:"center", verticalAlign:"middle"};
   const TD = {border:"1px solid #000", padding:"5px 4px", fontSize:10, textAlign:"center", verticalAlign:"middle", height:20};
   const fld = {fontSize:13, fontWeight:700, textDecoration:"underline", display:"inline-block", minWidth:120};
 
-  return <div style={{fontFamily:"Arial,sans-serif", fontSize:12, minHeight:"260mm", border:"1.5px solid #000", padding:"26px 30px", display:"flex", flexDirection:"column"}}>
+  return <div style={{fontFamily:"Arial,sans-serif", fontSize:12, border:"1.5px solid #000", padding:"26px 30px"}}>
     <style>{`@media print{@page{size:A4 portrait;margin:10mm}}`}</style>
     <div style={{textAlign:"center", margin:"36px 0 56px"}}>
       <span style={{fontSize:20, fontWeight:700, textDecoration:"underline"}}>Inspection And Test Plan</span>
     </div>
-    <div style={{lineHeight:2.4, marginBottom:50}}>
+    <div style={{lineHeight:2.4, marginBottom:60}}>
       <div><span style={fld}>Project Name :</span> &nbsp;{proj.name||""}</div>
       <div><span style={fld}>Client :</span> &nbsp;{proj.customer||""}</div>
       <div><span style={fld}>Manufacturer :</span> &nbsp;SEJONG TECH CO., LTD.</div>
       <div><span style={fld}>JOB No. :</span> &nbsp;{proj.no||""}</div>
       <div><span style={fld}>Item / Tag No. :</span> &nbsp;{itemLabel}</div>
     </div>
-    <div style={{marginTop:"auto"}}>
+    <div>
       <table style={{width:"100%", borderCollapse:"collapse"}}>
         <colgroup><col style={{width:"8%"}}/><col style={{width:"15%"}}/><col style={{width:"19%"}}/><col style={{width:"19%"}}/><col style={{width:"19%"}}/><col style={{width:"20%"}}/></colgroup>
+        <thead>
+          <tr>
+            <th style={TH} rowSpan={2}>Rev. No.</th>
+            <th style={TH} rowSpan={2}>Date</th>
+            <th style={TH} colSpan={3}>Sejong Tech</th>
+            <th style={TH}>Client</th>
+          </tr>
+          <tr>
+            <th style={TH}>Prepared by</th>
+            <th style={TH}>Checked by</th>
+            <th style={TH}>Approved by</th>
+            <th style={TH}>Approved by</th>
+          </tr>
+        </thead>
         <tbody>
           {history === null && <tr><td colSpan={6} style={{...TD, color:"#999"}}>개정 이력 조회 중...</td></tr>}
           {history !== null && history.length === 0 && <tr><td colSpan={6} style={{...TD, color:"#999"}}>승인 이력 없음(최초 발행 전)</td></tr>}
           {history !== null && history.map((h, i) => (
             <tr key={i}>
-              <td style={{...TD, fontWeight:700}}>{i===0?"0":String.fromCharCode(64+i) /* 0, A, B, C... */}</td>
+              <td style={{...TD, fontWeight:700}}>{i}</td>
               <td style={TD}>{fmtDate(h.decidedAt)}</td>
               <td style={TD}>{roleName(h.approvalLine, "작성")}</td>
               <td style={TD}>{roleName(h.approvalLine, "검토")}</td>
@@ -958,19 +972,6 @@ function ITPCoverSheet({proj, item, pid}){
             </tr>
           ))}
         </tbody>
-        <tfoot>
-          <tr>
-            <th style={TH} rowSpan={2}>Rev.</th>
-            <th style={TH} rowSpan={2}>Date</th>
-            <th style={TH} rowSpan={2}>Prepared by</th>
-            <th style={TH} rowSpan={2}>Checked by</th>
-            <th style={{...TH, borderBottom:"none"}} colSpan={2}>Approved by</th>
-          </tr>
-          <tr>
-            <th style={TH}>Sejong Tech</th>
-            <th style={TH}>Client</th>
-          </tr>
-        </tfoot>
       </table>
     </div>
   </div>;

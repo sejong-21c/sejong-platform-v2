@@ -398,7 +398,7 @@ function renderItpCoverHtml(doc, it) {
   const proj = doc.proj || {};
   const nameOf = uid => (uid && usersMap[uid]) || uid || '';
   const roleName = (line, role) => { const s = (Array.isArray(line)?line:[]).find(x => x.role === role); return s ? nameOf(s.uid) : ''; };
-  const fmtDate = ts => ts ? new Date(ts).toISOString().slice(0,10) : '';
+  const fmtDate = ts => { if (!ts) return ''; const d = new Date(ts); return String(d.getFullYear()).slice(2) + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0'); };
   const itemLabel = esc([it.name, it.tag].filter(Boolean).join(' / '));
   const TH = 'border:1px solid #000;padding:5px 4px;font-size:10px;font-weight:700;text-align:center;vertical-align:middle;';
   const TD = 'border:1px solid #000;padding:5px 4px;font-size:10px;text-align:center;vertical-align:middle;height:20px;';
@@ -408,7 +408,7 @@ function renderItpCoverHtml(doc, it) {
     : (history.length === 0
       ? `<tr><td colspan="6" style="${TD}color:#999;">승인 이력 없음(최초 발행 전)</td></tr>`
       : history.map((h,i) => `<tr>
-          <td style="${TD}font-weight:700;">${i===0?'0':String.fromCharCode(64+i)}</td>
+          <td style="${TD}font-weight:700;">${i}</td>
           <td style="${TD}">${fmtDate(h.decidedAt)}</td>
           <td style="${TD}">${esc(roleName(h.approvalLine, '작성'))}</td>
           <td style="${TD}">${esc(roleName(h.approvalLine, '검토'))}</td>
@@ -416,34 +416,35 @@ function renderItpCoverHtml(doc, it) {
           <td style="${TD}"></td>
         </tr>`).join(''));
   return `
-    <div class="itp-cover" style="font-family:Arial,sans-serif;font-size:12px;min-height:260mm;border:1.5px solid #000;padding:26px 30px;box-sizing:border-box;page-break-after:always;display:flex;flex-direction:column;">
+    <div class="itp-cover" style="font-family:Arial,sans-serif;font-size:12px;border:1.5px solid #000;padding:26px 30px;box-sizing:border-box;page-break-after:always;">
       <div style="text-align:center;margin:36px 0 56px;">
         <span style="font-size:20px;font-weight:700;text-decoration:underline;">Inspection And Test Plan</span>
       </div>
-      <div style="line-height:2.4;margin-bottom:50px;">
+      <div style="line-height:2.4;margin-bottom:60px;">
         <div><span style="${fld}">Project Name :</span> &nbsp;${esc(proj.name||'')}</div>
         <div><span style="${fld}">Client :</span> &nbsp;${esc(proj.customer||'')}</div>
         <div><span style="${fld}">Manufacturer :</span> &nbsp;SEJONG TECH CO., LTD.</div>
         <div><span style="${fld}">JOB No. :</span> &nbsp;${esc(proj.no||'')}</div>
         <div><span style="${fld}">Item / Tag No. :</span> &nbsp;${itemLabel}</div>
       </div>
-      <div style="margin-top:auto;">
+      <div>
         <table style="width:100%;border-collapse:collapse;">
           <colgroup><col style="width:8%"><col style="width:15%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:20%"></colgroup>
-          <tbody>${rowsHtml}</tbody>
-          <tfoot>
+          <thead>
             <tr>
-              <th style="${TH}" rowspan="2">Rev.</th>
+              <th style="${TH}" rowspan="2">Rev. No.</th>
               <th style="${TH}" rowspan="2">Date</th>
-              <th style="${TH}" rowspan="2">Prepared by</th>
-              <th style="${TH}" rowspan="2">Checked by</th>
-              <th style="${TH}border-bottom:none;" colspan="2">Approved by</th>
-            </tr>
-            <tr>
-              <th style="${TH}">Sejong Tech</th>
+              <th style="${TH}" colspan="3">Sejong Tech</th>
               <th style="${TH}">Client</th>
             </tr>
-          </tfoot>
+            <tr>
+              <th style="${TH}">Prepared by</th>
+              <th style="${TH}">Checked by</th>
+              <th style="${TH}">Approved by</th>
+              <th style="${TH}">Approved by</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
         </table>
       </div>
     </div>
