@@ -913,10 +913,24 @@ function ITPCoverSheet({proj, item, pid}){
       } catch(e) {
         console.error("[ITP 갑지 개정이력 조회]", e);
       }
-      // v2.8: approvals 컬렉션에 이 아이템의 itemId로 매칭되는 이력이 없어도(예: itemId
-      // 필드가 없던 구버전 프로젝트 단위 승인 건), 승인 스냅샷(t_itpApproved)이 실제로는
-      // 이 아이템을 승인됨으로 갖고 있다면 그 정보만으로라도 최소 1행(Rev 0)을 만든다 —
-      // "승인 완료"인데 "이력 없음"이라 나오는 모순 방지.
+      // v2.8: approvals 컬렉션에 이 아이템의 itemId로 매칭되는 이력이 없을 수 있다(itemId
+      // 필드가 없던 구버전 프로젝트 단위 승인 건). 이 경우 itemId 없이(프로젝트+타입+승인)
+      // 다시 조회하면 그 프로젝트 전체를 승인했던 실제 결재문서(작성·검토·승인 전체
+      // 결재선 포함)를 찾을 수 있으므로, Prepared/Checked도 빈칸이 아니라 그 결재건의
+      // 실제 상신자·검토자로 채운다 — itemId가 붙은(신규 방식) 다른 아이템의 결재건은
+      // 제외(!d.itemId로 구분).
+      if (!rows.length) {
+        try {
+          const q2 = fb.query(fb.collection(fb.db, "approvals"),
+            fb.where("projId", "==", pid), fb.where("type", "==", "itp"), fb.where("status", "==", "approved"));
+          const snap2 = await fb.getDocs(q2);
+          rows = snap2.docs.map(d => d.data()).filter(d => !d.itemId).sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
+        } catch(e) { console.error("[ITP 갑지 레거시 개정이력 조회]", e); }
+      }
+      // v2.8b: 그래도 못 찾으면(approvals 문서 자체가 삭제된 경우 등) 승인 스냅샷
+      // (t_itpApproved)의 최소 정보(승인자·승인일)만으로라도 1행을 만든다 —
+      // "승인 완료"인데 "이력 없음"이라 나오는 모순 방지(Prepared/Checked는 정보가
+      // 없으니 빈칸으로 남김).
       if (!rows.length) {
         try {
           const snapDoc = await fb.getDoc(fb.doc(fb.db, "t_itpApproved", pid));
