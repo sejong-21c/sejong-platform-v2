@@ -381,6 +381,7 @@ function startFirestoreSync() {
     writeLocalCache();
     render();
     maybeSendCalibrationAlerts();
+    maybeAutoMarkCalibWait();
   }, e => console.error('[measurementTools 구독]', e));
   fb.onSnapshot(fb.collection(fb.db, 'measurementCheckouts'), snap => {
     const serverDocs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
@@ -625,6 +626,28 @@ async function maybeSendCalibrationAlerts() {
       }
     } catch(e) { console.warn('알림 발송 실패', e); }
   }
+}
+
+/* ══════════ 교정일 만료 시 자동 '교정대기' 전환 (품질부만, 하루 1회 알림과 같은 타이밍) ══════════ */
+async function maybeAutoMarkCalibWait() {
+  if (!isQADept()) return;
+  if (!window.fb || !fb.auth || !fb.auth.currentUser) return;
+  const targets = tools.filter(x => {
+    if (x.status !== 'normal') return false; // 이미 수리중·폐기·교정대기인 건 건드리지 않음(상태 덮어쓰기 방지)
+    const st = calStatus(x.nextCalibration);
+    return st.level === 'danger'; // 만기 초과(임박은 대상 아님)
+  });
+  if (!targets.length) return;
+  for (const tool of targets) {
+    try {
+      const idx = tools.findIndex(x => x.id === tool.id);
+      if (idx < 0) continue;
+      tools[idx] = { ...tools[idx], status: 'calib_wait', updatedAt: nowISO() };
+      await fb.setDoc(fb.doc(fb.db, 'measurementTools', tool.id), tools[idx]);
+    } catch(e) { console.warn('교정대기 자동 전환 실패', e); }
+  }
+  writeLocalCache();
+  render();
 }
 
 /* ══════════ 렌더링 ══════════ */
