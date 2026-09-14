@@ -7769,6 +7769,10 @@ function approval() {
   const toReview = all.filter(a => apIsMyTurn(a, uid) || apCanJeonGyeol(a, uid));
   const mine     = all.filter(a => a.author === uid && (a.status === 'pending' || a.status === 'review'));
   const done     = all.filter(a => a.status === 'approved' || a.status === 'rejected');
+  // v30.x: "전체 대기"가 그동안 숫자만 보여주고 클릭해 들어갈 목록이 없어서, 내
+  // 결재도 내 요청도 아닌데(예: 다른 사람 결재선에 낀 경우) 대기 중인 건은 확인할
+  // 방법이 없었다 — 전체 목록을 펼쳐서 누구나 확인할 수 있게 한다.
+  const allPending = all.filter(a => a.status === 'pending' || a.status === 'review');
   const cnt = k => all.filter(a => a.status === k).length;
   const tblHead = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재선 진행</th><th>금액</th><th>상태</th><th>기안일</th></tr></thead>`;
   const tblHeadA = `<thead><tr><th>제목</th><th>유형</th><th>기안자</th><th>결재선 진행</th><th>금액</th><th>상태</th><th>기안일</th><th>관리</th></tr></thead>`;
@@ -7794,6 +7798,12 @@ function approval() {
       ${mine.length
         ? `<table class="table">${tblHeadA}<tbody>${mine.map(a=>_renderApprovalRow(a,'mine')).join('')}</tbody></table>`
         : `<div style="text-align:center;padding:14px;color:var(--text-lighter);font-size:12px;">진행 중인 요청이 없습니다.</div>`}
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <h3 style="font-size:14px;margin-bottom:10px;color:var(--text-light);">⏳ 전체 대기 중인 결재 (${allPending.length})</h3>
+      ${allPending.length
+        ? `<table class="table">${tblHead}<tbody>${allPending.map(a=>_renderApprovalRow(a,'all')).join('')}</tbody></table>`
+        : `<div style="text-align:center;padding:14px;color:var(--text-lighter);font-size:12px;">대기 중인 결재가 없습니다.</div>`}
     </div>
     <div class="card" style="margin-top:14px;">
       <h3 style="font-size:14px;margin-bottom:10px;color:var(--text-light);">📚 완료된 결재 (${done.length})</h3>
