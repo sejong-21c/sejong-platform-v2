@@ -413,7 +413,7 @@ function renderItpCoverHtml(doc, it) {
   const itemLabel = esc([it.name, it.tag].filter(Boolean).join(' / '));
   const TH = 'border:1px solid #000;padding:5px 4px;font-size:10px;font-weight:700;text-align:center;vertical-align:middle;';
   const TD = 'border:1px solid #000;padding:5px 4px;font-size:10px;text-align:center;vertical-align:middle;height:20px;';
-  const fld = 'font-size:13px;font-weight:700;text-decoration:underline;display:inline-block;min-width:120px;';
+  const fld = 'font-size:18px;font-weight:700;text-decoration:underline;display:inline-block;min-width:150px;';
   // v2.8: approvals 컬렉션 조회 결과가 비어 있어도(예: itemId 필드가 없던 구버전 프로젝트 단위
   // 승인 건), 이 아이템이 실제로는 승인된 상태(getItemApproval)라면 그 정보만으로라도
   // 최소 1행(Rev 0)을 만들어 보여준다 — "승인 완료"인데 "이력 없음"이라 나오는 모순 방지.
@@ -436,15 +436,15 @@ function renderItpCoverHtml(doc, it) {
           <td style="${TD}"></td>
         </tr>`).join(''));
   return `
-    <div class="itp-cover" style="font-family:Arial,sans-serif;font-size:12px;border:1.5px solid #000;padding:26px 30px;box-sizing:border-box;page-break-after:always;position:relative;">
+    <div class="itp-cover" style="font-family:Arial,sans-serif;font-size:15px;border:1.5px solid #000;padding:26px 30px;box-sizing:border-box;page-break-after:always;position:relative;">
       <div style="position:absolute;top:26px;left:30px;display:flex;align-items:center;gap:8px;">
         <img src="${ITP_LOGO}" alt="㈜세종기술" style="max-width:96px;max-height:50px;object-fit:contain;flex-shrink:0;">
         <div style="font-size:8.5px;line-height:1.5;color:#222;white-space:nowrap;"><div style="font-weight:700;font-size:10px;">㈜세종기술</div><div>Sejong Tech Co., Ltd.</div></div>
       </div>
-      <div style="text-align:center;margin:36px 0 56px;">
-        <span style="font-size:20px;font-weight:700;text-decoration:underline;">Inspection And Test Plan</span>
+      <div style="text-align:center;margin:30px 0 44px;">
+        <span style="font-size:30px;font-weight:700;text-decoration:underline;">Inspection And Test Plan</span>
       </div>
-      <div style="line-height:2.4;margin-bottom:60px;">
+      <div style="line-height:2.3;margin-bottom:44px;">
         <div><span style="${fld}">Project Name :</span> &nbsp;${esc(proj.name||'')}</div>
         <div><span style="${fld}">Client :</span> &nbsp;${esc(proj.customer||'')}</div>
         <div><span style="${fld}">Manufacturer :</span> &nbsp;SEJONG TECH CO., LTD.</div>
