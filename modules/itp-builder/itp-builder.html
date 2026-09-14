@@ -727,14 +727,11 @@ async function writeItpDocToFirestore(payload) {
   // "커스텀 Object"로 오인해 setDoc을 거부하는 문제가 있었음(2026-07-07 실사용 중 발견). 이 창 realm의
   // 순수 plain object로 재생성해 해결. 함수/undefined 등 Firestore가 못 저장하는 값도 함께 제거됨.
   const doc = JSON.parse(JSON.stringify({...payload, items}));
-  // v1.12: 승인 스탬프 보존 + 재승인 정책.
-  //   - 저장은 문서 전체 덮어쓰기라 approval* 필드가 payload에 없으면 지워짐 → 기존 값 보존.
-  //   - 단, 승인 완료(approved) 상태에서 "내용이 실제로 바뀌면" 재승인이 필요하므로
-  //     approvalStatus를 'draft'로 되돌린다(→ ITP 조회에서 빠지고, 재상신·재승인 대상).
-  //     열기만 한 자동저장은 내용 서명(contentSig)이 같아 승인 유지.
-  const newSig = _itpContentSig(payload);
-  doc.contentSig = newSig;
+  // v2.6: 승인이 프로젝트 단위 → 아이템 단위로 바뀜(itpApprovalByItem). 최상위
+  // approvalStatus 등은 과거(마이그레이션 이전) 문서의 하위호환용으로만 보존하고,
+  // 신규 저장은 더 이상 이 필드들을 새로 쓰지 않는다(아래서 기존 값 그대로 copy-forward만 함).
   let _exItemCount = 0, _exRowKeys = 0;
+  let exApprovalByItem = {};
   try {
     const ex = await fb.getDoc(fb.doc(fb.db, ITP_FS_COLL, PID));
     if (ex.exists()) {
@@ -742,14 +739,29 @@ async function writeItpDocToFirestore(payload) {
       _exItemCount = (e.items||[]).length;
       _exRowKeys = Object.keys(e.itpRowsByItem||{}).length;
       ["approvalStatus","approvedBy","approvedAt","approvalId","approvedSig","approvalCount"].forEach(k => { if (e[k] !== undefined && doc[k] === undefined) doc[k] = e[k]; });
-      // 승인 완료본을 실제로 편집 → 재승인 필요: 결재중 전 단계인 'draft'로 되돌림
-      if (e.approvalStatus === "approved" && e.approvedSig && e.approvedSig !== newSig) {
-        doc.approvalStatus = "draft";
-        doc.approvedBy = null; doc.approvedAt = null;
-        try { showMsg("⚠ 승인된 ITP를 수정했습니다 — 재승인이 필요합니다. (결재 상신하면 승인 시 Rev.가 올라갑니다)", 8000); } catch(_){}
-      }
+      exApprovalByItem = e.itpApprovalByItem || {};
     }
   } catch(e) { console.warn("[ITP] 승인 스탬프 보존 조회 실패(무시):", e.message); }
+  // v2.6: 아이템 단위 재승인 정책 — 승인된 아이템의 내용(검사행/문서번호/헤더)이 실제로
+  // 바뀌면 그 아이템만 'draft'로 되돌린다(다른 아이템의 승인 상태는 영향 없음). 열기만 한
+  // 자동저장은 서명(contentSig)이 같아 승인 유지.
+  const newApprovalByItem = {...exApprovalByItem};
+  const _downgradedTags = [];
+  const _sigByItem = {};
+  (doc.items||[]).forEach(it => {
+    const sig = _itpContentSig(payload, it.id);
+    _sigByItem[it.id] = sig; // v2.6: index.html의 decideApproval이 재해시 없이 그대로 읽어 approvedSig로 쓴다
+    const prevA = exApprovalByItem[it.id];
+    if (prevA && prevA.status === "approved" && prevA.approvedSig && prevA.approvedSig !== sig) {
+      newApprovalByItem[it.id] = {...prevA, status: "draft", approvedBy: null, approvedAt: null};
+      _downgradedTags.push(it.tag || it.name || it.id);
+    }
+  });
+  doc.itpApprovalByItem = newApprovalByItem;
+  doc.itpContentSigByItem = _sigByItem;
+  if (_downgradedTags.length) {
+    try { showMsg(`⚠ 승인된 아이템(${_downgradedTags.join(", ")})을 수정했습니다 — 재승인이 필요합니다. (결재 상신하면 승인 시 Rev.가 올라갑니다)`, 8000); } catch(_){}
+  }
   // v1.13: ★ 빈 저장으로 클라우드를 지우는 사고 방지 ★ — 새 내용에 아이템이 하나도 없는데
   //   클라우드엔 아이템/검사행이 남아 있으면(로드 전 자동저장·New 오작동 등) 덮어쓰지 않는다.
   //   (2026-07-23 SJ435-26 ITP 문서가 빈 상태로 덮어써져 전 아이템이 유실된 사고 방지)
@@ -767,13 +779,14 @@ function _stableStr(o){
   if (o && typeof o === "object") return "{" + Object.keys(o).sort().map(k => JSON.stringify(k) + ":" + _stableStr(o[k])).join(",") + "}";
   return JSON.stringify(o === undefined ? null : o);
 }
-function _itpContentSig(payload){
+// v2.6: 승인이 아이템 단위로 바뀌어, 서명도 그 아이템 하나의 검사행·문서번호·헤더만
+// 대상으로 한다(다른 아이템을 고쳐도 이 아이템 서명엔 영향 없음).
+function _itpContentSig(payload, itemId){
   try {
     return _stableStr({
-      rows: payload.itpRowsByItem || {},
-      docno: payload.itpDocNoByItem || {},
-      hdr: payload.itpHdrByItem || {},
-      items: (payload.items || []).map(i => ({ id: i.id, tag: i.tag, name: i.name }))
+      rows: (payload.itpRowsByItem || {})[itemId] || [],
+      docno: (payload.itpDocNoByItem || {})[itemId] || "",
+      hdr: (payload.itpHdrByItem || {})[itemId] || {}
     });
   } catch(e) { return ""; }
 }
@@ -854,20 +867,24 @@ function LogoCell(){
     </div>
   </div>;
 }
-// v2.5 — ITP 갑지(표지): 프로젝트 정보 + 승인 개정이력. "전체 인쇄" 맨 앞장에만
-// 붙는다. 개정번호는 별도로 저장하지 않고, 이 프로젝트의 ITP 결재요청
-// (approvals 컬렉션, type:"itp", status:"approved") 중 승인 완료된 건만 결재일
-// 순으로 나열해 그 순번(0부터)을 그대로 Rev No.로 쓴다 — approvalCount와
+// v2.6 — ITP 갑지(표지): 프로젝트 정보 + 이 아이템의 승인 개정이력. 승인이
+// 프로젝트 단위가 아니라 아이템 단위로 바뀌어(itpApprovalByItem), 갑지도
+// 아이템마다 하나씩(그 아이템의 프리뷰 바로 앞에) 붙는다. 개정번호는 별도로
+// 저장하지 않고, 이 아이템의 ITP 결재요청(approvals 컬렉션, type:"itp",
+// itemId 일치, status:"approved") 중 승인 완료된 건만 결재일 순으로 나열해
+// 그 순번(0부터)을 그대로 Rev No.로 쓴다 — itpApprovalByItem의 approvalCount와
 // 항상 같은 수가 나오므로 별도 카운터를 새로 만들 필요가 없다.
-function ITPCoverSheet({proj, itemCount, pid}){
+function ITPCoverSheet({proj, item, pid}){
   const [history, setHistory] = useState(null); // null=조회중, []=이력없음
+  const itemId = item && item.id;
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!window.fb || !fb.db || !pid) { setHistory([]); return; }
+      if (!window.fb || !fb.db || !pid || !itemId) { setHistory([]); return; }
       try {
         const q = fb.query(fb.collection(fb.db, "approvals"),
-          fb.where("projId", "==", pid), fb.where("type", "==", "itp"), fb.where("status", "==", "approved"));
+          fb.where("projId", "==", pid), fb.where("itemId", "==", itemId),
+          fb.where("type", "==", "itp"), fb.where("status", "==", "approved"));
         const snap = await fb.getDocs(q);
         const rows = snap.docs.map(d => d.data()).sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
         if (!cancelled) setHistory(rows);
@@ -877,7 +894,7 @@ function ITPCoverSheet({proj, itemCount, pid}){
       }
     })();
     return () => { cancelled = true; };
-  }, [pid]);
+  }, [pid, itemId]);
 
   const TH = {border:"1px solid #555", padding:"5px 8px", background:"#f5f5f5", fontSize:10.5, fontWeight:700, textAlign:"center", verticalAlign:"middle", whiteSpace:"nowrap"};
   const TD = {border:"1px solid #888", padding:"5px 8px", fontSize:10.5, verticalAlign:"middle"};
@@ -898,7 +915,7 @@ function ITPCoverSheet({proj, itemCount, pid}){
         <tr><td style={TH}>Project No.</td><td style={TD} colSpan={2}>{proj.no||"-"}</td></tr>
         <tr><td style={TH}>프로젝트명</td><td style={TD} colSpan={2}>{proj.name||"-"}</td></tr>
         <tr><td style={TH}>발주처</td><td style={TD} colSpan={2}>{proj.customer||"-"}</td></tr>
-        <tr><td style={TH}>검사 대상 Tag</td><td style={TD} colSpan={2}>{itemCount}개</td></tr>
+        <tr><td style={TH}>아이템명 / Tag No.</td><td style={TD} colSpan={2}>{(item&&(item.name||item.tag))||"-"}{item&&item.tag&&item.name?` / ${item.tag}`:""}</td></tr>
       </tbody>
     </table>
     <table style={{width:"100%", borderCollapse:"collapse", marginBottom:20}}>
@@ -2433,8 +2450,12 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
     } catch (e) {}
     // v3.4: 결재가 본인에게 갇히던 사고(검토=작성자) 방지 —
     //   ① 검토 기본 OFF(사용자가 명시적으로 켜야 함) ② 승인자 기본 PM(본인이면 비움)
+    // v2.6: 결재가 이제 프로젝트 단위가 아니라 아이템 단위 — 현재 열려 있는 아이템을
+    //   기본값으로 잡되, 모달에서 다른 아이템으로 바꿀 수 있게 한다.
+    if (!items.length) { showMsg("결재를 올릴 아이템이 없습니다.", 5000); return; }
     setAppvModal({
       users, pmUid, projCode, projName, selfUid: cur.uid,
+      itemId: selectedItpItemId || items[0].id,
       // v3.5: 본인이 부서장/PM이라 스스로 승인권자인 경우 → '작성자 즉시 승인' 옵션.
       //   내가 PM이면 기본 체크(가장 흔한 상황), 아니면 꺼둠.
       selfApprove: !!(pmUid && pmUid === cur.uid),
@@ -2445,10 +2466,14 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
   };
 
   // v3.3: 모달에서 지정한 결재선으로 실제 상신. 작성(본인·자동승인) → [검토] → 승인.
+  // v2.6: 이제 프로젝트 전체가 아니라 모달에서 고른 아이템 하나만 결재 대상.
   const doSubmitItpApproval = async () => {
     const cur = fb.auth && fb.auth.currentUser;
     const m = appvModal;
     if (!cur || !m) return;
+    const targetItem = items.find(it => it.id === m.itemId);
+    if (!targetItem) { showMsg("결재 대상 아이템을 찾을 수 없습니다.", 5000); return; }
+    const itemLabel = targetItem.name || targetItem.tag || targetItem.id;
     // ── v3.5: 작성자 본인이 승인권자(부서장·PM) → 즉시 승인 처리 ──
     if (m.selfApprove) {
       const now = Date.now();
@@ -2460,9 +2485,10 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       ];
       const docData = {
         id, type: "itp",
-        title: `[${m.projCode || PID}] ITP 결재${proj.name ? " - " + proj.name : ""}`,
+        title: `[${m.projCode || PID}] ITP 결재 - ${itemLabel}${proj.name ? " (" + proj.name + ")" : ""}`,
         projId: PID, projCode: m.projCode, projName: m.projName,
-        description: `ITP Builder에서 작성한 ITP 결재 (작성자 본인 승인, 검사 아이템 ${items.length}종)`,
+        itemId: targetItem.id, itemTag: targetItem.tag || "", itemName: targetItem.name || "",
+        description: `ITP Builder에서 작성한 "${itemLabel}" ITP 결재 (작성자 본인 승인)`,
         author: cur.uid, approvalLine: line,
         approver: cur.uid, to: cur.uid,
         status: "approved", decidedBy: cur.uid, decidedAt: now,
@@ -2472,30 +2498,45 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       showMsg("☁ ITP 저장 후 즉시 승인 처리 중...", 15000);
       try {
         await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
-        // 승인 스탬프 (index.html decideApproval 의 finalApproved 로직과 동일 — 재승인 시 Rev.No +1)
+        // 승인 스탬프 (index.html decideApproval 의 finalApproved 로직과 동일 — 재승인 시 이 아이템 Rev.No만 +1)
         try {
           const iref = fb.doc(fb.db, "t_itpBuilderDocs", PID);
           const isnap = await fb.getDoc(iref);
           const icur = isnap.exists() ? isnap.data() : {};
-          const ipatch = { approvalStatus: "approved", approvedBy: cur.uid, approvedAt: now, approvalId: id, approvedSig: icur.contentSig || null };
-          const prevCount = Number(icur.approvalCount) || 0;
-          ipatch.approvalCount = prevCount + 1;
+          const prevA = (icur.itpApprovalByItem || {})[targetItem.id] || {};
+          const prevCount = Number(prevA.approvalCount) || 0;
+          const itemApproval = {
+            status: "approved", approvedBy: cur.uid, approvedAt: now, approvalId: id,
+            approvedSig: _itpContentSig({ itpRowsByItem: icur.itpRowsByItem, itpDocNoByItem: icur.itpDocNoByItem, itpHdrByItem: icur.itpHdrByItem }, targetItem.id),
+            approvalCount: prevCount + 1,
+          };
+          const ipatch = { itpApprovalByItem: { [targetItem.id]: itemApproval } };
           if (prevCount >= 1) {
             const rev = Object.assign({}, icur.itpRevByItem || {});
-            (icur.items || []).forEach(it => { rev[it.id] = _bumpItpRev(rev[it.id]); });
+            rev[targetItem.id] = _bumpItpRev(rev[targetItem.id]);
             ipatch.itpRevByItem = rev;
           }
           await fb.setDoc(iref, ipatch, { merge: true });
           // v1.15 ★ 승인본 스냅샷 ★ — 승인 시점 내용을 t_itpApproved/{pid}에 보관.
           //   ITP 조회는 스냅샷을 보므로 이후 편집으로 라이브가 draft가 되어도 조회에서 안 사라진다.
+          //   v2.6: 스냅샷은 여전히 프로젝트당 1개(itp-viewer.html 구조 그대로 재사용) —
+          //   단, {merge:true}로 이 아이템의 슬라이스만 patch해서 다른 아이템의 이미 승인된
+          //   내용을 덮어쓰지 않는다. proj/items는 최신값으로 같이 갱신(가볍고 항상 안전).
           try {
-            const snapDoc = { ...icur, ...ipatch, snapshotAt: Date.now(), liveStatus: "approved" }; // liveStatus: 점검 B3
-            delete snapDoc.contentSig; delete snapDoc.approvedSig;
-            await fb.setDoc(fb.doc(fb.db, "t_itpApproved", PID), snapDoc);
+            const snapPatch = {
+              proj, items,
+              itpRowsByItem: { [targetItem.id]: itpRowsByItem[targetItem.id] || [] },
+              itpDocNoByItem: { [targetItem.id]: itpDocNoByItem[targetItem.id] || "" },
+              itpHdrByItem: { [targetItem.id]: itpHdrByItem[targetItem.id] || {} },
+              itpApprovalByItem: { [targetItem.id]: itemApproval },
+              snapshotAt: Date.now(), liveStatus: "approved",
+            };
+            if (ipatch.itpRevByItem) snapPatch.itpRevByItem = { [targetItem.id]: ipatch.itpRevByItem[targetItem.id] };
+            await fb.setDoc(fb.doc(fb.db, "t_itpApproved", PID), snapPatch, { merge: true });
           } catch (e) { console.warn("승인본 스냅샷 저장 실패:", e.message); }
         } catch (e) { console.warn("자가승인 스탬프 실패:", e.message); }
         await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
-        showMsg("✅ 작성자 본인 권한으로 즉시 승인 완료 — ITP 조회에 바로 등록됩니다.", 8000);
+        showMsg(`✅ "${itemLabel}" 작성자 본인 권한으로 즉시 승인 완료 — ITP 조회에 바로 등록됩니다.`, 8000);
       } catch (e) { showMsg("상신 실패: " + (e.message || e), 6000); }
       return;
     }
@@ -2517,9 +2558,10 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
     const today = new Date().toISOString().slice(0, 10);
     const docData = {
       id, type: "itp",
-      title: `[${m.projCode || PID}] ITP 결재${proj.name ? " - " + proj.name : ""}`,
+      title: `[${m.projCode || PID}] ITP 결재 - ${itemLabel}${proj.name ? " (" + proj.name + ")" : ""}`,
       projId: PID, projCode: m.projCode, projName: m.projName,
-      description: `ITP Builder에서 작성한 ITP 결재 요청입니다. (검사 아이템 ${items.length}종)`,
+      itemId: targetItem.id, itemTag: targetItem.tag || "", itemName: targetItem.name || "",
+      description: `ITP Builder에서 작성한 "${itemLabel}" ITP 결재 요청입니다.`,
       author: cur.uid, approvalLine: line,
       approver: firstPending.uid, to: firstPending.uid,
       status: "pending", date: today, createdAt: Date.now(),
@@ -2529,14 +2571,15 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
     try {
       await writeItpDocToFirestore({ proj, items, specReqs, quoteItems, revComments, itpRows: buildLegacyItpRows(), itpRowsByItem, itpDocNoByItem, itpRevByItem, itpHdrByItem, wpsList, welderList, inspectorList, savedAt: Date.now() });
       // v3.3: ITP 조회에서 '결재중' 배지가 뜨도록 상태 스탬프 (승인/반려 시 index.html decideApproval이 갱신)
-      try { await fb.setDoc(fb.doc(fb.db, "t_itpBuilderDocs", PID), { approvalStatus: "pending", approvalId: id, approvedBy: null, approvedAt: null }, { merge: true }); } catch(e) {}
-      // v3.5(점검 B3): 같은 상태를 승인본 스냅샷에도 liveStatus로 남긴다 — ITP 조회가 라이브 문서를
-      //   실시간 구독하지 않고도 '개정 작업 중' 배지를 그릴 수 있게 (조회 다운로드량 절반).
-      try { await fb.setDoc(fb.doc(fb.db, "t_itpApproved", PID), { liveStatus: "pending" }, { merge: true }); } catch(e) {}
+      try { await fb.setDoc(fb.doc(fb.db, "t_itpBuilderDocs", PID), { itpApprovalByItem: { [targetItem.id]: { status: "pending", approvalId: id, approvedBy: null, approvedAt: null } } }, { merge: true }); } catch(e) {}
+      // v3.5(점검 B3): 같은 상태를 승인본 스냅샷에도 남긴다 — ITP 조회가 라이브 문서를 실시간
+      //   구독하지 않고도 이 아이템의 '결재중' 배지를 그릴 수 있게 (조회 다운로드량 절반).
+      //   v2.6: 프로젝트 전체가 아니라 이 아이템의 itpApprovalByItem 슬라이스만 patch.
+      try { await fb.setDoc(fb.doc(fb.db, "t_itpApproved", PID), { itpApprovalByItem: { [targetItem.id]: { status: "pending", approvalId: id } } }, { merge: true }); } catch(e) {}
       await fb.setDoc(fb.doc(fb.db, "approvals", id), docData);
       showMsg(m.includeReview
-        ? "✅ 검토 → 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)"
-        : "✅ 승인자에게 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)", 8000);
+        ? `✅ "${itemLabel}" 검토 → 승인 순서로 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)`
+        : `✅ "${itemLabel}" 승인자에게 ITP 결재를 올렸습니다. (결재 메뉴에서 진행 확인)`, 8000);
     } catch (e) { showMsg("결재 상신 실패: " + (e.message || e), 6000); }
   };
   // v2.1 — 자동저장(1초 디바운스)과 동일한 함수를 즉시 실행. 이 기능 도입 이전부터 로컬에만
@@ -2700,6 +2743,14 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
         <div style={{fontWeight:700, marginBottom:4, fontSize:15}}>📋 ITP 결재 상신</div>
         <div style={{fontSize:11, color:"var(--sjp-text-sub)", marginBottom:14, lineHeight:1.5}}>
           결재선을 지정하세요. 작성은 본인이며, 검토는 선택입니다. 최종 승인자가 승인하면 ITP 조회에 등록됩니다.
+        </div>
+        {/* v2.6: 결재 대상 아이템 선택 — 프로젝트 전체가 아니라 아이템 하나만 상신 */}
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:12, fontWeight:700, marginBottom:4}}>결재 대상 아이템 <span style={{color:"#dc2626"}}>*</span></div>
+          <select value={appvModal.itemId} onChange={e=>setAppvModal(p=>({...p, itemId:e.target.value}))}
+            style={{width:"100%", padding:"7px 8px", border:"1px solid var(--sjp-border)", borderRadius:6, fontSize:12}}>
+            {items.map(it => <option key={it.id} value={it.id}>{it.name || it.tag || it.id}{it.tag && it.name ? ` / ${it.tag}` : ""}</option>)}
+          </select>
         </div>
         {/* 작성 (본인, 고정) */}
         <div style={{display:"flex", alignItems:"center", gap:8, padding:"8px 10px", background:"#f0f7ff", border:"1px solid #cfe0f5", borderRadius:6, marginBottom:8}}>
@@ -3126,8 +3177,13 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
         </div>
       </div>
 
-      {!printAllMode && selectedItem &&
-        <div style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff"}}>
+      {/* v2.6: 갑지가 프로젝트 단위 1장이 아니라, 이제 아이템마다 그 아이템의 프리뷰
+          바로 앞에 하나씩 붙는다(개별/전체 인쇄 모드 공통) — 승인이 아이템 단위이므로. */}
+      {!printAllMode && selectedItem && <>
+        <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom:16}}>
+          <ITPCoverSheet proj={proj} item={selectedItem} pid={PID}/>
+        </div>
+        <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff"}}>
           <ITPPreview proj={proj} item={selectedItem}
             rows={itpRowsByItem[selectedItem.id] || buildInitialItpRows(specReqs)}
             setRows={scopedSetter(setItpRowsByItem, selectedItem.id, buildInitialItpRows(specReqs))}
@@ -3136,16 +3192,13 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
             hdr={itpHdrByItem[selectedItem.id] || {}} setHdr={scopedSetter(setItpHdrByItem, selectedItem.id, {})}
             witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
         </div>
-      }
+      </>}
 
-      {printAllMode &&
+      {printAllMode && items.map((it, idx) => <React.Fragment key={it.id}>
         <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom:16}}>
-          <ITPCoverSheet proj={proj} itemCount={items.length} pid={PID}/>
+          <ITPCoverSheet proj={proj} item={it} pid={PID}/>
         </div>
-      }
-
-      {printAllMode && items.map((it, idx) =>
-        <div key={it.id} className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom: idx < items.length-1 ? 16 : 0}}>
+        <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom: idx < items.length-1 ? 16 : 0}}>
           <ITPPreview proj={proj} item={it}
             rows={itpRowsByItem[it.id] || buildInitialItpRows(specReqs)}
             setRows={scopedSetter(setItpRowsByItem, it.id, buildInitialItpRows(specReqs))}
@@ -3154,7 +3207,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
             hdr={itpHdrByItem[it.id] || {}} setHdr={scopedSetter(setItpHdrByItem, it.id, {})}
             witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
         </div>
-      )}
+      </React.Fragment>)}
     </div>;
     })()}
 

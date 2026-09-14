@@ -124,24 +124,38 @@ const ITP_LOGO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1B
 //   liveDocs(t_itpBuilderDocs)는 ① 레거시 승인 문서 자가복구(스냅샷 생성) ② '개정 작업 중' 배지용.
 const state = { itpDocs: [], snapDocs: [], liveDocs: [], projects: [], selectedPid: null, selectedItem: null, filter: '' };
 const _healed = new Set();   // 세션 중 자가복구 중복 쓰기 방지
+// v2.6: 승인이 프로젝트 단위 → 아이템 단위로 바뀜(itpApprovalByItem). 문서(스냅샷/
+// 라이브) 자체는 여전히 프로젝트당 1개라 구조는 그대로 두고, 아이템별 승인 상태만
+// 이 맵에서 읽는다. 이 변경 이전에 승인된 문서는 이 맵이 없으므로 최상위
+// approvalStatus로 소급 폴백(그 프로젝트의 모든 아이템이 승인된 것으로 간주).
+function getItemApproval(doc, itemId) {
+  if (!doc) return null;
+  const a = (doc.itpApprovalByItem || {})[itemId];
+  if (a) return a;
+  if (doc.approvalStatus === 'approved') return { status: 'approved', approvedBy: doc.approvedBy, approvedAt: doc.approvedAt, legacy: true };
+  return null;
+}
+function _docHasAnyApproved(doc) {
+  if (doc.approvalStatus === 'approved') return true; // 레거시(프로젝트 전체 승인)
+  return Object.values(doc.itpApprovalByItem || {}).some(a => a.status === 'approved');
+}
 function _mergeDocs() {
   const snapByPid = {};
   state.snapDocs.forEach(d => { snapByPid[d.pid] = d; });
-  // 라이브 문서 상태 배지 매핑 + 레거시 승인(스냅샷 없음/구버전) 자가복구
   const merged = state.snapDocs.map(d => {
     const live = state.liveDocs.find(x => x.pid === d.pid);
-    // v2.2(점검 B3): 라이브 문서를 아직 안 받았어도 스냅샷에 기록된 liveStatus로 배지를 그린다
-    // (빌더 pending 스탬프·decideApproval이 승인본에 liveStatus를 함께 merge해 준다)
-    return { ...d, approvalStatus: 'approved', _liveStatus: live ? live.approvalStatus : (d.liveStatus || null) };
+    return { ...d, _live: live || null };
   });
   state.liveDocs.forEach(live => {
+    // v2.6: 레거시 자가복구는 "프로젝트 전체가 approved"인 옛 문서에만 적용 —
+    //   아이템 단위 승인은 승인 시점에 항상 스냅샷을 함께 patch하므로 복구가 필요 없다.
     if (live.approvalStatus !== 'approved') return;
     const snap = snapByPid[live.pid];
     const needHeal = !snap || (Number(live.approvedAt)||0) > (Number(snap.approvedAt)||0);
-    if (!snap) merged.push({ ...live, _liveStatus: 'approved' });   // 스냅샷 생기기 전에도 조회엔 보이게
+    if (!snap) merged.push({ ...live, _live: live });   // 스냅샷 생기기 전에도 조회엔 보이게
     if (needHeal && !_healed.has(live.pid) && fb.auth && fb.auth.currentUser) {
       _healed.add(live.pid);
-      const { contentSig, approvedSig, ...copy } = live;
+      const { contentSig, approvedSig, itpContentSigByItem, ...copy } = live;
       const { pid, ...fields } = copy;
       fb.setDoc(fb.doc(fb.db, 't_itpApproved', live.pid), { ...fields, snapshotAt: Date.now() })
         .then(() => console.log('[ITP조회] 승인본 스냅샷 자가복구:', live.pid))
@@ -234,22 +248,28 @@ function renderList() {
   const filter = state.filter.trim().toLowerCase();
   const docs = state.itpDocs
     .filter(d => (d.items||[]).length > 0)          // 아이템 하나도 없는 문서는 숨김
-    .filter(d => d.approvalStatus === 'approved')   // v1.5: 승인 완료된 ITP만 조회에 노출 (작성→상신→승인 후)
+    .filter(d => _docHasAnyApproved(d))             // v2.6: 아이템 중 하나라도 승인 완료면 노출(작성→상신→승인 후)
     .map(d => ({ ...d, ...projLabel(d) }))
     .filter(d => !filter || d.code.toLowerCase().includes(filter) || d.name.toLowerCase().includes(filter) || d.client.toLowerCase().includes(filter))
     .sort((a,b) => (a.code||'').localeCompare(b.code||''));
 
   const cards = docs.map(d => {
     const items = d.items || [];
+    const approvedCount = items.filter(it => getItemApproval(d, it.id)?.status === 'approved').length;
     const savedAt = d.approvedAt ? new Date(Number(d.approvedAt)).toISOString().slice(0,10) : (d.savedAt ? new Date(d.savedAt).toISOString().slice(0,10) : '');
-    const editing = (d._liveStatus === 'draft' || d._liveStatus === 'pending')
-      ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:9px;padding:1px 7px;margin-left:6px;" title="ITP Builder에서 개정 편집 중 — 재승인되면 이 승인본이 갱신됩니다">✏ 개정 작업 중</span>` : '';
+    // v2.6: '개정 작업 중'도 이제 아이템 단위 — 하나라도 결재중/개정중이면 배지 표시
+    const anyEditing = items.some(it => {
+      const live = (d._live && (d._live.itpApprovalByItem||{})[it.id]) || null;
+      return live && (live.status === 'draft' || live.status === 'pending');
+    });
+    const editing = anyEditing
+      ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:9px;padding:1px 7px;margin-left:6px;" title="ITP Builder에서 일부 아이템이 결재중/개정 편집 중입니다">✏ 개정 작업 중</span>` : '';
     return `<div class="proj-card" onclick="goProj('${esc(d.pid)}')">
       <div class="code">${esc(d.code)}${editing}</div>
       <div class="name">${esc(d.name)}</div>
       ${d.client ? `<div class="client">${esc(d.client)}</div>` : ''}
       <div class="meta">
-        <div class="item-cnt">아이템 <b>${items.length}</b>개</div>
+        <div class="item-cnt">아이템 <b>${approvedCount}/${items.length}</b>개 승인</div>
         <div class="stamp">승인 ${savedAt}</div>
       </div>
     </div>`;
@@ -279,9 +299,17 @@ function renderProj() {
   const items = doc.items || [];
   const savedAt = doc.savedAt ? new Date(doc.savedAt).toISOString().replace('T',' ').slice(0,16) : '';
 
+  // v2.6: 결재 상태 배지 — 프로젝트 단위가 아니라 아이템 단위
+  const AP = { pending:['결재중','#fef3c7','#92400e'], approved:[LI('circle-check','✅')+' 승인 완료','#dcfce7','#166534'], rejected:['반려됨','#fee2e2','#b91c1c'], draft:['개정중','#fef3c7','#92400e'] };
   const rows = items.map((it, i) => {
     const rowCount = _itpRows(doc, it).length;
     const label = ((it.name || it.tag || '아이템') + (it.tag ? ' · ' + it.tag : '')).replace(/'/g,'');
+    const itemApp = getItemApproval(doc, it.id);
+    const liveApp = (doc._live && (doc._live.itpApprovalByItem||{})[it.id]) || null;
+    // 승인본 스냅샷엔 아직 approved로 안 남았지만 라이브에 결재중/개정중이 있으면 그 상태를 우선 표시
+    const dispStatus = (liveApp && liveApp.status !== 'approved') ? liveApp.status : (itemApp ? itemApp.status : null);
+    const apInfo = AP[dispStatus];
+    const itemBadge = apInfo ? `<span class="badge" style="background:${apInfo[1]};color:${apInfo[2]};">${apInfo[0]}</span>` : `<span class="badge gray">미승인</span>`;
     return `<div class="item-row" onclick="goItem(${i})">
       <div class="no">#${i+1}</div>
       <div class="nm">${esc(it.name || it.tag || '(이름 없음)')} ${it.tag ? `<span style="font-weight:400;color:var(--text-light);">· ${esc(it.tag)}</span>` : ''}</div>
@@ -289,19 +317,16 @@ function renderProj() {
         ${it.type ? `<span class="badge">${esc(it.type)}</span>` : ''}
         <span class="badge gray">${rowCount}행</span>
         ${_itpDocNo(doc, it) ? `<span class="badge">${esc(_itpDocNo(doc, it))}${_itpRev(doc,it)?' Rev.'+esc(_itpRev(doc,it)):''}</span>` : ''}
+        ${itemBadge}
       </div>
       <button onclick="event.stopPropagation();deleteItpItem('${esc(doc.pid)}','${esc(it.id||'')}',${i},'${esc(label)}')" title="이 아이템만 삭제" style="flex-shrink:0;background:#fff5f5;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;">${LI('trash-2','🗑')}</button>
       <div class="arrow">›</div>
     </div>`;
   }).join('');
 
-  // v1.1: 결재 상태 배지
-  const AP = { pending:['결재중','#fef3c7','#92400e'], approved:[LI('circle-check','✅')+' 승인 완료','#dcfce7','#166534'], rejected:['반려됨','#fee2e2','#b91c1c'] };
-  const apInfo = AP[doc.approvalStatus];
-  let apBadge = apInfo ? `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:11px;background:${apInfo[1]};color:${apInfo[2]};margin-left:8px;vertical-align:middle;">${apInfo[0]}</span>` : '';
-  // v2.0: 라이브 문서가 개정 편집 중이면 승인본 옆에 안내 배지 (승인본 자체는 계속 표시됨)
-  if (doc._liveStatus === 'draft' || doc._liveStatus === 'pending')
-    apBadge += `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:11px;background:#fef3c7;color:#92400e;margin-left:6px;vertical-align:middle;" title="ITP Builder에서 개정 편집 중 — 재승인되면 이 승인본이 갱신됩니다">✏ 개정 작업 중</span>`;
+  // v2.6: 프로젝트 헤더 배지는 전체 요약(N/M 아이템 승인)으로 — 개별 상태는 위 아이템 행에서 확인
+  const approvedCount = items.filter(it => getItemApproval(doc, it.id)?.status === 'approved').length;
+  let apBadge = `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:11px;background:#dcfce7;color:#166534;margin-left:8px;vertical-align:middle;">${LI('circle-check','✅')} ${approvedCount}/${items.length} 아이템 승인</span>`;
 
   return `
     <div class="breadcrumb"><a onclick="goBack()">${LI('library','📚')} ITP 조회</a><span class="sep">›</span><b>${esc(lbl.code)} ${esc(lbl.name)}</b></div>
@@ -335,12 +360,102 @@ function _itpRows(doc, it) {
 function _itpDocNo(doc, it) { const m = doc.itpDocNoByItem||{}; return m[it.id] || m[String(it.id)] || it.docNo || ''; }
 function _itpRev(doc, it) { const m = doc.itpRevByItem||{}; return m[it.id] || m[String(it.id)] || it.rev || ''; }
 
+// v2.6: 아이템 갑지(표지)용 개정이력 — pid__itemId로 캐시. render()는 동기 함수라
+// Firestore 조회는 백그라운드로 돌리고, 결과가 오면 다시 render()를 불러 반영한다.
+const _coverHistoryCache = {};
+function _fetchItpCoverHistory(pid, itemId) {
+  const key = pid + '__' + itemId;
+  if (_coverHistoryCache[key] !== undefined) return; // 조회 중이거나 이미 받음
+  _coverHistoryCache[key] = null;
+  if (!window.fb || !fb.db) { _coverHistoryCache[key] = []; return; }
+  const q = fb.query(fb.collection(fb.db, 'approvals'),
+    fb.where('projId', '==', pid), fb.where('itemId', '==', itemId),
+    fb.where('type', '==', 'itp'), fb.where('status', '==', 'approved'));
+  fb.getDocs(q).then(snap => {
+    _coverHistoryCache[key] = snap.docs.map(d => d.data()).sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
+    render();
+  }).catch(e => { console.error('[ITP 갑지 개정이력 조회]', e); _coverHistoryCache[key] = []; render(); });
+}
+function renderItpCoverHtml(doc, it) {
+  _fetchItpCoverHistory(doc.pid, it.id);
+  const history = _coverHistoryCache[doc.pid + '__' + it.id];
+  const proj = doc.proj || {};
+  const TH = 'border:1px solid #555;padding:5px 8px;background:#f5f5f5;font-size:10.5px;font-weight:700;text-align:center;vertical-align:middle;white-space:nowrap;';
+  const TD = 'border:1px solid #888;padding:5px 8px;font-size:10.5px;vertical-align:middle;';
+  const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('ko-KR') : '-';
+  const chainSummary = line => (Array.isArray(line) && line.length)
+    ? line.map(s => `${s.role||''} ${s.uid||''}${s.status==='approved'?' ✓':s.status==='rejected'?' ✗':''}`.trim()).join(' → ')
+    : '-';
+  const activeCodes = Object.keys(proj.codes||{}).filter(c => proj.codes[c]).join(', ') || '-';
+  const rowsHtml = history === null
+    ? `<tr><td colspan="4" style="${TD}text-align:center;color:#999;">개정 이력 조회 중...</td></tr>`
+    : (history.length === 0
+      ? `<tr><td colspan="4" style="${TD}text-align:center;color:#999;">승인 완료 이력이 없습니다(Rev 0 — 최초 발행 전)</td></tr>`
+      : history.map((h,i) => `<tr>
+          <td style="${TD}text-align:center;font-weight:700;">${i}</td>
+          <td style="${TD}text-align:center;">${fmtDate(h.decidedAt)}</td>
+          <td style="${TD}">${chainSummary(h.approvalLine)}</td>
+          <td style="${TD}">${esc(h.decisionNote||'-')}</td>
+        </tr>`).join(''));
+  return `
+    <div class="itp-cover" style="font-family:Arial,sans-serif;font-size:10.5px;page-break-after:always;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <tbody>
+          <tr>
+            <td rowspan="5" style="border:1px solid #555;padding:4px 6px;text-align:left;vertical-align:middle;width:32%;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <img src="${ITP_LOGO}" alt="㈜세종기술" style="max-width:96px;max-height:50px;object-fit:contain;flex-shrink:0;">
+                <div style="font-size:8.5px;line-height:1.5;color:#222;white-space:nowrap;"><div style="font-weight:700;font-size:10px;">㈜세종기술</div><div>Sejong Tech Co., Ltd.</div></div>
+              </div>
+            </td>
+            <td colspan="3" style="border:1px solid #555;padding:14px 10px;text-align:center;font-size:17px;font-weight:800;">검사계획서 갑지<div style="font-size:10px;font-weight:400;color:#666;margin-top:2px;">Inspection &amp; Test Plan — Cover Sheet</div></td>
+          </tr>
+          <tr><td style="${TH}">Project No.</td><td style="${TD}" colspan="2">${esc(proj.no||'-')}</td></tr>
+          <tr><td style="${TH}">프로젝트명</td><td style="${TD}" colspan="2">${esc(proj.name||'-')}</td></tr>
+          <tr><td style="${TH}">발주처</td><td style="${TD}" colspan="2">${esc(proj.customer||'-')}</td></tr>
+          <tr><td style="${TH}">아이템명 / Tag No.</td><td style="${TD}" colspan="2">${esc((it.name||it.tag||'-') + (it.tag&&it.name?' / '+it.tag:''))}</td></tr>
+        </tbody>
+      </table>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tbody>
+          <tr><td style="${TH}">PO No.</td><td style="${TD}">${esc(proj.po||'-')}</td><td style="${TH}">Scope</td><td style="${TD}">${esc(proj.scope||'-')}</td></tr>
+          <tr><td style="${TH}">적용 코드</td><td style="${TD}" colspan="3">${esc(activeCodes)}</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:12.5px;font-weight:700;margin-bottom:6px;">개정 이력 (Revision History)</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr><th style="${TH}">Rev</th><th style="${TH}">승인일자</th><th style="${TH}">결재선 (검토 → 승인)</th><th style="${TH}">비고</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  `;
+}
 function renderItem() {
   const doc = state.itpDocs.find(d => d.pid === state.selectedPid);
   if (!doc) return renderList();
   const items = doc.items || [];
   const it = items[state.selectedItem];
   if (!it) return renderProj();
+  // v2.6: 이 아이템이 승인된 게 아니면(다른 아이템만 승인된 프로젝트일 수 있음) 내용
+  // 대신 안내만 표시 — 목록 자체는 계속 보여준다(과도한 제약 없이 탐색은 허용).
+  const _approval = getItemApproval(doc, it.id);
+  if (!_approval || _approval.status !== 'approved') {
+    const lbl0 = projLabel(doc);
+    return `
+      <div class="breadcrumb">
+        <a onclick="state.selectedPid=null;state.selectedItem=null;render();scrollToTop()">${LI('library','📚')} ITP 조회</a><span class="sep">›</span>
+        <a onclick="goBack()">${esc(lbl0.code)}</a><span class="sep">›</span>
+        <b>${esc(it.name || it.tag || '아이템 #'+(state.selectedItem+1))}</b>
+      </div>
+      <div class="hd no-print"><div><div class="sub">이 아이템은 아직 승인되지 않았습니다.</div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" onclick="goBack()">← 아이템 목록</button>
+          <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', ${state.selectedItem})">${LI('clipboard-list','📋')} Builder에서 결재 상신</button>
+        </div>
+      </div>
+      <div class="empty">"${esc(it.name||it.tag||'이 아이템')}"은(는) 아직 결재 승인이 완료되지 않아 조회할 수 없습니다.<br>ITP Builder에서 결재 상신 후 승인되면 여기서 볼 수 있습니다.</div>
+    `;
+  }
   const lbl = projLabel(doc);
   const rows = _itpRows(doc, it).filter(r => r && r.active !== false);
   const docNo = _itpDocNo(doc, it), rev = _itpRev(doc, it);
@@ -385,6 +500,7 @@ function renderItem() {
         <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', ${state.selectedItem})">${LI('clipboard-list','📋')} Builder 편집</button>
       </div>
     </div>
+    ${renderItpCoverHtml(doc, it)}
     <div class="itp-doc">
       <table class="itp-hdr">
         <colgroup><col style="width:30%"><col style="width:15%"><col style="width:25%"><col style="width:10%"><col style="width:20%"></colgroup>

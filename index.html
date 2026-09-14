@@ -1373,7 +1373,7 @@ const QADASH_BUILD = 'b30'; // v29.1.14: 항목명 라벨칸 폭 통일 + 개선
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c33'; // c33: "전체 인쇄" 맨 앞장에 갑지(프로젝트 정보+승인 개정이력) 추가
+const ITPBUILDER_BUILD = 'c34'; // c34: ITP 승인을 프로젝트 단위 → 아이템 단위로 전환, 갑지도 아이템별 발행
 const QADOC_BUILD = 'c24'; // c24: 클라우드 강제 불러오기 버튼(+pid 진단)
 const MTOOLS_BUILD = 'b7';
 // v30.16: 로그인 화면 배경 영상 경로. 비어 있으면 <video>를 렌더하지 않고 이미지 2컷 모션만 쓴다(불필요한 404 없음).
@@ -1389,7 +1389,7 @@ const ROADMAP_BUILD = 'a11'; // PHASE 17 — a·b·d 완료, c는 조사 후 보
 const KNOWMAP_BUILD = 'a1'; // v30.15 회사 지식 지도 (로드맵 9-2·9-3·9-4)
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a16'; // a16: 라이브 문서 실시간 구독 제거(점검 B3)
+const ITPVIEW_BUILD = 'a17'; // a17: ITP 승인이 아이템 단위로 전환 — 아이템별 승인 배지·갑지 인쇄 추가
 const QAVIEW_BUILD = 'a7'; // a7: 영속 캐시(점검 A3)
 // v1.0: 교반기 선정·설계 (기술부). 모듈 재배포할 때마다 이 번호를 올려야
 //       브라우저가 예전 캐시를 계속 보여주는 문제가 생기지 않는다.
@@ -7652,7 +7652,12 @@ async function cancelApproval(aid) {
   try {
     if (a.type === 'itp' && a.projId) {
       // 결재중이던 ITP를 초안으로 되돌림 → ITP 조회에서 빠지고, 다시 상신 가능
-      try { await fb.setDoc(fb.doc(fb.db, 't_itpBuilderDocs', a.projId), { approvalStatus: 'draft', approvalId: null, approvedBy: null, approvedAt: null }, { merge: true }); } catch (e) {}
+      // v2.6: 아이템 단위 결재면 그 아이템만, itemId 없는(레거시) 요청이면 기존처럼 문서 전체를 되돌림.
+      if (a.itemId) {
+        try { await fb.setDoc(fb.doc(fb.db, 't_itpBuilderDocs', a.projId), { itpApprovalByItem: { [a.itemId]: { status: 'draft', approvalId: null, approvedBy: null, approvedAt: null } } }, { merge: true }); } catch (e) {}
+      } else {
+        try { await fb.setDoc(fb.doc(fb.db, 't_itpBuilderDocs', a.projId), { approvalStatus: 'draft', approvalId: null, approvedBy: null, approvedAt: null }, { merge: true }); } catch (e) {}
+      }
     }
     await fb.deleteDoc(fb.doc(fb.db, 'approvals', aid));
     try { closeModal(); } catch (e) {}
@@ -7863,46 +7868,87 @@ async function decideApproval(aid, decision) {
       return alert('자동 반영 중 오류: ' + (e.message || e) + '\n결재는 저장하지 않았습니다.');
     }
   }
-  // v30.5: type='itp' 결재 결과를 t_itpBuilderDocs에 스탬프 → ITP 조회에서 승인 상태 배지 표시.
+  // v30.5→v2.6: type='itp' 결재 결과를 t_itpBuilderDocs에 스탬프 → ITP 조회에서 승인 상태 배지 표시.
   //   (ITP 문서 자체는 상신 시점에 이미 저장돼 있으므로 상태만 merge)
+  //   v2.6: 승인이 프로젝트 단위 → 아이템 단위로 바뀜. a.itemId가 있으면(신규 방식) 그
+  //   아이템의 itpApprovalByItem[itemId]만 patch — 형제 아이템은 영향 없음. a.itemId가
+  //   없으면(이 변경 배포 시점에 이미 대기 중이던 구버전 요청) 기존 문서 전체 patch로 폴백.
   if (a.type === 'itp' && a.projId && (finalApproved || decision === 'rejected')) {
     try {
       const _iref = fb.doc(fb.db, 't_itpBuilderDocs', a.projId);
       const _isnap = await fb.getDoc(_iref);
       const _icur = _isnap.exists() ? _isnap.data() : {};
-      const _ipatch = {
-        approvalStatus: decision === 'rejected' ? 'rejected' : 'approved',
-        approvedBy: decision === 'rejected' ? null : uid,
-        approvedAt: Date.now(),
-        approvalId: aid,
-      };
-      if (finalApproved) {
-        // 승인 시점의 내용을 '승인본'으로 고정 → 이후 편집 감지 기준
-        _ipatch.approvedSig = _icur.contentSig || null;
-        const _prevCount = Number(_icur.approvalCount) || 0;
-        _ipatch.approvalCount = _prevCount + 1;
-        // 재승인(2회차 이상)이면 Rev. No 를 전 아이템 +1
-        if (_prevCount >= 1) {
-          const _rev = Object.assign({}, _icur.itpRevByItem || {});
-          (_icur.items || []).forEach(it => { _rev[it.id] = _bumpItpRev(_rev[it.id]); });
-          _ipatch.itpRevByItem = _rev;
+      if (a.itemId) {
+        // ── v2.6 신규: 아이템 단위 승인 ──
+        const _prevA = (_icur.itpApprovalByItem || {})[a.itemId] || {};
+        const _itemApproval = {
+          status: decision === 'rejected' ? 'rejected' : 'approved',
+          approvedBy: decision === 'rejected' ? null : uid,
+          approvedAt: Date.now(),
+          approvalId: aid,
+        };
+        let _bumpedRev = null;
+        if (finalApproved) {
+          // 승인 시점의 내용을 '승인본'으로 고정 → 이후 편집 감지 기준(itp-builder.html이 매 자동저장마다 계산해두는 값을 그대로 읽음)
+          _itemApproval.approvedSig = (_icur.itpContentSigByItem || {})[a.itemId] || null;
+          const _prevCount = Number(_prevA.approvalCount) || 0;
+          _itemApproval.approvalCount = _prevCount + 1;
+          // 재승인(2회차 이상)이면 이 아이템의 Rev. No만 +1
+          if (_prevCount >= 1) {
+            const _rev = Object.assign({}, _icur.itpRevByItem || {});
+            _rev[a.itemId] = _bumpItpRev(_rev[a.itemId]);
+            _bumpedRev = _rev[a.itemId];
+            await fb.setDoc(_iref, { itpRevByItem: _rev }, { merge: true });
+          }
         }
-      }
-      await fb.setDoc(_iref, _ipatch, { merge: true });
-      // v30.11 ★ 승인본 스냅샷 ★ — 승인 시점 내용을 t_itpApproved/{pid}에 별도 보관.
-      //   ITP 조회는 이 스냅샷을 보므로, 이후 빌더에서 편집(재승인 정책으로 라이브가 draft 강등)
-      //   되어도 승인 ITP가 조회에서 사라지지 않는다. 재승인 시 여기서 갱신.
-      if (finalApproved) {
-        try {
-          // v30.13(점검 B3): liveStatus를 함께 남긴다 — ITP 조회가 라이브 문서를 실시간 구독하지
-          //   않고도 '개정 작업 중/결재중' 배지를 그릴 수 있게 (조회 다운로드량 절반)
-          const _snap = { ..._icur, ..._ipatch, snapshotAt: Date.now(), liveStatus: 'approved' };
-          delete _snap.contentSig; delete _snap.approvedSig;   // 서명은 라이브 문서 전용 (스냅샷엔 불필요·용량 절약)
-          await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), _snap);
-        } catch (e) { console.warn('ITP 승인본 스냅샷 저장 실패:', e.message); }
-      } else if (decision === 'rejected') {
-        // 반려는 스냅샷 본문을 건드리지 않고 배지 상태만 (승인본은 그대로 보존)
-        try { await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), { liveStatus: 'rejected' }, { merge: true }); } catch (e) {}
+        await fb.setDoc(_iref, { itpApprovalByItem: { [a.itemId]: _itemApproval } }, { merge: true });
+        // ★ 승인본 스냅샷 ★ — t_itpApproved/{pid}는 프로젝트당 1개 그대로 유지(itp-viewer.html
+        //   구조 재사용). {merge:true}로 이 아이템의 슬라이스만 patch해서, 같은 프로젝트의
+        //   이미 승인된 다른 아이템 내용을 덮어쓰지 않는다.
+        if (finalApproved) {
+          try {
+            const _snap = {
+              proj: _icur.proj, items: _icur.items,
+              itpRowsByItem: { [a.itemId]: (_icur.itpRowsByItem||{})[a.itemId] || [] },
+              itpDocNoByItem: { [a.itemId]: (_icur.itpDocNoByItem||{})[a.itemId] || '' },
+              itpHdrByItem: { [a.itemId]: (_icur.itpHdrByItem||{})[a.itemId] || {} },
+              itpApprovalByItem: { [a.itemId]: _itemApproval },
+              snapshotAt: Date.now(),
+            };
+            if (_bumpedRev != null) _snap.itpRevByItem = { [a.itemId]: _bumpedRev };
+            await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), _snap, { merge: true });
+          } catch (e) { console.warn('ITP 승인본 스냅샷 저장 실패:', e.message); }
+        } else if (decision === 'rejected') {
+          try { await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), { itpApprovalByItem: { [a.itemId]: _itemApproval } }, { merge: true }); } catch (e) {}
+        }
+      } else {
+        // ── 레거시 폴백: itemId 없는(이 변경 배포 이전에 이미 상신된) 요청은 기존 방식대로 문서 전체 처리 ──
+        const _ipatch = {
+          approvalStatus: decision === 'rejected' ? 'rejected' : 'approved',
+          approvedBy: decision === 'rejected' ? null : uid,
+          approvedAt: Date.now(),
+          approvalId: aid,
+        };
+        if (finalApproved) {
+          _ipatch.approvedSig = _icur.contentSig || null;
+          const _prevCount = Number(_icur.approvalCount) || 0;
+          _ipatch.approvalCount = _prevCount + 1;
+          if (_prevCount >= 1) {
+            const _rev = Object.assign({}, _icur.itpRevByItem || {});
+            (_icur.items || []).forEach(it => { _rev[it.id] = _bumpItpRev(_rev[it.id]); });
+            _ipatch.itpRevByItem = _rev;
+          }
+        }
+        await fb.setDoc(_iref, _ipatch, { merge: true });
+        if (finalApproved) {
+          try {
+            const _snap = { ..._icur, ..._ipatch, snapshotAt: Date.now(), liveStatus: 'approved' };
+            delete _snap.contentSig; delete _snap.approvedSig;
+            await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), _snap);
+          } catch (e) { console.warn('ITP 승인본 스냅샷 저장 실패:', e.message); }
+        } else if (decision === 'rejected') {
+          try { await fb.setDoc(fb.doc(fb.db, 't_itpApproved', a.projId), { liveStatus: 'rejected' }, { merge: true }); } catch (e) {}
+        }
       }
     } catch (e) { console.warn('ITP 승인 스탬프 실패:', e.message); }
   }
