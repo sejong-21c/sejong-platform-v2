@@ -943,26 +943,36 @@ function ITPCoverSheet({proj, item, pid}){
   const TD = {border:"1px solid #000", padding:"5px 4px", fontSize:10, textAlign:"center", verticalAlign:"middle", height:20};
   const fld = {fontSize:18, fontWeight:700, textDecoration:"underline", display:"inline-block", minWidth:150};
 
-  return <div style={{fontFamily:"Arial,sans-serif", fontSize:15, border:"1.5px solid #000", padding:"26px 30px", position:"relative"}}>
+  return <div className="itp-cover-box" style={{fontFamily:"Arial,sans-serif", fontSize:15, border:"1.5px solid #000", padding:"26px 30px", position:"relative"}}>
     {/* v3.0: 표지만 landscape로 찍으려고 이름있는 페이지(@page + page:)를 써봤지만,
         크롬 인쇄 엔진이 문서 전체 레이아웃 폭을 페이지별로 다시 계산해주지 않아
         본문·표지 둘 다 엉뚱하게 넓은 여백이 생기는 부작용이 있었다(실사용 확인).
         혼합 방향은 포기하고 portrait 하나로 통일 — 원본 회사 서식도 portrait였다. */}
     {/* v3.1: portrait로 고정 후에도 여백이 많아 보인다는 피드백 — 폰트를 키워서
         여백 대비 내용 비중을 높임(레이아웃 자체를 억지로 늘리지 않는 쪽 선택). */}
-    <style>{`@media print{@page{size:A4 portrait;margin:10mm}}`}</style>
+    {/* v3.2: 개정이력 표를 인쇄 페이지 맨아래에 고정(원본 서식과 동일 — 내용이
+        늘면 표가 위로 자라고, 표 하단 위치는 그대로) — 화면에서는 이 min-height/
+        flex를 적용하면 예전에 겪었던 "빈 공백 과다" 버그가 재현되므로 인쇄
+        시에만(@media print) 적용한다. */}
+    <style>{`
+      @media print {
+        @page { size:A4 portrait; margin:10mm; }
+        .itp-cover-box { min-height:262mm; display:flex; flex-direction:column; }
+        .itp-cover-revwrap { margin-top:auto; }
+      }
+    `}</style>
     <div style={{position:"absolute", top:26, left:30}}><LogoCell/></div>
     <div style={{textAlign:"center", margin:"30px 0 44px"}}>
       <span style={{fontSize:30, fontWeight:700, textDecoration:"underline"}}>Inspection And Test Plan</span>
     </div>
-    <div style={{lineHeight:2.3, marginBottom:44}}>
+    <div style={{lineHeight:2.7, marginBottom:44}}>
       <div><span style={fld}>Project Name :</span> &nbsp;{proj.name||""}</div>
       <div><span style={fld}>Client :</span> &nbsp;{proj.customer||""}</div>
       <div><span style={fld}>Manufacturer :</span> &nbsp;SEJONG TECH CO., LTD.</div>
       <div><span style={fld}>JOB No. :</span> &nbsp;{proj.no||""}</div>
       <div><span style={fld}>Item / Tag No. :</span> &nbsp;{itemLabel}</div>
     </div>
-    <div>
+    <div className="itp-cover-revwrap">
       <table style={{width:"100%", borderCollapse:"collapse"}}>
         <colgroup><col style={{width:"8%"}}/><col style={{width:"15%"}}/><col style={{width:"19%"}}/><col style={{width:"19%"}}/><col style={{width:"19%"}}/><col style={{width:"20%"}}/></colgroup>
         <thead>

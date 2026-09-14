@@ -120,6 +120,11 @@ i[data-lucide] > svg { font-size:13px; color:initial; width:13px; height:13px; }
      portrait였으므로 이게 더 안전하고 예측 가능하다. */
   .itp-doc { border:none; padding:0; width:100%; }
   @page { size:A4 portrait; margin:10mm; }
+  /* v3.2: 개정이력 표를 인쇄 페이지 맨아래에 고정(원본 서식과 동일 — 내용이 늘면
+     표가 위로 자라고, 표 하단 위치는 그대로) — 화면에서 이 min-height/flex를 그대로
+     쓰면 예전에 겪었던 "빈 공백 과다" 버그가 재현되므로 인쇄 시에만 적용한다. */
+  .itp-cover { min-height:262mm; display:flex; flex-direction:column; }
+  .itp-cover-revwrap { margin-top:auto; }
 }
 </style>
 </head>
@@ -444,14 +449,14 @@ function renderItpCoverHtml(doc, it) {
       <div style="text-align:center;margin:30px 0 44px;">
         <span style="font-size:30px;font-weight:700;text-decoration:underline;">Inspection And Test Plan</span>
       </div>
-      <div style="line-height:2.3;margin-bottom:44px;">
+      <div style="line-height:2.7;margin-bottom:44px;">
         <div><span style="${fld}">Project Name :</span> &nbsp;${esc(proj.name||'')}</div>
         <div><span style="${fld}">Client :</span> &nbsp;${esc(proj.customer||'')}</div>
         <div><span style="${fld}">Manufacturer :</span> &nbsp;SEJONG TECH CO., LTD.</div>
         <div><span style="${fld}">JOB No. :</span> &nbsp;${esc(proj.no||'')}</div>
         <div><span style="${fld}">Item / Tag No. :</span> &nbsp;${itemLabel}</div>
       </div>
-      <div>
+      <div class="itp-cover-revwrap">
         <table style="width:100%;border-collapse:collapse;">
           <colgroup><col style="width:8%"><col style="width:15%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:20%"></colgroup>
           <thead>
