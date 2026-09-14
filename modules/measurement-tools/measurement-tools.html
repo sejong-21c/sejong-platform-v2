@@ -176,6 +176,7 @@ i[data-lucide].stat-dot > svg { width: 9px; height: 9px; color: inherit; fill: c
 .status-repair { background: #FFF3E0; color: #E65100; }
 .status-scrap  { background: #ECEFF1; color: #455A64; text-decoration: line-through; }
 .status-out    { background: #FFEBEE; color: #C62828; }
+.status-calib_wait { background: #E3F2FD; color: #1565C0; }
 
 /* 검교정 색상 */
 .cal-ok    { color: #2E7D32; font-weight: 600; }
@@ -245,6 +246,36 @@ i[data-lucide].stat-dot > svg { width: 9px; height: 9px; color: inherit; fill: c
   </div>
 </div>
 
+<!-- 교정 견적의뢰서 작성 모달 -->
+<div class="overlay" id="quote-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>교정 견적의뢰서 작성</h3>
+      <button class="close-x" onclick="closeQuoteModal()">×</button>
+    </div>
+    <div class="modal-body" id="quote-body"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeQuoteModal()">취소</button>
+      <button class="btn btn-primary" onclick="generateQuoteRequest()">문서 생성 · 인쇄</button>
+    </div>
+  </div>
+</div>
+
+<!-- 검교정 일괄완료 등록 모달 -->
+<div class="overlay" id="bulkcal-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>검교정 일괄완료 등록</h3>
+      <button class="close-x" onclick="closeBulkCalModal()">×</button>
+    </div>
+    <div class="modal-body" id="bulkcal-body"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeBulkCalModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveBulkCal()">일괄 등록</button>
+    </div>
+  </div>
+</div>
+
 <!-- QR 라벨 인쇄 -->
 <div id="print-area" style="display:none;">
   <div class="print-grid" id="print-grid"></div>
@@ -292,6 +323,7 @@ let view = {
   scanUser: '',           // 반입출 화면에서 입력한 이름
   scanSite: '',           // 반출 시 현장
   scanRecent: [],         // 최근 스캔 [{time, code, name, action, ok, msg}]
+  selectedIds: new Set(), // 마스터 목록에서 일괄작업(견적의뢰서/검교정 일괄완료)용 다중 선택
 };
 
 /* ══════════ 초기 로드 ══════════ */
@@ -558,7 +590,7 @@ async function maybeSendCalibrationAlerts() {
   if (!window.fb || !fb.auth || !fb.auth.currentUser) return;
   const t = today();
   const targets = tools.filter(x => {
-    if (x.status === 'scrap') return false;
+    if (x.status === 'scrap' || x.status === 'calib_wait') return false; // 이미 교정 의뢰된 기구는 임박 알림 반복 안 함
     const st = calStatus(x.nextCalibration);
     return st.level === 'warn' || st.level === 'danger';
   });
@@ -894,9 +926,10 @@ function renderMaster() {
         value="${esc(view.search)}" oninput="view.search=this.value; render();">
       <select onchange="view.filterStatus=this.value; render();">
         <option value="">전체 상태</option>
-        <option value="normal" ${view.filterStatus==='normal'?'selected':''}>정상</option>
-        <option value="repair" ${view.filterStatus==='repair'?'selected':''}>수리중</option>
-        <option value="scrap"  ${view.filterStatus==='scrap' ?'selected':''}>폐기</option>
+        <option value="normal"     ${view.filterStatus==='normal'    ?'selected':''}>정상</option>
+        <option value="calib_wait" ${view.filterStatus==='calib_wait'?'selected':''}>교정대기</option>
+        <option value="repair"     ${view.filterStatus==='repair'    ?'selected':''}>수리중</option>
+        <option value="scrap"      ${view.filterStatus==='scrap'     ?'selected':''}>폐기</option>
       </select>
       <select onchange="view.filterCal=this.value; render();">
         <option value="">전체 검교정</option>
@@ -914,10 +947,20 @@ function renderMaster() {
         <button class="btn btn-primary" onclick="openTool('')">${LI('plus','➕')} 신규 등록</button>
       ` : ''}
     </div>
+    ${qa && view.selectedIds.size > 0 ? `
+      <div class="filter-bar" style="background:var(--primary-lighter);">
+        <div style="font-size:13px;font-weight:600;">✅ ${view.selectedIds.size}건 선택됨</div>
+        <div style="flex:1;"></div>
+        <button class="btn" onclick="clearSelection()">선택 해제</button>
+        <button class="btn btn-primary" onclick="openQuoteModal()">${LI('file-text','📄')} 교정 견적의뢰서 작성</button>
+        <button class="btn btn-primary" onclick="openBulkCalModal()">${LI('calendar-check','🗓')} 검교정 일괄완료 등록</button>
+      </div>
+    ` : ''}
     <div class="card">
       ${filtered.length === 0 ? `<div class="empty-hint"><div class="big">${LI('search','🔍')}</div>일치하는 측정기구가 없습니다.</div>` : `
       <table class="mt-table">
         <thead><tr>
+          ${qa ? `<th style="width:32px;"><input type="checkbox" ${filtered.length>0 && filtered.every(t=>view.selectedIds.has(t.id))?'checked':''} onchange='toggleSelectAll(this.checked, ${JSON.stringify(filtered.map(t=>t.id))})'></th>` : ''}
           <th style="width:56px;"></th>
           <th style="width:100px;">관리번호<br><span style="font-weight:400;color:var(--text-lighter);">ID No.</span></th>
           <th style="width:100px;">기기번호<br><span style="font-weight:400;color:var(--text-lighter);">Serial No.</span></th>
@@ -935,6 +978,7 @@ function renderMaster() {
           const rowClass = st.level === 'danger' ? 'row-danger' : (st.level === 'warn' ? 'row-warn' : '');
           return `
             <tr class="${rowClass}">
+              ${qa ? `<td><input type="checkbox" ${view.selectedIds.has(t.id)?'checked':''} onchange="toggleSelect('${t.id}', this.checked)"></td>` : ''}
               <td>${t.photo?`<img src="${esc(t.photo)}" class="photo-thumb">`:`<div class="photo-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--text-lighter);">${LI('camera','📷')}</div>`}</td>
               <td class="nowrap"><strong>${esc(t.code)}</strong></td>
               <td class="nowrap" style="font-family:monospace;font-size:12px;">${esc(t.serialNo||'-')}</td>
@@ -968,9 +1012,239 @@ function renderMaster() {
 function statusPill(t) {
   if (isCheckedOut(t)) return '<span class="status-pill status-out">반출중</span>';
   const s = t.status || 'normal';
-  if (s === 'repair') return '<span class="status-pill status-repair">수리중</span>';
-  if (s === 'scrap')  return '<span class="status-pill status-scrap">폐기</span>';
+  if (s === 'repair')     return '<span class="status-pill status-repair">수리중</span>';
+  if (s === 'scrap')      return '<span class="status-pill status-scrap">폐기</span>';
+  if (s === 'calib_wait') return '<span class="status-pill status-calib_wait">교정대기</span>';
   return '<span class="status-pill status-normal">정상</span>';
+}
+
+/* ══════════ 다중 선택 (견적의뢰서·검교정 일괄완료용) ══════════ */
+function toggleSelect(id, checked) {
+  if (checked) view.selectedIds.add(id); else view.selectedIds.delete(id);
+  render();
+}
+function toggleSelectAll(checked, ids) {
+  ids.forEach(id => { if (checked) view.selectedIds.add(id); else view.selectedIds.delete(id); });
+  render();
+}
+function clearSelection() { view.selectedIds.clear(); render(); }
+function selectedTools() { return tools.filter(t => view.selectedIds.has(t.id)); }
+
+/* ══════════ 교정 견적의뢰서 작성 ══════════ */
+function openQuoteModal() {
+  if (!isQADept()) { alert('품질관리부 권한이 필요합니다.'); return; }
+  const list = selectedTools();
+  if (list.length === 0) { alert('견적의뢰서를 작성할 측정기구를 선택해주세요.'); return; }
+  document.getElementById('quote-body').innerHTML = `
+    <div style="margin-bottom:14px;padding:10px 12px;background:var(--primary-lighter);border-radius:6px;font-size:13px;">
+      선택된 측정기구 <strong>${list.length}건</strong>의 교정 견적을 의뢰합니다.
+    </div>
+    <div class="form-grid">
+      <div class="fg full">
+        <label class="fl">수신처 (교정기관명) <span style="color:var(--danger);">*</span></label>
+        <input class="fi" id="qt-org" placeholder="예: (주)한국계측기교정협회">
+      </div>
+      <div class="fg">
+        <label class="fl">담당자</label>
+        <input class="fi" id="qt-writer" value="${esc(currentUserName())}">
+      </div>
+      <div class="fg">
+        <label class="fl">희망 회신일</label>
+        <input class="fi" type="date" id="qt-duedate">
+      </div>
+      <div class="fg full">
+        <label class="fl">요청사항 / 비고</label>
+        <textarea class="fi" id="qt-note" rows="3" placeholder="예: 사용 중단 기간 최소화 요청, 성적서 PDF 회신 요청 등"></textarea>
+      </div>
+      <div class="fg full">
+        <label class="fl" style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="qt-markwait" checked style="width:auto;"> 문서 생성 후 선택된 ${list.length}건의 상태를 '교정대기'로 변경
+        </label>
+      </div>
+    </div>
+  `;
+  document.getElementById('quote-modal').classList.add('active');
+}
+function closeQuoteModal() { document.getElementById('quote-modal').classList.remove('active'); }
+function generateQuoteRequest() {
+  const org = document.getElementById('qt-org').value.trim();
+  if (!org) { alert('수신처(교정기관명)를 입력하세요.'); return; }
+  const writer = document.getElementById('qt-writer').value.trim();
+  const dueDate = document.getElementById('qt-duedate').value;
+  const note = document.getElementById('qt-note').value.trim();
+  const markWait = document.getElementById('qt-markwait').checked;
+  const list = selectedTools();
+  if (list.length === 0) { alert('선택된 측정기구가 없습니다.'); return; }
+  const docNo = 'SJ-CALREQ-' + today().replace(/-/g,'') + '-' + String(Math.floor(Math.random()*900)+100);
+  const rowsHtml = list.map((t,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${esc(t.code)}</td>
+      <td class="al">${esc(t.name)}</td>
+      <td>${esc(t.maker||'-')}${t.model?`<br>(${esc(t.model)})`:''}</td>
+      <td>${esc(t.spec||'-')}</td>
+      <td>1</td>
+      <td class="al">${esc(t.note||'')}</td>
+    </tr>
+  `).join('');
+  const w = window.open('', '_blank');
+  if (!w) { alert('팝업이 차단되어 문서를 열 수 없습니다. 브라우저의 팝업 차단을 해제한 후 다시 시도해주세요.'); return; }
+  w.document.write(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>교정 견적의뢰서</title>
+<style>
+  @page { size: A4 portrait; margin: 15mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: "맑은 고딕", "Malgun Gothic", -apple-system, sans-serif; color: #000; background: #fff; }
+  .doc { max-width: 190mm; margin: 0 auto; }
+  .doc-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:16px; }
+  .doc-title { font-size:22px; font-weight:700; letter-spacing:2px; }
+  .doc-no { font-size:11px; color:#555; text-align:right; }
+  .meta-tbl { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:12px; }
+  .meta-tbl td { border:1px solid #999; padding:6px 10px; }
+  .meta-tbl td.k { background:#f2f2f2; font-weight:700; width:110px; }
+  .body-text { font-size:13px; line-height:1.8; margin-bottom:16px; }
+  .item-tbl { width:100%; border-collapse:collapse; font-size:11.5px; }
+  .item-tbl th { border:1px solid #333; background:#eee; padding:6px 4px; font-weight:700; }
+  .item-tbl td { border:1px solid #999; padding:5px 4px; text-align:center; vertical-align:middle; }
+  .item-tbl td.al { text-align:left; padding-left:6px; }
+  .sign { margin-top:30px; display:flex; justify-content:flex-end; font-size:13px; }
+  .sign table { border-collapse:collapse; }
+  .sign th, .sign td { border:1px solid #333; padding:8px 16px; text-align:center; }
+  .sign th { background:#f2f2f2; }
+  .no-print-bar { position: fixed; top: 10px; right: 10px; background: #1976D2; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; border: none; z-index: 100; }
+  @media print { .no-print-bar { display: none; } }
+  @media screen { body { padding: 20px; background: #ddd; } .doc { background:#fff; box-shadow:0 0 8px rgba(0,0,0,.2); padding:15mm; } }
+</style>
+</head>
+<body>
+  <button class="no-print-bar" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+  <div class="doc">
+    <div class="doc-head">
+      <div class="doc-title">교정 견적의뢰서</div>
+      <div class="doc-no">문서번호: ${docNo}<br>작성일: ${fmtDate(today())}</div>
+    </div>
+    <table class="meta-tbl">
+      <tr><td class="k">수신</td><td>${esc(org)} 귀중</td><td class="k">발신</td><td>(주)세종기술 품질관리부</td></tr>
+      <tr><td class="k">담당자</td><td>${esc(writer)||'-'}</td><td class="k">희망 회신일</td><td>${dueDate?fmtDate(dueDate):'-'}</td></tr>
+    </table>
+    <div class="body-text">
+      귀사의 무궁한 발전을 기원합니다.<br>
+      아래 측정기구에 대한 교정(검교정) 견적을 의뢰하오니 검토 후 회신하여 주시기 바랍니다.
+      ${note ? `<br><br><b>[요청사항]</b> ${esc(note).replace(/\n/g,'<br>')}` : ''}
+    </div>
+    <table class="item-tbl">
+      <thead><tr>
+        <th style="width:6%;">No.</th>
+        <th style="width:12%;">관리번호</th>
+        <th>품명</th>
+        <th style="width:18%;">제조사/모델</th>
+        <th style="width:15%;">규격/범위</th>
+        <th style="width:8%;">수량</th>
+        <th style="width:16%;">비고</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div class="sign">
+      <table>
+        <tr><th>작성</th><th>검토</th><th>승인</th></tr>
+        <tr><td style="height:50px;width:80px;"></td><td style="width:80px;"></td><td style="width:80px;"></td></tr>
+      </table>
+    </div>
+  </div>
+  <script>
+    window.addEventListener('load', () => setTimeout(() => window.print(), 400));
+  </` + `script>
+</body>
+</html>`);
+  w.document.close();
+  if (markWait) {
+    list.forEach(t => {
+      const idx = tools.findIndex(x => x.id === t.id);
+      if (idx >= 0) tools[idx] = { ...tools[idx], status: 'calib_wait', updatedAt: nowISO() };
+    });
+    save();
+  }
+  closeQuoteModal();
+  clearSelection();
+}
+
+/* ══════════ 검교정 일괄완료 등록 ══════════ */
+function openBulkCalModal() {
+  if (!isQADept()) { alert('품질관리부 권한이 필요합니다.'); return; }
+  const list = selectedTools();
+  if (list.length === 0) { alert('검교정을 일괄등록할 측정기구를 선택해주세요.'); return; }
+  const todayStr = today();
+  document.getElementById('bulkcal-body').innerHTML = `
+    <div style="margin-bottom:14px;padding:10px 12px;background:var(--primary-lighter);border-radius:6px;font-size:13px;">
+      선택된 <strong>${list.length}건</strong>에 같은 검교정일·기관을 일괄 등록합니다.<br>
+      <span style="color:var(--text-light);">다음 검교정일은 각 기구별 주기(입력하지 않으면 기존 주기 유지)로 개별 계산됩니다.</span>
+    </div>
+    <div class="form-grid">
+      <div class="fg">
+        <label class="fl">검교정일 <span style="color:var(--danger);">*</span></label>
+        <input class="fi" type="date" id="bc-date" value="${todayStr}">
+      </div>
+      <div class="fg">
+        <label class="fl">주기 (개월) <span style="color:var(--text-lighter);font-weight:400;">(선택 — 비우면 기구별 기존 주기 유지)</span></label>
+        <input class="fi" type="number" id="bc-cycle" placeholder="예: 12" min="1" max="60">
+      </div>
+      <div class="fg">
+        <label class="fl">검교정 기관</label>
+        <input class="fi" id="bc-org" placeholder="예: (주)한국계측기교정협회">
+      </div>
+      <div class="fg full">
+        <label class="fl">성적서 링크</label>
+        <input class="fi" id="bc-cert" placeholder="URL 또는 파일 경로 (전체 공통, 필요 시 개별로 다시 수정)">
+      </div>
+      <div class="fg full">
+        <label class="fl">비고</label>
+        <textarea class="fi" id="bc-note" rows="2"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text-light);">대상: ${list.map(t=>esc(t.code)).join(', ')}</div>
+  `;
+  document.getElementById('bulkcal-modal').classList.add('active');
+}
+function closeBulkCalModal() { document.getElementById('bulkcal-modal').classList.remove('active'); }
+function saveBulkCal() {
+  const date = document.getElementById('bc-date').value;
+  if (!date) { alert('검교정일을 입력하세요.'); return; }
+  const cycleOverride = document.getElementById('bc-cycle').value ? Number(document.getElementById('bc-cycle').value) : null;
+  const org = document.getElementById('bc-org').value.trim();
+  const cert = document.getElementById('bc-cert').value.trim();
+  const note = document.getElementById('bc-note').value.trim();
+  const list = selectedTools();
+  if (list.length === 0) { alert('선택된 측정기구가 없습니다.'); return; }
+  list.forEach(t => {
+    const idx = tools.findIndex(x => x.id === t.id);
+    if (idx < 0) return;
+    const prev = tools[idx];
+    const cycle = cycleOverride || prev.calibrationCycle || DEFAULT_CAL_CYCLE_MONTH;
+    const next = addMonths(date, cycle);
+    const history = (prev.calibrationHistory || []).concat([{
+      date, cycle, nextCalibration: next, org, cert, note,
+      registeredBy: currentUserName() || '', registeredAt: nowISO(), bulk: true
+    }]);
+    tools[idx] = {
+      ...prev,
+      lastCalibration: date,
+      calibrationCycle: cycle,
+      nextCalibration: next,
+      calibrationOrg: org || prev.calibrationOrg,
+      certificateUrl: cert || prev.certificateUrl,
+      calibrationHistory: history,
+      status: (prev.status === 'calib_wait' || prev.status === 'repair') ? 'normal' : prev.status, // 교정 완료 → 정상 복귀
+      lastAlertDate: null,
+      updatedAt: nowISO(),
+    };
+  });
+  save();
+  closeBulkCalModal();
+  clearSelection();
+  alert(`✅ ${list.length}건의 검교정 완료가 등록되었습니다.`);
 }
 
 /* ── 이력 조회 ── */
@@ -1071,9 +1345,10 @@ function toolFormHTML(t) {
       <div class="fg">
         <label class="fl">상태</label>
         <select class="fs" id="tm-status">
-          <option value="normal" ${(v.status||'normal')==='normal'?'selected':''}>정상</option>
-          <option value="repair" ${v.status==='repair'?'selected':''}>수리중</option>
-          <option value="scrap"  ${v.status==='scrap' ?'selected':''}>폐기</option>
+          <option value="normal"     ${(v.status||'normal')==='normal'?'selected':''}>정상</option>
+          <option value="calib_wait" ${v.status==='calib_wait'?'selected':''}>교정대기</option>
+          <option value="repair"     ${v.status==='repair'?'selected':''}>수리중</option>
+          <option value="scrap"      ${v.status==='scrap' ?'selected':''}>폐기</option>
         </select>
       </div>
       <div class="fg">
