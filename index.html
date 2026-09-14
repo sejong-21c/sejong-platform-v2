@@ -1373,9 +1373,9 @@ const QADASH_BUILD = 'b30'; // v29.1.14: 항목명 라벨칸 폭 통일 + 개선
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c47'; // c47: 표지 우측상단에 최종 결재 도장표 추가(결재문서 전체 공통 스타일)
+const ITPBUILDER_BUILD = 'c48'; // c48: 결재 도장표에 개인 서명 이미지 지원(등록 시 도장 대신 서명 표시)
 const QADOC_BUILD = 'c24'; // c24: 클라우드 강제 불러오기 버튼(+pid 진단)
-const MTOOLS_BUILD = 'b12'; // b12: 견적의뢰서 결재선(검토자·승인자 선택 가능), 연락처 자동포맷, 결재 완료 후 문서 열람/인쇄로 변경
+const MTOOLS_BUILD = 'b13'; // b13: 결재 도장표에 개인 서명 이미지 지원(등록 시 도장 대신 서명 표시)
 // v30.16: 로그인 화면 배경 영상 경로. 비어 있으면 <video>를 렌더하지 않고 이미지 2컷 모션만 쓴다(불필요한 404 없음).
 // Higgsfield 등으로 mp4(H.264 yuv420p, 무음, faststart, ≤8MB 권장)를 만들면 assets/login/sejong-hero.mp4 로 넣고 여기에 경로를 적는다.
 const LOGIN_HERO_VIDEO = '';
@@ -1389,7 +1389,7 @@ const ROADMAP_BUILD = 'a11'; // PHASE 17 — a·b·d 완료, c는 조사 후 보
 const KNOWMAP_BUILD = 'a1'; // v30.15 회사 지식 지도 (로드맵 9-2·9-3·9-4)
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a30'; // a30: 표지 우측상단에 최종 결재 도장표 추가(결재문서 전체 공통 스타일)
+const ITPVIEW_BUILD = 'a31'; // a31: 결재 도장표에 개인 서명 이미지 지원(등록 시 도장 대신 서명 표시)
 const QAVIEW_BUILD = 'a7'; // a7: 영속 캐시(점검 A3)
 // v1.0: 교반기 선정·설계 (기술부). 모듈 재배포할 때마다 이 번호를 올려야
 //       브라우저가 예전 캐시를 계속 보여주는 문제가 생기지 않는다.
@@ -3041,6 +3041,7 @@ function toggleUserMenu(e) {
       <div style="font-size:11px;color:var(--text-light);margin-top:2px;">${u.email}</div>
       <div style="margin-top:6px;"><span class="b-pill ${g.color}">${g.label}</span> <span style="font-size:11px;color:var(--text-light);">${u.dept}</span></div>
     </div>
+    <div class="um-item" onclick="closeUserMenu();openSignatureModal()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;">🖋 내 서명 등록${u.signatureUrl?' <span style="margin-left:auto;font-size:11px;color:var(--success);">등록됨</span>':''}</div>
     ${u.grade==='super' ? `<div class="um-item" onclick="closeUserMenu();goOrg()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;">👥 조직 / 권한 관리</div>` : ''}
     <div class="um-item" onclick="closeUserMenu();doLogout()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);color:#dc2626;">🚪 로그아웃</div>`;
   menu.style.display = 'block';
@@ -3048,6 +3049,78 @@ function toggleUserMenu(e) {
   setTimeout(()=>{ document.addEventListener('click', closeUserMenuOutside); }, 10);
 }
 function closeUserMenu() { document.getElementById('userMenu').style.display = 'none'; }
+// ── 내 서명 등록 (결재 도장표에 표시될 서명 이미지 업로드) ──
+function openSignatureModal() {
+  const u = getU(state.currentUser);
+  if (!u) return;
+  const body = `
+    <div style="font-size:13px;color:var(--text-light);margin-bottom:12px;">
+      결재 문서 도장표(작성·검토·승인)에 이 서명 이미지가 표시됩니다. 배경이 흰색이나 투명한 PNG를 권장합니다.
+    </div>
+    <div id="sigPreviewBox" style="border:1px dashed var(--border);border-radius:8px;padding:16px;text-align:center;margin-bottom:12px;min-height:90px;display:flex;align-items:center;justify-content:center;">
+      ${u.signatureUrl ? `<img src="${u.signatureUrl}" style="max-height:70px;max-width:220px;object-fit:contain;">` : `<span style="color:var(--text-lighter);font-size:12px;">등록된 서명이 없습니다</span>`}
+    </div>
+    <input type="file" id="sigFileInput" accept="image/*" onchange="_onSigFilePicked(this)" style="margin-bottom:12px;font-size:12px;">
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      ${u.signatureUrl ? `<button class="btn btn-sm" style="color:var(--danger);" onclick="deleteMySignature()">서명 삭제</button>` : ''}
+      <button class="btn btn-sm btn-primary" id="sigSaveBtn" disabled onclick="saveMySignature()">저장</button>
+    </div>
+  `;
+  openModal('내 서명 등록', body, null);
+}
+let _sigPendingDataUrl = null;
+function _onSigFilePicked(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { alert('이미지 파일만 업로드할 수 있습니다.'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      // 서명란 크기에 맞춰 축소해 저장(Firestore 문서 크기·로딩 부담 최소화).
+      const MAXW = 300, MAXH = 120;
+      let w = img.width, h = img.height;
+      const scale = Math.min(1, MAXW / w, MAXH / h);
+      w = Math.round(w * scale); h = Math.round(h * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      _sigPendingDataUrl = canvas.toDataURL('image/png');
+      const box = document.getElementById('sigPreviewBox');
+      if (box) box.innerHTML = `<img src="${_sigPendingDataUrl}" style="max-height:70px;max-width:220px;object-fit:contain;">`;
+      const btn = document.getElementById('sigSaveBtn');
+      if (btn) btn.disabled = false;
+    };
+    img.onerror = () => alert('이미지를 읽지 못했습니다. 다른 파일로 시도해주세요.');
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function saveMySignature() {
+  if (!_sigPendingDataUrl) return;
+  const uid = state.currentUser;
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'users', uid), { signatureUrl: _sigPendingDataUrl }, { merge: true });
+    const u = getU(uid); if (u) u.signatureUrl = _sigPendingDataUrl;
+    _sigPendingDataUrl = null;
+    closeModal();
+    alert('✅ 서명이 등록되었습니다. 앞으로 결재 도장표에 이 서명이 표시됩니다.');
+  } catch (e) {
+    alert('❌ 서명 저장 실패: ' + (e.message || e));
+  }
+}
+async function deleteMySignature() {
+  if (!confirm('등록된 서명을 삭제할까요?')) return;
+  const uid = state.currentUser;
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'users', uid), { signatureUrl: null }, { merge: true });
+    const u = getU(uid); if (u) u.signatureUrl = null;
+    closeModal();
+    alert('서명이 삭제되었습니다.');
+  } catch (e) {
+    alert('❌ 삭제 실패: ' + (e.message || e));
+  }
+}
 function closeUserMenuOutside(e) {
   const menu = document.getElementById('userMenu');
   const chip = document.getElementById('userChip');
@@ -7578,7 +7651,8 @@ function _renderStampBox(line) {
   const cells = line.map(s => {
     const u = getU(s.uid) || {};
     let stamp;
-    if (s.status === 'approved')      stamp = `<div style="border:1.5px solid var(--success);color:var(--success);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
+    if (s.status === 'approved' && u.signatureUrl) stamp = `<img src="${u.signatureUrl}" style="max-height:36px;max-width:56px;object-fit:contain;margin:2px auto;display:block;" title="개인 서명">`;
+    else if (s.status === 'approved') stamp = `<div style="border:1.5px solid var(--success);color:var(--success);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
     else if (s.status === 'rejected') stamp = `<div style="border:1.5px solid var(--danger);color:var(--danger);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">반려</div>`;
     else if (s.status === 'skipped')  stamp = `<div style="color:var(--text-lighter);font-size:10px;padding:12px 0;" title="상위 결재권자 전결 승인으로 생략됨">전결<br>생략</div>`;
     else if (s.status === 'pending')  stamp = `<div style="color:var(--warning);font-size:11px;padding:12px 0;">대기중</div>`;

@@ -887,7 +887,7 @@ function _getUsersMap(){
       const map = {};
       try {
         const snap = await fb.getDocs(fb.collection(fb.db, "users"));
-        snap.docs.forEach(d => { const u = d.data(); map[d.id] = u.name || d.id; });
+        snap.docs.forEach(d => { const u = d.data(); map[d.id] = { name: u.name || d.id, signatureUrl: u.signatureUrl || null }; });
       } catch(e) { console.warn("[ITP 갑지] 사용자 목록 조회 실패:", e.message); }
       _cachedUsersMap = map;
       return map;
@@ -941,7 +941,8 @@ function ITPCoverSheet({proj, item, pid}){
     return () => { cancelled = true; };
   }, [pid, itemId]);
 
-  const nameOf = uid => (uid && usersMap[uid]) || uid || "";
+  const nameOf = uid => (uid && usersMap[uid] && usersMap[uid].name) || uid || "";
+  const sigOf = uid => (uid && usersMap[uid] && usersMap[uid].signatureUrl) || null;
   const roleName = (line, role) => { const s = (Array.isArray(line)?line:[]).find(x => x.role === role); return s ? nameOf(s.uid) : ""; };
   const fmtDate = ts => { if (!ts) return ""; const d = new Date(ts); return String(d.getFullYear()).slice(2) + "." + String(d.getMonth()+1).padStart(2,"0") + "." + String(d.getDate()).padStart(2,"0"); };
   const itemLabel = item ? [item.name, item.tag].filter(Boolean).join(" / ") : "";
@@ -956,7 +957,9 @@ function ITPCoverSheet({proj, item, pid}){
   const latestLine = (history && history.length) ? history[history.length-1].approvalLine : null;
   const stampCells = (Array.isArray(latestLine) ? latestLine : []).map((s, i) => {
     let stampEl;
-    if (s.status === "approved") stampEl = <div style={{border:"1.5px solid #2E7D32", color:"#2E7D32", borderRadius:"50%", width:30, height:30, lineHeight:"30px", margin:"2px auto", fontSize:10}}>승인</div>;
+    const sig = s.status === "approved" ? sigOf(s.uid) : null;
+    if (sig) stampEl = <img src={sig} style={{maxHeight:32, maxWidth:48, objectFit:"contain", margin:"2px auto", display:"block"}} title="개인 서명"/>;
+    else if (s.status === "approved") stampEl = <div style={{border:"1.5px solid #2E7D32", color:"#2E7D32", borderRadius:"50%", width:30, height:30, lineHeight:"30px", margin:"2px auto", fontSize:10}}>승인</div>;
     else if (s.status === "rejected") stampEl = <div style={{border:"1.5px solid #C62828", color:"#C62828", borderRadius:"50%", width:30, height:30, lineHeight:"30px", margin:"2px auto", fontSize:10}}>반려</div>;
     else if (s.status === "skipped") stampEl = <div style={{color:"#999", fontSize:9, padding:"10px 0"}}>전결<br/>생략</div>;
     else if (s.status === "pending") stampEl = <div style={{color:"#E65100", fontSize:10, padding:"10px 0"}}>대기중</div>;

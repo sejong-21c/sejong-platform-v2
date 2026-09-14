@@ -1264,11 +1264,17 @@ async function _applyCalibRequestApproved(toolIds, approvalId) {
    이 표시 방식으로 통일).
    딥링크: measurement-tools.html?calReqId=<approvalId> 로 열면 자동으로 뜬다
    (index.html 결재 상세의 "문서 보기" 버튼이 이 방식으로 새 탭을 연다). */
+function _sigOf(uid) {
+  const u = (state.users || []).find(x => x.id === uid);
+  return u ? u.signatureUrl : null;
+}
 function _apprStampBoxHtml(line) {
   if (!line || !line.length) return '';
   const cells = line.map(s => {
     let stampHtml;
-    if (s.status === 'approved')      stampHtml = `<div style="border:1.5px solid #2E7D32;color:#2E7D32;border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
+    const sig = s.status === 'approved' ? _sigOf(s.uid) : null;
+    if (sig)                          stampHtml = `<img src="${sig}" style="max-height:36px;max-width:56px;object-fit:contain;margin:2px auto;display:block;" title="개인 서명">`;
+    else if (s.status === 'approved')      stampHtml = `<div style="border:1.5px solid #2E7D32;color:#2E7D32;border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
     else if (s.status === 'rejected') stampHtml = `<div style="border:1.5px solid #C62828;color:#C62828;border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">반려</div>`;
     else if (s.status === 'skipped')  stampHtml = `<div style="color:#999;font-size:10px;padding:12px 0;">전결<br>생략</div>`;
     else if (s.status === 'pending')  stampHtml = `<div style="color:#E65100;font-size:11px;padding:12px 0;">대기중</div>`;
