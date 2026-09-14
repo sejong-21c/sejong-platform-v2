@@ -943,16 +943,12 @@ function ITPCoverSheet({proj, item, pid}){
   const TD = {border:"1px solid #000", padding:"5px 4px", fontSize:10, textAlign:"center", verticalAlign:"middle", height:20};
   const fld = {fontSize:13, fontWeight:700, textDecoration:"underline", display:"inline-block", minWidth:120};
 
-  return <div className="itp-cover-sheet" style={{fontFamily:"Arial,sans-serif", fontSize:12, border:"1.5px solid #000", padding:"26px 30px", position:"relative"}}>
-    {/* v2.9: 표지만 가로(landscape)로 인쇄 — CSS Paged Media 이름있는 페이지(named page)로
-        표지에만 별도 @page를 적용하고, 본문(ITP 내용)은 기존 portrait 그대로 유지. */}
-    <style>{`
-      @media print {
-        @page { size:A4 portrait; margin:10mm; }
-        @page itp-cover-page { size:A4 landscape; margin:10mm; }
-        .itp-cover-sheet { page: itp-cover-page; }
-      }
-    `}</style>
+  return <div style={{fontFamily:"Arial,sans-serif", fontSize:12, border:"1.5px solid #000", padding:"26px 30px", position:"relative"}}>
+    {/* v3.0: 표지만 landscape로 찍으려고 이름있는 페이지(@page + page:)를 써봤지만,
+        크롬 인쇄 엔진이 문서 전체 레이아웃 폭을 페이지별로 다시 계산해주지 않아
+        본문·표지 둘 다 엉뚱하게 넓은 여백이 생기는 부작용이 있었다(실사용 확인).
+        혼합 방향은 포기하고 portrait 하나로 통일 — 원본 회사 서식도 portrait였다. */}
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}}`}</style>
     <div style={{position:"absolute", top:26, left:30}}><LogoCell/></div>
     <div style={{textAlign:"center", margin:"36px 0 56px"}}>
       <span style={{fontSize:20, fontWeight:700, textDecoration:"underline"}}>Inspection And Test Plan</span>

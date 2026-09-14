@@ -113,12 +113,13 @@ i[data-lucide] > svg { font-size:13px; color:initial; width:13px; height:13px; }
   html, body { height:auto !important; overflow:visible !important; background:#fff; }
   #app { flex:none !important; overflow:visible !important; padding:0; }
   .no-print, .breadcrumb { display:none !important; }
-  .itp-doc { border:none; padding:0; }
+  /* v3.0: 표지만 landscape로 찍으려고 이름있는 페이지(@page + page:)를 써봤지만,
+     크롬 인쇄 엔진이 문서 전체의 레이아웃 폭을 페이지별로 다시 계산해주지 않아
+     본문·표지 둘 다 엉뚱하게 넓은 여백이 생기는 부작용이 있었다(실사용 확인).
+     혼합 방향은 포기하고 문서 전체를 portrait 하나로 통일 — 원본 회사 서식도
+     portrait였으므로 이게 더 안전하고 예측 가능하다. */
+  .itp-doc { border:none; padding:0; width:100%; }
   @page { size:A4 portrait; margin:10mm; }
-  /* v2.9: 표지만 가로(landscape)로 인쇄 — 이름있는 페이지(named page)를 표지 요소에만
-     적용하고, 본문(ITP 내용)은 기존 portrait를 그대로 유지. */
-  @page itp-cover-page { size:A4 landscape; margin:10mm; }
-  .itp-cover { page: itp-cover-page; }
 }
 </style>
 </head>
