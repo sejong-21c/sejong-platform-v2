@@ -1373,7 +1373,7 @@ const QADASH_BUILD = 'b30'; // v29.1.14: 항목명 라벨칸 폭 통일 + 개선
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c45'; // c45: iid/tag 딥링크 파라미터로 특정 아이템 미리보기(2단계)로 바로 진입 가능(결재 상세 "문서 확인" 대응)
+const ITPBUILDER_BUILD = 'c46'; // c46: 개정이력 조회가 레거시(itemId 없음)/신규(itemId 있음) 승인건을 배타적으로만 찾아 재승인 시 Rev 번호가 0으로 리셋되던 버그 수정(항상 합쳐서 조회)
 const QADOC_BUILD = 'c24'; // c24: 클라우드 강제 불러오기 버튼(+pid 진단)
 const MTOOLS_BUILD = 'b7';
 // v30.16: 로그인 화면 배경 영상 경로. 비어 있으면 <video>를 렌더하지 않고 이미지 2컷 모션만 쓴다(불필요한 404 없음).
@@ -1389,7 +1389,7 @@ const ROADMAP_BUILD = 'a11'; // PHASE 17 — a·b·d 완료, c는 조사 후 보
 const KNOWMAP_BUILD = 'a1'; // v30.15 회사 지식 지도 (로드맵 9-2·9-3·9-4)
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a28'; // a28: openBuilder가 아이템 인덱스 대신 실제 id/tag를 넘기도록 수정(딥링크가 항상 첫 아이템으로 열리던 버그)
+const ITPVIEW_BUILD = 'a29'; // a29: 개정이력 조회가 레거시(itemId 없음)/신규(itemId 있음) 승인건을 배타적으로만 찾아 재승인 시 Rev 번호가 0으로 리셋되던 버그 수정(항상 합쳐서 조회)
 const QAVIEW_BUILD = 'a7'; // a7: 영속 캐시(점검 A3)
 // v1.0: 교반기 선정·설계 (기술부). 모듈 재배포할 때마다 이 번호를 올려야
 //       브라우저가 예전 캐시를 계속 보여주는 문제가 생기지 않는다.

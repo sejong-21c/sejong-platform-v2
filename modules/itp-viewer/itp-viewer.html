@@ -394,26 +394,20 @@ async function _fetchItpCoverHistory(pid, itemId) {
   _coverHistoryCache[key] = null;
   if (!window.fb || !fb.db) { _coverHistoryCache[key] = []; return; }
   let rows = [];
+  // v3.4: itemId로 매칭되는 것만 조회하고, 없을 때만(fallback) itemId 없는 구버전
+  // 레거시 건을 보던 방식은 틀렸다 — 이 아이템이 "구버전(레거시) 승인 1회 → 이후
+  // 아이템 단위(itemId 있음) 재승인 1회 이상" 순서로 넘어온 경우, itemId 매칭
+  // 결과가 이미 1건 이상 있어 레거시 건이 통째로 빠지고 Rev 번호(순번)가 잘못
+  // 처음부터 다시 세어짐(개정이력이 "0"으로 덮어써진 것처럼 보이던 원인). 두
+  // 종류를 항상 합쳐서 시간순으로 나열해야 순번이 실제 개정 횟수와 맞는다.
   try {
     const q = fb.query(fb.collection(fb.db, 'approvals'),
-      fb.where('projId', '==', pid), fb.where('itemId', '==', itemId),
-      fb.where('type', '==', 'itp'), fb.where('status', '==', 'approved'));
+      fb.where('projId', '==', pid), fb.where('type', '==', 'itp'), fb.where('status', '==', 'approved'));
     const snap = await fb.getDocs(q);
-    rows = snap.docs.map(d => d.data()).sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
+    rows = snap.docs.map(d => d.data())
+      .filter(d => !d.itemId || d.itemId === itemId) // 이 아이템 전용 건 + itemId 없는 레거시(프로젝트 전체) 건
+      .sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
   } catch(e) { console.error('[ITP 갑지 개정이력 조회]', e); }
-  // v2.9: itemId로 매칭되는 이력이 없을 수 있다(itemId 필드가 없던 구버전 프로젝트
-  // 단위 승인 건). itemId 없이(프로젝트+타입+승인) 다시 조회하면 그 프로젝트 전체를
-  // 승인했던 실제 결재문서(작성·검토·승인 전체 결재선 포함)를 찾을 수 있으므로,
-  // Prepared/Checked도 빈칸이 아니라 그 결재건의 실제 상신자·검토자로 채운다 —
-  // itemId가 붙은(신규 방식) 다른 아이템의 결재건은 제외(!d.itemId로 구분).
-  if (!rows.length) {
-    try {
-      const q2 = fb.query(fb.collection(fb.db, 'approvals'),
-        fb.where('projId', '==', pid), fb.where('type', '==', 'itp'), fb.where('status', '==', 'approved'));
-      const snap2 = await fb.getDocs(q2);
-      rows = snap2.docs.map(d => d.data()).filter(d => !d.itemId).sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
-    } catch(e) { console.error('[ITP 갑지 레거시 개정이력 조회]', e); }
-  }
   _coverHistoryCache[key] = rows;
   render();
 }
