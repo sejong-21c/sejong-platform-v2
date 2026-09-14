@@ -1840,12 +1840,25 @@ function App(){
   useEffect(() => {
     if (step === 2 && items.length && !items.some(it => it.id === selectedItpItemId)) {
       // v1.8: URL로 지정된 태그/아이템(왼쪽 패널에서 선택해 들어온 것)을 우선 메인으로 선택. 없으면 첫 아이템.
+      // v3.3: "iid"는 결재 상세("문서 확인")·ITP 조회에서 넘어올 때 쓰는, 아이템의 실제
+      // id — epcId 기반의 기존 "itemId" 파라미터와는 별개(그건 다른 화면에서 이미 쓰던
+      // 것이라 그대로 둠). iid를 최우선으로 매칭.
+      const uiidField = URL_PARAMS.get("iid");
       const utag = URL_PARAMS.get("tag");
       const uiid = URL_PARAMS.get("itemId");
-      const match = items.find(it => (utag && it.tag === utag) || (uiid && String(it.epcId) === String(uiid)));
+      const match = items.find(it => (uiidField && it.id === uiidField) || (utag && it.tag === utag) || (uiid && String(it.epcId) === String(uiid)));
       setSelectedItpItemId((match || items[0]).id);
     }
   }, [step, items, selectedItpItemId]);
+
+  // v3.3: 결재 상세("문서 확인")에서 특정 아이템(iid/tag)을 지정해 들어온 경우,
+  // 0단계(프로젝트 화면)에 머물지 않고 바로 그 아이템의 미리보기(2단계)로 이동한다 —
+  // "결재단계에서 바로 문서를 확인할 수 있어야 한다"는 요청 대응.
+  useEffect(() => {
+    if (step === 0 && items.length && (URL_PARAMS.get("iid") || URL_PARAMS.get("tag"))) {
+      setStep(2);
+    }
+  }, [step, items]);
 
   const showMsg = (text, ms=4000) => { setMsg(text); setTimeout(() => setMsg(""), ms); };
 

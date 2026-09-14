@@ -255,9 +255,15 @@ function goBack() {
 }
 function scrollToTop() { document.getElementById('app').scrollTop = 0; }
 
-function openBuilder(pid, itemIdx) {
-  const q = itemIdx != null ? `?pid=${encodeURIComponent(pid)}&item=${itemIdx}` : `?pid=${encodeURIComponent(pid)}`;
-  window.open('../itp-builder/itp-builder.html' + q, '_blank', 'noopener');
+// v2.9: 예전엔 item "인덱스"를 넘겼는데 itp-builder.html은 그 파라미터를 아예 읽지
+// 않아 항상 첫 아이템(0단계)으로 열렸다 — 결재 문서를 확인하려 해도 원하는 아이템으로
+// 못 가던 원인 중 하나. 이제 아이템의 실제 id(iid)·tag를 넘기고, itp-builder.html이
+// 이를 받아 그 아이템의 미리보기(2단계)로 바로 이동한다.
+function openBuilder(pid, itemId, itemTag) {
+  const qs = new URLSearchParams({ pid });
+  if (itemId != null) qs.set('iid', itemId);
+  if (itemTag) qs.set('tag', itemTag);
+  window.open('../itp-builder/itp-builder.html?' + qs.toString(), '_blank', 'noopener');
 }
 
 function renderList() {
@@ -515,7 +521,7 @@ function renderItem() {
       <div class="hd no-print"><div><div class="sub">이 아이템은 아직 승인되지 않았습니다.</div></div>
         <div style="display:flex;gap:8px;">
           <button class="btn" onclick="goBack()">← 아이템 목록</button>
-          <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', ${state.selectedItem})">${LI('clipboard-list','📋')} Builder에서 결재 상신</button>
+          <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', '${esc(it.id)}', '${esc(it.tag||'')}')">${LI('clipboard-list','📋')} Builder에서 결재 상신</button>
         </div>
       </div>
       <div class="empty">"${esc(it.name||it.tag||'이 아이템')}"은(는) 아직 결재 승인이 완료되지 않아 조회할 수 없습니다.<br>ITP Builder에서 결재 상신 후 승인되면 여기서 볼 수 있습니다.</div>
@@ -562,7 +568,7 @@ function renderItem() {
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 아이템 목록</button>
         <button class="btn" onclick="window.print()">${LI('printer','🖨')} 인쇄</button>
-        <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', ${state.selectedItem})">${LI('clipboard-list','📋')} Builder 편집</button>
+        <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', '${esc(it.id)}', '${esc(it.tag||'')}')">${LI('clipboard-list','📋')} Builder 편집</button>
       </div>
     </div>
     ${renderItpCoverHtml(doc, it)}
