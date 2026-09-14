@@ -1230,56 +1230,32 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-09-09 07:30 (오전 정리 자동 실행)",
-    "newMails": 5,
-    "processed": 3,
-    "urgentReplies": 1,
+    "generatedAt": "2026-09-14 11:38 (오전 정리 자동 실행)",
+    "newMails": 1,
+    "processed": 1,
+    "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "더원노무법인 취업규칙 개정 작업 착수 요청 회신 (700,000원 승인 완료, 초안 작성됨)",
-        "proj": "일반사무(노무)",
-        "priority": "high"
-      },
-      {
-        "text": "9/10 쇼트·하도검사 출발/검사 시각 확정 (신안건업)",
+        "text": "SJE435-26-FabSchedule.pdf 검사 마일스톤과 ITP 일정 정합성 확인",
         "proj": "SJ435-26",
-        "priority": "high"
-      },
-      {
-        "text": "P-1301 SUPPORT 제작 착수일 및 ITP 적용 범위 확인",
-        "proj": "SJ431-25",
         "priority": "mid"
       },
       {
-        "text": "2년 전 취업규칙 원본 HWP 파일 소재 확인",
-        "proj": "일반사무(노무)",
-        "priority": "mid"
-      },
-      {
-        "text": "중소조선연구원 2027 교육훈련 수요조사 담당 부서 이관",
-        "proj": "일반사무",
+        "text": "9월 2주차 주간 작업일보·사진대지 품질 검토",
+        "proj": "SJ435-26",
         "priority": "low"
+      },
+      {
+        "text": "금주(9/14~9/20) 캘린더 일정 0건 — 검사·입회 일정 누락 여부 확인",
+        "proj": "-",
+        "priority": "mid"
       }
     ],
-    "urgentList": [
-      {
-        "subject": "Re: 더원노무법인 부산사무소입니다. : 견적서 첨부 — 작업진행 요청",
-        "from": "양병원 이사",
-        "proj": "일반사무(노무)"
-      }
-    ],
-    "schedule": [
-      {
-        "title": "[SJ435-26] 원료3동 6라인 증설공사 쇼트검사/하도검사 (신안건업, 시간 미정)",
-        "date": "2026-09-10",
-        "time": "종일",
-        "proj": "SJ435-26",
-        "color": "green"
-      }
-    ]
+    "urgentList": [],
+    "schedule": []
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-09-14 (daily-mail-swkim 자동 실행)",
