@@ -7595,9 +7595,10 @@ function _renderStampBox(line) {
   </table>`;
 }
 // ── 결재선 흐름(칩) 렌더 ──
+function _escNote(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function _renderLineFlow(line) {
   if (!line) return '';
-  return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">` + line.map((s,i) => {
+  const chips = `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">` + line.map((s,i) => {
     const u = getU(s.uid) || {};
     let bg='var(--white)', col='var(--text)', bd='1px solid var(--border)', ic='●';
     if (s.status==='approved'){ bg='#dcfce7'; col='#166534'; bd='none'; ic='✓'; }
@@ -7608,6 +7609,14 @@ function _renderLineFlow(line) {
     const arrow = i>0 ? `<span style="color:var(--text-lighter);">→</span>` : '';
     return `${arrow}<span style="background:${bg};color:${col};border:${bd};border-radius:20px;padding:4px 10px;font-size:12px;">${ic} ${s.role} · ${u.name||'-'}</span>`;
   }).join('') + `</div>`;
+  // v30.x: 검토·승인 단계마다 남긴 결재 의견("apDecNote")이 그동안 approvalLine의
+  // 각 step.note에 저장은 됐지만 어디에도 표시가 안 됐다(최종 결정의 decisionNote만
+  // 노출, 그마저 다음 단계가 처리되면 덮어써짐) — 단계별 코멘트를 전부 보이게 한다.
+  const notes = line.filter(s => s.note && String(s.note).trim()).map(s => {
+    const u = getU(s.uid) || {};
+    return `<div style="font-size:12px;color:var(--text-light);margin-top:4px;padding:4px 8px;background:var(--bg);border-radius:4px;"><b>${s.role} · ${u.name||'-'}</b>: ${_escNote(s.note)}</div>`;
+  }).join('');
+  return chips + notes;
 }
 function _renderApprovalRow(a, mode) {
   const s = APPROVAL_STATUS_META[a.status] || APPROVAL_STATUS_META.pending;
