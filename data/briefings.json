@@ -1230,32 +1230,78 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-09-14 11:38 (오전 정리 자동 실행)",
-    "newMails": 1,
-    "processed": 1,
-    "urgentReplies": 0,
+    "generatedAt": "2026-09-15 07:30 (오전 정리 자동 실행)",
+    "newMails": 5,
+    "processed": 3,
+    "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
-    "newProjects": 0,
+    "newProjects": 1,
     "keyActions": [
       {
-        "text": "SJE435-26-FabSchedule.pdf 검사 마일스톤과 ITP 일정 정합성 확인",
-        "proj": "SJ435-26",
+        "text": "ISO 사후심사 수감 준비 — ITP·검사성적서 최신본 정비",
+        "proj": "품질보증",
+        "priority": "high"
+      },
+      {
+        "text": "NCR/CAR 시정조치 완료 이력 정리 및 교정성적서 유효기간 확인",
+        "proj": "품질보증",
+        "priority": "high"
+      },
+      {
+        "text": "세부 심사계획서(부서별 배정시간) 수령 요청 회신 발송",
+        "proj": "품질보증",
+        "priority": "high"
+      },
+      {
+        "text": "캘린더 ISO 심사 일정 날짜 하루 뒤로 수동 수정 (9/16~9/17)",
+        "proj": "품질보증",
+        "priority": "high"
+      },
+      {
+        "text": "W탱크 추가 입회 포인트 4건 검사일자 확정 요청",
+        "proj": "SJ2026-064",
         "priority": "mid"
       },
       {
-        "text": "9월 2주차 주간 작업일보·사진대지 품질 검토",
-        "proj": "SJ435-26",
+        "text": "시온텍 메인자재 입고검사 기준 및 ITP 초안 준비 검토",
+        "proj": "SJ2026-051",
         "priority": "low"
-      },
-      {
-        "text": "금주(9/14~9/20) 캘린더 일정 0건 — 검사·입회 일정 누락 여부 확인",
-        "proj": "-",
-        "priority": "mid"
       }
     ],
-    "urgentList": [],
-    "schedule": []
+    "urgentList": [
+      {
+        "subject": "ISO 통합(9001/14001/45001) 사후심사 수감 준비 협조 요청",
+        "from": "김철우 부장",
+        "proj": "품질보증"
+      },
+      {
+        "subject": "[SJ2026-064] W탱크 ITP REV.1 공유 — 추가 입회 포인트 4건",
+        "from": "김시원 대리",
+        "proj": "SJ2026-064"
+      },
+      {
+        "subject": "[SJ2026-051] 시온텍 메인자재 구매요청서 송부건",
+        "from": "황서윤 대리",
+        "proj": "SJ2026-051"
+      }
+    ],
+    "schedule": [
+      {
+        "title": "ISO 통합 사후심사 수감 1일차",
+        "date": "2026-09-16",
+        "time": "09:00",
+        "proj": "품질보증",
+        "color": "red"
+      },
+      {
+        "title": "ISO 통합 사후심사 수감 2일차",
+        "date": "2026-09-17",
+        "time": "09:00",
+        "proj": "품질보증",
+        "color": "red"
+      }
+    ]
   },
   "swkim@sejong-21c.com": {
     "generatedAt": "2026-09-14 (daily-mail-swkim 자동 실행)",
