@@ -115,6 +115,10 @@ i[data-lucide] > svg { font-size:13px; color:initial; width:13px; height:13px; }
   .no-print, .breadcrumb { display:none !important; }
   .itp-doc { border:none; padding:0; }
   @page { size:A4 portrait; margin:10mm; }
+  /* v2.9: 표지만 가로(landscape)로 인쇄 — 이름있는 페이지(named page)를 표지 요소에만
+     적용하고, 본문(ITP 내용)은 기존 portrait를 그대로 유지. */
+  @page itp-cover-page { size:A4 landscape; margin:10mm; }
+  .itp-cover { page: itp-cover-page; }
 }
 </style>
 </head>
@@ -431,7 +435,11 @@ function renderItpCoverHtml(doc, it) {
           <td style="${TD}"></td>
         </tr>`).join(''));
   return `
-    <div class="itp-cover" style="font-family:Arial,sans-serif;font-size:12px;border:1.5px solid #000;padding:26px 30px;box-sizing:border-box;page-break-after:always;">
+    <div class="itp-cover" style="font-family:Arial,sans-serif;font-size:12px;border:1.5px solid #000;padding:26px 30px;box-sizing:border-box;page-break-after:always;position:relative;">
+      <div style="position:absolute;top:26px;left:30px;display:flex;align-items:center;gap:8px;">
+        <img src="${ITP_LOGO}" alt="㈜세종기술" style="max-width:96px;max-height:50px;object-fit:contain;flex-shrink:0;">
+        <div style="font-size:8.5px;line-height:1.5;color:#222;white-space:nowrap;"><div style="font-weight:700;font-size:10px;">㈜세종기술</div><div>Sejong Tech Co., Ltd.</div></div>
+      </div>
       <div style="text-align:center;margin:36px 0 56px;">
         <span style="font-size:20px;font-weight:700;text-decoration:underline;">Inspection And Test Plan</span>
       </div>
