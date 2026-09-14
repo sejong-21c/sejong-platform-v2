@@ -106,7 +106,13 @@ i[data-lucide] > svg { font-size:13px; color:initial; width:13px; height:13px; }
 .itp-grid td.ish-sm { font-size:9px; }
 .itp-note { margin-top:4px; font-size:9px; color:#444; line-height:1.7; }
 @media print {
-  body { background:#fff; } #app { padding:0; } .no-print, .breadcrumb { display:none !important; }
+  /* body/#app이 화면용으로 height:100vh+overflow:hidden(스크롤 패널) 구조라, 이걸
+     인쇄 시에도 그대로 두면 브라우저가 뷰포트 한 화면 분량만 찍고 나머지 내용은
+     잘려나간다(표지+ITP가 한 페이지에 겹쳐 보이고 ITP 본문이 잘리는 원인). 인쇄
+     시에는 항상 auto/visible로 풀어서 전체 내용이 자연스럽게 여러 페이지로 흐르게 한다. */
+  html, body { height:auto !important; overflow:visible !important; background:#fff; }
+  #app { flex:none !important; overflow:visible !important; padding:0; }
+  .no-print, .breadcrumb { display:none !important; }
   .itp-doc { border:none; padding:0; }
   @page { size:A4 portrait; margin:10mm; }
 }
