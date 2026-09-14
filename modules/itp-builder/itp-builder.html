@@ -950,6 +950,20 @@ function ITPCoverSheet({proj, item, pid}){
   const TD = {border:"1px solid #000", padding:"5px 4px", fontSize:10, textAlign:"center", verticalAlign:"middle", height:20};
   const fld = {fontSize:18, fontWeight:700, textDecoration:"underline", display:"inline-block", minWidth:150};
 
+  // v3.5: 표지 우측 상단에 "최종 결재" 도장 표 — 결재 상세(index.html)·교정
+  // 견적의뢰서(measurement-tools.html)와 동일한 모양으로 플랫폼 전체 통일.
+  // 가장 최근 개정이력(history 마지막 행)의 결재선을 보여준다.
+  const latestLine = (history && history.length) ? history[history.length-1].approvalLine : null;
+  const stampCells = (Array.isArray(latestLine) ? latestLine : []).map((s, i) => {
+    let stampEl;
+    if (s.status === "approved") stampEl = <div style={{border:"1.5px solid #2E7D32", color:"#2E7D32", borderRadius:"50%", width:30, height:30, lineHeight:"30px", margin:"2px auto", fontSize:10}}>승인</div>;
+    else if (s.status === "rejected") stampEl = <div style={{border:"1.5px solid #C62828", color:"#C62828", borderRadius:"50%", width:30, height:30, lineHeight:"30px", margin:"2px auto", fontSize:10}}>반려</div>;
+    else if (s.status === "skipped") stampEl = <div style={{color:"#999", fontSize:9, padding:"10px 0"}}>전결<br/>생략</div>;
+    else if (s.status === "pending") stampEl = <div style={{color:"#E65100", fontSize:10, padding:"10px 0"}}>대기중</div>;
+    else stampEl = <div style={{color:"#999", fontSize:10, padding:"10px 0"}}>예정</div>;
+    return { key:i, role:s.role, name:nameOf(s.uid), stampEl, dt: s.decidedAt ? fmtDate(s.decidedAt) : "" };
+  });
+
   return <div className="itp-cover-box" style={{fontFamily:"Arial,sans-serif", fontSize:15, border:"1.5px solid #000", padding:"26px 30px", position:"relative"}}>
     {/* v3.0: 표지만 landscape로 찍으려고 이름있는 페이지(@page + page:)를 써봤지만,
         크롬 인쇄 엔진이 문서 전체 레이아웃 폭을 페이지별로 다시 계산해주지 않아
@@ -968,8 +982,19 @@ function ITPCoverSheet({proj, item, pid}){
         .itp-cover-revwrap { margin-top:auto; }
       }
     `}</style>
-    <div style={{position:"absolute", top:26, left:30}}><LogoCell/></div>
-    <div style={{textAlign:"center", margin:"30px 0 44px"}}>
+    <div style={{display:"flex", alignItems:"flex-start", justifyContent:"space-between"}}>
+      <LogoCell/>
+      {stampCells.length > 0 ? <table style={{borderCollapse:"collapse", fontSize:10, textAlign:"center"}}><tbody>
+        <tr>
+          <td rowSpan={4} style={{border:"0.5px solid #999", padding:4, color:"#666", background:"#f5f5f5", writingMode:"vertical-rl"}}>결재</td>
+          {stampCells.map(c => <td key={"r"+c.key} style={{border:"0.5px solid #999", padding:"2px 6px", color:"#666"}}>{c.role}</td>)}
+        </tr>
+        <tr>{stampCells.map(c => <td key={"n"+c.key} style={{border:"0.5px solid #999", padding:"2px 6px"}}>{c.name}</td>)}</tr>
+        <tr>{stampCells.map(c => <td key={"s"+c.key} style={{border:"0.5px solid #999", height:36, width:48}}>{c.stampEl}</td>)}</tr>
+        <tr>{stampCells.map(c => <td key={"d"+c.key} style={{border:"0.5px solid #999", fontSize:9, color:"#999", padding:2}}>{c.dt||"-"}</td>)}</tr>
+      </tbody></table> : <div/>}
+    </div>
+    <div style={{textAlign:"center", margin:"16px 0 30px"}}>
       <span style={{fontSize:30, fontWeight:700, textDecoration:"underline"}}>Inspection And Test Plan</span>
     </div>
     <div style={{lineHeight:2.7, marginBottom:44}}>

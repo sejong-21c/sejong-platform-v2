@@ -1373,9 +1373,9 @@ const QADASH_BUILD = 'b30'; // v29.1.14: 항목명 라벨칸 폭 통일 + 개선
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c46'; // c46: 개정이력 조회가 레거시(itemId 없음)/신규(itemId 있음) 승인건을 배타적으로만 찾아 재승인 시 Rev 번호가 0으로 리셋되던 버그 수정(항상 합쳐서 조회)
+const ITPBUILDER_BUILD = 'c47'; // c47: 표지 우측상단에 최종 결재 도장표 추가(결재문서 전체 공통 스타일)
 const QADOC_BUILD = 'c24'; // c24: 클라우드 강제 불러오기 버튼(+pid 진단)
-const MTOOLS_BUILD = 'b11'; // b11: 견적의뢰서 작성 시 결재 자동상신(승인되면 교정대기 전환), 상태 '교정기한 만료' 추가, 상태란 폭 확대
+const MTOOLS_BUILD = 'b12'; // b12: 견적의뢰서 결재선(검토자·승인자 선택 가능), 연락처 자동포맷, 결재 완료 후 문서 열람/인쇄로 변경
 // v30.16: 로그인 화면 배경 영상 경로. 비어 있으면 <video>를 렌더하지 않고 이미지 2컷 모션만 쓴다(불필요한 404 없음).
 // Higgsfield 등으로 mp4(H.264 yuv420p, 무음, faststart, ≤8MB 권장)를 만들면 assets/login/sejong-hero.mp4 로 넣고 여기에 경로를 적는다.
 const LOGIN_HERO_VIDEO = '';
@@ -1389,7 +1389,7 @@ const ROADMAP_BUILD = 'a11'; // PHASE 17 — a·b·d 완료, c는 조사 후 보
 const KNOWMAP_BUILD = 'a1'; // v30.15 회사 지식 지도 (로드맵 9-2·9-3·9-4)
 const ASSET_BUILD = 'a9';
 // v29.24: ITP/QA 조회 뷰어 (신규)
-const ITPVIEW_BUILD = 'a29'; // a29: 개정이력 조회가 레거시(itemId 없음)/신규(itemId 있음) 승인건을 배타적으로만 찾아 재승인 시 Rev 번호가 0으로 리셋되던 버그 수정(항상 합쳐서 조회)
+const ITPVIEW_BUILD = 'a30'; // a30: 표지 우측상단에 최종 결재 도장표 추가(결재문서 전체 공통 스타일)
 const QAVIEW_BUILD = 'a7'; // a7: 영속 캐시(점검 A3)
 // v1.0: 교반기 선정·설계 (기술부). 모듈 재배포할 때마다 이 번호를 올려야
 //       브라우저가 예전 캐시를 계속 보여주는 문제가 생기지 않는다.
@@ -7741,6 +7741,11 @@ function openItpApprovalDoc(aid) {
   if (a.itemTag) qs.set('tag', a.itemTag);
   window.open('modules/itp-builder/itp-builder.html?' + qs.toString(), '_blank', 'noopener');
 }
+// 교정 견적의뢰서 — measurement-tools.html이 결재문서(approvals)에 저장해둔 정보로
+// 문서를 재구성해서 보여준다(딥링크: ?calReqId=<approvalId>).
+function openCalibRequestDoc(aid) {
+  window.open('modules/measurement-tools/measurement-tools.html?calReqId=' + encodeURIComponent(aid), '_blank', 'noopener');
+}
 // v30.x: 결재문서는 "승인완료"인데 ITP 조회엔 미승인으로 남는 사고 복구용 —
 // decideApproval의 ITP 스탬프 쓰기가 (예: Firestore 규칙 문제로) 조용히 실패했던
 // 과거 건들이 이 모순 상태로 남아있을 수 있다. 이 결재문서 자체는 이미 승인
@@ -7820,6 +7825,11 @@ function openApprovalDetail(aid) {
       <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-sm btn-primary" onclick="openItpApprovalDoc('${a.id}')">${LI('file-text','📄')} 결재 문서 확인 (ITP 열람)</button>
         ${a.status==='approved'?`<button class="btn btn-sm" title="이 결재는 승인완료인데 ITP 조회에는 미승인으로 보인다면 눌러주세요" onclick="resyncItpApprovalStamp('${a.id}')">${LI('refresh-cw','🔄')} ITP 조회 상태 재동기화</button>`:''}
+      </div>
+    `:''}
+    ${a.type==='calib-request'?`
+      <div style="margin-bottom:10px;">
+        <button class="btn btn-sm btn-primary" onclick="openCalibRequestDoc('${a.id}')">${LI('file-text','📄')} 견적의뢰서 문서 보기 (인쇄/PDF)</button>
       </div>
     `:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px;">

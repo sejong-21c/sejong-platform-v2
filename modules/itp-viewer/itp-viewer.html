@@ -422,6 +422,28 @@ function _fetchCoverUsersMap() {
     render();
   }).catch(e => console.warn('[ITP 갑지] 사용자 목록 조회 실패:', e.message));
 }
+// v3.5: 표지 우측 상단 "최종 결재" 도장 표 — 결재 상세(index.html)·교정
+// 견적의뢰서(measurement-tools.html)와 동일한 모양으로 플랫폼 전체 통일.
+function _itpApprStampBoxHtml(line, nameOf, fmtDate) {
+  if (!Array.isArray(line) || !line.length) return '';
+  const cells = line.map(s => {
+    let stampHtml;
+    if (s.status === 'approved')      stampHtml = `<div style="border:1.5px solid #2E7D32;color:#2E7D32;border-radius:50%;width:30px;height:30px;line-height:30px;margin:2px auto;font-size:10px;">승인</div>`;
+    else if (s.status === 'rejected') stampHtml = `<div style="border:1.5px solid #C62828;color:#C62828;border-radius:50%;width:30px;height:30px;line-height:30px;margin:2px auto;font-size:10px;">반려</div>`;
+    else if (s.status === 'skipped')  stampHtml = `<div style="color:#999;font-size:9px;padding:10px 0;">전결<br>생략</div>`;
+    else if (s.status === 'pending')  stampHtml = `<div style="color:#E65100;font-size:10px;padding:10px 0;">대기중</div>`;
+    else                              stampHtml = `<div style="color:#999;font-size:10px;padding:10px 0;">예정</div>`;
+    return { role: s.role, name: nameOf(s.uid), stampHtml, dt: s.decidedAt ? fmtDate(s.decidedAt) : '' };
+  });
+  const bd = 'border:0.5px solid #999;';
+  return `<table style="border-collapse:collapse;font-size:10px;text-align:center;">
+    <tr><td rowspan="4" style="${bd}padding:4px;color:#666;background:#f5f5f5;writing-mode:vertical-rl;">결재</td>
+      ${cells.map(c=>`<td style="${bd}padding:2px 6px;color:#666;">${esc(c.role)}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}padding:2px 6px;">${esc(c.name)}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}height:36px;width:48px;">${c.stampHtml}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}font-size:9px;color:#999;padding:2px;">${c.dt||'-'}</td>`).join('')}</tr>
+  </table>`;
+}
 function renderItpCoverHtml(doc, it) {
   _fetchItpCoverHistory(doc.pid, it.id);
   _fetchCoverUsersMap();
@@ -456,13 +478,18 @@ function renderItpCoverHtml(doc, it) {
           <td style="${TD}">${esc(roleName(h.approvalLine, '승인'))}</td>
           <td style="${TD}"></td>
         </tr>`).join(''));
+  const latestLine = (history && history.length) ? history[history.length-1].approvalLine : null;
+  const stampHtml = _itpApprStampBoxHtml(latestLine, nameOf, fmtDate);
   return `
     <div class="itp-cover" style="font-family:Arial,sans-serif;font-size:15px;border:1.5px solid #000;padding:26px 30px;box-sizing:border-box;page-break-after:always;position:relative;">
-      <div style="position:absolute;top:26px;left:30px;display:flex;align-items:center;gap:8px;">
-        <img src="${ITP_LOGO}" alt="㈜세종기술" style="max-width:96px;max-height:50px;object-fit:contain;flex-shrink:0;">
-        <div style="font-size:8.5px;line-height:1.5;color:#222;white-space:nowrap;"><div style="font-weight:700;font-size:10px;">㈜세종기술</div><div>Sejong Tech Co., Ltd.</div></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="${ITP_LOGO}" alt="㈜세종기술" style="max-width:96px;max-height:50px;object-fit:contain;flex-shrink:0;">
+          <div style="font-size:8.5px;line-height:1.5;color:#222;white-space:nowrap;"><div style="font-weight:700;font-size:10px;">㈜세종기술</div><div>Sejong Tech Co., Ltd.</div></div>
+        </div>
+        ${stampHtml || '<div></div>'}
       </div>
-      <div style="text-align:center;margin:30px 0 44px;">
+      <div style="text-align:center;margin:16px 0 30px;">
         <span style="font-size:30px;font-weight:700;text-decoration:underline;">Inspection And Test Plan</span>
       </div>
       <div style="line-height:2.7;margin-bottom:44px;">

@@ -257,7 +257,7 @@ i[data-lucide].stat-dot > svg { width: 9px; height: 9px; color: inherit; fill: c
     <div class="modal-body" id="quote-body"></div>
     <div class="modal-foot">
       <button class="btn" onclick="closeQuoteModal()">취소</button>
-      <button class="btn btn-primary" onclick="generateQuoteRequest()">문서 생성 · 인쇄</button>
+      <button class="btn btn-primary" onclick="generateQuoteRequest()">결재 상신</button>
     </div>
   </div>
 </div>
@@ -1062,11 +1062,34 @@ function toggleSelectAll(checked, ids) {
 function clearSelection() { view.selectedIds.clear(); render(); }
 function selectedTools() { return tools.filter(t => view.selectedIds.has(t.id)); }
 
-/* ══════════ 교정 견적의뢰서 작성 ══════════ */
+/* ══════════ 교정 견적의뢰서 작성 ══════════
+   v2: 문서 생성 즉시 인쇄하지 않는다 — 결재(작성→검토→승인)를 상신만 하고,
+   실제 문서 열람·인쇄는 결재가 진행/완료된 뒤 결재 상세("문서 보기")에서
+   한다(viewQuoteRequestDoc). 결재선은 ITP Builder와 같은 패턴: 검토자는
+   선택사항, 승인자는 필수 — 단, 본인이 품질관리부 부서장/super면 검토·승인
+   없이 즉시 자가승인할 수도 있다. */
+function _formatPhoneInput(v) {
+  const d = String(v || '').replace(/\D/g, '').slice(0, 11);
+  if (d.length < 4) return d;
+  if (d.length < 7) return d.slice(0,3) + '-' + d.slice(3);
+  if (d.length <= 10) return d.slice(0,3) + '-' + d.slice(3,6) + '-' + d.slice(6);
+  return d.slice(0,3) + '-' + d.slice(3,7) + '-' + d.slice(7);
+}
+function _nameOf(uid) {
+  const u = (state.users || []).find(x => x.id === uid);
+  return u ? u.name : (uid || '-');
+}
 function openQuoteModal() {
   if (!isQADept()) { alert('품질관리부 권한이 필요합니다.'); return; }
   const list = selectedTools();
   if (list.length === 0) { alert('견적의뢰서를 작성할 측정기구를 선택해주세요.'); return; }
+  const cur = currentUser();
+  const curUid = state.currentUser;
+  const isHeadSelf = !!(cur && (cur.title === '부장' || cur.grade === 'manager' || cur.grade === 'super'));
+  const deptUsers = (state.users || []).filter(u => u.dept === '품질관리부' && u.id !== curUid);
+  const headCandidate = deptUsers.find(u => u.title === '부장') || deptUsers.find(u => u.grade === 'manager') || deptUsers.find(u => u.grade === 'super');
+  const userOpt = (u, selectedId) => `<option value="${u.id}" ${u.id===selectedId?'selected':''}>${esc(u.name)}${u.title?' ('+esc(u.title)+')':''}</option>`;
+  const noOthers = deptUsers.length === 0;
   document.getElementById('quote-body').innerHTML = `
     <div style="margin-bottom:14px;padding:10px 12px;background:var(--primary-lighter);border-radius:6px;font-size:13px;">
       선택된 측정기구 <strong>${list.length}건</strong>의 교정 견적을 의뢰합니다.
@@ -1082,11 +1105,11 @@ function openQuoteModal() {
       </div>
       <div class="fg">
         <label class="fl">담당자 연락처</label>
-        <input class="fi" id="qt-phone" placeholder="예: 010-1234-5678">
+        <input class="fi" id="qt-phone" placeholder="예: 010-1234-5678" oninput="this.value=_formatPhoneInput(this.value)">
       </div>
       <div class="fg">
         <label class="fl">이메일 주소</label>
-        <input class="fi" id="qt-email" type="email" value="${esc((currentUser()||{}).email||'')}" placeholder="예: qc@sejong-21c.com">
+        <input class="fi" id="qt-email" type="email" value="${esc((cur||{}).email||'')}" placeholder="예: qc@sejong-21c.com">
       </div>
       <div class="fg">
         <label class="fl">희망 회신일</label>
@@ -1096,12 +1119,42 @@ function openQuoteModal() {
         <label class="fl">요청사항 / 비고</label>
         <textarea class="fi" id="qt-note" rows="3" placeholder="예: 사용 중단 기간 최소화 요청, 성적서 PDF 회신 요청 등"></textarea>
       </div>
+      <div class="fg full" style="border-top:1px solid var(--border);padding-top:12px;margin-top:2px;">
+        <label class="fl" style="font-size:13px;font-weight:700;color:var(--primary);">결재선 (작성 → 검토 → 승인)</label>
+      </div>
+      ${isHeadSelf ? `
+      <div class="fg full">
+        <label class="fl" style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="qt-selfapprove" ${noOthers?'checked':''} style="width:auto;" onchange="_toggleQuoteApprovalFields()"> 본인이 승인권자 → 검토·승인 없이 즉시 승인 처리
+        </label>
+      </div>` : ''}
+      <div id="qt-approval-fields" style="display:${(isHeadSelf && noOthers) ? 'none' : 'contents'};">
+        <div class="fg">
+          <label class="fl">검토자 (선택)</label>
+          <select class="fs" id="qt-reviewer">
+            <option value="">지정 안함</option>
+            ${deptUsers.map(u => userOpt(u, '')).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">승인자 <span style="color:var(--danger);">*</span></label>
+          <select class="fs" id="qt-approver">
+            <option value="">선택하세요</option>
+            ${deptUsers.map(u => userOpt(u, headCandidate&&u.id===headCandidate.id?headCandidate.id:'')).join('')}
+          </select>
+        </div>
+      </div>
       <div class="fg full" style="font-size:12px;color:var(--text-light);background:var(--bg);padding:8px 10px;border-radius:6px;">
-        📝 문서 생성과 함께 결재가 자동 상신됩니다. 결재가 승인되면 선택된 ${list.length}건의 상태가 자동으로 '교정대기'로 바뀝니다.
+        📝 결재가 승인 완료되면 선택된 ${list.length}건의 상태가 자동으로 '교정대기'로 바뀝니다. 문서(인쇄·PDF 저장)는 결재 상세 화면의 "문서 보기"에서 언제든 열람할 수 있습니다.
       </div>
     </div>
   `;
   document.getElementById('quote-modal').classList.add('active');
+}
+function _toggleQuoteApprovalFields() {
+  const self = document.getElementById('qt-selfapprove');
+  const box = document.getElementById('qt-approval-fields');
+  if (box) box.style.display = (self && self.checked) ? 'none' : 'contents';
 }
 function closeQuoteModal() { document.getElementById('quote-modal').classList.remove('active'); }
 async function generateQuoteRequest() {
@@ -1114,113 +1167,29 @@ async function generateQuoteRequest() {
   const note = document.getElementById('qt-note').value.trim();
   const list = selectedTools();
   if (list.length === 0) { alert('선택된 측정기구가 없습니다.'); return; }
+  const selfEl = document.getElementById('qt-selfapprove');
+  const selfApprove = !!(selfEl && selfEl.checked);
+  let reviewerUid = '', approverUid = '';
+  if (!selfApprove) {
+    reviewerUid = (document.getElementById('qt-reviewer') || {}).value || '';
+    approverUid = (document.getElementById('qt-approver') || {}).value || '';
+    if (!approverUid) { alert('승인자를 선택해주세요.'); return; }
+    if (reviewerUid && reviewerUid === approverUid) { alert('검토자와 승인자가 같습니다. 다르게 지정하거나 검토자를 빼주세요.'); return; }
+  }
   const docNo = 'SJ-CALREQ-' + today().replace(/-/g,'') + '-' + String(Math.floor(Math.random()*900)+100);
-  const rowsHtml = list.map((t,i) => `
-    <tr>
-      <td>${i+1}</td>
-      <td>${esc(t.code)}</td>
-      <td class="al">${esc(t.name)}</td>
-      <td>${esc(t.maker||'-')}${t.model?`<br>(${esc(t.model)})`:''}</td>
-      <td>${esc(t.spec||'-')}</td>
-      <td>1</td>
-      <td class="al">${esc(t.note||'')}</td>
-    </tr>
-  `).join('');
-  const w = window.open('', '_blank');
-  if (!w) { alert('팝업이 차단되어 문서를 열 수 없습니다. 브라우저의 팝업 차단을 해제한 후 다시 시도해주세요.'); return; }
-  w.document.write(`<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<title>교정 견적의뢰서</title>
-<style>
-  @page { size: A4 portrait; margin: 15mm; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; font-family: "맑은 고딕", "Malgun Gothic", -apple-system, sans-serif; color: #000; background: #fff; }
-  .doc { max-width: 190mm; margin: 0 auto; }
-  .doc-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:16px; }
-  .doc-title { font-size:22px; font-weight:700; letter-spacing:2px; }
-  .doc-no { font-size:11px; color:#555; text-align:right; }
-  .meta-tbl { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:12px; }
-  .meta-tbl td { border:1px solid #999; padding:6px 10px; }
-  .meta-tbl td.k { background:#f2f2f2; font-weight:700; width:110px; }
-  .body-text { font-size:13px; line-height:1.8; margin-bottom:16px; }
-  .item-tbl { width:100%; border-collapse:collapse; font-size:11.5px; }
-  .item-tbl th { border:1px solid #333; background:#eee; padding:6px 4px; font-weight:700; }
-  .item-tbl td { border:1px solid #999; padding:5px 4px; text-align:center; vertical-align:middle; }
-  .item-tbl td.al { text-align:left; padding-left:6px; }
-  .sign { margin-top:30px; display:flex; justify-content:flex-end; font-size:13px; }
-  .sign table { border-collapse:collapse; }
-  .sign th, .sign td { border:1px solid #333; padding:8px 16px; text-align:center; }
-  .sign th { background:#f2f2f2; }
-  .no-print-bar { position: fixed; top: 10px; right: 10px; background: #1976D2; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; border: none; z-index: 100; }
-  @media print { .no-print-bar { display: none; } }
-  @media screen { body { padding: 20px; background: #ddd; } .doc { background:#fff; box-shadow:0 0 8px rgba(0,0,0,.2); padding:15mm; } }
-</style>
-</head>
-<body>
-  <button class="no-print-bar" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
-  <div class="doc">
-    <div class="doc-head">
-      <div class="doc-title">교정 견적의뢰서</div>
-      <div class="doc-no">문서번호: ${docNo}<br>작성일: ${fmtDate(today())}</div>
-    </div>
-    <table class="meta-tbl">
-      <tr><td class="k">수신</td><td>${esc(org)} 귀중</td><td class="k">발신</td><td>(주)세종기술 품질관리부</td></tr>
-      <tr><td class="k">담당자</td><td>${esc(writer)||'-'}</td><td class="k">연락처</td><td>${esc(phone)||'-'}</td></tr>
-      <tr><td class="k">이메일</td><td>${esc(email)||'-'}</td><td class="k">희망 회신일</td><td>${dueDate?fmtDate(dueDate):'-'}</td></tr>
-    </table>
-    <div class="body-text">
-      귀사의 무궁한 발전을 기원합니다.<br>
-      아래 측정기구에 대한 교정(검교정) 견적을 의뢰하오니 검토 후 회신하여 주시기 바랍니다.
-      ${note ? `<br><br><b>[요청사항]</b> ${esc(note).replace(/\n/g,'<br>')}` : ''}
-    </div>
-    <table class="item-tbl">
-      <thead><tr>
-        <th style="width:6%;">No.</th>
-        <th style="width:12%;">관리번호</th>
-        <th>품명</th>
-        <th style="width:18%;">제조사/모델</th>
-        <th style="width:15%;">규격/범위</th>
-        <th style="width:8%;">수량</th>
-        <th style="width:16%;">비고</th>
-      </tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-    <div class="sign">
-      <table>
-        <tr><th>작성</th><th>검토</th><th>승인</th></tr>
-        <tr><td style="height:50px;width:80px;"></td><td style="width:80px;"></td><td style="width:80px;"></td></tr>
-      </table>
-    </div>
-  </div>
-  <script>
-    window.addEventListener('load', () => setTimeout(() => window.print(), 400));
-  </` + `script>
-</body>
-</html>`);
-  w.document.close();
-  await submitCalibRequestApproval(list, { org, writer, phone, email, dueDate, note, docNo });
+  const toolsSnapshot = list.map(t => ({ id: t.id, code: t.code, name: t.name, maker: t.maker||'', model: t.model||'', spec: t.spec||'', note: t.note||'' }));
+  await submitCalibRequestApproval(list, { org, writer, phone, email, dueDate, note, docNo, toolsSnapshot, selfApprove, reviewerUid, approverUid });
   closeQuoteModal();
   clearSelection();
 }
 
-/* 교정 견적의뢰 결재 상신 — 부서장(품질관리부)에게 자동 상신, 승인되면 해당
-   측정기구들이 자동으로 '교정대기'로 바뀐다(index.html decideApproval의
-   'calib-request' 분기 참고). 본인이 부서장/super면 그 자리에서 바로 승인 처리. */
-async function _findMtoolsApprover(uid) {
-  // 본인이 이미 부서장/super면(예: 품질관리부에 관리자 1명뿐인 경우) 그 즉시 자기 자신을
-  // 승인권자로 반환한다 — 아래 "다른 사람 찾기" 풀에서는 본인을 제외하므로, 이 체크가
-  // 없으면 부서장 본인이 상신할 때 승인자를 못 찾아 상신 자체가 조용히 막혀버린다.
-  const me = (state.users || []).find(u => u.id === uid);
-  if (me && (me.title === '부장' || me.grade === 'manager' || me.grade === 'super')) return uid;
-  const pool = (state.users || []).filter(u => u.dept === '품질관리부' && u.id !== uid);
-  const head = pool.find(u => u.title === '부장') || pool.find(u => u.grade === 'manager') || pool.find(u => u.grade === 'super');
-  return head ? head.id : null;
-}
+/* 교정 견적의뢰 결재 상신 — 선택한 검토자·승인자에게(또는 자가승인) 결재를 올린다.
+   승인되면 대상 측정기구들이 자동으로 '교정대기'로 바뀐다(index.html decideApproval의
+   'calib-request' 분기 참고). 문서 재구성에 필요한 정보(연락처·품목 스냅샷 등)를
+   결재문서 자체에 저장해두어, 나중에 "문서 보기"에서 그대로 인쇄할 수 있게 한다. */
 async function submitCalibRequestApproval(list, meta) {
   if (!window.fb || !fb.auth || !fb.auth.currentUser) {
-    alert('⚠ 로그인 정보가 없어 결재를 상신하지 못했습니다. 문서는 생성되었습니다.');
+    alert('⚠ 로그인 정보가 없어 결재를 상신하지 못했습니다.');
     return;
   }
   const cur = fb.auth.currentUser;
@@ -1229,42 +1198,47 @@ async function submitCalibRequestApproval(list, meta) {
   const title = `[측정기구] 교정 견적의뢰 결재 - ${meta.org} (${list.length}건)`;
   const description = `${toolSummary} 에 대한 교정(검교정) 견적을 "${meta.org}"에 의뢰합니다. 문서번호: ${meta.docNo}`
     + (meta.note ? `\n\n[요청사항] ${meta.note}` : '');
-  const approverUid = await _findMtoolsApprover(cur.uid);
-  if (!approverUid) {
-    alert('⚠ 결재를 올릴 품질관리부 부서장을 찾지 못해 결재 상신을 건너뛰었습니다. 문서는 생성되었습니다.\n측정기구 관리자에게 문의해주세요.');
-    return;
-  }
-  const id = 'app_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   const now = Date.now();
-  const selfApprove = approverUid === cur.uid;
-  const line = selfApprove
-    ? [
-        { role: '작성', uid: cur.uid, status: 'approved', decidedAt: now, note: '' },
-        { role: '승인', uid: cur.uid, status: 'approved', decidedAt: now, note: '작성자 본인 승인' },
-      ]
-    : [
-        { role: '작성', uid: cur.uid, status: 'approved', decidedAt: now, note: '' },
-        { role: '승인', uid: approverUid, status: 'pending', decidedAt: null, note: '' },
-      ];
+  let line, status, approver;
+  if (meta.selfApprove) {
+    line = [
+      { role: '작성', uid: cur.uid, status: 'approved', decidedAt: now, note: '' },
+      { role: '승인', uid: cur.uid, status: 'approved', decidedAt: now, note: '작성자 본인 승인' },
+    ];
+    status = 'approved'; approver = cur.uid;
+  } else {
+    line = [{ role: '작성', uid: cur.uid, status: 'approved', decidedAt: now, note: '' }];
+    if (meta.reviewerUid) {
+      line.push({ role: '검토', uid: meta.reviewerUid, status: 'pending', decidedAt: null, note: '' });
+      line.push({ role: '승인', uid: meta.approverUid, status: 'waiting', decidedAt: null, note: '' });
+    } else {
+      line.push({ role: '승인', uid: meta.approverUid, status: 'pending', decidedAt: null, note: '' });
+    }
+    status = 'pending';
+    approver = meta.reviewerUid || meta.approverUid;
+  }
+  const id = 'app_' + now + '_' + Math.random().toString(36).slice(2, 6);
   const doc = {
     id, type: 'calib-request', title, description,
     author: cur.uid, approvalLine: line,
-    approver: selfApprove ? cur.uid : approverUid, to: selfApprove ? cur.uid : approverUid,
-    status: selfApprove ? 'approved' : 'pending',
-    date: today(), createdAt: now,
+    approver, to: approver,
+    status, date: today(), createdAt: now,
     toolIds, quoteOrg: meta.org, quoteDocNo: meta.docNo,
-    ...(selfApprove ? { decidedBy: cur.uid, decidedAt: now } : {}),
+    contactName: meta.writer, contactPhone: meta.phone, contactEmail: meta.email,
+    dueDate: meta.dueDate || null, note: meta.note || '',
+    toolsSnapshot: meta.toolsSnapshot,
+    ...(meta.selfApprove ? { decidedBy: cur.uid, decidedAt: now } : {}),
   };
   try {
     await fb.setDoc(fb.doc(fb.db, 'approvals', id), doc);
-    if (selfApprove) {
+    if (meta.selfApprove) {
       await _applyCalibRequestApproved(toolIds, id);
-      alert(`✅ "${meta.org}" 교정 견적의뢰가 작성자 본인 승인으로 즉시 처리되어, 선택된 ${list.length}건이 '교정대기'로 변경되었습니다.`);
+      alert(`✅ "${meta.org}" 교정 견적의뢰가 작성자 본인 승인으로 즉시 처리되어, 선택된 ${list.length}건이 '교정대기'로 변경되었습니다.\n문서는 결재함의 "문서 보기"에서 열람·인쇄할 수 있습니다.`);
     } else {
-      alert(`✅ "${meta.org}" 교정 견적의뢰 문서를 생성하고 결재를 상신했습니다.\n승인되면 선택된 ${list.length}건이 자동으로 '교정대기'로 변경됩니다.`);
+      alert(`✅ "${meta.org}" 교정 견적의뢰 결재를 상신했습니다.\n승인 완료되면 선택된 ${list.length}건이 자동으로 '교정대기'로 변경됩니다.\n문서는 결재함의 "문서 보기"에서 열람·인쇄할 수 있습니다.`);
     }
   } catch (e) {
-    alert('❌ 결재 상신 실패: ' + (e.message || e) + '\n문서는 생성되었으나 결재는 올라가지 않았습니다.');
+    alert('❌ 결재 상신 실패: ' + (e.message || e));
   }
 }
 /* 승인 확정 시 대상 기구 상태를 '교정대기'로 — index.html의 decideApproval도
@@ -1282,6 +1256,139 @@ async function _applyCalibRequestApproved(toolIds, approvalId) {
   writeLocalCache();
   render();
 }
+
+/* ══════════ 교정 견적의뢰서 문서 보기/인쇄 (결재 상세에서 호출, 언제든 재열람 가능) ══════════
+   결재문서에 저장해둔 정보(연락처·품목 스냅샷 등)로 문서를 다시 그린다. 결재선
+   서명란은 index.html 결재 상세의 도장 표(_renderStampBox)와 동일한 모양 —
+   역할·이름·승인 도장·결재일자를 한 표로 보여준다(플랫폼 전체에서 결재 문서는
+   이 표시 방식으로 통일).
+   딥링크: measurement-tools.html?calReqId=<approvalId> 로 열면 자동으로 뜬다
+   (index.html 결재 상세의 "문서 보기" 버튼이 이 방식으로 새 탭을 연다). */
+function _apprStampBoxHtml(line) {
+  if (!line || !line.length) return '';
+  const cells = line.map(s => {
+    let stampHtml;
+    if (s.status === 'approved')      stampHtml = `<div style="border:1.5px solid #2E7D32;color:#2E7D32;border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
+    else if (s.status === 'rejected') stampHtml = `<div style="border:1.5px solid #C62828;color:#C62828;border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">반려</div>`;
+    else if (s.status === 'skipped')  stampHtml = `<div style="color:#999;font-size:10px;padding:12px 0;">전결<br>생략</div>`;
+    else if (s.status === 'pending')  stampHtml = `<div style="color:#E65100;font-size:11px;padding:12px 0;">대기중</div>`;
+    else                              stampHtml = `<div style="color:#999;font-size:11px;padding:12px 0;">예정</div>`;
+    const dt = s.decidedAt ? new Date(s.decidedAt).toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit'}) : '';
+    return { role: s.role, name: _nameOf(s.uid), stampHtml, dt };
+  });
+  const bd = 'border:0.5px solid #999;';
+  return `<table style="border-collapse:collapse;font-size:11px;text-align:center;">
+    <tr><td rowspan="4" style="${bd}padding:4px;color:#666;background:#f5f5f5;writing-mode:vertical-rl;">결재</td>
+      ${cells.map(c=>`<td style="${bd}padding:2px 8px;color:#666;">${esc(c.role)}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}padding:2px 8px;">${esc(c.name)}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}height:40px;width:56px;">${c.stampHtml}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}font-size:10px;color:#999;padding:2px;">${c.dt||'-'}</td>`).join('')}</tr>
+  </table>`;
+}
+function _buildQuoteRequestHtml(a) {
+  const list = a.toolsSnapshot || [];
+  const rowsHtml = list.map((t,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${esc(t.code)}</td>
+      <td class="al">${esc(t.name)}</td>
+      <td>${esc(t.maker||'-')}${t.model?`<br>(${esc(t.model)})`:''}</td>
+      <td>${esc(t.spec||'-')}</td>
+      <td>1</td>
+      <td class="al">${esc(t.note||'')}</td>
+    </tr>
+  `).join('');
+  const stampHtml = _apprStampBoxHtml(a.approvalLine);
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>교정 견적의뢰서</title>
+<style>
+  @page { size: A4 portrait; margin: 15mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: "맑은 고딕", "Malgun Gothic", -apple-system, sans-serif; color: #000; background: #fff; }
+  .doc { max-width: 190mm; margin: 0 auto; }
+  .doc-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:16px; }
+  .doc-title { font-size:22px; font-weight:700; letter-spacing:2px; }
+  .doc-no { font-size:11px; color:#555; text-align:right; margin-bottom:6px; }
+  .meta-tbl { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:12px; }
+  .meta-tbl td { border:1px solid #999; padding:6px 10px; }
+  .meta-tbl td.k { background:#f2f2f2; font-weight:700; width:110px; }
+  .body-text { font-size:13px; line-height:1.8; margin-bottom:16px; }
+  .item-tbl { width:100%; border-collapse:collapse; font-size:11.5px; }
+  .item-tbl th { border:1px solid #333; background:#eee; padding:6px 4px; font-weight:700; }
+  .item-tbl td { border:1px solid #999; padding:5px 4px; text-align:center; vertical-align:middle; }
+  .item-tbl td.al { text-align:left; padding-left:6px; }
+  .no-print-bar { position: fixed; top: 10px; right: 10px; background: #1976D2; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; border: none; z-index: 100; }
+  @media print { .no-print-bar { display: none; } }
+  @media screen { body { padding: 20px; background: #ddd; } .doc { background:#fff; box-shadow:0 0 8px rgba(0,0,0,.2); padding:15mm; } }
+</style>
+</head>
+<body>
+  <button class="no-print-bar" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+  <div class="doc">
+    <div class="doc-head">
+      <div>
+        <div class="doc-title">교정 견적의뢰서</div>
+      </div>
+      <div>
+        <div class="doc-no">문서번호: ${esc(a.quoteDocNo||'-')}<br>작성일: ${fmtDate(a.date)}</div>
+        ${stampHtml}
+      </div>
+    </div>
+    <table class="meta-tbl">
+      <tr><td class="k">수신</td><td>${esc(a.quoteOrg||'')} 귀중</td><td class="k">발신</td><td>(주)세종기술 품질관리부</td></tr>
+      <tr><td class="k">담당자</td><td>${esc(a.contactName)||'-'}</td><td class="k">연락처</td><td>${esc(a.contactPhone)||'-'}</td></tr>
+      <tr><td class="k">이메일</td><td>${esc(a.contactEmail)||'-'}</td><td class="k">희망 회신일</td><td>${a.dueDate?fmtDate(a.dueDate):'-'}</td></tr>
+    </table>
+    <div class="body-text">
+      귀사의 무궁한 발전을 기원합니다.<br>
+      아래 측정기구에 대한 교정(검교정) 견적을 의뢰하오니 검토 후 회신하여 주시기 바랍니다.
+      ${a.note ? `<br><br><b>[요청사항]</b> ${esc(a.note).replace(/\n/g,'<br>')}` : ''}
+    </div>
+    <table class="item-tbl">
+      <thead><tr>
+        <th style="width:6%;">No.</th>
+        <th style="width:12%;">관리번호</th>
+        <th>품명</th>
+        <th style="width:18%;">제조사/모델</th>
+        <th style="width:15%;">규격/범위</th>
+        <th style="width:8%;">수량</th>
+        <th style="width:16%;">비고</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+}
+async function viewQuoteRequestDoc(approvalId) {
+  if (!window.fb || !fb.db) { alert('Firebase 연결을 기다리는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  let a;
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, 'approvals', approvalId));
+    if (!snap.exists()) { alert('결재 문서를 찾을 수 없습니다.'); return; }
+    a = snap.data();
+  } catch (e) { alert('결재 문서 조회 실패: ' + (e.message || e)); return; }
+  const w = window.open('', '_blank');
+  if (!w) { alert('팝업이 차단되어 문서를 열 수 없습니다. 브라우저의 팝업 차단을 해제한 후 다시 시도해주세요.'); return; }
+  w.document.write(_buildQuoteRequestHtml(a));
+  w.document.close();
+}
+// URL 딥링크(?calReqId=<id>)로 열리면 자동으로 문서를 띄운다.
+(function _initCalReqDeepLink() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const id = q.get('calReqId');
+    if (!id) return;
+    const tryOpen = () => {
+      if (window.fb && fb.db && fb.auth && fb.auth.currentUser) viewQuoteRequestDoc(id);
+      else setTimeout(tryOpen, 300);
+    };
+    tryOpen();
+  } catch (e) {}
+})();
 
 /* ══════════ 검교정 일괄완료 등록 ══════════ */
 function openBulkCalModal() {
