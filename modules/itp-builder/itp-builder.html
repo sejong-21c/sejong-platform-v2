@@ -854,6 +854,81 @@ function LogoCell(){
     </div>
   </div>;
 }
+// v2.5 — ITP 갑지(표지): 프로젝트 정보 + 승인 개정이력. "전체 인쇄" 맨 앞장에만
+// 붙는다. 개정번호는 별도로 저장하지 않고, 이 프로젝트의 ITP 결재요청
+// (approvals 컬렉션, type:"itp", status:"approved") 중 승인 완료된 건만 결재일
+// 순으로 나열해 그 순번(0부터)을 그대로 Rev No.로 쓴다 — approvalCount와
+// 항상 같은 수가 나오므로 별도 카운터를 새로 만들 필요가 없다.
+function ITPCoverSheet({proj, itemCount, pid}){
+  const [history, setHistory] = useState(null); // null=조회중, []=이력없음
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!window.fb || !fb.db || !pid) { setHistory([]); return; }
+      try {
+        const q = fb.query(fb.collection(fb.db, "approvals"),
+          fb.where("projId", "==", pid), fb.where("type", "==", "itp"), fb.where("status", "==", "approved"));
+        const snap = await fb.getDocs(q);
+        const rows = snap.docs.map(d => d.data()).sort((a,b) => (a.decidedAt||0) - (b.decidedAt||0));
+        if (!cancelled) setHistory(rows);
+      } catch(e) {
+        console.error("[ITP 갑지 개정이력 조회]", e);
+        if (!cancelled) setHistory([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pid]);
+
+  const TH = {border:"1px solid #555", padding:"5px 8px", background:"#f5f5f5", fontSize:10.5, fontWeight:700, textAlign:"center", verticalAlign:"middle", whiteSpace:"nowrap"};
+  const TD = {border:"1px solid #888", padding:"5px 8px", fontSize:10.5, verticalAlign:"middle"};
+  const fmtDate = ts => ts ? new Date(ts).toLocaleDateString("ko-KR") : "-";
+  const chainSummary = line => (Array.isArray(line) && line.length)
+    ? line.map(s => `${s.role||""} ${s.uid||""}${s.status==="approved"?" ✓":s.status==="rejected"?" ✗":""}`.trim()).join(" → ")
+    : "-";
+  const activeCodes = Object.keys(proj.codes||{}).filter(c => proj.codes[c]).join(", ") || "-";
+
+  return <div style={{fontFamily:"Arial,sans-serif", fontSize:10.5, minHeight:"260mm"}}>
+    <style>{`@media print{@page{size:A4 portrait;margin:10mm}}`}</style>
+    <table style={{width:"100%", borderCollapse:"collapse", marginBottom:16}}>
+      <tbody>
+        <tr>
+          <td rowSpan={5} style={{border:"1px solid #555", padding:"4px 6px", textAlign:"left", verticalAlign:"middle", width:"32%"}}><LogoCell/></td>
+          <td colSpan={3} style={{border:"1px solid #555", padding:"14px 10px", textAlign:"center", fontSize:17, fontWeight:800}}>검사계획서 갑지<div style={{fontSize:10, fontWeight:400, color:"#666", marginTop:2}}>Inspection &amp; Test Plan — Cover Sheet</div></td>
+        </tr>
+        <tr><td style={TH}>Project No.</td><td style={TD} colSpan={2}>{proj.no||"-"}</td></tr>
+        <tr><td style={TH}>프로젝트명</td><td style={TD} colSpan={2}>{proj.name||"-"}</td></tr>
+        <tr><td style={TH}>발주처</td><td style={TD} colSpan={2}>{proj.customer||"-"}</td></tr>
+        <tr><td style={TH}>검사 대상 Tag</td><td style={TD} colSpan={2}>{itemCount}개</td></tr>
+      </tbody>
+    </table>
+    <table style={{width:"100%", borderCollapse:"collapse", marginBottom:20}}>
+      <tbody>
+        <tr><td style={TH}>PO No.</td><td style={TD}>{proj.po||"-"}</td><td style={TH}>Scope</td><td style={TD}>{proj.scope||"-"}</td></tr>
+        <tr><td style={TH}>적용 코드</td><td style={TD} colSpan={3}>{activeCodes}</td></tr>
+      </tbody>
+    </table>
+
+    <div style={{fontSize:12.5, fontWeight:700, marginBottom:6}}>개정 이력 (Revision History)</div>
+    <table style={{width:"100%", borderCollapse:"collapse"}}>
+      <colgroup><col style={{width:"8%"}}/><col style={{width:"16%"}}/><col style={{width:"52%"}}/><col style={{width:"24%"}}/></colgroup>
+      <thead><tr>
+        <th style={TH}>Rev</th><th style={TH}>승인일자</th><th style={TH}>결재선 (검토 → 승인)</th><th style={TH}>비고</th>
+      </tr></thead>
+      <tbody>
+        {history === null && <tr><td colSpan={4} style={{...TD, textAlign:"center", color:"#999"}}>개정 이력 조회 중...</td></tr>}
+        {history !== null && history.length === 0 && <tr><td colSpan={4} style={{...TD, textAlign:"center", color:"#999"}}>승인 완료 이력이 없습니다(Rev 0 — 최초 발행 전)</td></tr>}
+        {history !== null && history.map((h, i) => (
+          <tr key={i}>
+            <td style={{...TD, textAlign:"center", fontWeight:700}}>{i}</td>
+            <td style={{...TD, textAlign:"center"}}>{fmtDate(h.decidedAt)}</td>
+            <td style={TD}>{chainSummary(h.approvalLine)}</td>
+            <td style={TD}>{h.decisionNote||"-"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>;
+}
 function EPCSlots({jobNo}){
   // v1.9 — "Doc No." 슬롯은 실제로 쓰이는 값이 아니어서 의미 있는 "Job No."(=Project No.)로 교체.
   // Inspector 슬롯은 EPC_INSPECTOR_MASTER 대신, WPS/Welder와 같은 방식으로 업로드한
@@ -3060,6 +3135,12 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
             rev={itpRevByItem[selectedItem.id] || "0"} setRev={scopedSetter(setItpRevByItem, selectedItem.id, "0")}
             hdr={itpHdrByItem[selectedItem.id] || {}} setHdr={scopedSetter(setItpHdrByItem, selectedItem.id, {})}
             witnessCols={witnessCols} setWitnessCols={setWitnessCols}/>
+        </div>
+      }
+
+      {printAllMode &&
+        <div className="itp-print-page" style={{border:"1px solid var(--sjp-border)", borderRadius:6, padding:14, background:"#fff", marginBottom:16}}>
+          <ITPCoverSheet proj={proj} itemCount={items.length} pid={PID}/>
         </div>
       }
 
