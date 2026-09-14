@@ -171,12 +171,13 @@ i[data-lucide].stat-dot > svg { width: 9px; height: 9px; color: inherit; fill: c
 }
 
 /* 상태 배지 (기구 상태) */
-.status-pill { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.status-pill { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .status-normal { background: #E8F5E9; color: #2E7D32; }
 .status-repair { background: #FFF3E0; color: #E65100; }
 .status-scrap  { background: #ECEFF1; color: #455A64; text-decoration: line-through; }
 .status-out    { background: #FFEBEE; color: #C62828; }
 .status-calib_wait { background: #E3F2FD; color: #1565C0; }
+.status-calib_expired { background: #FFEBEE; color: #C62828; }
 
 /* 검교정 색상 */
 .cal-ok    { color: #2E7D32; font-weight: 600; }
@@ -381,7 +382,7 @@ function startFirestoreSync() {
     writeLocalCache();
     render();
     maybeSendCalibrationAlerts();
-    maybeAutoMarkCalibWait();
+    maybeAutoMarkCalibExpired();
   }, e => console.error('[measurementTools 구독]', e));
   fb.onSnapshot(fb.collection(fb.db, 'measurementCheckouts'), snap => {
     const serverDocs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
@@ -628,12 +629,18 @@ async function maybeSendCalibrationAlerts() {
   }
 }
 
-/* ══════════ 교정일 만료 시 자동 '교정대기' 전환 (품질부만, 하루 1회 알림과 같은 타이밍) ══════════ */
-async function maybeAutoMarkCalibWait() {
+/* ══════════ 교정일 만료 시 자동 '교정기한 만료' 전환 (품질부만, 하루 1회 알림과 같은 타이밍) ══════════
+   v2: '교정대기'는 이제 "교정 견적의뢰가 결재 승인되어 실제로 발송된" 상태 전용 —
+   calibRequestPending 마커로 구분한다. 단순히 날짜가 지난 것뿐인 기구(아직 아무
+   조치도 안 한)는 '교정기한 만료'로 자동 전환한다. 예전 버전(구분 없이 그냥
+   '교정대기'로 자동 전환하던 로직)이 남긴 기존 데이터도 마커가 없으므로 여기서
+   자연스럽게 '교정기한 만료'로 정정된다. */
+async function maybeAutoMarkCalibExpired() {
   if (!isQADept()) return;
   if (!window.fb || !fb.auth || !fb.auth.currentUser) return;
   const targets = tools.filter(x => {
-    if (x.status !== 'normal') return false; // 이미 수리중·폐기·교정대기인 건 건드리지 않음(상태 덮어쓰기 방지)
+    if (x.status === 'calib_expired' || x.status === 'repair' || x.status === 'scrap') return false;
+    if (x.status === 'calib_wait' && x.calibRequestPending) return false; // 실제 교정 의뢰 승인건은 건드리지 않음
     const st = calStatus(x.nextCalibration);
     return st.level === 'danger'; // 만기 초과(임박은 대상 아님)
   });
@@ -642,9 +649,9 @@ async function maybeAutoMarkCalibWait() {
     try {
       const idx = tools.findIndex(x => x.id === tool.id);
       if (idx < 0) continue;
-      tools[idx] = { ...tools[idx], status: 'calib_wait', updatedAt: nowISO() };
+      tools[idx] = { ...tools[idx], status: 'calib_expired', updatedAt: nowISO() };
       await fb.setDoc(fb.doc(fb.db, 'measurementTools', tool.id), tools[idx]);
-    } catch(e) { console.warn('교정대기 자동 전환 실패', e); }
+    } catch(e) { console.warn('교정기한 만료 자동 전환 실패', e); }
   }
   writeLocalCache();
   render();
@@ -949,10 +956,11 @@ function renderMaster() {
         value="${esc(view.search)}" oninput="view.search=this.value; render();">
       <select onchange="view.filterStatus=this.value; render();">
         <option value="">전체 상태</option>
-        <option value="normal"     ${view.filterStatus==='normal'    ?'selected':''}>정상</option>
-        <option value="calib_wait" ${view.filterStatus==='calib_wait'?'selected':''}>교정대기</option>
-        <option value="repair"     ${view.filterStatus==='repair'    ?'selected':''}>수리중</option>
-        <option value="scrap"      ${view.filterStatus==='scrap'     ?'selected':''}>폐기</option>
+        <option value="normal"        ${view.filterStatus==='normal'       ?'selected':''}>정상</option>
+        <option value="calib_expired" ${view.filterStatus==='calib_expired'?'selected':''}>교정기한 만료</option>
+        <option value="calib_wait"    ${view.filterStatus==='calib_wait'   ?'selected':''}>교정대기</option>
+        <option value="repair"        ${view.filterStatus==='repair'       ?'selected':''}>수리중</option>
+        <option value="scrap"         ${view.filterStatus==='scrap'        ?'selected':''}>폐기</option>
       </select>
       <select onchange="view.filterCal=this.value; render();">
         <option value="">전체 검교정</option>
@@ -991,7 +999,7 @@ function renderMaster() {
           <th style="width:120px;">제조사/모델</th>
           <th style="width:90px;">허용공차<br><span style="font-weight:400;color:var(--text-lighter);">Tolerance</span></th>
           <th style="width:110px;">범위<br><span style="font-weight:400;color:var(--text-lighter);">Range</span></th>
-          <th style="width:85px;">상태</th>
+          <th style="width:140px;">상태</th>
           <th style="width:130px;">교정 만료일<br><span style="font-weight:400;color:var(--text-lighter);">Expiry</span></th>
           <th style="width:200px;">액션</th>
         </tr></thead>
@@ -1035,9 +1043,10 @@ function renderMaster() {
 function statusPill(t) {
   if (isCheckedOut(t)) return '<span class="status-pill status-out">반출중</span>';
   const s = t.status || 'normal';
-  if (s === 'repair')     return '<span class="status-pill status-repair">수리중</span>';
-  if (s === 'scrap')      return '<span class="status-pill status-scrap">폐기</span>';
-  if (s === 'calib_wait') return '<span class="status-pill status-calib_wait">교정대기</span>';
+  if (s === 'repair')        return '<span class="status-pill status-repair">수리중</span>';
+  if (s === 'scrap')         return '<span class="status-pill status-scrap">폐기</span>';
+  if (s === 'calib_expired') return '<span class="status-pill status-calib_expired">교정기한 만료</span>';
+  if (s === 'calib_wait')    return '<span class="status-pill status-calib_wait">교정대기</span>';
   return '<span class="status-pill status-normal">정상</span>';
 }
 
@@ -1087,17 +1096,15 @@ function openQuoteModal() {
         <label class="fl">요청사항 / 비고</label>
         <textarea class="fi" id="qt-note" rows="3" placeholder="예: 사용 중단 기간 최소화 요청, 성적서 PDF 회신 요청 등"></textarea>
       </div>
-      <div class="fg full">
-        <label class="fl" style="display:flex;align-items:center;gap:6px;">
-          <input type="checkbox" id="qt-markwait" checked style="width:auto;"> 문서 생성 후 선택된 ${list.length}건의 상태를 '교정대기'로 변경
-        </label>
+      <div class="fg full" style="font-size:12px;color:var(--text-light);background:var(--bg);padding:8px 10px;border-radius:6px;">
+        📝 문서 생성과 함께 결재가 자동 상신됩니다. 결재가 승인되면 선택된 ${list.length}건의 상태가 자동으로 '교정대기'로 바뀝니다.
       </div>
     </div>
   `;
   document.getElementById('quote-modal').classList.add('active');
 }
 function closeQuoteModal() { document.getElementById('quote-modal').classList.remove('active'); }
-function generateQuoteRequest() {
+async function generateQuoteRequest() {
   const org = document.getElementById('qt-org').value.trim();
   if (!org) { alert('수신처(교정기관명)를 입력하세요.'); return; }
   const writer = document.getElementById('qt-writer').value.trim();
@@ -1105,7 +1112,6 @@ function generateQuoteRequest() {
   const email = document.getElementById('qt-email').value.trim();
   const dueDate = document.getElementById('qt-duedate').value;
   const note = document.getElementById('qt-note').value.trim();
-  const markWait = document.getElementById('qt-markwait').checked;
   const list = selectedTools();
   if (list.length === 0) { alert('선택된 측정기구가 없습니다.'); return; }
   const docNo = 'SJ-CALREQ-' + today().replace(/-/g,'') + '-' + String(Math.floor(Math.random()*900)+100);
@@ -1194,15 +1200,87 @@ function generateQuoteRequest() {
 </body>
 </html>`);
   w.document.close();
-  if (markWait) {
-    list.forEach(t => {
-      const idx = tools.findIndex(x => x.id === t.id);
-      if (idx >= 0) tools[idx] = { ...tools[idx], status: 'calib_wait', updatedAt: nowISO() };
-    });
-    save();
-  }
+  await submitCalibRequestApproval(list, { org, writer, phone, email, dueDate, note, docNo });
   closeQuoteModal();
   clearSelection();
+}
+
+/* 교정 견적의뢰 결재 상신 — 부서장(품질관리부)에게 자동 상신, 승인되면 해당
+   측정기구들이 자동으로 '교정대기'로 바뀐다(index.html decideApproval의
+   'calib-request' 분기 참고). 본인이 부서장/super면 그 자리에서 바로 승인 처리. */
+async function _findMtoolsApprover(uid) {
+  // 본인이 이미 부서장/super면(예: 품질관리부에 관리자 1명뿐인 경우) 그 즉시 자기 자신을
+  // 승인권자로 반환한다 — 아래 "다른 사람 찾기" 풀에서는 본인을 제외하므로, 이 체크가
+  // 없으면 부서장 본인이 상신할 때 승인자를 못 찾아 상신 자체가 조용히 막혀버린다.
+  const me = (state.users || []).find(u => u.id === uid);
+  if (me && (me.title === '부장' || me.grade === 'manager' || me.grade === 'super')) return uid;
+  const pool = (state.users || []).filter(u => u.dept === '품질관리부' && u.id !== uid);
+  const head = pool.find(u => u.title === '부장') || pool.find(u => u.grade === 'manager') || pool.find(u => u.grade === 'super');
+  return head ? head.id : null;
+}
+async function submitCalibRequestApproval(list, meta) {
+  if (!window.fb || !fb.auth || !fb.auth.currentUser) {
+    alert('⚠ 로그인 정보가 없어 결재를 상신하지 못했습니다. 문서는 생성되었습니다.');
+    return;
+  }
+  const cur = fb.auth.currentUser;
+  const toolIds = list.map(t => t.id);
+  const toolSummary = list.map(t => `${t.code}(${t.name})`).join(', ');
+  const title = `[측정기구] 교정 견적의뢰 결재 - ${meta.org} (${list.length}건)`;
+  const description = `${toolSummary} 에 대한 교정(검교정) 견적을 "${meta.org}"에 의뢰합니다. 문서번호: ${meta.docNo}`
+    + (meta.note ? `\n\n[요청사항] ${meta.note}` : '');
+  const approverUid = await _findMtoolsApprover(cur.uid);
+  if (!approverUid) {
+    alert('⚠ 결재를 올릴 품질관리부 부서장을 찾지 못해 결재 상신을 건너뛰었습니다. 문서는 생성되었습니다.\n측정기구 관리자에게 문의해주세요.');
+    return;
+  }
+  const id = 'app_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  const now = Date.now();
+  const selfApprove = approverUid === cur.uid;
+  const line = selfApprove
+    ? [
+        { role: '작성', uid: cur.uid, status: 'approved', decidedAt: now, note: '' },
+        { role: '승인', uid: cur.uid, status: 'approved', decidedAt: now, note: '작성자 본인 승인' },
+      ]
+    : [
+        { role: '작성', uid: cur.uid, status: 'approved', decidedAt: now, note: '' },
+        { role: '승인', uid: approverUid, status: 'pending', decidedAt: null, note: '' },
+      ];
+  const doc = {
+    id, type: 'calib-request', title, description,
+    author: cur.uid, approvalLine: line,
+    approver: selfApprove ? cur.uid : approverUid, to: selfApprove ? cur.uid : approverUid,
+    status: selfApprove ? 'approved' : 'pending',
+    date: today(), createdAt: now,
+    toolIds, quoteOrg: meta.org, quoteDocNo: meta.docNo,
+    ...(selfApprove ? { decidedBy: cur.uid, decidedAt: now } : {}),
+  };
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'approvals', id), doc);
+    if (selfApprove) {
+      await _applyCalibRequestApproved(toolIds, id);
+      alert(`✅ "${meta.org}" 교정 견적의뢰가 작성자 본인 승인으로 즉시 처리되어, 선택된 ${list.length}건이 '교정대기'로 변경되었습니다.`);
+    } else {
+      alert(`✅ "${meta.org}" 교정 견적의뢰 문서를 생성하고 결재를 상신했습니다.\n승인되면 선택된 ${list.length}건이 자동으로 '교정대기'로 변경됩니다.`);
+    }
+  } catch (e) {
+    alert('❌ 결재 상신 실패: ' + (e.message || e) + '\n문서는 생성되었으나 결재는 올라가지 않았습니다.');
+  }
+}
+/* 승인 확정 시 대상 기구 상태를 '교정대기'로 — index.html의 decideApproval도
+   type:'calib-request' 승인 시 이 로직과 동일하게 measurementTools를 patch한다. */
+async function _applyCalibRequestApproved(toolIds, approvalId) {
+  for (const tid of toolIds) {
+    try {
+      const idx = tools.findIndex(x => x.id === tid);
+      if (idx >= 0) {
+        tools[idx] = { ...tools[idx], status: 'calib_wait', calibRequestPending: true, calibRequestApprovalId: approvalId, updatedAt: nowISO() };
+        await fb.setDoc(fb.doc(fb.db, 'measurementTools', tid), tools[idx]);
+      }
+    } catch (e) { console.warn('교정대기 반영 실패:', tid, e.message); }
+  }
+  writeLocalCache();
+  render();
 }
 
 /* ══════════ 검교정 일괄완료 등록 ══════════ */
@@ -1262,6 +1340,7 @@ function saveBulkCal() {
       date, cycle, nextCalibration: next, org, cert, note,
       registeredBy: currentUserName() || '', registeredAt: nowISO(), bulk: true
     }]);
+    const wasPendingOrExpired = prev.status === 'calib_wait' || prev.status === 'calib_expired' || prev.status === 'repair';
     tools[idx] = {
       ...prev,
       lastCalibration: date,
@@ -1270,7 +1349,8 @@ function saveBulkCal() {
       calibrationOrg: org || prev.calibrationOrg,
       certificateUrl: cert || prev.certificateUrl,
       calibrationHistory: history,
-      status: (prev.status === 'calib_wait' || prev.status === 'repair') ? 'normal' : prev.status, // 교정 완료 → 정상 복귀
+      status: wasPendingOrExpired ? 'normal' : prev.status, // 교정 완료 → 정상 복귀
+      calibRequestPending: false, // 교정 완료됐으니 의뢰 대기 마커 해제
       lastAlertDate: null,
       updatedAt: nowISO(),
     };
@@ -1379,10 +1459,11 @@ function toolFormHTML(t) {
       <div class="fg">
         <label class="fl">상태</label>
         <select class="fs" id="tm-status">
-          <option value="normal"     ${(v.status||'normal')==='normal'?'selected':''}>정상</option>
-          <option value="calib_wait" ${v.status==='calib_wait'?'selected':''}>교정대기</option>
-          <option value="repair"     ${v.status==='repair'?'selected':''}>수리중</option>
-          <option value="scrap"      ${v.status==='scrap' ?'selected':''}>폐기</option>
+          <option value="normal"        ${(v.status||'normal')==='normal'?'selected':''}>정상</option>
+          <option value="calib_expired" ${v.status==='calib_expired'?'selected':''}>교정기한 만료</option>
+          <option value="calib_wait"    ${v.status==='calib_wait'?'selected':''}>교정대기</option>
+          <option value="repair"        ${v.status==='repair'?'selected':''}>수리중</option>
+          <option value="scrap"         ${v.status==='scrap' ?'selected':''}>폐기</option>
         </select>
       </div>
       <div class="fg">
@@ -1675,6 +1756,7 @@ function saveCal() {
     date, cycle, nextCalibration: next, org, cert, note,
     registeredBy: currentUserName() || '', registeredAt: nowISO()
   }]);
+  const wasPendingOrExpired = prev.status === 'calib_wait' || prev.status === 'calib_expired' || prev.status === 'repair';
   tools[idx] = {
     ...prev,
     lastCalibration: date,
@@ -1683,6 +1765,8 @@ function saveCal() {
     calibrationOrg: org || prev.calibrationOrg,
     certificateUrl: cert || prev.certificateUrl,
     calibrationHistory: history,
+    status: wasPendingOrExpired ? 'normal' : prev.status, // 교정 완료 → 정상 복귀
+    calibRequestPending: false,
     lastAlertDate: null, // 만기 알림 재설정
     updatedAt: nowISO(),
   };

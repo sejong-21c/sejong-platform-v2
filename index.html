@@ -1375,7 +1375,7 @@ const QADASH_BUILD = 'b30'; // v29.1.14: 항목명 라벨칸 폭 통일 + 개선
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
 const ITPBUILDER_BUILD = 'c46'; // c46: 개정이력 조회가 레거시(itemId 없음)/신규(itemId 있음) 승인건을 배타적으로만 찾아 재승인 시 Rev 번호가 0으로 리셋되던 버그 수정(항상 합쳐서 조회)
 const QADOC_BUILD = 'c24'; // c24: 클라우드 강제 불러오기 버튼(+pid 진단)
-const MTOOLS_BUILD = 'b10'; // b10: 교정 견적의뢰서에 담당자 연락처·이메일 주소 추가
+const MTOOLS_BUILD = 'b11'; // b11: 견적의뢰서 작성 시 결재 자동상신(승인되면 교정대기 전환), 상태 '교정기한 만료' 추가, 상태란 폭 확대
 // v30.16: 로그인 화면 배경 영상 경로. 비어 있으면 <video>를 렌더하지 않고 이미지 2컷 모션만 쓴다(불필요한 404 없음).
 // Higgsfield 등으로 mp4(H.264 yuv420p, 무음, faststart, ≤8MB 권장)를 만들면 assets/login/sejong-hero.mp4 로 넣고 여기에 경로를 적는다.
 const LOGIN_HERO_VIDEO = '';
@@ -7476,6 +7476,7 @@ function _approvalTypeLabel(t) {
   if (APPROVAL_TEMPLATES[t]) return APPROVAL_TEMPLATES[t].icon + ' ' + APPROVAL_TEMPLATES[t].label.split(' (')[0];
   if (t === 'schedule-change' || t === 'wbs-shadow') return '📊 WBS 변경';
   if (t === 'itp') return '📋 ITP 결재';
+  if (t === 'calib-request') return '🔬 교정 의뢰';
   if (t === 'okr-change') return '🎯 목표 변경';
   return t || '기타';
 }
@@ -8031,6 +8032,22 @@ async function decideApproval(aid, decision) {
       // wbs-shadow와 동일하게 실패 시 결재 확정 자체를 막아 되돌린다 — 재시도할 수 있게.
       console.error('ITP 승인 스탬프 실패 — 결재 확정을 중단합니다:', e);
       return alert('⚠️ ITP 승인 처리 중 오류가 발생해 결재를 확정하지 않았습니다.\n\n오류: ' + (e.message || e) + '\n\nFirebase 콘솔 → Firestore → 보안 규칙에서 t_itpBuilderDocs/t_itpApproved 쓰기 권한을 확인해주세요. 문제가 해결되면 다시 승인해주세요.');
+    }
+  }
+  // v30.x: 측정기구 교정 견적의뢰 결재 — 최종 승인되면 대상 측정기구들을
+  // '교정대기'(calib_wait)로 전환한다(measurement-tools.html의 자체승인 경로와
+  // 동일 로직). calibRequestPending 마커를 남겨 만료 자동감지 로직이 이 상태를
+  // 다시 덮어쓰지 않게 한다.
+  if (a.type === 'calib-request' && finalApproved && Array.isArray(a.toolIds)) {
+    try {
+      for (const tid of a.toolIds) {
+        await fb.setDoc(fb.doc(fb.db, 'measurementTools', tid), {
+          status: 'calib_wait', calibRequestPending: true, calibRequestApprovalId: aid, updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+    } catch (e) {
+      console.error('교정 의뢰 승인 반영 실패 — 결재 확정을 중단합니다:', e);
+      return alert('⚠️ 측정기구 상태 반영 중 오류가 발생해 결재를 확정하지 않았습니다.\n\n오류: ' + (e.message || e) + '\n\nFirebase 콘솔 → Firestore → 보안 규칙에서 measurementTools 쓰기 권한을 확인해주세요.');
     }
   }
   try {
