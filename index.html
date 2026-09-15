@@ -3418,11 +3418,24 @@ function deleteManualDraft(draftId) {
   render();
 }
 // 실제 프로젝트가 생기면, 임시 초안에 저장된 ITP·QA Doc 데이터를 그 프로젝트의 pid로 복사.
-function linkManualDraftToProject(draftId, realPid) {
+// v30.x: 예전엔 이 브라우저의 localStorage만 옮기고 클라우드(Firestore) 문서는 그대로
+// draftId로 남아있었다 — 다른 기기/브라우저에서 이어서 열면 "연동 완료"라고 나왔는데도
+// 실제로는 아무것도 안 보이는 사고 원인. ITP·QA Doc의 실제 클라우드 문서도 함께 옮긴다.
+async function linkManualDraftToProject(draftId, realPid) {
   DRAFT_LOCAL_KEY_PREFIXES.forEach(prefix => {
     const v = localStorage.getItem(`${prefix}__${draftId}`);
     if (v) localStorage.setItem(`${prefix}__${realPid}`, v);
   });
+  const cloudColls = ['t_itpBuilderDocs', 't_itpApproved', 't_qaGenDocs'];
+  for (const coll of cloudColls) {
+    try {
+      const snap = await fb.getDoc(fb.doc(fb.db, coll, draftId));
+      if (snap.exists()) {
+        await fb.setDoc(fb.doc(fb.db, coll, realPid), snap.data());
+        await fb.deleteDoc(fb.doc(fb.db, coll, draftId));
+      }
+    } catch (e) { console.warn(`[초안 연동] ${coll} 이전 실패:`, e.message); }
+  }
   saveManualDrafts(loadManualDrafts().filter(d => d.id !== draftId));
   closeModal();
   const p = getP(realPid);
