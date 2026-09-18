@@ -15,12 +15,14 @@
   --icon-3: #9ca3af;
   --badge: #ef4444;
   --pin: #f59e0b;
-  --room-bg: #b2c7d9;            /* 카톡 하늘색 */
-  --bubble-me: #fee500;          /* 카톡 노랑 */
-  --bubble-you: #ffffff;
+  /* 2026-09-18: 방 바탕을 하늘색에서 흰색으로(부장님: "너무 카톡 따라한 것 같잖아").
+     바탕이 희어지면 흰 말풍선이 사라지므로 상대 말풍선을 옅은 회색으로 같이 바꿨다 — 한쪽만 고치면 안 된다. */
+  --room-bg: #ffffff;
+  --bubble-me: #fee500;          /* 내 말풍선은 그대로 — 한눈에 내 말을 찾는 기준점이라 남겼다 */
+  --bubble-you: #f1f3f6;
   --bubble-text: #1a1a1a;
-  --unread: #c99700;             /* 카톡 '1' 노란 숫자 — 하늘색 배경 위에서 읽히게 조금 진하게 */
-  --room-time: #3b4a5a;
+  --unread: #b07f00;             /* 흰 바탕에서 읽히게 한 단계 더 진하게 */
+  --room-time: #8b95a5;
   --topbar-h: 52px;
   --tabbar-h: 56px;
   --rail-w: 64px;
@@ -61,13 +63,14 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-rail { display: none; }
 .sjm[data-layout="desk"] .sjm-rail {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 14px 0; background: #1f2937; color: #cbd5e1;
+  padding: 14px 0; background: var(--panel); color: var(--text-2);   /* 2026-09-18 검정 → 흰색 */
+  border-right: 1px solid var(--line);
 }
 .sjm-rail [data-act="tab"] {
   position: relative; width: 44px; height: 44px; border-radius: 12px;
-  display: grid; place-items: center; color: #9ca3af;
+  display: grid; place-items: center; color: var(--icon-3);
 }
-.sjm-rail [data-act="tab"].is-active { background: rgba(255,255,255,.12); color: #fff; }
+.sjm-rail [data-act="tab"].is-active { background: var(--primary-soft); color: var(--primary); }
 .sjm-rail [data-act="tab"] svg { width: 22px; height: 22px; }
 .sjm-rail .sjm-tab-badge { top: 4px; right: 4px; }
 
@@ -158,12 +161,13 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
   font-size: 12px; font-weight: 700; letter-spacing: .5px;
 }
 .sjm-user {
-  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 16px; text-align: left;
+  display: flex; align-items: center; gap: 11px; width: 100%; min-height: 54px; padding: 7px 14px; text-align: left;
 }
+.sjm-user .sjm-avatar { --size: 38px; }
 .sjm-user:active { background: var(--line-soft); }
 .sjm-user-body { flex: 1; min-width: 0; }
-.sjm-user-name { font-size: 16px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sjm-user-sub { font-size: 13px; color: var(--text-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sjm-user-name { font-size: 14.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sjm-user-sub { font-size: 12.5px; color: var(--text-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sjm-user-right { flex: 0 0 auto; font-size: 12.5px; color: var(--text-3); }
 .sjm-friends-list { padding-right: 30px; }
 .sjm-index {
@@ -185,20 +189,20 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 
 /* ───────────── 채팅 목록 ───────────── */
 .sjm-chat {
-  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 10px 16px; text-align: left;
+  display: flex; align-items: center; gap: 11px; width: 100%; min-height: 62px; padding: 8px 14px; text-align: left;
 }
 .sjm-chat:active { background: var(--line-soft); }
 .sjm-chat.is-active { background: var(--primary-soft); }
-.sjm-chat .sjm-avatar { --size: 50px; }
+.sjm-chat .sjm-avatar { --size: 42px; }
 .sjm-chat-body { flex: 1; min-width: 0; }
 .sjm-chat-top { display: flex; align-items: baseline; gap: 6px; }
-.sjm-chat-name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sjm-chat-name { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sjm-chat-count { font-size: 13px; color: var(--text-3); flex: 0 0 auto; }
 .sjm-pin { flex: 0 0 auto; color: var(--text-3); display: inline-grid; place-items: center; }
 .sjm-pin svg { width: 12px; height: 12px; }
-.sjm-chat-time { margin-left: auto; flex: 0 0 auto; font-size: 12px; color: var(--text-3); }
+.sjm-chat-time { margin-left: auto; flex: 0 0 auto; font-size: 11.5px; color: var(--text-3); }
 .sjm-chat-bottom { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
-.sjm-chat-last { flex: 1; min-width: 0; font-size: 14px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sjm-chat-last { flex: 1; min-width: 0; font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sjm-badge {
   flex: 0 0 auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
   background: var(--badge); color: #fff; font-size: 11.5px; font-weight: 700; line-height: 20px; text-align: center;
@@ -320,7 +324,7 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
   padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 2px;
   overflow-anchor: none;
 }
-.sjm-day { align-self: center; margin: 14px 0 10px; padding: 5px 12px; border-radius: 14px; background: rgba(0,0,0,.18); color: #fff; font-size: 12px; font-weight: 500; }
+.sjm-day { align-self: center; margin: 14px 0 10px; padding: 4px 12px; border-radius: 14px; background: #eef1f5; color: #5b6673; font-size: 11.5px; font-weight: 500; }
 .sjm-msg { display: grid; grid-template-columns: 36px 1fr; column-gap: 8px; align-items: end; margin-top: 8px; }
 .sjm-msg:not(.is-first) { margin-top: 2px; }
 .sjm-msg .sjm-avatar { grid-row: 1 / span 2; align-self: start; }
@@ -342,8 +346,8 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-msg.is-failed .sjm-bubble { opacity: .55; }
 .sjm-msg-fail { width: 18px; height: 18px; border-radius: 50%; background: #dc2626; color: #fff; font-size: 12px; font-weight: 800; line-height: 18px; text-align: center; }
 .sjm-msg.is-failed .sjm-msg-time { color: #b91c1c; }
-.sjm-day.sjm-readmark { background: rgba(255,255,255,.55); color: #33414f; font-size: 11.5px; }
-.sjm-day.sjm-edge { background: transparent; color: #33414f; font-size: 11.5px; }
+.sjm-day.sjm-readmark { background: transparent; color: #98a2b3; font-size: 11.5px; border-top: 1px solid var(--line); border-radius: 0; width: 100%; text-align: center; padding-top: 6px; margin-top: 10px; }
+.sjm-day.sjm-edge { background: transparent; color: #98a2b3; font-size: 11.5px; }
 .sjm-room-blank { color: rgba(0,0,0,.5) !important; margin: auto; }
 /* 말풍선 꼬리 — 묶음의 첫 말풍선에만 */
 .sjm-msg.is-first:not(.is-system) .sjm-bubble:not(.is-img):not(.is-file)::before { content: ''; position: absolute; top: 8px; border: 6px solid transparent; }
@@ -360,7 +364,8 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-msg.is-system { grid-template-columns: 1fr; margin: 10px 0; }
 .sjm-msg.is-system .sjm-avatar, .sjm-msg.is-system .sjm-msg-name, .sjm-msg.is-system .sjm-msg-meta { display: none; }
 .sjm-msg.is-system .sjm-msg-line { grid-column: 1; justify-content: center; }
-.sjm-msg.is-system .sjm-bubble { max-width: 90%; background: rgba(0,0,0,.14); color: #fff; font-size: 12.5px; text-align: center; border-radius: 14px; box-shadow: none; }
+/* 흰 바탕으로 바꾸면서 같이 고쳤다 — 옅은 회색 위 흰 글씨라 안 읽혔다(스크린샷에서 발각). */
+.sjm-msg.is-system .sjm-bubble { max-width: 90%; background: #eef1f5; color: #5b6673; font-size: 12.5px; text-align: center; border-radius: 14px; box-shadow: none; }
 
 .sjm-bubble.is-img { padding: 0; background: transparent; box-shadow: none; }
 .sjm-msg-img { max-width: min(240px, 70vw); max-height: 320px; min-width: 96px; min-height: 72px; object-fit: contain; border-radius: 14px; background: #fff; cursor: zoom-in; }
@@ -547,3 +552,19 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 @media (prefers-reduced-motion: reduce) { .sjm-bubble.is-typing i { animation: none; opacity: .55; } }
 /* hidden 이 먹게 — .sjm-icon-btn 의 display 가 [hidden] 을 이겨서 AI 방에서 첨부 버튼이 그대로 보였다(시험 스크린샷에서 발각). */
 .sjm-composer .sjm-icon-btn[hidden] { display: none; }
+
+/* ───────────── 스크롤바 (2026-09-18) ─────────────
+   부장님: "스크롤바는 안 보이게. 아래위로 움직일 때만 살짝 나왔다 없어지게."
+   자리는 늘 8px 로 잡아 두고 **손잡이만** 투명 ↔ 반투명으로 바꾼다.
+   폭을 0↔8 로 바꾸면 굴릴 때마다 본문이 8px 씩 밀려 글이 덜컹거린다(그래서 이렇게 했다).
+   .is-scrolling 은 messenger.js 가 scroll 이벤트에 붙였다가 0.9초 뒤 뗀다. */
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; border: 2px solid transparent; background-clip: content-box; }
+.is-scrolling { scrollbar-color: rgba(100,116,139,.45) transparent; }
+.is-scrolling::-webkit-scrollbar-thumb { background: rgba(100,116,139,.45); background-clip: content-box; }
+.is-scrolling:hover::-webkit-scrollbar-thumb { background: rgba(100,116,139,.62); background-clip: content-box; }
+@media (prefers-reduced-motion: no-preference) {
+  *::-webkit-scrollbar-thumb { transition: background .25s ease; }
+}

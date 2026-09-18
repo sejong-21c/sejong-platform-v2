@@ -651,6 +651,17 @@ html.ai-popup #aiPanel { display: flex !important; position: fixed !important; l
   .h-title .h-back-label { display: none; }
   .h-title button { padding: 5px 8px !important; font-size: 13px !important; }
 }
+/* ───────── 스크롤바 (2026-09-18) — 부장님: "안 보이다가 아래위로 움직일 때만 살짝 반투명하게" ─────────
+   자리는 늘 10px 로 잡아 두고 **손잡이만** 투명 ↔ 반투명으로 바꾼다.
+   폭을 0↔10 으로 바꾸면 굴릴 때마다 본문이 밀려 글이 덜컹거린다.
+   .is-scrolling 은 아래 스크립트가 scroll 이벤트(캡처)에 붙였다가 0.9초 뒤 뗀다. */
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: transparent; border-radius: 5px; border: 3px solid transparent; background-clip: content-box; transition: background .25s ease; }
+.is-scrolling { scrollbar-color: rgba(100,116,139,.45) transparent; }
+.is-scrolling::-webkit-scrollbar-thumb { background: rgba(100,116,139,.45); background-clip: content-box; }
+.is-scrolling:hover::-webkit-scrollbar-thumb { background: rgba(100,116,139,.62); background-clip: content-box; }
 </style>
 </head>
 <body>
@@ -897,6 +908,19 @@ html.ai-popup #aiPanel { display: flex !important; position: fixed !important; l
   });
 })();
 </script>
+<script>
+// 스크롤바 나타났다 사라지기 — CSS 의 .is-scrolling 을 붙였다 뗀다.
+// scroll 이벤트는 위로 안 올라오므로 캡처 단계로 받는다(그래야 안쪽 목록·표까지 다 잡힌다).
+(function () {
+  var 타이머 = new WeakMap();
+  document.addEventListener('scroll', function (e) {
+    var el = (e.target && e.target.classList) ? e.target : document.documentElement;
+    el.classList.add('is-scrolling');
+    clearTimeout(타이머.get(el));
+    타이머.set(el, setTimeout(function () { el.classList.remove('is-scrolling'); }, 900));
+  }, true);
+})();
+</script>
 <!-- ══════════ 메신저 창 (2026-09-18) ══════════
      부장님 지시: "왼쪽 메뉴의 메신저는 지우고, 오른쪽 🤖 를 누르면 메신저가 카톡처럼 뜨게."
      AI 패널(#aiPanel)의 껍데기를 그대로 재사용한다 — 같은 .ai-panel 스타일이라 크기 조절·자리 기억이 공짜다.
@@ -905,7 +929,13 @@ html.ai-popup #aiPanel { display: flex !important; position: fixed !important; l
 <div class="ai-panel" id="msgPanel">
   <div class="ai-panel-resizer" id="msgPanelResizer" title="드래그해서 크기 조절"></div>
   <div class="ai-panel-head" style="flex-shrink:0;">
-    <span style="display:flex;align-items:center;gap:6px;"><span style="font-size:17px;line-height:1;">💬</span>메신저<span class="dot"></span></span>
+    <!-- 2026-09-18 부장님: "메신저 → SJ Chat, 글자 크게·굵게·파란색, 옆에 회사 마크."
+         마크는 사이드바 로고 PNG(400×139, base64)에서 왼쪽 심볼만 잘라 assets/sejong-mark.png(256²)로 뽑아 썼다. -->
+    <span style="display:flex;align-items:center;gap:8px;">
+      <img src="assets/sejong-mark.png" alt="" width="26" height="26" style="display:block;">
+      <b style="font-size:18px;font-weight:800;color:#0032A0;letter-spacing:-.2px;">SJ Chat</b>
+      <span class="dot"></span>
+    </span>
     <span style="display:flex;gap:2px;">
       <button class="icon-btn" id="msgPopBtn" title="새 창에서 열기" onclick="openMsgPopup()">⧉</button>
       <button class="icon-btn" id="msgMaxBtn" title="크게/작게" onclick="toggleMsgPanelMax()">⤢</button>
@@ -1473,7 +1503,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b66';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b36'; // b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
+const MESSENGER_BUILD = 'b37'; // b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b24'; // v29.74: 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류(로컬 축소캐시로 서버 원본 덮어쓰는 사고 방지)
 const CAR_BUILD = 'b24'; // v29.74: 동일 — 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류
