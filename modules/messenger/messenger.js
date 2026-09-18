@@ -18,8 +18,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b34';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b34';
+import * as L from './lib.js?v=b35';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b35';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -628,9 +628,12 @@ function 말풍선(m, info, members, readMarkBefore) {
 }
 // AI 답변이 사내 문서를 근거로 삼았으면 어떤 문서인지 밝힌다(원칙: 출처 없는 답은 믿지 않는다).
 function 출처달기(m) {
-  const src = Array.isArray(m.sources) ? m.sources.filter(Boolean).slice(0, 4) : [];
+  // 색인의 docName 은 "[자동] CAR CAR-2026-002 — 현행요건 : 기술부 내부 …" 처럼 본문까지 붙어 길다.
+  // 말풍선 아래 한 줄이라 앞부분(문서를 알아볼 수 있는 데까지)만 남긴다.
+  const 짧게 = (s) => { const t = String(s).split('—')[0].replace(/^\[자동\]\s*/, '').trim(); return t.length > 26 ? t.slice(0, 26) + '…' : t; };
+  const src = [...new Set((Array.isArray(m.sources) ? m.sources : []).filter(Boolean).map(짧게))].slice(0, 3);
   if (!src.length) return '';
-  return `<div class="sjm-md-src">${ICON.file}<span>${src.map((x) => esc(x)).join(' · ')}</span></div>`;
+  return `<div class="sjm-md-src" title="${esc((m.sources || []).join('\n'))}">${ICON.file}<span>${src.map((x) => esc(x)).join(' · ')}</span></div>`;
 }
 const 메시지찾기 = (mid) => state.messages.find((x) => x.id === mid) || state.aiMsgs.find((x) => x.id === mid) || null;
 function 방전체메시지(cid) {
