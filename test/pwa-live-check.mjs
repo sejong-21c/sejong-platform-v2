@@ -1,7 +1,8 @@
 // SJ 메신저 PWA 실검 — 헤드리스 크롬으로 "진짜 되는지"를 본다.
 //   node test/pwa-live-check.mjs
 // 정적 서버(python -m http.server)는 알아서 띄우고 끈다. 이미 떠 있으면 그걸 쓴다.
-// 환경변수: CHROME=크롬경로  PORT=8098
+// 배포본을 그대로 보려면: BASE=https://sejong21c.com node test/pwa-live-check.mjs
+// 환경변수: CHROME=크롬경로  PORT=8098  BASE=주소
 //
 // 확인하는 것 (W1):
 //   설치 조건(매니페스트 오류 0) · 서비스워커 활성 · 껍데기+SDK 캐시 · 데이터 API 는 캐시 안 함
@@ -15,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const 뿌리 = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8098);
-const 기준 = `http://127.0.0.1:${PORT}`;
+const 기준 = (process.env.BASE || `http://127.0.0.1:${PORT}`).replace(/\/$/, '');
 const 메신저URL = `${기준}/modules/messenger/messenger.html`;
 const 시험대URL = `${기준}/test/w1-iframe-harness.html`;
 const 디버그포트 = Number(process.env.CDP_PORT || 9333);
@@ -35,7 +36,7 @@ const 살아있나 = async (u) => { try { return (await fetch(u)).ok; } catch (e
 
 // ── 정적 서버 ──
 let 서버 = null;
-if (!(await 살아있나(`${기준}/index.html`))) {
+if (!process.env.BASE && !(await 살아있나(`${기준}/index.html`))) {
   const 파이썬 = process.platform === 'win32' ? 'python' : 'python3';
   서버 = spawn(파이썬, ['-m', 'http.server', String(PORT), '--bind', '127.0.0.1'],
     { cwd: 뿌리, stdio: 'ignore' });
