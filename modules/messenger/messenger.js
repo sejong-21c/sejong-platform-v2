@@ -2,7 +2,7 @@
  *
  * 구조(SJ메신저/W2-UI-스펙.md):
  *   - 데이터는 그대로: channels · messages · channelReads · users (+ t_userProfile 은 사진·전화 전용)
- *   - 화면은 넷: 친구(연락처) · 채팅 · 프로젝트(폴더) · 나. 방은 그 위에 올라오는 별도 화면.
+ *   - 화면은 넷: 연락처 · 채팅 · 프로젝트(폴더) · 나. 방은 그 위에 올라오는 별도 화면.
  *   - 900px 이상(플랫폼 iframe)은 카톡 PC 처럼 레일 + 목록 + 방 세 칸.
  *   - 부분 렌더: 스냅샷이 와도 보이는 영역만 다시 그린다. 방은 새 메시지만 뒤에 붙인다.
  *   - 인라인 onclick 없음. 모든 동작은 data-act 위임 하나로. 그래서 ES 모듈이 된다.
@@ -242,7 +242,7 @@ function 마지막활동(ch) {
 }
 const 활동있음 = (ch) => 방메시지(ch.id).length > 0 || !!ch.lastAt || state.readDocs.has(ch.id) || !!state.pins[ch.id] || ui.opened.has(ch.id);
 // 채팅 탭에 보이는 방 — 공지 · 내 부서 · 내가 든 dm/group · 활동(메시지·읽음 기록·고정)이 있는 나머지.
-// 임원이라도 조용한 부서 방 11개를 늘어놓지 않는다(카톡 목록엔 빈 방이 없다). 그런 방은 친구 탭 "부서"·프로젝트 탭·검색에서 들어간다.
+// 임원이라도 조용한 부서 방 11개를 늘어놓지 않는다(카톡 목록엔 빈 방이 없다). 그런 방은 연락처 탭 "부서"·프로젝트 탭·검색에서 들어간다.
 function 보이는방() {
   const out = new Map();
   const add = (c) => { if (c && !out.has(c.id)) out.set(c.id, c); };
@@ -295,7 +295,7 @@ function 상대전화(ch) {
 }
 
 // ───────────────────────────── 껍데기(한 번) ─────────────────────────────
-const TABS = [['friends', '친구', ICON.friends], ['chats', '채팅', ICON.chat], ['projects', '프로젝트', ICON.folder], ['me', '나', ICON.user]];
+const TABS = [['friends', '연락처', ICON.friends], ['chats', '채팅', ICON.chat], ['projects', '프로젝트', ICON.folder], ['me', '나', ICON.user]];
 function 탭버튼(rail) {
   return TABS.map(([id, label, icon]) => `<button data-act="tab" data-tab="${id}" class="${ui.tab === id ? 'is-active' : ''}" aria-label="${label}">${icon}${rail ? '' : `<span>${label}</span>`}<span class="sjm-tab-badge" data-badge="${id}" hidden></span></button>`).join('');
 }
@@ -374,12 +374,12 @@ function renderTopbar() {
     return;
   }
   bar.className = 'sjm-topbar';
-  const title = { friends: '친구', chats: '채팅', projects: '프로젝트', me: '나' }[ui.tab];
+  const title = { friends: '연락처', chats: '채팅', projects: '프로젝트', me: '나' }[ui.tab];
   const right = ui.tab === 'chats' ? `<button class="sjm-icon-btn" data-act="new-chat" aria-label="새 채팅">${ICON.plus}</button>` : '';
   bar.innerHTML = `<div class="sjm-topbar-title">${title}</div><button class="sjm-icon-btn" data-act="search-open" aria-label="검색">${ICON.search}</button>${right}`;
 }
 
-// 친구(연락처) ------------------------------------------------------
+// 연락처 (화면 키는 friends — data-tab·CSS·시험대가 쓰는 이름이라 바꾸지 않았다) ------------------------------------------------------
 function 사람줄(u, right = '', q = '') {
   const name = q ? 강조(u.name || '', q) : esc(u.name || '');
   return `<button class="sjm-user" data-act="user" data-uid="${esc(u.id)}">${아바타(u, '', false)}
@@ -509,14 +509,14 @@ function 강조(text, q) {
 function 검색화면() {
   const q = ui.search.q.trim();
   const r = 검색결과();
-  const stabs = [['all', '전체'], ['chats', '채팅방'], ['friends', '친구'], ['messages', '메시지']];
+  const stabs = [['all', '전체'], ['chats', '채팅방'], ['friends', '연락처'], ['messages', '메시지']];
   const head = `<div class="sjm-stabs">${stabs.map(([id, label]) => `<button data-act="stab" data-stab="${id}" class="${ui.search.stab === id ? 'is-active' : ''}">${label}</button>`).join('')}</div>`;
   if (!q) return head + `<div class="sjm-empty">${ICON.search}<div>이름을 치면 그 이름으로 시작하는 사람이,<br>초성(ㄱㅊ)만 쳐도 찾아집니다.</div></div>`;
   const st = ui.search.stab, all = st === 'all';
   const cut = (arr) => all ? arr.slice(0, 3) : arr;
   const secH = (label, n, kind) => `<div class="sjm-sres-h">${label} ${n}${all && n > 3 ? `<button class="sjm-more" data-act="stab" data-stab="${kind}">더보기 ›</button>` : ''}</div>`;
   let html = head;
-  if ((all || st === 'friends') && r.friends.length) html += `<div class="sjm-sres" data-kind="friends">${secH('친구', r.friends.length, 'friends')}${cut(r.friends).map((u) => 사람줄(u, '', q)).join('')}</div>`;
+  if ((all || st === 'friends') && r.friends.length) html += `<div class="sjm-sres" data-kind="friends">${secH('연락처', r.friends.length, 'friends')}${cut(r.friends).map((u) => 사람줄(u, '', q)).join('')}</div>`;
   if ((all || st === 'chats') && r.chats.length) html += `<div class="sjm-sres" data-kind="chats">${secH('채팅방', r.chats.length, 'chats')}${cut(r.chats).map((x) => 채팅줄(x)).join('')}</div>`;
   if ((all || st === 'messages') && r.messages.length) {
     html += `<div class="sjm-sres" data-kind="messages">${secH('메시지', r.messages.length, 'messages')}${cut(r.messages).map((m) => {

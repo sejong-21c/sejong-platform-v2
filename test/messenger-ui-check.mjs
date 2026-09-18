@@ -148,15 +148,18 @@ try {
   const 부팅 = await 열기(375, 812, true);
   확인('375 부팅: 메신저 모듈 살아남(SJM)', 부팅.떴다);
   const 기본 = await 안(`return { layout: $('.sjm')?.dataset.layout, tabs: $$('.sjm-tabbar [data-tab]').length,
+    tab1: ($('.sjm-tabbar [data-tab="friends"]')?.innerText || '').trim(),
     관문: d.body.innerText.includes('회사 계정(@sejong-21c.com)'), me: w.SJM && w.SJM.me() };`);
   확인('375 루트 .sjm[data-layout="phone"]', 기본.layout === 'phone', String(기본.layout));
   확인('375 하단 탭바 [data-tab] 4개', 기본.tabs === 4, `${기본.tabs}개`);
+  // 화면 키는 friends 지만 사람한테 보이는 이름은 '연락처'다(부장님 지시 9/18). 키를 안 바꿨으니 이름만 따로 지킨다.
+  확인('375 첫 탭 이름은 연락처', 기본.tab1 === '연락처', 기본.tab1);
   확인('375 관문 문구 없음(iframe)', !기본.관문);
   확인('375 SJM.me() === u_kim', 기본.me === 'u_kim', String(기본.me));
   확인('375 3초 안에 .sjm-chat 1개 이상', 부팅.목록, `${부팅.목록ms}ms`);
   확인('375 가짜 fb 스냅샷 도착(g1 줄 그려짐)', 부팅.자료);
 
-  // ② 친구 탭
+  // ② 연락처 탭
   await 클릭('.sjm-tabbar [data-tab="friends"]');
   await 본문수집(); await 찍기('375-friends');
   // 숨은 화면(hidden)도 DOM 에 남아 있으므로 반드시 보이는 화면 안에서만 센다 — 검색 화면의 옛 결과가 섞여 들어온 적이 있다.
@@ -166,13 +169,13 @@ try {
       kangImg: !!$('.sjm-user[data-uid="u_kang_dh"] .sjm-avatar img', F), siwon: $('.sjm-user[data-uid="u_kimsw"] .sjm-avatar', F)?.textContent.trim(),
       index: $$('.sjm-index [data-key]', F).length, 부서: !!$('.sjm-sec[data-key="부서"]', F),
       deptRows: $$('.sjm-sec[data-key="부서"] .sjm-deptrow[data-act="open"][data-cid]', F).map(e=>e.dataset.cid) };`);
-  확인('친구: 사람 줄 13(나 제외) 또는 14', 친구.n === 13 || 친구.n === 14, `${친구.n}명 · disabled 제외${친구.n === 13 ? ' · 나 제외' : 친구.n === 14 ? ' · 나 포함' : ''}`);
-  확인('친구: ㄱ 섹션에 김·강 4명 이상', 친구.ㄱ.filter((s) => /^[김강]/.test(s)).length >= 4, 친구.ㄱ.join(','));
-  확인('친구: 색인 레일 .sjm-index [data-key]', 친구.index > 0, `${친구.index}칸`);
-  확인('친구: 강대헌 아바타 사진 img (t_userProfile)', 친구.kangImg, 친구.kangImg ? '' : '.sjm-user[data-uid="u_kang_dh"] .sjm-avatar img 없음 — 코드가 t_userProfile 대신 t_userPhotos 를 읽는지 볼 것');
-  확인('친구: 김시원 아바타 이니셜 "시원"', 친구.siwon === '시원', String(친구.siwon));
-  if (친구.부서) 확인('친구: 부서 섹션에 dept_quality 줄', 친구.deptRows.includes('dept_quality'), 친구.deptRows.join(','));
-  else 메모('친구: 부서 섹션 .sjm-sec[data-key="부서"]', '없음 — 미구현');
+  확인('연락처: 사람 줄 13(나 제외) 또는 14', 친구.n === 13 || 친구.n === 14, `${친구.n}명 · disabled 제외${친구.n === 13 ? ' · 나 제외' : 친구.n === 14 ? ' · 나 포함' : ''}`);
+  확인('연락처: ㄱ 섹션에 김·강 4명 이상', 친구.ㄱ.filter((s) => /^[김강]/.test(s)).length >= 4, 친구.ㄱ.join(','));
+  확인('연락처: 색인 레일 .sjm-index [data-key]', 친구.index > 0, `${친구.index}칸`);
+  확인('연락처: 강대헌 아바타 사진 img (t_userProfile)', 친구.kangImg, 친구.kangImg ? '' : '.sjm-user[data-uid="u_kang_dh"] .sjm-avatar img 없음 — 코드가 t_userProfile 대신 t_userPhotos 를 읽는지 볼 것');
+  확인('연락처: 김시원 아바타 이니셜 "시원"', 친구.siwon === '시원', String(친구.siwon));
+  if (친구.부서) 확인('연락처: 부서 섹션에 dept_quality 줄', 친구.deptRows.includes('dept_quality'), 친구.deptRows.join(','));
+  else 메모('연락처: 부서 섹션 .sjm-sec[data-key="부서"]', '없음 — 미구현');
 
   // ③ 검색
   await 클릭('[data-act="search-open"]');

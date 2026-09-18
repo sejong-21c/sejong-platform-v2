@@ -144,7 +144,7 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-avatar.is-tile { font-size: calc(var(--size) * .3); letter-spacing: -.5px; }
 .sjm-avatar[data-act="user"] { cursor: pointer; }
 
-/* ───────────── 친구 ───────────── */
+/* ───────────── 연락처(friends) ───────────── */
 .sjm-me-row {
   display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; text-align: left;
   border-bottom: 8px solid var(--line-soft);
