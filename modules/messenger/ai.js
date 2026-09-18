@@ -20,10 +20,17 @@ export const AI_컬렉션 = 't_aiChat';        // 개인 대화. messages 에 �
 //   규칙(firestore.rules)에서 t_aiChat 은 본인 uid 만 읽고 쓴다.
 
 const 게이트웨이 = 'https://sejong-ai-gateway.cwkim-65d.workers.dev';
-// 앞에서부터 시도하고 한도 초과·오류면 다음으로 넘어간다(플랫폼 AI 비서와 같은 순서, 무료 우선).
+// 앞에서부터 시도하고 한도 초과·오류면 다음으로 넘어간다.
+// 순서는 짐작이 아니라 2026-09-18 게이트웨이를 직접 찔러 본 결과다(전부 회사 토큰으로):
+//   groq openai/gpt-oss-120b → 200 · groq openai/gpt-oss-20b → 200
+//   gemini → 400 "User location is not supported"(워커가 뜬 지역 문제. 콜로에 따라 될 때가 있어 뒤에 남겨 둔다)
+//   cerebras → 402 결제 필요 · nvidia → 410 모델 수명 종료 · openrouter → 401 · mistral → 501 키 없음
+// ⚠️ 모델 이름은 예고 없이 폐기된다 — llama-3.3-70b-versatile 은 404 였다(부장님 첫 질문이 이것 때문에 실패).
+//    답이 안 오면 여기부터 의심하고, 게이트웨이에 /v1/<회사>/chat/completions 로 직접 찔러 볼 것.
 const 체인 = [
+  { id: 'groq', model: 'openai/gpt-oss-120b', 형식: 'openai' },
+  { id: 'groq', model: 'openai/gpt-oss-20b', 형식: 'openai' },
   { id: 'gemini', model: 'gemini-flash-latest', 형식: 'gemini' },
-  { id: 'groq', model: 'llama-3.3-70b-versatile', 형식: 'openai' },
   { id: 'cerebras', model: 'gpt-oss-120b', 형식: 'openai' },
 ];
 const 제한초 = 40;
@@ -103,14 +110,16 @@ export async function 답하기({ 질문, 히스토리 = [], 맥락 = '', 권한
   const sys = 지침(맥락, 권한);
   const 최근 = 히스토리.slice(-12);
   const auth = await 토큰(fb);          // 게이트웨이는 회사 계정만 통과시킨다(v3.4부터 모든 제공자)
-  let 마지막;
+  // 실패를 **전부** 모은다. 마지막 것만 보여 주면 "cerebras 402" 한 줄만 남아서
+  // 앞의 두 곳이 왜 안 됐는지(모델 폐기·지역 차단) 알 수 없다 — 부장님 첫 질문 때 실제로 그랬다.
+  const 실패들 = [];
   for (const p of 체인) {
     try { return await 한번부르기(p, sys, 최근, 질문, auth); }
     catch (e) {
-      마지막 = e;
-      if (e && e.name === 'AbortError') 마지막 = new Error(`${p.id}: ${제한초}초 안에 답이 오지 않았습니다`);
-      console.warn('[AI]', 마지막.message);
+      const msg = (e && e.name === 'AbortError') ? `${p.id}/${p.model}: ${제한초}초 초과` : ((e && e.message) || String(e));
+      실패들.push(msg);
+      console.warn('[AI]', msg);
     }
   }
-  throw new Error('AI가 답하지 못했습니다. ' + (마지막 ? 마지막.message : '') + ' — 잠시 뒤 다시 시도해 주세요.');
+  throw new Error('AI가 답하지 못했습니다. 아래를 그대로 개발 담당에게 알려 주세요.\n' + 실패들.map((m) => '· ' + m).join('\n'));
 }

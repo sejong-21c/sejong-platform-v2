@@ -719,7 +719,9 @@ html.ai-popup #aiPanel { display: flex !important; position: fixed !important; l
   </div>
 </div>
 
-<button class="ai-fab" id="aiFab" title="AI 비서 (드래그해서 위치 이동)" onclick="toggleAiPanel()">🤖</button>
+<!-- 2026-09-18: 이 버튼이 여는 것이 AI 패널에서 **메신저 창**으로 바뀌었다(부장님 지시).
+     AI 비서는 그 메신저 안 "AI 비서" 방으로 들어갔다. 예전 AI 패널은 주소에 ?aipop=1 을 붙이면 그대로 뜬다. -->
+<button class="ai-fab" id="aiFab" title="메신저 (AI 비서도 여기 안에 있습니다 · 드래그해서 위치 이동)" onclick="toggleMsgPanel()">🤖<span id="aiFabBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 5px;line-height:1.5;"></span></button>
 <script>
 /* v29.35: AI 봇(FAB) 드래그 이동 — 화면 어디든 옮기고 위치를 localStorage에 저장.
    클릭(패널 토글)과 드래그를 구분: 이동 거리 6px 미만이면 클릭으로 간주. */
@@ -895,6 +897,110 @@ html.ai-popup #aiPanel { display: flex !important; position: fixed !important; l
   });
 })();
 </script>
+<!-- ══════════ 메신저 창 (2026-09-18) ══════════
+     부장님 지시: "왼쪽 메뉴의 메신저는 지우고, 오른쪽 🤖 를 누르면 메신저가 카톡처럼 뜨게."
+     AI 패널(#aiPanel)의 껍데기를 그대로 재사용한다 — 같은 .ai-panel 스타일이라 크기 조절·자리 기억이 공짜다.
+     창 버튼 셋(새 창 ⧉ · 크게 ⤢ · 닫기 ✕)은 AI 패널과 같은 자리에 같은 모양으로 남겼다.
+     iframe 은 처음 열 때 딱 한 번 붙인다 — 안 여는 사람에게 메신저를 미리 받게 하지 않으려고. -->
+<div class="ai-panel" id="msgPanel">
+  <div class="ai-panel-resizer" id="msgPanelResizer" title="드래그해서 크기 조절"></div>
+  <div class="ai-panel-head" style="flex-shrink:0;">
+    <span style="display:flex;align-items:center;gap:6px;"><span style="font-size:17px;line-height:1;">💬</span>메신저<span class="dot"></span></span>
+    <span style="display:flex;gap:2px;">
+      <button class="icon-btn" id="msgPopBtn" title="새 창에서 열기" onclick="openMsgPopup()">⧉</button>
+      <button class="icon-btn" id="msgMaxBtn" title="크게/작게" onclick="toggleMsgPanelMax()">⤢</button>
+      <button class="icon-btn" title="닫기" onclick="msgPanelClose()">✕</button>
+    </span>
+  </div>
+  <div style="flex:1;position:relative;overflow:hidden;">
+    <iframe id="msgPanelFrame" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="메신저"></iframe>
+  </div>
+</div>
+<script>
+(function () {
+  var KEY = 'sjp_msgpanel_size';
+  // MESSENGER_BUILD 는 아래쪽 스크립트의 최상위 const 라 window 에는 안 붙는다(전역 어휘 스코프로만 보인다).
+  var 빌드 = function () { try { return MESSENGER_BUILD; } catch (e) { return 'dev'; } };
+  function panel() { return document.getElementById('msgPanel'); }
+  function 크기복원(p) {
+    try {
+      var s = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (s && s.w && s.h) {
+        p.style.width = Math.min(s.w, window.innerWidth - 16) + 'px';
+        p.style.height = Math.min(s.h, window.innerHeight - 16) + 'px';
+      }
+    } catch (e) {}
+  }
+  function 크기저장(p) {
+    if (!p.classList.contains('open') || p.classList.contains('max')) return;
+    var r = p.getBoundingClientRect();
+    if (r.width < 50 || r.height < 50) return;
+    try { localStorage.setItem(KEY, JSON.stringify({ w: Math.round(r.width), h: Math.round(r.height) })); } catch (e) {}
+  }
+  window.openMsgPanel = function () {
+    var p = panel(); if (!p) return;
+    var f = document.getElementById('msgPanelFrame');
+    if (f && !f.getAttribute('src')) {
+      f.src = 'modules/messenger/messenger.html?embed=1&v=' + 빌드();
+    }
+    if (!p.classList.contains('open')) { 크기복원(p); p.classList.add('open'); }
+    if (f && f.contentWindow) { try { f.contentWindow.focus(); } catch (e) {} }
+  };
+  window.msgPanelClose = function () {
+    if (document.documentElement.classList.contains('msg-popup')) { window.close(); return; }
+    var p = panel(); if (p) { 크기저장(p); p.classList.remove('open'); }
+  };
+  window.toggleMsgPanel = function () {
+    var p = panel(); if (!p) return;
+    if (p.classList.contains('open')) window.msgPanelClose(); else window.openMsgPanel();
+  };
+  // ⤢ — 화면의 88% ↔ 평소 크기. 커질 때는 오른쪽 아래 기준으로 되돌려 화면 밖으로 나가지 않게 한다.
+  window.toggleMsgPanelMax = function () {
+    var p = panel(); if (!p) return;
+    if (p.classList.toggle('max')) {
+      p.dataset.pw = p.style.width || ''; p.dataset.ph = p.style.height || '';
+      p.dataset.pl = p.style.left || ''; p.dataset.pt = p.style.top || '';
+      p.style.left = 'auto'; p.style.top = 'auto'; p.style.right = '24px'; p.style.bottom = '92px';
+      p.style.width = Math.min(1100, window.innerWidth - 24) + 'px';
+      p.style.height = Math.round(window.innerHeight * 0.88) + 'px';
+    } else {
+      p.style.width = p.dataset.pw || ''; p.style.height = p.dataset.ph || '';
+      p.style.left = p.dataset.pl || ''; p.style.top = p.dataset.pt || '';
+      if (p.style.left) { p.style.right = 'auto'; p.style.bottom = 'auto'; }
+    }
+  };
+  // ⧉ — 메신저만 따로. 메신저는 혼자서도 도는 앱(독립실행 로그인 관문 포함)이라 그 주소를 그대로 연다.
+  window.openMsgPopup = function () {
+    var u = new URL('modules/messenger/messenger.html', location.href);
+    u.searchParams.set('v', 빌드());
+    var w = window.open(u.toString(), 'sjp_msg_popup', 'width=480,height=860,resizable=yes,scrollbars=no');
+    if (!w) { alert('팝업이 막혔어요. 주소창 오른쪽 팝업 차단 아이콘에서 이 사이트를 허용해 주세요.'); return; }
+    var p = panel(); if (p) p.classList.remove('open');
+  };
+  // 왼쪽 모서리 손잡이로 크기 조절 — 창이 오른쪽 아래에 붙어 있어 CSS 기본 그립은 늘릴 자리가 없다(AI 패널과 같은 이유).
+  document.addEventListener('DOMContentLoaded', function () {
+    var p = panel(), rz = document.getElementById('msgPanelResizer');
+    if (!p || !rz) return;
+    var rs = null;
+    rz.addEventListener('pointerdown', function (e) {
+      var r = p.getBoundingClientRect(); rs = { right: r.right, bottom: r.bottom };
+      try { rz.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault();
+    });
+    rz.addEventListener('pointermove', function (e) {
+      if (!rs) return;
+      var w = Math.max(320, Math.min(window.innerWidth - 16, Math.round(rs.right - e.clientX)));
+      var h = Math.max(360, Math.min(window.innerHeight - 16, Math.round(rs.bottom - e.clientY)));
+      p.style.width = w + 'px'; p.style.height = h + 'px';
+      p.style.left = (rs.right - w) + 'px'; p.style.top = (rs.bottom - h) + 'px';
+      p.style.right = 'auto'; p.style.bottom = 'auto';
+    });
+    function 끝(e) { if (!rs) return; rs = null; try { rz.releasePointerCapture(e.pointerId); } catch (_) {} 크기저장(p); }
+    rz.addEventListener('pointerup', 끝);
+    rz.addEventListener('pointercancel', 끝);
+    window.addEventListener('beforeunload', function () { 크기저장(p); });
+  });
+})();
+</script>
 <div class="ai-panel" id="aiPanel">
   <div class="ai-panel-resizer" id="aiPanelResizer" title="드래그해서 크기 조절"></div>
   <!-- v29.72: 상단 = [뉴런 박스(좌측 고정 크기)] [🤖 + 모드탭(가로, 확장 가능)] [창 버튼] — "AI 비서" 글자 대신 🤖 -->
@@ -943,7 +1049,9 @@ const NAV = [
   { id: 'projects',  icon: '📊', li: 'chart-gantt', label: '프로젝트' },
   { id: 'traveller', icon: '📋', li: 'clipboard-list', label: '제작 공정 관리', sub: 'Traveller' },
   { id: 'tasks',     icon: '✅', li: 'list-todo', label: '업무관리' },
-  { id: 'messenger', icon: '💬', li: 'message-square', label: '메신저' },
+  // 2026-09-18 부장님 지시로 왼쪽 메뉴에서 뺐다 — 메신저는 오른쪽 아래 🤖 버튼으로 뜨는 창(카톡처럼)이 됐다.
+  //   라우트(switchMod('messenger') · #messenger)는 살려 둔다: 알림 클릭이 그리로 가고, 전체 화면으로 볼 일이 남아 있다.
+  //   { id: 'messenger', icon: '💬', li: 'message-square', label: '메신저' },
   { id: 'meeting',   icon: '🎙', li: 'mic', label: '회의실·회의록' },   // v1.0 전 직원 공용
   { id: 'quotes',    icon: '💰', li: 'calculator', label: '견적', hidden: true, deptOnly: '영업부' }, // 당분간 숨김
   { id: 'okr',       icon: '🎯', li: 'target', label: '목표(OKR)' },
@@ -1365,7 +1473,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b66';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b32'; // b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
+const MESSENGER_BUILD = 'b33'; // b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b24'; // v29.74: 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류(로컬 축소캐시로 서버 원본 덮어쓰는 사고 방지)
 const CAR_BUILD = 'b24'; // v29.74: 동일 — 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류
@@ -2013,7 +2121,17 @@ let view = {
   expandedDepts: { quality: true },
 };
 
+// 왼쪽 메뉴에서 메신저를 뺐으니(2026-09-18) 안 읽은 수는 오른쪽 아래 🤖 버튼에 붙인다.
+// 이게 없으면 창을 열기 전에는 새 메시지가 왔는지 알 방법이 아예 없다.
+function updateMsgFabBadge() {
+  const el = document.getElementById('aiFabBadge'); if (!el) return;
+  let unread = 0;
+  try { getVisibleChannels().forEach(c => { unread += getUnreadCount(c.id); }); } catch (e) { return; }
+  el.textContent = unread > 99 ? '99+' : String(unread);
+  el.style.display = unread > 0 ? '' : 'none';
+}
 function renderNav() {
+  updateMsgFabBadge();
   const html = [];
   html.push('<div class="sb-section-title">MENU</div>');
   NAV.forEach(n => {

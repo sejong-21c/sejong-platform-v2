@@ -191,7 +191,9 @@
       models: ['gemini-flash-latest'] },
     { id: 'groq', label: 'Groq', ls: GROQ_KEY_LS, signup: 'https://console.groq.com/keys',
       note: 'Groq — 키 1개당 하루 1,000회',
-      models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'] },
+      // 2026-09-18: llama-3.3-70b-versatile · llama-3.1-8b-instant 둘 다 404(폐기됨)로 확인 — 살아 있는 것으로 교체.
+      // 게이트웨이에 직접 찔러 본 결과라 짐작이 아니다. 또 404 가 나면 같은 방법으로 확인할 것.
+      models: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'] },
     { id: 'cerebras', label: 'Cerebras', ls: CEREBRAS_KEY_LS, signup: 'https://cloud.cerebras.ai',
       note: 'Cerebras — 키 1개당 하루 100만 토큰 (분당 5회)',
       models: ['gpt-oss-120b', 'zai-glm-4.7'] },
