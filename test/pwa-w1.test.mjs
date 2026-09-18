@@ -62,6 +62,11 @@ const idxV = (인덱스.match(/const MESSENGER_BUILD = '(\w+)'/) || [])[1];
 확인('html 의 ?v= 가 css·js 같음', !!htmlV && htmlV === cssV, `${cssV} / ${htmlV}`);
 확인('html 의 ?v= = index.html MESSENGER_BUILD', htmlV === idxV, `${htmlV} vs ${idxV}`);
 확인('메신저 빌드 번호 b31 이상', /^(b(3[1-9]|[4-9]\d)|c\d+)$/.test(idxV || ''), idxV);
+// messenger.js 안의 lib.js·ai.js import 도 같은 ?v= 여야 한다. 안 그러면 새 messenger.js 가 옛 lib/ai 를 캐시에서 쓴다
+// (2026-09-18 실제 사고: AI 제공자 목록을 고쳤는데 브라우저가 옛 ai.js 를 써서 같은 오류가 계속 났다).
+const 내부V = [...앱.matchAll(/from '\.\/(?:lib|ai)\.js\?v=([\w.-]+)'/g)].map((m) => m[1]);
+확인('messenger.js 가 lib.js·ai.js 를 ?v= 로 가져온다', 내부V.length === 2, `${내부V.length}개 — lib.js·ai.js 둘 다여야 한다`);
+확인('그 ?v= 도 빌드 번호와 같다', 내부V.every((v) => v === idxV), `${내부V.join(',')} vs ${idxV}`);
 for (const id of ['photoInput', 'fileInput', 'cameraInput', 'albumInput', 'sheet', 'toast', 'viewer', 'modal']) {
   확인(`껍데기 요소 #${id}`, new RegExp(`id="${id}"`).test(껍데기));
 }
