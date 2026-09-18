@@ -26,8 +26,13 @@ crons = ["0 0 * * *"]
 binding = "FILES"
 bucket_name = "sejong-files"
 
-# Firestore 야간 백업용 R2 — 버킷을 만들면 주석을 풀고 재배포한다:
-#   npx wrangler r2 bucket create sejong-backup && npx wrangler deploy
+# Firestore 야간 백업 — **껐다(2026-09-19)**. 버킷 sejong-backup 은 만들어져 있다.
+# 끈 이유: 파이어베이스가 무료(Spark) 요금제라 **하루 문서 읽기 5만 건** 제한이 있는데,
+# 전 컬렉션 백업은 첨부 조각까지 전부 읽어서 한 번에 그 한도를 다 태운다. 실제로 첫 실행에서
+# 태웠고 그 뒤 플랫폼이 429(Quota exceeded)로 읽기를 못 했다. 매일 아침 9시에 이걸 반복하면
+# 매일 아침 회사 플랫폼이 멈춘다. 다시 켜기 전에 아래 중 하나를 먼저 해야 한다:
+#   ① Firestore 를 Blaze 로 올린다(읽기 10만 건당 $0.06 — 백업 한 번에 몇백 원)
+#   ② 백업 대상을 중요한 작은 컬렉션으로 좁히고 컬렉션당 쪽수 상한을 둔다(파이스 방식)
 # [[r2_buckets]]
 # binding = "BACKUP"
 # bucket_name = "sejong-backup"

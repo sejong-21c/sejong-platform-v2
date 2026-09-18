@@ -650,11 +650,32 @@ async function runDailyBackup(env) {
   const collections = await fsListCollections(env, token);
   const summary = {};
   let totalDocs = 0, totalKb = 0;
+
+  // v3.6: 워커는 **한 번 실행에 하위 요청 1,000개** 제한이 있다. 첨부 조각(chunk__*)이 수만 건이라
+  // 한 컬렉션만으로도 한도를 넘겨 백업이 통째로 실패했다(2026-09-19 첫 실행에서 발각).
+  //   ① 한 쪽에 300 → 1000 건으로 받아 요청 수를 3분의 1로 줄이고
+  //   ② 그래도 모자라면 **어디까지 했는지 적어 두고 멈춘다**. 다음 실행이 이어서 한다.
+  // 그래서 한 번에 못 끝내도 며칠에 걸쳐 반드시 완성된다 — 아예 못 받는 것보다 낫다.
+  const 예산 = 900;
+  let 쓴요청 = 1;                       // listCollectionIds 한 번
+  const 상태키 = 'backup/_state.json';
+  let 끝낸것 = [];
+  try {
+    const st = await env.BACKUP.get(상태키);
+    if (st) { const j = await st.json(); if (j && j.day === day && Array.isArray(j.done)) 끝낸것 = j.done; }
+  } catch (e) { /* 상태 파일이 깨졌으면 처음부터 한다 */ }
+
   for (const coll of collections) {
+    if (끝낸것.includes(coll)) continue;
+    if (쓴요청 >= 예산) {
+      await env.BACKUP.put(상태키, JSON.stringify({ day, done: 끝낸것 }), { httpMetadata: { contentType: 'application/json' } });
+      return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, summary };
+    }
     const docs = [];
     let pageToken = '';
     do {
-      const url = fsBase(env) + '/' + encodeURIComponent(coll) + '?pageSize=300'
+      쓴요청++;
+      const url = fsBase(env) + '/' + encodeURIComponent(coll) + '?pageSize=1000'
         + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
       const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
       if (!r.ok) throw new Error(coll + ' backup list failed: ' + r.status);
@@ -667,17 +688,21 @@ async function runDailyBackup(env) {
         docs.push(fsParseDoc(doc));
       });
       pageToken = d.nextPageToken || '';
-    } while (pageToken);
+    } while (pageToken && 쓴요청 < 예산);
     const body = JSON.stringify(docs);
     await env.BACKUP.put('backup/' + day + '/' + coll + '.json', body, {
       httpMetadata: { contentType: 'application/json' },
     });
+    쓴요청++;
+    끝낸것.push(coll);
     summary[coll] = docs.length;
     totalDocs += docs.length;
     totalKb += Math.round(body.length / 1024);
   }
+  // 다 끝났다 — 이어서할 자리 표시를 지우고, 오래된 날짜를 정리한다(정리도 요청을 쓰므로 맨 끝에).
+  try { await env.BACKUP.delete(상태키); } catch (e) { /* 없어도 그만 */ }
   try { await cleanupOldBackups(env, day); } catch (e) { console.warn('[backup] cleanup:', e && e.message); }
-  return { day, collections: collections.length, docs: totalDocs, kb: totalKb, summary };
+  return { day, collections: collections.length, docs: totalDocs, kb: totalKb, 요청: 쓴요청, summary };
 }
 
 function corsHeaders(origin, allowed) {
