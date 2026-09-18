@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>사내 메신저 - SJ FLOW</title>
+
+<!-- ══ PWA (W1) — 폰 홈 화면에 설치하고, 끊겨도 다시 열리게 ══
+     아이콘은 icons/make-icons.py 로 다시 뽑는다. 파일을 고치면 sw.js 의 버전 문자열을 올릴 것. -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#2563eb">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="SJ메신저">
+<meta name="mobile-web-app-capable" content="yes">
+
 <!-- Google Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -41,6 +52,13 @@
     onAuthStateChanged, doc, getDoc, setDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit, ref, uploadBytes, getDownloadURL,
   };
+
+  // ══ 서비스워커 등록 (W1) ══
+  // https 또는 localhost 에서만 등록된다(브라우저 규칙). 실패해도 메신저는 그대로 돌아간다.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .catch((e) => console.warn('[PWA] 서비스워커 등록 실패(무시 가능):', e && e.message));
+  }
 </script>
 
 <style>
@@ -570,7 +588,9 @@ function getCurrentUserUid() {
   if (window.parent && window.parent.state && window.parent.state.currentUser) return window.parent.state.currentUser;
   const pFb = getFB();
   if (pFb && pFb.auth && pFb.auth.currentUser) return pFb.auth.currentUser.uid;
-  return 'cwkim';
+  // W1: 예전엔 여기서 'cwkim'을 돌려줬다. 플랫폼 안(iframe)에서는 위에서 항상 잡히니 티가 안 났지만,
+  // 홈 화면 앱으로 직접 열면 로그인 안 한 사람이 전부 부장 계정으로 보였다. 모르면 모른다고 한다.
+  return null;
 }
 
 let activeCh = 'c1';
@@ -1048,9 +1068,10 @@ async function sendMsg() {
   
   const pFb = getFB();
   const me = getCurrentUserUid();
+  if (!me) { alert('로그인이 필요합니다.'); return; }
   const chId = activeCh || 'c1';
   inp.value = '';
-  
+
   const tempId = 'pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
   const nowStr = nowStamp();
   const createdTs = Date.now();
@@ -1067,11 +1088,16 @@ async function sendMsg() {
   renderPreservingMsgInput();
   
   try {
-    const docId = 'msg_' + createdTs + '_' + Math.random().toString(36).slice(2, 7);
+    // W1 데이터 모델: clientId = 보낸 쪽이 정하는 고유번호. 문서 id 를 여기서 만들기 때문에
+    // 같은 clientId 로 다시 보내면 같은 문서를 덮어쓴다 → 재시도해도 두 번 안 찍힌다(W2 오프라인 큐의 전제).
+    const clientId = createdTs + '_' + Math.random().toString(36).slice(2, 7);
+    const docId = 'msg_' + clientId;
     const rawPayload = {
       channel: String(chId),
       author: String(me),
       text: String(text),
+      type: 'text',
+      clientId: String(clientId),
       at: String(nowStr),
       createdAt: Number(createdTs)
     };
@@ -1113,6 +1139,7 @@ async function sendFiles(fileList) {
   }
   const chId = activeCh || 'c1';
   const me = getCurrentUserUid();
+  if (!me) { alert('로그인이 필요합니다.'); return; }
   uploadingFiles = true;
   renderPreservingMsgInput();
   
@@ -1146,14 +1173,17 @@ async function sendFiles(fileList) {
         await Promise.race([uploadTask, timeoutPromise]);
         
         const fileUrl = await pFb.getDownloadURL(storageRef);
-        const docId = 'msg_' + createdTs + '_' + Math.random().toString(36).slice(2, 7);
-        
+        const clientId = createdTs + '_' + Math.random().toString(36).slice(2, 7);
+        const docId = 'msg_' + clientId;
+
         const rawPayload = {
           channel: String(chId),
           author: String(me),
           file: String(f.name),
           fileUrl: String(fileUrl),
           fileSize: String(size),
+          type: (f.type || '').indexOf('image/') === 0 ? 'image' : 'file',
+          clientId: String(clientId),
           at: String(nowStr),
           createdAt: Number(createdTs)
         };
@@ -1285,7 +1315,65 @@ async function startSync() {
   }, err => console.error('[Firestore] messages 동기화 오류:', err)));
 }
 
+// ══════════ 앱(홈 화면)으로 열렸을 때 — 로그인 관문 (W1) ══════════
+// 플랫폼 iframe 안에서는 부모가 로그인을 이미 끝냈다. 앱으로 직접 열면 여기가 유일한 관문이다.
+const 독립실행 = (window.parent === window);
+
+// Firebase 는 새로고침 직후 currentUser 가 잠깐 null 이다(IndexedDB 복원 전).
+// 그 순간을 로그아웃으로 오해하지 않으려고 첫 상태 1회를 기다린다.
+function 첫인증(제한ms) {
+  const fb = window.fb;
+  if (!fb || !fb.auth || !fb.onAuthStateChanged) return Promise.resolve(null);
+  if (fb.auth.currentUser) return Promise.resolve(fb.auth.currentUser);
+  return new Promise((resolve) => {
+    let 끝 = false;
+    const 마치기 = (u) => { if (끝) return; 끝 = true; resolve(u || null); };
+    let 그만 = null;
+    try { 그만 = fb.onAuthStateChanged(fb.auth, (u) => { try { 그만 && 그만(); } catch (e) {} 마치기(u); }); }
+    catch (e) { return 마치기(null); }
+    setTimeout(() => 마치기(fb.auth.currentUser), 제한ms || 8000);
+  });
+}
+
+// 로그인 화면은 플랫폼 본진(index.html)에 있다 — OAuth 리디렉션 주소가 사이트 루트 하나로만
+// 등록돼 있어서, 메신저가 따로 로그인하지 못한다. 루트에 다녀오고 돌아온다(manifest scope 가 "/" 라 앱 안에 머문다).
+function 로그인하러() {
+  try { sessionStorage.setItem('sjReturnTo', '/modules/messenger/messenger.html'); } catch (e) {}
+  location.href = '/';
+}
+window.로그인하러 = 로그인하러;
+
+function 관문(오프라인) {
+  const app = document.getElementById('app');
+  if (!app) return;
+  app.innerHTML = `
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+                background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8c 100%);color:#fff;padding:24px;">
+      <div style="text-align:center;max-width:320px;">
+        <img src="./icons/icon-192.png" alt="" width="72" height="72" style="border-radius:18px;">
+        <div style="font-size:20px;font-weight:700;margin-top:16px;">SJ 메신저</div>
+        <div style="font-size:13px;opacity:.8;margin-top:10px;line-height:1.6;">
+          ${오프라인
+            ? '지금 인터넷이 끊겨 있습니다.<br>연결되면 자동으로 들어갑니다.'
+            : '회사 계정(@sejong-21c.com)으로<br>로그인해야 대화를 볼 수 있습니다.'}
+        </div>
+        ${오프라인 ? '' : `<button onclick="로그인하러()"
+          style="margin-top:22px;width:100%;padding:13px;border:0;border-radius:10px;
+                 background:#fff;color:#1e3a5f;font-size:15px;font-weight:700;cursor:pointer;">
+          로그인</button>`}
+      </div>
+    </div>`;
+  if (오프라인) window.addEventListener('online', () => location.reload(), { once: true });
+}
+
 async function boot() {
+  // 0. 앱으로 열렸으면 로그인부터 (iframe 이면 건너뛴다)
+  if (독립실행) {
+    const u = await 첫인증(8000);
+    if (u && u.uid) state.currentUser = u.uid;
+    else { 관문(!navigator.onLine || !window.fb); return; }
+  }
+
   // 1. 부모 윈도우 상태 동기화 및 0ms 즉시 렌더링 (빈 화면 방지)
   if (window.parent && window.parent.state) {
     if (window.parent.state.currentUser) state.currentUser = window.parent.state.currentUser;

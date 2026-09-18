@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>메신저 iframe 시험대 (W1)</title>
+</head>
+<body style="margin:0">
+<!-- 플랫폼(index.html) 안에 들어갔을 때를 흉내낸다 — 로그인 끝난 부모 상태만.
+     pwa-live-check.mjs 가 이 페이지를 열어 "iframe 안에서는 로그인 관문이 뜨지 않는다"를 확인한다. -->
+<script>
+  window.state = {
+    currentUser: 'uid_test',
+    users: [{ id: 'uid_test', name: '시험', dept: '품질관리부', title: '부장' }],
+    projects: [],
+  };
+</script>
+<iframe id="f" src="../modules/messenger/messenger.html?embed=1&v=test"
+        style="width:100vw;height:100vh;border:0"></iframe>
+</body>
+</html>

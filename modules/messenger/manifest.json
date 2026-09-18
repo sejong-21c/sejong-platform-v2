@@ -1,0 +1,19 @@
+{
+  "id": "/modules/messenger/",
+  "name": "SJ 메신저",
+  "short_name": "SJ메신저",
+  "description": "세종기술 사내 메신저 — 현장에서 사진 한 장, 한 줄로",
+  "lang": "ko",
+  "start_url": "./messenger.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
