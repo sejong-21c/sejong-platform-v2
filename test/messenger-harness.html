@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<!-- 없으면 CDP 폰 에뮬레이션(375, mobile:true)이 980px 레이아웃 뷰포트를 잡아 iframe 이 데스크톱 배치로 그려진다(실측). -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>메신저 시험대 (W2) — 가짜 Firestore</title>
+</head>
+<body style="margin:0;overflow:hidden">
+<!-- 플랫폼(index.html) 안에 들어갔을 때를 흉내낸다 — 로그인 끝난 부모 state + 메모리 Firestore(window.fb).
+     메신저는 getFB() 로 window.parent.fb 를 먼저 쓰므로 진짜 Firebase 없이 전체가 돈다(SDK 모듈 다운로드만 인터넷 필요).
+     검사: node test/messenger-ui-check.mjs · 손으로 볼 때는 콘솔에서 fake.writes / fake.all('messages') 를 본다.
+     시드는 W2-UI-스펙 §5 데이터 모양 그대로. 프로필 사진은 t_userProfile/{uid} (스펙 §7 이후 바뀐 이름). -->
+<script>
+(function () {
+  // ───────────────── 메모리 Firestore — 모듈러 SDK 10.x 호출 모양만 흉내 ─────────────────
+  const 창고 = new Map();          // col → Map(id → data)
+  const 청취 = new Map();          // col → Set(listener)
+  const writes = [];               // 메신저가 쓴 것 전부 {op, col, id, data, at} — fake.add/update/remove(다른 사람 흉내)는 안 남긴다
+  const 칸 = (name) => { if (!창고.has(name)) 창고.set(name, new Map()); return 창고.get(name); };
+  const 복사 = (d) => (d === undefined ? undefined : JSON.parse(JSON.stringify(d)));   // 문서는 항상 깊은 복사로 내보낸다
+  const 값 = (obj, path) => String(path).split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+  let 자동번호 = 0;
+  const 자동id = () => 'auto_' + (++자동번호).toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // 바뀐 컬렉션의 청취자는 다음 틱에 한 번만 깨운다 — setDoc 이 끝난 뒤 스냅샷이 오는 실제 순서와 비슷하게(낙관적 렌더 검증용).
+  let 더러움 = new Set(), 예약 = 0;
+  function 건드림(col) { 더러움.add(col); if (!예약) 예약 = setTimeout(깨우기, 0); }
+  function 깨우기() { 예약 = 0; const ds = 더러움; 더러움 = new Set(); for (const c of ds) for (const l of (청취.get(c) || [])) l(); }
+
+  function 비교(x, op, v) {
+    switch (op) {
+      case '==': return x === v;
+      case '!=': return x !== v;
+      case '<': return x < v;
+      case '<=': return x <= v;
+      case '>': return x > v;
+      case '>=': return x >= v;
+      case 'in': return Array.isArray(v) && v.includes(x);
+      case 'not-in': return Array.isArray(v) && !v.includes(x);
+      case 'array-contains': return Array.isArray(x) && x.includes(v);
+      case 'array-contains-any': return Array.isArray(x) && Array.isArray(v) && v.some((y) => x.includes(y));
+      default: throw new Error('where 연산자 미지원: ' + op);
+    }
+  }
+  // where → orderBy → limit. Firestore 처럼 orderBy 필드가 없는 문서는 결과에서 빠진다(createdAt 없는 옛 형식 메시지가 실제로도 안 보이는 이유).
+  function 실행(q) {
+    let rows = Array.from(칸(q.col), ([id, data]) => ({ id, data }));
+    for (const w of q.wheres) rows = rows.filter((r) => 비교(값(r.data, w.field), w.op, w.value));
+    for (const o of q.orders) rows = rows.filter((r) => 값(r.data, o.field) !== undefined);
+    if (q.orders.length) {
+      rows.sort((a, b) => {
+        for (const o of q.orders) { const x = 값(a.data, o.field), y = 값(b.data, o.field); if (x === y) continue; return (x < y ? -1 : 1) * (o.dir === 'desc' ? -1 : 1); }
+        return 0;
+      });
+    }
+    if (q.lim) rows = rows.slice(0, q.lim);
+    return rows;
+  }
+  const 문서스냅 = (col, id) => { const d = 칸(col).get(id); return { id, ref: { kind: 'doc', col, id }, exists: () => d !== undefined, data: () => 복사(d) }; };
+  const 질의스냅 = (q) => { const docs = 실행(q).map((r) => 문서스냅(q.col, r.id)); return { docs, size: docs.length, empty: !docs.length, forEach: (fn) => docs.forEach(fn) }; };
+  const 질의로 = (x) => (x.kind === 'query' ? x : { kind: 'query', col: x.col, wheres: [], orders: [], lim: 0 });
+  const 문서ref = (ref, fn) => { if (!ref || ref.kind !== 'doc') throw new Error(fn + ': 문서 ref 가 아닙니다'); return ref; };
+  const 기록 = (op, col, id, data) => writes.push({ op, col, id, data: 복사(data), at: Date.now() });
+
+  const fb = {
+    db: { 가짜: true }, storage: { 가짜: true },
+    auth: { currentUser: { uid: 'u_kim', email: 'cwkim@sejong-21c.com', displayName: '김철우' } },
+    onAuthStateChanged(auth, cb) { queueMicrotask(() => cb(auth.currentUser)); return () => {}; },
+    signOut() { return Promise.resolve(); },
+    collection(db, name) { return { kind: 'col', col: name }; },
+    doc(dbOrCol, name, id) {
+      if (dbOrCol && dbOrCol.kind === 'col') { id = name; name = dbOrCol.col; }   // doc(collection(db,'x')) — 자동 id 꼴
+      return { kind: 'doc', col: name, id: id || 자동id() };
+    },
+    query(col, ...제약) {
+      const q = 질의로(col);
+      for (const c of 제약) { if (c.kind === 'where') q.wheres.push(c); else if (c.kind === 'orderBy') q.orders.push(c); else if (c.kind === 'limit') q.lim = c.n; }
+      return q;
+    },
+    where(field, op, value) { return { kind: 'where', field, op, value }; },
+    orderBy(field, dir = 'asc') { return { kind: 'orderBy', field, dir }; },
+    limit(n) { return { kind: 'limit', n }; },
+    getDoc(ref) { 문서ref(ref, 'getDoc'); return Promise.resolve(문서스냅(ref.col, ref.id)); },
+    getDocs(x) { return Promise.resolve(질의스냅(질의로(x))); },
+    setDoc(ref, data, opts) {
+      문서ref(ref, 'setDoc');
+      const c = 칸(ref.col), prev = c.get(ref.id);
+      // ponytail: merge 는 얕게 — 메신저가 중첩 맵을 안 쓴다. 중첩 merge 가 필요해지면 여기서 재귀로.
+      c.set(ref.id, opts && opts.merge && prev ? Object.assign({}, prev, 복사(data)) : 복사(data));
+      기록('set', ref.col, ref.id, data); 건드림(ref.col);
+      return Promise.resolve();
+    },
+    updateDoc(ref, data) {
+      문서ref(ref, 'updateDoc');
+      const c = 칸(ref.col);
+      if (!c.has(ref.id)) return Promise.reject(new Error(`No document to update: ${ref.col}/${ref.id}`));
+      c.set(ref.id, Object.assign({}, c.get(ref.id), 복사(data)));
+      기록('update', ref.col, ref.id, data); 건드림(ref.col);
+      return Promise.resolve();
+    },
+    deleteDoc(ref) { 문서ref(ref, 'deleteDoc'); 칸(ref.col).delete(ref.id); 기록('delete', ref.col, ref.id, null); 건드림(ref.col); return Promise.resolve(); },
+    addDoc(col, data) { const ref = fb.doc(col); 칸(ref.col).set(ref.id, 복사(data)); 기록('add', ref.col, ref.id, data); 건드림(ref.col); return Promise.resolve(ref); },
+    onSnapshot(x, cb, errCb) {
+      const 문서 = x.kind === 'doc';
+      const q = 문서 ? null : 질의로(x);
+      let 마지막 = null;
+      const l = () => {
+        try {
+          const snap = 문서 ? 문서스냅(x.col, x.id) : 질의스냅(q);
+          const 지문 = JSON.stringify(문서 ? snap.data() : snap.docs.map((d) => [d.id, d.data()]));
+          if (지문 === 마지막) return;   // 결과가 같으면 안 깨운다(실제 Firestore 도 데이터가 안 바뀌면 안 부른다)
+          마지막 = 지문; cb(snap);
+        } catch (e) { if (errCb) errCb(e); else throw e; }
+      };
+      if (!청취.has(x.col)) 청취.set(x.col, new Set());
+      청취.get(x.col).add(l);
+      setTimeout(l, 0);   // 첫 스냅샷도 비동기
+      return () => { 청취.get(x.col).delete(l); };
+    },
+    ref(storage, path) { return { kind: 'storage', path }; },
+    uploadBytes(ref, file) { return Promise.resolve({ ref, metadata: { name: ref.path, size: file && file.size } }); },
+    getDownloadURL(ref) { return Promise.resolve('https://fake.storage/' + ref.path); },
+  };
+  window.fb = fb;
+
+  // ───────────────── 시드 (스펙 §5 · 검사 시나리오가 기대하는 모양) ─────────────────
+  const PNG1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const 분 = 60e3, 시 = 3600e3, 일 = 86400e3;
+  // [uid, 이름, 부서, 직급, grade, disabled]
+  const 사람들 = [
+    ['u_kim', '김철우', '품질관리부', '부장', 'manager'],
+    ['u_kimsw', '김시원', '품질관리부', '대리'],
+    ['u_kimki', '김강일', '생산부', '사원'],
+    ['u_kimks', '김광석', '현장시공', '과장'],
+    ['u_kang_dh', '강대헌', '영업부', '차장'],
+    ['u_kang_mh', '강문환', '기술부', '과장'],
+    ['u_lee', '이지은', '총무부', '주임'],
+    ['u_park', '박민수', '구매부', '대리'],
+    ['u_shin', '신채완', '품질관리부', '과장'],
+    ['u_choi', '최가람', '품질관리부', '주임'],
+    ['u_jung', '정우성', '안전관리부', '과장'],
+    ['u_hong', '홍길동', '재무부', '사원'],
+    ['u_han', '한지민', '해외사업부', '대리'],
+    ['u_alice', 'Alice Kim', '원자력사업부', '사원'],
+    ['u_off', '오하늘', '현장시공', '사원', null, true],
+  ];
+  const 사용자문서 = ([id, name, dept, title, grade, disabled]) => ({
+    name, email: id === 'u_kim' ? 'cwkim@sejong-21c.com' : id.slice(2) + '@sejong-21c.com', dept, title,
+    grade: grade || 'member', disabled: !!disabled, createdAt: 1700000000000,
+  });
+  const 프로젝트들 = [
+    { id: 'p1', code: 'P-2601', name: '삼성전기 6차 증설', client: '삼성전기', pm: 'u_kang_dh', status: 'active', hidden: false, members: { quality: ['u_kim', 'u_shin'], construction: ['u_kimks'] } },
+    { id: 'p2', code: 'P-2602', name: 'BGF 유피에스 전원', pm: 'u_kim', status: 'pre-close', hidden: false, members: ['u_park'] },
+    { id: 'p3', code: 'P-2512', name: '○○ 열교환기 보수', pm: 'u_shin', status: 'done', hidden: false },
+    { id: 'p4', code: 'P-X', name: '숨긴 프로젝트', status: 'active', hidden: true },
+  ];
+  const 채널들 = [
+    ['c1', { name: '전사 공지', type: 'announce' }],
+    ['dept_quality', { name: '품질관리부', type: 'dept', deptId: 'quality' }],
+    ['dept_sales', { name: '영업부', type: 'dept', deptId: 'sales' }],                 // 남의 부서 → 채팅 탭에 없어야 함
+    ['proj_p1', { name: '삼성전기 6차 증설', type: 'project', projectId: 'p1' }],      // 메시지(2024) 있음 → 보임
+    ['proj_p2', { name: 'BGF 유피에스 전원', type: 'project', projectId: 'p2' }],      // 메시지·읽음 문서 없음 → 채팅 탭에 없음(프로젝트 탭엔 있음)
+    ['proj_p3', { name: '○○ 열교환기 보수', type: 'project', projectId: 'p3' }],
+    ['g1', { name: '세종기술 AI Team', type: 'group', members: ['u_kim', 'u_shin', 'u_kimsw', 'u_choi'] }],
+    ['g2', { name: '삼성전기 6차 · 품질', type: 'group', projectId: 'p1', members: ['u_kim', 'u_shin'] }],
+    ['dm1', { name: 'DM', type: 'dm', members: ['u_kim', 'u_kang_dh'] }],
+    ['qa-calibration-alert', { name: '검교정 알림', type: 'system', members: [] }],     // system → 숨김
+  ];
+  const 도장 = (ms) => { const n = new Date(ms), p = (x) => String(x).padStart(2, '0'); return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`; };
+
+  function seed() {
+    창고.clear(); writes.length = 0;
+    const now = Date.now();
+    const put = (col, id, data) => 칸(col).set(id, data);
+    for (const row of 사람들) put('users', row[0], 사용자문서(row));
+    for (const { id, ...rest } of 프로젝트들) put('projects', id, rest);
+    for (const [id, data] of 채널들) put('channels', id, data);
+
+    let n = 0;
+    const msg = (channel, author, createdAt, text, extra = {}, tag) => {
+      const id = `msg_${createdAt}_${tag || (n++).toString(36).padStart(3, '0')}`;
+      put('messages', id, { channel, author, text, type: 'text', at: 도장(createdAt), createdAt, ...extra });
+      return createdAt;
+    };
+    // g1 — 묶음(같은 사람·같은 분 3건) · 파일 · 사진 · 시스템 캡슐 · 미읽음 2 · '도면' 3건
+    const B = Math.floor((now - 90 * 분) / 분) * 분;   // 분 시작에 맞춰 3건이 같은 분에 들어가게
+    msg('g1', 'u_kim', now - 3 * 일 - 2 * 시, '지난주 도면 검토 회의 정리했습니다.');
+    msg('g1', 'u_shin', now - 3 * 일 - 2 * 시 + 3 * 분, '확인했습니다. 3번 도면 치수 다시 봐야 합니다.');
+    msg('g1', 'u_kimsw', now - 1 * 일 - 4 * 시, '어제 검사 결과 올렸습니다.');
+    msg('g1', 'u_kim', now - 1 * 일 - 4 * 시 + 분, '좋습니다. 내일 회의 때 봅시다.');
+    msg('g1', 'u_kim', now - 1 * 일 - 3 * 시 - 5 * 분, '김철우님이 최가람님을 초대했습니다.', { system: true }, 'sys');
+    msg('g1', 'u_choi', now - 1 * 일 - 3 * 시, undefined, { type: 'file', file: '도면.pdf', fileSize: '1.2MB', fileUrl: 'https://fake.storage/messages/g1/도면.pdf' }, 'file');
+    msg('g1', 'u_shin', B, '검교정 일정 공유합니다.', {}, 'grp1');
+    msg('g1', 'u_shin', B + 20e3, '도면 수정본은 오후에 올립니다.', {}, 'grp2');
+    msg('g1', 'u_shin', B + 40e3, '회의는 3시입니다.', {}, 'grp3');
+    const g1읽음 = msg('g1', 'u_kim', now - 60 * 분, '네, 확인했습니다.');          // 내 lastRead = 마지막보다 2건 전
+    msg('g1', 'u_kimsw', now - 40 * 분, '검사 성적서 초안 첨부하겠습니다.');
+    msg('g1', 'u_choi', now - 20 * 분, undefined, { type: 'image', file: 'photo.png', fileUrl: PNG1 }, 'img');
+    // dm1 — 내 마지막 말풍선을 상대가 아직 안 읽음 → '1'
+    msg('dm1', 'u_kang_dh', now - 2 * 일, '부장님, 삼성전기 회의 자료 보셨나요?');
+    msg('dm1', 'u_kim', now - 2 * 일 + 5 * 분, '봤습니다. 검사 항목 두 개 추가했습니다.');
+    const dm1상대읽음 = msg('dm1', 'u_kang_dh', now - 5 * 시, '내일 현장 미팅 10시입니다.');
+    msg('dm1', 'u_kim', now - 4 * 시, '알겠습니다. 도면 챙겨가겠습니다.');
+    // c1 — 공지 (+ createdAt 없는 옛 형식 1건: orderBy(createdAt) 에 걸려 실제 Firestore 에서도 안 보인다)
+    msg('c1', 'u_kang_dh', now - 10 * 일, '9월 전사 회의는 25일(금) 오전 9시 대회의실입니다.');
+    msg('c1', 'u_lee', now - 8 * 일, '총무부: 사무용품 신청은 이달 말까지 받습니다.');
+    msg('c1', 'u_kim', now - 26 * 시, '품질관리부 정기 검사 일정을 공지합니다.');
+    put('messages', 'msg_old_c1', { channel: 'c1', author: 'u_lee', text: '(옛 형식) createdAt 없는 공지', at: '2026-09-01 09:00' });
+    // dept_quality
+    msg('dept_quality', 'u_shin', now - 6 * 일, '이번 주 검교정 대상 장비 목록입니다.');
+    msg('dept_quality', 'u_choi', now - 6 * 일 + 2 * 분, '네, 확인했습니다.');
+    msg('dept_quality', 'u_kimsw', now - 3 * 시, '오후 회의실 예약했습니다.');
+    msg('dept_quality', 'u_kim', now - 2 * 시, '수고했어요. 검사 결과는 내일 봅시다.');
+    // proj_p1 — 2024년 것만 (목록 시각 '2024. 7. 26.' 확인용)
+    const d24 = (m, d, h, mi) => new Date(2024, m - 1, d, h, mi).getTime();
+    msg('proj_p1', 'u_kang_dh', d24(7, 26, 10, 30), '삼성전기 6차 증설 착수 회의록 공유합니다.');
+    msg('proj_p1', 'u_kim', d24(7, 26, 10, 32), '도면 승인 절차 확인 바랍니다.');
+    msg('proj_p1', 'u_kimks', d24(8, 2, 14, 0), '현장 검사 일정 조율 중입니다.');
+    // g2 — 프로젝트 추가 방 (+ AI 비서형 at 문자열)
+    msg('g2', 'u_shin', now - 12 * 일, '6차 증설 품질 계획서 초안입니다.');
+    msg('g2', 'u_kim', now - 12 * 일 + 4 * 분, '검토 후 회신하겠습니다.');
+    msg('g2', 'u_shin', now - 30 * 분, '[AI 비서] 회의 요약: 도면 3건 검토 완료, 검사 일정 확정', { at: '2026. 9. 18. 오후 3:12:05' }, 'ai');
+    // 숨김 채널의 SYSTEM 메시지
+    put('messages', 'msg_sys_cal', { channel: 'qa-calibration-alert', author: 'SYSTEM', system: true, text: '검교정 만료 7일 전: 압력게이지 PG-07', at: new Date(now - 시).toISOString(), createdAt: now - 시 });
+    // 채우기 32건 — 14~46일 전(올해 '8월 n일' 표기), 방마다 시각 오름차순
+    const 채움말 = ['도면 검토 부탁드립니다.', '검사 일정 확인했습니다.', '회의 자료 올렸습니다.', '네, 알겠습니다.', '오늘 현장 점검 결과 공유합니다.', '수정본 확인 바랍니다.'];
+    const 작성자 = { c1: ['u_kang_dh', 'u_lee'], dept_quality: ['u_shin', 'u_choi', 'u_kimsw', 'u_kim'], g1: ['u_shin', 'u_kimsw', 'u_choi', 'u_kim'], g2: ['u_shin', 'u_kim'], dm1: ['u_kang_dh', 'u_kim'] };
+    const 방순서 = Object.keys(작성자);
+    for (let i = 0; i < 32; i++) {
+      const ch = 방순서[i % 방순서.length], a = 작성자[ch][i % 작성자[ch].length];
+      msg(ch, a, now - (46 - i) * 일 + i * 7 * 분, 채움말[i % 채움말.length], {}, 'f' + i);
+    }
+
+    put('channelReads', 'g1_u_kim', { channel: 'g1', uid: 'u_kim', lastRead: g1읽음, pinned: true });          // g1 고정 · 미읽음 2
+    put('channelReads', 'dm1_u_kang_dh', { channel: 'dm1', uid: 'u_kang_dh', lastRead: dm1상대읽음 });          // 내 마지막 말풍선 '1'
+    put('channelReads', 'c1_u_kim', { channel: 'c1', uid: 'u_kim', lastRead: now });
+    put('channelReads', 'proj_p1_u_kim', { channel: 'proj_p1', uid: 'u_kim', lastRead: now });
+    put('t_userProfile', 'u_kang_dh', { uid: 'u_kang_dh', photo: PNG1, phone: '010-1234-5678', updatedAt: now });
+
+    let 총 = 0; for (const c of 창고.values()) 총 += c.size;
+    for (const c of 창고.keys()) 건드림(c);
+    console.log(`[harness] seeded ${총} docs`);
+    return 총;
+  }
+
+  // ───────────────── 바깥(검사 스크립트·콘솔)용 ─────────────────
+  window.fake = {
+    writes, seed,
+    add(col, id, data) { 칸(col).set(id, 복사(data)); 건드림(col); },
+    update(col, id, data) { const c = 칸(col); c.set(id, Object.assign({}, c.get(id) || {}, 복사(data))); 건드림(col); },
+    remove(col, id) { 칸(col).delete(id); 건드림(col); },
+    all(col) { return Array.from(칸(col), ([id, d]) => ({ id, ...복사(d) })); },
+  };
+  // 부모(index.html) 가 갖고 있는 것과 같은 모양 — 메신저는 첫 화면을 이걸로 그리고 구독이 오면 갈아탄다.
+  window.state = {
+    currentUser: 'u_kim',
+    users: 사람들.map((row) => ({ id: row[0], ...사용자문서(row) })),
+    projects: 프로젝트들.map((p) => ({ ...p })),
+    pendingUsers: [],
+  };
+  seed();
+})();
+</script>
+<iframe id="f" src="../modules/messenger/messenger.html?embed=1&v=test"
+        style="display:block;width:100vw;height:100vh;border:0"></iframe>
+</body>
+</html>

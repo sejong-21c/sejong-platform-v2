@@ -10,7 +10,8 @@
 | 파일 | 무엇 |
 |---|---|
 | `설계서.md` | **시스템 전체** v0.2 — 원칙 6 · 단계 P0~P3 · 자료 등급 A/B · 아키텍처 · AI 3단 라우팅 · **노드 A/B/C 설계와 장비 로드맵(§5)** · API/계정 · 연동 계약 · **구축 로드맵(§9)** · 위험 · 결정 사항 |
-| `메신저-설계.md` | **메신저 앱 하나** — 카톡 대응 화면 · 작동 방식 · 데이터 모델 · 파일 구조 · 기존 코드 두는/바꾸는/더하는 것 · **6주 빌드 순서** · 검증 |
+| `메신저-설계.md` | **메신저 앱 하나** — 카톡 대응 화면 · 작동 방식 · 데이터 모델 · 파일 구조 · 기존 코드 두는/바꾸는/더하는 것 · **6주 빌드 순서** · 검증 · W1/W2 완료 기록 |
+| `W2-UI-스펙.md` | **W2 화면 개편 스펙**(v1 + §12 구현 결정) — 4탭 구조 · DOM 계약 · lib.js API · 받아들이는 조건 · 카톡 비평 반영 내역 |
 | `diagrams/system/` | 시스템 5장 — `01-architecture` `02-workflow` `03-sequence` `04-dataflow` `05-lifecycle` (`.json` 원본 + `.html` 자립형 뷰어) |
 | `diagrams/messenger/` | 메신저 앱 4장 — `m1-architecture`(구조) `m2-sequence`(작동) `m3-workflow`(만드는 순서) `m4-lifecycle`(메시지 상태) |
 
@@ -34,7 +35,10 @@
 - **W1 완료(9/18)** — PWA 껍데기(설치·오프라인) · 독립실행 로그인 관문 · `clientId`/`type` 필드.
   검증 `node test/pwa-w1.test.mjs` 31/31 · `node test/pwa-live-check.mjs` 13/13. 자세한 건 `메신저-설계.md` §6-1.
   **폰 실물 설치 확인은 부장님 몫** — 폰 크롬/사파리로 `sejong21c.com/modules/messenger/messenger.html` → 홈 화면에 추가.
-- 다음 작업: **메신저 W2**(카톡식 채팅방 · 사진 → R2) 또는 **P0 준비**(설계서 §9)
+- **W2-UI 완료(9/18)** — 카톡+전화번호부 느낌으로 화면 전면 개편(친구·채팅·프로젝트·나 4탭, 카톡식 방, 데스크톱 세 칸).
+  설계·결정은 `W2-UI-스펙.md`. 검증 `node test/messenger-ui-check.mjs` 66/66 · `node test/messenger-lib.test.mjs` 63/63 · `node test/pwa-w1.test.mjs` 54/54 · `node test/pwa-live-check.mjs` 13/13.
+  **부장님 몫**: 폰 실물 확인 · `firestore.rules`(t_userProfile 본인만 쓰기) 콘솔 게시 · 공지 방 쓰기 권한 결정.
+- 다음 작업: **W2-b**(사진 → R2 `/presign` · 방별 페이지네이션) 또는 **W3**(FCM 푸시 · 봇 계정)
 
 ## 원칙 여섯 (외우기용)
 

@@ -12,3 +12,5 @@ tools/pvcalc/web/materials.js
 # 테스트 전용 (jsdom)
 node_modules/
 package-lock.json
+# 메신저 화면 검사 스크린샷 (test/messenger-ui-check.mjs 가 만든다)
+test/shots/

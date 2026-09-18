@@ -5,7 +5,7 @@
 // 환경변수: CHROME=크롬경로  PORT=8098  BASE=주소
 //
 // 확인하는 것 (W1):
-//   설치 조건(매니페스트 오류 0) · 서비스워커 활성 · 껍데기+SDK 캐시 · 데이터 API 는 캐시 안 함
+//   설치 조건(매니페스트 오류 0) · 서비스워커 활성 · 껍데기(html·css·js·lib)+SDK 캐시 · 데이터 API 는 캐시 안 함
 //   비행기 모드에서 재열림 · 앱으로 열면 로그인 관문 · 플랫폼 iframe 안에서는 관문 없음
 // 폰 실물(홈 화면 설치·iOS 동작)은 이걸로 대신할 수 없다 — 사람이 한 번 봐야 한다.
 import { spawn } from 'node:child_process';
@@ -108,7 +108,7 @@ try {
   `);
   확인('서비스워커 활성', 기본.sw && 기본.state === 'activated', `${기본.scope} ${기본.state}`);
   확인('캐시 생성', 기본.keys.some((k) => k.startsWith('sj-msg-')), 기본.keys.join(','));
-  확인('껍데기 캐시', ['messenger.html', 'manifest.json', 'icon-192.png']
+  확인('껍데기 캐시', ['messenger.html', 'messenger.css', 'messenger.js', 'lib.js', 'manifest.json', 'icon-192.png']
     .every((f) => 기본.urls.some((u) => u.includes(f))), `${기본.urls.length}개`);
   확인('Firebase SDK 캐시', 기본.urls.filter((u) => u.includes('gstatic.com/firebasejs')).length === 4,
     기본.urls.filter((u) => u.includes('firebasejs')).length + '개');
@@ -120,11 +120,12 @@ try {
   await cdp.보내기('Page.reload', { ignoreCache: false });
   await 잠깐(3000);
   const 오프 = await cdp.평가(`
-    return { html: document.documentElement.outerHTML.length, title: document.title, fb: !!window.fb,
-             err: document.body.innerText.includes('오류') };
+    return { drawn: !!document.querySelector('.sjm, .sjm-gate'), title: document.title, fb: !!window.fb, sjm: !!window.SJM,
+             err: document.body.innerText.includes('문제가 생겼습니다') || document.body.innerText.includes('받지 못했습니다') };
   `);
-  확인('비행기 모드에서 재열림', 오프.title.includes('메신저') && 오프.html > 20000 && !오프.err,
-    `${오프.html}바이트`);
+  // W2 부터 화면은 전부 JS 가 그린다 → 문서 크기가 아니라 "앱(또는 관문)이 그려졌나 · JS 모듈이 캐시에서 살아났나" 를 본다
+  확인('비행기 모드에서 재열림', 오프.title.includes('메신저') && 오프.drawn && 오프.sjm && !오프.err,
+    `그려짐=${오프.drawn} 모듈=${오프.sjm}`);
   확인('오프라인에서도 Firebase SDK 살아있음', 오프.fb);
 
   // ── 설치 조건 ──
@@ -143,8 +144,8 @@ try {
   await 잠깐(3000);
   const 안 = await cdp.평가(`
     const f = document.getElementById('f'), d = f.contentDocument, t = d.body.innerText;
-    return { 관문: t.includes('회사 계정(@sejong-21c.com)'), 화면: !!d.querySelector('.msg-ch, .side-scroll'),
-             나: f.contentWindow.getCurrentUserUid && f.contentWindow.getCurrentUserUid() };
+    return { 관문: t.includes('회사 계정(@sejong-21c.com)'), 화면: !!d.querySelector('.sjm-screen, .sjm-chat'),
+             나: f.contentWindow.SJM && f.contentWindow.SJM.me() };
   `);
   확인('iframe 안에서는 관문 없음', !안.관문);
   확인('iframe 안에서 부모 로그인 이어받음', 안.나 === 'uid_test', String(안.나));

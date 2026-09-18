@@ -101,8 +101,14 @@ service cloud.firestore {
                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade == 'super';
     }
 
+    // SJ 메신저 프로필(사진·전화) — 본인만 쓴다. users 문서를 무겁게 하지 않으려고 따로 둔 컬렉션.
+    // 아래 범용 t_ 규칙에서 이 컬렉션은 빼야 "본인만" 이 실제로 걸린다(Firestore 는 어느 한 규칙이 허용하면 통과).
+    match /t_userProfile/{uid} {
+      allow read: if isCompanyUser();
+      allow write: if isCompanyUser() && request.auth.uid == uid;
+    }
     match /{col}/{docId} {
-      allow read, write: if isCompanyUser() && col.matches('^t_.*');
+      allow read, write: if isCompanyUser() && col.matches('^t_.*') && col != 't_userProfile';
     }
   }
 }

@@ -41,9 +41,11 @@
   localhost:8931)에서 부팅·콘솔 오류 확인 → 가능한 만큼 기능 시뮬레이션 →
   푸시 후 사용자 실질문 확인까지가 "완료".
 - 게이트웨이 워커 수정 시: `node gateway/worker-test.mjs` (27개 시나리오) 통과 필수.
-- 메신저(modules/messenger) 수정 시: `node test/pwa-w1.test.mjs` (불변식 31개) 통과 필수.
-  서비스워커·매니페스트·오프라인까지 실제로 보려면 `node test/pwa-live-check.mjs` (헤드리스 크롬, 서버 자동 기동).
-  **`sw.js` 를 고쳤으면 안의 `버전` 문자열을 올린다** — 안 올리면 옛 캐시가 그대로 나간다.
+- 메신저(modules/messenger) 수정 시 네 가지: `node test/pwa-w1.test.mjs`(불변식) · `node test/messenger-lib.test.mjs`(순수 함수)
+  · `node test/messenger-ui-check.mjs`(가짜 Firestore 시험대 + 헤드리스 크롬 66개 시나리오, 375·1280 스크린샷 → test/shots/)
+  · `node test/pwa-live-check.mjs`(서비스워커·매니페스트·오프라인). 배포본 확인은 둘 다 `BASE=https://sejong21c.com`.
+  **messenger.html/.css/.js/lib.js 를 고쳤으면** index.html `MESSENGER_BUILD` 와 messenger.html 의 `?v=`(css·js 둘) 과 `sw.js` 의 `버전` 을 함께 올린다
+  — 어긋나면 새 HTML 이 옛 JS 를 10분 캐시로 받는다(불변식이 잡는다).
 - QA Doc Gen / ITP Builder 순수 계산·태그·TSV 함수(공차·normTag·parseClipboardTSV 등) 수정 시:
   `node test/tool-calc.test.mjs` 통과 필수. HTML 인라인본과 `modules/shared/tool-calc.mjs`를 함께 갱신.
 - 워커 배포: `cd gateway && npx wrangler deploy` (wrangler.toml에 바인딩·크론 정의,
