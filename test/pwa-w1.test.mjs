@@ -67,6 +67,8 @@ const idxV = (인덱스.match(/const MESSENGER_BUILD = '(\w+)'/) || [])[1];
 const 내부V = [...앱.matchAll(/from '\.\/(?:lib|ai)\.js\?v=([\w.-]+)'/g)].map((m) => m[1]);
 확인('messenger.js 가 lib.js·ai.js 를 ?v= 로 가져온다', 내부V.length === 2, `${내부V.length}개 — lib.js·ai.js 둘 다여야 한다`);
 확인('그 ?v= 도 빌드 번호와 같다', 내부V.every((v) => v === idxV), `${내부V.join(',')} vs ${idxV}`);
+const 상수V = (앱.match(/const 빌드 = '([\w.-]+)'/) || [])[1];
+확인('messenger.js 안 빌드 상수도 같다', 상수V === idxV, `${상수V} vs ${idxV} — 서비스워커 캐시로 오면 ?v= 가 없어 이 상수가 화면에 찍힌다`);
 for (const id of ['photoInput', 'fileInput', 'cameraInput', 'albumInput', 'sheet', 'toast', 'viewer', 'modal']) {
   확인(`껍데기 요소 #${id}`, new RegExp(`id="${id}"`).test(껍데기));
 }
