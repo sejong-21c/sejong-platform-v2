@@ -1,7 +1,7 @@
 // PDF 조각내기 검사 — PDF 없이 순수 함수만.  node test/pdf-to-chunks.test.mjs
 // 여기서 지키려는 것: **쪽번호가 틀리면 안 된다.** AI 가 "Sec.IX p.152" 라고 했는데 그 쪽에 없으면
 // 기술부가 한 번 속고 다시는 안 쓴다. 틀린 근거는 근거가 없는 것보다 나쁘다.
-import { 쪽찾기, 머리몸가르기 } from '../tools/pdf-to-chunks.mjs';
+import { 쪽찾기, 머리몸가르기, 글자벌어짐 } from '../tools/pdf-to-chunks.mjs';
 import { 제목인가, 조각내기 } from '../tools/rag-chunk.mjs';
 
 let 실패 = 0;
@@ -60,6 +60,16 @@ const 표같은글 = ['QW-406 PREHEAT', '18 UNF', '51 through P-No. 53', '본문
 const 켬 = 조각내기(표같은글, 'T');
 const 끔 = 조각내기(표같은글, 'T', 900, { 번호제목: false });
 확인('번호제목 스위치가 조각내기에 전달된다', 끔.length <= 켬.length, `켬 ${켬.length}개 · 끔 ${끔.length}개`);
+
+// ── 낱자로 흩어진 PDF 걸러내기 ──
+// 이게 없으면 조각 수·평균 길이는 멀쩡해 보이는데 검색이 영영 0건인 책이 색인에 들어간다.
+const 멀쩡 = ('This Standard covers the standardization of dimensions of welded and seamless pipe. '
+  + '이 표준은 배관 치수를 규정한다. ').repeat(20);
+const 낱자 = 멀쩡.split('').join(' ');
+확인('멀쩡한 글은 낱자 비율이 낮다', 글자벌어짐(멀쩡) < 0.2, String(글자벌어짐(멀쩡).toFixed(2)));
+확인('낱자로 흩어진 글은 잡아낸다', 글자벌어짐(낱자) > 0.8, String(글자벌어짐(낱자).toFixed(2)) + ' (ASME B36.19 실측 0.95)');
+확인('글이 짧으면 판단하지 않는다', 글자벌어짐('a b c') === 0,
+  '표지 몇 줄만 보고 멀쩡한 책을 막으면 안 된다');
 
 console.log(nl + (실패 ? '실패 ' + 실패 + '건' : '전부 통과'));
 process.exit(실패 ? 1 : 0);

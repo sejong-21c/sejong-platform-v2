@@ -58,9 +58,26 @@ export function 머리몸가르기(조각, docName) {
   return { 머리: '', 몸: 조각 };
 }
 
-export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0 } = {}) {
+/**
+ * 글자 사이가 전부 벌어진 PDF 인지 본다("S t a i n l e s s S t e e l").
+ * 왜 검사하나: 그런 책을 그대로 색인하면 **검색이 영영 안 걸린다** — "stainless" 로 물어도
+ * 색인에는 "S t a i n l e s s" 로 들어가 있어 아무것도 안 나온다. 그런데 조각 수·평균 길이는
+ * 멀쩡해 보여서 사람 눈에는 성공한 것처럼 보인다(2026-09-19 ASME B36.19 에서 발견).
+ */
+export function 글자벌어짐(원문) {
+  const 말 = 원문.slice(0, 20000).split(/\s+/).filter(Boolean);
+  if (말.length < 200) return 0;
+  return 말.filter((w) => w.length === 1).length / 말.length;
+}
+
+export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0, 벌어짐허용 = 0.35 } = {}) {
   const { 쪽, 첫쪽 } = 쪽뽑기(파일, { 처음, 끝 });
   const 원문 = 쪽.join('\n');
+  const 벌어짐 = 글자벌어짐(원문);
+  if (벌어짐 > 벌어짐허용) {
+    throw new Error(`글자가 낱자로 흩어진 PDF 입니다(한 글자짜리 ${Math.round(벌어짐 * 100)}%). `
+      + '이대로 색인하면 검색에 영영 안 걸립니다. 다른 판본을 구하거나 좌표 기반으로 다시 뽑아야 합니다.');
+  }
   const 조각 = 조각내기(원문, docName, 최대, { 번호제목: false }).map((c) => 머리몸가르기(c, docName));
   const 쪽붙인것 = 쪽찾기(조각, 쪽, 첫쪽);
   // 20자도 안 되는 조각은 버린다 — 표에서 떨어져 나온 숫자 쪼가리라 어떤 질문에도 답이 못 된다.
