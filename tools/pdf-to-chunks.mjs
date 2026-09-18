@@ -82,7 +82,16 @@ export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음
   const 쪽붙인것 = 쪽찾기(조각, 쪽, 첫쪽);
   // 20자도 안 되는 조각은 버린다 — 표에서 떨어져 나온 숫자 쪼가리라 어떤 질문에도 답이 못 된다.
   // (책은 조각이 수천 개라 이런 게 15%쯤 섞인다. 짧은 글 자체가 문제인 규정 문서와 달리 버려도 잃는 게 없다.)
-  const 쓸것 = 쪽붙인것.filter((c) => (c.몸 || '').trim().length >= 20);
+  //
+  // 표 조각도 버린다. 왜 꼭 버려야 하나 (2026-09-19 실제로 당했다):
+  //   B31.1 부록의 허용응력 표를 그대로 색인했더니, "SA-516 Gr.70 허용응력" 을 물었을 때
+  //   **재료 이름이 없는 표 머리 조각**("Maximum Allowable Stress Values in Tension, ksi, …
+  //   400 450 500 600 650 …")이 1등으로 올라와, 애써 복원해 둔 Sec.II-D 기록을 밀어냈다.
+  //   숫자만 있는 조각은 답이 못 될 뿐 아니라 **맞는 답을 가린다.** 표는 전용 도구로 복원해서 넣는다
+  //   (tools/asme-2d-tables.py 처럼 — 재료명·온도·값이 한 조각 안에 다 들어가게).
+  const 글자비 = (t) => (t ? [...t].filter((c) => /\p{L}/u.test(c)).length / t.length : 0);
+  const 표조각 = (t) => 글자비(t) < 0.35 || /Maximum Allowable Stress Values/i.test(t);
+  const 쓸것 = 쪽붙인것.filter((c) => (c.몸 || '').trim().length >= 20 && !표조각(c.몸));
   return {
     docName,
     쪽수: 쪽.length,
