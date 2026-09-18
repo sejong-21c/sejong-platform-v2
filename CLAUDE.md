@@ -41,6 +41,11 @@
   · 첨부는 `chunk__*`·`dwg_*` 문서로 DB 안에 쪼개져 있다(개당 최대 700KB, 수만 건) — 훑기의 주범.
   · 대량 조회는 **컬렉션당 쪽수 상한**을 두고(파이스 `platform_sync.js` 의 PAGE_SIZE 300·MAX_PAGES 30 방식),
     돌리기 전에 문서 수를 먼저 센다. 배치 작업은 파이스(맥미니)에서 — 워커는 한 번 실행에 하위요청 1,000개 제한도 있다.
+- **Firestore 는 반드시 영속 캐시로 연다** — `getFirestore(fbApp)` 금지, `initializeFirestore(fbApp,
+  { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) })` 로.
+  없으면 재접속마다 서버에서 다 다시 읽어(메신저만 약 600건) 위의 하루 5만을 태운다. 화면은 멀쩡해서 안 보인다.
+  **플랫폼 안 iframe 모듈은 부모(index.html)의 `fb.db` 를 쓴다** — 자기 파일만 고치면 소용없다.
+  `node test/pwa-w1.test.mjs` 가 index.html·messenger.js 양쪽을 검사한다(2026-09-19, b41).
 - **돈이 나갈 수 있는 곳을 알고 있을 것** (2026-09-19 확인):
   파이어베이스=무료라 청구 불가(대신 한도에 걸림) · 클라우드플레어 Workers=무료 · **R2=유료 구독**(10GB·100만 작업까지 무료) ·
   Vectorize 색인은 무료로 1024차원 기준 약 4,880조각까지(그 이상은 Workers Paid $5/월 필요).

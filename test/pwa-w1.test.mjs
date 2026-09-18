@@ -69,6 +69,20 @@ const 내부V = [...앱.matchAll(/from '\.\/(?:lib|ai)\.js\?v=([\w.-]+)'/g)].map
 확인('그 ?v= 도 빌드 번호와 같다', 내부V.every((v) => v === idxV), `${내부V.join(',')} vs ${idxV}`);
 const 상수V = (앱.match(/const 빌드 = '([\w.-]+)'/) || [])[1];
 확인('messenger.js 안 빌드 상수도 같다', 상수V === idxV, `${상수V} vs ${idxV} — 서비스워커 캐시로 오면 ?v= 가 없어 이 상수가 화면에 찍힌다`);
+
+// ── Firestore 영속 캐시 (2026-09-19) ─────────────────────────────────────────
+// 조용히 죽는 종류다: getFirestore 로 되돌려도 화면은 멀쩡하고, 대신 접속마다 서버에서 다 다시 읽어
+// **무료 하루 5만 읽기**를 태운다(그날 남은 시간 플랫폼 전체가 429). 사람 눈에는 안 보인다.
+// 메신저는 플랫폼 안에서 부모(index.html)의 fb.db 를 쓰므로(getFB) 둘 다 검사해야 한다.
+for (const [이름, 글] of [['index.html', 인덱스], ['messenger.js', 앱]]) {
+  확인(`${이름} 이 영속 캐시를 쓴다`,
+    /initializeFirestore\(\s*fbApp\s*,\s*\{\s*localCache:\s*persistentLocalCache\(/.test(글),
+    '되돌리면 접속마다 수백 건을 다시 읽어 하루 한도를 태운다');
+  확인(`${이름} 에 맨 getFirestore 가 없다`, !/\bgetFirestore\s*\(/.test(글),
+    'initializeFirestore 와 같이 있으면 어느 쪽이 쓰이는지 알 수 없다');
+  확인(`${이름} 이 여러 탭 관리자를 쓴다`, /persistentMultipleTabManager\(\)/.test(글),
+    '플랫폼·iframe 모듈·메신저 새 창이 같은 출처에서 동시에 뜬다 — single 이면 한쪽이 캐시를 못 쓴다');
+}
 for (const id of ['photoInput', 'fileInput', 'cameraInput', 'albumInput', 'sheet', 'toast', 'viewer', 'modal']) {
   확인(`껍데기 요소 #${id}`, new RegExp(`id="${id}"`).test(껍데기));
 }

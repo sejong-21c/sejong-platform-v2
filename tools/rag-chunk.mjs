@@ -17,6 +17,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const 기본최대 = 900;      // 한 조각 목표 길이(자). bge-m3 는 넉넉하지만 짧을수록 검색이 정확하다
 const 최소 = 120;                 // 이보다 짧으면 앞뒤로 붙인다 — 제목만 있는 조각은 쓸모가 없다
@@ -108,7 +109,9 @@ export function 조각내기(원문, docName, 최대 = 기본최대) {
 }
 
 // ── 명령줄 ──
-if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`) {
+// 윈도우에서 import.meta.url 은 file:///C:/... (슬래시 3개)인데 손으로 만든 file://C:/... 는 2개라
+// 영영 안 맞는다 → 명령줄로 불러도 아무 일이 안 일어난다(2026-09-19 platform-count 에서 같은 줄이 잡혔다).
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const 인자 = process.argv.slice(2);
   const 값 = (이름, 기본) => { const i = 인자.indexOf(이름); return i >= 0 ? 인자[i + 1] : 기본; };
   const 파일 = 인자.find((a) => !a.startsWith('--') && 인자[인자.indexOf(a) - 1] !== '--name' && 인자[인자.indexOf(a) - 1] !== '--max' && 인자[인자.indexOf(a) - 1] !== '--out');
