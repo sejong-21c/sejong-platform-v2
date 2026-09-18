@@ -18,8 +18,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b39';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b39';
+import * as L from './lib.js?v=b40';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b40';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -43,7 +43,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b39';
+const 빌드 = 'b40';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -234,7 +234,9 @@ function 프로젝트기본방(p) {
   return state.channels.find((c) => c.id === 'proj_' + p.id || (c.type === 'project' && c.projectId === p.id))
     || { id: 'proj_' + p.id, name: p.name || p.code || '프로젝트', type: 'project', projectId: p.id, 가상: true };
 }
-const 보이는프로젝트 = () => state.projects.filter((p) => !p.hidden);
+// 부장님 지시(2026-09-19): "내가 속해 있는 프로젝트만 리스트를 띄우면 되잖아."
+// 임원(super·exec)은 전사라 전부 본다. 판단은 L.내프로젝트인가 — 참여자로 적혀 있을 때만 참이다.
+const 보이는프로젝트 = () => state.projects.filter((p) => !p.hidden && (임원인가() || L.내프로젝트인가(p, me())));
 function 프로젝트방들(p) {
   const rooms = [프로젝트기본방(p)];
   for (const c of state.channels) {
@@ -264,7 +266,9 @@ function 보이는방() {
   (ann.length ? ann : [{ id: 'c1', name: '전사 공지', type: 'announce', 가상: true }]).forEach(add);
   const myDept = 나().dept;
   if (myDept) add(부서방(myDept));
-  for (const dn of DEPT_NAMES) { const c = 부서방(dn); if (활동있음(c) && (임원인가() || state.readDocs.has(c.id) || ui.opened.has(c.id))) add(c); }
+  // 내 부서는 위에서 이미 넣었다. 남의 부서 방은 임원만 본다 — 예전엔 "한 번 들어가 본 방"도 남겼는데,
+  // 이제 연락처에서 남의 부서로 들어갈 길이 없으니 그 기록도 목록에 내지 않는다(부장님 지시 2026-09-19).
+  if (임원인가()) for (const dn of DEPT_NAMES) { const c = 부서방(dn); if (활동있음(c)) add(c); }
   for (const p of 보이는프로젝트()) { const room = 프로젝트기본방(p); if (활동있음(room)) add(room); }
   for (const c of state.channels) {
     if ((c.type === 'group' || c.type === 'dm') && (c.members || []).includes(me())) {
@@ -405,7 +409,9 @@ function 친구화면() {
   const my = 나();
   const users = 활성사용자().filter((u) => u.id !== me()).sort(L.사람정렬);
   const secs = L.섹션나누기(users);
-  const depts = DEPT_NAMES.map((dn) => ({ dn, ch: 부서방(dn), n: 활성사용자().filter((u) => u.dept === dn).length }));
+  // 내 부서만 보여 준다(임원은 전부) — 남의 부서 방으로 걸어 들어가는 유일한 통로가 여기였다.
+  const 볼부서 = 임원인가() ? DEPT_NAMES : DEPT_NAMES.filter((dn) => dn === (my.dept || ''));
+  const depts = 볼부서.map((dn) => ({ dn, ch: 부서방(dn), n: 활성사용자().filter((u) => u.dept === dn).length }));
   return `<button class="sjm-me-row" data-act="tab" data-tab="me">${아바타(my, '', false)}
       <div class="sjm-user-body"><div class="sjm-user-name">${esc(my.name || '')}</div><div class="sjm-user-sub">${esc([my.dept, my.title].filter(Boolean).join(' · ') || '내 프로필')}</div></div></button>
     <button class="sjm-user sjm-airow" data-act="open" data-cid="${AI_CID}">${아바타(getU(AI_UID), '', false)}
@@ -508,9 +514,11 @@ function 검색결과() {
   const friends = 활성사용자().filter((u) => u.id !== me())
     .map((u) => ({ u, r: L.이름일치(u.name || '', q, [u.dept, u.title, u.email]) }))
     .filter((x) => x.r > 0).sort((a, b) => a.r - b.r || L.사람정렬(a.u, b.u)).map((x) => x.u);
-  // 채팅방: 보이는 방 + 모든 부서 방 + 모든 프로젝트 방(이름으로 찾아 들어갈 수 있게)
+  // 채팅방: 보이는 방 + **내가 들어갈 수 있는** 부서·프로젝트 방(이름으로 찾아 들어갈 수 있게).
+  // 목록에서 뺀 방을 검색으로 들어갈 수 있으면 뺀 의미가 없다(메시지 검색은 아래 visible 로 이미 걸린다).
   const pool = new Map(보이는방().map((c) => [c.id, c]));
-  for (const dn of DEPT_NAMES) { const c = 부서방(dn); if (!pool.has(c.id)) pool.set(c.id, c); }
+  const 검색부서 = 임원인가() ? DEPT_NAMES : DEPT_NAMES.filter((dn) => dn === (나().dept || ''));
+  for (const dn of 검색부서) { const c = 부서방(dn); if (!pool.has(c.id)) pool.set(c.id, c); }
   for (const p of 보이는프로젝트()) { const c = 프로젝트기본방(p); if (!pool.has(c.id)) pool.set(c.id, c); }
   const chats = Array.from(pool.values()).filter((c) => L.이름일치(방이름(c), q) > 0)
     .map((ch) => { const { last, lastAt } = 마지막활동(ch); return { ch, last, lastAt, unread: 미읽음(ch.id), pinned: !!state.pins[ch.id], name: 방이름(ch), preview: last ? L.미리보기(last) : (ch.lastText || '') }; })

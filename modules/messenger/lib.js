@@ -165,11 +165,7 @@ export function 방멤버(ch, users, projects) {
       const pid = ch.projectId || String(ch.id || '').replace(/^proj_/, '');
       const p = (projects || []).find((x) => x && x.id === pid);
       if (!p) return 전원;
-      const ids = [p.pm || p.manager];
-      const mem = p.members || p.assignees || p.team || p.users;
-      if (Array.isArray(mem)) ids.push(...mem);
-      else if (mem && typeof mem === 'object') for (const v of Object.values(mem)) { if (Array.isArray(v)) ids.push(...v); else if (v) ids.push(v); }
-      const known = 제한(ids).filter((id) => 활성.some((u) => u.id === id));
+      const known = 제한(프로젝트멤버들(p)).filter((id) => 활성.some((u) => u.id === id));
       return known.length ? known : 전원;
     }
     case 'group': case 'dm': return 제한(ch.members || []).filter((id) => 활성.some((u) => u.id === id) || !users);
@@ -308,4 +304,22 @@ export function 권한거르기(rows, perm, 뽑기 = (r) => ({ uid: r.assignee |
 export const 공지등급 = ['super', 'exec', 'manager'];
 export function 공지쓰기가능(user) {
   return 공지등급.includes(String((user || {}).grade || ''));
+}
+
+// ───────── 프로젝트 참여자 ─────────
+// 프로젝트 문서의 members 는 모양이 제각각이다 — 배열일 때도 있고 {부서id: [uid]} 객체일 때도 있다.
+// 그래서 한 곳에서만 푼다(방멤버 도 이걸 쓴다). 여기서 추측하면 두 곳이 어긋난다.
+export function 프로젝트멤버들(p) {
+  if (!p) return [];
+  const ids = [p.pm || p.manager];
+  const mem = p.members || p.assignees || p.team || p.users;
+  if (Array.isArray(mem)) ids.push(...mem);
+  else if (mem && typeof mem === 'object') for (const v of Object.values(mem)) { if (Array.isArray(v)) ids.push(...v); else if (v) ids.push(v); }
+  return Array.from(new Set(ids.filter(Boolean)));
+}
+/** 목록에 내보낼지 판단하는 용도 — **참여자로 적혀 있을 때만** 참이다.
+ *  방멤버() 는 참여자를 못 찾으면 "전원"으로 넘어가지만(인원수 표시용), 여기서 그러면
+ *  참여자 정보가 비어 있는 프로젝트가 전 직원에게 보인다. 목록 판단에는 그 폴백을 쓰면 안 된다. */
+export function 내프로젝트인가(p, uid) {
+  return !!uid && 프로젝트멤버들(p).includes(uid);
 }

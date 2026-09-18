@@ -174,7 +174,8 @@ try {
   확인('연락처: 색인 레일 .sjm-index [data-key]', 친구.index > 0, `${친구.index}칸`);
   확인('연락처: 강대헌 아바타 사진 img (t_userProfile)', 친구.kangImg, 친구.kangImg ? '' : '.sjm-user[data-uid="u_kang_dh"] .sjm-avatar img 없음 — 코드가 t_userProfile 대신 t_userPhotos 를 읽는지 볼 것');
   확인('연락처: 김시원 아바타 이니셜 "시원"', 친구.siwon === '시원', String(친구.siwon));
-  if (친구.부서) 확인('연락처: 부서 섹션에 dept_quality 줄', 친구.deptRows.includes('dept_quality'), 친구.deptRows.join(','));
+  // 2026-09-19 부장님 지시: 내 부서만 띄운다(임원은 전부). u_kim 은 manager 라 품질관리부 하나만 나와야 한다.
+  if (친구.부서) 확인('연락처: 부서 섹션은 내 부서 하나뿐', 친구.deptRows.join(',') === 'dept_quality', 친구.deptRows.join(','));
   else 메모('연락처: 부서 섹션 .sjm-sec[data-key="부서"]', '없음 — 미구현');
 
   // ③ 검색
@@ -282,8 +283,11 @@ try {
   await 클릭('.sjm-tabbar [data-tab="projects"]');
   await 본문수집(); await 찍기('375-projects');
   const 프 = await 안(`const P = $('.sjm-screen[data-screen="projects"]'); return { pids: $$('.sjm-proj[data-pid]', P).map(e=>e.dataset.pid), groups: $$('.sjm-proj-group[data-status]', P).map(e=>e.dataset.status) };`);
-  확인('프로젝트: 카드 3개(p4 숨김 제외)', 프.pids.length === 3 && !프.pids.includes('p4'), 프.pids.join(','));
-  확인('프로젝트: 그룹 순서 active → pre-close → done', 프.groups.join(',') === 'active,pre-close,done', 프.groups.join(','));
+  // 내가 참여한 것만 — p1(품질에 u_kim) · p2(pm u_kim). p3 는 pm 이 신채완이고 참여자에 없어서 빠진다. p4 는 숨김.
+  확인('프로젝트: 내가 든 것만 2개', 프.pids.join(',') === 'p1,p2' || 프.pids.join(',') === 'p2,p1', 프.pids.join(','));
+  확인('프로젝트: 남의 프로젝트(p3) 안 보임', !프.pids.includes('p3'), 프.pids.join(','));
+  확인('프로젝트: 숨긴 것(p4) 안 보임', !프.pids.includes('p4'), 프.pids.join(','));
+  확인('프로젝트: 그룹 순서 active → pre-close', 프.groups.join(',') === 'active,pre-close', 프.groups.join(','));
   await 클릭('.sjm-proj[data-pid="p1"]');
   const 프1 = await 안(`return { rooms: $$('.sjm-proj-rooms .sjm-chat[data-cid]').map(e=>e.dataset.cid), add: !!$('.sjm-proj-rooms [data-act="proj-new-room"][data-pid="p1"]') };`);
   확인('프로젝트 p1: 방 목록에 proj_p1 + g2', 프1.rooms.includes('proj_p1') && 프1.rooms.includes('g2'), 프1.rooms.join(','));
