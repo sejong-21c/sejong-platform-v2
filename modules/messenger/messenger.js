@@ -1086,7 +1086,32 @@ function 내권한() {
 }
 // 질문할 때마다 "이 사람이 볼 수 있는 것"만 추려 함께 넣는다. 도구 호출 대신 맥락 주입 —
 // 회사(Gemini·Groq·Cerebras)마다 함수 호출 형식이 달라서, 셋을 다 맞추면 코드가 세 배가 된다.
-function AI맥락(문서) {
+// 내 업무·일정은 메신저가 구독하지 않는 컬렉션이라 물어볼 때 한 번만 읽는다(구독하면 70명 × 상시 = 비용).
+// 실패하면 그냥 빼고 답한다 — 업무를 못 읽었다고 대화가 멈추면 안 된다.
+async function 내업무일정() {
+  const fb = getFB(); const 줄 = [];
+  if (!fb || !fb.db || !fb.getDocs) return 줄;
+  try {
+    const s = await fb.getDocs(fb.query(fb.collection(fb.db, 'tasks'), fb.where('assignee', '==', me()), fb.limit(100)));
+    const 남은 = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((t) => !t.done && t.status !== 'done' && t.status !== '완료');
+    if (남은.length) {
+      줄.push(`\n## 내 업무 ${남은.length}건 (안 끝난 것)`);
+      남은.slice(0, 40).forEach((t) => 줄.push([t.title, t.status && ('상태 ' + t.status), t.due && ('마감 ' + t.due)].filter(Boolean).join(' · ')));
+    }
+  } catch (e) { console.warn('[AI 업무]', e && e.message); }
+  try {
+    const 오늘 = new Date().toISOString().slice(0, 10);
+    const s = await fb.getDocs(fb.query(fb.collection(fb.db, 'events'), fb.where('date', '>=', 오늘), fb.orderBy('date'), fb.limit(60)));
+    // 캘린더가 보여 주는 것과 같은 기준: 내 부서 일정 + 내가 만든 것. 등급과 무관하게 이 기준을 그대로 쓴다.
+    const 내것 = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.dept === 나().dept || e.createdBy === me());
+    if (내것.length) {
+      줄.push(`\n## 앞으로의 일정 ${내것.length}건 (내 부서·내가 만든 것)`);
+      내것.slice(0, 30).forEach((e) => 줄.push([e.date, e.time, e.title, e.dept].filter(Boolean).join(' · ')));
+    }
+  } catch (e) { console.warn('[AI 일정]', e && e.message); }
+  return 줄;
+}
+async function AI맥락(문서) {
   const perm = 내권한();
   const 줄 = [];
   const 사람 = 활성사용자().filter((u) => perm.범위 === '전사' || u.dept === perm.dept || u.id === me());
@@ -1099,6 +1124,7 @@ function AI맥락(문서) {
   });
   줄.push(`\n## 프로젝트 ${프.length}건 (내 권한 범위)`);
   줄.push(프.slice(0, 40).map((pj) => [pj.code, pj.name, pj.client, pj.status && ('상태 ' + pj.status), pj.pm && ('PM ' + getU(pj.pm).name)].filter(Boolean).join(' · ')).join('\n'));
+  줄.push(...await 내업무일정());
   if (문서 && 문서.length) {
     줄.push('\n## 사내 문서에서 찾은 부분 (답의 근거로 쓰고, 문서 이름을 밝힐 것)');
     문서.forEach((m) => 줄.push(`[${m.docName || '문서'}] ${String(m.text || '').slice(0, 700)}`));
@@ -1133,7 +1159,7 @@ async function AI에게묻기(질문) {
   renderMessages(false);
   try {
     const 문서 = await 사내문서(물음, fb);
-    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: AI맥락(문서), 권한: 내권한(), fb });
+    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서), 권한: 내권한(), fb });
     await AI쓰기({ author: AI_UID, role: 'ai', text: 답.text, type: 'text', md: true, model: 답.model,
       sources: [...new Set(문서.map((m) => m.docName).filter(Boolean))].slice(0, 4), at: nowStamp(), createdAt: Date.now() });
   } catch (e) {
@@ -1457,6 +1483,8 @@ window.SJM = {
   me: () => me(), open: (cid) => openRoom(cid), close: () => closeRoom(false),
   tab: (t) => 행동({ dataset: { act: 'tab', tab: t } }), search: (q) => { ui.search.open = true; ui.search.q = q; render('pane'); },
   rerender: () => render('all'), version: 버전,
+  // 시험용 — AI 에게 실제로 넘어가는 맥락. 권한 밖 자료가 섞이지 않았는지 시험대가 이걸로 본다.
+  ai맥락: () => AI맥락([]),
 };
 window.getCurrentUserUid = getCurrentUserUid;
 

@@ -246,6 +246,15 @@
     put('t_aiChat', 'ai_u_kim_2', { uid: 'u_kim', author: 'AI', role: 'ai', text: 답, type: 'text', md: true, model: 'gemini/test', sources: ['품질매뉴얼.pdf'], createdAt: now - 590000 });
     put('t_aiChat', 'ai_u_kang_1', { uid: 'u_kang_dh', author: 'u_kang_dh', role: 'user', text: '남의 비밀 대화', type: 'text', createdAt: now - 500000 });
 
+    // 업무·일정 — AI 가 물어볼 때 한 번 읽는 컬렉션. 권한 밖 자료가 맥락에 섞이는지 보려고 남의 것도 넣는다.
+    const 날 = (d) => new Date(now + d * 86400000).toISOString().slice(0, 10);
+    put('tasks', 'tk1', { title: '열교환기 검사성적서 검토', assignee: 'u_kim', status: '진행중', due: 날(3) });
+    put('tasks', 'tk2', { title: '끝난 업무는 안 넣는다', assignee: 'u_kim', status: '완료', done: true, due: 날(-5) });
+    put('tasks', 'tk3', { title: '남의 업무 신채완 것', assignee: 'u_shin', status: '진행중', due: 날(2) });
+    put('events', 'ev1', { title: '품질 정기회의', date: 날(1), time: '10:00', color: 'blue', dept: '품질관리부', createdBy: 'u_shin' });
+    put('events', 'ev2', { title: '영업부 단독 일정', date: 날(2), time: '14:00', color: 'orange', dept: '영업부', createdBy: 'u_kang_dh' });
+    put('events', 'ev3', { title: '지난 일정은 안 넣는다', date: 날(-3), color: 'red', dept: '품질관리부', createdBy: 'u_kim' });
+
     let 총 = 0; for (const c of 창고.values()) 총 += c.size;
     for (const c of 창고.keys()) 건드림(c);
     console.log(`[harness] seeded ${총} docs`);

@@ -42,7 +42,7 @@
 - **AI 비서 방 완료(9/18)** — 연락처 맨 위 "AI 비서" 한 줄. 눌러서 물어보면 답이 온다.
   개인 대화는 `t_aiChat`(본인만 읽고 쓴다 — `messages` 에 넣으면 전 직원 폰에 내려간다), 답변은 글머리표·표로 그린다,
   사내 문서 검색(`/rag/search`)을 근거로 붙이고 출처를 밝힌다, 볼 수 있는 범위는 등급(`users.grade`)을 따른다.
-  검증 `node test/messenger-ui-check.mjs` 84/84 · `messenger-lib.test.mjs` 84/84 · `pwa-w1.test.mjs` 67/67.
+  검증 `node test/messenger-ui-check.mjs` 93/93 · `messenger-lib.test.mjs` 84/84 · `pwa-w1.test.mjs` 67/67.
   **부장님 몫: 게이트웨이 배포** — 아래 체크리스트 3번. 그 전에는 "로그인해야 …" 안내만 나온다.
 - 다음 작업: **W2-b**(사진 → R2 `/presign` · 방별 페이지네이션) 또는 **W3**(FCM 푸시 · 봇 계정)
 
