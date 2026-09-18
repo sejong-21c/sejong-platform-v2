@@ -7,6 +7,16 @@ main = "cloudflare-worker.js"
 compatibility_date = "2026-07-01"
 keep_vars = true
 
+# 사내문서 검색을 맥미니(파이스)로 넘긴다 — 2026-09-19.
+# 왜: Vectorize 무료는 1024차원 약 4,880조각까지다. ASME 서술형 8권만 약 1만 조각이라
+# Workers Paid($5/월)가 필요했는데, 맥에 bge-m3 와 터널이 이미 있어 0원에 조각 수 상한도 없다.
+# 맥이 꺼져 있으면 워커가 아래 Vectorize 로 물러선다(사내문서 검색이 통째로 죽지 않게).
+# PAIS_TOKEN 은 Secret: npx wrangler secret put PAIS_TOKEN
+#   ⚠️ 파이스 마스터 토큰(accessToken)이 아니라 **검색 전용 토큰(settings.ragToken)** 을 넣는다.
+#   마스터를 넣으면 워커가 파이스의 도구 실행·볼트·메일까지 할 수 있게 된다.
+[vars]
+PAIS_URL = "https://pais.sejong21c.com"
+
 # Workers AI — RAG 임베딩(bge-m3)용
 [ai]
 binding = "AI"

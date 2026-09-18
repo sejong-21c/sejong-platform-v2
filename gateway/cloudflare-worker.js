@@ -1,5 +1,5 @@
 /*
- * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.4, 2026-07-31)
+ * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.7, 2026-09-19)
  *
  * 역할:
  *  1) 회사 공용 API 키를 이 서버에 숨겨두고, 직원들은 키 입력 없이 AI 비서를 사용
@@ -170,9 +170,37 @@ async function ragEmbed(env, texts) {
   return r.data; // [[...1024], ...]
 }
 
+// v3.7: 사내문서 검색을 **맥미니(파이스)** 로 넘긴다.
+// 왜: Vectorize 무료는 1024차원 약 4,880조각까지다. ASME 서술형 8권만 약 1만 조각이라
+// 유료($5/월)로 넘어가야 했는데, 맥에 bge-m3 와 터널이 이미 있어 공짜로 되고 조각 수 상한도 없다.
+// 맥이 꺼져 있으면 아래 Vectorize 로 물러선다 — 그래야 맥 정전에 사내문서 검색이 통째로 죽지 않는다.
+// 응답 모양(matches)은 그대로 유지한다. 메신저(ai.js)를 안 고쳐도 되게.
+async function 맥검색(env, query, topK) {
+  const 기한 = AbortSignal.timeout(Number(env.PAIS_TIMEOUT_MS) || 12000);
+  const r = await fetch(String(env.PAIS_URL).replace(/\/$/, '') + '/api/rag/search', {
+    method: 'POST', signal: 기한,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (env.PAIS_TOKEN || '') },
+    body: JSON.stringify({ q: query, 개수: topK }),
+  });
+  if (!r.ok) throw new Error('pais ' + r.status);
+  const j = await r.json();
+  if (!Array.isArray(j.결과)) throw new Error('pais 응답 모양이 다르다');
+  return j.결과.map((c) => ({
+    score: c.점수,
+    docName: c.문서 || '',
+    chunkIndex: undefined,
+    text: [c.머리, c.글].filter(Boolean).join('\n'),
+    kind: '', recId: '',
+    ...(c.쪽 ? { page: c.쪽 } : {}),
+    ...(c.그림 ? { image: c.그림 } : {}),
+  }));
+}
+
 async function handleRag(request, env, path, cors) {
-  if (!env.AI || !env.VECTORIZE) {
-    return json(501, { error: 'RAG not configured — Worker에 AI·VECTORIZE 바인딩을 추가하세요 (gateway/README.md 참고)' }, cors);
+  // 검색은 맥만 있어도 된다. 등록·기록은 여전히 Vectorize 바인딩이 필요하다.
+  const 맥으로된다 = path === 'search' && !!env.PAIS_URL;
+  if (!맥으로된다 && (!env.AI || !env.VECTORIZE)) {
+    return json(501, { error: 'RAG not configured — Worker에 AI·VECTORIZE 바인딩 또는 PAIS_URL 을 설정하세요 (gateway/README.md 참고)' }, cors);
   }
   const auth = await verifyCompanyFirebaseToken(request, env);
   if (auth.status) return json(auth.status, { error: auth.error }, cors);
@@ -183,6 +211,16 @@ async function handleRag(request, env, path, cors) {
     const query = String(body.query || '').trim();
     if (!query) return json(400, { error: 'query required' }, cors);
     const topK = Math.min(Math.max(parseInt(body.topK, 10) || 5, 1), 10);
+    if (env.PAIS_URL) {
+      try { return json(200, { matches: await 맥검색(env, query, topK), source: 'pais' }, cors); }
+      catch (e) {
+        // 맥이 꺼져 있다. Vectorize 가 있으면 그쪽으로 물러서고, 없으면 빈 결과 + 이유를 준다
+        // (ai.js 는 !r.ok 면 조용히 건너뛰므로 200 으로 줘야 이유가 보인다).
+        if (!env.AI || !env.VECTORIZE) {
+          return json(200, { matches: [], source: 'none', error: '사내문서 검색 서버(맥)에 닿지 못했습니다: ' + String(e.message).slice(0, 80) }, cors);
+        }
+      }
+    }
     const [vec] = await ragEmbed(env, [query]);
     const res = await env.VECTORIZE.query(vec, { topK, returnMetadata: 'all' });
     // v3.3: kind·recId를 함께 넘긴다 — 자동 색인된 기록이면 클라이언트가 그 NCR/ITP 화면으로
