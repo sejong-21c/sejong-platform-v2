@@ -146,6 +146,13 @@ const 규칙 = 읽기('firestore.rules');
   '남의 AI 대화를 읽을 수 있으면 안 된다');
 확인('t_aiChat 은 본인만 만든다', /match \/t_aiChat[\s\S]{0,400}allow create: if isCompanyUser\(\) && request\.resource\.data\.uid == request\.auth\.uid/.test(규칙));
 확인("범용 t_ 규칙에서 t_aiChat 제외", /col != 't_aiChat'/.test(규칙), '빼지 않으면 사내 누구나 읽고 쓴다');
+확인('전사 공지는 부서장 이상만 쓴다',
+  /function isDeptHeadOrAbove\(\)[\s\S]{0,200}grade in \['super', 'exec', 'manager'\]/.test(규칙)
+  && /channel in \['c1'\]\) \|\| isDeptHeadOrAbove\(\)/.test(규칙),
+  '화면만 막으면 개발자 도구로 그냥 쓸 수 있다');
+확인('메신저도 같은 기준으로 입력창을 접는다', /L\.공지쓰기가능\(나\(\)\)/.test(앱)
+  && /export const 공지등급 = \['super', 'exec', 'manager'\]/.test(읽기('modules/messenger/lib.js')),
+  '규칙과 화면이 다른 기준을 쓰면 "보이는데 안 써지는" 상태가 된다');
 
 console.log(`\n${실패 ? '실패 ' + 실패 + '건' : '전부 통과'}`);
 process.exit(실패 ? 1 : 0);

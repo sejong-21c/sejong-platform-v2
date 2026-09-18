@@ -142,6 +142,14 @@ const 업무 = [
 확인('거르기 사원', L.권한거르기(업무, L.AI권한({ dept: '품질관리부', id: 'u_shin' })).map((r) => r.id), ['t2']);
 확인('거르기 빈 입력', L.권한거르기(null, L.AI권한({})), []);
 
+// 공지 쓰기 — 부서장 이상만 (부장님 지시 9/18). 등급 값은 실제 운영 데이터에서 확인한 넷.
+확인('공지 최고관리자', L.공지쓰기가능({ grade: 'super' }), true);
+확인('공지 임원', L.공지쓰기가능({ grade: 'exec' }), true);
+확인('공지 부서장', L.공지쓰기가능({ grade: 'manager' }), true);
+확인('공지 사원(member)', L.공지쓰기가능({ grade: 'member' }), false);
+확인('공지 등급 없음', L.공지쓰기가능({}), false);
+확인('공지 빈 입력', L.공지쓰기가능(null), false);
+
 // 브라우저 전용은 node 에서 throw
 let threw = false; try { await L.이미지축소({}); } catch (e) { threw = true; }
 확인('이미지축소는 브라우저 전용', threw, true);

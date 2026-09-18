@@ -16,6 +16,11 @@ service cloud.firestore {
     function isCompanyUser() {
       return isAllowedEmail();
     }
+    // 부서장 이상(부장님 지시 2026-09-18) — 전사 공지에 글을 올릴 수 있는 사람.
+    // 등급은 플랫폼과 같은 users.grade 를 쓴다. 지금 쓰이는 값: super·exec·manager·member.
+    function isDeptHeadOrAbove() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade in ['super', 'exec', 'manager'];
+    }
 
     match /users/{userId} {
       allow read: if isCompanyUser();
@@ -43,9 +48,13 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isCompanyUser();
       // 일반 사용자 발송: author = 본인 uid
+      // 전사 공지(c1)만 부서장 이상. 채널 비교가 앞이라 평소 메시지에는 users 조회가 일어나지 않는다(읽기 비용 0).
+      //   화면(messenger.js)에서도 입력창을 접지만, 그것만으로는 개발자 도구로 그냥 쓸 수 있어 여기서도 막는다.
+      //   공지 채널이 늘어나면 이 목록에 id 를 추가할 것 — 지금은 c1 하나다(2026-09-18 실측).
       // 시스템 알림: author = 'SYSTEM' + system: true + 지정된 시스템 채널로만 (검교정 임박 알림 등)
       allow create: if isCompanyUser() && (
-        request.resource.data.author == request.auth.uid
+        (request.resource.data.author == request.auth.uid
+         && (!(request.resource.data.channel in ['c1']) || isDeptHeadOrAbove()))
         ||
         (request.resource.data.author == 'SYSTEM'
          && request.resource.data.system == true

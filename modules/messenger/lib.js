@@ -300,3 +300,12 @@ export function 권한거르기(rows, perm, 뽑기 = (r) => ({ uid: r.assignee |
     return false;
   });
 }
+
+// ───────── 공지 쓰기 권한 ─────────
+// 부장님 지시(2026-09-18): "공지는 부서장 이상만 쓰게." 플랫폼 등급을 그대로 쓴다.
+// 등급이 없는 사람(member)은 읽기만. 화면에서 입력창을 숨기고, 저장소 규칙에서도 같은 기준으로 막는다
+// — 화면만 가리면 개발자 도구로 그냥 쓸 수 있다.
+export const 공지등급 = ['super', 'exec', 'manager'];
+export function 공지쓰기가능(user) {
+  return 공지등급.includes(String((user || {}).grade || ''));
+}

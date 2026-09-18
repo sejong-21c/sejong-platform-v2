@@ -352,7 +352,30 @@ try {
   await 안(`$('[data-act="sheet-close"]')?.click(); return true;`);
   await 클릭('[data-act="back"]', 300);
 
-  // ═══════════════════════ ⑫ 1280×800 (데스크톱) ═══════════════════════
+  // ⑫ 공지 방 쓰기 권한 — 부서장 이상만(부장님 지시 9/18). 시험대의 u_kim 은 manager 라 열려 있어야 하고,
+  //    등급을 member 로 내리면 입력창이 접혀야 한다.
+  await 클릭('.sjm-tabbar [data-tab="chats"]');
+  await 클릭('.sjm-chat[data-cid="c1"]', 700);
+  const 공지1 = await 안(`const c = $('#composer'); return { 방: txt('.sjm-room-title-text'), 잠김: c?.hasAttribute('data-locked'), 입력: !!$('#msgInput') };`);
+  확인('공지: 부서장(manager)은 입력창이 열려 있다', 공지1.방 === '전사 공지' && !공지1.잠김 && 공지1.입력, JSON.stringify(공지1));
+  await 안(`fake.update('users','u_kim',{ grade:'member' }); return true;`);
+  await 잠깐(900);
+  await 안(`w.SJM.rerender(); return true;`);
+  await 잠깐(500);
+  const 공지2 = await 안(`const c = $('#composer'); return { 잠김: c?.getAttribute('data-locked') || '', 보임: c ? w.getComputedStyle($('#msgInput')).display : '?' };`);
+  확인('공지: 사원(member)은 입력창이 접힌다', /부서장 이상/.test(공지2.잠김), JSON.stringify(공지2));
+  확인('공지: 접히면 입력칸이 화면에서 사라진다', 공지2.보임 === 'none', String(공지2.보임));
+  const 막힘 = await 안(`const n = fake.writes.filter(x=>x.col==='messages').length;
+    const i = $('#msgInput'); if (i) { i.value='사원이 쓴 공지'; i.dispatchEvent(new Event('input',{bubbles:true})); }
+    $('[data-act="send"]')?.click();
+    await new Promise(r=>setTimeout(r,600));
+    return fake.writes.filter(x=>x.col==='messages').length - n;`);
+  확인('공지: 사원이 억지로 보내도 저장되지 않는다', 막힘 === 0, `messages 쓰기 ${막힘}건`);
+  await 안(`fake.update('users','u_kim',{ grade:'manager' }); return true;`);   // 뒷 검사에 영향 없게 되돌린다
+  await 잠깐(700);
+  await 클릭('[data-act="back"]', 300);
+
+  // ═══════════════════════ ⑬ 1280×800 (데스크톱) ═══════════════════════
   const 데스크 = await 열기(1280, 800, false);
   확인('1280 부팅(SJM + g1 줄)', 데스크.떴다 && 데스크.자료);
   const dk = await 안(`const tb = $('.sjm-tabbar'), empty = $('.sjm-room-empty');

@@ -18,8 +18,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b38';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b38';
+import * as L from './lib.js?v=b39';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b39';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -43,7 +43,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b38';
+const 빌드 = 'b39';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -577,6 +577,13 @@ function renderRoom() {
       <button data-act="send" aria-label="보내기">${ICON.send}</button>`;
   }
   const isAI = ch.type === 'ai';
+  // 공지는 부서장 이상만(부장님 지시 2026-09-18). 화면에서 입력창을 접고, 저장소 규칙도 같은 기준으로 막는다.
+  const 잠김 = ch.type === 'announce' && !L.공지쓰기가능(나());
+  const comp = $('#composer');
+  if (comp) {
+    if (잠김) comp.setAttribute('data-locked', '공지는 부서장 이상만 올릴 수 있습니다.');
+    else comp.removeAttribute('data-locked');
+  }
   const inp0 = $('#msgInput'); if (inp0) inp0.placeholder = isAI ? 'AI 비서에게 물어보기' : '메시지 입력';
   // 1단계에서 AI 방은 첨부를 받지 않는다(영수증·일정 첨부는 R2 와 색인이 붙는 다음 단계).
   const att = $('[data-act="attach"]'); if (att) att.hidden = isAI;
@@ -952,6 +959,8 @@ async function sendMsg() {
   const chId = ui.cid; if (!chId) return;
   inp.value = ''; 입력높이(inp); 전송준비표시();
   if (chId === AI_CID) { AI에게묻기(text); return; }
+  const ch_ = getChannel(chId);
+  if (ch_ && ch_.type === 'announce' && !L.공지쓰기가능(나())) { 토스트('공지는 부서장 이상만 올릴 수 있습니다.'); return; }
   const createdTs = Date.now();
   // W1 데이터 모델: clientId = 보낸 쪽이 정하는 고유번호. 문서 id 를 여기서 만들기 때문에
   // 같은 clientId 로 다시 보내면 같은 문서를 덮어쓴다 → 재시도해도 두 번 안 찍힌다(실패 말풍선의 "다시 보내기" 가 이걸 쓴다).

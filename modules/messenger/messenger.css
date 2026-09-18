@@ -568,3 +568,10 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 @media (prefers-reduced-motion: no-preference) {
   *::-webkit-scrollbar-thumb { transition: background .25s ease; }
 }
+
+/* 공지 방에서 쓰기 권한이 없을 때 — 입력창을 접고 이유를 적는다(2026-09-18). */
+.sjm-composer[data-locked] > * { display: none; }
+.sjm-composer[data-locked] { justify-content: center; }
+.sjm-composer[data-locked]::before {
+  content: attr(data-locked); color: var(--text-3); font-size: 13px; padding: 10px 4px; text-align: center;
+}
