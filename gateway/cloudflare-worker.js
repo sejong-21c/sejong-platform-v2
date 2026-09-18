@@ -179,7 +179,9 @@ async function 맥검색(env, query, topK) {
   const 기한 = AbortSignal.timeout(Number(env.PAIS_TIMEOUT_MS) || 12000);
   const r = await fetch(String(env.PAIS_URL).replace(/\/$/, '') + '/api/rag/search', {
     method: 'POST', signal: 기한,
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (env.PAIS_TOKEN || '') },
+    // .trim() 이 꼭 필요하다 — 비밀값을 파이프로 넣으면(echo/PowerShell) 끝에 줄바꿈이 따라붙는데
+    // 파이스는 고정시간 바이트 비교라 그 한 글자 때문에 401 이 난다(2026-09-19 실제로 그랬다).
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + String(env.PAIS_TOKEN || '').trim() },
     body: JSON.stringify({ q: query, 개수: topK }),
   });
   if (!r.ok) throw new Error('pais ' + r.status);
@@ -211,13 +213,17 @@ async function handleRag(request, env, path, cors) {
     const query = String(body.query || '').trim();
     if (!query) return json(400, { error: 'query required' }, cors);
     const topK = Math.min(Math.max(parseInt(body.topK, 10) || 5, 1), 10);
+    let 맥오류 = null;
     if (env.PAIS_URL) {
       try { return json(200, { matches: await 맥검색(env, query, topK), source: 'pais' }, cors); }
       catch (e) {
         // 맥이 꺼져 있다. Vectorize 가 있으면 그쪽으로 물러서고, 없으면 빈 결과 + 이유를 준다
         // (ai.js 는 !r.ok 면 조용히 건너뛰므로 200 으로 줘야 이유가 보인다).
+        // **물러선 사실과 이유를 반드시 응답에 남긴다** — 조용히 물러서면 맥 색인이 안 붙은 걸
+        // 아무도 모른 채 옛 Vectorize 답이 나간다(2026-09-19 첫 배포에서 실제로 그랬다).
+        맥오류 = String(e.message).slice(0, 120);
         if (!env.AI || !env.VECTORIZE) {
-          return json(200, { matches: [], source: 'none', error: '사내문서 검색 서버(맥)에 닿지 못했습니다: ' + String(e.message).slice(0, 80) }, cors);
+          return json(200, { matches: [], source: 'none', error: '사내문서 검색 서버(맥)에 닿지 못했습니다: ' + 맥오류 }, cors);
         }
       }
     }
@@ -233,7 +239,7 @@ async function handleRag(request, env, path, cors) {
       kind: (m.metadata || {}).kind || '',
       recId: (m.metadata || {}).recId || '',
     }));
-    return json(200, { matches }, cors);
+    return json(200, { matches, source: 맥오류 ? "vectorize(맥 실패로 물러섬)" : "vectorize", ...(맥오류 ? { paisError: 맥오류 } : {}) }, cors);
   }
 
   if (path === 'upload') {
