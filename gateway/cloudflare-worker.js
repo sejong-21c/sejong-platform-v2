@@ -537,6 +537,85 @@ async function runDailyAlerts(env) {
   return result;
 }
 
+// ── v3.5: 파일 저장소(R2) ────────────────────────────────────────
+// ASME 코드북 그림 · 메신저 사진 · 영수증이 여기 들어간다.
+//
+// **왜 서명 주소인가**: <img src="..."> 는 Authorization 헤더를 못 싣는다. 그래서 로그인 검사를
+// 이미지 요청마다 할 수가 없다. 대신 로그인한 사람이 /file/sign 으로 짧은 수명의 서명 주소를 받아 가고,
+// 그 주소로만 파일이 나간다. 쿠키를 쓰지 않는 이유는 워커가 다른 도메인이라 3자 쿠키로 막히기 때문.
+// 서명은 HMAC-SHA256(키=FILE_SIGN_KEY 시크릿). 키가 없으면 파일 기능 전체가 닫힌다(조용히 열려 있으면 안 된다).
+const 서명수명초 = 3600;
+
+async function 서명키(env) {
+  if (!env.FILE_SIGN_KEY) return null;
+  return crypto.subtle.importKey('raw', new TextEncoder().encode(env.FILE_SIGN_KEY),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+}
+const 열여섯 = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+async function 서명하기(key, 글) {
+  return 열여섯(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(글)));
+}
+// 키 이름은 우리가 만든다(사용자 입력을 그대로 쓰지 않는다) — 그래도 한 번 더 막는다.
+const 안전한키 = (k) => /^[A-Za-z0-9._\-/]{1,300}$/.test(k) && !k.includes('..');
+
+async function handleFile(request, env, url, cors) {
+  if (!env.FILES) return json(501, { error: 'R2 버킷(FILES)이 연결되지 않았습니다' }, cors);
+  const key = await 서명키(env);
+  if (!key) return json(501, { error: 'FILE_SIGN_KEY 시크릿이 없습니다 — wrangler secret put FILE_SIGN_KEY' }, cors);
+
+  // 1) 서명 받기 — 로그인 확인. { keys:[...] } → { urls: {키: 주소} }
+  if (url.pathname === '/file/sign') {
+    if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
+    const auth = await verifyCompanyFirebaseToken(request, env);
+    if (auth.status) return json(auth.status, { error: auth.error }, cors);
+    let body; try { body = await request.json(); } catch (e) { return json(400, { error: 'invalid JSON' }, cors); }
+    const keys = (Array.isArray(body.keys) ? body.keys : []).map(String).filter(안전한키).slice(0, 50);
+    if (!keys.length) return json(400, { error: 'keys 가 필요합니다' }, cors);
+    const exp = Math.floor(Date.now() / 1000) + 서명수명초;
+    const urls = {};
+    for (const k of keys) {
+      urls[k] = `${url.origin}/file/get/${k}?e=${exp}&s=${await 서명하기(key, k + '|' + exp)}`;
+    }
+    return json(200, { urls, expiresAt: exp }, cors);
+  }
+
+  // 2) 내려받기 — 서명만 본다(로그인 헤더를 못 싣는 img 태그용)
+  if (url.pathname.startsWith('/file/get/')) {
+    const k = decodeURIComponent(url.pathname.slice('/file/get/'.length));
+    const e = Number(url.searchParams.get('e') || 0);
+    const s = url.searchParams.get('s') || '';
+    if (!안전한키(k)) return json(400, { error: 'bad key' }, cors);
+    if (!e || e < Math.floor(Date.now() / 1000)) return json(403, { error: '주소가 만료됐습니다' }, cors);
+    const 기대 = await 서명하기(key, k + '|' + e);
+    // 길이가 같을 때만 비교 — 타이밍 차이를 줄인다
+    if (s.length !== 기대.length || s !== 기대) return json(403, { error: '서명이 맞지 않습니다' }, cors);
+    const obj = await env.FILES.get(k);
+    if (!obj) return json(404, { error: '없는 파일' }, cors);
+    const h = new Headers(cors);
+    h.set('Content-Type', obj.httpMetadata?.contentType || 'application/octet-stream');
+    h.set('Cache-Control', 'private, max-age=3600');   // 서명 수명과 같게
+    if (obj.httpEtag) h.set('ETag', obj.httpEtag);
+    return new Response(obj.body, { headers: h });
+  }
+
+  // 3) 올리기 — 로그인 확인. 키는 ?key= 로, 내용은 본문 그대로.
+  if (url.pathname === '/file/put') {
+    if (request.method !== 'PUT' && request.method !== 'POST') return json(405, { error: 'PUT/POST only' }, cors);
+    const auth = await verifyCompanyFirebaseToken(request, env);
+    if (auth.status) return json(auth.status, { error: auth.error }, cors);
+    const k = String(url.searchParams.get('key') || '');
+    if (!안전한키(k)) return json(400, { error: 'key 가 올바르지 않습니다' }, cors);
+    const ct = request.headers.get('Content-Type') || 'application/octet-stream';
+    const 최대 = 25 * 1024 * 1024;
+    const len = Number(request.headers.get('Content-Length') || 0);
+    if (len > 최대) return json(413, { error: '25MB 까지' }, cors);
+    await env.FILES.put(k, request.body, { httpMetadata: { contentType: ct } });
+    return json(200, { ok: true, key: k }, cors);
+  }
+
+  return json(404, { error: 'usage: /file/sign · /file/get/<key> · /file/put?key=' }, cors);
+}
+
 // ── v3.2: Firestore 야간 백업 → R2 ──────────────────────────────
 async function fsListCollections(env, token) {
   const r = await fetch('https://firestore.googleapis.com/v1/projects/' + fsProjectId(env) + '/databases/(default)/documents:listCollectionIds', {
@@ -603,7 +682,9 @@ async function runDailyBackup(env) {
 
 function corsHeaders(origin, allowed) {
   const h = {
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    // v3.5: GET·PUT 추가 — 파일 저장소(/file/*)가 PUT 으로 올리고 GET 으로 내려준다.
+    // 빠뜨리면 브라우저 preflight 에서 막혀 "Failed to fetch" 만 뜬다(실제로 한 번 겪음).
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
     // v3.2.1: Authorization 추가 — RAG/9router/cron 수동 실행이 Firebase 로그인 토큰을
     // 이 헤더로 보낸다. 빠져 있으면 브라우저 preflight가 차단돼 "Failed to fetch".
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, anthropic-version, anthropic-dangerous-direct-browser-access, x-title',
@@ -651,6 +732,12 @@ export default {
       try {
         return json(200, url.pathname === '/backup/run' ? await runDailyBackup(env) : await runDailyAlerts(env), cors);
       } catch (e) { return json(500, { error: '실행 실패: ' + (e.message || e) }, cors); }
+    }
+
+    // v3.5: 파일 저장소(R2) — ASME 코드북 그림 · 메신저 사진 · 영수증
+    if (url.pathname.startsWith('/file/')) {
+      try { return await handleFile(request, env, url, cors); }
+      catch (e) { return json(500, { error: '파일 처리 실패: ' + (e.message || e) }, cors); }
     }
 
     // v3: 사내 문서 검색(RAG) — /rag/search, /rag/upload, /rag/record, /rag/record-status

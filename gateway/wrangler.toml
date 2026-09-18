@@ -20,7 +20,13 @@ index_name = "sejong-docs"
 [triggers]
 crons = ["0 0 * * *"]
 
-# Firestore 야간 백업용 R2 — 계정에 R2 활성화(약관 동의) 후 주석 해제하고 재배포:
+# 파일 저장소 — ASME 코드북 그림 · 메신저 사진 · 영수증. 2026-09-18 R2 활성화하고 만들었다(apac).
+# 꺼내 쓰는 길은 cloudflare-worker.js 의 /file/* — 서명된 주소라야 내준다(img 태그가 토큰을 못 실어서).
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "sejong-files"
+
+# Firestore 야간 백업용 R2 — 버킷을 만들면 주석을 풀고 재배포한다:
 #   npx wrangler r2 bucket create sejong-backup && npx wrangler deploy
 # [[r2_buckets]]
 # binding = "BACKUP"
