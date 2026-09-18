@@ -223,3 +223,80 @@ export async function 사진줄이기(file, maxSide = 1280, quality = 0.8) {
   const name = String(file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
   try { return new File([blob], name, { type: 'image/jpeg', lastModified: Date.now() }); } catch (e) { blob.name = name; return blob; }
 }
+
+// ───────── AI 답변 서식 ─────────
+// AI 는 글머리표·굵게·표로 답한다(플랫폼 AI 비서 화면 그대로). 말풍선이 평문만 그리면 한 덩어리로 뭉쳐 못 읽는다.
+// 마크다운 라이브러리는 안 쓴다 — 우리가 받는 건 우리가 시킨 형식뿐이라 이 정도면 충분하고, 의존성 0 원칙을 지킨다.
+// 반드시 **먼저 이스케이프한 뒤** 태그를 붙인다. AI 가 <script> 를 뱉어도 글자로만 남아야 한다.
+const esc_ = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function 줄서식(s) {
+  return esc_(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<![*\w])\*([^*\n]+)\*(?!\w)/g, '<em>$1</em>')
+    .replace(/(https?:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+const 표줄 = (l) => /^\s*\|.*\|\s*$/.test(l);
+const 표칸 = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+/** AI 답변 텍스트 → 말풍선 안에 넣을 HTML. 지원: 제목(#) · 글머리표(-·*·•) · 번호목록 · 굵게/기울임/코드 · 표 · 인용(>) · 구분선 */
+export function 서식(text) {
+  const 줄들 = String(text ?? '').replace(/\r/g, '').split('\n');
+  const out = [];
+  let i = 0;
+  const 목록닫기 = (t) => { if (t) out.push(`</${t}>`); };
+  let 열린목록 = null;
+  while (i < 줄들.length) {
+    const raw = 줄들[i], line = raw.trim();
+    if (!line) { 목록닫기(열린목록); 열린목록 = null; i++; continue; }
+    // 표 — 머리줄 + 구분줄(---) + 본문
+    if (표줄(line) && i + 1 < 줄들.length && /^\s*\|[\s:|-]+\|\s*$/.test(줄들[i + 1])) {
+      목록닫기(열린목록); 열린목록 = null;
+      const head = 표칸(line); i += 2;
+      const rows = [];
+      while (i < 줄들.length && 표줄(줄들[i])) { rows.push(표칸(줄들[i])); i++; }
+      out.push(`<table><thead><tr>${head.map((c) => `<th>${줄서식(c)}</th>`).join('')}</tr></thead><tbody>${
+        rows.map((r) => `<tr>${r.map((c) => `<td>${줄서식(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+      continue;
+    }
+    if (/^#{1,6}\s+/.test(line)) { 목록닫기(열린목록); 열린목록 = null; out.push(`<div class="sjm-md-h">${줄서식(line.replace(/^#{1,6}\s+/, ''))}</div>`); i++; continue; }
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { 목록닫기(열린목록); 열린목록 = null; out.push('<hr>'); i++; continue; }
+    if (/^>\s?/.test(line)) { 목록닫기(열린목록); 열린목록 = null; out.push(`<blockquote>${줄서식(line.replace(/^>\s?/, ''))}</blockquote>`); i++; continue; }
+    const 번호 = line.match(/^(\d+)[.)]\s+(.*)$/);
+    const 점 = line.match(/^[-*•]\s+(.*)$/);
+    if (번호 || 점) {
+      const t = 번호 ? 'ol' : 'ul';
+      if (열린목록 !== t) { 목록닫기(열린목록); out.push(`<${t}>`); 열린목록 = t; }
+      out.push(`<li>${줄서식(번호 ? 번호[2] : 점[1])}</li>`);
+      i++; continue;
+    }
+    목록닫기(열린목록); 열린목록 = null;
+    out.push(`<p>${줄서식(line)}</p>`);
+    i++;
+  }
+  목록닫기(열린목록);
+  return out.join('');
+}
+
+// ───────── AI 가 볼 수 있는 범위 ─────────
+// 부장님 지시: "사원이 임원 자료를 볼 수 없게." 플랫폼의 등급(users.grade)을 그대로 따른다.
+//   super·exec → 전사 / manager → 자기 부서 / 그 외 → 본인 것만.
+// 주의: 1단계에서 AI 는 그 사람 브라우저 안에서 돈다. 여기서 거르는 건 "AI 에게 무엇을 보여줄까"이지
+// 데이터베이스 방어선이 아니다(그건 규칙이 한다). 봇이 서버로 가는 단계에서 같은 함수를 서버에서 쓴다.
+export function AI권한(user) {
+  const u = user || {};
+  const g = String(u.grade || '');
+  if (g === 'super' || g === 'exec') return { 범위: '전사', 등급: g || 'exec', dept: u.dept || '', uid: u.id || '', 설명: '전사 자료를 볼 수 있습니다' };
+  if (g === 'manager') return { 범위: '부서', 등급: g, dept: u.dept || '', uid: u.id || '', 설명: `${u.dept || '소속 부서'} 자료와 본인 업무를 볼 수 있습니다` };
+  return { 범위: '본인', 등급: g || 'staff', dept: u.dept || '', uid: u.id || '', 설명: '본인 업무와 공개 문서를 볼 수 있습니다' };
+}
+/** 권한 범위로 거른다. row 에서 담당자·부서를 어떻게 꺼낼지는 뽑기 함수로 받는다(컬렉션마다 필드가 다르다). */
+export function 권한거르기(rows, perm, 뽑기 = (r) => ({ uid: r.assignee || r.author || r.writerId, dept: r.dept })) {
+  if (!Array.isArray(rows)) return [];
+  if (!perm || perm.범위 === '전사') return rows;
+  return rows.filter((r) => {
+    const { uid, dept } = 뽑기(r) || {};
+    if (uid && perm.uid && uid === perm.uid) return true;
+    if (perm.범위 === '부서' && dept && perm.dept && dept === perm.dept) return true;
+    return false;
+  });
+}

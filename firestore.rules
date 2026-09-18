@@ -107,8 +107,16 @@ service cloud.firestore {
       allow read: if isCompanyUser();
       allow write: if isCompanyUser() && request.auth.uid == uid;
     }
+    // SJ 메신저 AI 비서 대화 — 본인 것만 읽고 쓴다.
+    // messages 에 넣지 않은 이유: 메신저는 전 직원이 최근 메시지를 통째로 구독한다(남의 AI 대화가 모두의 폰에 내려간다).
+    // 목록 조회는 where('uid','==',나) 로 들어와야 통과한다 — 클라이언트(messenger.js 구독)가 그렇게 부른다.
+    match /t_aiChat/{docId} {
+      allow read: if isCompanyUser() && resource.data.uid == request.auth.uid;
+      allow create: if isCompanyUser() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isCompanyUser() && resource.data.uid == request.auth.uid;
+    }
     match /{col}/{docId} {
-      allow read, write: if isCompanyUser() && col.matches('^t_.*') && col != 't_userProfile';
+      allow read, write: if isCompanyUser() && col.matches('^t_.*') && col != 't_userProfile' && col != 't_aiChat';
     }
   }
 }

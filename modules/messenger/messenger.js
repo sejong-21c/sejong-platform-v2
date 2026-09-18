@@ -16,6 +16,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 import * as L from './lib.js';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -54,6 +55,7 @@ const DEPT_NAMES = DEPTS.map(([, name]) => name);
 // ───────────────────────────── 아이콘(인라인 SVG, 의존성 0) ─────────────────────────────
 const I = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
+  ai: I('<path d="M12 3l1.7 4.3L18 9l-4.3 1.7L12 15l-1.7-4.3L6 9l4.3-1.7z"/><path d="M18.5 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>'),
   friends: I('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'),
   chat: I('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>'),
   folder: I('<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'),
@@ -88,6 +90,7 @@ const ICON = {
 
 // ───────────────────────────── 상태 ─────────────────────────────
 const state = {
+  aiMsgs: [],          // AI 방 대화(t_aiChat). messages 와 섞지 않는다 — 이유는 ai.js 머리말
   me: null,            // uid
   users: [],           // users 문서 [{id, name, email, dept, title, grade, disabled}]
   pendingUsers: [],    // 부모가 갖고 있으면 복사(pu_ id 이름 풀기용)
@@ -146,6 +149,7 @@ const 활성사용자 = () => state.users.filter((u) => !u.disabled && !u.pendin
 function getU(id) {
   if (!id) return { id: '', name: '알 수 없음' };
   if (id === 'SYSTEM') return { id, name: '시스템', system: true };
+  if (id === AI_UID) return { id, name: 'AI 비서', title: '', ai: true };
   const u = userMap.get(id);
   if (u) return u;
   if (String(id).startsWith('pu_')) {
@@ -175,6 +179,7 @@ function 링크달기(escapedText) {
 function 아바타(u, cls = '', act = true) {
   if (!u) return `<div class="sjm-avatar ${cls}">?</div>`;
   if (u.system) return `<div class="sjm-avatar is-system ${cls}">${ICON.info}</div>`;
+  if (u.ai) return `<div class="sjm-avatar is-ai ${cls}">${ICON.ai}</div>`;
   const photo = state.photos[u.id];
   const style = `style="--av:${L.아바타색(u.id || u.name || '?')}"`;
   const tap = act && u.id && !u.pending ? `data-act="user" data-uid="${esc(u.id)}"` : '';
@@ -207,7 +212,8 @@ function 메시지색인() {
     byCh.get(m.channel).push(m);
   }
 }
-const 방메시지 = (cid) => byCh.get(cid) || [];
+const AI방 = () => ({ id: AI_CID, name: 'AI 비서', type: 'ai', 가상: true });
+const 방메시지 = (cid) => (cid === AI_CID ? state.aiMsgs : byCh.get(cid)) || [];
 function 미읽음(cid) {
   const last = state.reads[cid] || 0, my = me();
   let n = 0;
@@ -246,6 +252,7 @@ const 활동있음 = (ch) => 방메시지(ch.id).length > 0 || !!ch.lastAt || st
 function 보이는방() {
   const out = new Map();
   const add = (c) => { if (c && !out.has(c.id)) out.set(c.id, c); };
+  add(AI방());                                   // AI 비서는 늘 목록에 있다(카톡의 채널 자리)
   const ann = state.channels.filter((c) => c.type === 'announce');
   (ann.length ? ann : [{ id: 'c1', name: '전사 공지', type: 'announce', 가상: true }]).forEach(add);
   const myDept = 나().dept;
@@ -269,6 +276,7 @@ function 채팅목록() {
 }
 function getChannel(cid) {
   if (!cid) return null;
+  if (cid === AI_CID) return AI방();
   const c = state.channels.find((x) => x.id === cid);
   if (c) return c;
   if (cid === 'c1') return { id: 'c1', name: '전사 공지', type: 'announce', 가상: true };
@@ -284,7 +292,7 @@ function getChannel(cid) {
   return null;
 }
 function 인원표기(ch) {
-  if (ch.type === 'dm') return '';
+  if (ch.type === 'dm' || ch.type === 'ai') return '';
   const n = 방멤버(ch).length;
   return n > 2 ? String(n) : '';
 }
@@ -393,6 +401,9 @@ function 친구화면() {
   const depts = DEPT_NAMES.map((dn) => ({ dn, ch: 부서방(dn), n: 활성사용자().filter((u) => u.dept === dn).length }));
   return `<button class="sjm-me-row" data-act="tab" data-tab="me">${아바타(my, '', false)}
       <div class="sjm-user-body"><div class="sjm-user-name">${esc(my.name || '')}</div><div class="sjm-user-sub">${esc([my.dept, my.title].filter(Boolean).join(' · ') || '내 프로필')}</div></div></button>
+    <button class="sjm-user sjm-airow" data-act="open" data-cid="${AI_CID}">${아바타(getU(AI_UID), '', false)}
+      <div class="sjm-user-body"><div class="sjm-user-name">AI 비서</div><div class="sjm-user-sub">${esc(내권한().설명)}</div></div>
+      <div class="sjm-user-right">${미읽음(AI_CID) ? `<span class="sjm-badge">${미읽음(AI_CID)}</span>` : ''}</div></button>
     <div class="sjm-index-wrap"><div class="sjm-index">${secs.map((s) => `<button data-act="jump" data-key="${esc(s.key)}">${esc(s.key)}</button>`).join('')}</div></div>
     <div class="sjm-friends-list">
       <div class="sjm-sec" data-key="부서"><div class="sjm-sec-h">부서 ${depts.length}</div>
@@ -558,6 +569,10 @@ function renderRoom() {
       <textarea id="msgInput" rows="1" placeholder="메시지 입력" enterkeyhint="send"></textarea>
       <button data-act="send" aria-label="보내기">${ICON.send}</button>`;
   }
+  const isAI = ch.type === 'ai';
+  const inp0 = $('#msgInput'); if (inp0) inp0.placeholder = isAI ? 'AI 비서에게 물어보기' : '메시지 입력';
+  // 1단계에서 AI 방은 첨부를 받지 않는다(영수증·일정 첨부는 R2 와 색인이 붙는 다음 단계).
+  const att = $('[data-act="attach"]'); if (att) att.hidden = isAI;
   // 같은 방이면 다시 그려도 읽던 자리를 지킨다(users·channels 스냅샷마다 맨 아래로 튀지 않게). 방이 바뀌었을 때만 처음부터.
   renderMessages(roomDom.cid !== ch.id);
 }
@@ -588,6 +603,9 @@ function 말풍선(m, info, members, readMarkBefore) {
       : `<div class="sjm-bubble">${ICON.image} ${esc(m.file || '사진')}</div>`;
   } else if (m.file) {
     body = `<a class="sjm-bubble is-file sjm-file" ${m.fileUrl ? `href="${esc(m.fileUrl)}" target="_blank" rel="noopener"` : ''}>${ICON.file}<span><div class="sjm-file-name">${esc(m.file)}</div><div class="sjm-file-size">${esc(m.fileSize || '')}</div></span></a>`;
+  } else if (m.md) {
+    // AI 답변 — 글머리표·표를 그대로 그린다. 방 안 검색 하이라이트는 여기 안 붙는다(서식 태그를 깨뜨린다).
+    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${출처달기(m)}</div>`;
   } else {
     let text = esc(m.text || '');
     if (ui.rs.open && ui.rs.q) {
@@ -597,25 +615,34 @@ function 말풍선(m, info, members, readMarkBefore) {
     body = `<div class="sjm-bubble">${링크달기(text)}</div>`;
   }
   const n = (!isSys && !m._pending) ? 안읽은수(m, members) : 0;
-  const long = m._failed ? 'msg-failed' : (isMe && !m._pending ? 'msg-me' : 'msg');
+  // AI 방에서는 지우기를 길게누름으로 주지 않는다 — 한 줄씩 지우면 대화가 어긋난다. 방 메뉴의 "새 대화"로 통째로 지운다.
+  const long = m._failed ? 'msg-failed' : (isMe && !m._pending && m.channel !== AI_CID ? 'msg-me' : 'msg');
   return `${info.day ? `<div class="sjm-day">${esc(info.day)}</div>` : ''}${readMarkBefore ? '<div class="sjm-day sjm-readmark">여기까지 읽으셨습니다</div>' : ''}
-    <div class="sjm-msg ${isMe ? 'is-me' : ''} ${isSys ? 'is-system' : ''} ${info.first ? 'is-first' : ''} ${info.last ? 'is-last' : ''} ${m._pending ? 'is-pending' : ''} ${m._failed ? 'is-failed' : ''}" data-mid="${esc(m.id)}" data-author="${esc(m.author)}" data-long="${long}">
+    <div class="sjm-msg ${isMe ? 'is-me' : ''} ${isSys ? 'is-system' : ''} ${m.author === AI_UID ? 'is-ai' : ''} ${m.실패 ? 'is-aifail' : ''} ${info.first ? 'is-first' : ''} ${info.last ? 'is-last' : ''} ${m._pending ? 'is-pending' : ''} ${m._failed ? 'is-failed' : ''}" data-mid="${esc(m.id)}" data-author="${esc(m.author)}" data-long="${long}">
       ${아바타(u, 'is-sm')}<div class="sjm-msg-name" ${u.id && !u.pending ? `data-act="user" data-uid="${esc(u.id)}"` : ''}>${esc(이름직급(u))}</div>
       <div class="sjm-msg-line">${body}<div class="sjm-msg-meta">${m._failed ? '<span class="sjm-msg-fail" title="전송 실패">!</span>' : `<span class="sjm-msg-unread">${n > 0 ? n : ''}</span>`}<span class="sjm-msg-time">${m._failed ? '전송 실패' : m._pending ? '전송 중' : esc(L.말풍선시각(t))}</span></div></div>
     </div>`;
 }
+// AI 답변이 사내 문서를 근거로 삼았으면 어떤 문서인지 밝힌다(원칙: 출처 없는 답은 믿지 않는다).
+function 출처달기(m) {
+  const src = Array.isArray(m.sources) ? m.sources.filter(Boolean).slice(0, 4) : [];
+  if (!src.length) return '';
+  return `<div class="sjm-md-src">${ICON.file}<span>${src.map((x) => esc(x)).join(' · ')}</span></div>`;
+}
+const 메시지찾기 = (mid) => state.messages.find((x) => x.id === mid) || state.aiMsgs.find((x) => x.id === mid) || null;
 function 방전체메시지(cid) {
   const list = 방메시지(cid).slice();
   for (const p of state.pending) if (p.channel === cid) list.push(p);
   return list;
 }
 function 방멤버계산(ch) {
-  if (ch.type === 'announce') return null;                 // 전원 방은 숫자 무의미
+  if (ch.type === 'announce' || ch.type === 'ai') return null;   // 전원 방·AI 방은 '읽지 않은 사람 수'가 무의미
   const m = 방멤버(ch);
   return m.length >= 2 && m.length <= 60 ? m : null;
 }
 function 경계문구(cid) {
   // 500건 창이 꽉 찼고 이 방의 가장 오래된 표시 메시지가 창의 끝 근처면, 더 오래된 대화가 잘려 있을 가능성이 높다.
+  if (cid === AI_CID) return '';
   if (state.messages.length < 메시지창) return '';
   const msgs = 방메시지(cid);
   const oldest = state.messages.length ? L.메시지시각ms(state.messages[0]) : 0;
@@ -623,7 +650,17 @@ function 경계문구(cid) {
   return L.메시지시각ms(msgs[0]) - oldest < 24 * 3600 * 1000 ? '최근 대화만 표시됩니다' : '';
 }
 // 새 메시지가 뒤에만 붙었으면 그 부분만 그린다. 아니면 통째로 다시 그리되 "바닥에서의 거리" 를 유지한다.
+// 바깥 껍데기: "생각 중" 점 세 개는 늘 맨 끝에 있어야 해서, 그리기 전에 떼고 그린 뒤 다시 붙인다.
 function renderMessages(강제) {
+  const b0 = $('#roomBody'); if (b0) $('.sjm-typing', b0)?.remove();
+  renderMessages내부(강제);
+  const b = $('#roomBody');
+  if (b && ui.aiThinking && ui.cid === AI_CID) {
+    b.insertAdjacentHTML('beforeend', `<div class="sjm-msg is-first is-last sjm-typing">${아바타(getU(AI_UID), 'is-sm', false)}<div class="sjm-msg-name">AI 비서</div><div class="sjm-msg-line"><div class="sjm-bubble is-typing"><i></i><i></i><i></i></div></div></div>`);
+    b.scrollTop = b.scrollHeight;
+  }
+}
+function renderMessages내부(강제) {
   const body = $('#roomBody'); const ch = getChannel(ui.cid); if (!body || !ch) return;
   const msgs = 방전체메시지(ch.id);
   const ids = msgs.map((m) => m.id);
@@ -663,6 +700,7 @@ function renderMessages(강제) {
   if (경계) html += `<div class="sjm-day sjm-edge">${경계}</div>`;
   if (!msgs.length) {
     const 빈 = ch.type === 'dm' ? `${esc(방이름(ch))}님과 대화를 시작해 보세요.` : ch.type === 'announce' ? '회사 소식과 공지가 올라오는 곳입니다.'
+      : ch.type === 'ai' ? 'AI 비서입니다. 사내 문서·프로젝트·업무를 물어보세요.<br><span class="sjm-note">보이는 범위는 내 권한을 따릅니다. 등록·수정은 플랫폼에서 하세요.</span>'
       : ch.type === 'dept' ? `${esc(ch.name)} ${방멤버(ch).length}명이 함께하는 채팅방입니다.` : ch.type === 'project' ? `${esc(ch.name)} 프로젝트 채팅방입니다.` : '첫 메시지를 남겨 보세요.';
     html += `<div class="sjm-empty sjm-room-blank">${빈}</div>`;
   } else {
@@ -864,7 +902,7 @@ function 사람필터(q) {
 // ───────────────────────────── 동작(쓰기) ─────────────────────────────
 // 전송 뒤 채널 문서에 마지막 말을 남겨 두면, 500건 창 밖으로 밀린 방도 목록에서 미리보기·시각이 비지 않는다.
 function 마지막말기록(ch, payload) {
-  const fb = getFB(); if (!fb || !fb.db || !ch) return;
+  const fb = getFB(); if (!fb || !fb.db || !ch || ch.id === AI_CID) return;   // AI 방 미리보기를 channels 에 쓰면 전 직원이 읽는다
   const doc_ = { lastText: L.미리보기(payload), lastAt: payload.createdAt, lastAuthor: payload.author };
   if (ch.가상) Object.assign(doc_, { name: ch.name, type: ch.type }, ch.deptId ? { deptId: ch.deptId } : {}, ch.projectId ? { projectId: ch.projectId } : {});
   fb.setDoc(fb.doc(fb.db, 'channels', ch.id), plain(doc_), { merge: true }).catch((e) => console.warn('[마지막말]', e && e.message));
@@ -903,6 +941,7 @@ async function sendMsg() {
   if (!me_) { 토스트('로그인이 필요합니다.'); return; }
   const chId = ui.cid; if (!chId) return;
   inp.value = ''; 입력높이(inp); 전송준비표시();
+  if (chId === AI_CID) { AI에게묻기(text); return; }
   const createdTs = Date.now();
   // W1 데이터 모델: clientId = 보낸 쪽이 정하는 고유번호. 문서 id 를 여기서 만들기 때문에
   // 같은 clientId 로 다시 보내면 같은 문서를 덮어쓴다 → 재시도해도 두 번 안 찍힌다(실패 말풍선의 "다시 보내기" 가 이걸 쓴다).
@@ -1036,6 +1075,86 @@ async function logout() {
   구독해제(); state.me = null; 관문(false);
 }
 
+// ───────────────────────────── AI 비서 방 ─────────────────────────────
+// 화면은 다른 방과 똑같다. 다른 건 셋뿐이다.
+//   ① 대화가 messages 가 아니라 t_aiChat 에 쌓인다(본인만 읽고 쓴다 — ai.js 머리말 참고)
+//   ② 보내면 상대가 사람이 아니라 게이트웨이다
+//   ③ 답에 표·글머리표가 있어서 말풍선이 서식을 그린다(lib.js 서식)
+function 내권한() {
+  const u = 나();
+  return { ...L.AI권한(u), 이름: u.name || '', 직급: u.title || '' };
+}
+// 질문할 때마다 "이 사람이 볼 수 있는 것"만 추려 함께 넣는다. 도구 호출 대신 맥락 주입 —
+// 회사(Gemini·Groq·Cerebras)마다 함수 호출 형식이 달라서, 셋을 다 맞추면 코드가 세 배가 된다.
+function AI맥락(문서) {
+  const perm = 내권한();
+  const 줄 = [];
+  const 사람 = 활성사용자().filter((u) => perm.범위 === '전사' || u.dept === perm.dept || u.id === me());
+  줄.push(`## 직원 ${사람.length}명 (내 권한 범위)`);
+  줄.push(사람.slice(0, 80).map((u) => [u.name, u.title, u.dept, state.phones[u.id]].filter(Boolean).join(' ')).join('\n'));
+  const 프 = 보이는프로젝트().filter((pj) => {
+    if (perm.범위 === '전사') return true;
+    const mem = 방멤버(프로젝트기본방(pj));
+    return mem.includes(me()) || (perm.범위 === '부서' && mem.some((uid) => getU(uid).dept === perm.dept));
+  });
+  줄.push(`\n## 프로젝트 ${프.length}건 (내 권한 범위)`);
+  줄.push(프.slice(0, 40).map((pj) => [pj.code, pj.name, pj.client, pj.status && ('상태 ' + pj.status), pj.pm && ('PM ' + getU(pj.pm).name)].filter(Boolean).join(' · ')).join('\n'));
+  if (문서 && 문서.length) {
+    줄.push('\n## 사내 문서에서 찾은 부분 (답의 근거로 쓰고, 문서 이름을 밝힐 것)');
+    문서.forEach((m) => 줄.push(`[${m.docName || '문서'}] ${String(m.text || '').slice(0, 700)}`));
+  }
+  return 줄.join('\n').slice(0, 8000);
+}
+const AI히스토리 = () => state.aiMsgs.filter((m) => !m.실패).map((m) => ({ role: m.role === 'ai' ? 'ai' : 'user', text: m.text }));
+async function AI쓰기(obj) {
+  const fb = getFB(); if (!fb || !fb.db) throw new Error('저장소에 연결되어 있지 않습니다.');
+  const ts = Number(obj.createdAt) || Date.now();
+  const id = `ai_${me()}_${ts}_${Math.random().toString(36).slice(2, 6)}`;
+  await fb.setDoc(fb.doc(fb.db, AI_컬렉션, id), plain({ ...obj, uid: String(me()) }));
+  return id;
+}
+async function AI에게묻기(질문) {
+  const me_ = me(); const fb = getFB();
+  if (ui.aiThinking) { 토스트('아직 답하는 중입니다.'); return; }
+  const 물음 = String(질문).slice(0, 4000);
+  const ts = Date.now();
+  const 내말 = { author: String(me_), role: 'user', text: 물음, type: 'text', at: nowStamp(), createdAt: ts };
+  // 보낸 티는 바로 낸다(느린 망에서도). 저장이 끝나면 구독 스냅샷이 진짜 문서로 갈아끼운다.
+  const pend = { id: 'pending_ai_' + ts, channel: AI_CID, ...내말, _pending: true };
+  state.pending.push(pend);
+  ui.aiThinking = true; renderMessages(false);
+  const 치우기 = () => { state.pending = state.pending.filter((m) => m !== pend); };
+  try { await AI쓰기(내말); 치우기(); }
+  catch (e) {
+    console.error('[AI] 질문 저장 실패', e);
+    pend._pending = false; pend._failed = true; ui.aiThinking = false; renderMessages(true);
+    토스트('질문을 저장하지 못했습니다.'); return;
+  }
+  renderMessages(false);
+  try {
+    const 문서 = await 사내문서(물음, fb);
+    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: AI맥락(문서), 권한: 내권한(), fb });
+    await AI쓰기({ author: AI_UID, role: 'ai', text: 답.text, type: 'text', md: true, model: 답.model,
+      sources: [...new Set(문서.map((m) => m.docName).filter(Boolean))].slice(0, 4), at: nowStamp(), createdAt: Date.now() });
+  } catch (e) {
+    // warn 이지 error 가 아니다: 여기 오는 건 "한도 초과·로그인 만료·시간 초과" 처럼 늘 있을 수 있는 일이고,
+    // 사용자에게는 아래에서 말풍선으로 그대로 보여 준다. error 는 진짜 예상 못 한 것에만 남긴다(시험대가 error 0건을 본다).
+    console.warn('[AI]', e && e.message ? e.message : e);
+    // 오류도 대화에 남긴다 — 왜 답이 없었는지 나중에 봐야 한다. 실패한 줄은 다음 질문의 맥락에서 뺀다.
+    try { await AI쓰기({ author: AI_UID, role: 'ai', text: String(e && e.message || e), type: 'text', md: false, 실패: true, at: nowStamp(), createdAt: Date.now() }); }
+    catch (e2) { 토스트('AI가 답하지 못했습니다.'); }
+  } finally { ui.aiThinking = false; renderMessages(false); 읽음처리(AI_CID); }
+}
+function AI대화지우기() {
+  if (!state.aiMsgs.length) { 토스트('지울 대화가 없습니다.'); return; }
+  openModal('새 대화', `지금까지의 AI 대화 ${state.aiMsgs.length}건을 지웁니다. 되돌릴 수 없습니다.`, async () => {
+    const fb = getFB(); const 목록 = state.aiMsgs.slice();
+    state.aiMsgs = []; renderMessages(true);
+    for (const m of 목록) { try { await fb.deleteDoc(fb.doc(fb.db, AI_컬렉션, m.id)); } catch (e) { console.warn('[AI 지우기]', e && e.message); } }
+    토스트('대화를 지웠습니다.');
+  }, '지우기');
+}
+
 // ───────────────────────────── 입력창 ─────────────────────────────
 function 입력높이(ta) { if (!ta) return; ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 132) + 'px'; }
 function 전송준비표시() { const b = $('[data-act="send"]'); const i = $('#msgInput'); if (b && i) b.classList.toggle('is-ready', !!i.value.trim()); }
@@ -1080,7 +1199,10 @@ function 행동(el) {
     case 'rs-close': ui.rs = { open: false, q: '', hits: [], idx: 0 }; render('room'); break;
     case 'rs-prev': if (ui.rs.hits.length) { ui.rs.idx = (ui.rs.idx - 1 + ui.rs.hits.length) % ui.rs.hits.length; renderRoomSearchCount(); 검색위치이동(true); } break;
     case 'rs-next': if (ui.rs.hits.length) { ui.rs.idx = (ui.rs.idx + 1) % ui.rs.hits.length; renderRoomSearchCount(); 검색위치이동(true); } break;
-    case 'room-menu': renderDrawer(); break;
+    case 'room-menu':
+      if (ui.cid === AI_CID) { openSheet(`<div class="sjm-sheet-title">AI 비서</div>${항목('ai-clear', ICON.refresh, '새 대화 (지금까지 대화 지우기)', '', 'is-danger')}<button class="sjm-sheet-cancel" data-act="sheet-close">취소</button>`); break; }
+      renderDrawer(); break;
+    case 'ai-clear': closeSheet(); AI대화지우기(); break;
     case 'drawer-close': closeDrawer(); break;
     case 'invite': closeDrawer(); 초대하기(el.dataset.cid); break;
     case 'leave': leaveChannel(el.dataset.cid); break;
@@ -1099,7 +1221,7 @@ function 행동(el) {
     case 'jump-bottom': { const b = $('#roomBody'); if (b) b.scrollTop = b.scrollHeight; el.hidden = true; 읽음처리(ui.cid); break; }
     case 'view-img': { const v = $('#viewer'); v.innerHTML = `<div class="sjm-viewer-bar"><button class="sjm-icon-btn" data-act="viewer-close" aria-label="닫기">${ICON.x}</button><a class="sjm-icon-btn" href="${esc(el.src)}" download target="_blank" rel="noopener" aria-label="저장">${ICON.download}</a></div><img src="${esc(el.src)}" alt="">`; v.classList.add('is-open'); break; }
     case 'viewer-close': $('#viewer').classList.remove('is-open'); break;
-    case 'copy': { const m = state.messages.find((x) => x.id === el.dataset.mid); closeSheet(); if (m && m.text) navigator.clipboard?.writeText(m.text).then(() => 토스트('복사했습니다.'), () => 토스트('복사하지 못했습니다.')); break; }
+    case 'copy': { const m = 메시지찾기(el.dataset.mid); closeSheet(); if (m && m.text) navigator.clipboard?.writeText(m.text).then(() => 토스트('복사했습니다.'), () => 토스트('복사하지 못했습니다.')); break; }
     case 'delete': closeSheet(); deleteMsg(el.dataset.mid); break;
     case 'sheet-close': closeSheet(); break;
     case 'modal-close': closeModal(); break;
@@ -1118,7 +1240,7 @@ function 길게누름(el) {
   } else if (kind === 'msg-failed') {
     openSheet(`${항목('retry', ICON.refresh, '다시 보내기', `data-mid="${esc(el.dataset.mid)}"`)}${항목('discard', ICON.trash, '삭제', `data-mid="${esc(el.dataset.mid)}"`, 'is-danger')}<button class="sjm-sheet-cancel" data-act="sheet-close">취소</button>`);
   } else if (kind === 'msg' || kind === 'msg-me') {
-    const mid = el.dataset.mid; const m = state.messages.find((x) => x.id === mid); if (!m) return;
+    const mid = el.dataset.mid; const m = 메시지찾기(mid); if (!m) return;
     const items = `${m.text ? 항목('copy', ICON.copy, '복사', `data-mid="${esc(mid)}"`) : ''}${kind === 'msg-me' ? 항목('delete', ICON.trash, '삭제', `data-mid="${esc(mid)}"`, 'is-danger') : ''}`;
     if (!items) return;
     openSheet(`${items}<button class="sjm-sheet-cancel" data-act="sheet-close">취소</button>`);
@@ -1248,6 +1370,12 @@ function 구독시작() {
     state.loaded.messages = true;
     메시지색인(); renderTabs(); renderPane(); if (ui.cid) renderMessages(false);
   }, 'messages');
+  // AI 대화 — 내 것만. 규칙(firestore.rules)도 uid 가 나인 문서만 허용하므로 이 조건이 빠지면 조회 자체가 막힌다.
+  on(fb.query(fb.collection(fb.db, AI_컬렉션), fb.where('uid', '==', me())), (snap) => {
+    state.aiMsgs = snap.docs.map((d) => ({ id: d.id, ...d.data(), channel: AI_CID }))
+      .sort((a, b) => L.메시지시각ms(a) - L.메시지시각ms(b));
+    renderTabs(); renderPane(); if (ui.cid === AI_CID) renderMessages(false);
+  }, 'aichat');
   on(fb.query(fb.collection(fb.db, 'channelReads'), fb.where('uid', '==', me())), (snap) => {
     const reads = {}, pins = {}, hidden = {}, docs = new Set();
     snap.docs.forEach((d) => { const x = d.data(); if (!x || !x.channel) return; docs.add(x.channel); if (x.lastRead) reads[x.channel] = x.lastRead; if (x.pinned) pins[x.channel] = true; if (x.hidden) hidden[x.channel] = x.hidden; });

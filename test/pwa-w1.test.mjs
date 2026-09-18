@@ -61,7 +61,7 @@ const cssV = (껍데기.match(/messenger\.css\?v=([\w.-]+)/) || [])[1];
 const idxV = (인덱스.match(/const MESSENGER_BUILD = '(\w+)'/) || [])[1];
 확인('html 의 ?v= 가 css·js 같음', !!htmlV && htmlV === cssV, `${cssV} / ${htmlV}`);
 확인('html 의 ?v= = index.html MESSENGER_BUILD', htmlV === idxV, `${htmlV} vs ${idxV}`);
-확인('메신저 빌드 번호 b29 이상', /^(b(29|[3-9]\d)|c\d+)$/.test(idxV || ''), idxV);
+확인('메신저 빌드 번호 b31 이상', /^(b(3[1-9]|[4-9]\d)|c\d+)$/.test(idxV || ''), idxV);
 for (const id of ['photoInput', 'fileInput', 'cameraInput', 'albumInput', 'sheet', 'toast', 'viewer', 'modal']) {
   확인(`껍데기 요소 #${id}`, new RegExp(`id="${id}"`).test(껍데기));
 }
@@ -109,10 +109,36 @@ if (검사원문) {
 }
 확인('메신저 iframe 은 full-bleed', /id="messengerFrame"[^>]*position:absolute;inset:0/.test(인덱스), '다른 모듈과 같은 패턴');
 
+// ── AI 비서 방 (ai.js · t_aiChat) ──
+// 여기 있는 것도 전부 "조용히 새는" 것들이다: 열쇠가 코드에 박히거나, AI 대화가 messages 로 새면
+// 화면은 멀쩡한데 70명이 남의 개인 대화를 받게 된다.
+const ai = 읽기('modules/messenger/ai.js');
+확인('AI 컬렉션은 t_aiChat', /export const AI_컬렉션 = 't_aiChat'/.test(ai));
+확인('코드에 API 키가 없다(게이트웨이가 들고 있다)',
+  !/(sk-[A-Za-z0-9]{10,}|AIza[A-Za-z0-9_-]{10,}|gsk_[A-Za-z0-9]{10,})/.test(ai), '열쇠는 Cloudflare Worker 의 환경변수에만');
+확인('게이트웨이는 https 회사 워커', /const 게이트웨이 = 'https:\/\/[a-z0-9.-]+\.workers\.dev'/.test(ai));
+확인('모델 호출에 로그인 토큰을 붙인다', /Authorization: auth/.test(ai) && /getIdToken\(\)/.test(ai),
+  '게이트웨이 v3.4 부터 모든 제공자가 회사 계정을 확인한다');
+확인('제공자 체인 3곳 이상(한 곳 막혀도 답한다)', (ai.match(/형식: '(gemini|openai)'/g) || []).length >= 3);
+확인('AI 대화는 t_aiChat 에 쓴다', /AI_컬렉션[^)]*\), *plain/.test(앱) || /fb\.doc\(fb\.db, AI_컬렉션/.test(앱));
+확인('AI 방 미리보기를 channels 에 안 남긴다', /ch\.id === AI_CID\) return;/.test(앱),
+  'channels.lastText 는 전 직원이 읽는다 — 개인 AI 대화가 새는 자리');
+확인('AI 대화 구독은 내 uid 로만', /AI_컬렉션\), fb\.where\('uid', '==', me\(\)\)/.test(앱));
+확인('서비스워커가 ai.js 도 미리 받는다', sw.includes("'./ai.js'"));
+
+// ── 게이트웨이(Cloudflare Worker) ──
+const 워커 = 읽기('gateway/cloudflare-worker.js');
+확인('모든 제공자가 회사 로그인 확인', !/if \(provider\.requireCompanyAuth\)/.test(워커),
+  '9Router 만 검사하던 때는 주소만 알면 회사 키를 공짜로 쓸 수 있었다');
+
 // ── firestore.rules ──
 const 규칙 = 읽기('firestore.rules');
 확인('t_userProfile 본인만 쓰기', /match \/t_userProfile\/\{uid\}[\s\S]{0,200}request\.auth\.uid == uid/.test(규칙));
 확인("범용 t_ 규칙에서 t_userProfile 제외", /col != 't_userProfile'/.test(규칙), '어느 한 규칙이 허용하면 통과하므로 빼야 본인만 이 걸린다');
+확인('t_aiChat 은 본인만 읽는다', /match \/t_aiChat\/\{docId\}[\s\S]{0,400}allow read: if isCompanyUser\(\) && resource\.data\.uid == request\.auth\.uid/.test(규칙),
+  '남의 AI 대화를 읽을 수 있으면 안 된다');
+확인('t_aiChat 은 본인만 만든다', /match \/t_aiChat[\s\S]{0,400}allow create: if isCompanyUser\(\) && request\.resource\.data\.uid == request\.auth\.uid/.test(규칙));
+확인("범용 t_ 규칙에서 t_aiChat 제외", /col != 't_aiChat'/.test(규칙), '빼지 않으면 사내 누구나 읽고 쓴다');
 
 console.log(`\n${실패 ? '실패 ' + 실패 + '건' : '전부 통과'}`);
 process.exit(실패 ? 1 : 0);

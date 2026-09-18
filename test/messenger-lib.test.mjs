@@ -109,6 +109,39 @@ const rows = [
 ];
 확인('채팅정렬', rows.slice().sort(L.채팅정렬).map((r) => r.name), ['다', '라', '가', '나']);
 
+// AI 답변 서식 — 말풍선 안에 들어갈 HTML.  (줄바꿈은 nl 로 만든다 — 이 파일을 만드는 도구가 역슬래시를 먹는다)
+const nl = String.fromCharCode(10);
+확인('서식 글머리표', L.서식('- 하나' + nl + '- 둘'), '<ul><li>하나</li><li>둘</li></ul>');
+확인('서식 번호목록', L.서식('1. 하나' + nl + '2) 둘'), '<ol><li>하나</li><li>둘</li></ol>');
+확인('서식 굵게·코드', L.서식('**굵게** 와 `코드`'), '<p><strong>굵게</strong> 와 <code>코드</code></p>');
+확인('서식 제목', L.서식('## 제목'), '<div class="sjm-md-h">제목</div>');
+확인('서식 표', L.서식('| a | b |' + nl + '|---|---|' + nl + '| 1 | 2 |'),
+  '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>');
+확인('서식 인용', L.서식('> 인용'), '<blockquote>인용</blockquote>');
+확인('서식 구분선', L.서식('---'), '<hr>');
+확인('서식 링크', L.서식('https://a.b/c'), '<p><a href="https://a.b/c" target="_blank" rel="noopener">https://a.b/c</a></p>');
+// AI 가 태그를 뱉어도 글자로만 남아야 한다 — 말풍선은 innerHTML 로 들어간다
+확인('서식 태그 이스케이프', L.서식('<img src=x onerror=alert(1)>'), '<p>&lt;img src=x onerror=alert(1)&gt;</p>');
+확인('서식 표 안 태그도 이스케이프', L.서식('| <b>x</b> |' + nl + '|---|' + nl + '| y |').includes('&lt;b&gt;x&lt;/b&gt;'), true);
+확인('서식 빈값', L.서식(''), '');
+확인('서식 목록 뒤 문단', L.서식('- 하나' + nl + nl + '끝'), '<ul><li>하나</li></ul><p>끝</p>');
+
+// AI 권한 — 사원이 임원 자료를 보지 못하게 (부장님 지시 9/18)
+확인('권한 임원', L.AI권한({ grade: 'exec', dept: '경영지원' }).범위, '전사');
+확인('권한 최고관리자', L.AI권한({ grade: 'super' }).범위, '전사');
+확인('권한 부서장', L.AI권한({ grade: 'manager', dept: '품질관리부' }).범위, '부서');
+확인('권한 사원', L.AI권한({ dept: '생산부', id: 'u9' }).범위, '본인');
+확인('권한 등급 없음도 본인', L.AI권한({}).범위, '본인');
+const 업무 = [
+  { id: 't1', assignee: 'u_kim', dept: '품질관리부' },
+  { id: 't2', assignee: 'u_shin', dept: '품질관리부' },
+  { id: 't3', assignee: 'u_kang', dept: '영업부' },
+];
+확인('거르기 전사', L.권한거르기(업무, L.AI권한({ grade: 'exec' })).length, 3);
+확인('거르기 부서장', L.권한거르기(업무, L.AI권한({ grade: 'manager', dept: '품질관리부', id: 'u_kim' })).map((r) => r.id), ['t1', 't2']);
+확인('거르기 사원', L.권한거르기(업무, L.AI권한({ dept: '품질관리부', id: 'u_shin' })).map((r) => r.id), ['t2']);
+확인('거르기 빈 입력', L.권한거르기(null, L.AI권한({})), []);
+
 // 브라우저 전용은 node 에서 throw
 let threw = false; try { await L.이미지축소({}); } catch (e) { threw = true; }
 확인('이미지축소는 브라우저 전용', threw, true);

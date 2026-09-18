@@ -238,6 +238,14 @@
     put('channelReads', 'proj_p1_u_kim', { channel: 'proj_p1', uid: 'u_kim', lastRead: now });
     put('t_userProfile', 'u_kang_dh', { uid: 'u_kang_dh', photo: PNG1, phone: '010-1234-5678', updatedAt: now });
 
+    // AI 비서 대화(t_aiChat) — 내 것 둘 + 남의 것 하나. 남의 것이 화면에 새어 나오면 검사가 잡는다.
+    // 답변에는 글머리표와 표를 넣어 말풍선 서식이 실제로 그려지는지 본다.
+    const 답 = ['## 품질관리부 진행중', '- P-2411 열교환기: 검사 대기', '- P-2503 압력용기: 서류 보완',
+      '', '| 항목 | 건수 |', '|---|---|', '| NCR | 2 |'].join(String.fromCharCode(10));
+    put('t_aiChat', 'ai_u_kim_1', { uid: 'u_kim', author: 'u_kim', role: 'user', text: '우리 부서 진행중인 거 알려줘', type: 'text', createdAt: now - 600000 });
+    put('t_aiChat', 'ai_u_kim_2', { uid: 'u_kim', author: 'AI', role: 'ai', text: 답, type: 'text', md: true, model: 'gemini/test', sources: ['품질매뉴얼.pdf'], createdAt: now - 590000 });
+    put('t_aiChat', 'ai_u_kang_1', { uid: 'u_kang_dh', author: 'u_kang_dh', role: 'user', text: '남의 비밀 대화', type: 'text', createdAt: now - 500000 });
+
     let 총 = 0; for (const c of 창고.values()) 총 += c.size;
     for (const c of 창고.keys()) 건드림(c);
     console.log(`[harness] seeded ${총} docs`);

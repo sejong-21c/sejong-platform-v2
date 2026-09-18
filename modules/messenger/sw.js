@@ -5,14 +5,15 @@
  *   - Firestore/Auth(googleapis.com) → 손대지 않는다. 롱폴링 응답을 캐시하면 메시지가 멈춘다.
  *
  * 버전 문자열을 올리면 옛 캐시는 activate 때 전부 지운다. (messenger.html/.css/.js/lib.js 를 고치면 올릴 것)
- *   v1 W1 껍데기 · v2 W2 카톡식 UI(css/js/lib 분리) · v3 '친구'→'연락처'
+ *   v1 W1 껍데기 · v2 W2 카톡식 UI(css/js/lib 분리) · v3 '친구'→'연락처' · v4 AI 비서 방(ai.js)
  */
-const 버전 = 'sj-msg-v3';
+const 버전 = 'sj-msg-v4';
 const 껍데기 = [
   './messenger.html',
   './messenger.css',
   './messenger.js',
   './lib.js',
+  './ai.js',
   './manifest.json',
   './icons/icon-192.png',
 ];

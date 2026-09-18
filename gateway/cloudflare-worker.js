@@ -665,7 +665,11 @@ export default {
     if (!provider) return json(404, { error: 'unknown provider: ' + m[1] }, cors);
     if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
 
-    if (provider.requireCompanyAuth) {
+    // v3.4: 회사 계정 확인을 **모든** 제공자에 건다. 그전에는 9Router 만 검사해서, 주소를 아는 사람은
+    // 누구나 회사 Gemini·Groq·Claude 키를 공짜로 쓸 수 있었다(이 주소는 sejong21c.com 이 내려주는
+    // 자바스크립트 안에 그대로 들어 있어 사실상 공개다). 플랫폼 AI 비서도 메신저도 게이트웨이를 쓸 때는
+    // 늘 로그인 토큰을 붙이므로(ai-assistant.js gatewayAuthHeaders · modules/messenger/ai.js) 깨지는 곳은 없다.
+    {
       const auth = await verifyCompanyFirebaseToken(request, env);
       if (auth.status) return json(auth.status, { error: auth.error }, cors);
     }

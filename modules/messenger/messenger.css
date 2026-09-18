@@ -510,3 +510,40 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
   .sjm-new-chip { bottom: 84px; }
   .sjm-index-wrap .sjm-index { --index-h: 60vh; }
 }
+
+/* ───────────── AI 비서 ───────────── */
+/* 연락처 맨 위 고정 줄 — 부서·직원 섹션 위에 놓여서 "늘 거기 있는 사람"처럼 보인다. */
+.sjm-airow { border-bottom: 8px solid var(--line-soft); }
+.sjm-avatar.is-ai {
+  background: linear-gradient(135deg, #4f46e5, #0ea5e9); color: #fff;
+}
+.sjm-avatar.is-ai svg { width: 58%; height: 58%; }
+.sjm-msg.is-ai .sjm-bubble { background: #fff; border: 1px solid #dbe3ec; }
+.sjm-msg.is-aifail .sjm-bubble { background: #fff4f4; border-color: #f3c7c7; color: #9b2c2c; font-size: 13.5px; }
+
+/* AI 답변 서식 — 말풍선은 기본이 pre-wrap 이라 서식 안에서는 끈다(목록 사이에 빈 줄이 두 배로 벌어진다). */
+.sjm-bubble.is-md { white-space: normal; max-width: min(88%, 560px); }
+.sjm-bubble.is-md > :first-child { margin-top: 0; }
+.sjm-bubble.is-md > :last-child { margin-bottom: 0; }
+.sjm-bubble.is-md p { margin: 6px 0; }
+.sjm-bubble.is-md ul, .sjm-bubble.is-md ol { margin: 6px 0; padding-left: 20px; }
+.sjm-bubble.is-md li { margin: 3px 0; }
+.sjm-bubble.is-md code { background: var(--line-soft); border-radius: 4px; padding: 1px 5px; font-size: 13.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sjm-bubble.is-md blockquote { margin: 6px 0; padding: 2px 0 2px 10px; border-left: 3px solid var(--line); color: var(--text-2); }
+.sjm-bubble.is-md hr { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
+.sjm-md-h { font-weight: 700; margin: 10px 0 4px; }
+.sjm-bubble.is-md table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13.5px; display: block; overflow-x: auto; }
+.sjm-bubble.is-md th, .sjm-bubble.is-md td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; white-space: nowrap; }
+.sjm-bubble.is-md th { background: var(--line-soft); font-weight: 600; }
+.sjm-md-src { display: flex; align-items: center; gap: 5px; margin-top: 8px; padding-top: 7px; border-top: 1px dashed var(--line); font-size: 12px; color: var(--text-3); }
+.sjm-md-src svg { width: 13px; height: 13px; flex: 0 0 auto; }
+
+/* 생각 중 — 스트리밍 대신(1단계). 점 세 개가 순서대로 커진다. */
+.sjm-bubble.is-typing { display: flex; gap: 4px; align-items: center; background: #fff; border: 1px solid #dbe3ec; padding: 12px 14px; }
+.sjm-bubble.is-typing i { width: 6px; height: 6px; border-radius: 50%; background: #9aa7b4; animation: sjm-blink 1.2s infinite; }
+.sjm-bubble.is-typing i:nth-child(2) { animation-delay: .2s; }
+.sjm-bubble.is-typing i:nth-child(3) { animation-delay: .4s; }
+@keyframes sjm-blink { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sjm-bubble.is-typing i { animation: none; opacity: .55; } }
+/* hidden 이 먹게 — .sjm-icon-btn 의 display 가 [hidden] 을 이겨서 AI 방에서 첨부 버튼이 그대로 보였다(시험 스크린샷에서 발각). */
+.sjm-composer .sjm-icon-btn[hidden] { display: none; }

@@ -299,7 +299,47 @@ try {
   확인('나: .sjm-version 표시', !!나.ver, String(나.ver));
   확인('나: iframe 에서는 [data-act="logout"] 없음', !나.logout);
 
-  // ═══════════════════════ ⑪ 1280×800 (데스크톱) ═══════════════════════
+  // ⑪ AI 비서 방 — 연락처 맨 위에서 들어간다. 시험대에는 진짜 로그인 토큰이 없으므로
+  //    게이트웨이를 부르는 데까지 가지 않고 안내 말풍선에서 멈춘다(바깥 망을 타지 않는 게 이 검사의 조건).
+  await 클릭('.sjm-tabbar [data-tab="friends"]');
+  const ai줄 = await 안(`const rows=$$('.sjm-screen:not([hidden]) .sjm-user'); const i=rows.findIndex(e=>e.dataset.cid==='ai');
+    return { i, 사이: i>=0 ? rows.slice(0,i).every(e=>!e.dataset.uid) : false,
+      이름: i>=0 ? ($('.sjm-user-name', rows[i])||{}).textContent?.trim() : '', 부제: i>=0 ? ($('.sjm-user-sub', rows[i])||{}).textContent?.trim() : '' };`);
+  확인('연락처 맨 위에 AI 비서 줄', ai줄.i >= 0 && ai줄.이름 === 'AI 비서', `${ai줄.i}번째 · ${ai줄.이름}`);
+  확인('AI 줄이 직원 목록보다 위', ai줄.사이, '부서·직원 섹션 앞에 있어야 한다');
+  확인('AI 줄 부제는 내 권한 범위', /볼 수 있습니다/.test(ai줄.부제), ai줄.부제);
+  await 클릭('.sjm-user[data-cid="ai"]', 600);
+  await 찍기('375-ai');
+  const ai상세 = await 안(`return { 제목: txt('.sjm-room-title-text'), 말풍선: $$('#roomBody .sjm-msg').length,
+    목록: !!$('#roomBody .sjm-bubble.is-md ul li'), 표: !!$('#roomBody .sjm-bubble.is-md table td'),
+    출처: txt('#roomBody .sjm-md-src'), 남의것: d.body.innerText.includes('남의 비밀 대화'),
+    첨부숨김: w.getComputedStyle($('[data-act="attach"]')).display, 안내: $('#msgInput')?.placeholder };`);
+  확인('AI 방 제목', ai상세.제목 === 'AI 비서', String(ai상세.제목));
+  확인('AI 방: 씨앗 대화 2줄', ai상세.말풍선 === 2, `${ai상세.말풍선}개`);
+  확인('AI 답변이 글머리표로 그려짐 (.is-md ul li)', ai상세.목록);
+  확인('AI 답변이 표로 그려짐 (.is-md table td)', ai상세.표);
+  확인('AI 답변에 출처 표시', /품질매뉴얼/.test(ai상세.출처 || ''), String(ai상세.출처));
+  확인('남의 AI 대화는 안 보인다', !ai상세.남의것, 'uid 가 나인 문서만 구독해야 한다');
+  // hidden 속성만 보면 안 된다 — CSS 가 이기면 속성은 붙어 있는데 화면엔 버튼이 그대로 보인다(실제로 한 번 그랬다).
+  확인('AI 방은 1단계에서 첨부 숨김(실제로 안 보임)', ai상세.첨부숨김 === 'none', String(ai상세.첨부숨김));
+  확인('AI 방 입력창 안내문', ai상세.안내 === 'AI 비서에게 물어보기', String(ai상세.안내));
+  const before = await 안(`return { ai: fake.all('t_aiChat').length, msg: fake.writes.filter(x=>x.col==='messages').length };`);
+  await 치기('#msgInput', '검사용 질문');
+  await 클릭('[data-act="send"]', 1500);
+  const 보냄 = await 안(`return { ai: fake.all('t_aiChat').length, msg: fake.writes.filter(x=>x.col==='messages').length,
+    내말: d.body.innerText.includes('검사용 질문'), ch: fake.all('channels').filter(c=>c.id==='ai').length };`);
+  확인('질문이 t_aiChat 에 쌓인다', 보냄.ai >= before.ai + 1, `${before.ai} → ${보냄.ai}`);
+  확인('AI 대화가 messages 로 새지 않는다', 보냄.msg === before.msg, `messages 쓰기 ${before.msg} → ${보냄.msg}`);
+  확인('AI 방을 channels 에 만들지 않는다', 보냄.ch === 0, '개인 대화 미리보기가 전 직원에게 보이면 안 된다');
+  확인('내 질문 말풍선이 뜬다', 보냄.내말);
+  const 답 = await 기다리기(`return d.body.innerText.includes('로그인해야 AI 비서를');`, 6000);
+  확인('토큰 없으면 안내 말풍선(바깥 망 안 탐)', 답, '시험대에는 getIdToken 이 없다 — 실제 게이트웨이를 부르면 안 된다');
+  await 클릭('[data-act="room-menu"]', 300);
+  확인('AI 방 메뉴는 새 대화', await 안(`return !!$('[data-act="ai-clear"]') && !$('[data-act="leave"]');`));
+  await 안(`$('[data-act="sheet-close"]')?.click(); return true;`);
+  await 클릭('[data-act="back"]', 300);
+
+  // ═══════════════════════ ⑫ 1280×800 (데스크톱) ═══════════════════════
   const 데스크 = await 열기(1280, 800, false);
   확인('1280 부팅(SJM + g1 줄)', 데스크.떴다 && 데스크.자료);
   const dk = await 안(`const tb = $('.sjm-tabbar'), empty = $('.sjm-room-empty');
