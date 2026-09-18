@@ -1266,25 +1266,19 @@
     ]
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-09-16 (daily-mail-swkim 자동 실행)",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-09-16-morning.html",
-    "newMails": 1,
-    "processed": 1,
+    "generatedAt": "2026-09-18 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-09-18-morning.html",
+    "newMails": 0,
+    "processed": 0,
     "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
-    "manday": 0.5,
+    "manday": 0,
     "keyActions": [
-      "[SJ2026-051] 시온텍 제작도면 공유건 — cc 참조, 직접 회신 불요 (수신자: 송기남 차장). 첨부 도면(에너지 검사품 4종+CP) 필요 시 참고 확인"
+      "오늘(newer_than:1d) 신규 수신·발신 메일 없음 — 마지막 메일은 9/16(수) 23:53 [품질관리부] 공사관리절차서 초안 검토요청건(신채완 과장). 오늘 처리할 신규 액션 없음."
     ],
     "urgentList": [],
-    "schedule": [
-      {
-        "status": "확인 필요",
-        "title": "[SJ2026-051] 시온텍 제작도면 검토 회신",
-        "note": "본문에 회신 기한(날짜/시간) 불명확 — 캘린더 미등록, 송기남 차장과 별도 확인 필요"
-      }
-    ]
+    "schedule": []
   }
 }
