@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "현장 한 건 처리 워크플로우 — 사진 + 한 줄에서 기록까지",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "main-path", "label": "기본 경로", "focus": ["send", "msg", "intent", "extract", "card", "decide", "write"], "note": "직원이 보낸 사진과 한 줄이 AI 초안 → 사람 확인·승인 → 확정 기록(Firestore → NAS · 플랫폼)까지 가는 길." },
+      { "id": "human-gate", "label": "사람이 하는 두 번의 탭", "focus": ["send", "card", "decide"], "note": "보내기 한 번, 확인(작업허가면 팀장 승인까지) 한 번 — 사람 손이 닿는 곳은 이 둘뿐이다. 반려·되묻기 상태는 생명주기 다이어그램이 담당한다." },
+      { "id": "ai-work", "label": "시스템이 하는 일", "focus": ["msg", "intent", "extract", "card"], "note": "메시지·사진을 저장하고, 의도를 가르고, 필드를 채워 확인 카드로 만든다. 저장(확정)은 하지 않는다." }
+    ]
+  },
+  "lanes": [
+    { "id": "staff", "label": "직원 · 팀장 (사람)" },
+    { "id": "sys", "label": "SJ 메신저 + AI 처리 (게이트웨이 · 스킬)" },
+    { "id": "gate", "label": "확인 카드 · 기록", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "접수", "fromCol": 0, "toCol": 1 },
+    { "id": "understand", "label": "이해", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "confirm-keep", "label": "확인 · 기록", "fromCol": 4, "toCol": 5, "variant": "security" }
+  ],
+  "groups": [
+    { "id": "skill-loop", "label": "스킬 라우터", "lane": "sys", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "human-gate", "label": "AI는 직접 저장하지 않는다", "lane": "gate", "fromCol": 4, "toCol": 5, "variant": "security" }
+  ],
+  "mainPath": ["send", "msg", "intent", "extract", "card", "decide", "write"],
+  "nodes": [
+    { "id": "send", "lane": "staff", "col": 0, "type": "external", "label": "사진 + 한 줄", "sublabel": "\"PPG 천안 중식 3명\"", "width": 132 },
+    { "id": "decide", "lane": "staff", "col": 5, "type": "frontend", "label": "확인 · 승인 탭", "sublabel": "직원 확인 → 허가면 팀장", "tag": "반려는 사유와 되돌림", "width": 132 },
+    { "id": "msg", "lane": "sys", "col": 1, "type": "frontend", "label": "메시지 저장", "sublabel": "messages + Storage", "width": 132 },
+    { "id": "intent", "lane": "sys", "col": 2, "type": "backend", "label": "의도 분류", "sublabel": "영수증 · 작업보고 · 허가 · 질문", "tag": "작은 모델", "width": 132 },
+    { "id": "extract", "lane": "sys", "col": 3, "type": "backend", "label": "구조화 추출", "sublabel": "OCR + 필드 채우기", "tag": "실패 시 승격", "width": 132 },
+    { "id": "card", "lane": "gate", "col": 4, "type": "security", "label": "확인 카드 제시", "sublabel": "초안 · 빈칸 표시", "width": 132 },
+    { "id": "write", "lane": "gate", "col": 5, "type": "database", "label": "확정 기록", "sublabel": "Firestore → NAS · 플랫폼", "tag": "타임스탬프 · uid", "width": 132 }
+  ],
+  "edges": [
+    { "id": "send-msg", "from": "send", "to": "msg", "variant": "default" },
+    { "id": "msg-intent", "from": "msg", "to": "intent", "label": "새 메시지", "variant": "emphasis" },
+    { "id": "intent-extract", "from": "intent", "to": "extract", "label": "스킬 선택", "variant": "default" },
+    { "id": "extract-card", "from": "extract", "to": "card", "label": "초안", "variant": "emphasis" },
+    { "id": "card-decide", "from": "card", "to": "decide", "label": "사람에게", "variant": "security" },
+    { "id": "decide-write", "from": "decide", "to": "write", "label": "확인됨", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "사람 vs 시스템", "items": ["사람: 사진+한 줄 보내기, 확인 한 번", "시스템: 저장 · 분류 · 추출 · 카드 초안 (확정 안 함)"] },
+    { "dot": "rose", "title": "관문", "items": ["확인 없이는 저장되지 않는다", "반려·되묻기 상태는 생명주기 참조"] }
+  ]
+}

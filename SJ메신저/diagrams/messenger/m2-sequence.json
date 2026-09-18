@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "메시지 한 건이 오가는 길 — 사진 + 한 줄 → 봇의 확인 카드",
+    "viewBox": [1080, 560],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "send", "label": "보내기 — 카톡과 같다", "focus": ["emp", "app", "gw", "r2", "fs"], "note": "직원은 사진과 한 줄을 보낼 뿐이다. 앱은 presigned URL 로 사진을 R2 에 직접 올리고 메시지를 Firestore 에 쓴다." },
+      { "id": "bot", "label": "봇이 방에서 일한다", "focus": ["fs", "bot", "gw"], "note": "봇은 Firestore 를 구독하다 새 메시지를 보고 작은 모델로 구조화한 뒤, 방에 type=card 메시지를 쓴다. 앱은 AI 를 모른다." },
+      { "id": "notify", "label": "알림 → 카드", "focus": ["bot", "fcm", "app", "emp"], "note": "푸시가 방을 열고, 카드가 뜬다. 카드 확인 뒤 기록되는 것은 시스템 시퀀스(03)에 있다." }
+    ]
+  },
+  "participants": [
+    { "id": "emp", "type": "external", "label": "직원", "sublabel": "폰" },
+    { "id": "app", "type": "frontend", "label": "채팅방 (PWA)", "sublabel": "modules/messenger" },
+    { "id": "gw", "type": "cloud", "label": "AI 게이트웨이", "sublabel": "Worker" },
+    { "id": "r2", "type": "database", "label": "R2", "sublabel": "사진 원본" },
+    { "id": "fs", "type": "database", "label": "Firestore", "sublabel": "messages" },
+    { "id": "bot", "type": "backend", "label": "파이스 봇", "sublabel": "노드 · 구독 중" },
+    { "id": "fcm", "type": "messagebus", "label": "FCM", "sublabel": "푸시" }
+  ],
+  "segments": [
+    { "from": 150, "to": 286, "label": "보내기" },
+    { "from": 292, "to": 398, "label": "봇 처리" },
+    { "from": 404, "to": 480, "label": "알림 · 카드" }
+  ],
+  "messages": [
+    { "id": "emp-send", "from": "emp", "to": "app", "y": 160, "label": "사진 + \"PPG 천안 중식 3명\"", "variant": "emphasis" },
+    { "id": "app-presign", "from": "app", "to": "gw", "y": 188, "label": "presign 요청 · Bearer 토큰", "variant": "default" },
+    { "id": "gw-url", "from": "gw", "to": "app", "y": 216, "label": "PUT URL", "variant": "return" },
+    { "id": "app-put", "from": "app", "to": "r2", "y": 244, "label": "사진 PUT (직접)", "variant": "default" },
+    { "id": "app-write", "from": "app", "to": "fs", "y": 272, "label": "messages {text, fileUrl, uid}", "variant": "emphasis" },
+    { "id": "fs-bot", "from": "fs", "to": "bot", "y": 300, "label": "onSnapshot 새 메시지", "variant": "default" },
+    { "id": "bot-gw", "from": "bot", "to": "gw", "y": 328, "label": "/v1 구조화 (작은 모델)", "variant": "default" },
+    { "id": "gw-bot", "from": "gw", "to": "bot", "y": 356, "label": "{필드 6개 · 빈칸 표시}", "variant": "return" },
+    { "id": "bot-card", "from": "bot", "to": "fs", "y": 384, "label": "봇 메시지 type=card 쓰기", "variant": "emphasis" },
+    { "id": "bot-push", "from": "bot", "to": "fcm", "y": 412, "label": "푸시 발송", "variant": "dashed" },
+    { "id": "fcm-app", "from": "fcm", "to": "app", "y": 440, "label": "푸시 → 방 열기", "variant": "dashed" },
+    { "id": "app-card", "from": "app", "to": "emp", "y": 468, "label": "확인 카드 표시 [확인 · 수정]", "variant": "emphasis" }
+  ],
+  "activations": [
+    { "participant": "app", "from": 155, "to": 474, "type": "frontend" },
+    { "participant": "gw", "from": 183, "to": 222, "type": "cloud" },
+    { "participant": "r2", "from": 239, "to": 250, "type": "database" },
+    { "participant": "fs", "from": 267, "to": 306, "type": "database" },
+    { "participant": "bot", "from": 295, "to": 418, "type": "backend" },
+    { "participant": "gw", "from": 323, "to": 362, "type": "cloud" },
+    { "participant": "fs", "from": 379, "to": 390, "type": "database" },
+    { "participant": "fcm", "from": 407, "to": 446, "type": "messagebus" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "직원 쪽", "items": ["사진 + 한 줄 — 카톡에 보내던 그대로", "사진은 R2 로 직접 · 앱은 100MB 한도를 안 탄다"] },
+    { "dot": "cyan", "title": "봇 쪽", "items": ["앱은 AI 를 모른다 — 봇이 Firestore 를 구독", "답도 카드도 방 안의 메시지 한 종류"] },
+    { "dot": "rose", "title": "다음 장", "items": ["카드 확인 → 컬렉션 기록은 시스템 시퀀스(03)", "확인 없이는 아무것도 저장되지 않는다"] }
+  ]
+}

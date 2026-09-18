@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "요청 한 건의 생명주기 — 영수증 · 작업보고 · 작업허가 공통",
+    "viewBox": [1030, 630],
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "main-rail", "label": "기본 단계", "focus": ["received", "parsing", "card_wait", "approval", "recorded"], "note": "접수 → AI 이해 → 직원 확인 → (작업허가만) 팀장 승인 → 확정 기록. AI 가 실패하면 빈 카드로 직원 확인 단계에 간다 — 멈추는 상태가 없다." },
+      { "id": "waits", "label": "대기 상태", "focus": ["card_wait", "unclear", "approval", "pending"], "note": "빈칸이 있으면 되묻고, 승인자가 없으면 리마인드한다 — 끝나지 않고 멈춘다. 대기가 풀리면 원래 단계로 돌아간다." },
+      { "id": "exits", "label": "종료", "focus": ["unclear", "withdrawn", "approval", "rejected"], "note": "취소와 반려만 종료다. 종료돼도 원문과 사유는 남는다." }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "진행 단계" },
+    { "id": "waiting", "label": "대기" },
+    { "id": "terminal", "label": "종료" }
+  ],
+  "states": [
+    { "id": "received", "type": "start", "label": "접수", "sublabel": "메시지 도착 · 원문 보존", "lane": "main", "col": 0, "step": "01", "tag": "원문" },
+    { "id": "parsing", "type": "active", "label": "AI 이해", "sublabel": "실패해도 빈 카드로 진행", "lane": "main", "col": 1, "step": "02", "tag": "작은 모델" },
+    { "id": "card_wait", "type": "decision", "label": "직원 확인", "sublabel": "확인 카드 · 고치거나 확인", "lane": "main", "col": 2, "step": "03", "tag": "사람" },
+    { "id": "approval", "type": "decision", "label": "팀장 승인", "sublabel": "작업허가만 · 나머지 통과", "lane": "main", "col": 3, "step": "04", "tag": "선택 관문" },
+    { "id": "recorded", "type": "success", "label": "확정 기록", "sublabel": "Firestore → 플랫폼", "lane": "main", "col": 4, "step": "05", "tag": "타임스탬프" },
+    { "id": "unclear", "type": "waiting", "label": "되묻기 대기", "sublabel": "빈칸 질문 보냄 · 답 오면 복귀", "lane": "waiting", "col": 0, "tag": "직원 답 대기" },
+    { "id": "pending", "type": "waiting", "label": "승인자 대기", "sublabel": "24h 리마인드 · 응답 오면 복귀", "lane": "waiting", "col": 1, "tag": "팀장 부재" },
+    { "id": "withdrawn", "type": "failure", "label": "취소", "sublabel": "48h 무응답 · 직원 취소", "lane": "terminal", "col": 0, "tag": "종료" },
+    { "id": "rejected", "type": "failure", "label": "반려", "sublabel": "사유 기록 · 직원에게 전달", "lane": "terminal", "col": 1, "tag": "종료" }
+  ],
+  "transitions": [
+    { "id": "ask-back", "from": "card_wait", "to": "unclear", "variant": "default", "fromSide": "bottom", "toSide": "top", "route": "straight" },
+    { "id": "no-answer-cancel", "from": "unclear", "to": "withdrawn", "variant": "security", "fromSide": "bottom", "toSide": "top", "route": "straight" },
+    { "id": "approver-absent", "from": "approval", "to": "pending", "variant": "default", "fromSide": "bottom", "toSide": "top", "route": "straight" },
+    { "id": "rejected-exit", "from": "approval", "to": "rejected", "variant": "security", "fromSide": "right", "toSide": "top", "via": [[634, 157], [634, 432], [556, 432]] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "멈추지 않는다", "items": ["AI 실패 시 빈 카드로 사람에게", "대기가 풀리면 원래 단계로 복귀"] },
+    { "dot": "rose", "title": "종료는 둘", "items": ["취소 · 반려 — 둘만 종료", "원문·사유는 남는다"] }
+  ]
+}

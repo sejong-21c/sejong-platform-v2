@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "영수증 한 장의 데이터 여정 — 사진에서 정산표까지",
+    "viewBox": [1080, 520],
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "hot-path", "label": "주 경로", "focus": ["photo", "storage", "ocr", "llm", "card", "entry"], "note": "사진 원본이 Storage 에 남고, OCR 과 LLM 이 초안을 만들고, 사람이 확인해야 entry 가 된다." },
+      { "id": "sensitive", "label": "민감 경계", "focus": ["storage", "ocr", "llm", "card"], "note": "OCR 은 사내(미니)에서, 외부 LLM 으로 나가는 텍스트는 카드번호를 마스킹한다. 사진은 밖으로 안 나간다." },
+      { "id": "consumers", "label": "소비자 — 기존 페이지 재사용", "focus": ["entry", "consume", "nas"], "note": "부장님이 만든 경비 내역서가 그대로 읽고, 카드·월·사용자·공사별 분류와 xlsx 다운로드를 더한다. NAS PDF 는 확정 건만 야간에 만든다." }
+    ]
+  },
+  "stages": [
+    { "label": "입력" },
+    { "label": "저장" },
+    { "label": "이해" },
+    { "label": "확정" },
+    { "label": "활용" }
+  ],
+  "nodes": [
+    { "id": "photo", "type": "frontend", "label": "영수증 사진", "sublabel": "폰 카메라", "stage": 0, "row": 0, "tag": "JPG" },
+    { "id": "caption", "type": "frontend", "label": "한 줄 캡션", "sublabel": "\"PPG 천안 중식 3명\"", "stage": 0, "row": 2, "tag": "text" },
+    { "id": "storage", "type": "database", "label": "Firebase Storage", "sublabel": "원본 보관", "stage": 1, "row": 0, "tag": "사내 자료" },
+    { "id": "msgdoc", "type": "database", "label": "messages 문서", "sublabel": "text · fileUrl", "stage": 1, "row": 2, "tag": "uid 자동" },
+    { "id": "ocr", "type": "backend", "label": "Vision OCR", "sublabel": "맥미니 · 로컬", "stage": 2, "row": 0, "tag": "날짜·금액·상호" },
+    { "id": "llm", "type": "backend", "label": "LLM 구조화", "sublabel": "게이트웨이 · 작은 모델", "stage": 2, "row": 2, "tag": "공사·목적·인원" },
+    { "id": "card", "type": "security", "label": "확인 카드", "sublabel": "사람이 버튼", "stage": 3, "row": 0, "tag": "직접 저장 금지" },
+    { "id": "entry", "type": "database", "label": "expense entry", "sublabel": "작성자 · 공사 칸 추가", "stage": 3, "row": 2, "tag": "확정" },
+    { "id": "consume", "type": "backend", "label": "내역서 · 다운로드", "sublabel": "기존 페이지 + xlsx", "stage": 4, "row": 1, "tag": "인쇄 · 4분류" },
+    { "id": "nas", "type": "database", "label": "NAS 월별 PDF", "sublabel": "YYMMDD_분류_내용", "stage": 4, "row": 2, "tag": "증빙" }
+  ],
+  "flows": [
+    { "id": "photo-storage", "from": "photo", "to": "storage", "label": "JPG 원본", "classification": "사내 자료", "variant": "emphasis" },
+    { "id": "caption-msgdoc", "from": "caption", "to": "msgdoc", "label": "text", "classification": "작성자 uid 자동", "variant": "default" },
+    { "id": "storage-ocr", "from": "storage", "to": "ocr", "label": "이미지", "classification": "사내에서만", "variant": "emphasis", "route": "straight" },
+    { "id": "msgdoc-llm", "from": "msgdoc", "to": "llm", "label": "캡션", "classification": "text", "variant": "default" },
+    { "id": "ocr-llm", "from": "ocr", "to": "llm", "label": "OCR 텍스트 (마스킹)", "classification": "카드번호 제거 후 외부", "variant": "security", "labelAt": [530, 240] },
+    { "id": "llm-card", "from": "llm", "to": "card", "label": "초안 6필드", "classification": "빈칸은 빈칸", "variant": "emphasis" },
+    { "id": "card-entry", "from": "card", "to": "entry", "label": "확인됨", "classification": "사람 서명", "variant": "security", "labelAt": [745, 225] },
+    { "id": "entry-consume", "from": "entry", "to": "consume", "label": "월별 조회 · 집계", "classification": "읽기", "variant": "default" },
+    { "id": "entry-nas", "from": "entry", "to": "nas", "label": "PDF · 이름 규칙 (야간)", "classification": "확정 건만", "variant": "dashed", "fromSide": "bottom", "toSide": "bottom", "route": "bottom-channel", "labelSegment": 1 }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "주 경로", "items": ["사진은 Storage 한 곳에만 — Firestore base64 청크에서 뺀다", "확인 카드를 지나야 entry 가 된다"] },
+    { "dot": "rose", "title": "민감 경계", "items": ["OCR 은 사내 미니에서 — 사진이 밖으로 안 나간다", "외부 LLM 에는 카드번호 마스킹한 텍스트만", "entry 는 부서 권한(rules · users.dept) 뒤에"] },
+    { "dot": "orange", "title": "소비자", "items": ["expense_report.html 인쇄는 그대로 재사용, 분류 4종(카드·월·사용자·공사) + xlsx 만 더한다", "NAS PDF 는 확정 entry 를 보고 야간 배치가 Storage 원본을 변환해 만든다", "분류 4종은 writerId · projectId 두 칸이 생겨야 가능"] }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "작업보고 대화 시퀀스 — AI가 먼저 묻는다",
+    "viewBox": [1080, 560],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "ask-first", "label": "AI가 먼저 묻는다", "focus": ["sched", "app", "emp"], "note": "17:00 파이스 스케줄러가 질문을 만들면(Firestore 경유) 메신저가 푸시로 전달한다. 직원은 답만 한다." },
+      { "id": "extract", "label": "답변 → 구조화", "focus": ["app", "gw", "auth", "llm"], "note": "한 줄 답변이 게이트웨이의 토큰 검증을 거쳐 작은 모델에서 {공사, 작업, 시간} 으로 바뀐다." },
+      { "id": "confirm-record", "label": "확인 → 기록", "focus": ["emp", "app", "fs"], "note": "직원 확인 뒤에만 t_workReports 에 기록된다. 다음 날 05:30 집계가 플랫폼에 반영되는 것은 별도 배치다." }
+    ]
+  },
+  "participants": [
+    { "id": "emp", "type": "external", "label": "직원", "sublabel": "현장 · 폰" },
+    { "id": "app", "type": "frontend", "label": "SJ 메신저", "sublabel": "PWA / APK" },
+    { "id": "auth", "type": "security", "label": "Firebase Auth", "sublabel": "ID 토큰" },
+    { "id": "fs", "type": "database", "label": "Firestore", "sublabel": "messages · t_workReports" },
+    { "id": "gw", "type": "cloud", "label": "AI 게이트웨이", "sublabel": "Cloudflare Worker" },
+    { "id": "llm", "type": "external", "label": "LLM", "sublabel": "Groq 8B → 승격" },
+    { "id": "sched", "type": "backend", "label": "파이스 스케줄러", "sublabel": "맥미니 · 17:00" }
+  ],
+  "segments": [
+    { "from": 150, "to": 202, "label": "질문 (AI 주도)" },
+    { "from": 208, "to": 396, "label": "답변 → 구조화 추출" },
+    { "from": 402, "to": 478, "label": "확인 → 기록" }
+  ],
+  "messages": [
+    { "id": "sched-question", "from": "sched", "to": "app", "y": 160, "label": "17:00 질문 메시지 (Firestore 경유)", "variant": "dashed" },
+    { "id": "app-push", "from": "app", "to": "emp", "y": 188, "label": "푸시: 오늘 어디서 뭐 하셨어요?", "variant": "emphasis" },
+    { "id": "emp-answer", "from": "emp", "to": "app", "y": 216, "label": "\"PPG 천안 도장검사 8시간\"", "variant": "emphasis" },
+    { "id": "app-save-raw", "from": "app", "to": "fs", "y": 244, "label": "messages 저장 (원문 보존)", "variant": "default" },
+    { "id": "app-gw", "from": "app", "to": "gw", "y": 272, "label": "POST /v1/groq/chat · Bearer ID토큰", "variant": "emphasis" },
+    { "id": "gw-verify", "from": "gw", "to": "auth", "y": 300, "label": "JWK 토큰 검증", "variant": "security" },
+    { "id": "gw-llm", "from": "gw", "to": "llm", "y": 328, "label": "구조화 추출 (작은 모델)", "variant": "default" },
+    { "id": "llm-json", "from": "llm", "to": "gw", "y": 356, "label": "{공사, 작업, 시간}", "variant": "return" },
+    { "id": "gw-card", "from": "gw", "to": "app", "y": 384, "label": "확인 카드 JSON", "variant": "return" },
+    { "id": "app-card", "from": "app", "to": "emp", "y": 412, "label": "카드: PPG 천안 · 도장검사 · 8h [확인]", "variant": "default" },
+    { "id": "emp-confirm", "from": "emp", "to": "app", "y": 440, "label": "확인", "variant": "emphasis" },
+    { "id": "app-record", "from": "app", "to": "fs", "y": 468, "label": "t_workReports 확정 기록", "variant": "emphasis" }
+  ],
+  "activations": [
+    { "participant": "sched", "from": 155, "to": 166, "type": "backend" },
+    { "participant": "app", "from": 183, "to": 474, "type": "frontend" },
+    { "participant": "gw", "from": 267, "to": 390, "type": "cloud" },
+    { "participant": "auth", "from": 295, "to": 306, "type": "security" },
+    { "participant": "llm", "from": 323, "to": 362, "type": "external" },
+    { "participant": "fs", "from": 463, "to": 474, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "주도권", "items": ["AI가 묻고 직원이 답한다", "답 한 줄 + 확인 한 번"] },
+    { "dot": "cyan", "title": "비용·속도", "items": ["추출은 8B 급 — 수 초 · 원 단위", "실패할 때만 큰 모델로 승격"] },
+    { "dot": "rose", "title": "기록", "items": ["원문은 확인 전에 messages 에 남긴다", "확정 뒤 05:30 집계가 플랫폼에 반영"] }
+  ]
+}

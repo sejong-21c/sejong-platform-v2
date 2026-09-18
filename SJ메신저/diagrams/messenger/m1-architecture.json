@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "SJ 메신저 앱 구조 — 카톡처럼 보이고, 봇이 방에 있다",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "screens", "label": "화면은 둘", "focus": ["list", "room", "card", "sw"], "note": "채팅목록과 채팅방 — 카톡과 같다. 확인 카드는 방 안의 메시지 한 종류, 서비스워커가 설치·오프라인·푸시를 맡는다." },
+      { "id": "bot-in-room", "label": "봇은 참여자", "focus": ["room", "fs", "bot", "worker", "fcm"], "note": "앱은 AI를 모른다. 파이스 봇이 Firestore를 구독해 방에 답을 쓰고, 필요하면 푸시를 보낸다." },
+      { "id": "reuse", "label": "그대로 쓰는 것", "focus": ["auth", "fs", "worker", "r2"], "note": "Auth · channels/messages/channelReads · 게이트웨이 토큰 검증은 기존 그대로. 새로 붙는 건 R2 와 FCM." }
+    ]
+  },
+  "components": [
+    { "id": "list", "type": "frontend", "label": "채팅목록", "sublabel": "방 · 마지막 말 · 배지", "pos": [250, 110], "size": [130, 64], "tag": "카톡식" },
+    { "id": "room", "type": "frontend", "label": "채팅방", "sublabel": "말풍선 · 읽음 1 · 📷", "pos": [250, 300], "size": [130, 64], "tag": "모바일 우선" },
+    { "id": "card", "type": "security", "label": "확인 카드", "sublabel": "카드형 메시지", "pos": [250, 460], "size": [130, 64], "tag": "shared/" },
+    { "id": "sw", "type": "frontend", "label": "서비스워커", "sublabel": "설치 · 오프라인 · 푸시", "pos": [250, 560], "size": [130, 64], "tag": "PWA" },
+    { "id": "auth", "type": "security", "label": "Firebase Auth", "sublabel": "@sejong-21c.com", "pos": [480, 110], "size": [130, 64], "tag": "기존" },
+    { "id": "fs", "type": "database", "label": "Firestore", "sublabel": "channels · messages", "pos": [480, 300], "size": [130, 64], "tag": "channelReads 기존" },
+    { "id": "fcm", "type": "messagebus", "label": "FCM", "sublabel": "푸시 발송", "pos": [480, 470], "size": [130, 64], "tag": "신설" },
+    { "id": "worker", "type": "cloud", "label": "AI 게이트웨이", "sublabel": "/v1 · presign", "pos": [720, 200], "size": [130, 64], "tag": "토큰 검증 기존" },
+    { "id": "r2", "type": "database", "label": "R2", "sublabel": "사진 · 파일 원본", "pos": [720, 400], "size": [130, 64], "tag": "신설" },
+    { "id": "bot", "type": "backend", "label": "파이스 봇", "sublabel": "참여자 · 17:00 · 스킬", "pos": [960, 300], "size": [140, 64], "tag": "노드 A/B" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "SJ 메신저 · PWA", "wraps": ["list", "room", "card", "sw"] },
+    { "kind": "region", "label": "Firebase", "wraps": ["auth", "fs", "fcm"] },
+    { "kind": "region", "label": "Cloudflare", "wraps": ["worker", "r2"] },
+    { "kind": "security-group", "label": "사내 노드", "wraps": ["bot"] }
+  ],
+  "connections": [
+    { "id": "list-auth", "from": "list", "to": "auth", "label": "로그인", "variant": "security", "route": "straight" },
+    { "id": "list-fs", "from": "list", "to": "fs", "label": "channels · 읽음 구독", "fromSide": "right", "toSide": "left", "labelSegment": 1 },
+    { "id": "room-fs", "from": "room", "to": "fs", "label": "쓰기 · onSnapshot", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelDy": 18 },
+    { "id": "room-r2", "from": "room", "to": "r2", "label": "사진 presigned PUT", "fromSide": "bottom", "toSide": "left" },
+    { "id": "card-room", "from": "card", "to": "room", "label": "확인 → 방에서 쓰기", "variant": "security", "fromSide": "left", "toSide": "left" },
+    { "id": "bot-fs", "from": "bot", "to": "fs", "label": "새 메시지 구독 · 봇 답변", "variant": "emphasis", "route": "straight" },
+    { "id": "bot-worker", "from": "bot", "to": "worker", "label": "/v1 LLM · presign", "fromSide": "top", "toSide": "right" },
+    { "id": "worker-auth", "from": "worker", "to": "auth", "label": "JWK 검증", "variant": "security", "fromSide": "top", "toSide": "right" },
+    { "id": "bot-fcm", "from": "bot", "to": "fcm", "label": "질문 · 카드 알림", "variant": "dashed", "fromSide": "bottom", "toSide": "right", "via": [[1030, 502]] },
+    { "id": "fcm-sw", "from": "fcm", "to": "sw", "label": "푸시", "variant": "dashed", "fromSide": "bottom", "toSide": "right" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "카톡식 화면", "items": ["채팅목록 · 채팅방 두 화면이 전부", "말풍선 · 읽음 1 · 배지 · 📷 첨부"] },
+    { "dot": "cyan", "title": "봇은 참여자", "items": ["답도 카드도 방 안의 메시지", "앱은 AI를 모른다 · 봇이 구독"] },
+    { "dot": "rose", "title": "재사용", "items": ["기존 컬렉션 3개 그대로", "토큰 검증 그대로 · R2·FCM 신설"] }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "메시지 한 건의 상태 — 카톡의 '1'은 어디서 생기고 사라지나",
+    "viewBox": [1030, 630],
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "main", "label": "기본 흐름", "focus": ["composed", "sending", "stored", "delivered", "read"], "note": "작성 → 전송 중 → 저장됨(서버 도착) → 전달됨('1') → 읽음('1' 사라짐). 카톡과 같은 다섯 단계." },
+      { "id": "waits", "label": "멈추는 곳", "focus": ["stored", "nopush", "delivered", "unread"], "note": "푸시가 안 닿으면 다음 열람 때 동기된다. 상대가 안 읽으면 '1'과 안읽음 배지가 유지된다 — 끝난 게 아니다." },
+      { "id": "exits", "label": "끝나는 곳", "focus": ["sending", "failed", "delivered", "deleted"], "note": "전송 실패는 재시도 3회 뒤에만 종료. 회수는 보낸 뒤 5분 안에만." }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "메시지 상태" },
+    { "id": "waiting", "label": "대기" },
+    { "id": "terminal", "label": "종료" }
+  ],
+  "states": [
+    { "id": "composed", "type": "start", "label": "작성", "sublabel": "입력바 · 사진 첨부", "lane": "main", "col": 0, "step": "01", "tag": "폰" },
+    { "id": "sending", "type": "active", "label": "전송 중", "sublabel": "오프라인이면 SW 큐", "lane": "main", "col": 1, "step": "02", "tag": "재시도 3회" },
+    { "id": "stored", "type": "active", "label": "저장됨", "sublabel": "Firestore 도착 · 시각 확정", "lane": "main", "col": 2, "step": "03", "tag": "서버" },
+    { "id": "delivered", "type": "decision", "label": "전달됨", "sublabel": "상대 폰 도착 · '1'", "lane": "main", "col": 3, "step": "04", "tag": "카톡의 1" },
+    { "id": "read", "type": "success", "label": "읽음", "sublabel": "방 열림 · '1' 사라짐", "lane": "main", "col": 4, "step": "05", "tag": "channelReads" },
+    { "id": "nopush", "type": "waiting", "label": "푸시 미도달", "sublabel": "다음 열람 시 동기", "lane": "waiting", "col": 0, "tag": "대기" },
+    { "id": "unread", "type": "waiting", "label": "미읽음", "sublabel": "'1' 유지 · 배지 +1", "lane": "waiting", "col": 1, "tag": "대기" },
+    { "id": "failed", "type": "failure", "label": "전송 실패", "sublabel": "재시도 3회 소진 · 원문 보존", "lane": "terminal", "col": 0, "tag": "종료" },
+    { "id": "deleted", "type": "failure", "label": "회수됨", "sublabel": "5분 내 삭제 · 흔적 남김", "lane": "terminal", "col": 1, "tag": "종료" }
+  ],
+  "transitions": [
+    { "id": "stored-nopush", "from": "stored", "to": "nopush", "variant": "default", "fromSide": "bottom", "toSide": "top", "route": "straight" },
+    { "id": "delivered-unread", "from": "delivered", "to": "unread", "variant": "default", "fromSide": "bottom", "toSide": "top", "route": "straight" },
+    { "id": "sending-failed", "from": "sending", "to": "failed", "variant": "security", "fromSide": "bottom", "toSide": "top", "via": [[248, 432], [402, 432]] },
+    { "id": "delivered-deleted", "from": "delivered", "to": "deleted", "variant": "security", "fromSide": "right", "toSide": "top", "via": [[634, 157], [634, 432], [556, 432]] }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "카톡의 1", "items": ["전달됨 = 상대 폰 도착 · 읽음 = 방 열림", "안읽음 배지는 channelReads 로 — 기존 그대로"] },
+    { "dot": "rose", "title": "끝나는 경우", "items": ["실패는 재시도 3회 뒤 · 원문은 남는다", "회수는 5분 안에만 · '삭제된 메시지' 흔적"] }
+  ]
+}

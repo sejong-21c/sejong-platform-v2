@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "SJ 메신저 · AI 업무 인터페이스 아키텍처",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "receipt-path", "label": "영수증 한 장의 길", "focus": ["phone", "msgr", "storage", "firestore", "worker", "mini", "nas"], "note": "현장 폰에서 찍은 사진이 메신저·Storage를 거쳐 AI 이해, 확인, NAS 보관까지 가는 주 경로." },
+      { "id": "brain-path", "label": "AI 두뇌 경로", "focus": ["msgr", "worker", "auth", "llm", "vectorize", "mini"], "note": "게이트웨이가 토큰을 검증하고 작은 모델→큰 모델·로컬 모델·RAG 로 나눠 보내는 길." },
+      { "id": "platform-link", "label": "플랫폼 연동", "focus": ["msgr", "firestore", "vectorize", "worker"], "note": "메신저는 세종플랫폼의 모듈이다 — 같은 Firebase 프로젝트, 같은 사용자(users.dept·grade), 같은 RAG 색인을 그대로 쓴다." }
+    ]
+  },
+  "components": [
+    { "id": "phone", "type": "external", "label": "직원 폰 · PC", "sublabel": "현장 2/3 · 사무실 1/3", "pos": [40, 300], "size": [130, 64] },
+    { "id": "msgr", "type": "frontend", "label": "SJ 메신저", "sublabel": "PWA → APK", "pos": [250, 220], "size": [130, 64], "tag": "modules/messenger 확장" },
+    { "id": "auth", "type": "security", "label": "Firebase Auth", "sublabel": "@sejong-21c.com", "pos": [480, 110], "size": [130, 60], "tag": "ID 토큰" },
+    { "id": "firestore", "type": "database", "label": "Firestore", "sublabel": "messages · users · t_*", "pos": [480, 300], "size": [130, 64], "tag": "기존" },
+    { "id": "storage", "type": "database", "label": "Firebase Storage", "sublabel": "사진 · 영수증 원본", "pos": [480, 460], "size": [130, 64], "tag": "신설" },
+    { "id": "worker", "type": "cloud", "label": "AI 게이트웨이", "sublabel": "Cloudflare Worker", "pos": [720, 300], "size": [130, 64], "tag": "/v1 · /rag" },
+    { "id": "vectorize", "type": "database", "label": "Vectorize", "sublabel": "sejong-docs 색인", "pos": [720, 460], "size": [130, 64], "tag": "RAG 기존" },
+    { "id": "llm", "type": "external", "label": "외부 LLM", "sublabel": "Groq · Gemini · Claude", "pos": [960, 180], "size": [130, 64], "tag": "작은→큰 승격" },
+    { "id": "mini", "type": "backend", "label": "파이스 (맥미니 M4)", "sublabel": "Ollama · Whisper · OCR", "pos": [960, 380], "size": [140, 64], "tag": "로컬 · 민감 처리" },
+    { "id": "nas", "type": "database", "label": "NAS (sjserver)", "sublabel": "영수증 PDF · 월별 폴더", "pos": [960, 500], "size": [140, 60], "tag": "증빙 보관" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "세종플랫폼 SJ FLOW — modules/messenger", "wraps": ["msgr"] },
+    { "kind": "region", "label": "Firebase (Google Cloud)", "wraps": ["auth", "firestore", "storage"] },
+    { "kind": "region", "label": "Cloudflare", "wraps": ["worker", "vectorize"] },
+    { "kind": "security-group", "label": "사내 — 세종기술", "wraps": ["mini", "nas"] }
+  ],
+  "connections": [
+    { "id": "phone-msgr", "from": "phone", "to": "msgr", "label": "HTTPS · 푸시", "variant": "emphasis" },
+    { "id": "msgr-auth", "from": "msgr", "to": "auth", "label": "로그인 · ID 토큰", "variant": "security", "fromSide": "top", "toSide": "left" },
+    { "id": "msgr-firestore", "from": "msgr", "to": "firestore", "label": "messages 실시간", "variant": "emphasis" },
+    { "id": "msgr-storage", "from": "msgr", "to": "storage", "label": "사진 업로드", "fromSide": "bottom", "toSide": "left" },
+    { "id": "msgr-worker", "from": "msgr", "to": "worker", "label": "/v1/{provider} · Bearer 토큰", "variant": "emphasis", "labelSegment": 0 },
+    { "id": "worker-auth", "from": "worker", "to": "auth", "label": "JWK 토큰 검증", "variant": "security" },
+    { "id": "worker-llm", "from": "worker", "to": "llm", "label": "OpenAI 호환" },
+    { "id": "worker-vectorize", "from": "worker", "to": "vectorize", "label": "RAG 검색·기록", "labelAt": [832, 412] },
+    { "id": "worker-mini", "from": "worker", "to": "mini", "label": "9Router 터널", "variant": "dashed", "fromSide": "right", "toSide": "top", "labelSegment": 0, "labelDx": 60 },
+    { "id": "mini-nas", "from": "mini", "to": "nas", "label": "PDF · YYMMDD_분류_내용", "labelAt": [1030, 472] }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "이미 있는 것", "items": ["게이트웨이 /v1 · 토큰검증 · Vectorize RAG", "messenger.html · users.dept — 권한은 rules만"] },
+    { "dot": "cyan", "title": "새로 만드는 것", "items": ["Storage — 사진을 base64 청크에서 뺀다", "스킬 라우터 · 확인 카드(사람이 버튼)"] },
+    { "dot": "rose", "title": "원칙", "items": ["AI는 직접 저장하지 않는다", "파이스→Firestore 직접 기록은 시퀀스 참조"] }
+  ]
+}
