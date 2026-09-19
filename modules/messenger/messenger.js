@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b43';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b43';
+import * as L from './lib.js?v=b44';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b44';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b43';
+const 빌드 = 'b44';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -200,13 +200,22 @@ function 아바타(u, cls = '', act = true) {
 function 타일(text, key, cls = '') {
   return `<div class="sjm-avatar is-tile ${cls}" style="--av:${L.아바타색(key)}">${esc(text)}</div>`;
 }
+/** 여러 줄짜리 타일(프로젝트 번호). 줄 수·가장 긴 줄에 맞춰 글자 크기를 CSS 가 줄인다. */
+function 타일줄(줄들, key, cls = '') {
+  const 줄 = (Array.isArray(줄들) ? 줄들 : [줄들]).filter(Boolean);
+  if (줄.length <= 1) return 타일(줄[0] || '프', key, cls);
+  const 길이 = Math.max(...줄.map((x) => String(x).length));
+  return `<div class="sjm-avatar is-tile is-two ${cls}" data-w="${길이}" style="--av:${L.아바타색(key)}">`
+    + 줄.map((x) => `<span>${esc(x)}</span>`).join('') + '</div>';
+}
 function 방아바타(ch, cls = '') {
   if (ch.type === 'announce') return 타일('공지', 'announce', cls);
   if (ch.type === 'dept') return 타일(String(ch.name || '부서').slice(0, 2), 'dept:' + (ch.deptId || ch.name), cls);
   if (ch.type === 'project') {
     const p = state.projects.find((x) => x.id === (ch.projectId || String(ch.id).replace(/^proj_/, '')));
-    const code = p && p.code ? String(p.code).replace(/^P-?/i, '').slice(0, 4) : String(ch.name || '프').slice(0, 2);
-    return 타일(code || '프', 'proj:' + ch.id, cls);
+    // 코드 앞의 SJ·SJE 는 전부 같아서 구분이 안 된다 — 뒤 번호를 두 줄로 넣는다(lib.프로젝트약자)
+    const 줄 = p && p.code ? L.프로젝트약자(p.code) : [String(ch.name || '프').slice(0, 2)];
+    return 타일줄(줄, 'proj:' + ch.id, cls);
   }
   if (ch.type === 'dm') return 아바타(getU((ch.members || []).find((m) => m !== me()) || me()), cls, false);
   const others = (ch.members || []).filter((m) => m !== me()).slice(0, 4).map(getU);

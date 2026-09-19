@@ -585,3 +585,13 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-md-fig figcaption { padding: 5px 8px; font-size: 11px; color: #5b6673; background: #f7f9fb; border-top: 1px solid #eef1f5; }
 .sjm-md-fig.is-gone img { display: none; }
 .sjm-md-fig.is-gone figcaption::after { content: ' (그림 주소가 만료되었습니다 — 다시 물어보세요)'; color: #98a2b3; }
+
+/* ── 프로젝트 방 아이콘: 코드 번호를 두 줄로 ──────────────────────────────────
+   앞의 SJ·SJE 는 전부 같아서 "SJ43" "SJE4" 로는 프로젝트를 구분할 수 없었다.
+   뒤 번호(2026-001 · 435-26)를 하이픈에서 끊어 두 줄로 넣는다. 한 줄이면 여덟 자라 깨알같아진다. */
+.sjm-avatar.is-two { flex-direction: column; display: flex; align-items: center; justify-content: center;
+  line-height: 1.02; letter-spacing: -.02em; font-weight: 800; }
+.sjm-avatar.is-two span { display: block; }
+.sjm-avatar.is-two[data-w="1"], .sjm-avatar.is-two[data-w="2"] { font-size: calc(var(--size) * .30); }
+.sjm-avatar.is-two[data-w="3"] { font-size: calc(var(--size) * .26); }
+.sjm-avatar.is-two[data-w="4"] { font-size: calc(var(--size) * .23); }

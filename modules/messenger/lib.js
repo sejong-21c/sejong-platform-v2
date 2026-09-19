@@ -59,6 +59,21 @@ export function 섹션나누기(users) {
 
 // ───────── 아바타 ─────────
 /** 한글 3자 이상 → 뒤 2자('김철우'→'철우') · 한글 2자 → 뒤 1자 · 영문 → 대문자 첫 2자 · 그 외 첫 1자 · 빈 값 '?' */
+/**
+ * 프로젝트 코드를 동그란 아이콘에 들어갈 글자로 바꾼다.
+ *   SJE2026-001 → ['2026','001']   ·   SJ435-26 → ['435','26']
+ * 왜 이렇게 하나(2026-09-19 부장님): 앞의 SJ·SJE 는 우리 회사 코드라 **전부 같아서 구분이 안 된다**.
+ * 화면에 "SJ43" "SJE4" 만 뜨니 어느 프로젝트인지 알 수 없었다. 뒤의 번호가 실제 구분자다.
+ * 한 줄로 쓰면 "2026-001" 이 여덟 자라 글자가 깨알같이 작아진다 → **하이픈에서 끊어 두 줄**로 넣는다.
+ */
+export function 프로젝트약자(code) {
+  const t = String(code || '').trim().replace(/^[A-Za-z]+[-\s]?/, '');   // SJ·SJE·P- 같은 머리글자를 뗀다
+  if (!t) return [String(code || '').slice(0, 4)].filter(Boolean);
+  const 쪽 = t.split(/[-–—/]/).map((x) => x.trim()).filter(Boolean);
+  if (쪽.length >= 2) return [쪽[0].slice(0, 4), 쪽.slice(1).join('-').slice(0, 4)];
+  return t.length > 4 ? [t.slice(0, 4), t.slice(4, 8)] : [t];
+}
+
 export function 이니셜(name) {
   const s = String(name ?? '').trim();
   if (!s) return '?';
