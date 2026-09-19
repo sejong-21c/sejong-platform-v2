@@ -26,6 +26,9 @@
   };
   const fbApp = initializeApp(firebaseConfig);
   window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot };
+  // 2026-09-19: 첨부는 DB 밖(R2)에 둔다 — 아래 본문 스크립트가 window.첨부 로 쓴다.
+  // 못 불러오면(구형 브라우저·망 차단) 첨부는 옛 조각 방식으로 자동으로 물러선다.
+  import('../shared/attach.mjs').then((m) => { window.첨부 = m; }).catch((e) => console.warn('[첨부] 모듈 없음 — 옛 조각 방식으로', e));
 </script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js" defer onload="try{lucide.createIcons()}catch(e){}"></script>
 <style>
@@ -1241,6 +1244,13 @@ function startAttachmentUpload(coll, file) {
     if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
       throw new Error(`${MAX_ATTACH_MB}MB 이하 파일만 첨부할 수 있습니다 (현재 ${(file.size/1024/1024).toFixed(1)}MB)`);
     }
+    // 2026-09-19 (2단계): 첨부는 **DB 밖**(R2, 게이트웨이 /file/put)에 둔다.
+    // 왜: base64 조각(chunk__*)이 컬렉션 안에 섞여 있어 한 번 훑으면 하루 읽기 5만이 날아간다(9/19 사고).
+    // 실패하면 아래 옛 조각 방식으로 물러선다 — 사내에 workers.dev 가 막힌 PC 가 있다(2026-07-24).
+    if (window.첨부) {
+      try { return { chunkId: await window.첨부.올리기(file, coll), totalChunks: 0, name: file.name }; }
+      catch (e) { console.warn('[첨부] 파일 저장소 실패 — 옛 조각 방식으로:', e.message || e); }
+    }
     const dataUrl = await _readAsDataURL(file);
     const chunkId = `chunk__${coll}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const totalChunks = Math.ceil(dataUrl.length / FILE_CHUNK_SIZE);
@@ -1398,6 +1408,11 @@ async function viewNCRFile(ncrId) {
   const n = (state.ncrs||[]).find(x => x.id === ncrId);
   if (n?.meta?.fileChunkId) {
     try {
+      // DB 밖(R2)에 있는 첨부는 서명된 주소로 바로 연다 — base64 로 되받을 이유가 없다.
+      if (window.첨부 && window.첨부.밖에있나(n.meta.fileChunkId)) {
+        window.open(await window.첨부.주소(n.meta.fileChunkId), '_blank');
+        return;
+      }
       const dataUrl = await loadAttachmentDataUrl('ncr', n.meta.fileChunkId, n.meta.fileChunks || 0);
       if (!dataUrl) { alert('파일을 불러오지 못했습니다.'); return; }
       window.open(_toBlobUrl(dataUrl), '_blank');

@@ -22,6 +22,8 @@
   };
   const fbApp = initializeApp(firebaseConfig);
   window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), collection, onSnapshot, doc, getDoc, getDocs, setDoc, deleteDoc };
+  // 2026-09-19: 첨부가 DB 밖(R2)으로 나갔다 — 여기는 읽기만 한다.
+  import('../shared/attach.mjs').then((m) => { window.첨부 = m; }).catch((e) => console.warn('[첨부] 모듈 없음', e));
 </script>
 <style>
 :root {
@@ -1509,6 +1511,11 @@ async function qdOpenReport(tool, id) {
   if (!rec) return alert('항목을 찾을 수 없습니다.');
   if (rec.meta?.fileChunkId) {
     try {
+      // DB 밖(R2)에 있는 첨부는 서명된 주소로 바로 연다.
+      if (window.첨부 && window.첨부.밖에있나(rec.meta.fileChunkId)) {
+        window.open(await window.첨부.주소(rec.meta.fileChunkId), '_blank');
+        return;
+      }
       const dataUrl = await qdLoadAttachment(tool === 'ncr' ? 't_ncrs' : 't_cars', rec.meta.fileChunkId, rec.meta.fileChunks || 0);
       if (!dataUrl) { alert('보고서 파일을 불러오지 못했습니다.'); return; }
       window.open(_qdToBlobUrl(dataUrl), '_blank');

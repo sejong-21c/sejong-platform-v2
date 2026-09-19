@@ -28,6 +28,8 @@
   //   수신, 오프라인에도 읽기/쓰기 큐 동작. (여러 탭 공유 가능)
   const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   window.fb = { auth: getAuth(fbApp), db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, where };
+  // 2026-09-19: 첨부·사진은 DB 밖(R2)에 둔다 — 본문 스크립트가 window.첨부 로 쓴다.
+  import('../shared/attach.mjs').then((m) => { window.첨부 = m; }).catch((e) => console.warn('[첨부] 모듈 없음 — 옛 조각 방식으로', e));
 </script>
 <style>
 /* ═══════════════════════════════════════════════════════════
@@ -689,6 +691,13 @@ async function waitForFbAuth(timeoutMs = 5000) {
 }
 
 async function chunkUploadString(coll, keyPrefix, dataUrlStr) {
+  // 2026-09-19 (2단계): 사진·도면은 **DB 밖**(R2, 게이트웨이 /file/put)에 둔다.
+  // 왜: base64 조각(chunk__*)이 컬렉션에 섞여 있어 한 번 훑으면 하루 읽기 5만이 날아간다(9/19 사고).
+  // 실패하면 아래 옛 조각 방식으로 물러선다 — 사내에 workers.dev 가 막힌 PC 가 있다(2026-07-24).
+  if (window.첨부) {
+    try { return { chunkId: await window.첨부.글자올리기(dataUrlStr, coll), totalChunks: 0 }; }
+    catch (e) { console.warn('[첨부] 파일 저장소 실패 — 옛 조각 방식으로:', e.message || e); }
+  }
   const chunkId = `chunk__${keyPrefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   const totalChunks = Math.ceil(dataUrlStr.length / FILE_CHUNK_SIZE);
   const jobs = [];
@@ -701,6 +710,7 @@ async function chunkUploadString(coll, keyPrefix, dataUrlStr) {
 }
 
 async function loadChunkedString(coll, chunkId, totalChunks) {
+  if (window.첨부 && window.첨부.밖에있나(chunkId)) return await window.첨부.데이터URL(chunkId);
   const jobs = [];
   for (let i = 0; i < totalChunks; i++) jobs.push(fb.getDoc(fb.doc(fb.db, coll, `${chunkId}__${i}`)));
   const snaps = await Promise.all(jobs);

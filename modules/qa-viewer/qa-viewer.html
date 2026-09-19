@@ -28,6 +28,8 @@
   // v1.1(점검 A3): IndexedDB 영속 캐시 — itp-viewer와 동일. 재방문 시 변경분만 수신.
   const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   window.fb = { auth: getAuth(fbApp), db, collection, onSnapshot, getDoc, doc, query, where, documentId };
+  // 2026-09-19: 첨부·사진은 DB 밖(R2)에 둔다 — 본문 스크립트가 window.첨부 로 쓴다.
+  import('../shared/attach.mjs').then((m) => { window.첨부 = m; }).catch((e) => console.warn('[첨부] 모듈 없음 — 옛 조각 방식으로', e));
 </script>
 <style>
 :root {
@@ -224,6 +226,12 @@ async function hydratePhotos(coll) {
   for (const el of slots) {
     const chunkId = el.getAttribute('data-chunkid');
     const total = parseInt(el.getAttribute('data-total')) || 0;
+    // DB 밖(R2)에 있는 사진은 조각 수가 0 이다 — 서명된 주소를 그대로 img 에 물린다.
+    if (window.첨부 && window.첨부.밖에있나(chunkId)) {
+      try { el.innerHTML = `<img src="${await window.첨부.주소(chunkId)}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/>`; }
+      catch (e) { el.className = 'ph-fail'; el.textContent = '사진을 불러오지 못했습니다'; }
+      continue;
+    }
     if (!chunkId || !total) continue;
     try {
       const jobs = [];

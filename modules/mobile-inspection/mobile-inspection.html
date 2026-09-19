@@ -22,6 +22,8 @@
   };
   const fbApp = initializeApp(firebaseConfig);
   window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query, where };
+  // 2026-09-19: 첨부·사진은 DB 밖(R2)에 둔다 — 본문 스크립트가 window.첨부 로 쓴다.
+  import('../shared/attach.mjs').then((m) => { window.첨부 = m; }).catch((e) => console.warn('[첨부] 모듈 없음 — 옛 조각 방식으로', e));
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
 <!-- jsQR: 카메라 QR 인식 — 측정기구 반입출 관리(measurement-tools.html)와 동일 라이브러리 -->
@@ -740,6 +742,14 @@ function mergeServerSnapshot(localArr, serverDocs, prevSynced){
 async function uploadPhotoChunks(recId, photoIdx, dataUrl){
   // chunkId를 recId+photoIdx로 고정해 재시도해도 조각이 겹쳐쓰기만 되고
   // 중복/고아 문서가 남지 않게 한다.
+  // 2026-09-19 (2단계): 사진은 **DB 밖**(R2)에 둔다 — 조각이 하루 읽기 5만을 태웠다(9/19 사고).
+  // 실패하면 옛 조각 방식으로 물러선다(사내에 workers.dev 가 막힌 PC 가 있다 — 2026-07-24).
+  // 아래 조각 방식과 달리 열쇠가 매번 새 값이라, 재시도하면 앞서 올린 것이 R2 에 남는다(고아).
+  // 사진 한 장 수준이라 그냥 둔다 — 덮어쓰기용 고정 열쇠를 만들면 다른 기록의 사진을 밀 위험이 있다.
+  if (window.첨부) {
+    try { return { chunkId: await window.첨부.글자올리기(dataUrl, 'insp'), totalChunks: 0 }; }
+    catch (e) { console.warn('[첨부] 파일 저장소 실패 — 옛 조각 방식으로:', e.message || e); }
+  }
   const chunkId = `chunk__insp_${recId}_${photoIdx}`;
   const totalChunks = Math.ceil(dataUrl.length / INSP_CHUNK_SIZE);
   const jobs = [];
@@ -751,6 +761,7 @@ async function uploadPhotoChunks(recId, photoIdx, dataUrl){
   return { chunkId, totalChunks };
 }
 async function loadPhotoDataUrl(chunkId, totalChunks){
+  if (window.첨부 && window.첨부.밖에있나(chunkId)) return await window.첨부.데이터URL(chunkId);
   const jobs = [];
   for (let i=0; i<totalChunks; i++) jobs.push(fb.getDoc(fb.doc(fb.db, INSP_COLL, `${chunkId}__${i}`)));
   const snaps = await Promise.all(jobs);
