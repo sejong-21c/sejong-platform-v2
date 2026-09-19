@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b45';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b45';
+import * as L from './lib.js?v=b46';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b46';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b45';
+const 빌드 = 'b46';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -259,6 +259,15 @@ function 프로젝트방들(p) {
   return rooms;
 }
 function 방멤버(ch) { return L.방멤버(ch, state.users, state.projects); }
+// 메시지에 박을 "읽어도 되는 사람". null 이면 안 박는다(전사 공지·알 수 없는 방) — L.읽을사람 주석 참고.
+// 보내는 세 길(글·파일·시스템)이 전부 이걸 거친다. 한 군데라도 빠뜨리면 그 메시지만 나중에 안 보인다.
+function 읽을사람박기(cid, payload) {
+  try {
+    const r = L.읽을사람(getChannel(cid), state.users, state.projects);
+    if (r && r.length) payload.readers = r;
+  } catch (e) { console.warn('[readers]', e && e.message); }   // 못 구해도 메시지는 가야 한다
+  return payload;
+}
 function 방이름(ch) { return L.방이름(ch, state.users, me()); }
 function 부서방(dn) {
   return state.channels.find((c) => c.type === 'dept' && c.name === dn)
@@ -963,7 +972,7 @@ function 마지막말기록(ch, payload) {
 async function 시스템메시지(cid, text) {
   const fb = getFB(); if (!fb || !fb.db || !me()) return;
   const createdTs = Date.now(), clientId = 새clientId(createdTs);
-  const payload = { channel: String(cid), author: String(me()), text: String(text), type: 'system', system: true, clientId: String(clientId), at: nowStamp(), createdAt: createdTs };
+  const payload = 읽을사람박기(cid, { channel: String(cid), author: String(me()), text: String(text), type: 'system', system: true, clientId: String(clientId), at: nowStamp(), createdAt: createdTs });
   try { await fb.setDoc(fb.doc(fb.db, 'messages', 'msg_' + clientId), plain(payload)); 마지막말기록(getChannel(cid), payload); } catch (e) { console.warn('[시스템 메시지]', e && e.message); }
 }
 async function startDM(otherId) {
@@ -1002,7 +1011,7 @@ async function sendMsg() {
   // 같은 clientId 로 다시 보내면 같은 문서를 덮어쓴다 → 재시도해도 두 번 안 찍힌다(실패 말풍선의 "다시 보내기" 가 이걸 쓴다).
   const clientId = 새clientId(createdTs);
   const docId = 'msg_' + clientId;
-  const rawPayload = { channel: String(chId), author: String(me_), text: String(text), type: 'text', clientId: String(clientId), at: String(nowStamp()), createdAt: Number(createdTs) };
+  const rawPayload = 읽을사람박기(chId, { channel: String(chId), author: String(me_), text: String(text), type: 'text', clientId: String(clientId), at: String(nowStamp()), createdAt: Number(createdTs) });
   const pend = { id: 'pending_' + clientId, ...rawPayload, _pending: true, _docId: docId, _payload: rawPayload };
   state.pending.push(pend);
   renderMessages(false);
@@ -1042,11 +1051,11 @@ async function sendFiles(fileList) {
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('업로드가 15초 안에 끝나지 않았습니다(사내망에서 저장소가 막혀 있을 수 있습니다).')), 15000));
       await Promise.race([fb.uploadBytes(storageRef, f), timeout]);
       const fileUrl = await fb.getDownloadURL(storageRef);
-      const rawPayload = {
+      const rawPayload = 읽을사람박기(chId, {
         channel: String(chId), author: String(me_), file: String(f.name || f0.name), fileUrl: String(fileUrl), fileSize: String(size),
         type: (f.type || '').indexOf('image/') === 0 ? 'image' : 'file',
         clientId: String(clientId), at: String(nowStamp()), createdAt: Number(createdTs),
-      };
+      });
       await fb.setDoc(fb.doc(fb.db, 'messages', docId), plain(rawPayload));
       마지막말기록(getChannel(chId), rawPayload);
     } catch (e) {

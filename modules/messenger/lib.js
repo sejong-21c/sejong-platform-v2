@@ -338,3 +338,43 @@ export function 프로젝트멤버들(p) {
 export function 내프로젝트인가(p, uid) {
   return !!uid && 프로젝트멤버들(p).includes(uid);
 }
+
+/** 이 메시지를 **읽어도 되는 사람** — 보낼 때 메시지에 박아 둔다(`readers`). 2026-09-19 (2단계 1번).
+ *
+ *  왜 박아 두나: 파이어스토어 규칙이 "이 사람이 이 방 사람인가" 를 알아내려면 딴 문서를 찾아봐야 하고
+ *  (부서방은 users.dept, 프로젝트방은 참여자 목록, 그룹방은 방 문서), 그게 **메시지 한 건당 읽기 한 건**씩
+ *  더 붙는다. 답을 미리 적어 두면 `array-contains` 한 번으로 끝나고 추가 읽기가 0이다.
+ *
+ *  **방멤버() 를 쓰면 안 된다.** 그건 "안 읽은 사람 수" 표시용이라 프로젝트를 못 찾으면 전원으로 넘어간다.
+ *  그 폴백을 readers 에 박으면 참여자 정보가 빈 프로젝트의 대화가 **전 직원에게 열린다.**
+ *
+ *  null 을 돌려주면 "박지 않는다" 는 뜻이다:
+ *   · 전사 공지 — 전원이라 70명을 문서마다 넣으면 메시지가 뚱뚱해지고, 새로 온 직원이 공지를 못 본다.
+ *     규칙에서 "공지방은 전원" 예외로 뺀다.
+ *   · 알 수 없는 방 — 틀린 명단을 박느니 비워 둔다(백필이 나중에 채운다).
+ *
+ *  값은 **보낼 때 굳는다.** 나중에 그 부서로 온 사람은 앞엣것을 못 본다 — 부장님이 그러기로 하셨다
+ *  (2026-09-19: "새로 참가한 사람은 늦게 왔으니 앞에걸 못보는게 당연한거겠지").
+ */
+export function 읽을사람(ch, users, projects) {
+  if (!ch) return null;
+  const 활성 = (users || []).filter((u) => u && !u.disabled);
+  const 추리기 = (ids) => {
+    const 산 = Array.from(new Set((ids || []).filter(Boolean))).filter((id) => 활성.some((u) => u.id === id));
+    return 산.length ? 산 : null;      // 아무도 안 남으면 박지 않는다 — 빈 배열은 "아무도 못 읽음" 이 된다
+  };
+  switch (ch.type) {
+    case 'announce': return null;
+    case 'dm': case 'group': return 추리기(ch.members);
+    case 'dept': {
+      const dn = ch.name || ch.deptName;
+      return dn ? 추리기(활성.filter((u) => u.dept === dn).map((u) => u.id)) : null;
+    }
+    case 'project': {
+      const pid = ch.projectId || String(ch.id || '').replace(/^proj_/, '');
+      const p = (projects || []).find((x) => x && x.id === pid);
+      return p ? 추리기(프로젝트멤버들(p)) : null;
+    }
+    default: return null;
+  }
+}

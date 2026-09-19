@@ -168,5 +168,32 @@ let threw = false; try { await L.이미지축소({}); } catch (e) { threw = true
 확인('숫자가 아예 없으면 글자라도 남긴다', L.프로젝트약자('ABC'), ['ABC']);
 확인('빈 값도 죽지 않는다', Array.isArray(L.프로젝트약자('')) && Array.isArray(L.프로젝트약자(null)), true);
 
+// ── 읽을사람() — 메시지에 박는 readers (2026-09-19, 2단계 1번) ─────────────────
+// 여기서 틀리면 **남의 대화가 열리거나 내 대화가 사라진다.** 둘 다 화면엔 멀쩡해 보인다.
+const 직원 = [
+  { id: 'u1', dept: '품질관리부' }, { id: 'u2', dept: '품질관리부' },
+  { id: 'u3', dept: '영업부' }, { id: 'u9', dept: '품질관리부', disabled: true },
+];
+const 프로젝트 = [{ id: 'p1', pm: 'u1', members: ['u3'] }, { id: 'p2' }];
+const R = (ch) => L.읽을사람(ch, 직원, 프로젝트);
+
+확인('전사 공지는 안 박는다(전원이라)', R({ id: 'c1', type: 'announce' }), null);
+확인('부서방은 그 부서 사람', R({ id: 'dept_quality', type: 'dept', name: '품질관리부' }), ['u1', 'u2']);
+확인('그만둔 사람은 뺀다', R({ id: 'dept_quality', type: 'dept', name: '품질관리부' }).includes('u9'), false);
+확인('1:1 은 방 멤버', R({ id: 'dm1', type: 'dm', members: ['u1', 'u3'] }), ['u1', 'u3']);
+확인('그룹도 방 멤버(중복 제거)', R({ id: 'g1', type: 'group', members: ['u2', 'u3', 'u2'] }), ['u2', 'u3']);
+확인('프로젝트는 PM + 참여자', R({ id: 'proj_p1', type: 'project', projectId: 'p1' }), ['u1', 'u3']);
+// 참여자를 못 찾는 프로젝트에 "전원" 을 박으면 그 대화가 전 직원에게 열린다 — 방멤버() 의 폴백을 쓰면 안 되는 이유다.
+확인('참여자가 빈 프로젝트는 안 박는다', R({ id: 'proj_p2', type: 'project', projectId: 'p2' }), null);
+확인('없는 프로젝트도 안 박는다', R({ id: 'proj_x', type: 'project', projectId: 'x' }), null);
+확인('모르는 방은 안 박는다', R({ id: 'x', type: '??' }), null);
+확인('방이 없어도 안 죽는다', R(null), null);
+확인('아무도 안 남으면 안 박는다(빈 배열 금지)', R({ id: 'dm2', type: 'dm', members: ['없는사람'] }), null);
+확인('빈 부서방도 안 박는다', R({ id: 'dept_x', type: 'dept', name: '해외사업부' }), null);
+
+// 보내는 길이 셋(글·파일·시스템)인데 하나라도 빠뜨리면 그 메시지만 나중에 안 보인다.
+const 앱소스 = (await import('node:fs')).readFileSync(new URL('../modules/messenger/messenger.js', import.meta.url), 'utf8');
+확인('보내는 길 셋이 전부 readers 를 박는다', (앱소스.match(/읽을사람박기\(/g) || []).length, 4);   // 정의 1 + 부르는 곳 3
+
 console.log(`\n${실패 ? '실패 ' + 실패 + '건' : '전부 통과'}`);
 process.exit(실패 ? 1 : 0);
