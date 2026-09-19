@@ -20,6 +20,10 @@ import fitz
 머리규칙 = {
     "figure": re.compile(r"^Figure\s+([A-Z0-9][\w.\-/()]*)"),
     "table": re.compile(r"^Table\s+([A-Z0-9][\w.\-/()]*)"),
+    # 한국 규정(KGS 등)은 "표 1.3.1.2 …" · "그림 3.5.7 …" 이다. 종류 이름은 영어와 같게 둔다 —
+    # figs-to-chunks.py 와 doc_figs.js 가 "table"/"figure" 로 갈라 보기 때문이다.
+    "표kr": re.compile(r"^표\s*([0-9][\w.\-/()]*)"),
+    "그림kr": re.compile(r"^그림\s*([0-9][\w.\-/()]*)"),
 }
 
 def 캡션들(pg, 최대글자=90, 가운데허용=0.10, 종류=("figure", "table")):
@@ -38,7 +42,9 @@ def 캡션들(pg, 최대글자=90, 가운데허용=0.10, 종류=("figure", "tabl
         if not m: continue
         x0, x1 = ws[0][0], ws[-1][2]
         if abs((x0 + x1) / 2 - W / 2) > 가운데허용 * W: continue
-        out.append({"y": ws[0][1], "번호": m.group(1).rstrip("."), "캡션": 글, "종류": 종,
+        # 한국어 캡션도 종류 이름은 영어로 접는다 — 아래 집계와 figs-to-chunks·doc_figs 가 그걸로 가른다.
+        영문종 = {"표kr": "table", "그림kr": "figure"}.get(종, 종)
+        out.append({"y": ws[0][1], "번호": m.group(1).rstrip("."), "캡션": 글, "종류": 영문종,
                     "줄번호": k, "아래": ws[-1][3]})
     # **제목 줄을 이어 붙인다.** 캡션은 "Table QW-256" 뿐이고, GTAW 인지 GMAW 인지는 **다음 줄**에 있다
     # ("Welding Variables Procedure Specifications (WPS) — Gas Tungsten-Arc Welding (GTAW)").

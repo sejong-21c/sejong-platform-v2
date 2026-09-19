@@ -8,7 +8,9 @@
 //   그래서 "이어 붙여서 자르고, 나중에 쪽을 되찾는" 순서로 간다.
 //
 // 쓰는 법:
-//   node tools/pdf-to-chunks.mjs "책.pdf" --name "ASME Sec.IX (2023)" --out 조각.json [--max 900] [--처음 1] [--끝 0] [--규격머리]
+//   node tools/pdf-to-chunks.mjs "책.pdf" --name "ASME Sec.IX (2023)" --out 조각.json [--max 900] [--처음 1] [--끝 0] [--규격머리] [--번호제목]
+//   --번호제목 : "1.3.2 외국 압력용기등…" 처럼 **번호가 곧 제목**인 문서에 쓴다(한국 규정 KGS 등).
+//                ASME 는 켜면 안 된다 — 표의 숫자가 제목으로 읽혀 조각이 부서진다.
 //   --규격머리 : 쪽 머리글의 규격 이름(SA-516/SA-516M)을 조각 머리에 붙인다. Section II A/B/C 처럼
 //                규격 수백 개를 이어 붙인 책에 쓴다 — 없으면 조각이 어느 재료 이야기인지 알 수 없다.
 //   → {docName, chunks:[{글, 머리, 쪽}]}  그대로 파이스로: node scripts/doc-index-cli.mjs 조각.json
@@ -84,7 +86,7 @@ export function 쪽규격(쪽글) {
   return m ? m[1] : '';
 }
 
-export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0, 벌어짐허용 = 0.35, 규격머리 = false } = {}) {
+export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0, 벌어짐허용 = 0.35, 규격머리 = false, 번호제목 = false } = {}) {
   let { 쪽, 첫쪽 } = 쪽뽑기(파일, { 처음, 끝 });
   let 원문 = 쪽.join('\n');
   let 벌어짐 = 글자벌어짐(원문);
@@ -100,7 +102,11 @@ export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음
     }
     벌어짐 = 다시;
   }
-  const 조각 = 조각내기(원문, docName, 최대, { 번호제목: false }).map((c) => 머리몸가르기(c, docName));
+  // 번호제목: ASME 는 **꺼야** 한다 — 표의 "75 (515)"·"18 UNF" 가 제목으로 읽혀 조각이 한 글자짜리로
+  // 부서졌다(2,930조각 평균 271자 → 끄고 1,826조각 평균 431자). 대신 QW-/UG- 규칙이 따로 있어 잃는 게 없다.
+  // **한국 규정(KGS 등)은 정반대다** — "1.3.2 외국 압력용기등 제조등록기준" 처럼 번호가 곧 제목이라,
+  // 끄면 206쪽이 통째로 제목 없는 한 덩어리가 된다. 그래서 문서마다 고를 수 있게 뺐다(--번호제목).
+  const 조각 = 조각내기(원문, docName, 최대, { 번호제목 }).map((c) => 머리몸가르기(c, docName));
   const 쪽붙인것 = 쪽찾기(조각, 쪽, 첫쪽);
   // 20자도 안 되는 조각은 버린다 — 표에서 떨어져 나온 숫자 쪼가리라 어떤 질문에도 답이 못 된다.
   // (책은 조각이 수천 개라 이런 게 15%쯤 섞인다. 짧은 글 자체가 문제인 규정 문서와 달리 버려도 잃는 게 없다.)
@@ -144,12 +150,13 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const 값 = (이름, 기본) => { const i = 인자.indexOf(이름); return i >= 0 ? 인자[i + 1] : 기본; };
   const 옵션이름 = ['--name', '--out', '--max', '--처음', '--끝'];
   const 규격머리 = 인자.includes('--규격머리');
+  const 번호제목 = 인자.includes('--번호제목');
   const 파일 = 인자.find((a, i) => !a.startsWith('--') && !옵션이름.includes(인자[i - 1]));
   if (!파일) { console.error('쓰는 법: node tools/pdf-to-chunks.mjs <책.pdf> --name "이름" --out 조각.json'); process.exit(2); }
   const docName = 값('--name', basename(파일).replace(/\.[^.]+$/, ''));
   const r = 책조각내기(파일, {
     docName, 최대: Number(값('--max', 기본최대)),
-    처음: Number(값('--처음', 1)), 끝: Number(값('--끝', 0)), 규격머리,
+    처음: Number(값('--처음', 1)), 끝: Number(값('--끝', 0)), 규격머리, 번호제목,
   });
   const 나갈곳 = 값('--out', '');
   if (나갈곳) writeFileSync(나갈곳, JSON.stringify({ docName: r.docName, chunks: r.chunks }), 'utf8');

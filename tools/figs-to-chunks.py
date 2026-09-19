@@ -80,12 +80,16 @@ def 만들기(그림폴더):
 
 def main():
     if len(sys.argv) < 3:
-        print("쓰는 법: python tools/figs-to-chunks.py <그림폴더> <나갈파일.json>", file=sys.stderr)
+        print("쓰는 법: python tools/figs-to-chunks.py <그림폴더> <나갈파일.json> [--name \"문서 이름\"]", file=sys.stderr)
         return 2
     sys.stdout.reconfigure(encoding="utf-8")
+    # 문서 이름을 못 박아 두면 안 된다 — 맥 색인은 **같은 이름이면 갈아끼운다.**
+    # KGS 그림을 넣으면서 이름을 안 바꾸면 애써 넣은 ASME 3,040장이 통째로 날아간다(2026-09-19 직전에 발견).
+    인 = sys.argv[3:]
+    이름 = 인[인.index("--name") + 1] if "--name" in 인 else "ASME 도면·표 목록"
     조각 = 만들기(sys.argv[1])
     한글붙음 = sum(1 for c in 조각 if len(c["글"].split("\n")) >= 3)
-    json.dump({"docName": "ASME 도면·표 목록", "chunks": 조각},
+    json.dump({"docName": 이름, "chunks": 조각},
               io.open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False)
     print(f"조각 {len(조각)}개 (한국어 용어 붙은 것 {한글붙음}개) → {sys.argv[2]}")
     for c in 조각[:2]: print("---\n" + c["글"])
