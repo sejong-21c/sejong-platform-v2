@@ -156,11 +156,53 @@ B_11 = ["line", "두께", "pno", "인장MPa", "항복MPa", "최고온도_I", "�
 
 def A배치(pg):
     t = pg.get_text()
-    return A_10 if ("Group" in t and "P-No." in t) else A_7
+    return A_10 if ("Group" in t and "P-No." in t and "Thickness" in t) else A_7
 
-def B배치(pg):
+# 섹션 칸 이름. 표마다 몇 개인지 다르다 — 1A/1B 는 I·III·VIII-1·XII 넷, 2A/2B 는 둘뿐이다.
+섹션표기 = ["I", "II", "III", "IV", "V", "VIII-1", "VIII-2", "X", "XII"]
+
+def 섹션칸(pg, 개수):
+    """머리글에 줄 하나로 서 있는 섹션 표기(I · III · VIII-1 · XII)를 순서대로 읽는다.
+    개수가 안 맞으면 번호로 대신한다 — 이름이 틀리느니 번호가 낫다."""
+    줄 = [x.strip() for x in pg.get_text().split("\n") if x.strip()]
+    본 = [x for x in 줄 if x in 섹션표기]
+    보이는것 = []
+    for x in 본:
+        if x not in 보이는것: 보이는것.append(x)
+    if len(보이는것) == 개수: return ["최고온도_" + x.replace("-", "") for x in 보이는것]
+    # 못 읽으면 None. 번호로 대충 붙이면 Div.1 값이 Div.2 이름을 달고 나간다 —
+    # 2A 에서 실제로 그랬다(열은 III·VIII-2 인데 1A 기준 이름 VIII-1 이 붙었다).
+    return None
+
+def B배치(pg, 열수=None):
+    """B쪽 열 이름을 **머리글을 보고** 짠다. 표마다 구성이 달라 하드코딩으로는 못 따라간다(실측):
+       1A 9칸 · 1B 11칸(두께·P-No. 가 B쪽으로) · 2A/2B 7칸(섹션 둘) · 5A 6칸(최고사용온도 하나) · 5B 8칸."""
     t = pg.get_text()
-    return B_11 if ("Size/Thickness" in t and "P-No." in t) else B_9
+    두께있음 = ("Thickness" in t and "P-No." in t)   # 머리글이 "Size/" + "Thickness," 로 갈려 나온다
+    단일온도 = ("Maximum Use" in t and "Temperature" in t and "Applicability" not in t)
+    앞 = ["line"] + (["두께", "pno"] if 두께있음 else []) + ["인장MPa", "항복MPa"]
+    꼬리 = ["외압챠트", "비고"]
+    if 열수 is None:
+        return 앞 + (["최고사용온도"] if 단일온도 else ["최고온도_I", "최고온도_III", "최고온도_VIII1", "최고온도_XII"]) + 꼬리
+    남 = 열수 - len(앞) - len(꼬리)
+    if 남 < 1: return None
+    가운데 = ["최고사용온도"] if (단일온도 and 남 == 1) else 섹션칸(pg, 남)
+    if 가운데 is None: return None
+    return 앞 + 가운데 + 꼬리
+
+def A배치2(pg, 열수):
+    """A쪽도 표마다 다르다: 1A 10칸 · 1B 7칸 · 2A 9칸(두께 없음) · 2B 9칸(Group 없음) · 5A 10 · 5B 7."""
+    t = pg.get_text()
+    바탕 = ["line", "조성", "제품형태", "spec", "grade", "uns", "class"]
+    뒤 = []
+    if "Thickness" in t: 뒤.append("두께")
+    if "P-No." in t: 뒤.append("pno")
+    if "Group" in t: 뒤.append("group")
+    이름 = 바탕 + 뒤
+    while len(이름) > 열수 and 뒤:           # 머리엔 있는데 실제 칸이 없는 것부터 뺀다(두께가 비는 표가 있다)
+        빼기 = "두께" if "두께" in 이름 else 뒤[-1]
+        이름.remove(빼기); 뒤 = [x for x in 뒤 if x != 빼기]
+    return 이름 if len(이름) == 열수 else None
 
 def 표만들기(pdf, 표=None, 처음=1, 끝=0):
     d = fitz.open(pdf)
@@ -189,18 +231,24 @@ def 표만들기(pdf, 표=None, 처음=1, 끝=0):
 
         모음 = {}
         for 쪽n, _, _, pg in A들:
-            이름표 = A배치(pg)
-            열, 행, _ = 데이터행(pg, len(이름표))
-            if len(열) != len(이름표):
-                경고.append(f"p.{쪽n}(A): 열이 {len(열)}개(기대 {len(이름표)}) — 쪽 버림"); 통계["A쪽버림"] += 1; continue
+            열, 행, _ = 데이터행(pg)               # 먼저 있는 그대로 센다
+            이름표 = A배치2(pg, len(열))
+            if not 이름표:
+                이름표 = A배치(pg)
+                열, 행, _ = 데이터행(pg, len(이름표))   # 이름을 못 짜면 기본 배치로 한 번 더
+            if not 이름표 or len(열) != len(이름표):
+                경고.append(f"p.{쪽n}(A): 열이 {len(열)}개인데 이름을 못 짬 — 쪽 버림"); 통계["A쪽버림"] += 1; continue
             for line, 칸 in 행:
                 모음[line] = dict(zip(이름표, 칸)); 모음[line]["line"] = line; 모음[line]["쪽A"] = 쪽n
             통계["A행"] += len(행)
         for 쪽n, _, _, pg in B들:
-            이름표 = B배치(pg)
-            열, 행, _ = 데이터행(pg, len(이름표))
-            if len(열) != len(이름표):
-                경고.append(f"p.{쪽n}(B): 열이 {len(열)}개(기대 {len(이름표)}) — 쪽 버림"); 통계["B쪽버림"] += 1; continue
+            열, 행, _ = 데이터행(pg)               # 먼저 있는 그대로 센다
+            이름표 = B배치(pg, len(열))
+            if not 이름표:
+                이름표 = B배치(pg)
+                열, 행, _ = 데이터행(pg, len(이름표))
+            if not 이름표 or len(열) != len(이름표):
+                경고.append(f"p.{쪽n}(B): 열이 {len(열)}개인데 이름을 못 짬 — 쪽 버림"); 통계["B쪽버림"] += 1; continue
             for line, 칸 in 행:
                 if line in 모음: 모음[line].update(dict(zip(이름표, 칸))); 모음[line]["line"] = line; 모음[line]["쪽B"] = 쪽n
             통계["B행"] += len(행)
@@ -235,9 +283,21 @@ def 표만들기(pdf, 표=None, 처음=1, 끝=0):
     return 기록, 경고, 통계
 
 # ── 사람이 읽을 한 덩이로 ────────────────────────────────────────────────────
+# 표마다 **어느 코드에 쓰는 값인지**가 다르다. 이걸 조각에 안 적으면 Div.1 허용응력을 물었는데
+# Div.2 의 설계응력강도 Sm 이 답으로 나갈 수 있다 — 값의 정의가 다르므로 설계가 틀린다.
+표설명 = {
+    "1A": "Section I · III Div.1 Class 2·3 · VIII Div.1 · XII 용 최대허용응력 S (철강)",
+    "1B": "Section I · III Div.1 Class 2·3 · VIII Div.1 · XII 용 최대허용응력 S (비철)",
+    "2A": "Section III Div.1 Class 1·MC·CS, Div.3, Div.5 용 설계응력강도 Sm 및 VIII Div.2 Class 1 최대허용응력 S (철강)",
+    "2B": "Section III Div.1 Class 1·MC·CS, Div.3, Div.5 용 설계응력강도 Sm 및 VIII Div.2 Class 1 최대허용응력 S (비철)",
+    "5A": "Section VIII Div.2 Class 2 용 최대허용응력 S (철강)",
+    "5B": "Section VIII Div.2 Class 2 용 최대허용응력 S (비철)",
+}
+
 def 조각글(r):
     있 = lambda v: v and not 빈칸(v)
     줄 = [f"ASME BPVC 2023 Section II-D Table {r['표']} · Line No. {r['line']}"]
+    if 표설명.get(r["표"]): 줄.append(f"쓰임: {표설명[r['표']]}")
     재료 = " / ".join([x for x in [r.get("spec"), r.get("grade"), r.get("조성"), r.get("제품형태")] if 있(x)])
     줄.append(f"재료: {재료}")
     덧 = [f"{n} {r[k]}" for n, k in [("UNS", "uns"), ("Class/Condition/Temper", "class"),
@@ -246,15 +306,18 @@ def 조각글(r):
     줄.append(f"최소 인장강도 {r.get('인장MPa')} MPa · 최소 항복강도 {r.get('항복MPa')} MPa"
               + (f" · 외압 챠트 {r['외압챠트']}" if 있(r.get("외압챠트")) else ""))
     적용 = []
-    for 라벨, 키 in [("Section I", "최고온도_I"), ("Section III", "최고온도_III"),
-                    ("Section VIII-1", "최고온도_VIII1"), ("Section XII", "최고온도_XII")]:
+    for 키 in [k for k in r if k.startswith("최고온도_")] + (["최고사용온도"] if "최고사용온도" in r else []):
+        라벨 = "최고사용온도" if 키 == "최고사용온도" else "Section " + 키.replace("최고온도_", "").replace("VIII1", "VIII-1").replace("VIII2", "VIII-2")
         v = (r.get(키) or "").strip()
-        적용.append(f"{라벨} " + ("사용 불가(NP)" if v == "NP" else f"최고 {v}°C" if re.fullmatch(r"\d+", v) else (v or "-")))
-    줄.append("적용 범위 · " + " · ".join(적용))
+        if 빈칸(v): continue
+        붙임 = ("사용 불가(NP)" if v == "NP" else (f"{v}°C" if 키 == "최고사용온도" else f"최고 {v}°C") if re.fullmatch(r"\d+", v) else v)
+        적용.append(f"{라벨} {붙임}")
+    if 적용: 줄.append("적용 범위 · " + " · ".join(적용))
     응 = r.get("허용응력") or {}
     if 응:
         순 = sorted(응.items(), key=lambda kv: int(kv[0]))
-        줄.append("최대허용응력 S (MPa) — " + " · ".join(f"{t}°C {v}" for t, v in 순))
+        이름 = "설계응력강도 Sm / 최대허용응력 S" if r["표"] in ("2A", "2B") else "최대허용응력 S"
+        줄.append(f"{이름} (MPa) — " + " · ".join(f"{t}°C {v}" for t, v in 순))
     if 있(r.get("비고")): 줄.append(f"비고 {r['비고']}")
     return "\n".join(줄)
 

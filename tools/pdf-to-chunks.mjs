@@ -8,7 +8,9 @@
 //   그래서 "이어 붙여서 자르고, 나중에 쪽을 되찾는" 순서로 간다.
 //
 // 쓰는 법:
-//   node tools/pdf-to-chunks.mjs "책.pdf" --name "ASME Sec.IX (2023)" --out 조각.json [--max 900] [--처음 1] [--끝 0]
+//   node tools/pdf-to-chunks.mjs "책.pdf" --name "ASME Sec.IX (2023)" --out 조각.json [--max 900] [--처음 1] [--끝 0] [--규격머리]
+//   --규격머리 : 쪽 머리글의 규격 이름(SA-516/SA-516M)을 조각 머리에 붙인다. Section II A/B/C 처럼
+//                규격 수백 개를 이어 붙인 책에 쓴다 — 없으면 조각이 어느 재료 이야기인지 알 수 없다.
 //   → {docName, chunks:[{글, 머리, 쪽}]}  그대로 파이스로: node scripts/doc-index-cli.mjs 조각.json
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
@@ -70,7 +72,19 @@ export function 글자벌어짐(원문) {
   return 말.filter((w) => w.length === 1).length / 말.length;
 }
 
-export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0, 벌어짐허용 = 0.35 } = {}) {
+/**
+ * 쪽마다 어느 규격(SA-516/SA-516M · SB-209 · SFA-5.18)인지 알아낸다.
+ * 왜 필요한가: Section II A/B/C 는 규격 수백 개를 이어 붙인 책이라, 조각만 보면
+ * "열처리는 …" 이 **어느 재료 이야기인지 알 수 없다.** 다행히 쪽마다 달리는 머리글에
+ * 규격 이름이 적혀 있다("ASME BPVC.II.A-2023 SA-6/SA-6M 4"). 그걸 조각 머리에 붙인다.
+ */
+export function 쪽규격(쪽글) {
+  const 앞 = String(쪽글 || '').slice(0, 300).replace(/[‐-―−]/g, '-');
+  const m = 앞.match(/\b(S(?:FA|A|B|F)-[0-9][\w.]*(?:\/S(?:FA|A|B|F)-[\w.]+)?)/);
+  return m ? m[1] : '';
+}
+
+export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0, 벌어짐허용 = 0.35, 규격머리 = false } = {}) {
   const { 쪽, 첫쪽 } = 쪽뽑기(파일, { 처음, 끝 });
   const 원문 = 쪽.join('\n');
   const 벌어짐 = 글자벌어짐(원문);
@@ -92,12 +106,27 @@ export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음
   const 글자비 = (t) => (t ? [...t].filter((c) => /\p{L}/u.test(c)).length / t.length : 0);
   const 표조각 = (t) => 글자비(t) < 0.35 || /Maximum Allowable Stress Values/i.test(t);
   const 쓸것 = 쪽붙인것.filter((c) => (c.몸 || '').trim().length >= 20 && !표조각(c.몸));
+
+  // 규격 이름 붙이기. 쪽마다 뽑되, 빈 쪽은 **앞 쪽 것을 물려받는다**(규격 하나가 여러 쪽에 걸친다).
+  let 규격표 = null;
+  if (규격머리) {
+    규격표 = new Map(); let 직전 = '';
+    쪽.forEach((t, i) => { const g = 쪽규격(t) || 직전; if (g) 직전 = g; 규격표.set(첫쪽 + i, g); });
+  }
+  const 머리만들기 = (c) => {
+    if (!규격표) return c.머리;
+    const g = 규격표.get(c.쪽) || '';
+    if (!g) return c.머리;
+    const 꼬리 = (c.머리 || '').startsWith(docName) ? (c.머리 || '').slice(docName.length).replace(/^\s*>\s*/, '') : (c.머리 || '');
+    return [docName, g, 꼬리].filter(Boolean).join(' > ');
+  };
   return {
     docName,
     쪽수: 쪽.length,
     글자수: 원문.length,
     버린조각: 쪽붙인것.length - 쓸것.length,
-    chunks: 쓸것.map((c) => ({ 글: c.몸, 머리: c.머리, 쪽: c.쪽 })),
+    ...(규격표 ? { 규격수: new Set([...규격표.values()].filter(Boolean)).size } : {}),
+    chunks: 쓸것.map((c) => ({ 글: c.몸, 머리: 머리만들기(c), 쪽: c.쪽 })),
   };
 }
 
@@ -106,12 +135,13 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const 인자 = process.argv.slice(2);
   const 값 = (이름, 기본) => { const i = 인자.indexOf(이름); return i >= 0 ? 인자[i + 1] : 기본; };
   const 옵션이름 = ['--name', '--out', '--max', '--처음', '--끝'];
+  const 규격머리 = 인자.includes('--규격머리');
   const 파일 = 인자.find((a, i) => !a.startsWith('--') && !옵션이름.includes(인자[i - 1]));
   if (!파일) { console.error('쓰는 법: node tools/pdf-to-chunks.mjs <책.pdf> --name "이름" --out 조각.json'); process.exit(2); }
   const docName = 값('--name', basename(파일).replace(/\.[^.]+$/, ''));
   const r = 책조각내기(파일, {
     docName, 최대: Number(값('--max', 기본최대)),
-    처음: Number(값('--처음', 1)), 끝: Number(값('--끝', 0)),
+    처음: Number(값('--처음', 1)), 끝: Number(값('--끝', 0)), 규격머리,
   });
   const 나갈곳 = 값('--out', '');
   if (나갈곳) writeFileSync(나갈곳, JSON.stringify({ docName: r.docName, chunks: r.chunks }), 'utf8');
