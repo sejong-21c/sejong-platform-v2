@@ -38,7 +38,27 @@ def 캡션들(pg, 최대글자=90, 가운데허용=0.10, 종류=("figure", "tabl
         if not m: continue
         x0, x1 = ws[0][0], ws[-1][2]
         if abs((x0 + x1) / 2 - W / 2) > 가운데허용 * W: continue
-        out.append({"y": ws[0][1], "번호": m.group(1).rstrip("."), "캡션": 글, "종류": 종})
+        out.append({"y": ws[0][1], "번호": m.group(1).rstrip("."), "캡션": 글, "종류": 종,
+                    "줄번호": k, "아래": ws[-1][3]})
+    # **제목 줄을 이어 붙인다.** 캡션은 "Table QW-256" 뿐이고, GTAW 인지 GMAW 인지는 **다음 줄**에 있다
+    # ("Welding Variables Procedure Specifications (WPS) — Gas Tungsten-Arc Welding (GTAW)").
+    # 이걸 빼먹어서 GTAW 를 물었는데 GMAW 표가 나왔다(2026-09-19 신채완 과장 시험에서 발각).
+    줄목록 = sorted(묶)
+    for c in out:
+        제목 = []
+        직전아래 = c["아래"]
+        for k in 줄목록:
+            if k <= c["줄번호"]: continue
+            ws = sorted(묶[k], key=lambda w: w[0])
+            글 = " ".join(w[4] for w in ws)
+            if ws[0][1] - 직전아래 > 8: break                 # 줄 사이가 벌어지면 제목이 끝난 것
+            if abs((ws[0][0] + ws[-1][2]) / 2 - W / 2) > 가운데허용 * W: break
+            글자 = sum(1 for ch in 글 if ch.isalpha())
+            if len(글) < 6 or 글자 / max(1, len(글)) < 0.55: break   # 숫자·기호 줄이면 표 머리다
+            제목.append(글)
+            직전아래 = ws[-1][3]
+            if len(제목) >= 3: break
+        c["제목"] = " ".join(제목)
     return out
 
 def 영역들(pg, 여백=8, 종류=("figure", "table")):
@@ -58,7 +78,7 @@ def 영역들(pg, 여백=8, 종류=("figure", "table")):
         out.append((c, fitz.Rect(왼, 위, 오, 아래)))
     return out
 
-def 뽑기(pdf, 나갈폴더, docName, slug, 처음=1, 끝=0, dpi=170, 쪽당최대=6, 종류=("figure", "table")):
+def 뽑기(pdf, 나갈폴더, docName, slug, 처음=1, 끝=0, dpi=170, 쪽당최대=6, 종류=("figure", "table"), 목록만=False):
     d = fitz.open(pdf)
     끝 = 끝 or d.page_count
     폴더 = os.path.join(나갈폴더, slug)
@@ -70,15 +90,20 @@ def 뽑기(pdf, 나갈폴더, docName, slug, 처음=1, 끝=0, dpi=170, 쪽당최
         # 캡션이 잔뜩 있는 쪽은 그림이 아니라 목록(LIST OF FIGURES)이다 — 통째로 건너뛴다
         if len(영역) > 쪽당최대: 건너뜀["목록쪽"] += 1; continue
         for n, (c, clip) in enumerate(영역, 1):
-            pix = pg.get_pixmap(dpi=dpi, clip=clip)
-            if pix.width < 120 or pix.height < 90: 건너뜀["너무작음"] += 1; continue
             이름 = f"p{i+1}-{n}.png"
-            pix.save(os.path.join(폴더, 이름))
+            길 = os.path.join(폴더, 이름)
+            if 목록만:
+                if not os.path.exists(길): 건너뜀["파일없음"] += 1; continue
+                pix = None
+            else:
+                pix = pg.get_pixmap(dpi=dpi, clip=clip)
+                if pix.width < 120 or pix.height < 90: 건너뜀["너무작음"] += 1; continue
+                pix.save(길)
             목록.append({
                 "키": f"{slug}/{이름}", "문서": docName, "쪽": i + 1,
-                "그림번호": c["번호"], "캡션": c["캡션"], "종류": c.get("종류", "figure"),
-                "폭": pix.width, "높이": pix.height,
-                "바이트": os.path.getsize(os.path.join(폴더, 이름)),
+                "그림번호": c["번호"], "캡션": c["캡션"], "제목": c.get("제목", ""), "종류": c.get("종류", "figure"),
+                **({"폭": pix.width, "높이": pix.height} if pix else {}),
+                "바이트": os.path.getsize(길),
             })
     d.close()
     with io.open(os.path.join(나갈폴더, slug + ".json"), "w", encoding="utf-8") as f:
@@ -96,13 +121,13 @@ def main():
     docName = 값("--name", os.path.basename(pdf))
     slug = 값("--slug", "fig")
     종류 = tuple(값("--종류", "figure,table").split(","))
-    목록, 건너뜀 = 뽑기(pdf, 나갈폴더, docName, slug, 종류=종류,
+    목록, 건너뜀 = 뽑기(pdf, 나갈폴더, docName, slug, 종류=종류, 목록만=("--목록만" in 인),
                        처음=int(값("--처음", 1)), 끝=int(값("--끝", 0)), dpi=int(값("--dpi", 170)))
     총 = sum(x["바이트"] for x in 목록)
     셈 = {t: sum(1 for x in 목록 if x.get("종류") == t) for t in ("figure", "table")}
     print(f"{docName} — 그림 {셈['figure']}개 · 표 {셈['table']}개 · 합 {len(목록)}개 · {총/1048576:.1f}MB · 평균 {총//max(1,len(목록))//1024}KB")
     if 건너뜀: print("건너뜀: " + " · ".join(f"{k} {v}" for k, v in 건너뜀.items()))
-    for x in 목록[:3]: print(f"  {x['키']}  {x['폭']}x{x['높이']}  {x['캡션'][:60]}")
+    for x in 목록[:3]: print(f"  {x['키']}  {x['캡션'][:40]} | {x.get('제목','')[:60]}")
     return 0
 
 if __name__ == "__main__":
