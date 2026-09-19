@@ -34,20 +34,35 @@ def 말(s):
     """엔대시를 보통 하이픈으로. SA–516 은 startswith("SA-") 로 안 걸린다(실측).
     그리고 값 뒤에 딸려 온 빈칸 표시(…)를 떼어낸다 — "K01800 …" 처럼 붙어 나오는 일이 있다."""
     t = (s or "").translate(DASHES).strip()
+    # ASME 의 개정 표시 "(23)" 이 이 PDF 에서 "ð23Þ" 로 깨져 들어온다. 쪽 오른쪽 끝에 찍혀 있어
+    # **맨 오른쪽 온도 칸(900°C)의 값으로 들어갔다** — 1A·3·4·U·Y-1 합쳐 245군데. 값이 아니다.
+    t = re.sub(r"ð\d+Þ", " ", t).strip()
     while True:
         u = re.sub(r"(^(?:…|\.\.\.)\s+)|(\s+(?:…|\.\.\.)$)", "", t)
-        if u == t: return t
+        if u == t: break
         t = u
+    # 소수점 대신 쉼표를 쓴 칸이 있다(Y-1 에 6군데: "55,2"). 그냥 두면 55.2 가 552 로 읽힌다.
+    # 천 단위 구분이 아닌 게 확실할 때만 — 쉼표 뒤가 한두 자리일 때만 바꾼다(천 단위는 세 자리다).
+    t = re.sub(r"^(\d+),(\d{1,2})$", r"\1.\2", t)
+    return t
 빈칸 = lambda v: (v or "").strip() in ELLIPSIS
 
 # ── 좌표로 표 읽기 ───────────────────────────────────────────────────────────
-def 줄모으기(pg, 왼쪽자르기=50):
-    """낱말을 y 로 묶어 줄 단위로. (y, [낱말...])"""
-    묶음 = collections.defaultdict(list)
-    for w in pg.get_text("words"):
-        if w[0] < 왼쪽자르기: continue
-        묶음[round(w[1] / 3)].append(w)
-    return [(min(v, key=lambda w: w[1])[1], sorted(v, key=lambda w: w[0])) for _, v in sorted(묶음.items())]
+def 줄모으기(pg, 왼쪽자르기=50, 세로허용=4.0):
+    """낱말을 y 로 묶어 줄 단위로. (y, [낱말...])
+
+    **고정 폭으로 자르면 안 된다.** 전에는 round(y/3) 으로 칸을 나눴는데, 같은 행인데 y 가
+    1~2pt 어긋난 낱말이 하필 칸 경계에 걸리면 한 행이 두 줄로 쪼개진다.
+    Table 3 의 A쪽에서 조성 칸이 늘 1pt 위에 찍혀 있어("C-1/4Mo" 만 있는 줄 + 나머지 줄)
+    Line No. 연속 구간이 12 에서 끊겼고, 그 쪽 재료의 3분의 2가 통째로 사라졌다(2026-09-19 실측).
+    그래서 가까운 것끼리 **이어 붙인다.** 행 간격은 9~10pt 이고 어긋남은 1~2pt 라 4 면 안전하다.
+    붙일지는 **묶음의 첫 y** 와 견준다 — 직전 낱말과 견주면 조금씩 밀려 두 행이 하나로 붙는다."""
+    낱말 = sorted((w for w in pg.get_text("words") if w[0] >= 왼쪽자르기), key=lambda w: (w[1], w[0]))
+    줄 = []
+    for w in 낱말:
+        if 줄 and w[1] - 줄[-1][0] <= 세로허용: 줄[-1][1].append(w)
+        else: 줄.append([w[1], [w]])
+    return [(y, sorted(v, key=lambda w: w[0])) for y, v in 줄]
 
 # 열 '찾기' 는 넉넉한 간격(8)이 맞다 — 잔가지가 적어야 열 위치가 깨끗하게 잡힌다.
 # 칸 '나누기' 는 좁은 간격(5)이 맞다 — 붙은 두 칸을 갈라야 한다. 쓰임이 반대다.
@@ -130,9 +145,14 @@ def 쪽정보(pg):
     이름 = None
     m = re.search(r"Table\s+(\S+)", t)
     if m: 이름 = m.group(1).strip()
-    if "Nominal Composition" in t and "Product Form" in t: 종 = "A"
-    elif "Chart No." in t and ("Tensile" in t or "Yield" in t): 종 = "B"
-    elif "Maximum Allowable Stress, MPa" in t or "Maximum Allowable Stress, ksi" in t: 종 = "C"
+    # 값 쪽(C)은 표마다 **값의 이름이 다르다** — 최대허용응력 S · 설계응력강도 Sm ·
+    # 인장강도 Su(Table U) · 항복강도 Sy(Table Y-1). 이름으로 찾으면 표가 늘 때마다 놓친다.
+    # 그래서 이름이 아니라 모든 값 쪽이 공통으로 갖는 "(Multiply by … for Metal Temperature"로 알아본다.
+    if re.search(r"\(Multiply by", t) and "Metal Temperature" in t: 종 = "C"
+    # A쪽 판별에서 "Product Form"을 빼야 한다 — Table 4 의 A쪽에는 제품형태 칸이 아예 없다(실측 p.498).
+    elif "Nominal Composition" in t: 종 = "A"
+    # B쪽에 "Chart No."가 늘 있는 게 아니다 — 볼팅(3·4)과 Y-1 에는 외압 챠트 칸이 없다.
+    elif ("Chart No." in t) or ("Applicability" in t) or re.search(r"Min\.\s*Tensile", t): 종 = "B"
     else: 종 = "?"
     return 종, 이름
 
@@ -179,28 +199,46 @@ def B배치(pg, 열수=None):
        1A 9칸 · 1B 11칸(두께·P-No. 가 B쪽으로) · 2A/2B 7칸(섹션 둘) · 5A 6칸(최고사용온도 하나) · 5B 8칸."""
     t = pg.get_text()
     두께있음 = ("Thickness" in t and "P-No." in t)   # 머리글이 "Size/" + "Thickness," 로 갈려 나온다
+    두께만 = ("Thickness" in t and "P-No." not in t)  # Table Y-1 의 B쪽 — 두께만 넘어오고 P-No. 가 없다
     단일온도 = ("Maximum Use" in t and "Temperature" in t and "Applicability" not in t)
-    앞 = ["line"] + (["두께", "pno"] if 두께있음 else []) + ["인장MPa", "항복MPa"]
-    꼬리 = ["외압챠트", "비고"]
+    # 외압 챠트 칸이 없는 표가 있다 — 볼팅(Table 3·4)과 Y-1. 있을 때만 넣는다.
+    챠트있음 = "Chart No." in t
+    앞 = ["line"] + (["두께", "pno"] if 두께있음 else (["두께"] if 두께만 else [])) + ["인장MPa", "항복MPa"]
+    꼬리 = (["외압챠트"] if 챠트있음 else []) + ["비고"]
     if 열수 is None:
         return 앞 + (["최고사용온도"] if 단일온도 else ["최고온도_I", "최고온도_III", "최고온도_VIII1", "최고온도_XII"]) + 꼬리
     남 = 열수 - len(앞) - len(꼬리)
-    if 남 < 1: return None
+    # Y-1 의 B쪽은 섹션 칸이 **하나도 없다**(두께·인장·항복·비고뿐). 0 도 정상이다.
+    if 남 < 0: return None
+    if 남 == 0: return 앞 + 꼬리
     가운데 = ["최고사용온도"] if (단일온도 and 남 == 1) else 섹션칸(pg, 남)
     if 가운데 is None: return None
     return 앞 + 가운데 + 꼬리
 
 def A배치2(pg, 열수):
-    """A쪽도 표마다 다르다: 1A 10칸 · 1B 7칸 · 2A 9칸(두께 없음) · 2B 9칸(Group 없음) · 5A 10 · 5B 7."""
+    """A쪽도 표마다 다르다(전부 실측):
+       1A 10칸 · 1B 7 · 2A 9(두께 없음) · 2B 9(Group 없음) · 5A 10 · 5B 7 ·
+       **3 은 8칸 · 4 는 7칸(제품형태가 없다) · U 는 9칸(최소인장강도가 A쪽에 있다) · Y-1 은 7칸.**"""
     t = pg.get_text()
-    바탕 = ["line", "조성", "제품형태", "spec", "grade", "uns", "class"]
+    이름 = ["line"]
+    for 표시, 칸 in [("Nominal Composition", "조성"), ("Product Form", "제품형태"),
+                     ("Spec", "spec"), ("Grade", "grade"), ("UNS", "uns"), ("Class", "class")]:
+        if 표시 in t: 이름.append(칸)
     뒤 = []
     if "Thickness" in t: 뒤.append("두께")
     if "P-No." in t: 뒤.append("pno")
     if "Group" in t: 뒤.append("group")
-    이름 = 바탕 + 뒤
-    while len(이름) > 열수 and 뒤:           # 머리엔 있는데 실제 칸이 없는 것부터 뺀다(두께가 비는 표가 있다)
-        빼기 = "두께" if "두께" in 이름 else 뒤[-1]
+    이름 += 뒤
+    # Table U 는 B쪽이 아예 없고 최소인장강도가 A쪽 맨 끝에 있다. "Min." 이 앞에 붙은 것만 본다 —
+    # Y-1 의 A쪽은 제목이 "Yield Strength Values, Sy" 라 그냥 "Yield" 로 찾으면 없는 칸이 생긴다.
+    강도 = []
+    if re.search(r"Min\.\s*Tensile", t): 강도.append("인장MPa")
+    if re.search(r"Min\.\s*Yield", t): 강도.append("항복MPa")
+    이름 += 강도
+    # 머리엔 있는데 실제 칸이 없는 것부터 뺀다(두께가 비는 표가 있다).
+    # **강도 칸은 절대 빼지 않는다** — 빼면 이름이 한 칸씩 밀려 인장강도 자리에 엉뚱한 값이 들어간다.
+    while len(이름) > 열수 and 뒤:
+        빼기 = "두께" if "두께" in 뒤 else 뒤[-1]
         이름.remove(빼기); 뒤 = [x for x in 뒤 if x != 빼기]
     return 이름 if len(이름) == 열수 else None
 
@@ -225,8 +263,10 @@ def 표만들기(pdf, 표=None, 처음=1, 끝=0):
         A들 = [x for x in 묶음 if x[1] == "A"]
         B들 = [x for x in 묶음 if x[1] == "B"]
         C들 = [x for x in 묶음 if x[1] == "C"]
-        if not (A들 and B들 and C들):
-            경고.append(f"p.{쪽}: A/B/C 가 다 모이지 않음(A{len(A들)} B{len(B들)} C{len(C들)}) — 묶음 버림")
+        # Table U 는 **B쪽이 아예 없다** — 최소인장강도까지 A쪽에 들어 있다(실측 p.628).
+        # 그래서 B 를 필수로 두면 212쪽이 통째로 버려진다. A 와 C 만 있으면 된다.
+        if not (A들 and C들):
+            경고.append(f"p.{쪽}: A/C 가 다 모이지 않음(A{len(A들)} B{len(B들)} C{len(C들)}) — 묶음 버림")
             통계["묶음버림"] += 1; continue
 
         모음 = {}
@@ -262,6 +302,15 @@ def 표만들기(pdf, 표=None, 처음=1, 끝=0):
                 경고.append(f"p.{쪽n}(C): 온도 {len(온도)}개인데 열 {len(열)}개 — 쪽 버림"); 통계["C쪽버림"] += 1; continue
             for line, 칸 in 행:
                 if line not in 모음: continue
+                # 값 두 개가 한 칸에 뭉치는 일이 있다("313 292"). 그러면 **그 뒤 값이 전부 한 칸씩
+                # 밀려** 675°C 값이 650°C 자리에 앉는다 — 화면엔 멀쩡한 숫자라 아무도 못 알아챈다.
+                # (2026-09-19 Table U SA-213 TP309S 에서 발견. 자기 최소인장강도와 40°C 값을
+                #  견주는 교차검사로 잡았다.) 밀린 걸 되돌리려 추측하지 않는다 — **그 줄을 버린다.**
+                뭉침 = [v for v in 칸[1:] if len(re.findall(r"\d+(?:\.\d+)?", v or "")) > 1]
+                if 뭉침:
+                    경고.append(f"p.{쪽n}(C) line {line}: 한 칸에 값이 둘 {뭉침[0]!r} — 뒤가 밀린다, 줄 버림")
+                    통계["뭉침버림"] += 1
+                    모음.pop(line, None); continue
                 응력 = 모음[line].setdefault("허용응력", {})
                 for t, v in zip(온도, 칸[1:]):
                     if not 빈칸(v): 응력[str(t)] = v
@@ -269,6 +318,17 @@ def 표만들기(pdf, 표=None, 처음=1, 끝=0):
             통계["C행"] += len(행)
 
         for line, r in 모음.items():
+            # **온도가 오르는데 값이 오르는 줄은 버린다.** 물리적으로 안 되는 일이라, 그런 줄은
+            # 어딘가에서 옆 칸 값을 주워 온 것이다(1만 줄 중 7줄 — 예: 2A SA-841 이 400°C 161 MPa
+            # 인데 425°C 215 MPa). 어느 칸이 틀렸는지는 알 수 없으니 그 줄을 통째로 버린다 —
+            # 틀린 근거는 근거 없는 것보다 나쁘다. 2% 는 반올림 여유다.
+            순 = [(int(t), float(v)) for t, v in sorted((r.get("허용응력") or {}).items(), key=lambda kv: int(kv[0]))
+                  if re.fullmatch(r"\d+(?:\.\d+)?", str(v))]
+            거꿀 = next(((t1, a, t2, b) for (t1, a), (t2, b) in zip(순, 순[1:]) if b > a * 1.02), None)
+            if 거꿀:
+                경고.append(f"Table {이름} line {line} ({r.get('spec')}): {거꿀[0]}°C {거꿀[1]} → {거꿀[2]}°C {거꿀[3]} "
+                            f"— 온도가 올랐는데 값이 올랐다, 줄 버림")
+                통계["거꿀버림"] += 1; continue
             if r.get("spec") and r.get("인장MPa") and r.get("허용응력"):
                 r["표"] = 이름
                 # Line No. 는 **쪽 묶음마다 1 로 다시 시작한다**(p.58·62·66·70 전부 1~45 — 실측).
@@ -292,6 +352,17 @@ def 표만들기(pdf, 표=None, 처음=1, 끝=0):
     "2B": "Section III Div.1 Class 1·MC·CS, Div.3, Div.5 용 설계응력강도 Sm 및 VIII Div.2 Class 1 최대허용응력 S (비철)",
     "5A": "Section VIII Div.2 Class 2 용 최대허용응력 S (철강)",
     "5B": "Section VIII Div.2 Class 2 용 최대허용응력 S (비철)",
+    "3": "**볼팅(볼트·스터드) 전용** — Section III Div.1 Class 2·3 · VIII Div.1·2 · XII 용 최대허용응력 S",
+    "4": "**볼팅(볼트·스터드) 전용** — Section III Div.1 Class 1·MC, Div.3, Div.5 용 설계응력강도 Sm 및 VIII Div.2 최대허용응력 S",
+    "U": "온도별 **인장강도** Su (허용응력이 아니다 — 그대로 설계에 쓰면 안 된다)",
+    "Y-1": "온도별 **항복강도** Sy (허용응력이 아니다 — 그대로 설계에 쓰면 안 된다)",
+}
+
+# 값의 **정의**가 표마다 다르다. 이름을 안 적으면 인장강도를 허용응력으로 읽는 사고가 난다.
+값이름 = {
+    "2A": "설계응력강도 Sm / 최대허용응력 S", "2B": "설계응력강도 Sm / 최대허용응력 S",
+    "4": "설계응력강도 Sm / 최대허용응력 S",
+    "U": "인장강도 Su", "Y-1": "항복강도 Sy",
 }
 
 def 조각글(r):
@@ -303,8 +374,12 @@ def 조각글(r):
     덧 = [f"{n} {r[k]}" for n, k in [("UNS", "uns"), ("Class/Condition/Temper", "class"),
                                      ("두께(mm)", "두께"), ("P-No.", "pno"), ("Group No.", "group")] if 있(r.get(k))]
     if 덧: 줄.append(" · ".join(덧))
-    줄.append(f"최소 인장강도 {r.get('인장MPa')} MPa · 최소 항복강도 {r.get('항복MPa')} MPa"
-              + (f" · 외압 챠트 {r['외압챠트']}" if 있(r.get("외압챠트")) else ""))
+    # 표마다 있는 칸이 다르다 — Table U 에는 항복강도 칸이 아예 없다(A쪽에 인장강도만 있다).
+    # 없는 값을 "None MPa" 로 적으면 AI 가 그걸 근거로 답한다. 있는 것만 적는다.
+    강도 = [f"{이름} {r[키]} MPa" for 이름, 키 in [("최소 인장강도", "인장MPa"), ("최소 항복강도", "항복MPa")]
+            if 있(r.get(키))]
+    if 있(r.get("외압챠트")): 강도.append(f"외압 챠트 {r['외압챠트']}")
+    if 강도: 줄.append(" · ".join(강도))
     적용 = []
     for 키 in [k for k in r if k.startswith("최고온도_")] + (["최고사용온도"] if "최고사용온도" in r else []):
         라벨 = "최고사용온도" if 키 == "최고사용온도" else "Section " + 키.replace("최고온도_", "").replace("VIII1", "VIII-1").replace("VIII2", "VIII-2")
@@ -316,7 +391,7 @@ def 조각글(r):
     응 = r.get("허용응력") or {}
     if 응:
         순 = sorted(응.items(), key=lambda kv: int(kv[0]))
-        이름 = "설계응력강도 Sm / 최대허용응력 S" if r["표"] in ("2A", "2B") else "최대허용응력 S"
+        이름 = 값이름.get(r["표"], "최대허용응력 S")
         줄.append(f"{이름} (MPa) — " + " · ".join(f"{t}°C {v}" for t, v in 순))
     if 있(r.get("비고")): 줄.append(f"비고 {r['비고']}")
     return "\n".join(줄)
@@ -334,7 +409,9 @@ def main():
     chunks = [{"글": 조각글(r), "쪽": r.get("쪽A"), "머리": f"ASME BPVC 2023 Sec.II-D > Table {r['표']}"}
               for r in 기록.values()]
     with io.open(나갈곳, "w", encoding="utf-8") as f:
-        json.dump({"docName": "ASME BPVC 2023 Sec.II-D (재료 허용응력)", "chunks": chunks,
+        # 문서 이름은 맥 색인에 이미 있는 것과 **똑같아야** 갈아끼워진다 — 다르면 중복 문서가 되고
+        # 같은 재료가 두 벌 나온다(옛것에는 빠진 재료가 있으니 옛 답이 섞인다).
+        json.dump({"docName": "ASME BPVC 2023 Sec.II-D (재료 허용응력표)", "chunks": chunks,
                    "원본": {f"{t}#p{p}#{l}": r for (t, p, l), r in 기록.items()}}, f, ensure_ascii=False)
     print(f"되살린 줄 {len(기록)}개 → {나갈곳}")
     print("통계: " + " · ".join(f"{k} {v}" for k, v in sorted(통계.items())))
