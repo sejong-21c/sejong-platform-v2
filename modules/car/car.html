@@ -1100,6 +1100,19 @@ function openCARMgr(carId) {
     else if (newStatus !== 'closed') current.closedBy = '';
     current.status = newStatus;
     if (attach.chunkId) {
+      // 2026-09-19: 첨부를 바꿔도 **옛 파일은 R2 에 그대로 남는다** — 게이트웨이에 삭제 길이 없다
+      // (`/file/put`·`/file/sign`·`/file/get` 뿐). 그런데 여기서 열쇠를 덮어쓰면 파일은 남아 있어도
+      // **못 찾는다** — 잘못 바꿨을 때 되돌릴 방법이 사라진다. 그래서 옛 열쇠를 들고 있는다.
+      // 열쇠는 한 줄(40자 안팎)이라 문서가 커지지 않는다. 열 개까지만.
+      if (current.meta.fileChunkId && current.meta.fileChunkId !== attach.chunkId) {
+        current.meta.옛첨부 = [{
+          키: current.meta.fileChunkId,
+          조각수: current.meta.fileChunks || 0,
+          이름: current.meta.fileName || '',
+          바뀐날: new Date().toISOString().slice(0, 10),
+          바꾼사람: state.currentUser || '',
+        }, ...(current.meta.옛첨부 || [])].slice(0, 10);
+      }
       current.meta.fileChunkId = attach.chunkId;
       current.meta.fileChunks = attach.totalChunks;
       current.meta.fileName = attach.name;

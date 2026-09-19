@@ -54,5 +54,20 @@ for (const f of 읽는곳) {
   T(`${f} — DB 밖 첨부도 읽는다`, /window\.첨부 && window\.첨부\.밖에있나\(/.test(s));
 }
 
+// ── 5) 지운 것도 되찾을 수 있어야 한다 ───────────────────────────
+// 첨부는 아직 **어디에도 백업이 없다**(게이트웨이 야간 백업은 조각을 애초에 제외한다).
+// 그래서 "지우면 끝" 인 길을 만들면 안 된다. 지금은 R2 가 사실상 복구본 노릇을 한다.
+const 워커 = readFileSync(new URL('../gateway/cloudflare-worker.js', import.meta.url), 'utf8');
+T('게이트웨이에 파일 삭제 길이 없다', !/env\.FILES\.delete/.test(워커) && !/\/file\/delete/.test(워커),
+  '레코드를 지워도 파일은 R2 에 남는다 — 이게 지금 유일한 복구본이다');
+
+for (const f of ['modules/car/car.html', 'modules/ncr/ncr.html']) {
+  const s2 = readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+  // 열쇠를 덮어쓰면 파일이 R2 에 남아 있어도 **못 찾는다** — 잘못 바꿨을 때 되돌릴 길이 사라진다.
+  T(`${f} — 첨부를 바꿀 때 옛 열쇠를 남긴다`, /current\.meta\.옛첨부 = \[\{/.test(s2));
+  T(`${f} — 같은 열쇠면 쌓지 않는다`, /current\.meta\.fileChunkId !== attach\.chunkId/.test(s2));
+  T(`${f} — 무한정 쌓지 않는다`, /\.slice\(0, 10\)/.test(s2));
+}
+
 console.log(실패 ? `\n${실패}개 실패` : '\n전부 통과');
 process.exit(실패 ? 1 : 0);
