@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b42';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b42';
+import * as L from './lib.js?v=b43';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b43';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b42';
+const 빌드 = 'b43';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1173,6 +1173,14 @@ async function AI맥락(문서) {
   if (문서 && 문서.length) {
     줄.push('\n## 사내 문서에서 찾은 부분 (답의 근거로 쓰고, 문서 이름을 밝힐 것)');
     문서.forEach((m) => 줄.push(`[${m.docName || '문서'}] ${String(m.text || '').slice(0, 700)}`));
+    // 도면이 붙는다는 걸 알려 준다. 안 알려 주면 "그림 보여달라" 는 물음에 **없는 화면 경로를 지어내** 안내한다
+    // (2026-09-19 실제로 "왼쪽 메뉴 → 표준·규격" 이라는 없는 메뉴를 만들어 냈다).
+    const 붙는그림 = [];
+    for (const m of 문서) for (const g of (m.images || [])) if (붙는그림.length < 2) 붙는그림.push(g);
+    if (붙는그림.length) {
+      줄.push(`\n## 이 답변 **바로 아래에 도면이 함께 표시된다**: ${붙는그림.map((g) => 'Figure ' + (g.no || '')).join(', ')}`);
+      줄.push('그러니 "어디서 찾아보라" 고 안내하지 말고, 그림이 무엇을 보여 주는지·어떻게 읽는지를 설명해라.');
+    }
   }
   return 줄.join('\n').slice(0, 8000);
 }
