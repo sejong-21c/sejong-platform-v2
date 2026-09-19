@@ -28,6 +28,7 @@
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+    getDocsFromCache, getDocFromCache,
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit, documentId
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -57,6 +58,7 @@
 
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit, documentId, // documentId: v29.59 AI 비서 ITP 문서 범위 쿼리용
+    getDocsFromCache, getDocFromCache,        // 서버가 못 줄 때(한도·망) 캐시로 들어가려고 — hydrateUsersAndEnter
   };
 </script>
 <!-- v29.5: 개인 구글 캘린더 연동용 — Firebase Auth(로그인)와는 완전히 별개의 OAuth 클라이언트.
@@ -2612,9 +2614,27 @@ async function hydrateUsersAndEnter(uid) {
   state.lastActive = Date.now();
 
   // v29.46.1: users 컬렉션 및 adminAccess 구성을 병렬(Parallel) 조회하여 로그인 대기시간 최소화
+  // v30.x(2026-09-19): **시간제한 + 캐시 대체.** 서버가 못 주면 캐시로라도 들어간다.
+  // 왜: 파이어베이스 하루 읽기 한도가 차면 getDocs 가 오류로 끝나지 않고 **영영 안 끝난다**
+  // (SDK 가 조용히 재시도한다). 그래서 로그인 덮개가 안 걷히고 플랫폼이 통째로 멈췄다
+  // — 신채완 과장 자리에서 실제로 그랬고, .catch() 만 걸려 있어 아무도 원인을 알 수 없었다.
+  // 멈춰 있는 것보다 **조금 옛 자료로라도 들어가는 게** 낫다. 영속 캐시가 있으니 대개 최신에 가깝다.
+  let 캐시로들어옴 = false;
+  const 시간제한 = (p, ms) => Promise.race([p, new Promise((_, rj) => setTimeout(() => rj(new Error('시간초과')), ms))]);
+  const 서버아니면캐시 = async (이름, 서버, 캐시) => {
+    try { return await 시간제한(서버(), 7000); }
+    catch (err) {
+      console.warn('[Hydrate] ' + 이름 + ' 서버 조회 실패 — 캐시로 대체:', err && err.message);
+      try { const v = await 캐시(); 캐시로들어옴 = true; return v; } catch (e2) { return null; }
+    }
+  };
   const [snaps, adminSnap] = await Promise.all([
-    fb.getDocs(fb.collection(fb.db, 'users')).catch(err => { console.error('[Hydrate] users 조회 오류:', err); return null; }),
-    fb.getDoc(fb.doc(fb.db, 'adminAccess', 'config')).catch(() => null)
+    서버아니면캐시('users',
+      () => fb.getDocs(fb.collection(fb.db, 'users')),
+      () => fb.getDocsFromCache(fb.collection(fb.db, 'users'))),
+    서버아니면캐시('adminAccess',
+      () => fb.getDoc(fb.doc(fb.db, 'adminAccess', 'config')),
+      () => fb.getDocFromCache(fb.doc(fb.db, 'adminAccess', 'config'))),
   ]);
 
   if (snaps) {
@@ -2630,6 +2650,20 @@ async function hydrateUsersAndEnter(uid) {
 
   gcalConnected = !!getU(uid).gcalConnected;
   save();
+
+  // 캐시로 들어왔으면 그렇다고 알린다. 조용히 옛 자료를 보여 주면 사람이 그걸 최신으로 믿는다.
+  if (캐시로들어옴) {
+    setTimeout(() => {
+      const b = document.createElement('div');
+      b.style.cssText = 'position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:6000;'
+        + 'background:#8a6d1f;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;'
+        + 'box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer;max-width:92vw;';
+      b.textContent = '서버에서 자료를 받지 못해 저장된 자료로 열었습니다 — 화면이 최신이 아닐 수 있습니다. (눌러서 닫기)';
+      b.onclick = () => b.remove();
+      document.body.appendChild(b);
+      setTimeout(() => b.remove(), 20000);
+    }, 400);
+  }
 
   startFirestoreSync();
   logAccess(uid);
