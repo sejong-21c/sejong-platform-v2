@@ -7,7 +7,7 @@
 //  · index.html 의 되돌아가기 검사가 느슨해지면 열린 리디렉션이 된다.
 //  · html 의 ?v= 와 index.html 의 MESSENGER_BUILD 가 어긋나면 새 HTML 이 옛 JS 를 10분 캐시로 받는다.
 // 실물(설치·오프라인)은 test/pwa-live-check.mjs, 화면 시나리오는 test/messenger-ui-check.mjs.
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -74,10 +74,26 @@ const 상수V = (앱.match(/const 빌드 = '([\w.-]+)'/) || [])[1];
 // 조용히 죽는 종류다: getFirestore 로 되돌려도 화면은 멀쩡하고, 대신 접속마다 서버에서 다 다시 읽어
 // **무료 하루 5만 읽기**를 태운다(그날 남은 시간 플랫폼 전체가 429). 사람 눈에는 안 보인다.
 // 메신저는 플랫폼 안에서 부모(index.html)의 fb.db 를 쓰므로(getFB) 둘 다 검사해야 한다.
-for (const [이름, 글] of [['index.html', 인덱스], ['messenger.js', 앱]]) {
+// 파일 목록을 손으로 적지 않고 **찾아서** 검사한다 — 새 모듈을 만들며 빠뜨리는 게 원래 사고였다.
+// (2026-09-19 실측: 0단계를 "완료"로 적어 뒀는데 실제로는 16개 중 6개만 캐시가 있었다.
+//  그날 한도가 차자 CAR·NCR·대시보드 화면이 통째로 안 떴다.)
+const 파이어스토어쓰는파일 = [
+  'index.html', 'modules/messenger/messenger.js',
+  ...readdirSync(join(뿌리, 'modules'), { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .flatMap((d) => readdirSync(join(뿌리, 'modules', d.name))
+      .filter((n) => n.endsWith('.html'))
+      .map((n) => `modules/${d.name}/${n}`)),
+].filter((f) => /firebase-firestore\.js/.test(읽기(f)));
+
+확인(`파이어스토어 쓰는 파일을 다 찾았다 (${파이어스토어쓰는파일.length}개)`, 파이어스토어쓰는파일.length >= 16,
+  '찾은 게 갑자기 줄었으면 이 검사가 헛돌고 있는 것이다');
+
+for (const 이름 of 파이어스토어쓰는파일) {
+  const 글 = 읽기(이름);
   확인(`${이름} 이 영속 캐시를 쓴다`,
-    /initializeFirestore\(\s*fbApp\s*,\s*\{\s*localCache:\s*persistentLocalCache\(/.test(글),
-    '되돌리면 접속마다 수백 건을 다시 읽어 하루 한도를 태운다');
+    /initializeFirestore\(\s*(?:fbApp|app)\s*,\s*\{\s*localCache:\s*persistentLocalCache\(/.test(글),
+    '되돌리면 접속마다 수백 건을 다시 읽어 하루 한도를 태운다 — 한도가 차면 이 화면이 통째로 멈춘다');
   확인(`${이름} 에 맨 getFirestore 가 없다`, !/\bgetFirestore\s*\(/.test(글),
     'initializeFirestore 와 같이 있으면 어느 쪽이 쓰이는지 알 수 없다');
   확인(`${이름} 이 여러 탭 관리자를 쓴다`, /persistentMultipleTabManager\(\)/.test(글),

@@ -10,7 +10,7 @@
   // 공유하기 버튼이 wbsShares/{pid}에 저장한 스냅샷을 로그인 없이 읽는다
   // (Firestore 규칙에서 wbsShares 컬렉션만 공개 read 허용 — 쓰기는 사내 계정만).
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -21,7 +21,11 @@
     measurementId: "G-8LJDWYVJ5G"
   };
   const app = initializeApp(firebaseConfig);
-  window.fb = { db: getFirestore(app), doc, getDoc };
+  // 2026-09-19 (0단계 마무리): IndexedDB 영속 캐시 — 재방문 때 **바뀐 것만** 받는다.
+  // 없으면 안 되는 이유: 하루 읽기 한도(5만)가 차면 `getDocs` 가 영영 안 끝난다(SDK 가 조용히 재시도한다).
+  // 캐시가 없으면 그날 이 화면이 통째로 멈춘다 — 9/19 에 실제로 그랬다. 캐시가 있으면 어제 것이라도 뜬다.
+  const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  window.fb = { db, doc, getDoc };
   window.dispatchEvent(new Event("fb-ready"));
 </script>
 <style>

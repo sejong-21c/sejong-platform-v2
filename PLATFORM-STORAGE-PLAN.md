@@ -47,10 +47,16 @@
 
 ## 단계
 
-### 0단계 — 0원, 한도 사고를 구조적으로 막는다 ✅ 완료 (b41)
+### 0단계 — 0원, 한도 사고를 구조적으로 막는다 ✅ 완료 (b41 + 2026-09-19 오후 마무리)
 - ✅ **영속 캐시**: `getFirestore` → `initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) })`.
   **index.html(플랫폼 본체)와 messenger.js 둘 다.** 플랫폼 안 메신저는 부모의 `fb.db` 를 쓰므로(`getFB`) index.html 쪽이 본체다.
   ITP·QA·ITP빌더·QA생성기 4개 모듈은 이미 이 방식이었다 — 본체와 메신저만 빠져 있었다.
+- ⚠️ **그런데 그게 전부가 아니었다 (2026-09-19 오후 실측)**: 파이어스토어를 쓰는 파일이 **17개**인데
+  캐시가 있는 건 **6개뿐**이었다. `car`·`ncr`·`qa-dashboard`·`mobile-inspection`·`meeting`·`purchase`·
+  `wbs`·`wbs-share`·`knowledge-map`·`measurement-tools`·`agitator` 11개가 빠져 있었다.
+  그날 한도가 차자 **CAR·NCR·대시보드 화면이 통째로 안 떴다.** 지금은 17개 전부 들어갔다.
+  불변식도 목록을 손으로 적지 않고 **`modules/` 를 훑어서** 검사하게 바꿨다 —
+  손으로 적은 목록이 바로 이 사고의 원인이었다(새 모듈을 만들며 빠뜨린다).
 - ✅ **되돌림 방지 불변식 6개** (`test/pwa-w1.test.mjs`): 두 파일 각각 영속 캐시·맨 `getFirestore` 금지·여러 탭 관리자.
 - ✅ **`tools/count-collections.mjs`** — 컬렉션별 문서 수를 `getCountFromServer`(1,000건당 1읽기)로 센다. 모든 배치 작업의 첫 줄.
 - ✅ 백업 바인딩은 **계속 꺼둔 상태.**
