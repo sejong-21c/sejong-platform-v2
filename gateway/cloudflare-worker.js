@@ -605,6 +605,26 @@ async function 서명하기(key, 글) {
 // 키 이름은 우리가 만든다(사용자 입력을 그대로 쓰지 않는다) — 그래도 한 번 더 막는다.
 const 안전한키 = (k) => /^[A-Za-z0-9._\-/]{1,300}$/.test(k) && !k.includes('..');
 
+// v3.8: **맥미니(배치)** 도 올리고 서명받을 수 있게 한다.
+// 왜 필요한가: 옛 첨부 조각(chunk__*)을 DB 밖으로 옮기는 일은 맥미니가 밤에 돈다. 그런데 맥은
+// 직원 로그인 토큰을 만들 수 없다(서비스 계정에는 Identity Toolkit 권한이 없다 — 실측 INSUFFICIENT_PERMISSION).
+// 그렇다고 **파이스의 구글 계정**(부장님 개인)으로 드라이브에 올리면 회사 첨부가 개인 토큰에 매달린다.
+// 그래서 회사 자산끼리 붙인다: 회사 클라우드플레어 계정의 R2 + 이 게이트웨이 + 서버 전용 비밀값.
+// 범위는 **올리기·서명받기뿐**이다. 내려받기는 원래 서명만 보므로 여기서 손댈 게 없다.
+//   npx wrangler secret put MIGRATE_TOKEN
+function 서버토큰인가(request, env) {
+  const 비밀 = String(env.MIGRATE_TOKEN || '').trim();
+  if (!비밀) return false;
+  const m = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i);
+  if (!m) return false;
+  const 온것 = m[1].trim();
+  // 길이가 같을 때만 한 글자씩 — 맞는 글자 수가 시간으로 새지 않게 한다.
+  if (온것.length !== 비밀.length) return false;
+  let 다름 = 0;
+  for (let i = 0; i < 비밀.length; i++) 다름 |= 온것.charCodeAt(i) ^ 비밀.charCodeAt(i);
+  return 다름 === 0;
+}
+
 async function handleFile(request, env, url, cors) {
   if (!env.FILES) return json(501, { error: 'R2 버킷(FILES)이 연결되지 않았습니다' }, cors);
   const key = await 서명키(env);
@@ -613,8 +633,10 @@ async function handleFile(request, env, url, cors) {
   // 1) 서명 받기 — 로그인 확인. { keys:[...] } → { urls: {키: 주소} }
   if (url.pathname === '/file/sign') {
     if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
-    const auth = await verifyCompanyFirebaseToken(request, env);
-    if (auth.status) return json(auth.status, { error: auth.error }, cors);
+    if (!서버토큰인가(request, env)) {
+      const auth = await verifyCompanyFirebaseToken(request, env);
+      if (auth.status) return json(auth.status, { error: auth.error }, cors);
+    }
     let body; try { body = await request.json(); } catch (e) { return json(400, { error: 'invalid JSON' }, cors); }
     const keys = (Array.isArray(body.keys) ? body.keys : []).map(String).filter(안전한키).slice(0, 50);
     if (!keys.length) return json(400, { error: 'keys 가 필요합니다' }, cors);
@@ -648,8 +670,10 @@ async function handleFile(request, env, url, cors) {
   // 3) 올리기 — 로그인 확인. 키는 ?key= 로, 내용은 본문 그대로.
   if (url.pathname === '/file/put') {
     if (request.method !== 'PUT' && request.method !== 'POST') return json(405, { error: 'PUT/POST only' }, cors);
-    const auth = await verifyCompanyFirebaseToken(request, env);
-    if (auth.status) return json(auth.status, { error: auth.error }, cors);
+    if (!서버토큰인가(request, env)) {
+      const auth = await verifyCompanyFirebaseToken(request, env);
+      if (auth.status) return json(auth.status, { error: auth.error }, cors);
+    }
     const k = String(url.searchParams.get('key') || '');
     if (!안전한키(k)) return json(400, { error: 'key 가 올바르지 않습니다' }, cors);
     const ct = request.headers.get('Content-Type') || 'application/octet-stream';
