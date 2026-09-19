@@ -8,7 +8,9 @@
 //   그래서 "이어 붙여서 자르고, 나중에 쪽을 되찾는" 순서로 간다.
 //
 // 쓰는 법:
-//   node tools/pdf-to-chunks.mjs "책.pdf" --name "ASME Sec.IX (2023)" --out 조각.json [--max 900] [--처음 1] [--끝 0] [--규격머리] [--번호제목]
+//   node tools/pdf-to-chunks.mjs "책.pdf" --name "ASME Sec.IX (2023)" --out 조각.json [--max 900] [--처음 1] [--끝 0] [--규격머리] [--번호제목] [--띄어쓰기]
+//   --띄어쓰기 : 화면엔 띄어 있는데 뽑으면 붙어 나오는 PDF(공백이 좌표로만 있는 것).
+//                공백 비율이 5% 아래면 의심할 것 — 한국어 본문은 10~20% 다.
 //   --번호제목 : "1.3.2 외국 압력용기등…" 처럼 **번호가 곧 제목**인 문서에 쓴다(한국 규정 KGS 등).
 //                ASME 는 켜면 안 된다 — 표의 숫자가 제목으로 읽혀 조각이 부서진다.
 //   --규격머리 : 쪽 머리글의 규격 이름(SA-516/SA-516M)을 조각 머리에 붙인다. Section II A/B/C 처럼
@@ -24,8 +26,11 @@ import { 조각내기, 기본최대 } from './rag-chunk.mjs';
 const 여기 = dirname(fileURLToPath(import.meta.url));
 
 /** PDF → 쪽별 글자. python + PyMuPDF 를 부른다(노드에 PDF 파서를 넣지 않는다 — 패키지 0 원칙). */
-export function 쪽뽑기(파일, { 처음 = 1, 끝 = 0, python = process.env.PYTHON || 'python', 되붙이기 = false } = {}) {
-  const 스크립트 = join(여기, 되붙이기 ? 'pdf-despace.py' : 'pdf-pages.py');
+export function 쪽뽑기(파일, { 처음 = 1, 끝 = 0, python = process.env.PYTHON || 'python', 되붙이기 = false, 띄어쓰기 = false } = {}) {
+  // 셋 중 하나: 그냥(pdf-pages) · 낱자로 흩어진 걸 붙이기(despace) · 공백이 좌표로만 있는 걸 되살리기(respace).
+  // respace 가 필요한 경우: 화면엔 "용접부의 용접이" 인데 뽑으면 "용접부의용접이" 로 나온다
+  // (공백 문자가 없고 좌표로만 띄워 놓은 PDF — 에너지이용합리화법 고시 전문_1).
+  const 스크립트 = join(여기, 띄어쓰기 ? 'pdf-respace.py' : 되붙이기 ? 'pdf-despace.py' : 'pdf-pages.py');
   if (!existsSync(스크립트)) throw new Error(`${스크립트} 가 없습니다`);
   // 결과는 임시 파일로 받는다 — 윈도우 콘솔이 cp949 라 stdout 으로 주면 특수문자에서 죽는다.
   const 임시 = join(tmpdir(), `pdf-pages-${process.pid}-${Date.now()}.json`);
@@ -86,8 +91,8 @@ export function 쪽규격(쪽글) {
   return m ? m[1] : '';
 }
 
-export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0, 벌어짐허용 = 0.35, 규격머리 = false, 번호제목 = false } = {}) {
-  let { 쪽, 첫쪽 } = 쪽뽑기(파일, { 처음, 끝 });
+export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0, 벌어짐허용 = 0.35, 규격머리 = false, 번호제목 = false, 띄어쓰기 = false } = {}) {
+  let { 쪽, 첫쪽 } = 쪽뽑기(파일, { 처음, 끝, 띄어쓰기 });
   let 원문 = 쪽.join('\n');
   let 벌어짐 = 글자벌어짐(원문);
   if (벌어짐 > 벌어짐허용) {
@@ -151,12 +156,13 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const 옵션이름 = ['--name', '--out', '--max', '--처음', '--끝'];
   const 규격머리 = 인자.includes('--규격머리');
   const 번호제목 = 인자.includes('--번호제목');
+  const 띄어쓰기 = 인자.includes('--띄어쓰기');
   const 파일 = 인자.find((a, i) => !a.startsWith('--') && !옵션이름.includes(인자[i - 1]));
   if (!파일) { console.error('쓰는 법: node tools/pdf-to-chunks.mjs <책.pdf> --name "이름" --out 조각.json'); process.exit(2); }
   const docName = 값('--name', basename(파일).replace(/\.[^.]+$/, ''));
   const r = 책조각내기(파일, {
     docName, 최대: Number(값('--max', 기본최대)),
-    처음: Number(값('--처음', 1)), 끝: Number(값('--끝', 0)), 규격머리, 번호제목,
+    처음: Number(값('--처음', 1)), 끝: Number(값('--끝', 0)), 규격머리, 번호제목, 띄어쓰기,
   });
   const 나갈곳 = 값('--out', '');
   if (나갈곳) writeFileSync(나갈곳, JSON.stringify({ docName: r.docName, chunks: r.chunks }), 'utf8');

@@ -1,5 +1,5 @@
 # ASME 코드북에서 그림을 오려낸다.
-#   python tools/asme-figs.py "<책.pdf>" <나갈폴더> --name "ASME Sec.VIII Div.1" --slug viii [--처음 76] [--dpi 170] [--종류 figure,table]
+#   python tools/asme-figs.py "<책.pdf>" <나갈폴더> --name "ASME Sec.VIII Div.1" --slug viii [--처음 76] [--dpi 170] [--종류 figure,table] [--캡션아래]
 #   → <나갈폴더>/<slug>/p<쪽>-<n>.png  +  <나갈폴더>/<slug>.json (목록)
 #
 # 왜 이렇게 뽑나 (2026-09-19 실측):
@@ -22,8 +22,10 @@ import fitz
     "table": re.compile(r"^Table\s+([A-Z0-9][\w.\-/()]*)"),
     # 한국 규정(KGS 등)은 "표 1.3.1.2 …" · "그림 3.5.7 …" 이다. 종류 이름은 영어와 같게 둔다 —
     # figs-to-chunks.py 와 doc_figs.js 가 "table"/"figure" 로 갈라 보기 때문이다.
-    "표kr": re.compile(r"^표\s*([0-9][\w.\-/()]*)"),
-    "그림kr": re.compile(r"^그림\s*([0-9][\w.\-/()]*)"),
+    "표kr": re.compile(r"^[\[［]?\s*표\s*([0-9][\w.\-/()]*)[\]］]?(?:\s|$)"),
+    "그림kr": re.compile(r"^[\[［]?\s*그림\s*([0-9][\w.\-/()]*)[\]］]?(?:\s|$)"),
+    # 닫는 괄호 **뒤에 공백**을 요구하는 게 핵심이다. 본문 속 참조는 조사가 바로 붙는다 —
+    # "[그림 30.6]으로부터 구해져…" 를 캡션으로 보면 본문 한 문단을 그림으로 오려낸다(실측).
 }
 
 def 캡션들(pg, 최대글자=90, 가운데허용=0.10, 종류=("figure", "table")):
@@ -67,24 +69,43 @@ def 캡션들(pg, 최대글자=90, 가운데허용=0.10, 종류=("figure", "tabl
         c["제목"] = " ".join(제목)
     return out
 
-def 영역들(pg, 여백=8, 종류=("figure", "table")):
-    """캡션마다 (캡션, clip). 그림·표는 캡션 아래 ~ 다음 캡션 전까지."""
+def 영역들(pg, 여백=8, 종류=("figure", "table"), 캡션아래=False):
+    """캡션마다 (캡션, clip).
+
+    ASME 는 캡션이 **위**에 있고 그림이 그 아래다(실측 p.89·90·100).
+    한국 고시(에너지이용합리화법)는 **반대로 캡션이 그림 아래**다 — "[그림 30.5] …" 가 쪽의 y 77~90%
+    자리에 찍혀 있다. 그대로 두면 캡션 한 줄만 오려내고 정작 그림은 통째로 빠진다.
+    그래서 `캡션아래=True` 면 **앞 캡션 끝(또는 쪽 위) ~ 이 캡션 끝**을 오려낸다."""
     캡 = 캡션들(pg, 종류=종류)
     if not 캡: return []
-    말 = pg.get_text("words")
-    if not 말: return []
-    왼 = max(0, min(w[0] for w in 말) - 여백)
-    오 = min(pg.rect.width, max(w[2] for w in 말) + 여백)
-    아래끝 = min(pg.rect.height, max(w[3] for w in 말) + 여백)
+    # **글자만 보면 안 된다.** 차트가 통째로 벡터인 쪽이 있다(에너지이용합리화법 [그림 30.5] 외압 곡선 —
+    # 축 눈금까지 선으로 그려져 있어 낱말이 캡션 하나뿐이었다). 그러면 "캡션 위에 아무것도 없다" 고
+    # 판단해 그 쪽을 통째로 건너뛴다. 실제로 제일 중요한 차트가 그렇게 빠졌다.
+    # 그래서 낱말 + 그려진 선 + 박힌 이미지를 **다 모아** 범위를 잡는다.
+    상자 = [(w[0], w[1], w[2], w[3]) for w in pg.get_text("words")]
+    try: 상자 += [tuple(dr["rect"]) for dr in pg.get_drawings()]
+    except Exception: pass
+    try: 상자 += [tuple(im["bbox"]) for im in pg.get_image_info()]
+    except Exception: pass
+    상자 = [b for b in 상자 if b[2] > b[0] and b[3] > b[1]]
+    if not 상자: return []
+    왼 = max(0, min(b[0] for b in 상자) - 여백)
+    오 = min(pg.rect.width, max(b[2] for b in 상자) + 여백)
+    위끝 = max(0, min(b[1] for b in 상자) - 여백)
+    아래끝 = min(pg.rect.height, max(b[3] for b in 상자) + 여백)
     out = []
     for i, c in enumerate(캡):
-        위 = max(0, c["y"] - 6)
-        아래 = (캡[i + 1]["y"] - 6) if i + 1 < len(캡) else 아래끝
+        if 캡션아래:
+            위 = (캡[i - 1]["아래"] + 6) if i else 위끝
+            아래 = min(pg.rect.height, c["아래"] + 6)      # 캡션 줄까지 같이 담는다(무슨 그림인지 보이게)
+        else:
+            위 = max(0, c["y"] - 6)
+            아래 = (캡[i + 1]["y"] - 6) if i + 1 < len(캡) else 아래끝
         if 아래 - 위 < 40: continue          # 캡션만 있고 그림이 없는 것(다음 쪽으로 넘어간 경우)
         out.append((c, fitz.Rect(왼, 위, 오, 아래)))
     return out
 
-def 뽑기(pdf, 나갈폴더, docName, slug, 처음=1, 끝=0, dpi=170, 쪽당최대=6, 종류=("figure", "table"), 목록만=False):
+def 뽑기(pdf, 나갈폴더, docName, slug, 처음=1, 끝=0, dpi=170, 쪽당최대=6, 종류=("figure", "table"), 목록만=False, 캡션아래=False):
     d = fitz.open(pdf)
     끝 = 끝 or d.page_count
     폴더 = os.path.join(나갈폴더, slug)
@@ -92,7 +113,7 @@ def 뽑기(pdf, 나갈폴더, docName, slug, 처음=1, 끝=0, dpi=170, 쪽당최
     목록, 건너뜀 = [], collections.Counter()
     for i in range(처음 - 1, min(끝, d.page_count)):
         pg = d[i]
-        영역 = 영역들(pg, 종류=종류)
+        영역 = 영역들(pg, 종류=종류, 캡션아래=캡션아래)
         # 캡션이 잔뜩 있는 쪽은 그림이 아니라 목록(LIST OF FIGURES)이다 — 통째로 건너뛴다
         if len(영역) > 쪽당최대: 건너뜀["목록쪽"] += 1; continue
         for n, (c, clip) in enumerate(영역, 1):
@@ -127,7 +148,7 @@ def main():
     docName = 값("--name", os.path.basename(pdf))
     slug = 값("--slug", "fig")
     종류 = tuple(값("--종류", "figure,table").split(","))
-    목록, 건너뜀 = 뽑기(pdf, 나갈폴더, docName, slug, 종류=종류, 목록만=("--목록만" in 인),
+    목록, 건너뜀 = 뽑기(pdf, 나갈폴더, docName, slug, 종류=종류, 목록만=("--목록만" in 인), 캡션아래=("--캡션아래" in 인),
                        처음=int(값("--처음", 1)), 끝=int(값("--끝", 0)), dpi=int(값("--dpi", 170)))
     총 = sum(x["바이트"] for x in 목록)
     셈 = {t: sum(1 for x in 목록 if x.get("종류") == t) for t in ("figure", "table")}
