@@ -194,7 +194,10 @@ async function 맥검색(env, query, topK) {
     text: [c.머리, c.글].filter(Boolean).join('\n'),
     kind: '', recId: '',
     ...(c.쪽 ? { page: c.쪽 } : {}),
-    ...(c.그림 ? { image: c.그림 } : {}),
+    // 그림은 맥이 **이미 서명해서** 준다(7일). 여기서 다시 서명하지 않는다 — 열쇠 다루는 곳을 하나로 둔다.
+    ...(Array.isArray(c.그림) && c.그림.length
+      ? { images: c.그림.map((g) => ({ no: g.번호, caption: g.캡션, page: g.쪽, url: g.주소 })) }
+      : {}),
   }));
 }
 

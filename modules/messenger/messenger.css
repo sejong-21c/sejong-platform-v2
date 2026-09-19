@@ -575,3 +575,13 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-composer[data-locked]::before {
   content: attr(data-locked); color: var(--text-3); font-size: 13px; padding: 10px 4px; text-align: center;
 }
+
+/* ── AI 답변에 딸리는 도면(ASME 그림) ────────────────────────────────────────
+   주소는 맥이 서명해 준 것이라 7일이면 만료된다. 옛 대화에서 깨지면 엑스박스 대신
+   그림만 접고 캡션 글자를 남긴다(.is-gone) — 무엇에 대한 그림이었는지는 알 수 있게. */
+.sjm-md-figs { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.sjm-md-fig { margin: 0; border: 1px solid #e3e7ec; border-radius: 8px; overflow: hidden; background: #fff; }
+.sjm-md-fig img { display: block; width: 100%; height: auto; cursor: zoom-in; background: #fff; }
+.sjm-md-fig figcaption { padding: 5px 8px; font-size: 11px; color: #5b6673; background: #f7f9fb; border-top: 1px solid #eef1f5; }
+.sjm-md-fig.is-gone img { display: none; }
+.sjm-md-fig.is-gone figcaption::after { content: ' (그림 주소가 만료되었습니다 — 다시 물어보세요)'; color: #98a2b3; }
