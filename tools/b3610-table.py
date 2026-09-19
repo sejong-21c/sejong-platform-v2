@@ -33,7 +33,24 @@ def 고치기(s):
     s = re.sub(r"\b[DO](\.\d)", r"0\1", s)
     return s.replace("–", "-").replace("—", "-").strip()
 
-def 줄묶기(pg, 틈=3.2):
+def 낱말경계(pg):
+    """이 쪽에서 '낱말 사이'로 볼 최소 간격. 낱자로 흩어진 PDF(B36.19)는 글자 사이가 0.4pt 라
+    그냥 이어 붙이면 "0 . 4 0 5" 가 된다. 보통 PDF 는 낱말이 이미 붙어 있으므로 손대면 안 된다
+    — 그래서 먼저 어느 쪽인지 보고 규칙을 고른다."""
+    말 = pg.get_text().split()
+    낱자 = sum(1 for w in 말 if len(w) == 1) / max(1, len(말))
+    if 낱자 <= 0.5: return 0.9
+    갭 = sorted(b[0] - a[2] for r in 줄묶기_원(pg) for a, b in zip(r, r[1:]) if 0 <= b[0] - a[2] < 8)
+    return max(0.9, 갭[len(갭) // 2] * 2.5) if 갭 else 0.9
+
+def 줄글(ws, 경계):
+    out = []
+    for i, w in enumerate(ws):
+        if i and (w[0] - ws[i - 1][2]) >= 경계: out.append(" ")
+        out.append(w[4])
+    return "".join(out).strip()
+
+def 줄묶기_원(pg, 틈=3.2):
     """y 가 가까운 낱말을 한 줄로. 식별 칸(STD/XS/XXS)이 데이터 줄보다 1~3pt 위에 찍히는 일이 있다."""
     ws = sorted(pg.get_text("words"), key=lambda w: (w[1], w[0]))
     줄, 현 = [], []
@@ -58,6 +75,9 @@ def 줄정리(t):
     · "0. 719" → "0.719"   · "248. 95" → "248.95"
     · "(1 050)" → "(1050)" · "(3 70.48)" → "(370.48)"   (천 단위를 띄어 읽은 것)
     · "D.405" → "0.405"    (D 로 시작하는 치수는 존재하지 않는다)"""
+    # B36.19 는 칸 안에 "[Note (1)]" 이 끼어 있다. 각주 표시는 값이 아니므로 먼저 걷어낸다 —
+    # 안 걷으면 줄 끝의 "값 (괄호값)" 쌍 세 개 모양이 깨져 그 줄을 통째로 못 읽는다.
+    t = re.sub(r"\[\s*Notes?\s*\([^)]*\)\s*\]", " ", t)
     t = re.sub(r"\b[DO](\.\d)", r"0\1", t)                # D.405 -> 0.405
     t = re.sub(r"(\d)\.\s+(\d)", r"\1.\2", t)             # "0. 719" -> "0.719"
     for _ in range(3):
@@ -79,9 +99,13 @@ def 행읽기(pdf, 처음, 끝):
     행들, 경고 = [], []
     for i in range(처음 - 1, min(끝, d.page_count)):
         pg = d[i]
-        if "Table 2-1" not in pg.get_text(): continue
-        for ws in 줄묶기(pg):
-            t = 줄정리(" ".join(w[4] for w in ws))
+        경계 = 낱말경계(pg)
+        줄들 = 줄묶기_원(pg)
+        # 쪽 거르개는 **되붙인 글**로 봐야 한다. 낱자 PDF(B36.19)는 원문이 "T a b l e 2 - 1" 이라
+        # get_text() 에 "Table 2-1" 이 없다 — 그래서 표 쪽을 전부 건너뛰고 0행이 나왔다(2026-09-19).
+        if not any("Table 2-1" in 줄글(ws, 경계) for ws in 줄들[:8]): continue
+        for ws in 줄들:
+            t = 줄정리(줄글(ws, 경계))
             m = 줄패턴.match(t)
             if not m: continue                       # 머리글·쪽번호 등은 여기서 걸러진다
             dn = int(m.group("dn"))

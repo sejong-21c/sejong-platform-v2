@@ -22,8 +22,8 @@ import { 조각내기, 기본최대 } from './rag-chunk.mjs';
 const 여기 = dirname(fileURLToPath(import.meta.url));
 
 /** PDF → 쪽별 글자. python + PyMuPDF 를 부른다(노드에 PDF 파서를 넣지 않는다 — 패키지 0 원칙). */
-export function 쪽뽑기(파일, { 처음 = 1, 끝 = 0, python = process.env.PYTHON || 'python' } = {}) {
-  const 스크립트 = join(여기, 'pdf-pages.py');
+export function 쪽뽑기(파일, { 처음 = 1, 끝 = 0, python = process.env.PYTHON || 'python', 되붙이기 = false } = {}) {
+  const 스크립트 = join(여기, 되붙이기 ? 'pdf-despace.py' : 'pdf-pages.py');
   if (!existsSync(스크립트)) throw new Error(`${스크립트} 가 없습니다`);
   // 결과는 임시 파일로 받는다 — 윈도우 콘솔이 cp949 라 stdout 으로 주면 특수문자에서 죽는다.
   const 임시 = join(tmpdir(), `pdf-pages-${process.pid}-${Date.now()}.json`);
@@ -85,12 +85,20 @@ export function 쪽규격(쪽글) {
 }
 
 export function 책조각내기(파일, { docName, 최대 = 기본최대, 처음 = 1, 끝 = 0, 벌어짐허용 = 0.35, 규격머리 = false } = {}) {
-  const { 쪽, 첫쪽 } = 쪽뽑기(파일, { 처음, 끝 });
-  const 원문 = 쪽.join('\n');
-  const 벌어짐 = 글자벌어짐(원문);
+  let { 쪽, 첫쪽 } = 쪽뽑기(파일, { 처음, 끝 });
+  let 원문 = 쪽.join('\n');
+  let 벌어짐 = 글자벌어짐(원문);
   if (벌어짐 > 벌어짐허용) {
-    throw new Error(`글자가 낱자로 흩어진 PDF 입니다(한 글자짜리 ${Math.round(벌어짐 * 100)}%). `
-      + '이대로 색인하면 검색에 영영 안 걸립니다. 다른 판본을 구하거나 좌표 기반으로 다시 뽑아야 합니다.');
+    // 낱자로 흩어진 PDF 는 버리지 않고 **좌표로 되붙여** 다시 뽑는다(tools/pdf-despace.py).
+    // 글자 사이(0.4pt)와 낱말 사이(1.9pt)는 눈에 안 보여도 좌표로는 다르다 — B36.19 실측.
+    ({ 쪽, 첫쪽 } = 쪽뽑기(파일, { 처음, 끝, 되붙이기: true }));
+    원문 = 쪽.join('\n');
+    const 다시 = 글자벌어짐(원문);
+    if (다시 > 벌어짐허용) {
+      throw new Error(`글자가 낱자로 흩어진 PDF 입니다(되붙인 뒤에도 한 글자짜리 ${Math.round(다시 * 100)}%). `
+        + '이대로 색인하면 검색에 영영 안 걸립니다. 다른 판본이 필요합니다.');
+    }
+    벌어짐 = 다시;
   }
   const 조각 = 조각내기(원문, docName, 최대, { 번호제목: false }).map((c) => 머리몸가르기(c, docName));
   const 쪽붙인것 = 쪽찾기(조각, 쪽, 첫쪽);
