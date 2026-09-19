@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b46';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b46';
+import * as L from './lib.js?v=b47';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b47';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b46';
+const 빌드 = 'b47';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -677,7 +677,7 @@ function 그림달기(m) {
   return `<div class="sjm-md-figs">${gs.map((g) => {
     const 설명 = esc(g.caption || ('Figure ' + (g.no || '')));
     return `<figure class="sjm-md-fig">`
-      + `<img src="${esc(g.url)}" alt="${설명}" loading="lazy"`
+      + `<img src="${esc(g.url)}" alt="${설명}" loading="lazy" data-act="view-img"`
       + ` onerror="this.closest('.sjm-md-fig').classList.add('is-gone')">`
       + `<figcaption>${설명}${g.page ? ` · p.${esc(String(g.page))}` : ''}</figcaption></figure>`;
   }).join('')}</div>`;
@@ -1333,6 +1333,12 @@ function 행동(el) {
     default: break;
   }
 }
+// 길게 눌러서 **할 일이 있는** 것만. 남의 메시지(msg)는 이제 아무 시트도 안 띄우므로 여기에 없다 —
+// 목록에서 빼지 않으면 타이머가 돌아 suppressClick 이 걸리고(다음 누름이 먹힘), 데스크톱에선
+// contextmenu 를 막아 **브라우저 복사 메뉴까지 사라진다.** 보이지 않는 고장이라 더 나쁘다.
+const 긴누름할일 = new Set(['chat', 'msg-failed', 'msg-me']);
+const 긴누름있나 = (el) => !!el && 긴누름할일.has(el.dataset.long);
+
 function 길게누름(el) {
   const kind = el.dataset.long;
   if (kind === 'chat') {
@@ -1344,10 +1350,12 @@ function 길게누름(el) {
       <button class="sjm-sheet-cancel" data-act="sheet-close">취소</button>`);
   } else if (kind === 'msg-failed') {
     openSheet(`${항목('retry', ICON.refresh, '다시 보내기', `data-mid="${esc(el.dataset.mid)}"`)}${항목('discard', ICON.trash, '삭제', `data-mid="${esc(el.dataset.mid)}"`, 'is-danger')}<button class="sjm-sheet-cancel" data-act="sheet-close">취소</button>`);
-  } else if (kind === 'msg' || kind === 'msg-me') {
+  } else if (kind === 'msg-me') {
+    // 남의 메시지(kind==='msg')에는 시트를 안 띄운다 — 할 수 있는 게 "복사" 하나뿐인데,
+    // 그 시트가 뜨는 바람에 **글자를 끌어서 고르지 못했다**(부장님 지시 2026-09-19: 카톡처럼 끌어서 복사).
+    // 이제 그냥 손가락으로 집으면 된다. 내 메시지만 시트를 남긴다 — 삭제는 브라우저가 못 해 준다.
     const mid = el.dataset.mid; const m = 메시지찾기(mid); if (!m) return;
-    const items = `${m.text ? 항목('copy', ICON.copy, '복사', `data-mid="${esc(mid)}"`) : ''}${kind === 'msg-me' ? 항목('delete', ICON.trash, '삭제', `data-mid="${esc(mid)}"`, 'is-danger') : ''}`;
-    if (!items) return;
+    const items = `${m.text ? 항목('copy', ICON.copy, '복사', `data-mid="${esc(mid)}"`) : ''}${항목('delete', ICON.trash, '삭제', `data-mid="${esc(mid)}"`, 'is-danger')}`;
     openSheet(`${items}<button class="sjm-sheet-cancel" data-act="sheet-close">취소</button>`);
   }
 }
@@ -1372,7 +1380,7 @@ function 이벤트연결() {
   // 길게 누르기(폰) · 우클릭(데스크톱) → 같은 시트
   let lp = null;
   document.addEventListener('pointerdown', (e) => {
-    const el = e.target.closest('[data-long]'); if (!el || e.button !== 0) return;
+    const el = e.target.closest('[data-long]'); if (!긴누름있나(el) || e.button !== 0) return;
     const x = e.clientX, y = e.clientY;
     lp = { el, x, y, tm: setTimeout(() => { lp = null; ui.suppressClick = Date.now() + 600; 길게누름(el); }, 500) };
   }, { passive: true });
@@ -1381,7 +1389,7 @@ function 이벤트연결() {
   document.addEventListener('pointerup', cancelLp, { passive: true });
   document.addEventListener('pointercancel', cancelLp, { passive: true });
   document.addEventListener('contextmenu', (e) => {
-    const el = e.target.closest('[data-long]'); if (!el) return;
+    const el = e.target.closest('[data-long]'); if (!긴누름있나(el)) return;
     e.preventDefault(); if (lp) { clearTimeout(lp.tm); lp = null; }
     if (ui.suppressClick && Date.now() < ui.suppressClick) return;   // 안드로이드: 길게 누르기와 contextmenu 가 둘 다 온다
     ui.suppressClick = Date.now() + 600; 길게누름(el);

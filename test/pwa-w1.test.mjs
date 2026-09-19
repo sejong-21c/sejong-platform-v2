@@ -24,6 +24,7 @@ const 매니 = JSON.parse(읽기('modules/messenger/manifest.json'));
 const 껍데기 = 읽기('modules/messenger/messenger.html');
 const 앱 = 읽기('modules/messenger/messenger.js');
 const sw = 읽기('modules/messenger/sw.js');
+const css = 읽기('modules/messenger/messenger.css');
 const 인덱스 = 읽기('index.html');
 
 // ── 매니페스트 ──
@@ -69,6 +70,18 @@ const 내부V = [...앱.matchAll(/from '\.\/(?:lib|ai)\.js\?v=([\w.-]+)'/g)].map
 확인('그 ?v= 도 빌드 번호와 같다', 내부V.every((v) => v === idxV), `${내부V.join(',')} vs ${idxV}`);
 const 상수V = (앱.match(/const 빌드 = '([\w.-]+)'/) || [])[1];
 확인('messenger.js 안 빌드 상수도 같다', 상수V === idxV, `${상수V} vs ${idxV} — 서비스워커 캐시로 오면 ?v= 가 없어 이 상수가 화면에 찍힌다`);
+
+// ── 폰에서 카톡처럼 (2026-09-19 오후, 부장님 지시) ──────────────────────────
+// 셋 다 **되돌리기 쉽고 되돌아가도 티가 안 난다.** 데스크톱에서는 멀쩡해 보이기 때문이다.
+확인('방 본문이 좌우로 안 흔들린다', /\.sjm-room-body \{[\s\S]{0,400}?overflow-x: hidden/.test(css),
+  'overflow-y 만 auto 로 두면 브라우저가 가로도 auto 로 잡는다 — 넓은 표 그림 하나에 방이 좌우로 흔들린다');
+확인('말풍선 글자를 끌어서 고를 수 있다', /\.sjm-bubble \{[^}]*user-select: text/.test(css),
+  '카톡처럼 필요한 데만 끌어서 복사 — 예전엔 앱이 만든 "복사" 시트밖에 없었다');
+확인('말풍선이 user-select 금지 목록에 없다', !/\.sjm-bubble,[^{]*\{[^}]*user-select: none/.test(css));
+확인('표·그림을 눌러 크게 본다', /<img src="\$\{esc\(g\.url\)\}"[^`]*data-act="view-img"/.test(앱),
+  '폰에서 표는 작아서 안 보인다 — 눌러서 뷰어(핀치 확대)로 열어야 한다');
+확인('할 일 없는 길게누름은 타이머를 안 건다', /긴누름있나\(el\)/.test(앱),
+  '남의 메시지에 타이머가 돌면 suppressClick 이 걸려 다음 누름이 먹히고, 데스크톱 우클릭 메뉴도 사라진다');
 
 // ── 방 커튼 (2026-09-19 오후, 부장님 지시) ──────────────────────────────────
 // "임원이라도 자기 부서 아니면 대화를 못 보게 해. 이건 대표님도 마찬가지 — 대표님은 영업부서만."

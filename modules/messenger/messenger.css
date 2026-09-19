@@ -38,7 +38,12 @@
 html { touch-action: manipulation; }
 html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); }
 /* iOS: 길게 누르면 텍스트 선택·링크 미리보기가 우리 시트와 같이 뜬다 → 줄과 말풍선은 선택 불가(복사는 메뉴의 [복사]로) */
-.sjm-chat, .sjm-user, .sjm-proj, .sjm-msg, .sjm-bubble, .sjm-sheet-item, .sjm-avatar { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.sjm-chat, .sjm-user, .sjm-proj, .sjm-msg, .sjm-sheet-item, .sjm-avatar { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* 말풍선 글자는 **집을 수 있어야 한다**(부장님 지시 2026-09-19): 카톡처럼 끌어서 필요한 데만 복사.
+   전엔 .sjm-bubble 도 위 목록에 있어 꾹 눌러도 앱이 만든 "복사" 시트밖에 안 떴다.
+   .sjm-msg 가 none 이라 상속되므로 여기서 **명시적으로** text 로 되돌려야 한다. */
+.sjm-bubble { -webkit-touch-callout: default; -webkit-user-select: text; user-select: text; }
+.sjm-bubble.is-img { -webkit-user-select: none; user-select: none; }   /* 사진 버블은 눌러서 크게 보는 게 먼저 */
 .sjm-bubble a { color: #1d4ed8; text-decoration: underline; word-break: break-all; }
 body {
   font-family: var(--font);
@@ -320,7 +325,10 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-room-count { font-size: 13.5px; color: var(--text-2); flex: 0 0 auto; }
 
 .sjm-room-body {
-  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* overflow-x 를 **반드시** 적어야 한다. overflow-y 만 auto 로 두면 브라우저가 가로도 auto 로 계산해서,
+     넓은 표 그림이 하나 들어오는 순간 방 전체가 좌우로 흔들린다(폰에서 카톡과 달라 보이는 주범 —
+     부장님 2026-09-19 제보). 넓은 것은 아래 규칙으로 폭에 맞추고, 크게 볼 땐 눌러서 뷰어로 연다. */
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
   padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 2px;
   overflow-anchor: none;
 }
@@ -579,7 +587,10 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 /* ── AI 답변에 딸리는 도면(ASME 그림) ────────────────────────────────────────
    주소는 맥이 서명해 준 것이라 7일이면 만료된다. 옛 대화에서 깨지면 엑스박스 대신
    그림만 접고 캡션 글자를 남긴다(.is-gone) — 무엇에 대한 그림이었는지는 알 수 있게. */
-.sjm-md-figs { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.sjm-md-figs { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; max-width: 100%; }
+/* 무엇이 들어와도 말풍선 폭을 넘지 않게. 하나라도 새면 방이 좌우로 흔들린다. */
+.sjm-bubble img, .sjm-bubble pre, .sjm-bubble table { max-width: 100%; }
+.sjm-bubble pre { overflow-x: auto; }
 .sjm-md-fig { margin: 0; border: 1px solid #e3e7ec; border-radius: 8px; overflow: hidden; background: #fff; }
 .sjm-md-fig img { display: block; width: 100%; height: auto; cursor: zoom-in; background: #fff; }
 .sjm-md-fig figcaption { padding: 5px 8px; font-size: 11px; color: #5b6673; background: #f7f9fb; border-top: 1px solid #eef1f5; }
