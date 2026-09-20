@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b51';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b51';
+import * as L from './lib.js?v=b52';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b52';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b51';
+const 빌드 = 'b52';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1246,8 +1246,12 @@ async function AI에게묻기(질문) {
     // 칩이 붙어 나왔다.** 답은 맞는데 근거가 거짓말을 하는 꼴이라 더 나쁘다.
     // 모델에게 주는 맥락은 그대로 0.4 로 넉넉히 둔다 — 약한 자료라도 봐야 "없다" 고 말할 수 있다.
     // 사람에게 **보여 주는** 근거만 높인다. 보이는 것이 곧 주장이다.
-    const 근거문턱 = 0.62;
-    const 쓸만한 = 문서.filter((m) => (m.score || 0) >= 근거문턱);
+    // 볼트(파일 경로)와 코드북(글 조각)은 점수 눈금이 다르다 — 실측:
+    //   상관없는 ASME 0.45~0.57 · 맞는 ASME 0.63 이상 · **맞는 볼트 경로 0.59~0.64**
+    //   한 문턱(0.62)으로 자르면 "급여대장 어디 있나" 의 진짜 답(0.59)이 잘려 나간다.
+    const 근거문턱 = 0.62;          // 코드북 글 조각
+    const 볼트문턱 = 0.55;          // 볼트 파일 경로 — 이미 권한 범위로 걸러져 나온 것들이다
+    const 쓸만한 = 문서.filter((m) => (m.score || 0) >= (m.kind === '볼트' ? 볼트문턱 : 근거문턱));
     const 그림 = [];
     for (const m of 쓸만한) {
       for (const g of (m.images || [])) {
