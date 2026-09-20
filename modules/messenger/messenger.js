@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b48';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b48';
+import * as L from './lib.js?v=b49';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b49';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b48';
+const 빌드 = 'b49';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1234,9 +1234,19 @@ async function AI에게묻기(질문) {
     const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서), 권한: 내권한(), fb });
     // 근거로 쓴 조각에 딸린 도면(ASME 그림)을 같이 남긴다. 점수 높은 것부터 두 장까지 —
     // 더 붙이면 말풍선이 그림으로 뒤덮여 정작 답이 안 보인다.
+    // **그림은 글보다 높은 문턱을 넘어야 붙인다.** 2026-09-21: "재무부 자료 읽어지나" 라고 물었는데
+    // 상관없는 ASME 용접봉 대조표가 답 밑에 붙었다. bge-m3 는 아무 상관 없는 한국어에도 0.55 쯤을
+    // 주기 때문에, 글 문턱(0.4)으로 그림까지 붙이면 아무 질문에나 도면이 딸려 나온다.
+    // 글은 그대로 둔다 — 근거가 약해도 모델이 "자료에 없다" 고 말할 수 있어야 하니까.
+    // ponytail: 0.62 는 실측으로 고른 어림값(상관없음 0.565 · 상관있음 0.628). 더 좋은 신호가
+    //   필요하면 모델에게 "이 그림을 쓸까" 를 묻는 쪽으로 간다.
+    const 그림문턱 = 0.62;
     const 그림 = [];
-    for (const m of 문서) for (const g of (m.images || [])) {
-      if (그림.length < 2 && !그림.some((x) => x.url === g.url)) 그림.push(g);
+    for (const m of 문서) {
+      if ((m.score || 0) < 그림문턱) continue;
+      for (const g of (m.images || [])) {
+        if (그림.length < 2 && !그림.some((x) => x.url === g.url)) 그림.push(g);
+      }
     }
     await AI쓰기({ author: AI_UID, role: 'ai', text: 답.text, type: 'text', md: true, model: 답.model,
       sources: [...new Set(문서.map((m) => m.docName).filter(Boolean))].slice(0, 4),
