@@ -138,6 +138,39 @@ await T('WBS 공유는 로그인 없이도 읽힌다(설계대로)', async () =>
 });
 await T('WBS 공유에 손님이 쓰지는 못한다', () => assertFails(setDoc(doc(손님(), 'wbsShares', 's1'), { snap: {} })));
 
+console.log('\n── 품질기록 변경 이력 (ISO 9001 7.5.3) — 2026-09-20');
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 't_ncrs', 'ncr_old'), { title: '옛 기록 — 판이 없다', status: 'open' });
+  await setDoc(doc(db, 't_ncrs', 'ncr_v3'), { title: '판이 3', status: 'open', rev: 3 });
+  await setDoc(doc(db, 't_recordLog', 'log_old'), { coll: 't_ncrs', recId: 'ncr_old', act: '만듦', by: 사람.부장.uid, at: 1 });
+});
+await T('이력은 덧붙일 수 있다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 't_recordLog', 'log_a'),
+  { coll: 't_ncrs', recId: 'ncr_old', act: '고침', by: 사람.품질원.uid, at: 2, changes: [{ 칸: 'status', 전: 'open', 후: 'closed' }] })));
+await T('이력을 남의 이름으로 못 쓴다', () => assertFails(setDoc(doc(로그인(사람.품질원), 't_recordLog', 'log_b'),
+  { coll: 't_ncrs', recId: 'ncr_old', act: '고침', by: 사람.생산원.uid, at: 3 })));
+await T('이력에 이상한 행위는 못 넣는다', () => assertFails(setDoc(doc(로그인(사람.품질원), 't_recordLog', 'log_c'),
+  { coll: 't_ncrs', recId: 'ncr_old', act: '조작', by: 사람.품질원.uid, at: 4 })));
+await T('**이력은 고칠 수 없다**', () => assertFails(setDoc(doc(로그인(사람.부장), 't_recordLog', 'log_old'), { act: '만듦', note: '몰래 고침' }, { merge: true })));
+await T('**이력은 지울 수 없다 — super 라도**', () => assertFails(deleteDoc(doc(로그인(사람.부장), 't_recordLog', 'log_old'))));
+await T('이력은 사내면 읽는다(심사 대응)', () => assertSucceeds(getDoc(doc(로그인(사람.생산원), 't_recordLog', 'log_old'))));
+
+await T('**판을 안 올리면 저장이 거부된다**', () => assertFails(setDoc(doc(로그인(사람.품질원), 't_ncrs', 'ncr_v3'), { title: '몰래 고침', rev: 3 })),
+);
+await T('판을 내리는 것도 거부', () => assertFails(setDoc(doc(로그인(사람.품질원), 't_ncrs', 'ncr_v3'), { title: '되돌리기', rev: 2 })));
+await T('판이 없으면 거부', () => assertFails(setDoc(doc(로그인(사람.품질원), 't_ncrs', 'ncr_v3'), { title: '판 없음' })));
+await T('판을 올리면 저장된다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 't_ncrs', 'ncr_v3'), { title: '제대로 고침', rev: 4 })));
+await T('판이 없던 옛 기록도 1 로 올리면 저장된다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 't_ncrs', 'ncr_old'), { title: '옛 기록 손봄', rev: 1 })),
+);
+await T('CAR 도 같은 잣대', async () => {
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 't_cars', 'car_1'), { title: 'CAR', rev: 1 }); });
+  await assertFails(setDoc(doc(로그인(사람.품질원), 't_cars', 'car_1'), { title: '판 그대로', rev: 1 }));
+  await assertSucceeds(setDoc(doc(로그인(사람.품질원), 't_cars', 'car_1'), { title: '판 올림', rev: 2 }));
+});
+await T('새 기록은 판 없이도 만들 수 있다(만들 때는 이력이 만듦 한 줄)', async () => {
+  await assertSucceeds(setDoc(doc(로그인(사람.품질원), 't_ncrs', 'ncr_new'), { title: '새 부적합', rev: 1 }));
+});
+
 await env.cleanup();
 console.log(`\n통과 ${통과} · 실패 ${실패}`);
 process.exit(실패 ? 1 : 0);
