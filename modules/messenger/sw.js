@@ -7,7 +7,7 @@
  * 버전 문자열을 올리면 옛 캐시는 activate 때 전부 지운다. (messenger.html/.css/.js/lib.js 를 고치면 올릴 것)
  *   v1 W1 껍데기 · v2 W2 카톡식 UI(css/js/lib 분리) · v3 '친구'→'연락처' · v4 AI 비서 방(ai.js) · v5 AI 가 내 업무·일정도 본다 · v6 제공자 체인 실측 교체 · v7 lib·ai import 에 ?v=
  */
-const 버전 = 'sj-msg-v22';
+const 버전 = 'sj-msg-v23';   // v23: 같은 출처는 그물 먼저 — ?v= 를 버려서 배포가 안 닿던 것(2026-09-21)
 const 껍데기 = [
   './messenger.html',
   './messenger.css',
@@ -83,13 +83,34 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // 정적 파일: 같은 출처는 ?v= 캐시버스터를 무시하고 맞춘다(프리캐시는 쿼리 없이 들어 있다). 캐시 먼저 주고 뒤에서 갱신.
-  e.respondWith(
-    caches.match(요청, { ignoreSearch: 같은출처 }).then((캐시됨) => {
-      const 네트 = fetch(요청)
+  // ── 같은 출처 정적 파일: **그물 먼저**(network-first), 끊기면 캐시 ──────────────
+  //
+  // 왜 바꿨나 (2026-09-21). 예전엔 `caches.match(요청, { ignoreSearch: 같은출처 })` 로
+  // **?v= 를 버리고** 맞춘 다음 `캐시됨 || 네트` 로 캐시를 먼저 줬다. 그러면
+  // **캐시버스터가 통째로 무력해진다** — messenger.js?v=b49 를 올려도 SW 가 ?v= 를 떼고
+  // 옛 messenger.js 를 찾아 그걸 준다. 뒤에서 갱신은 하지만 그 화면은 이미 옛 코드다.
+  //
+  // 부장님이 b49 를 배포한 다음 날에도 b48 이전 화면을 보고 계셨다(AI 비서 줄이 없고,
+  // 부서가 11개 다 보이는 9/19 이전 모양). 손으로 일곱 군데 버전을 올려 봐야
+  // **여기서 다 버리고 있었다.** 고친 것이 사람에게 안 닿으면 안 고친 것이다.
+  //
+  // 이제: 그물에서 먼저 받고(그래야 배포가 다음 새로고침에 반드시 닿는다),
+  // 실패하면 캐시로 떨어진다(비행기 모드에서 열리는 건 그대로 유지). 파일 몇 개뿐이라 싸다.
+  // 바깥 것(SDK·폰트)은 버전이 주소에 박혀 있어 안 변하므로 캐시 먼저 그대로 둔다.
+  if (같은출처) {
+    e.respondWith(
+      fetch(요청)
         .then((r) => { 넣기(요청, r.clone()); return r; })
-        .catch(() => 캐시됨);
-      return 캐시됨 || 네트;
-    })
+        .catch(() => caches.match(요청, { ignoreSearch: true })
+          .then((c) => c || caches.match('./messenger.html', { ignoreSearch: true })))
+    );
+    return;
+  }
+
+  // 바깥 출처(gstatic SDK·폰트): 주소에 버전이 박혀 있어 안 바뀐다 → 캐시 먼저
+  e.respondWith(
+    caches.match(요청).then((캐시됨) => 캐시됨 || fetch(요청)
+      .then((r) => { 넣기(요청, r.clone()); return r; })
+      .catch(() => 캐시됨))
   );
 });

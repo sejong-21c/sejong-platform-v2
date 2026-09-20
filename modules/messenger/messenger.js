@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b49';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b49';
+import * as L from './lib.js?v=b50';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b50';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b49';
+const 빌드 = 'b50';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1240,16 +1240,22 @@ async function AI에게묻기(질문) {
     // 글은 그대로 둔다 — 근거가 약해도 모델이 "자료에 없다" 고 말할 수 있어야 하니까.
     // ponytail: 0.62 는 실측으로 고른 어림값(상관없음 0.565 · 상관있음 0.628). 더 좋은 신호가
     //   필요하면 모델에게 "이 그림을 쓸까" 를 묻는 쪽으로 간다.
-    const 그림문턱 = 0.62;
+    // 2026-09-21 2차: **출처 칩도 같은 문턱을 넘어야 붙인다.** 어제 그림만 0.62 로 올리고
+    // 출처는 0.4 인 채로 뒀더니, 부장님이 "올해 내 연봉이 얼마지?" 하고 물었을 때
+    // 모델은 "자료에 연봉 정보가 없습니다" 라고 제대로 답했는데 **그 밑에 ASME BPVC Sec.II-C
+    // 칩이 붙어 나왔다.** 답은 맞는데 근거가 거짓말을 하는 꼴이라 더 나쁘다.
+    // 모델에게 주는 맥락은 그대로 0.4 로 넉넉히 둔다 — 약한 자료라도 봐야 "없다" 고 말할 수 있다.
+    // 사람에게 **보여 주는** 근거만 높인다. 보이는 것이 곧 주장이다.
+    const 근거문턱 = 0.62;
+    const 쓸만한 = 문서.filter((m) => (m.score || 0) >= 근거문턱);
     const 그림 = [];
-    for (const m of 문서) {
-      if ((m.score || 0) < 그림문턱) continue;
+    for (const m of 쓸만한) {
       for (const g of (m.images || [])) {
         if (그림.length < 2 && !그림.some((x) => x.url === g.url)) 그림.push(g);
       }
     }
     await AI쓰기({ author: AI_UID, role: 'ai', text: 답.text, type: 'text', md: true, model: 답.model,
-      sources: [...new Set(문서.map((m) => m.docName).filter(Boolean))].slice(0, 4),
+      sources: [...new Set(쓸만한.map((m) => m.docName).filter(Boolean))].slice(0, 4),
       ...(그림.length ? { 그림 } : {}), at: nowStamp(), createdAt: Date.now() });
   } catch (e) {
     // warn 이지 error 가 아니다: 여기 오는 건 "한도 초과·로그인 만료·시간 초과" 처럼 늘 있을 수 있는 일이고,
@@ -1412,11 +1418,17 @@ function 이벤트연결() {
   };
   document.addEventListener('input', (e) => onSearchInput(e.target));
   document.addEventListener('compositionend', (e) => { if (e.target.id !== 'msgInput') onSearchInput(e.target); });
+  // 마우스(정밀 포인터 + 호버)가 있으면 데스크톱이다. 창을 좁혀도 안 바뀐다.
+  const 마우스있나 = () => { try { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) { return ui.layout === 'desk'; } };
   document.addEventListener('keydown', (e) => {
     const t = e.target;
     if (t.id === 'msgInput' && e.key === 'Enter') {
       if (e.isComposing) return;                              // 한글 조합 중 Enter → 이중 전송 방지
-      if (ui.layout === 'desk' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+      // **창 너비가 아니라 입력 장치로 정한다.** 예전엔 ui.layout(min-width:900px) 로 봤는데,
+      // 부장님이 메신저를 518px 팝업 창으로 띄워 쓰시니 '폰' 으로 잡혀 **엔터가 아무 일도 안 했다**
+      // (preventDefault 도 안 하니 줄바꿈만 들어갔다 — 2026-09-21 제보).
+      // 마우스가 있으면 데스크톱이다. 진짜 폰에서는 엔터가 줄바꿈이어야 하므로 그대로 둔다.
+      if (마우스있나() && !e.shiftKey) { e.preventDefault(); sendMsg(); }
       return;
     }
     if (t.id === 'phoneInput' && e.key === 'Enter') { e.preventDefault(); t.blur(); return; }
