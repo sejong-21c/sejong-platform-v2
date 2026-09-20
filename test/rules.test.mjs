@@ -1,0 +1,143 @@
+// Firestore 보안 규칙 실검 — **에뮬레이터**에 firestore.rules 를 걸고 실제로 읽고 써 본다.
+//
+// 왜 만들었나 (2026-09-20): 2단계 3번에서 메신저 규칙을 바꿔야 하는데, 잘못 열면 남의 부서
+//   대화가 보인다. 그동안 우리는 규칙을 **시험대 없이 운영에 바로 올리고** 있었다.
+//   업계 표준은 에뮬레이터 + 규칙 단위시험이고, 인증을 흉내 낼 수 있는 건 이 라이브러리뿐이다.
+//   (방향-점검-2026-09-20.md B-3 참고)
+//
+// 돌리는 법:
+//   npm run rules            ← 에뮬레이터를 띄웠다 끄는 것까지 알아서 한다
+//   (Java 필요 — 에뮬레이터가 자바다. PC 는 C:\Program Files\Microsoft\jdk-21.*-hotspot)
+//
+// 이 시험은 **지금 규칙의 실제 동작을 못 박는 그물**이다. 바꾸면 안 되는 것이 바뀌면 여기서 걸린다.
+// 이름이 `[2단계]` 로 시작하는 것은 **지금은 통과하지만 2단계 3번에서 뒤집힐 것**이다 —
+// 그때 이 줄을 반대로 고치는 게 곧 그 작업의 정의다.
+import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const 여기 = dirname(fileURLToPath(import.meta.url));
+const 규칙 = readFileSync(join(여기, '..', 'firestore.rules'), 'utf8');
+// 포트를 여기 박지 않는다 — firebase.json 과 어긋나면 "에뮬레이터가 안 떴다" 로 헛짚는다.
+// (8080 은 이 PC 에서 Docker/WSL 이 쓰고 있어 8181 로 옮겼다. 다른 기계에서 또 겹칠 수 있다.)
+const 설정 = JSON.parse(readFileSync(join(여기, '..', 'firebase.json'), 'utf8'));
+const 포트 = 설정?.emulators?.firestore?.port;
+if (!포트) throw new Error('firebase.json 에 emulators.firestore.port 가 없습니다.');
+
+// ── 등장인물 (users.grade 는 플랫폼과 같은 값: super·exec·manager·member) ──
+const 사람 = {
+  부장:   { uid: 'u_super', email: 'cwkim@sejong-21c.com',  dept: '품질관리부', grade: 'super' },
+  품질원: { uid: 'u_qa',    email: 'qa@sejong-21c.com',     dept: '품질관리부', grade: 'member' },
+  생산원: { uid: 'u_prod',  email: 'prod@sejong-21c.com',   dept: '생산부',    grade: 'member' },
+  임원:   { uid: 'u_exec',  email: 'exec@sejong-21c.com',   dept: '총무부',    grade: 'exec' },
+  예외:   { uid: 'u_edu',   email: 'hkaiedu@naver.com',     dept: '',          grade: 'member' },
+  외부인: { uid: 'u_out',   email: 'someone@gmail.com',     dept: '',          grade: 'member' },
+};
+
+let 통과 = 0, 실패 = 0;
+const T = async (이름, 하기) => {
+  try { await 하기(); 통과++; console.log(`PASS  ${이름}`); }
+  catch (e) { 실패++; console.log(`FAIL  ${이름}\n        ${String(e && e.message || e).slice(0, 200)}`); }
+};
+
+const env = await initializeTestEnvironment({
+  projectId: 'demo-sejong',
+  firestore: { rules: 규칙, host: '127.0.0.1', port: 포트 },
+});
+
+// ── 씨앗 심기 (규칙을 끄고 넣는다 — 시험 대상이 아니다) ──
+await env.clearFirestore();
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  for (const p of Object.values(사람)) {
+    await setDoc(doc(db, 'users', p.uid), { name: p.uid, email: p.email, dept: p.dept, grade: p.grade });
+  }
+  await setDoc(doc(db, 'channels', 'c1'), { name: '전사 공지', type: 'announce' });
+  await setDoc(doc(db, 'channels', 'dept_quality'), { name: '품질관리부', type: 'dept' });
+  await setDoc(doc(db, 'channels', 'dept_production'), { name: '생산부', type: 'dept' });
+  await setDoc(doc(db, 'channels', 'dm1'), { name: 'DM', type: 'dm', members: [사람.부장.uid, 사람.품질원.uid] });
+  // 품질관리부 방 메시지 — readers 에 품질관리부만 들어 있다(b46 부터 보낼 때 박힌다)
+  await setDoc(doc(db, 'messages', 'm_quality'), {
+    channel: 'dept_quality', author: 사람.품질원.uid, text: '품질 방 이야기',
+    readers: [사람.부장.uid, 사람.품질원.uid], createdAt: 1,
+  });
+  await setDoc(doc(db, 'messages', 'm_dm'), {
+    channel: 'dm1', author: 사람.부장.uid, text: '둘만의 이야기',
+    readers: [사람.부장.uid, 사람.품질원.uid], createdAt: 2,
+  });
+  await setDoc(doc(db, 'messages', 'm_announce'), {
+    channel: 'c1', author: 사람.부장.uid, text: '전사 공지입니다', createdAt: 3,   // 공지는 readers 를 안 박는다
+  });
+  await setDoc(doc(db, 't_aiChat', 'ai_super_1'), { uid: 사람.부장.uid, role: 'ai', text: '부장님 AI 대화' });
+  await setDoc(doc(db, 't_userProfile', 사람.부장.uid), { phone: '010-0000-0000' });
+  await setDoc(doc(db, 'adminAccess', 'list'), { uids: [사람.부장.uid] });
+});
+
+const 로그인 = (p) => env.authenticatedContext(p.uid, { email: p.email, email_verified: true }).firestore();
+const 손님 = () => env.unauthenticatedContext().firestore();
+
+console.log('── 문 잠금 (사내 계정만)');
+await T('로그인 안 하면 users 를 못 읽는다', () => assertFails(getDoc(doc(손님(), 'users', 사람.부장.uid))));
+await T('사외 이메일이면 users 를 못 읽는다', () => assertFails(getDoc(doc(로그인(사람.외부인), 'users', 사람.부장.uid))));
+await T('사내 계정은 users 를 읽는다', () => assertSucceeds(getDoc(doc(로그인(사람.품질원), 'users', 사람.부장.uid))));
+await T('예외 허용 계정(hkaiedu)도 읽는다', () => assertSucceeds(getDoc(doc(로그인(사람.예외), 'users', 사람.부장.uid))));
+await T('사외 이메일은 아무 컬렉션도 못 읽는다', () => assertFails(getDoc(doc(로그인(사람.외부인), 'ncrs', 'x'))));
+
+console.log('\n── 직원 명부');
+await T('남의 users 문서는 못 고친다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.생산원.uid), { grade: 'super' }, { merge: true })));
+await T('내 users 문서는 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { name: '나' }, { merge: true })));
+await T('super 는 남의 users 를 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 'users', 사람.생산원.uid), { name: '고침' }, { merge: true })));
+await T('일반 직원은 남을 못 지운다', () => assertFails(deleteDoc(doc(로그인(사람.품질원), 'users', 사람.생산원.uid))));
+
+console.log('\n── 메시지 쓰기');
+await T('내 이름으로만 보낼 수 있다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'messages', 'n1'), { channel: 'dept_quality', author: 사람.품질원.uid, text: 'ㅇㅇ', createdAt: 9 })));
+await T('남의 이름을 사칭하면 거부', () => assertFails(setDoc(doc(로그인(사람.품질원), 'messages', 'n2'), { channel: 'dept_quality', author: 사람.생산원.uid, text: '사칭', createdAt: 9 })));
+await T('전사 공지는 일반 직원이 못 쓴다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'messages', 'n3'), { channel: 'c1', author: 사람.품질원.uid, text: '공지', createdAt: 9 })));
+await T('전사 공지는 부서장 이상이 쓴다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 'messages', 'n4'), { channel: 'c1', author: 사람.부장.uid, text: '공지', createdAt: 9 })));
+await T('임원도 전사 공지를 쓴다', () => assertSucceeds(setDoc(doc(로그인(사람.임원), 'messages', 'n5'), { channel: 'c1', author: 사람.임원.uid, text: '공지', createdAt: 9 })));
+await T('SYSTEM 알림은 지정된 방에만', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'messages', 'n6'), { channel: 'qa-calibration-alert', author: 'SYSTEM', system: true, text: '검교정 임박', createdAt: 9 })));
+await T('SYSTEM 을 사칭해 아무 방에나 못 쓴다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'messages', 'n7'), { channel: 'dept_production', author: 'SYSTEM', system: true, text: '가짜', createdAt: 9 })));
+await T('보낸 메시지는 고칠 수 없다(update 금지)', () => assertFails(setDoc(doc(로그인(사람.품질원), 'messages', 'm_quality'), { text: '몰래 고침' }, { merge: true })));
+await T('내 메시지는 지운다', () => assertSucceeds(deleteDoc(doc(로그인(사람.품질원), 'messages', 'n1'))));
+await T('남의 메시지는 못 지운다', () => assertFails(deleteDoc(doc(로그인(사람.생산원), 'messages', 'm_quality'))));
+
+console.log('\n── 메시지 읽기  ⚠ 여기가 2단계 3번에서 뒤집힌다');
+await T('[2단계] 생산부 직원이 품질관리부 방 메시지를 읽는다 — 지금은 통과한다',
+  () => assertSucceeds(getDoc(doc(로그인(사람.생산원), 'messages', 'm_quality'))));
+await T('[2단계] 남의 1:1 대화도 읽힌다 — 지금은 통과한다',
+  () => assertSucceeds(getDoc(doc(로그인(사람.생산원), 'messages', 'm_dm'))));
+await T('[2단계] 전 직원이 messages 를 통째로 훑는다 — 지금은 통과한다',
+  () => assertSucceeds(getDocs(collection(로그인(사람.생산원), 'messages'))));
+await T('readers 로 좁힌 조회도 지금은 된다(규칙이 아직 안 막으므로)',
+  () => assertSucceeds(getDocs(query(collection(로그인(사람.생산원), 'messages'), where('readers', 'array-contains', 사람.생산원.uid)))));
+
+console.log('\n── AI 비서 대화 (이미 본인만)');
+await T('남의 AI 대화는 못 읽는다', () => assertFails(getDoc(doc(로그인(사람.생산원), 't_aiChat', 'ai_super_1'))));
+await T('내 AI 대화는 읽는다', () => assertSucceeds(getDoc(doc(로그인(사람.부장), 't_aiChat', 'ai_super_1'))));
+await T('남의 uid 로 AI 대화를 못 만든다', () => assertFails(setDoc(doc(로그인(사람.생산원), 't_aiChat', 'ai_x'), { uid: 사람.부장.uid, text: '가짜' })));
+await T('t_aiChat 목록은 내 것으로 좁혀야 열린다',
+  () => assertSucceeds(getDocs(query(collection(로그인(사람.부장), 't_aiChat'), where('uid', '==', 사람.부장.uid)))));
+await T('t_aiChat 을 통째로 훑으면 거부', () => assertFails(getDocs(collection(로그인(사람.부장), 't_aiChat'))));
+
+console.log('\n── 그 밖의 잠금장치');
+await T('방은 지울 수 없다', () => assertFails(deleteDoc(doc(로그인(사람.부장), 'channels', 'dept_quality'))));
+await T('t_userProfile 은 본인만 쓴다', () => assertFails(setDoc(doc(로그인(사람.생산원), 't_userProfile', 사람.부장.uid), { phone: '010-9999-9999' })));
+await T('t_userProfile 도 내 것은 쓴다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 't_userProfile', 사람.부장.uid), { phone: '010-1111-1111' })));
+await T('접속 기록은 만들 수만 있다(고치기 금지)', () => assertFails(setDoc(doc(로그인(사람.부장), 'accessLog', 'a1'), { at: 1 }).then(() => setDoc(doc(로그인(사람.부장), 'accessLog', 'a1'), { at: 2 }))));
+await T('AI 사용 기록도 고칠 수 없다', async () => {
+  await assertSucceeds(setDoc(doc(로그인(사람.품질원), 'aiUsage', 'u1'), { uid: 사람.품질원.uid, at: 1 }));
+  await assertFails(setDoc(doc(로그인(사람.품질원), 'aiUsage', 'u1'), { at: 2 }, { merge: true }));
+});
+await T('관리 명단은 super 만 고친다', () => assertFails(setDoc(doc(로그인(사람.임원), 'adminAccess', 'list'), { uids: [] })));
+await T('관리 명단을 super 는 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 'adminAccess', 'list'), { uids: [사람.부장.uid] })));
+await T('WBS 공유는 로그인 없이도 읽힌다(설계대로)', async () => {
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'wbsShares', 's1'), { snap: {} }); });
+  await assertSucceeds(getDoc(doc(손님(), 'wbsShares', 's1')));
+});
+await T('WBS 공유에 손님이 쓰지는 못한다', () => assertFails(setDoc(doc(손님(), 'wbsShares', 's1'), { snap: {} })));
+
+await env.cleanup();
+console.log(`\n통과 ${통과} · 실패 ${실패}`);
+process.exit(실패 ? 1 : 0);

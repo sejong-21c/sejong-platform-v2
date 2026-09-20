@@ -9,8 +9,12 @@ gateway/.wrangler/
 __pycache__/
 # pvcalc 사내 재료 데이터 (ASME Sec II-D 전사본) — 저작권상 커밋 금지
 tools/pvcalc/web/materials.js
-# 테스트 전용 (jsdom)
+# 개발용 시험 의존성 — 브라우저 쪽은 여전히 의존성 0 이다(gstatic 에서 받는다).
+# package-lock.json 은 **올린다** — 규칙 시험대가 버전에 따라 다르게 돌면 그물 구실을 못 한다.
 node_modules/
-package-lock.json
 # 메신저 화면 검사 스크린샷 (test/messenger-ui-check.mjs 가 만든다)
 test/shots/
+
+# 에뮬레이터가 남기는 것
+firebase-debug.log
+firestore-debug.log
