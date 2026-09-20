@@ -592,7 +592,12 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-bubble img, .sjm-bubble pre, .sjm-bubble table { max-width: 100%; }
 .sjm-bubble pre { overflow-x: auto; }
 .sjm-md-fig { margin: 0; border: 1px solid #e3e7ec; border-radius: 8px; overflow: hidden; background: #fff; }
-.sjm-md-fig img { display: block; width: 100%; height: auto; cursor: zoom-in; background: #fff; }
+/* **min-height 가 핵심이다.** 안 주면 안 불러온 이미지는 높이 0 이고, 높이 0 이면 브라우저가
+   "화면에 들어왔다"고 보지 않아 loading=lazy 가 영영 안 켜진다 — 안 불러오니 계속 높이 0,
+   교착이다. 그래서 옛 대화를 다시 열면 글만 남고 그림이 통째로 사라져 있었다(2026-09-20 실측:
+   말풍선 21개·그림틀 9개 중 화면 맨 아래 2장만 불러와져 있었다. 오류도 is-gone 도 없었다).
+   자리를 미리 잡아 주면 스크롤해 올라갈 때 제때 불러온다. */
+.sjm-md-fig img { display: block; width: 100%; height: auto; min-height: 160px; object-fit: contain; cursor: zoom-in; background: #fff; }
 .sjm-md-fig figcaption { padding: 5px 8px; font-size: 11px; color: #5b6673; background: #f7f9fb; border-top: 1px solid #eef1f5; }
 .sjm-md-fig.is-gone img { display: none; }
 .sjm-md-fig.is-gone figcaption::after { content: ' (그림 주소가 만료되었습니다 — 다시 물어보세요)'; color: #98a2b3; }
