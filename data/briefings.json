@@ -1230,38 +1230,54 @@
     ]
   },
   "cwshin@sejong-21c.com": {
-    "generatedAt": "2026-09-18 06:25 (오전 정리 자동 실행)",
-    "newMails": 0,
-    "processed": 1,
-    "urgentReplies": 0,
+    "generatedAt": "2026-09-21 07:40 (오전 정리 자동 실행)",
+    "newMails": 4,
+    "processed": 4,
+    "urgentReplies": 1,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "keyActions": [
       {
-        "text": "W탱크 메인 자재 구매요청서 발주 진행 확인 및 입고 시 MTC·CP 항목 수입검사 반영",
-        "proj": "SJ2026-064 삼성전기",
-        "priority": "mid"
-      },
-      {
-        "text": "더원노무법인 취업규칙·업무지침 검토의견서 회신 (9/23 간담회 서명본 확정 선행 조건)",
-        "proj": "일반사무",
+        "text": "통합사양서 rev.B(보일러·공기압축기) 사전 검토 후 13:30 미팅 참석",
+        "proj": "사내 표준화",
         "priority": "high"
       },
       {
-        "text": "9/23 임직원 전체간담회 개시 시각 확정 후 캘린더 등록",
+        "text": "김시원 대리 앞 검토의견 회신 초안 확인 후 발송",
+        "proj": "사내 표준화",
+        "priority": "high"
+      },
+      {
+        "text": "9/23(수) 임직원 전체간담회 개시 시각 확정 후 캘린더 등록",
         "proj": "일반사무",
         "priority": "mid"
+      },
+      {
+        "text": "상생결제 확산 유공 포상 신청 마감일 공고문 확인",
+        "proj": "대외 공고",
+        "priority": "low"
+      },
+      {
+        "text": "SJ435-26 9월 3주차 주간 작업일보 검사일정 정합성 확인",
+        "proj": "SJ435-26",
+        "priority": "low"
       }
     ],
-    "urgentList": [],
+    "urgentList": [
+      {
+        "subject": "Re: 세종기술_구매 및 검사 procedure 공유건_보일러 & 공기압축기_rev.B",
+        "from": "김시원 대리",
+        "proj": "사내 표준화"
+      }
+    ],
     "schedule": [
       {
-        "title": "임직원 전체간담회 - 취업규칙 개정 설명 및 서명 (시각 미정)",
-        "date": "2026-09-23",
-        "time": "미정",
-        "proj": "일반사무",
-        "color": "orange"
+        "title": "통합사양서(보일러·공기압축기 rev.B) 2차 검토 미팅",
+        "date": "2026-09-21",
+        "time": "13:30",
+        "proj": "사내 표준화",
+        "color": "blue"
       }
     ]
   },
