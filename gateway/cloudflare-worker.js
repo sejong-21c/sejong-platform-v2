@@ -606,6 +606,7 @@ async function 서명하기(key, 글) {
 const 안전한키 = (k) => /^[A-Za-z0-9._\-/]{1,300}$/.test(k) && !k.includes('..');
 
 // v3.8: **맥미니(배치)** 도 올리고 서명받을 수 있게 한다.
+// v3.9: /file/get 의 HEAD 가 Content-Length 를 준다(+ 몸통을 안 끌어온다).
 // 왜 필요한가: 옛 첨부 조각(chunk__*)을 DB 밖으로 옮기는 일은 맥미니가 밤에 돈다. 그런데 맥은
 // 직원 로그인 토큰을 만들 수 없다(서비스 계정에는 Identity Toolkit 권한이 없다 — 실측 INSUFFICIENT_PERMISSION).
 // 그렇다고 **파이스의 구글 계정**(부장님 개인)으로 드라이브에 올리면 회사 첨부가 개인 토큰에 매달린다.
@@ -658,13 +659,18 @@ async function handleFile(request, env, url, cors) {
     const 기대 = await 서명하기(key, k + '|' + e);
     // 길이가 같을 때만 비교 — 타이밍 차이를 줄인다
     if (s.length !== 기대.length || s !== 기대) return json(403, { error: '서명이 맞지 않습니다' }, cors);
-    const obj = await env.FILES.get(k);
+    // HEAD 는 몸통을 안 받는다. get() 을 쓰면 R2 에서 통째로 끌어와 놓고 버리게 된다.
+    const 머리만 = request.method === 'HEAD';
+    const obj = 머리만 ? await env.FILES.head(k) : await env.FILES.get(k);
     if (!obj) return json(404, { error: '없는 파일' }, cors);
     const h = new Headers(cors);
     h.set('Content-Type', obj.httpMetadata?.contentType || 'application/octet-stream');
+    // **크기를 반드시 준다.** 이관 스크립트는 조각을 지우기 전에 HEAD 로 크기를 대조하는데,
+    // 이게 없으면 "0바이트로 저장됐다" 로 읽혀 멀쩡한 이관이 통째로 멈춘다(2026-09-20 실제로 그랬다).
+    if (Number.isFinite(obj.size)) h.set('Content-Length', String(obj.size));
     h.set('Cache-Control', 'private, max-age=3600');   // 서명 수명과 같게
     if (obj.httpEtag) h.set('ETag', obj.httpEtag);
-    return new Response(obj.body, { headers: h });
+    return new Response(머리만 ? null : obj.body, { headers: h });
   }
 
   // 3) 올리기 — 로그인 확인. 키는 ?key= 로, 내용은 본문 그대로.
