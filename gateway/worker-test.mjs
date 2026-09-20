@@ -232,7 +232,12 @@ const post = (path, token, obj) => worker.fetch(new Request('https://gw.test' + 
   const r3 = await post('/rag/search', adminToken, { query: 같은글, topK: 10 });
   const 문서들3 = ((await r3.json()).matches || []).map(m => m.docName);
   check('범위: 품질관리부 사람에게는 품질 자료가 나온다', 문서들3.includes('품질부문서'), 문서들3.join(','));
-  check('범위: super 라도 남의 부서(생산)는 안 나온다 — 부장님 지시', !문서들3.includes('생산부문서'), 문서들3.join(','));
+  // 2026-09-21 부장님: "자료는 전부서 다 볼 수 있는 걸로." super(부장님·대표이사)만 해당한다.
+  // 메신저 방 커튼은 여전히 부서로만 판단하므로 남의 부서 **대화**는 못 본다 — 자료와 대화는 다르다.
+  check('범위: super 는 남의 부서 자료도 본다(2026-09-21 지시)', 문서들3.includes('생산부문서'), 문서들3.join(','));
+  check('범위: super 라도 비밀은 안 나온다', !문서들3.includes('반출금지도면'), 문서들3.join(','));
+  // exec(임원)은 안 넓힌다 — 2026-09-19 지시가 그대로 살아 있다
+  vecStore.set('범위시험_전사2::0', { id: '범위시험_전사2::0', values: fakeEmbed('개스킷 규격 오적용 누설'), metadata: { docName: '전사문서2', chunkIndex: 0, text: '개스킷 규격 오적용 누설' } });
 
   ['범위시험_전사::0', '범위시험_품질::0', '범위시험_생산::0', '범위시험_비밀::0'].forEach(id => vecStore.delete(id));
 }

@@ -185,8 +185,13 @@ async function 볼수있는범위(env, auth) {
     const u = await fsGetDoc(env, token, 'users/' + encodeURIComponent(auth.uid));
     const 범위 = [...기본];
     if (u && u.dept) 범위.push('부서:' + u.dept);
-    // 등급으로 넓히지 않는다 — 부장님 지시(2026-09-19): "임원이라도 자기 부서 아니면 못 보게.
-    // 이건 대표님도 마찬가지." 넓혀야 할 일이 생기면 그때 명시적으로 준다.
+    // **super 만 전 부서를 본다**(부장님·대표이사). 2026-09-21 지시:
+    //   "자료는 전부서 다 볼 수 있는 걸로. 세종 플랫폼의 모든 사용권한."
+    // exec(임원)은 **안 넓힌다** — 2026-09-19 지시가 그대로 살아 있다:
+    //   "임원이라도 자기 부서 아니면 못 보게." 그리고 **메신저 방 커튼은 부서로만 판단하므로
+    //   super 라도 남의 부서 대화는 여전히 못 본다** — 자료와 대화를 따로 둔 것이다.
+    // 비밀(B등급 반출금지)은 super 에게도 안 열린다(파이스 볼수있나 참고).
+    if (u && u.grade === 'super') 범위.push('모든부서');
     범위캐시.set(auth.uid, { 범위, exp: Date.now() + 범위수명밀리초 });
     return 범위;
   } catch (e) {
@@ -274,10 +279,14 @@ async function handleRag(request, env, path, cors) {
     // 범위 표시가 없는 옛 벡터는 '전사' 로 본다 — 실측 근거가 있다: 지금 색인된 기록
     // (NCR·CAR·검사보고서·ITP·회의록)은 firestore.rules 상 이미 `isCompanyUser()` 면
     // 전부 읽히므로, 전사로 보는 게 실제 접근 권한과 일치한다(2026-09-20 규칙 확인).
-    const matches = (res.matches || []).filter((m) => {
-      const r = String((m.metadata || {}).범위 || '전사');
-      return r !== '비밀' && 범위.includes(r);
-    }).map(m => ({
+    // **맥(파이스 볼수있나)과 한 글자도 다르면 안 된다.** 갈리는 순간 맥이 꺼진 날에만
+    // 다르게 새거나 다르게 막힌다 — 제일 찾기 어려운 종류다.
+    const 볼수있나 = (r) => {
+      if (r === '비밀') return false;                                  // super 도 예외 없다
+      if (범위.includes(r)) return true;
+      return 범위.includes('모든부서') && r.startsWith('부서:');
+    };
+    const matches = (res.matches || []).filter((m) => 볼수있나(String((m.metadata || {}).범위 || '전사'))).map(m => ({
       score: Math.round((m.score || 0) * 1000) / 1000,
       docName: (m.metadata || {}).docName || '',
       chunkIndex: (m.metadata || {}).chunkIndex,
