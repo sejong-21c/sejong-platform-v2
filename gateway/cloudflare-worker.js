@@ -7,7 +7,9 @@
  *  3) 회사당 키 여러 개 등록 시 한도 초과(429)·키 오류(401/403)면 자동으로 다음 키로 교대
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
- *     POST /rag/search  {query, topK}            — 유사 대목 검색 (사내 계정 전체)
+ *     POST /rag/search  {query, topK}            — 유사 대목 검색.
+ *          v4.0: **범위로 거른다.** 부르는 사람의 부서를 검증된 토큰에서 뽑아
+ *          ['전사','부서:…'] 로 맥·Vectorize 양쪽에 건다. body 의 범위는 안 믿는다.
  *     POST /rag/record  {kind,id,title,text}     — v3.3(로드맵 9-1): 기록 자동 색인.
  *          NCR·CAR·검사보고서·ITP·회의록을 저장하는 즉시 직원 본인이 색인한다(사내 계정 전체).
  *          {remove:true}면 해당 기록의 벡터를 삭제 — 지워진 NCR을 AI가 근거로 쓰지 않게.
@@ -154,9 +156,41 @@ async function verifyCompanyFirebaseToken(request, env) {
     const now = Math.floor(Date.now() / 1000);
     const isCompanyEmail = typeof payload.email === 'string' && /@sejong-21c[.]com$/i.test(payload.email);
     if (!valid || payload.aud !== projectId || payload.iss !== 'https://securetoken.google.com/' + projectId || payload.exp <= now || !payload.email_verified || !isCompanyEmail) throw new Error('Firebase token is not an active company account');
-    return { email: payload.email.toLowerCase() };
+    return { email: payload.email.toLowerCase(), uid: String(payload.sub || payload.user_id || '') };
   } catch (error) {
     return { status: 401, error: 'Invalid Firebase login token: ' + (error.message || error) };
+  }
+}
+
+// ── v4.0: 검색 범위(누가 무엇을 볼 수 있나) ──────────────────────────────────
+// 왜 (2026-09-20): 메신저에는 커튼을 쳤는데(b45) 그 옆 AI 비서는 색인 전체에서 찾고 있었다.
+//   넘어가는 건 {query, topK} 뿐이라 **누가 묻는지조차 안 갔다.** 막고 있던 건 AI 지침에 적힌
+//   "범위 밖 자료는 주어지지 않는다" 한 줄뿐 — 그건 약속이지 통제가 아니다.
+//   업계도 같은 실패를 지목한다: 임베딩 검색은 권한을 모르고, 생성 뒤에 거르면 이미 늦었다.
+//
+// **범위는 검증된 Firebase 토큰에서만 뽑는다.** 클라이언트가 body 로 보낸 값은 쓰지 않는다 —
+//   쓰면 개발자 도구로 `범위:['비밀']` 을 넣는 순간 끝이다.
+// **못 구하면 '전사' 만 준다(fail closed).** 서비스 계정 키가 없거나 users 문서를 못 읽어도
+//   검색이 죽지는 않되, 넓어지지도 않는다.
+const 범위캐시 = new Map();              // uid → { 범위, exp }  (같은 isolate 안에서만. 읽기 아끼려고)
+const 범위수명밀리초 = 5 * 60 * 1000;
+
+async function 볼수있는범위(env, auth) {
+  const 기본 = ['전사'];
+  if (!auth || !auth.uid || !env.FIREBASE_SA_KEY) return 기본;
+  const 캐시 = 범위캐시.get(auth.uid);
+  if (캐시 && Date.now() < 캐시.exp) return 캐시.범위;
+  try {
+    const token = await saAccessToken(env);
+    const u = await fsGetDoc(env, token, 'users/' + encodeURIComponent(auth.uid));
+    const 범위 = [...기본];
+    if (u && u.dept) 범위.push('부서:' + u.dept);
+    // 등급으로 넓히지 않는다 — 부장님 지시(2026-09-19): "임원이라도 자기 부서 아니면 못 보게.
+    // 이건 대표님도 마찬가지." 넓혀야 할 일이 생기면 그때 명시적으로 준다.
+    범위캐시.set(auth.uid, { 범위, exp: Date.now() + 범위수명밀리초 });
+    return 범위;
+  } catch (e) {
+    return 기본;                          // 못 알아내면 좁은 쪽으로
   }
 }
 
@@ -175,14 +209,14 @@ async function ragEmbed(env, texts) {
 // 유료($5/월)로 넘어가야 했는데, 맥에 bge-m3 와 터널이 이미 있어 공짜로 되고 조각 수 상한도 없다.
 // 맥이 꺼져 있으면 아래 Vectorize 로 물러선다 — 그래야 맥 정전에 사내문서 검색이 통째로 죽지 않는다.
 // 응답 모양(matches)은 그대로 유지한다. 메신저(ai.js)를 안 고쳐도 되게.
-async function 맥검색(env, query, topK) {
+async function 맥검색(env, query, topK, 범위) {
   const 기한 = AbortSignal.timeout(Number(env.PAIS_TIMEOUT_MS) || 12000);
   const r = await fetch(String(env.PAIS_URL).replace(/\/$/, '') + '/api/rag/search', {
     method: 'POST', signal: 기한,
     // .trim() 이 꼭 필요하다 — 비밀값을 파이프로 넣으면(echo/PowerShell) 끝에 줄바꿈이 따라붙는데
     // 파이스는 고정시간 바이트 비교라 그 한 글자 때문에 401 이 난다(2026-09-19 실제로 그랬다).
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + String(env.PAIS_TOKEN || '').trim() },
-    body: JSON.stringify({ q: query, 개수: topK }),
+    body: JSON.stringify({ q: query, 개수: topK, 범위 }),
   });
   if (!r.ok) throw new Error('pais ' + r.status);
   const j = await r.json();
@@ -216,9 +250,11 @@ async function handleRag(request, env, path, cors) {
     const query = String(body.query || '').trim();
     if (!query) return json(400, { error: 'query required' }, cors);
     const topK = Math.min(Math.max(parseInt(body.topK, 10) || 5, 1), 10);
+    // body.범위 는 **읽지 않는다.** 토큰에서 뽑는다.
+    const 범위 = await 볼수있는범위(env, auth);
     let 맥오류 = null;
     if (env.PAIS_URL) {
-      try { return json(200, { matches: await 맥검색(env, query, topK), source: 'pais' }, cors); }
+      try { return json(200, { matches: await 맥검색(env, query, topK, 범위), source: 'pais', 범위 }, cors); }
       catch (e) {
         // 맥이 꺼져 있다. Vectorize 가 있으면 그쪽으로 물러서고, 없으면 빈 결과 + 이유를 준다
         // (ai.js 는 !r.ok 면 조용히 건너뛰므로 200 으로 줘야 이유가 보인다).
@@ -234,7 +270,14 @@ async function handleRag(request, env, path, cors) {
     const res = await env.VECTORIZE.query(vec, { topK, returnMetadata: 'all' });
     // v3.3: kind·recId를 함께 넘긴다 — 자동 색인된 기록이면 클라이언트가 그 NCR/ITP 화면으로
     // 바로 이동시킬 수 있어야 답변에 근거 링크를 붙일 수 있다. (수동 문서는 이 값이 없음)
-    const matches = (res.matches || []).map(m => ({
+    // 맥과 **같은 잣대**로 거른다. 한쪽만 막으면 맥이 꺼진 날 통째로 열린다.
+    // 범위 표시가 없는 옛 벡터는 '전사' 로 본다 — 실측 근거가 있다: 지금 색인된 기록
+    // (NCR·CAR·검사보고서·ITP·회의록)은 firestore.rules 상 이미 `isCompanyUser()` 면
+    // 전부 읽히므로, 전사로 보는 게 실제 접근 권한과 일치한다(2026-09-20 규칙 확인).
+    const matches = (res.matches || []).filter((m) => {
+      const r = String((m.metadata || {}).범위 || '전사');
+      return r !== '비밀' && 범위.includes(r);
+    }).map(m => ({
       score: Math.round((m.score || 0) * 1000) / 1000,
       docName: (m.metadata || {}).docName || '',
       chunkIndex: (m.metadata || {}).chunkIndex,
@@ -607,6 +650,7 @@ const 안전한키 = (k) => /^[A-Za-z0-9._\-/]{1,300}$/.test(k) && !k.includes('
 
 // v3.8: **맥미니(배치)** 도 올리고 서명받을 수 있게 한다.
 // v3.9: /file/get 의 HEAD 가 Content-Length 를 준다(+ 몸통을 안 끌어온다).
+// v4.0: 사내문서 검색에 **권한 범위**를 건다(볼수있는범위). 지금까지는 프롬프트로만 막고 있었다.
 // 왜 필요한가: 옛 첨부 조각(chunk__*)을 DB 밖으로 옮기는 일은 맥미니가 밤에 돈다. 그런데 맥은
 // 직원 로그인 토큰을 만들 수 없다(서비스 계정에는 Identity Toolkit 권한이 없다 — 실측 INSUFFICIENT_PERMISSION).
 // 그렇다고 **파이스의 구글 계정**(부장님 개인)으로 드라이브에 올리면 회사 첨부가 개인 토큰에 매달린다.

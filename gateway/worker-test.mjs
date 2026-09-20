@@ -42,6 +42,9 @@ const SA_KEY = JSON.stringify({ client_email: 'sa@sejong-platform.iam.gserviceac
 const tomorrow = new Date(Date.now() + 9 * 3600e3 + 86400e3).toISOString().slice(0, 10);
 const fsStore = { // path → fields(REST 형식). 시드: 업무 3건 + 결재 3건 + 사용자 2명
   'users/u1': { name: { stringValue: '김철수' } },
+  // v4.0 범위 시험용 — 토큰의 sub 가 'u_' + 이메일이라 문서 id 가 이렇게 된다
+  'users/u_staff@sejong-21c.com': { name: { stringValue: '생산부원' }, dept: { stringValue: '생산부' }, grade: { stringValue: 'member' } },
+  'users/u_cwkim@sejong-21c.com': { name: { stringValue: '김철우' }, dept: { stringValue: '품질관리부' }, grade: { stringValue: 'super' } },
   'users/u2': { name: { stringValue: '박영희' } },
   'tasks/t1': { title: { stringValue: '내일 마감·미완료' }, assignee: { stringValue: 'u1' }, due: { stringValue: tomorrow }, status: { stringValue: 'open' } },
   'tasks/t2': { title: { stringValue: '내일 마감·이미 완료' }, assignee: { stringValue: 'u1' }, due: { stringValue: tomorrow }, status: { stringValue: 'done' } },
@@ -66,7 +69,9 @@ globalThis.fetch = async (input, init) => {
     return Response.json({ access_token: 'fake-sa-token', expires_in: 3600 });
   }
   if (url.startsWith(FS)) {
-    const rest = url.slice(FS.length);
+    // 진짜 Firestore 는 경로를 **디코드**한다. 모의가 안 하면 encodeURIComponent 를 쓰는
+    // 정상 코드가 여기서만 404 를 맞는다(2026-09-20: users/u_a%40b.com 을 못 찾아 범위 시험이 죽었다).
+    const rest = decodeURIComponent(url.slice(FS.length));
     if (rest === ':listCollectionIds') { // v3.2 백업: 루트 컬렉션 동적 열거
       const ids = [...new Set(Object.keys(fsStore).map(p => p.split('/')[0]))];
       return Response.json({ collectionIds: ids });
@@ -197,6 +202,39 @@ const post = (path, token, obj) => worker.fetch(new Request('https://gw.test' + 
   const r = await post('/rag/upload', adminToken, { docName: '검사절차서', chunks: ['수정된 문서 — 조각 하나뿐'] });
   await r.json();
   check('RAG 재등록: 예전 조각 삭제(교체)', !vecStore.has('검사절차서::1') && !vecStore.has('검사절차서::2') && vecStore.has('검사절차서::0'));
+}
+// ── v4.0: 검색 범위(권한) ───────────────────────────────────────────────────
+// 2026-09-20 까지 AI 비서는 색인 전체를 봤다. 막던 것은 프롬프트 한 줄뿐이었다.
+// 여기서 막히는지 **실제 요청으로** 확인한다. 뚫리면 남의 부서 자료가 답변 근거로 나간다.
+{
+  const 같은글 = '개스킷 규격 오적용 누설';                     // 셋 다 같은 내용 — 범위만 다르다
+  const emb = fakeEmbed(같은글);
+  vecStore.set('범위시험_전사::0',   { id: '범위시험_전사::0',   values: emb, metadata: { docName: '전사문서',   chunkIndex: 0, text: 같은글 } });               // 범위 없음 = 전사
+  vecStore.set('범위시험_품질::0',   { id: '범위시험_품질::0',   values: emb, metadata: { docName: '품질부문서', chunkIndex: 0, text: 같은글, 범위: '부서:품질관리부' } });
+  vecStore.set('범위시험_생산::0',   { id: '범위시험_생산::0',   values: emb, metadata: { docName: '생산부문서', chunkIndex: 0, text: 같은글, 범위: '부서:생산부' } });
+  vecStore.set('범위시험_비밀::0',   { id: '범위시험_비밀::0',   values: emb, metadata: { docName: '반출금지도면', chunkIndex: 0, text: 같은글, 범위: '비밀' } });
+
+  const r = await post('/rag/search', staffToken, { query: 같은글, topK: 10 });
+  const d = await r.json();
+  const 문서들 = (d.matches || []).map(m => m.docName);
+  check('범위: 남의 부서(품질) 자료가 생산부원에게 안 나온다', !문서들.includes('품질부문서'), 문서들.join(','));
+  check('범위: 내 부서(생산) 자료는 나온다', 문서들.includes('생산부문서'), 문서들.join(','));
+  check('범위: 전사 자료는 나온다', 문서들.includes('전사문서'), 문서들.join(','));
+  check('범위: 비밀은 누구에게도 안 나온다', !문서들.includes('반출금지도면'), 문서들.join(','));
+
+  // 클라이언트가 범위를 스스로 넓히려 해도 안 먹혀야 한다 — 토큰에서만 뽑기 때문이다
+  const r2 = await post('/rag/search', staffToken, { query: 같은글, topK: 10, 범위: ['전사', '부서:품질관리부', '비밀'] });
+  const d2 = await r2.json();
+  const 문서들2 = (d2.matches || []).map(m => m.docName);
+  check('범위: body 로 범위를 넣어도 안 넓어진다(토큰이 진실)',
+    !문서들2.includes('품질부문서') && !문서들2.includes('반출금지도면'), 문서들2.join(','));
+
+  const r3 = await post('/rag/search', adminToken, { query: 같은글, topK: 10 });
+  const 문서들3 = ((await r3.json()).matches || []).map(m => m.docName);
+  check('범위: 품질관리부 사람에게는 품질 자료가 나온다', 문서들3.includes('품질부문서'), 문서들3.join(','));
+  check('범위: super 라도 남의 부서(생산)는 안 나온다 — 부장님 지시', !문서들3.includes('생산부문서'), 문서들3.join(','));
+
+  ['범위시험_전사::0', '범위시험_품질::0', '범위시험_생산::0', '범위시험_비밀::0'].forEach(id => vecStore.delete(id));
 }
 {
   const r = await post('/rag/upload', adminToken, { docName: 'Y', chunks: Array(501).fill('x') });
