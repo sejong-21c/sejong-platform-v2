@@ -94,6 +94,17 @@ async function 표부르기(fb, 몸) {
   } finally { 정리(); }
 }
 
+/** 글 하나 받을 때까지 회사를 옮겨 간다. 빈 응답도 실패로 친다 — 아래 표묻기 주석 참고. */
+async function 두뇌하나(규칙, 물음, auth) {
+  for (const p of 체인) {
+    try {
+      const r = await 한번부르기(p, 규칙, [], 물음, auth);
+      if (r && r.text) return r.text;
+    } catch (e) { /* 다음 회사 */ }
+  }
+  return '';
+}
+
 /** 세는 질문이면 표에 물어 본다. 못 하면 **조용히 null** — 답변 자체는 계속돼야 한다. */
 export async function 표묻기(질문, fb) {
   if (!세는질문인가(질문)) return null;
@@ -105,7 +116,8 @@ export async function 표묻기(질문, fb) {
       "너는 SQLite 질의를 쓴다. 아래 표 목록만 보고 **SELECT 한 문장**을 쓴다.",
       "- 표·열 이름은 목록에 있는 것만 쓴다. 없는 이름을 지어내지 마라.",
       "- 열 이름은 큰따옴표로 감싼다.",
-      "- **숫자는 글자로 저장돼 있다.** 더할 때는 쉼표와 공백을 뗀 뒤 real 로 바꾼다: cast(replace(replace(열,쉼표,빈칸없이),공백,빈칸없이) as real). 쉼표·공백은 작은따옴표 문자열로 쓴다.",
+      `- **숫자는 글자로 저장돼 있다.** 더할 때는 쉼표를 떼고 real 로 바꾼다:`,
+      `    sum(cast(replace("재료비", ',', '') as real))`,
       "- 날짜는 _수정일(YYYY-MM-DD, 그 파일이 마지막으로 고쳐진 날)뿐이다. 연도는 substr(_수정일,1,4).",
       "- 어느 파일에서 나왔는지 댈 수 있게 _파일·_폴더 를 함께 뽑거나 count(distinct _파일) 을 넣는다.",
       "- 표를 3개 넘게 함께 보지 마라. LIMIT 을 붙인다.",
@@ -121,9 +133,12 @@ export async function 표묻기(질문, fb) {
     for (let 회 = 0; 회 < 2; 회++) {
       const 물음 = 회 === 0 ? 질문
         : `${질문}\n\n앞서 쓴 질의가 실패했다:\n${sql}\n오류: ${마지막오류}\n고쳐서 다시 써라.`;
-      let 글;
-      try { 글 = (await 한번부르기(체인[0], 규칙, [], 물음, await 토큰(fb))).text; }
-      catch (e) { return null; }                       // 두뇌가 안 되면 표는 건너뛴다
+      // **체인을 돈다.** 처음엔 체인[0] 만 불렀는데, groq gpt-oss-120b 가 가끔 빈 content 를
+      // 돌려준다(추론만 하고 답을 안 쓴다) → 한번부르기가 "빈 응답" 을 던지고 → 표를 통째로
+      // 건너뛰었다. 답하기() 는 다음 회사로 넘어가는데 여기만 안 넘어가고 있었다.
+      // 2026-09-22 실측: 같은 질문이 한 번은 SQL 을, 한 번은 빈 글을 냈다.
+      const 글 = await 두뇌하나(규칙, 물음, await 토큰(fb));
+      if (!글) return null;                            // 세 곳 다 안 되면 표는 건너뛴다
       sql = SQL만(글);
       if (!sql || /^없음$/i.test(sql)) return null;
       if (!/^\s*(select|with)\b/i.test(sql)) return null;
