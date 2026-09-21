@@ -1282,17 +1282,17 @@
     ]
   },
   "swkim@sejong-21c.com": {
-    "generatedAt": "2026-09-18 (daily-mail-swkim 자동 실행)",
-    "dashboardHtmlPath": "data/dashboards/swkim-2026-09-18-morning.html",
-    "newMails": 0,
-    "processed": 0,
+    "generatedAt": "2026-09-22 (daily-mail-swkim 자동 실행)",
+    "dashboardHtmlPath": "data/dashboards/swkim-2026-09-22-morning.html",
+    "newMails": 2,
+    "processed": 2,
     "urgentReplies": 0,
     "ncr": 0,
     "car": 0,
     "newProjects": 0,
     "manday": 0,
     "keyActions": [
-      "오늘(newer_than:1d) 신규 수신·발신 메일 없음 — 마지막 메일은 9/16(수) 23:53 [품질관리부] 공사관리절차서 초안 검토요청건(신채완 과장). 오늘 처리할 신규 액션 없음."
+      "오늘(newer_than:1d) 신규 수신 메일 2건은 모두 비업무성(OpenAI 마케팅 메일, Google 계정 보안 알림)으로 확인되어 라벨 부착·Drive 폴더 생성·캘린더 등록 대상이 없습니다. 발신 메일 0건. 오늘 처리할 신규 업무 액션 없음."
     ],
     "urgentList": [],
     "schedule": []
