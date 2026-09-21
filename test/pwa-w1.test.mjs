@@ -226,9 +226,12 @@ const 규칙 = 읽기('firestore.rules');
 확인('화면: messages 구독을 readers 로 좁힌다',
   /fb\.where\('readers', 'array-contains', me\(\)\)/.test(앱),
   '좁히지 않으면 규칙이 목록 조회를 통째로 거부해 메신저가 빈 화면이 된다');
-확인('화면: 전체 messages 구독이 남아 있지 않다',
-  !/collection\(fb\.db, 'messages'\), fb\.orderBy\('createdAt', 'desc'\), fb\.limit/.test(앱),
-  '복붙 한 번으로 되살아나는 자리다 — 부팅 500읽기 × 사람 × 새로고침');
+확인('화면: 전체 messages 구독은 스위치 뒤에만 있다',
+  /if \(이단계\) \{/.test(앱)
+  && (앱.match(/collection\(fb\.db, 'messages'\), fb\.orderBy\('createdAt', 'desc'\), fb\.limit/g) || []).length <= 1,
+  '옛길은 스위치 아래 한 벌만. 두 벌이 되면 켜도 500읽기가 남는다');
+확인('화면: 2단계 스위치가 있다', /const 이단계 = (true|false);/.test(앱),
+  '백필·색인·규칙이 끝나기 전에 켜면 전 직원이 빈 화면을 본다');
 확인('화면: 공지도 따로 구독한다',
   /fb\.where\('channel', '==', 공지방\)/.test(앱),
   'readers 로만 받으면 공지(readers 없음)가 안 온다');

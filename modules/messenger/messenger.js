@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b53';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b53';
+import * as L from './lib.js?v=b54';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b54';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b53';
+const 빌드 = 'b54';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -55,6 +55,14 @@ const 메시지창 = 500;                          // 부팅 때 읽는 최근 �
 // 공지(c1)는 readers 가 없어 따로 받는다. 전 직원이 같은 것을 보므로 창이 작아도 된다.
 const 공지방 = 'c1';
 const 공지창 = 100;
+// **2단계 스위치.** 켜면 readers 로 좁혀 구독한다(남의 1:1 이 안 내려오고 부팅 읽기가 500→수십).
+// 켜기 전에 반드시 끝나 있어야 하는 것 셋 — 하나라도 없으면 **전 직원이 빈 화면을 본다**:
+//   ① readers 백필 (scripts/readers-backfill-night.mjs, 박을 것 0)
+//   ② 복합색인 2개 생성 완료 (firestore.indexes.json)
+//   ③ 보안규칙 게시
+// 2026-09-21: 코드를 먼저 배포해 놓고 이 셋을 나중에 하려다, 그러면 그 사이에 메신저가
+// 통째로 멎는다는 걸 깨달았다. 그래서 스위치를 뒀다 — 준비가 끝나면 여기만 true 로.
+const 이단계 = false;
 const 프로필컬렉션 = 't_userProfile';           // {uid, photo(dataURL), phone, updatedAt} — users 문서를 무겁게 하지 않으려고 따로 둔다
 
 // 부모 index.html 과 같은 부서 id 표 — 부서 방 문서 id 는 dept_<id> 다(ensureDeptChannel).
@@ -1533,16 +1541,24 @@ function 구독시작() {
     state.loaded.messages = true;
     메시지색인(); renderTabs(); renderPane(); if (ui.cid) renderMessages(false);
   };
-  on(fb.query(fb.collection(fb.db, 'messages'), fb.where('readers', 'array-contains', me()),
-    fb.orderBy('createdAt', 'desc'), fb.limit(메시지창)), (snap) => {
-    조각.내것 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    합치기();
-  }, 'messages');
-  on(fb.query(fb.collection(fb.db, 'messages'), fb.where('channel', '==', 공지방),
-    fb.orderBy('createdAt', 'desc'), fb.limit(공지창)), (snap) => {
-    조각.공지 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    합치기();
-  }, 'messages-공지');
+  if (이단계) {
+    on(fb.query(fb.collection(fb.db, 'messages'), fb.where('readers', 'array-contains', me()),
+      fb.orderBy('createdAt', 'desc'), fb.limit(메시지창)), (snap) => {
+      조각.내것 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      합치기();
+    }, 'messages');
+    on(fb.query(fb.collection(fb.db, 'messages'), fb.where('channel', '==', 공지방),
+      fb.orderBy('createdAt', 'desc'), fb.limit(공지창)), (snap) => {
+      조각.공지 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      합치기();
+    }, 'messages-공지');
+  } else {
+    // 옛길 — 백필·색인·규칙이 끝날 때까지. 위 스위치 설명을 볼 것.
+    on(fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(메시지창)), (snap) => {
+      조각.내것 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      합치기();
+    }, 'messages');
+  }
   // AI 대화 — 내 것만. 규칙(firestore.rules)도 uid 가 나인 문서만 허용하므로 이 조건이 빠지면 조회 자체가 막힌다.
   on(fb.query(fb.collection(fb.db, AI_컬렉션), fb.where('uid', '==', me())), (snap) => {
     state.aiMsgs = snap.docs.map((d) => ({ id: d.id, ...d.data(), channel: AI_CID }))
