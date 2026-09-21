@@ -11,7 +11,8 @@
      메신저는 getFB() 로 window.parent.fb 를 먼저 쓰므로 진짜 Firebase 없이 전체가 돈다(SDK 모듈 다운로드만 인터넷 필요).
      검사: node test/messenger-ui-check.mjs · 손으로 볼 때는 콘솔에서 fake.writes / fake.all('messages') 를 본다.
      시드는 W2-UI-스펙 §5 데이터 모양 그대로. 프로필 사진은 t_userProfile/{uid} (스펙 §7 이후 바뀐 이름). -->
-<script>
+<script type="module">
+import { 읽을사람 } from '../modules/messenger/lib.js?v=b55';
 (function () {
   // ───────────────── 메모리 Firestore — 모듈러 SDK 10.x 호출 모양만 흉내 ─────────────────
   const 창고 = new Map();          // col → Map(id → data)
@@ -255,6 +256,17 @@
     put('events', 'ev2', { title: '영업부 단독 일정', date: 날(2), time: '14:00', color: 'orange', dept: '영업부', createdBy: 'u_kang_dh' });
     put('events', 'ev3', { title: '지난 일정은 안 넣는다', date: 날(-3), color: 'red', dept: '품질관리부', createdBy: 'u_kim' });
 
+    // 2단계(b55): 실제 DB 는 백필이 끝나 readers 가 박혀 있다. 시험대도 그 상태여야 한다 —
+    //   안 박으면 where('readers','array-contains') 구독이 **한 건도** 못 가져와 화면이 통째로 빈다.
+    //   판단은 화면·규칙·백필과 **같은 함수**(lib.js 읽을사람)로 한다. 여기서 따로 구현하면 셋이 어긋나고,
+    //   그 어긋남은 "가끔 안 보이는 메시지" 로만 드러난다 — 찾기 제일 어려운 종류다.
+    //   null(공지·system·방 문서 없음)은 일부러 안 박는다. 그건 규칙 예외와 공지 구독이 맡는다.
+    const 사람목록 = 사람들.map((row) => ({ id: row[0], ...사용자문서(row) }));
+    for (const [mid, m] of 칸('messages')) {
+      const r = 읽을사람({ id: m.channel, ...(칸('channels').get(m.channel) || {}) }, 사람목록, 프로젝트들);
+      if (r) 칸('messages').set(mid, { ...m, readers: r });
+    }
+
     let 총 = 0; for (const c of 창고.values()) 총 += c.size;
     for (const c of 창고.keys()) 건드림(c);
     console.log(`[harness] seeded ${총} docs`);
@@ -277,9 +289,14 @@
     pendingUsers: [],
   };
   seed();
+  // 모듈 스크립트는 파싱이 끝난 뒤에 돈다. iframe 을 HTML 에 박아 두면 seed() 전에 떠서
+  // 메신저가 빈 window.parent.fb 를 보고 부팅한다. 그래서 여기서 붙인다(검사기는 #f 를 기다린다).
+  const 틀 = document.createElement('iframe');
+  틀.id = 'f';
+  틀.src = '../modules/messenger/messenger.html?embed=1&v=test';
+  틀.style.cssText = 'display:block;width:100vw;height:100vh;border:0';
+  document.body.appendChild(틀);
 })();
 </script>
-<iframe id="f" src="../modules/messenger/messenger.html?embed=1&v=test"
-        style="display:block;width:100vw;height:100vh;border:0"></iframe>
 </body>
 </html>

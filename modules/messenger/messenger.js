@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b54';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b54';
+import * as L from './lib.js?v=b55';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b55';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b54';
+const 빌드 = 'b55';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -56,13 +56,15 @@ const 메시지창 = 500;                          // 부팅 때 읽는 최근 �
 const 공지방 = 'c1';
 const 공지창 = 100;
 // **2단계 스위치.** 켜면 readers 로 좁혀 구독한다(남의 1:1 이 안 내려오고 부팅 읽기가 500→수십).
-// 켜기 전에 반드시 끝나 있어야 하는 것 셋 — 하나라도 없으면 **전 직원이 빈 화면을 본다**:
-//   ① readers 백필 (scripts/readers-backfill-night.mjs, 박을 것 0)
-//   ② 복합색인 2개 생성 완료 (firestore.indexes.json)
-//   ③ 보안규칙 게시
-// 2026-09-21: 코드를 먼저 배포해 놓고 이 셋을 나중에 하려다, 그러면 그 사이에 메신저가
-// 통째로 멎는다는 걸 깨달았다. 그래서 스위치를 뒀다 — 준비가 끝나면 여기만 true 로.
-const 이단계 = false;
+// **순서가 전부다.** 틀리면 전 직원이 빈 화면을 본다. 2026-09-21 에 이 순서로 켰다:
+//   ① readers 백필 (scripts/readers-backfill-night.mjs — 박을 것 0 을 눈으로 확인)
+//   ② 복합색인 2개 READY (firestore.indexes.json — 만드는 중이면 조회가 실패한다)
+//   ③ 이 스위치를 true 로 하고 **코드 먼저 배포**
+//   ④ 그 다음에 보안규칙 게시
+// ③④ 를 바꾸면 안 된다. **규칙은 걸러 주는 체가 아니라 질의 전체를 심사한다** —
+// 2단계 규칙만 먼저 올리면, 아직 옛 코드를 쥔 브라우저의 readers 없는 질의가 통째로
+// 거부되어 그 사이 메신저가 멎는다. 거꾸로(코드가 먼저)는 안전하다 — 좁힌 질의는 넓은 옛 규칙도 통과한다.
+const 이단계 = true;
 const 프로필컬렉션 = 't_userProfile';           // {uid, photo(dataURL), phone, updatedAt} — users 문서를 무겁게 하지 않으려고 따로 둔다
 
 // 부모 index.html 과 같은 부서 id 표 — 부서 방 문서 id 는 dept_<id> 다(ensureDeptChannel).
