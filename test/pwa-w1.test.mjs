@@ -205,11 +205,42 @@ const 규칙 = 읽기('firestore.rules');
 확인("범용 t_ 규칙에서 t_aiChat 제외", /col != 't_aiChat'/.test(규칙), '빼지 않으면 사내 누구나 읽고 쓴다');
 확인('전사 공지는 부서장 이상만 쓴다',
   /function isDeptHeadOrAbove\(\)[\s\S]{0,200}grade in \['super', 'exec', 'manager'\]/.test(규칙)
-  && /channel in \['c1'\]\) \|\| isDeptHeadOrAbove\(\)/.test(규칙),
+  && /channel in (\['c1'\]|noticeChannels\(\))\) \|\| isDeptHeadOrAbove\(\)/.test(규칙),
   '화면만 막으면 개발자 도구로 그냥 쓸 수 있다');
 확인('메신저도 같은 기준으로 입력창을 접는다', /L\.공지쓰기가능\(나\(\)\)/.test(앱)
   && /export const 공지등급 = \['super', 'exec', 'manager'\]/.test(읽기('modules/messenger/lib.js')),
   '규칙과 화면이 다른 기준을 쓰면 "보이는데 안 써지는" 상태가 된다');
+
+// ── 2단계: readers 로 좁혀 읽기 (2026-09-21) ──
+// 되돌리면 화면은 멀쩡하다. 남의 1:1 대화가 다시 브라우저까지 내려오고, 부팅 읽기가 500 으로 돌아갈 뿐이다.
+// **눈에 안 보이는 종류라 여기서 잡는다.**
+확인('규칙: messages 읽기가 readers 를 본다',
+  /match \/messages\/\{messageId\}[\s\S]{0,900}allow read:[\s\S]{0,300}request\.auth\.uid in resource\.data\.get\('readers', \[\]\)/.test(규칙),
+  "isCompanyUser() 하나로 돌아가면 사내 누구나 남의 1:1 대화를 읽는다");
+확인('규칙: 공지는 readers 없이도 읽힌다',
+  /allow read:[\s\S]{0,300}resource\.data\.channel in noticeChannels\(\)/.test(규칙),
+  '이게 빠지면 전사 공지가 아무에게도 안 보인다 — 조용히 사라지는 종류');
+확인('규칙 함수 이름은 영문이다',
+  !/function +[^\x00-\x7F]/.test(규칙),
+  '규칙 언어는 한글 식별자를 못 읽는다(2026-09-21 에뮬레이터가 잡았다)');
+확인('화면: messages 구독을 readers 로 좁힌다',
+  /fb\.where\('readers', 'array-contains', me\(\)\)/.test(앱),
+  '좁히지 않으면 규칙이 목록 조회를 통째로 거부해 메신저가 빈 화면이 된다');
+확인('화면: 전체 messages 구독이 남아 있지 않다',
+  !/collection\(fb\.db, 'messages'\), fb\.orderBy\('createdAt', 'desc'\), fb\.limit/.test(앱),
+  '복붙 한 번으로 되살아나는 자리다 — 부팅 500읽기 × 사람 × 새로고침');
+확인('화면: 공지도 따로 구독한다',
+  /fb\.where\('channel', '==', 공지방\)/.test(앱),
+  'readers 로만 받으면 공지(readers 없음)가 안 온다');
+확인('색인 파일에 두 질의가 다 있다', (() => {
+  try {
+    const idx = JSON.parse(읽기('firestore.indexes.json'));
+    const 있나 = (f) => (idx.indexes || []).some((x) => x.collectionGroup === 'messages'
+      && JSON.stringify(x.fields) === JSON.stringify(f));
+    return 있나([{ fieldPath: 'readers', arrayConfig: 'CONTAINS' }, { fieldPath: 'createdAt', order: 'DESCENDING' }])
+      && 있나([{ fieldPath: 'channel', order: 'ASCENDING' }, { fieldPath: 'createdAt', order: 'DESCENDING' }]);
+  } catch (e) { return false; }
+})(), '복합색인이 없으면 구독이 통째로 실패한다 — 화면은 "불러오는 중" 에 머문다');
 
 console.log(`\n${실패 ? '실패 ' + 실패 + '건' : '전부 통과'}`);
 process.exit(실패 ? 1 : 0);

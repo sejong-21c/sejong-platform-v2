@@ -45,8 +45,26 @@ service cloud.firestore {
       allow read, create, update: if isCompanyUser();
       allow delete: if false;
     }
+    // 전사 공지 채널 — **readers 를 박지 않는다**
+    // ⚠️ 이름이 영문인 이유: 규칙 언어는 한글 식별자를 못 읽는다(에뮬레이터가 2026-09-21 에 잡았다).(읽을사람() 이 announce 에 null 을 준다).
+    // 아래 create 규칙의 목록과 반드시 같이 움직여야 한다. 공지 채널이 늘면 두 곳을 같이 고칠 것.
+    function noticeChannels() { return ['c1']; }
+
     match /messages/{messageId} {
-      allow read: if isCompanyUser();
+      // **2단계**: 내가 읽어도 되는 메시지만 읽는다(2026-09-21).
+      // 그전에는 `isCompanyUser()` 하나였다 — 사내 계정이면 **남의 1:1 대화까지 전부** 읽혔고,
+      // 화면이 가려 줄 뿐이라 개발자 도구로는 그냥 보였다. 읽기 비용도 여기서 나왔다
+      // (메신저 부팅 한 번이 전체 messages 500건이었다).
+      //
+      // readers 는 보낼 때 박고(b46), 옛 메시지는 백필로 채웠다(scripts/readers-backfill-night.mjs).
+      // **백필 전에 이 규칙을 올리면 모두가 옛 대화를 통째로 잃는다** — 순서가 곧 안전장치다.
+      //
+      // 목록 조회는 규칙이 문서마다 걸리므로, 클라이언트가
+      // `where('readers','array-contains', 내uid)` 로 좁혀야만 열린다. 통째로 훑기는 여기서 막힌다.
+      allow read: if isCompanyUser() && (
+        request.auth.uid in resource.data.get('readers', [])
+        || resource.data.channel in noticeChannels()
+      );
       // 일반 사용자 발송: author = 본인 uid
       // 전사 공지(c1)만 부서장 이상. 채널 비교가 앞이라 평소 메시지에는 users 조회가 일어나지 않는다(읽기 비용 0).
       //   화면(messenger.js)에서도 입력창을 접지만, 그것만으로는 개발자 도구로 그냥 쓸 수 있어 여기서도 막는다.
@@ -54,7 +72,7 @@ service cloud.firestore {
       // 시스템 알림: author = 'SYSTEM' + system: true + 지정된 시스템 채널로만 (검교정 임박 알림 등)
       allow create: if isCompanyUser() && (
         (request.resource.data.author == request.auth.uid
-         && (!(request.resource.data.channel in ['c1']) || isDeptHeadOrAbove()))
+         && (!(request.resource.data.channel in noticeChannels()) || isDeptHeadOrAbove()))
         ||
         (request.resource.data.author == 'SYSTEM'
          && request.resource.data.system == true

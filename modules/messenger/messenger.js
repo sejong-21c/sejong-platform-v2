@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b52';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b52';
+import * as L from './lib.js?v=b53';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b53';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,11 +47,14 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b52';
+const 빌드 = 'b53';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
 const 메시지창 = 500;                          // 부팅 때 읽는 최근 메시지 수(전체 방 합산). 이 밖의 옛 방은 창 밖이다.
+// 공지(c1)는 readers 가 없어 따로 받는다. 전 직원이 같은 것을 보므로 창이 작아도 된다.
+const 공지방 = 'c1';
+const 공지창 = 100;
 const 프로필컬렉션 = 't_userProfile';           // {uid, photo(dataURL), phone, updatedAt} — users 문서를 무겁게 하지 않으려고 따로 둔다
 
 // 부모 index.html 과 같은 부서 id 표 — 부서 방 문서 id 는 dept_<id> 다(ensureDeptChannel).
@@ -1513,11 +1516,33 @@ function 구독시작() {
   }, 'profile');
   on(fb.collection(fb.db, 'channels'), (snap) => { state.channels = snap.docs.map((d) => ({ id: d.id, ...d.data() })); state.loaded.channels = true; render('all'); }, 'channels');
   on(fb.collection(fb.db, 'projects'), (snap) => { state.projects = snap.docs.map((d) => ({ id: d.id, ...d.data() })); render('all'); }, 'projects');
-  on(fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(메시지창)), (snap) => {
-    state.messages = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => L.메시지시각ms(a) - L.메시지시각ms(b));
+  // ── 2단계: 내가 읽어도 되는 것만 구독한다 (2026-09-21) ────────────────────
+  // 그전에는 messages 전체에서 최근 500건을 받아 **화면에서 걸러** 보여 줬다. 두 가지가 나빴다:
+  //   ① 남의 1:1 대화가 브라우저까지 내려왔다. 화면이 가릴 뿐 개발자 도구로는 그냥 보였다.
+  //   ② 부팅 한 번에 500읽기. 사람 수 × 새로고침만큼 곱해져 하루 한도를 먹었다.
+  // 이제 규칙(firestore.rules)이 readers 에 든 사람만 읽게 막고, 여기서도 그렇게 좁혀 받는다.
+  // **둘을 같이 고쳐야 한다** — 규칙만 고치면 화면이 통째로 막히고, 화면만 고치면 남의 것이 계속 열려 있다.
+  //
+  // 공지(c1)는 readers 를 안 박는다(읽을사람() 이 announce 에 null 을 준다) → 따로 한 갈래 더.
+  // 두 갈래가 따로 도착하므로 **합쳐서** state.messages 를 만든다. 한쪽만 와도 화면은 그려진다.
+  const 조각 = { 내것: null, 공지: null };
+  const 합치기 = () => {
+    const 본 = new Map();
+    for (const 쪽 of [조각.내것, 조각.공지]) if (쪽) for (const m of 쪽) 본.set(m.id, m);
+    state.messages = [...본.values()].sort((a, b) => L.메시지시각ms(a) - L.메시지시각ms(b));
     state.loaded.messages = true;
     메시지색인(); renderTabs(); renderPane(); if (ui.cid) renderMessages(false);
+  };
+  on(fb.query(fb.collection(fb.db, 'messages'), fb.where('readers', 'array-contains', me()),
+    fb.orderBy('createdAt', 'desc'), fb.limit(메시지창)), (snap) => {
+    조각.내것 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    합치기();
   }, 'messages');
+  on(fb.query(fb.collection(fb.db, 'messages'), fb.where('channel', '==', 공지방),
+    fb.orderBy('createdAt', 'desc'), fb.limit(공지창)), (snap) => {
+    조각.공지 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    합치기();
+  }, 'messages-공지');
   // AI 대화 — 내 것만. 규칙(firestore.rules)도 uid 가 나인 문서만 허용하므로 이 조건이 빠지면 조회 자체가 막힌다.
   on(fb.query(fb.collection(fb.db, AI_컬렉션), fb.where('uid', '==', me())), (snap) => {
     state.aiMsgs = snap.docs.map((d) => ({ id: d.id, ...d.data(), channel: AI_CID }))

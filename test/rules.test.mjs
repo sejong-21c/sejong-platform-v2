@@ -10,8 +10,8 @@
 //   (Java 필요 — 에뮬레이터가 자바다. PC 는 C:\Program Files\Microsoft\jdk-21.*-hotspot)
 //
 // 이 시험은 **지금 규칙의 실제 동작을 못 박는 그물**이다. 바꾸면 안 되는 것이 바뀌면 여기서 걸린다.
-// 이름이 `[2단계]` 로 시작하는 것은 **지금은 통과하지만 2단계 3번에서 뒤집힐 것**이다 —
-// 그때 이 줄을 반대로 고치는 게 곧 그 작업의 정의다.
+// `[2단계 끝]` 로 시작하는 것은 2026-09-21 에 뒤집은 것이다 — 그전에는 "지금은 통과한다" 였다.
+// 되돌리면 남의 1:1 대화가 다시 열린다. 이 줄들이 그 작업의 정의였다.
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
@@ -104,14 +104,26 @@ await T('내 메시지는 지운다', () => assertSucceeds(deleteDoc(doc(로그�
 await T('남의 메시지는 못 지운다', () => assertFails(deleteDoc(doc(로그인(사람.생산원), 'messages', 'm_quality'))));
 
 console.log('\n── 메시지 읽기  ⚠ 여기가 2단계 3번에서 뒤집힌다');
-await T('[2단계] 생산부 직원이 품질관리부 방 메시지를 읽는다 — 지금은 통과한다',
-  () => assertSucceeds(getDoc(doc(로그인(사람.생산원), 'messages', 'm_quality'))));
-await T('[2단계] 남의 1:1 대화도 읽힌다 — 지금은 통과한다',
-  () => assertSucceeds(getDoc(doc(로그인(사람.생산원), 'messages', 'm_dm'))));
-await T('[2단계] 전 직원이 messages 를 통째로 훑는다 — 지금은 통과한다',
-  () => assertSucceeds(getDocs(collection(로그인(사람.생산원), 'messages'))));
-await T('readers 로 좁힌 조회도 지금은 된다(규칙이 아직 안 막으므로)',
+// ── 여기가 2단계였다. 2026-09-21 에 뒤집었다 — 이제 readers 에 든 사람만 읽는다. ──
+await T('[2단계 끝] 생산부 직원은 품질관리부 방 메시지를 못 읽는다',
+  () => assertFails(getDoc(doc(로그인(사람.생산원), 'messages', 'm_quality'))));
+await T('[2단계 끝] 남의 1:1 대화는 못 읽는다',
+  () => assertFails(getDoc(doc(로그인(사람.생산원), 'messages', 'm_dm'))));
+await T('[2단계 끝] messages 를 통째로 훑으면 거부 — 부팅 한 번에 500건씩 읽던 길이 막힌다',
+  () => assertFails(getDocs(collection(로그인(사람.생산원), 'messages'))));
+await T('[2단계 끝] readers 로 좁히면 열린다 — 화면이 쓰는 바로 그 질의',
   () => assertSucceeds(getDocs(query(collection(로그인(사람.생산원), 'messages'), where('readers', 'array-contains', 사람.생산원.uid)))));
+await T('[2단계 끝] 내가 든 방 메시지는 그대로 읽힌다(막기만 하고 끝나면 안 된다)',
+  () => assertSucceeds(getDoc(doc(로그인(사람.품질원), 'messages', 'm_quality'))));
+await T('[2단계 끝] 남의 readers 로 좁혀서 훔쳐보는 것도 거부',
+  () => assertFails(getDocs(query(collection(로그인(사람.생산원), 'messages'), where('readers', 'array-contains', 사람.부장.uid)))));
+
+// **공지는 readers 가 없다**(읽을사람() 이 announce 에 null 을 준다).
+// 이걸 안 열어 두면 2단계를 켜는 순간 전사 공지가 아무에게도 안 보인다 — 조용히 사라지는 종류다.
+await T('[2단계 끝] 전사 공지는 readers 가 없어도 누구나 읽는다',
+  () => assertSucceeds(getDoc(doc(로그인(사람.생산원), 'messages', 'm_announce'))));
+await T('[2단계 끝] 공지 채널로 좁힌 조회도 열린다 — 화면이 쓰는 두 번째 질의',
+  () => assertSucceeds(getDocs(query(collection(로그인(사람.생산원), 'messages'), where('channel', '==', 'c1')))));
 
 console.log('\n── AI 비서 대화 (이미 본인만)');
 await T('남의 AI 대화는 못 읽는다', () => assertFails(getDoc(doc(로그인(사람.생산원), 't_aiChat', 'ai_super_1'))));
