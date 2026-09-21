@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b63';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b63';
+import * as L from './lib.js?v=b64';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b64';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b63';
+const 빌드 = 'b64';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1199,8 +1199,16 @@ async function AI맥락(문서, 표 = null) {
     줄.push("\n## 사내 표에서 **직접 센 결과** (내 권한 범위 안에서만 셌다)");
     줄.push("아래 수는 NAS 엑셀을 모아 만든 표에서 SQL 로 센 것이다. **이 수를 그대로 쓰고 어림하지 마라.**");
     줄.push("질의: " + 표.sql);
-    for (const r of 표.줄.slice(0, 40)) 줄.push(JSON.stringify(r));
-    if (표.잘림) 줄.push("(줄이 더 있어 잘렸다 — 다 세지 못했다고 밝힐 것)");
+    // **직접 더하지 못하게 막는다.** 2026-09-22: 재질별 건수 9줄을 주었더니 모델이 그걸
+    //   제 손으로 합산해 A1A 47,539 건이라고 했다 — 실제는 61,317 이다. 줄을 여럿 주면
+    //   모델은 산수를 하려 들고, 문맥이 잘린 줄 모르고 틀린 합을 낸다.
+    //   줄 수를 밝히고, 합이 필요하면 SQL 이 이미 낸 값만 쓰라고 못 박는다.
+    const 보일것 = 표.줄.slice(0, 40);
+    줄.push(`결과 ${표.줄.length}줄 중 ${보일것.length}줄:`);
+    for (const r of 보일것) 줄.push(JSON.stringify(r));
+    줄.push("**이 줄들을 네가 직접 더하거나 세지 마라.** 이미 SQL 이 센 값이다. 합계가 필요한데");
+    줄.push("위에 없으면 \"합계는 따로 세어 봐야 한다\" 고 말해라 — 손으로 더하면 틀린다.");
+    if (표.잘림 || 표.줄.length > 보일것.length) 줄.push("(줄이 더 있어 잘렸다 — 다 보여 주지 못했다고 밝힐 것)");
     줄.push("범위 밖 자료는 애초에 세지 않았다. 그러니 \"전체\" 라고 단정하지 말고 \"볼 수 있는 범위에서\" 라고 밝힌다.");
     // **화면 안내를 하지 마라.** 이 수는 플랫폼이 아니라 NAS 엑셀에서 나왔다 — 플랫폼에 그걸 보는
     //   화면이 없다. 위 지침의 "어느 화면에서 무엇을 하면 되는지 짚어 준다" 에 끌려
