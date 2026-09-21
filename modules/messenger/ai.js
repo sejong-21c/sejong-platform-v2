@@ -138,10 +138,16 @@ export async function 표묻기(질문, fb) {
       // 건너뛰었다. 답하기() 는 다음 회사로 넘어가는데 여기만 안 넘어가고 있었다.
       // 2026-09-22 실측: 같은 질문이 한 번은 SQL 을, 한 번은 빈 글을 냈다.
       const 글 = await 두뇌하나(규칙, 물음, await 토큰(fb));
-      if (!글) return null;                            // 세 곳 다 안 되면 표는 건너뛴다
+      // **null 과 오류를 가른다.** null 은 "표로 셀 질문이 아니라 안 물어봤다" 는 뜻이고,
+      //   화면(messenger.js)은 그 경우 아무 말도 안 넣는다. 그런데 "질의를 못 썼다" 까지
+      //   null 로 돌려주니, 세는 질문인데 조용히 넘어가서 AI 가 **없는 메뉴를 지어냈다**
+      //   (2026-09-22: "왼쪽 메뉴 견적 → NAS 견적서 목록" — 그런 메뉴는 없다).
+      //   못 센 건 못 셌다고 말해야 한다.
+      if (!글) return { sql: null, 줄: [], 오류: "두뇌가 질의를 쓰지 못했다(빈 응답)" };
       sql = SQL만(글);
-      if (!sql || /^없음$/i.test(sql)) return null;
-      if (!/^\s*(select|with)\b/i.test(sql)) return null;
+      if (/^없음$/i.test(sql)) return null;            // 여기만 진짜 null — 표로 셀 질문이 아니다
+      if (!sql) return { sql: null, 줄: [], 오류: "두뇌가 질의를 쓰지 못했다" };
+      if (!/^\s*(select|with)\b/i.test(sql)) return { sql, 줄: [], 오류: "SELECT 가 아닌 것을 썼다" };
       const r = await 표부르기(fb, { sql, 줄: 60 });
       if (r && !r.error && Array.isArray(r.줄)) return { sql, 줄: r.줄, 쓴표: r.쓴표 || [], 잘림: !!r.잘림 };
       마지막오류 = (r && r.error) || "알 수 없는 오류";
