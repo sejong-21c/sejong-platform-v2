@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b61';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b61';
+import * as L from './lib.js?v=b62';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b62';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b61';
+const 빌드 = 'b62';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1202,6 +1202,12 @@ async function AI맥락(문서, 표 = null) {
     for (const r of 표.줄.slice(0, 40)) 줄.push(JSON.stringify(r));
     if (표.잘림) 줄.push("(줄이 더 있어 잘렸다 — 다 세지 못했다고 밝힐 것)");
     줄.push("범위 밖 자료는 애초에 세지 않았다. 그러니 \"전체\" 라고 단정하지 말고 \"볼 수 있는 범위에서\" 라고 밝힌다.");
+    // **화면 안내를 하지 마라.** 이 수는 플랫폼이 아니라 NAS 엑셀에서 나왔다 — 플랫폼에 그걸 보는
+    //   화면이 없다. 위 지침의 "어느 화면에서 무엇을 하면 되는지 짚어 준다" 에 끌려
+    //   "왼쪽 메뉴 견적 → NAS 견적서 목록" 같은 **없는 화면**을 만들어 냈다(2026-09-22 실측).
+    //   대신 위 _폴더·_파일 을 알려 주면 사람이 탐색기에서 바로 연다. 그게 진짜 도움이다.
+    줄.push("**이 수는 플랫폼이 아니라 NAS 파일에서 나왔다.** 플랫폼에 이걸 보는 화면은 없으니");
+    줄.push("화면 경로를 안내하지 마라. 더 보고 싶다면 위 _폴더·_파일 경로를 알려 주면 된다.");
   } else if (표 && 표.줄 && !표.줄.length && !표.오류) {
     // **0줄도 답이다.** 2026-09-22: "2024년 재료비 합계" 에 모델이 표20(2016~2019)을 골라
     //   0줄이 나왔는데, 여기서 아무 말도 안 하니 AI 가 없는 화면("견적 → NAS 견적서 목록")을
