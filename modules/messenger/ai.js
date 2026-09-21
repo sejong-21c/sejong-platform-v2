@@ -61,6 +61,80 @@ export async function 사내문서(질문, fb, topK = 5) {
   } catch (e) { return []; }
 }
 
+// ── NAS 표에 묻기 (v4.1) ────────────────────────────────────────────────────
+// 왜 검색으로 안 되나: "작년 견적 재료비 총액" 은 **세는** 질문이다. 벡터 검색은 비슷한 몇 줄만
+//   집어 오므로 97줄 중 30줄만 보고 답한다 — 그럴듯한데 틀린 숫자가 나온다(제일 나쁜 종류).
+//   맥에 NAS 표 20개(323만 행)가 SQLite 로 쌓여 있다. 세는 건 SQL 한 줄이면 정확하다.
+//
+// 왜 SQL 을 여기서 쓰나: 질문을 SQL 로 바꾸는 건 LLM 이 제일 잘한다. 맥에서 또 부르면
+//   메시지마다 두뇌 요금이 붙는다 — 여기 체인(무료)이 쓰고 맥은 돌리기만 한다.
+//   **안전한 이유**: 맥이 SQLite 권한자로 막는다. 우리가 무슨 SQL 을 보내도 범위 밖 줄은
+//   물리적으로 안 나오고, 쓰기·PRAGMA·ATTACH 는 준비 단계에서 거부된다.
+//   (pais_project/src/xl_query.js — 거기 실측이 적혀 있다)
+
+// 세는 질문일 때만 부른다. 왕복 두 번 + 두뇌 한 번이라 인사말에까지 붙이면 느려진다.
+const 세는말 = /합계|총액|총\s*금액|얼마|몇\s*(건|개|장|명|번|줄)|건수|개수|평균|최대|최소|가장\s*(큰|많은|비싼)|상위|순위|추이|연도별|월별|부서별|업체별|집계|통계|합쳐|더하면|비교/;
+export const 세는질문인가 = (질문) => 세는말.test(String(질문 || ""));
+
+const SQL만 = (글) => String(글 || "")
+  .replace(/```[a-z]*\n?/gi, "").replace(/```/g, "")
+  .replace(/^\s*(sql|질의|답)\s*[:：]\s*/i, "")
+  .trim().replace(/;+\s*$/, "");
+
+async function 표부르기(fb, 몸) {
+  const { signal, 정리 } = 시간제한();
+  try {
+    const r = await fetch(게이트웨이 + "/rag/table", {
+      method: "POST", signal,
+      headers: { "Content-Type": "application/json", Authorization: await 토큰(fb) },
+      body: JSON.stringify(몸),
+    });
+    if (!r.ok) return { error: "표 서버 " + r.status };
+    return await r.json();
+  } finally { 정리(); }
+}
+
+/** 세는 질문이면 표에 물어 본다. 못 하면 **조용히 null** — 답변 자체는 계속돼야 한다. */
+export async function 표묻기(질문, fb) {
+  if (!세는질문인가(질문)) return null;
+  try {
+    const 목록 = await 표부르기(fb, { 목록: true });
+    if (!목록 || !목록.표) return null;
+
+    const 규칙 = [
+      "너는 SQLite 질의를 쓴다. 아래 표 목록만 보고 **SELECT 한 문장**을 쓴다.",
+      "- 표·열 이름은 목록에 있는 것만 쓴다. 없는 이름을 지어내지 마라.",
+      "- 열 이름은 큰따옴표로 감싼다.",
+      "- **숫자는 글자로 저장돼 있다.** 더할 때는 쉼표와 공백을 뗀 뒤 real 로 바꾼다: cast(replace(replace(열,쉼표,빈칸없이),공백,빈칸없이) as real). 쉼표·공백은 작은따옴표 문자열로 쓴다.",
+      "- 날짜는 _수정일(YYYY-MM-DD, 그 파일이 마지막으로 고쳐진 날)뿐이다. 연도는 substr(_수정일,1,4).",
+      "- 어느 파일에서 나왔는지 댈 수 있게 _파일·_폴더 를 함께 뽑거나 count(distinct _파일) 을 넣는다.",
+      "- 표를 3개 넘게 함께 보지 마라. LIMIT 을 붙인다.",
+      "- 이 질문이 표로 셀 수 있는 것이 아니면 SQL 대신 **없음** 한 단어만 쓴다.",
+      "설명·머리말·코드울타리 없이 SQL 만 쓴다.",
+      "",
+      목록.표,
+    ].join("\n");
+
+    let sql = null, 마지막오류 = null;
+    // 두 번까지: 처음 쓴 SQL 이 틀리면 **오류 문장을 그대로 돌려주고** 한 번 더 시킨다.
+    // 열 이름을 짐작해 틀리는 게 흔한데, 오류만 보면 대개 한 번에 고친다.
+    for (let 회 = 0; 회 < 2; 회++) {
+      const 물음 = 회 === 0 ? 질문
+        : `${질문}\n\n앞서 쓴 질의가 실패했다:\n${sql}\n오류: ${마지막오류}\n고쳐서 다시 써라.`;
+      let 글;
+      try { 글 = (await 한번부르기(체인[0], 규칙, [], 물음, await 토큰(fb))).text; }
+      catch (e) { return null; }                       // 두뇌가 안 되면 표는 건너뛴다
+      sql = SQL만(글);
+      if (!sql || /^없음$/i.test(sql)) return null;
+      if (!/^\s*(select|with)\b/i.test(sql)) return null;
+      const r = await 표부르기(fb, { sql, 줄: 60 });
+      if (r && !r.error && Array.isArray(r.줄)) return { sql, 줄: r.줄, 쓴표: r.쓴표 || [], 잘림: !!r.잘림 };
+      마지막오류 = (r && r.error) || "알 수 없는 오류";
+    }
+    return { sql, 줄: [], 오류: 마지막오류 };
+  } catch (e) { return null; }
+}
+
 function 지침(맥락, perm) {
   return [
     '너는 세종기술(플랜트 설계·제작·시공 회사)의 사내 AI 비서다. 한국어 존댓말로 답한다.',

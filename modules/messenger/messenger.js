@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b55';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서 } from './ai.js?v=b55';
+import * as L from './lib.js?v=b56';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b56';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b55';
+const 빌드 = 'b56';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1188,7 +1188,7 @@ async function 내업무일정() {
   } catch (e) { console.warn('[AI 일정]', e && e.message); }
   return 줄;
 }
-async function AI맥락(문서) {
+async function AI맥락(문서, 표 = null) {
   const perm = 내권한();
   const 줄 = [];
   const 사람 = 활성사용자().filter((u) => perm.범위 === '전사' || u.dept === perm.dept || u.id === me());
@@ -1213,6 +1213,22 @@ async function AI맥락(문서) {
       줄.push(`\n## 이 답변 **바로 아래에 도면이 함께 표시된다**: ${붙는그림.map((g) => 'Figure ' + (g.no || '')).join(', ')}`);
       줄.push('그러니 "어디서 찾아보라" 고 안내하지 말고, 그림이 무엇을 보여 주는지·어떻게 읽는지를 설명해라.');
     }
+  }
+  // ── NAS 표에서 센 결과 ────────────────────────────────────────────────────
+  // 문서 조각과 **다르게 다룬다.** 조각은 "비슷한 대목"이라 틀릴 수 있지만 이건 SQL 로 센 수다.
+  //   그래서 "근거로 참고하라" 가 아니라 **"이 수를 그대로 쓰라"** 고 말한다.
+  //   여기서 약하게 말하면 모델이 제가 어림한 숫자로 덮어써 버린다.
+  if (표 && (표.줄 || []).length) {
+    줄.push("\n## 사내 표에서 **직접 센 결과** (내 권한 범위 안에서만 셌다)");
+    줄.push("아래 수는 NAS 엑셀을 모아 만든 표에서 SQL 로 센 것이다. **이 수를 그대로 쓰고 어림하지 마라.**");
+    줄.push("질의: " + 표.sql);
+    for (const r of 표.줄.slice(0, 40)) 줄.push(JSON.stringify(r));
+    if (표.잘림) 줄.push("(줄이 더 있어 잘렸다 — 다 세지 못했다고 밝힐 것)");
+    줄.push("범위 밖 자료는 애초에 세지 않았다. 그러니 \"전체\" 라고 단정하지 말고 \"볼 수 있는 범위에서\" 라고 밝힌다.");
+  } else if (표 && 표.오류) {
+    // **말없이 넘어가지 않는다.** 숫자를 못 센 채로 답하면 모델이 문서 조각에서 어림해 버린다.
+    줄.push("\n## 사내 표에 물었으나 세지 못했다");
+    줄.push("숫자를 지어내지 말고, 정확히 세지 못했다고 밝힌 뒤 어디를 보면 되는지 안내해라.");
   }
   return 줄.join('\n').slice(0, 8000);
 }
@@ -1243,8 +1259,10 @@ async function AI에게묻기(질문) {
   }
   renderMessages(false);
   try {
-    const 문서 = await 사내문서(물음, fb);
-    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서), 권한: 내권한(), fb });
+    // 둘을 **같이** 부른다. 표는 세는 질문일 때만 실제로 나가고(ai.js 세는질문인가),
+    // 실패하면 null 이라 답변 자체는 그대로 진행된다.
+    const [문서, 표] = await Promise.all([사내문서(물음, fb), 표묻기(물음, fb)]);
+    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표), 권한: 내권한(), fb });
     // 근거로 쓴 조각에 딸린 도면(ASME 그림)을 같이 남긴다. 점수 높은 것부터 두 장까지 —
     // 더 붙이면 말풍선이 그림으로 뒤덮여 정작 답이 안 보인다.
     // **그림은 글보다 높은 문턱을 넘어야 붙인다.** 2026-09-21: "재무부 자료 읽어지나" 라고 물었는데
@@ -1272,7 +1290,12 @@ async function AI에게묻기(질문) {
       }
     }
     await AI쓰기({ author: AI_UID, role: 'ai', text: 답.text, type: 'text', md: true, model: 답.model,
-      sources: [...new Set(쓸만한.map((m) => m.docName).filter(Boolean))].slice(0, 4),
+      // 표에서 센 것이면 **그 수가 어느 파일에서 나왔는지**도 칩으로 단다.
+      // 수는 정확해도 출처가 없으면 사람이 확인할 수가 없다.
+      sources: [...new Set([
+        ...쓸만한.map((m) => m.docName),
+        ...(표 && 표.줄 ? 표.줄.map((r) => r._파일).filter(Boolean) : []),
+      ].filter(Boolean))].slice(0, 4),
       ...(그림.length ? { 그림 } : {}), at: nowStamp(), createdAt: Date.now() });
   } catch (e) {
     // warn 이지 error 가 아니다: 여기 오는 건 "한도 초과·로그인 만료·시간 초과" 처럼 늘 있을 수 있는 일이고,

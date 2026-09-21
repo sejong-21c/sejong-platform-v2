@@ -10,6 +10,11 @@
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
  *          v4.0: **범위로 거른다.** 부르는 사람의 부서를 검증된 토큰에서 뽑아
  *          ['전사','부서:…'] 로 맥·Vectorize 양쪽에 건다. body 의 범위는 안 믿는다.
+ *     POST /rag/table   {sql} 또는 {목록:true}    — v4.1: NAS 표(SQLite 20표 323만 행)에 SQL 로 묻는다.
+ *          세는 질문("작년 견적 재료비 총액")은 검색으로 못 푼다 — 몇 줄만 보고 답하게 된다.
+ *          **SQL 을 브라우저에서 받아도 안전하다**: 범위를 SQL 로 막지 않고 맥의 SQLite
+ *          권한자가 막는다(pais_project/src/xl_query.js). 진짜 표 직접 읽기·PRAGMA·ATTACH·
+ *          쓰기는 준비 단계에서 거부된다. 여기서도 body 의 범위는 안 믿고 토큰에서 뽑는다.
  *     POST /rag/record  {kind,id,title,text}     — v3.3(로드맵 9-1): 기록 자동 색인.
  *          NCR·CAR·검사보고서·ITP·회의록을 저장하는 즉시 직원 본인이 색인한다(사내 계정 전체).
  *          {remove:true}면 해당 기록의 벡터를 삭제 — 지워진 NCR을 AI가 근거로 쓰지 않게.
@@ -259,9 +264,23 @@ async function 맥검색(env, query, topK, 범위) {
   }));
 }
 
+// v4.1: NAS 표 질의를 맥으로 넘긴다. 검색과 달리 Vectorize 로 물러설 자리가 없다 —
+// 표는 맥에만 있다(1GB). 맥이 꺼져 있으면 그 사실을 그대로 알려 준다.
+async function 맥표(env, 몸, 범위) {
+  const 기한 = AbortSignal.timeout(Number(env.PAIS_TIMEOUT_MS) || 12000);
+  const r = await fetch(String(env.PAIS_URL).replace(/\/$/, '') + '/api/rag/table', {
+    method: 'POST', signal: 기한,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + String(env.PAIS_TOKEN || '').trim() },
+    // **범위는 여기서 박는다.** 몸에 실려 온 범위는 쓰지 않는다 — 브라우저가 고쳐 보낼 수 있다.
+    body: JSON.stringify({ sql: 몸.sql ? String(몸.sql).slice(0, 4000) : '', 목록: !!몸.목록, 줄: 몸.줄, 범위 }),
+  });
+  if (!r.ok) throw new Error('pais ' + r.status);
+  return await r.json();
+}
+
 async function handleRag(request, env, path, cors) {
   // 검색은 맥만 있어도 된다. 등록·기록은 여전히 Vectorize 바인딩이 필요하다.
-  const 맥으로된다 = path === 'search' && !!env.PAIS_URL;
+  const 맥으로된다 = (path === 'search' || path === 'table') && !!env.PAIS_URL;
   if (!맥으로된다 && (!env.AI || !env.VECTORIZE)) {
     return json(501, { error: 'RAG not configured — Worker에 AI·VECTORIZE 바인딩 또는 PAIS_URL 을 설정하세요 (gateway/README.md 참고)' }, cors);
   }
@@ -269,6 +288,16 @@ async function handleRag(request, env, path, cors) {
   if (auth.status) return json(auth.status, { error: auth.error }, cors);
   let body;
   try { body = await request.json(); } catch (e) { return json(400, { error: 'invalid JSON body' }, cors); }
+
+  if (path === 'table') {
+    if (!env.PAIS_URL) return json(501, { error: '표 질의는 맥(PAIS_URL)이 있어야 합니다' }, cors);
+    const 범위 = await 볼수있는범위(env, auth);
+    try { return json(200, { ...(await 맥표(env, body, 범위)), source: 'pais' }, cors); }
+    catch (e) {
+      // ai.js 는 !r.ok 면 조용히 건너뛴다 — 이유가 보이게 200 으로 준다.
+      return json(200, { 줄: [], error: '표 서버(맥)에 닿지 못했습니다: ' + String(e.message).slice(0, 120) }, cors);
+    }
+  }
 
   if (path === 'search') {
     const query = String(body.query || '').trim();
@@ -456,7 +485,7 @@ async function handleRag(request, env, path, cors) {
     return json(200, { ok: true, docName, slot, chunkCount: vectors.length }, cors);
   }
 
-  return json(404, { error: 'usage: POST /rag/search · /rag/upload · /rag/record · /rag/record-status' }, cors);
+  return json(404, { error: 'usage: POST /rag/search · /rag/table · /rag/upload · /rag/record · /rag/record-status' }, cors);
 }
 
 // v2: 9Router 동적 설정 — 부장님이 플랫폼 🔑에서 '전 직원 공용 공유'한 터널 주소/키/모델
