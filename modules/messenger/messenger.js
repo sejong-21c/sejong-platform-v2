@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b57';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b57';
+import * as L from './lib.js?v=b58';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b58';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b57';
+const 빌드 = 'b58';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1225,6 +1225,14 @@ async function AI맥락(문서, 표 = null) {
     for (const r of 표.줄.slice(0, 40)) 줄.push(JSON.stringify(r));
     if (표.잘림) 줄.push("(줄이 더 있어 잘렸다 — 다 세지 못했다고 밝힐 것)");
     줄.push("범위 밖 자료는 애초에 세지 않았다. 그러니 \"전체\" 라고 단정하지 말고 \"볼 수 있는 범위에서\" 라고 밝힌다.");
+  } else if (표 && 표.줄 && !표.줄.length && !표.오류) {
+    // **0줄도 답이다.** 2026-09-22: "2024년 재료비 합계" 에 모델이 표20(2016~2019)을 골라
+    //   0줄이 나왔는데, 여기서 아무 말도 안 하니 AI 가 없는 화면("견적 → NAS 견적서 목록")을
+    //   지어내서 안내했다. 셌는데 없었다는 사실을 말해 주면 그렇게 답한다.
+    줄.push('\n## 사내 표에서 세어 봤지만 **해당하는 줄이 하나도 없었다**');
+    줄.push('돌린 질의: ' + 표.sql);
+    줄.push('그 표에 그 조건(연도·이름 등)에 맞는 자료가 없다는 뜻이다. 숫자를 지어내지 말고,');
+    줄.push('"그 기간/조건으로는 자료를 찾지 못했다" 고 밝혀라. **없는 메뉴나 화면을 지어내지 마라.**');
   } else if (표 && 표.오류) {
     // **말없이 넘어가지 않는다.** 숫자를 못 센 채로 답하면 모델이 문서 조각에서 어림해 버린다.
     줄.push("\n## 사내 표에 물었으나 세지 못했다");
