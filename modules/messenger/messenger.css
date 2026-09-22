@@ -634,3 +634,7 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
   max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-all;
   font-size: 11.5px; line-height: 1.5;
 }
+
+/* 센 결과 차트 — 라이브러리 없이 SVG 막대 하나. 말풍선 안이라 폭을 넘기지 않는다. */
+.sjm-md-chart { margin-top: 8px; color: var(--text-2, #4b5563); overflow-x: auto; }
+.sjm-md-chart svg { max-width: 100%; }

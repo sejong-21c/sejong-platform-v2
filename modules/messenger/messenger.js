@@ -672,7 +672,7 @@ function 말풍선(m, info, members, readMarkBefore) {
     body = `<a class="sjm-bubble is-file sjm-file" ${m.fileUrl ? `href="${esc(m.fileUrl)}" target="_blank" rel="noopener"` : ''}>${ICON.file}<span><div class="sjm-file-name">${esc(m.file)}</div><div class="sjm-file-size">${esc(m.fileSize || '')}</div></span></a>`;
   } else if (m.md) {
     // AI 답변 — 글머리표·표를 그대로 그린다. 방 안 검색 하이라이트는 여기 안 붙는다(서식 태그를 깨뜨린다).
-    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${화면달기(m)}${영수증달기(m)}${출처달기(m)}</div>`;
+    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${화면달기(m)}${영수증달기(m)}${표달기(m)}${출처달기(m)}</div>`;
   } else {
     let text = esc(m.text || '');
     if (ui.rs.open && ui.rs.q) {
@@ -802,6 +802,107 @@ async function 업무로등록(m, 고른) {
     토스트('등록하지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 4000);
   }
 }
+
+// ── 센 결과를 차트·엑셀로 ────────────────────────────────────────────────────
+// 왜: 세는 건 됐는데(b56~b77) **결과물이 안 나왔다.** 부장님이 수를 받아 적어서 다시
+//   엑셀에 옮기고 계셨다. 답에 붙은 그 줄이 이미 표인데 내보낼 길만 없었다.
+// 차트는 라이브러리 없이 SVG 로 그린다 — 막대 하나짜리에 CDN 을 붙일 이유가 없다.
+// 엑셀은 ExcelJS 를 그때 한 번 받아 쓴다(회의록 모듈이 이미 같은 CDN 을 쓴다).
+
+/** 표 줄에서 이름 열(글자)과 값 열(수) 하나씩 고른다. 못 고르면 null — 차트를 안 그린다. */
+function 차트감(줄들) {
+  const 것 = (줄들 || []).filter((r) => r && typeof r === 'object');
+  if (것.length < 2) return null;
+  const 열 = Object.keys(것[0]).filter((k) => !k.startsWith('_'));
+  const 수열 = 열.find((k) => 것.every((r) => r[k] !== null && r[k] !== '' && Number.isFinite(Number(r[k]))));
+  const 이름열 = 열.find((k) => k !== 수열 && 것.some((r) => String(r[k] ?? '').trim()));
+  if (!수열 || !이름열) return null;
+  const 칸 = 것.slice(0, 12).map((r) => ({ 이름: String(r[이름열] ?? '').slice(0, 18), 값: Number(r[수열]) }))
+    .filter((x) => Number.isFinite(x.값));
+  if (칸.length < 2) return null;
+  return { 이름열, 수열, 칸 };
+}
+
+/** 가로 막대 SVG. 글자가 길어도 안 잘리게 이름은 왼쪽에 두고 막대를 오른쪽에 그린다. */
+function 차트그리기(감) {
+  const 큰 = Math.max(...감.칸.map((x) => x.값)) || 1;
+  const 줄높 = 26, 왼 = 120, 폭 = 300, 위 = 26;
+  const 높 = 위 + 감.칸.length * 줄높 + 8;
+  const 막대 = 감.칸.map((x, i) => {
+    const y = 위 + i * 줄높;
+    const w = Math.max(2, Math.round((x.값 / 큰) * 폭));
+    return `<text x="${왼 - 6}" y="${y + 12}" text-anchor="end" font-size="11" fill="currentColor">${esc(x.이름)}</text>`
+      + `<rect x="${왼}" y="${y + 2}" width="${w}" height="14" rx="3" fill="#2563eb" opacity="0.85"></rect>`
+      + `<text x="${왼 + w + 5}" y="${y + 13}" font-size="10.5" fill="currentColor" opacity="0.75">${x.값.toLocaleString('ko-KR')}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${왼 + 폭 + 80} ${높}" width="100%" style="max-width:520px;display:block">`
+    + `<text x="0" y="13" font-size="11" fill="currentColor" opacity="0.7">${esc(감.이름열)} 별 ${esc(감.수열)}</text>`
+    + 막대 + '</svg>';
+}
+
+function 표달기(m) {
+  const 표 = m.표;
+  if (!표 || !Array.isArray(표.줄) || !표.줄.length) return '';
+  const 감 = 차트감(표.줄);
+  return `<div class="sjm-md-go">`
+    + `<button class="sjm-go-btn" data-act="tbl-xlsx" data-mid="${esc(m.id)}">엑셀로 받기 (${표.줄.length}줄)</button>`
+    + (감 ? `<button class="sjm-go-btn" data-act="tbl-chart" data-mid="${esc(m.id)}">차트 보기</button>` : '')
+    + `</div><div class="sjm-md-chart" data-chart="${esc(m.id)}" hidden></div>`;
+}
+
+function 차트보이기(mid) {
+  const m = 메시지찾기(mid);
+  const 칸 = $(`[data-chart="${CSS.escape(String(mid))}"]`);
+  if (!m || !칸) return;
+  if (!칸.hidden) { 칸.hidden = true; 칸.innerHTML = ''; return; }
+  const 감 = 차트감(m.표 && m.표.줄);
+  if (!감) { 토스트('차트로 그릴 수 있는 열이 없습니다.'); return; }
+  칸.innerHTML = 차트그리기(감);
+  칸.hidden = false;
+}
+
+let _exceljs = null;
+function 엑셀불러오기() {
+  return _exceljs || (_exceljs = new Promise((풀림, 깨짐) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+    s.onload = 풀림; s.onerror = () => 깨짐(new Error('엑셀 라이브러리를 못 받았습니다'));
+    document.head.appendChild(s);
+  }));
+}
+
+async function 엑셀받기(mid) {
+  const m = 메시지찾기(mid);
+  if (!m || !m.표 || !Array.isArray(m.표.줄) || !m.표.줄.length) { 토스트('내려받을 표가 없습니다.'); return; }
+  try {
+    토스트('엑셀을 만드는 중…');
+    await 엑셀불러오기();
+    const 줄들 = m.표.줄;
+    const 열 = [...new Set(줄들.flatMap((r) => Object.keys(r || {})))];
+    const wb = new window.ExcelJS.Workbook();
+    const ws = wb.addWorksheet('센 결과');
+    ws.addRow(열);
+    ws.getRow(1).font = { bold: true };
+    for (const r of 줄들) ws.addRow(열.map((k) => (r || {})[k] ?? ''));
+    // 열 너비 — 한글은 두 칸으로 센다. 안 하면 전부 뭉개져서 사람이 다시 손본다.
+    ws.columns.forEach((c, i) => {
+      const 잰다 = (t) => [...String(t)].reduce((a, ch) => a + (ch.charCodeAt(0) > 127 ? 2 : 1), 0);
+      c.width = Math.min(48, Math.max(10, ...[열[i], ...줄들.slice(0, 200).map((r) => (r || {})[열[i]] ?? '')].map(잰다)) + 2);
+    });
+    // 질의를 같이 남긴다 — 이 수가 어디서 나왔는지 나중에 확인할 수 있어야 한다.
+    if (m.표.sql) { ws.addRow([]); ws.addRow(['질의', m.표.sql]); }
+    const buf = await wb.xlsx.writeBuffer();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = `센결과_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch (e) {
+    console.warn('[엑셀]', e);
+    토스트('엑셀을 만들지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 4000);
+  }
+}
+
 
 // ── 「화면 열기」 버튼 ──────────────────────────────────────────────────────
 // 왜 (2026-09-22): AI 가 "업무관리 클릭 → 업무 등록 버튼 선택 → …" 처럼 **없는 차례**를
@@ -1478,7 +1579,7 @@ async function AI에게묻기(질문) {
         ...쓸만한.map((m) => m.docName),
         ...(표 && 표.줄 ? 표.줄.map((r) => r._파일).filter(Boolean) : []),
       ].filter(Boolean))].slice(0, 4),
-      ...(그림.length ? { 그림 } : {}), ...(갈곳.length ? { 화면: 갈곳 } : {}), at: nowStamp(), createdAt: Date.now() });
+      ...(그림.length ? { 그림 } : {}), ...(갈곳.length ? { 화면: 갈곳 } : {}), ...(표 && 표.줄 && 표.줄.length ? { 표: { sql: 표.sql || '', 줄: 표.줄.slice(0, 200) } } : {}), at: nowStamp(), createdAt: Date.now() });
   } catch (e) {
     // warn 이지 error 가 아니다: 여기 오는 건 "한도 초과·로그인 만료·시간 초과" 처럼 늘 있을 수 있는 일이고,
     // 사용자에게는 아래에서 말풍선으로 그대로 보여 준다. error 는 진짜 예상 못 한 것에만 남긴다(시험대가 error 0건을 본다).
@@ -1507,6 +1608,8 @@ function 행동(el) {
   const act = el.dataset.act;
   switch (act) {
     case 'tab': ui.tab = el.dataset.tab; ui.search.open = false; closeSheet(); if (ui.layout === 'phone' && ui.cid) { closeRoom(false); } render('all'); break;
+    case 'tbl-chart': 차트보이기(el.dataset.mid); break;
+    case 'tbl-xlsx': 엑셀받기(el.dataset.mid); break;
     case 'reg-task': {
       const m = 메시지찾기(el.dataset.mid);
       if (!m || !m.영수증) { 토스트('영수증 내용을 찾지 못했습니다.'); break; }
