@@ -1789,9 +1789,17 @@ async function 회사토큰() {
 // OCR 원문에서 카드 끝 네 자리를 뽑는다. 카드 매칭(smartMatchCard)이 이걸 쓴다.
 // 번호 전체는 어디에도 안 남긴다 — 끝 네 자리만 넘긴다.
 function 끝네자리(원문줄) {
-  const 글 = (원문줄 || []).join(' ');
-  const m = 글.match(/(?:\d|\*)[\d*\-\s]{8,}(\d{4})(?!\d)/);
-  return m ? m[1] : '';
+  for (const l of (원문줄 || [])) {
+    if (!/카드|card/i.test(l)) continue;                 // 카드 줄에서만 — 사업자번호를 카드로 오해하면 안 된다
+    // **구분자를 믿지 않는다.** OCR 이 하이픈을 밑줄·점·공백으로 읽는다
+    //   (2026-09-23 실측: "카드번호: 5432-11**_****-8871" — 가운데가 밑줄이었다).
+    //   숫자와 별표만 남기고 끝 네 자리를 본다. 번호 전체는 어디에도 안 남긴다.
+    const 뼈 = String(l).replace(/[^\d*]/g, '');
+    if (뼈.length < 8) continue;
+    const m = 뼈.match(/(\d{4})$/);
+    if (m) return m[1];
+  }
+  return '';
 }
 
 async function 맥인식() {
