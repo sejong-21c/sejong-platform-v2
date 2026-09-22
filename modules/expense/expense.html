@@ -1941,7 +1941,11 @@ async function 경비저장() {
     }
     const 판 = JSON.stringify(저장할판());
     if (판 === _마지막판) return;                      // 바뀐 게 없으면 쓰지 않는다(읽기·쓰기 한도)
-    await fb.setDoc(fb.doc(fb.db, 경비칸, 경비문서), JSON.parse(판));
+    // **부모의 JSON 으로 다시 만든다.** 우리가 만든 객체는 이 iframe 의 realm 것이라
+    //   부모 realm 의 Firebase 가 "custom Object object" 라며 거부한다(2026-09-23 실제로 그랬다).
+    //   메신저도 같은 곳에서 걸려 plain() 을 두고 있다.
+    const 부모JSON = (window.parent && window.parent !== window && window.parent.JSON) || JSON;
+    await fb.setDoc(fb.doc(fb.db, 경비칸, 경비문서), 부모JSON.parse(판));
     _마지막판 = 판;
   } catch (e) {
     console.warn('[경비 저장]', e);
