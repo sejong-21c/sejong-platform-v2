@@ -611,3 +611,17 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-avatar.is-two[data-w="1"], .sjm-avatar.is-two[data-w="2"] { font-size: calc(var(--size) * .30); }
 .sjm-avatar.is-two[data-w="3"] { font-size: calc(var(--size) * .26); }
 .sjm-avatar.is-two[data-w="4"] { font-size: calc(var(--size) * .23); }
+
+/* 「화면 열기」 버튼 — AI 가 화면 이름만 내고 여기서 진짜 버튼을 그린다(2026-09-22, b74).
+   말풍선 안이라 작고 얌전하게. 출처 줄 바로 위에 온다. */
+.sjm-md-go { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.sjm-go-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1;
+  padding: 7px 11px; border-radius: 999px; cursor: pointer;
+  color: var(--primary); background: transparent;
+  border: 1px solid var(--primary);
+  transition: background .13s, color .13s;
+}
+.sjm-go-btn:hover, .sjm-go-btn:focus-visible { background: var(--primary); color: #fff; }
+.sjm-go-btn:active { transform: translateY(1px); }

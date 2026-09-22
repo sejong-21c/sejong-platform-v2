@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b73';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b73';
+import * as L from './lib.js?v=b74';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기, 화면고르기 } from './ai.js?v=b74';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -159,6 +159,15 @@ function getFB() {
   return window.fb;
 }
 function 부모상태() { try { return (!독립실행 && window.parent && window.parent.state) || null; } catch (e) { return null; } }
+// 왼쪽 메뉴에 **실제로** 보이는 화면들. 손으로 적어 두면 어긋나므로 부모 앱에서 받는다
+// (index.html 의 window.보이는화면들 — NAV·TOOLS 를 권한까지 걸러 준다).
+function 볼수있는화면() {
+  try {
+    if (독립실행 || !window.parent || typeof window.parent.보이는화면들 !== 'function') return [];
+    const 것 = window.parent.보이는화면들();
+    return Array.isArray(것) ? 것 : [];
+  } catch (e) { return []; }   // 크로스오리진이거나 부모가 아직 안 떴을 때
+}
 // iframe 안에서 만든 객체를 부모 Firestore 에 넘기면 "custom Object" 오류가 난다 → 실제로 쓰는 fb 가 사는 realm 의 JSON 으로 다시 만든다.
 // (부모에 fb 가 없어 자기 fb 를 쓸 때 부모 JSON 으로 만들면 거꾸로 같은 오류가 난다 — W1 시험대에서 잡힘)
 function plain(obj) {
@@ -663,7 +672,7 @@ function 말풍선(m, info, members, readMarkBefore) {
     body = `<a class="sjm-bubble is-file sjm-file" ${m.fileUrl ? `href="${esc(m.fileUrl)}" target="_blank" rel="noopener"` : ''}>${ICON.file}<span><div class="sjm-file-name">${esc(m.file)}</div><div class="sjm-file-size">${esc(m.fileSize || '')}</div></span></a>`;
   } else if (m.md) {
     // AI 답변 — 글머리표·표를 그대로 그린다. 방 안 검색 하이라이트는 여기 안 붙는다(서식 태그를 깨뜨린다).
-    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${출처달기(m)}</div>`;
+    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${화면달기(m)}${출처달기(m)}</div>`;
   } else {
     let text = esc(m.text || '');
     if (ui.rs.open && ui.rs.q) {
@@ -694,6 +703,19 @@ function 그림달기(m) {
       + ` onerror="this.closest('.sjm-md-fig').classList.add('is-gone')">`
       + `<figcaption>${설명}${g.page ? ` · p.${esc(String(g.page))}` : ''}</figcaption></figure>`;
   }).join('')}</div>`;
+}
+
+// ── 「화면 열기」 버튼 ──────────────────────────────────────────────────────
+// 왜 (2026-09-22): AI 가 "업무관리 클릭 → 업무 등록 버튼 선택 → …" 처럼 **없는 차례**를
+//   지어냈다. 지침으로 네 번(b69~b72) 막아 봤지만 매번 졌다. 모델은 화면 이름만 알고
+//   버튼은 모르는데 말하라고 시켰으니 당연한 일이었다.
+//   이제 모델은 **이름만** 말하고, 누를 것은 여기서 진짜로 그린다. 눌리면 실제로 열린다.
+// 독립 실행(앱 밖에서 messenger.html 을 직접 열었을 때)에는 열 앱이 없으니 안 그린다.
+function 화면달기(m) {
+  if (독립실행) return '';
+  const 것 = (Array.isArray(m.화면) ? m.화면 : []).slice(0, 2);
+  if (!것.length) return '';
+  return `<div class="sjm-md-go">${것.map((s) => `<button class="sjm-go-btn" data-act="open-screen" data-kind="${esc(s.종류 || '')}" data-id="${esc(s.id || '')}" data-dept="${esc(s.부서 || '')}">「${esc(s.이름 || '')}」 열기</button>`).join('')}</div>`;
 }
 
 function 출처달기(m) {
@@ -1297,7 +1319,10 @@ async function AI에게묻기(질문) {
     // 둘을 **같이** 부른다. 표는 세는 질문일 때만 실제로 나가고(ai.js 세는질문인가),
     // 실패하면 null 이라 답변 자체는 그대로 진행된다.
     const [문서, 표] = await Promise.all([사내문서(물음, fb), 표묻기(물음, fb)]);
-    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length) });
+    const 화면목록 = 볼수있는화면();
+    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length), 화면들: 화면목록 });
+    // 답에 나온 화면 이름으로 버튼을 만든다. 이름은 위 목록에서 온 것뿐이라 지어낼 수가 없다.
+    const 갈곳 = 화면고르기(답.text, 화면목록);
     // 근거로 쓴 조각에 딸린 도면(ASME 그림)을 같이 남긴다. 점수 높은 것부터 두 장까지 —
     // 더 붙이면 말풍선이 그림으로 뒤덮여 정작 답이 안 보인다.
     // **그림은 글보다 높은 문턱을 넘어야 붙인다.** 2026-09-21: "재무부 자료 읽어지나" 라고 물었는데
@@ -1331,7 +1356,7 @@ async function AI에게묻기(질문) {
         ...쓸만한.map((m) => m.docName),
         ...(표 && 표.줄 ? 표.줄.map((r) => r._파일).filter(Boolean) : []),
       ].filter(Boolean))].slice(0, 4),
-      ...(그림.length ? { 그림 } : {}), at: nowStamp(), createdAt: Date.now() });
+      ...(그림.length ? { 그림 } : {}), ...(갈곳.length ? { 화면: 갈곳 } : {}), at: nowStamp(), createdAt: Date.now() });
   } catch (e) {
     // warn 이지 error 가 아니다: 여기 오는 건 "한도 초과·로그인 만료·시간 초과" 처럼 늘 있을 수 있는 일이고,
     // 사용자에게는 아래에서 말풍선으로 그대로 보여 준다. error 는 진짜 예상 못 한 것에만 남긴다(시험대가 error 0건을 본다).
@@ -1360,6 +1385,14 @@ function 행동(el) {
   const act = el.dataset.act;
   switch (act) {
     case 'tab': ui.tab = el.dataset.tab; ui.search.open = false; closeSheet(); if (ui.layout === 'phone' && ui.cid) { closeRoom(false); } render('all'); break;
+    case 'open-screen': {
+      // 부모 앱에게 열라고 시킨다. nav 는 switchMod 가 권한을 한 번 더 본다.
+      try { window.parent.화면열기(el.dataset.kind, el.dataset.id, el.dataset.dept || ''); }
+      catch (e) { 토스트('화면을 열지 못했습니다.'); break; }
+      // 메신저 창은 닫는다 — 열어 준 화면이 뒤에 가려 있으면 아무 일도 안 난 것처럼 보인다.
+      try { if (typeof window.parent.toggleMsgPanel === 'function') window.parent.toggleMsgPanel(); } catch (e) {}
+      break;
+    }
     case 'search-open': ui.search.open = true; ui.search.q = ''; ui.search.stab = 'all'; render('pane'); break;
     case 'search-close': ui.search.open = false; ui.search.q = ''; render('pane'); break;
     case 'stab': ui.search.stab = el.dataset.stab; render('pane'); break;

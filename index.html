@@ -2244,6 +2244,34 @@ function renderNav() {
   document.getElementById('sbScroll').innerHTML = html.join('');
 }
 
+// ── 메신저 AI 가 쓰는 "진짜 화면 목록" (2026-09-22) ──────────────────────────
+// 왜: 메신저 AI 지침에 화면 이름이 **손으로 박혀** 있었다. 그래서 9/18 에 왼쪽 메뉴에서
+//   없앤 '메신저' 를 계속 안내하고, 영업부 전용 '견적' 을 아무에게나 안내하고,
+//   실제로 있는 '지식 지도'·'압력용기 계산 도구' 는 몰랐다. 목록을 두 곳에 두면 어긋난다.
+//   여기서 NAV·DEPTS·TOOLS 를 그대로 읽어 **권한까지 걸러** 넘긴다.
+// 규칙은 바로 위 renderNav 와 같다: 자기 부서면 그 부서 툴 전부, 남의 부서면 crossDept 만.
+// (NAV·TOOLS 는 const 전역이라 iframe 에서 window.NAV 로는 안 잡힌다 — 그래서 함수로 낸다)
+window.보이는화면들 = function () {
+  const 것 = [];
+  NAV.forEach(n => { if (!n.hidden && canSeeNav(n)) 것.push({ 종류: 'nav', id: n.id, 이름: n.label }); });
+  DEPTS.forEach(d => {
+    const 내부서 = canSeeDept(d.name);
+    const 남의것 = d.tools.filter(k => TOOLS[k] && TOOLS[k].crossDept);
+    if (!내부서 && !남의것.length) return;
+    (내부서 ? d.tools : 남의것).forEach(tid => {
+      const t = TOOLS[tid];
+      if (!t || t.status === 'soon') return;              // 준비 중인 건 열어 줘도 빈 화면이다
+      if (것.some(x => x.종류 === 'tool' && x.id === tid)) return;   // 부서 스케줄처럼 여러 부서에 같은 툴
+      것.push({ 종류: 'tool', id: tid, 이름: t.name, 부서: d.name });
+    });
+  });
+  return 것;
+};
+// 메신저 iframe 이 두드리는 문. nav 는 switchMod 가 권한을 한 번 더 본다.
+window.화면열기 = function (종류, id, 부서) {
+  if (종류 === 'nav') switchMod(id); else openTool(id, 부서 || undefined);
+};
+
 function toggleDept(id) {
   view.expandedDepts[id] = !view.expandedDepts[id];
   renderNav();
