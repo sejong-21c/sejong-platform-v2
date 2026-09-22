@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b67';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b67';
+import * as L from './lib.js?v=b68';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b68';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -1257,12 +1257,12 @@ async function AI맥락(문서, 표 = null) {
       줄.push('그러니 "어디서 찾아보라" 고 안내하지 말고, 그림이 무엇을 보여 주는지·어떻게 읽는지를 설명해라.');
     }
   }
-  // **8000자에서 자른다 — 그래서 순서가 곧 우선순위다.**
+  // **12000자에서 자른다 — 그래서 순서가 곧 우선순위다.**
   // 2026-09-22: 표에서 센 결과를 맨 끝에 붙였더니 문서 조각(한 개 700자 × 여러 개)에 밀려
   //   통째로 잘려 나갔다. 표에는 제대로 물어봤는데(10초 걸렸다) AI 는 그 수를 못 보고
   //   "확인할 수 없습니다" 하며 없는 메뉴를 안내했다. 그래서 표 블록을 맨 앞에 둔다.
   //   새 절을 넣을 때도 **잘려도 되는 것만 뒤에** 붙일 것.
-  return 줄.join('\n').slice(0, 8000);
+  return 줄.join('\n').slice(0, 12000);   // 조각 5→10 개로 늘려서 8000 이면 표·직원·프로젝트가 통째로 밀린다(2026-09-22)
 }
 const AI히스토리 = () => state.aiMsgs.filter((m) => !m.실패).map((m) => ({ role: m.role === 'ai' ? 'ai' : 'user', text: m.text }));
 async function AI쓰기(obj) {
