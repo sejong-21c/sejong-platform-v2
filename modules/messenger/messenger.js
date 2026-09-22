@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b78';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 영수증읽기, 표묻기, 화면고르기 } from './ai.js?v=b78';
+import * as L from './lib.js?v=b79';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 영수증읽기, 표묻기, 화면고르기 } from './ai.js?v=b79';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -1135,8 +1135,6 @@ async function sendMsg() {
   const me_ = me();
   if (!me_) { 토스트('로그인이 필요합니다.'); return; }
   const chId = ui.cid; if (!chId) return;
-  // AI 방은 저장소로 안 보낸다 — 읽어 달라는 뜻이라 맥으로 바로 넘긴다(한 장씩).
-  if (chId === AI_CID) { await 영수증보내기(files[0]); return; }
   inp.value = ''; 입력높이(inp); 전송준비표시();
   if (chId === AI_CID) { AI에게묻기(text); return; }
   const ch_ = getChannel(chId);
@@ -1166,6 +1164,9 @@ async function sendFiles(fileList) {
   const me_ = me();
   if (!me_) { 토스트('로그인이 필요합니다.'); return; }
   const chId = ui.cid; if (!chId) return;
+  // AI 방 첨부는 "읽어 달라" 는 뜻이다 — 저장소(fb.storage)를 안 거치고 맥으로 바로 넘긴다.
+  //   아래 저장소 검사보다 **먼저** 와야 한다. 지금 fb.storage 는 없다(첨부는 R2 로 옮겼다).
+  if (chId === AI_CID) { await 영수증보내기(files[0]); return; }
   const oversized = files.filter((f) => f.size > MSG_FILE_MAX_MB * 1024 * 1024);
   if (oversized.length) { 토스트(`${MSG_FILE_MAX_MB}MB 이하 파일만 보낼 수 있습니다: ` + oversized.map((f) => f.name).join(', ')); return; }
   const fb = getFB();
