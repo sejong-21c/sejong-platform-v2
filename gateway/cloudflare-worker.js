@@ -299,50 +299,91 @@ async function handleRag(request, env, path, cors) {
     }
   }
 
+  // ── Vectorize 검색 (플랫폼 기록 색인) ────────────────────────────────────
+  // 여기 들어 있는 것: NCR·CAR·검사보고서·ITP·회의록 — 품질 도구함이 **저장할 때 자동 색인**한다.
+  // 규격 문서(ASME·KGS)는 2026-09-19 에 맥 bge-m3 로 옮겼다(무료 한도 4,880조각으로는 안 됐다).
+  // 그래서 지금 이 색인은 기록 전용이고 조각 수가 작다(2026-09-22 실측 44개).
+  // 맥과 **같은 모델(bge-m3 1024차원)** 이라 점수 눈금이 같다 — 그래서 섞어 세워도 된다.
+  async function 기록검색(query, topK, 범위) {
+    const [vec] = await ragEmbed(env, [query]);
+    const res = await env.VECTORIZE.query(vec, { topK, returnMetadata: 'all' });
+    // 맥(파이스 볼수있나)과 **한 글자도 다르면 안 된다.** 갈리는 순간 한쪽에서만 새거나 막힌다.
+    // 범위 표시가 없는 옛 벡터는 '전사' 로 본다 — 지금 색인된 기록은 firestore.rules 상
+    // isCompanyUser() 면 전부 읽히므로 실제 접근 권한과 일치한다(2026-09-20 규칙 확인).
+    const 볼수있나 = (r) => {
+      if (r === '비밀') return false;                                  // super 도 예외 없다
+      if (범위.includes(r)) return true;
+      return 범위.includes('모든부서') && r.startsWith('부서:');
+    };
+    return (res.matches || [])
+      .filter((m) => 볼수있나(String((m.metadata || {}).범위 || '전사')))
+      .map((m) => ({
+        score: Math.round((m.score || 0) * 1000) / 1000,
+        docName: (m.metadata || {}).docName || '',
+        chunkIndex: (m.metadata || {}).chunkIndex,
+        text: (m.metadata || {}).text || '',
+        // kind·recId 를 넘긴다 — 자동 색인된 기록이면 클라이언트가 그 NCR/ITP 화면으로 보낼 수 있다
+        kind: (m.metadata || {}).kind || '',
+        recId: (m.metadata || {}).recId || '',
+      }));
+  }
+
   if (path === 'search') {
     const query = String(body.query || '').trim();
     if (!query) return json(400, { error: 'query required' }, cors);
     const topK = Math.min(Math.max(parseInt(body.topK, 10) || 5, 1), 10);
     // body.범위 는 **읽지 않는다.** 토큰에서 뽑는다.
     const 범위 = await 볼수있는범위(env, auth);
+    const 벡터있다 = !!(env.AI && env.VECTORIZE);
     let 맥오류 = null;
+
     if (env.PAIS_URL) {
-      try { return json(200, { matches: await 맥검색(env, query, topK, 범위), source: 'pais', 범위 }, cors); }
+      let 맥것 = null;
+      try { 맥것 = await 맥검색(env, query, topK, 범위); }
       catch (e) {
-        // 맥이 꺼져 있다. Vectorize 가 있으면 그쪽으로 물러서고, 없으면 빈 결과 + 이유를 준다
-        // (ai.js 는 !r.ok 면 조용히 건너뛰므로 200 으로 줘야 이유가 보인다).
-        // **물러선 사실과 이유를 반드시 응답에 남긴다** — 조용히 물러서면 맥 색인이 안 붙은 걸
-        // 아무도 모른 채 옛 Vectorize 답이 나간다(2026-09-19 첫 배포에서 실제로 그랬다).
+        // 맥이 꺼져 있다. **물러선 사실과 이유를 반드시 응답에 남긴다** — 조용히 물러서면
+        // 맥 색인이 안 붙은 걸 아무도 모른 채 옛 답이 나간다(2026-09-19 첫 배포에서 실제로 그랬다).
         맥오류 = String(e.message).slice(0, 120);
-        if (!env.AI || !env.VECTORIZE) {
+        if (!벡터있다) {
           return json(200, { matches: [], source: 'none', error: '사내문서 검색 서버(맥)에 닿지 못했습니다: ' + 맥오류 }, cors);
         }
       }
+
+      if (맥것) {
+        if (!벡터있다) return json(200, { matches: 맥것, source: 'pais', 범위 }, cors);
+        // **둘 다 본다.** 2026-09-22 까지 여기서 맥 결과를 바로 돌려보내고 있었다. 그래서
+        //   NCR·CAR·검사·회의록 색인이 9/19 부터 AI 에게 한 번도 닿지 않았다(부장님: "더 멍청해졌어").
+        //   맥에는 규격·도면·NAS 파일이, Vectorize 에는 플랫폼 기록이 있다 — 서로 딴 것을 들고 있으니
+        //   한쪽만 보면 반드시 반쪽 답이 된다.
+        try {
+          const 기록 = await 기록검색(query, topK, 범위);
+          if (!기록.length) return json(200, { matches: 맥것, source: 'pais', 범위 }, cors);
+          // **자리는 점수가 정한다.** 둘 다 bge-m3(1024차원)이라 눈금이 같아서 비교해도 된다.
+          //   고정 몫(1/3)으로 해 봤더니 "부적합 NCR 현황" 에서 NCR(0.59)이 세 자리로 묶이고
+          //   상관없는 ASME 조각(0.48)이 일곱 자리를 차지했다(2026-09-22 실측).
+          // 문턱은 **중앙값**이다. 꼴찌 점수를 쓰면 안 된다 — 맥 목록은 글자매칭+벡터 하이브리드
+          //   순위라 **자리 순서가 점수 순서가 아니다.** 실측(2026-09-22): 맥 열 개가
+          //   0.494 0.493 0.486 0.483 0.481 0.481 0.478 0.653 0.637 0.592 로 왔다.
+          //   마지막 것(0.623)을 문턱으로 삼았더니 0.59 짜리 NCR 이 전부 걸러졌다.
+          // 다만 양 끝을 막는다:
+          //   · 기록은 최소 한 자리 — 그래야 색인이 붙어 있는지 눈에 보인다(나흘 동안 몰랐다).
+          //   · 맥은 최소 세 자리 — 기록이 화면을 덮으면 규격 답이 사라진다.
+          const 점수들 = 맥것.map((m) => m.score || 0).sort((a, b) => a - b);
+          const 문턱 = 점수들.length ? 점수들[Math.floor(점수들.length / 2)] : -1;
+          const 이긴기록 = 기록.filter((r) => (r.score || 0) > 문턱).length;
+          const 뒤 = 기록.slice(0, Math.min(기록.length, Math.max(1, topK - 3), Math.max(1, 이긴기록)));
+          const 앞 = 맥것.slice(0, topK - 뒤.length);
+          return json(200, { matches: [...앞, ...뒤], source: 'pais+기록', 범위, 기록: 뒤.length, 진단: { 문턱, 이긴기록, 맥수: 맥것.length, 기록수: 기록.length, 기록점수: 기록.slice(0, 5).map((r) => r.score) } }, cors);
+        } catch (e) {
+          // 기록 색인이 잠깐 안 되더라도 규격 답은 그대로 나가야 한다.
+          return json(200, { matches: 맥것, source: 'pais', 범위, 기록오류: String(e.message).slice(0, 120) }, cors);
+        }
+      }
     }
-    const [vec] = await ragEmbed(env, [query]);
-    const res = await env.VECTORIZE.query(vec, { topK, returnMetadata: 'all' });
-    // v3.3: kind·recId를 함께 넘긴다 — 자동 색인된 기록이면 클라이언트가 그 NCR/ITP 화면으로
-    // 바로 이동시킬 수 있어야 답변에 근거 링크를 붙일 수 있다. (수동 문서는 이 값이 없음)
-    // 맥과 **같은 잣대**로 거른다. 한쪽만 막으면 맥이 꺼진 날 통째로 열린다.
-    // 범위 표시가 없는 옛 벡터는 '전사' 로 본다 — 실측 근거가 있다: 지금 색인된 기록
-    // (NCR·CAR·검사보고서·ITP·회의록)은 firestore.rules 상 이미 `isCompanyUser()` 면
-    // 전부 읽히므로, 전사로 보는 게 실제 접근 권한과 일치한다(2026-09-20 규칙 확인).
-    // **맥(파이스 볼수있나)과 한 글자도 다르면 안 된다.** 갈리는 순간 맥이 꺼진 날에만
-    // 다르게 새거나 다르게 막힌다 — 제일 찾기 어려운 종류다.
-    const 볼수있나 = (r) => {
-      if (r === '비밀') return false;                                  // super 도 예외 없다
-      if (범위.includes(r)) return true;
-      return 범위.includes('모든부서') && r.startsWith('부서:');
-    };
-    const matches = (res.matches || []).filter((m) => 볼수있나(String((m.metadata || {}).범위 || '전사'))).map(m => ({
-      score: Math.round((m.score || 0) * 1000) / 1000,
-      docName: (m.metadata || {}).docName || '',
-      chunkIndex: (m.metadata || {}).chunkIndex,
-      text: (m.metadata || {}).text || '',
-      kind: (m.metadata || {}).kind || '',
-      recId: (m.metadata || {}).recId || '',
-    }));
-    return json(200, { matches, source: 맥오류 ? "vectorize(맥 실패로 물러섬)" : "vectorize", ...(맥오류 ? { paisError: 맥오류 } : {}) }, cors);
+
+    // 맥이 없거나 꺼졌다 — 기록 색인만으로 답한다.
+    const matches = await 기록검색(query, topK, 범위);
+    return json(200, { matches, source: 맥오류 ? '기록(맥 실패로 물러섬)' : '기록', ...(맥오류 ? { paisError: 맥오류 } : {}) }, cors);
   }
 
   if (path === 'upload') {

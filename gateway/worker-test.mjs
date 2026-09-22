@@ -56,6 +56,7 @@ const fsStore = { // path → fields(REST 형식). 시드: 업무 3건 + 결재 
 const postedMessages = [];
 const FS = 'https://firestore.googleapis.com/v1/projects/sejong-platform/databases/(default)/documents';
 
+let 맥응답 = null;   // 맥(파이스) 검색 모의 응답. 시험마다 갈아 끼운다
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -67,6 +68,11 @@ globalThis.fetch = async (input, init) => {
   }
   if (url.startsWith('https://oauth2.googleapis.com/token')) {
     return Response.json({ access_token: 'fake-sa-token', expires_in: 3600 });
+  }
+  // 맥(파이스) /api/rag/search 모의 — 맥응답 이 null 이면 꺼진 셈 친다
+  if (url.startsWith('https://pais.test/')) {
+    if (!맥응답) return new Response('down', { status: 500 });
+    return Response.json(맥응답);
   }
   if (url.startsWith(FS)) {
     // 진짜 Firestore 는 경로를 **디코드**한다. 모의가 안 하면 encodeURIComponent 를 쓰는
@@ -429,6 +435,52 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   check('백업: R2에 날짜/컬렉션.json 저장 + 문서 내용 보존', tasksJson.length === 3 && tasksJson.some(t => t.title === '내일 마감·미완료'), 'keys=' + [...r2Store.keys()].filter(k => k.includes(day)).length);
   check('백업: 30일 지난 백업 자동 정리', !r2Store.has('backup/2026-01-01/tasks.json'));
   check('백업: users·approvals·messages도 포함', !!r2Store.get('backup/' + day + '/users.json') && !!r2Store.get('backup/' + day + '/approvals.json') && !!r2Store.get('backup/' + day + '/messages.json'));
+}
+
+// ── 맥 + 기록 색인 같이 보기 (2026-09-22) ────────────────────────────────
+// 왜 시험을 남기나: 2026-09-19~22 나흘 동안 맥이 살아 있으면 Vectorize 를 **아예 안 봤다.**
+//   그래서 NCR·CAR·검사·회의록 색인이 AI 에게 한 번도 닿지 않았고, 아무도 몰랐다.
+//   조용히 죽는 종류라 사람 눈에는 "AI 가 좀 멍청해졌다" 로만 보인다. 여기에 못을 박는다.
+{
+  const 맥env = { ...env, PAIS_URL: 'https://pais.test', PAIS_TOKEN: 'tok' };
+  const 맥post = (obj, e) => worker.fetch(new Request('https://gw.test/rag/search', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + staffToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(obj),
+  }), e || 맥env);
+
+  맥응답 = { 결과: Array.from({ length: 10 }, (_, i) => ({ 점수: 0.9 - i * 0.01, 문서: '맥규격', 머리: '맥머리', 글: '맥조각' + i })) };
+  const r = await 맥post({ query: '용접 육안검사 결함 확인', topK: 10 });
+  const d = await r.json();
+  const 기록것 = (d.matches || []).filter(m => m.docName !== '맥규격');   // 기록 색인에서 온 것 전부
+  const 맥것 = (d.matches || []).filter(m => m.docName === '맥규격');
+  check('맥+기록: 둘 다 나온다 (맥만 보고 끝내지 않는다)', 맥것.length > 0 && 기록것.length > 0,
+    JSON.stringify({ source: d.source, 맥: 맥것.length, 기록: 기록것.length }));
+  check('맥+기록: 맥 점수가 높으면 기록은 최소 한 자리만 (색인이 붙어 있는지는 늘 보인다)',
+    d.matches.length === 10 && 기록것.length === 1,
+    JSON.stringify({ 전체: (d.matches || []).length, 기록: 기록것.length }));
+  check('맥+기록: 맥 조각이 앞자리 — 맥락은 앞이 우선순위다', d.matches[0] && d.matches[0].docName === '맥규격');
+
+  // 반대 방향: 기록이 더 맞는 질문이면 기록이 자리를 더 가져가야 한다.
+  //   "부적합 NCR 현황" 에서 NCR(0.59)이 상관없는 ASME(0.48)에 밀리던 것이 이 시험의 이유다.
+  // 기록 색인에 여러 조각을 넣어 둔다 — 시험 저장소에 기본으로 든 게 한둘뿐이라 자리다툼이 안 된다
+  await post('/rag/upload', adminToken, { docName: '기록뭉치', chunks: Array.from({ length: 6 }, (_, i) => '용접 육안검사 결함 확인 기록 ' + i) });
+  맥응답 = { 결과: Array.from({ length: 10 }, (_, i) => ({ 점수: 0.01 - i * 0.001, 문서: '맥규격', 머리: '맥머리', 글: '맥조각' + i })) };
+  const r3 = await 맥post({ query: '용접 육안검사 결함 확인', topK: 10 });
+  const d3 = await r3.json();
+  const 기록3 = (d3.matches || []).filter(m => m.docName !== '맥규격').length;
+  check('맥+기록: 기록 점수가 높으면 자리를 더 가져간다', 기록3 > 1 && 기록3 <= 8,
+    JSON.stringify({ 기록: 기록3, 전체: (d3.matches || []).length }));
+  check('맥+기록: 그래도 맥 몫 두 자리는 남긴다', (d3.matches || []).length - 기록3 >= 2,
+    JSON.stringify({ 맥: (d3.matches || []).length - 기록3 }));
+
+  // 맥이 꺼진 날에도 기록 색인으로는 답해야 하고, 물러섰다는 사실이 응답에 남아야 한다
+  맥응답 = null;                      // fetch 모의가 500 을 낸다
+  const r2 = await 맥post({ query: '용접 육안검사 결함 확인', topK: 10 });
+  const d2 = await r2.json();
+  check('맥이 꺼져도 기록 색인으로 답한다', r2.status === 200 && (d2.matches || []).length > 0, JSON.stringify(d2.source));
+  check('물러선 사실을 응답에 남긴다', !!d2.paisError, JSON.stringify(d2));
+  맥응답 = null;
 }
 
 // ── 결과 출력 ───────────────────────────────────────────────────
