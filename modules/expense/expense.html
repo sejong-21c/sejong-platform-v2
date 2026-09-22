@@ -1872,7 +1872,7 @@ async function 맥인식() {
 //   보이는 이름(name)은 그대로 두고 열쇠는 `expense/<내역id>/<번호>.<확장자>` 로 만든다.
 // 화면에 뜰 때는 서명 주소(url)를 쓴다. 서명은 한 시간짜리라 **열 때마다 새로 받는다**.
 const 경비칸 = 't_expense', 경비문서 = 'main';
-let _마지막판 = null, _저장중 = false, _불러옴 = false;
+let _마지막판 = null, _저장중 = false, _불러옴 = false, _서버시각 = 0, _멈춤 = false;
 
 function 부모fb() {
   try { const p = window.parent; return (p && p !== window && p.fb && p.fb.db) ? p.fb : null; }
@@ -1912,15 +1912,31 @@ async function 주소받기(열쇠들) {
 const 열쇠안전 = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '') || 'x';
 
 /** Firestore 에 넣을 판 — base64(data)와 화면용 서명 주소(url)는 뺀다. */
+/** 설정(카드·작성자·장소·로고)만 한 문서에. **내역은 안 넣는다** — 아래 이유. */
 function 저장할판() {
-  return JSON.parse(JSON.stringify(DATA, (k, v) => (k === 'data' || k === 'url') ? undefined : v));
+  // updatedAt·updatedBy 는 쓸 때 붙이는 것이라 비교 판에는 넣지 않는다 — 넣으면 늘 달라 보인다.
+  const { entries, ...나머지 } = DATA;
+  return JSON.parse(JSON.stringify(나머지, (k, v) => (k === 'data' || k === 'url' || k === 'updatedAt' || k === 'updatedBy') ? undefined : v));
+}
+
+// ── 내역은 한 건에 문서 하나 ─────────────────────────────────────────────────
+// 왜 나눴나 (2026-09-23 부장님): 직원은 **메신저에서 영수증을 올린다.** 그 순간 내역이 하나
+//   생기는데, 재무부 화면이 자료를 통째로 덮어쓰면 그게 조용히 지워진다. 한 문서에 다 담으면
+//   같이 쓸 수가 없다. 그래서 설정만 `t_expense/main`, **내역은 `t_expenseEntries/<id>`**.
+//   Firestore 한 문서 1MB 걱정도 같이 사라진다(영수증 파일은 어차피 R2 다).
+const 내역칸 = 't_expenseEntries';
+let _내역판 = new Map();          // id → 마지막으로 저장한 판(문자열). 안 바뀐 건 다시 안 쓴다.
+
+function 내역한건(e) {
+  return JSON.parse(JSON.stringify(e, (k, v) => (k === 'data' || k === 'url') ? undefined : v));
 }
 
 async function 경비저장() {
   const fb = 부모fb();
-  if (!fb || _저장중 || !_불러옴) return;              // 불러오기 전에 저장하면 빈 판이 덮어쓴다
+  if (!fb || _저장중 || !_불러옴 || _멈춤) return;      // 불러오기 전에 저장하면 빈 판이 덮어쓴다
   _저장중 = true;
   try {
+    const 부모JSON = (window.parent && window.parent !== window && window.parent.JSON) || JSON;
     // ① 아직 안 올라간 영수증을 R2 로. data 는 화면용으로 남겨 두고 저장본에서만 뺀다.
     for (const e of (DATA.entries || [])) {
       const rs = e.receipts || [];
@@ -1933,20 +1949,46 @@ async function 경비저장() {
         f.key = 열쇠;
       }
     }
-    // 회사 로고도 base64 라 같이 올린다 — 안 그러면 이것만으로 한도를 먹는다.
     const ci = DATA.companyInfo || (DATA.companyInfo = {});
-    if (ci.logo && !ci.logoKey) {
+    if (ci.logo && !ci.logoKey && String(ci.logo).startsWith('data:')) {
       await 파일올리기('expense/logo.png', ci.logo, 'image/png');
       ci.logoKey = 'expense/logo.png';
     }
+
+    // ② 설정 — 바뀐 때만. 남이 먼저 저장했으면 덮어쓰지 않는다(조용히 날아가는 종류다).
     const 판 = JSON.stringify(저장할판());
-    if (판 === _마지막판) return;                      // 바뀐 게 없으면 쓰지 않는다(읽기·쓰기 한도)
-    // **부모의 JSON 으로 다시 만든다.** 우리가 만든 객체는 이 iframe 의 realm 것이라
-    //   부모 realm 의 Firebase 가 "custom Object object" 라며 거부한다(2026-09-23 실제로 그랬다).
-    //   메신저도 같은 곳에서 걸려 plain() 을 두고 있다.
-    const 부모JSON = (window.parent && window.parent !== window && window.parent.JSON) || JSON;
-    await fb.setDoc(fb.doc(fb.db, 경비칸, 경비문서), 부모JSON.parse(판));
-    _마지막판 = 판;
+    if (판 !== _마지막판) {
+      const 지금것 = await fb.getDoc(fb.doc(fb.db, 경비칸, 경비문서));
+      const 서버시각 = 지금것.exists() ? Number((지금것.data() || {}).updatedAt || 0) : 0;
+      if (서버시각 > _서버시각) {
+        _멈춤 = true;
+        alert('다른 사람이 카드·작성자 설정을 먼저 바꿨습니다.\n이 화면의 설정 변경은 저장하지 않았습니다 — 새로고침한 뒤 다시 해 주세요.');
+      } else {
+        const 낼것 = 부모JSON.parse(판);
+        낼것.updatedAt = Date.now();
+        낼것.updatedBy = (fb.auth && fb.auth.currentUser && fb.auth.currentUser.email) || '';
+        await fb.setDoc(fb.doc(fb.db, 경비칸, 경비문서), 낼것);
+        _서버시각 = 낼것.updatedAt;
+        _마지막판 = 판;
+      }
+    }
+
+    // ③ 내역 — 바뀐 건만 제 문서에. **덮어쓰기가 아니라 한 건씩**이라 메신저가 넣은 것과 안 부딪힌다.
+    const 지금id = new Set();
+    for (const e of (DATA.entries || [])) {
+      if (!e || !e.id) continue;
+      지금id.add(e.id);
+      const 한판 = JSON.stringify(내역한건(e));
+      if (_내역판.get(e.id) === 한판) continue;
+      await fb.setDoc(fb.doc(fb.db, 내역칸, String(e.id)), 부모JSON.parse(한판));
+      _내역판.set(e.id, 한판);
+    }
+    // 화면에서 지운 건은 저장소에서도 지운다
+    for (const id of [..._내역판.keys()]) {
+      if (지금id.has(id)) continue;
+      await fb.deleteDoc(fb.doc(fb.db, 내역칸, String(id)));
+      _내역판.delete(id);
+    }
   } catch (e) {
     console.warn('[경비 저장]', e);
   } finally { _저장중 = false; }
@@ -1957,19 +1999,31 @@ async function 경비불러오기() {
   if (!fb) { _불러옴 = true; return; }                 // 혼자 열었을 때는 예전처럼 JSON 으로
   try {
     const snap = await fb.getDoc(fb.doc(fb.db, 경비칸, 경비문서));
-    if (snap.exists()) {
-      const 온것 = snap.data() || {};
-      DATA = Object.assign({ cards: [], writers: [], places: [], entries: [], companyInfo: {} }, 온것);
-      _마지막판 = JSON.stringify(저장할판());
-      // 서명 주소를 받아 화면에 붙인다. 한 시간짜리라 열 때마다 새로 받는다.
-      const 열쇠들 = [];
-      for (const e of DATA.entries || []) for (const f of (e.receipts || [])) if (f && f.key) 열쇠들.push(f.key);
-      if (DATA.companyInfo && DATA.companyInfo.logoKey) 열쇠들.push(DATA.companyInfo.logoKey);
-      if (열쇠들.length) {
-        const 주소 = await 주소받기(열쇠들);
-        for (const e of DATA.entries || []) for (const f of (e.receipts || [])) if (f && f.key && 주소[f.key]) f.url = 주소[f.key];
-        if (DATA.companyInfo.logoKey && 주소[DATA.companyInfo.logoKey]) DATA.companyInfo.logo = 주소[DATA.companyInfo.logoKey];
-      }
+    const 설정 = snap.exists() ? (snap.data() || {}) : {};
+    const { entries: _옛내역, ...설정만 } = 설정;       // 옛 판에는 내역이 이 안에 들어 있었다
+    DATA = Object.assign({ cards: [], writers: [], places: [], companyInfo: {} }, 설정만, { entries: [] });
+    _서버시각 = Number(설정.updatedAt || 0);
+    _마지막판 = JSON.stringify(저장할판());
+
+    // 내역 — 제 칸에서 읽는다. 옛 문서 안에 남아 있던 내역도 한 번은 같이 살린다(이사).
+    const 것 = [];
+    try {
+      const s2 = await fb.getDocs(fb.collection(fb.db, 내역칸));
+      s2.forEach((d) => 것.push(Object.assign({ id: d.id }, d.data())));
+    } catch (e) { console.warn('[경비 내역]', e); }
+    if (!것.length && Array.isArray(_옛내역) && _옛내역.length) 것.push(..._옛내역);
+    것.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || String(a.id).localeCompare(String(b.id)));
+    DATA.entries = 것;
+    for (const e of 것) if (e && e.id) _내역판.set(e.id, JSON.stringify(내역한건(e)));
+
+    // 서명 주소를 받아 화면에 붙인다. 한 시간짜리라 열 때마다 새로 받는다.
+    const 열쇠들 = [];
+    for (const e of DATA.entries) for (const f of (e.receipts || [])) if (f && f.key) 열쇠들.push(f.key);
+    if (DATA.companyInfo && DATA.companyInfo.logoKey) 열쇠들.push(DATA.companyInfo.logoKey);
+    if (열쇠들.length) {
+      const 주소 = await 주소받기(열쇠들);
+      for (const e of DATA.entries) for (const f of (e.receipts || [])) if (f && f.key && 주소[f.key]) f.url = 주소[f.key];
+      if (DATA.companyInfo.logoKey && 주소[DATA.companyInfo.logoKey]) DATA.companyInfo.logo = 주소[DATA.companyInfo.logoKey];
     }
   } catch (e) {
     console.warn('[경비 불러오기]', e);

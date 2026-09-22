@@ -69,6 +69,37 @@ export async function 사내문서(질문, fb, topK = 10) {
 //   안 나가고, 하루 한도도 요금도 없다. 실측 0.4초(2026-09-22 부장님: "구지 제미나이로?").
 // 금액은 맥에서 **코드가** 푼다 — 모델에게 산수를 시켰더니 틀린 쪽을 고쳐 통과시켰다.
 // 여기서는 파일을 base64 로 바꿔 보내고 결과를 그대로 받는다. 사진은 먼저 줄인다.
+/** 영수증 그림을 R2 에 올린다. **base64 를 대화에 남기면 안 된다** — 한 문서 1MB 를 넘고
+ *  전 직원이 구독하는 칸은 아니어도 대화가 금세 무거워진다. 열쇠만 남기고 볼 때 서명 주소를 받는다.
+ *  열쇠는 ASCII 만 된다(게이트웨이 규칙) — 한글 파일 이름은 열쇠로 못 쓴다. */
+export async function 영수증파일올리기(열쇠, base64, mime, fb) {
+  const 글 = atob(String(base64 || ''));
+  const 바이트 = new Uint8Array(글.length);
+  for (let i = 0; i < 글.length; i++) 바이트[i] = 글.charCodeAt(i);
+  const r = await fetch(게이트웨이 + '/file/put?key=' + encodeURIComponent(열쇠), {
+    method: 'PUT',
+    headers: { 'Content-Type': mime || 'application/octet-stream', Authorization: await 토큰(fb) },
+    body: 바이트,
+  });
+  if (!r.ok) throw new Error('영수증 파일 올리기 ' + r.status);
+  return 열쇠;
+}
+
+/** 열쇠 목록 → 볼 수 있는 주소. 한 시간짜리라 화면을 열 때마다 받는다. */
+export async function 파일주소받기(열쇠들, fb) {
+  const 것 = [...new Set((열쇠들 || []).filter(Boolean))].slice(0, 50);
+  if (!것.length) return {};
+  try {
+    const r = await fetch(게이트웨이 + '/file/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: await 토큰(fb) },
+      body: JSON.stringify({ keys: 것 }),
+    });
+    if (!r.ok) return {};
+    return (await r.json()).urls || {};
+  } catch (e) { return {}; }
+}
+
 export async function 영수증읽기(파일, fb, { 줄이기 } = {}) {
   let f = 파일;
   if (줄이기 && /^image\//.test(파일.type || '')) {
@@ -90,7 +121,11 @@ export async function 영수증읽기(파일, fb, { 줄이기 } = {}) {
       body: JSON.stringify({ 이미지: b64, 이름: String(파일.name || '').slice(0, 120) }),
     });
     if (!r.ok) throw new Error('영수증 서버 ' + r.status);
-    return await r.json();
+    const j = await r.json();
+    // 올린 그림을 R2 에도 넣어야 해서 base64 를 같이 돌려준다 — 파일을 두 번 읽을 이유가 없다.
+    //   **대화에 저장하는 값이 아니다.** 부르는 쪽이 올리고 나면 버린다.
+    j._base64 = b64;
+    return j;
   } finally { clearTimeout(시계); }
 }
 

@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b81';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 영수증읽기, 표묻기, 화면고르기 } from './ai.js?v=b81';
+import * as L from './lib.js?v=b82';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b82';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -716,8 +716,13 @@ async function 영수증보내기(파일) {
   if (!/^image\//.test(파일.type || '') && !/\.pdf$/i.test(파일.name || '')) {
     토스트('AI 비서 방에는 영수증 사진이나 PDF 만 올릴 수 있습니다.'); return;
   }
+  // 사진만 던지는 게 아니라 **한 줄 같이 적는다** — "김철우 부장 주유비 69조7802 삼성전기 출장".
+  //   그 줄이 곧 경비 내역서의 '사용 내역' 이 된다. 영수증에는 그런 게 안 적혀 있다.
+  const 입력 = $('#msgInput');
+  const 덧말 = 입력 ? String(입력.value || '').trim().slice(0, 300) : '';
+  if (입력) { 입력.value = ''; 입력높이(입력); 전송준비표시(); }
   const ts = Date.now();
-  const 내말 = { author: String(me_), role: 'user', text: `영수증을 읽어 주세요 — ${파일.name || '사진'}`, type: 'text', at: nowStamp(), createdAt: ts };
+  const 내말 = { author: String(me_), role: 'user', text: (덧말 ? 덧말 + '\n' : '') + `(영수증 ${파일.name || '사진'})`, type: 'text', at: nowStamp(), createdAt: ts };
   const pend = { id: 'pending_ai_' + ts, channel: AI_CID, ...내말, _pending: true };
   state.pending.push(pend);
   ui.aiThinking = true; renderMessages(false);
@@ -728,6 +733,13 @@ async function 영수증보내기(파일) {
   try {
     const r = await 영수증읽기(파일, fb, { 줄이기: L.사진줄이기 });
     if (r.error) throw new Error(r.error);
+    // 그림을 R2 에 올려 둔다. 나중에 경비 내역서가 이 열쇠를 그대로 쓴다 —
+    //   base64 를 대화에 남기면 안 되고, 두 번 올릴 이유도 없다.
+    let 파일열쇠 = '';
+    try {
+      const 확장 = /\.pdf$/i.test(파일.name || '') ? 'pdf' : 'jpg';
+      파일열쇠 = await 영수증파일올리기(`expense/inbox/${String(me_).replace(/[^A-Za-z0-9._-]/g, '')}_${ts}.${확장}`, r._base64 || '', 파일.type || 'image/jpeg', fb);
+    } catch (e) { console.warn('[영수증 파일]', e && e.message); }
     const 돈 = r.금액;
     const 돈글 = (n) => Number(n || 0).toLocaleString('ko-KR');
     const 줄 = [];
@@ -744,11 +756,12 @@ async function 영수증보내기(파일) {
     if (r.거래일시) 줄.push(`일시 ${r.거래일시}`);
     if (r.카드사) 줄.push(`카드 ${r.카드사}`);
     if (r.사업자번호) 줄.push(`사업자 ${r.사업자번호}`);
-    줄.push('', '맞는지 보시고 아래 버튼을 누르면 업무관리에 등록합니다.');
+    줄.push('', '맞는지 보시고 아래 버튼을 누르면 **경비 내역서**에 올라갑니다. 재무부가 확인합니다.');
     await AI쓰기({
       author: AI_UID, role: 'ai', text: 줄.join('\n'), type: 'text', md: true,
       // 원문을 같이 남긴다 — 사람이 확인하려면 근거가 보여야 한다.
-      영수증: { 금액: r.금액 || null, 금액후보: (r.금액후보 || []).slice(0, 5), 상호: r.상호 || '', 거래일시: r.거래일시 || '',
+      영수증: { 덧말, 파일열쇠, 파일이름: String(파일.name || '영수증'), isPdf: /\.pdf$/i.test(파일.name || ''),
+        금액: r.금액 || null, 금액후보: (r.금액후보 || []).slice(0, 5), 상호: r.상호 || '', 거래일시: r.거래일시 || '',
         사업자번호: r.사업자번호 || '', 대표자: r.대표자 || '', 카드사: r.카드사 || '', 승인번호: r.승인번호 || '',
         원문: (r.원문 || []).slice(0, 40) },
       at: nowStamp(), createdAt: Date.now(),
@@ -770,8 +783,8 @@ function 영수증달기(m) {
   const 후보 = Array.isArray(r.금액후보) ? r.금액후보 : [];
   const 원문 = Array.isArray(r.원문) ? r.원문 : [];
   const 버튼 = r.금액
-    ? `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}">업무관리에 등록</button>`
-    : 후보.map((c, i) => `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}" data-pick="${i}">${돈글(c.총금액)}원으로 등록</button>`).join('');
+    ? `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}">경비 내역서에 올리기</button>`
+    : 후보.map((c, i) => `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}" data-pick="${i}">${돈글(c.총금액)}원으로 올리기</button>`).join('');
   const 원문칸 = 원문.length
     ? `<details class="sjm-rcpt-raw"><summary>읽은 원문 ${원문.length}줄</summary><pre>${esc(원문.join('\n'))}</pre></details>`
     : '';
@@ -779,27 +792,36 @@ function 영수증달기(m) {
 }
 
 // 사람이 확인한 뒤에만 여기 온다. **AI 가 스스로 저장하지 않는다** — 회사 원칙이다.
-async function 업무로등록(m, 고른) {
+// 2026-09-23 부장님: 영수증은 업무관리가 아니라 **경비 내역서**로 간다. 직원은 메신저에서
+//   사진 한 장과 한 줄만 올리고, 재무부가 「업무 경비 내역서」에서 카드를 맞추고 확인한다.
+//   그래서 내역은 한 건에 문서 하나다(t_expenseEntries) — 재무부 화면이 통째로 덮어써도 안 지워진다.
+async function 경비로등록(m, 고른) {
   const fb = getFB(); if (!fb || !fb.db) { 토스트('저장소에 연결되어 있지 않습니다.'); return; }
   const r = m.영수증 || {};
   const 돈 = 고른 == null ? r.금액 : (r.금액후보 || [])[고른];
   if (!돈) { 토스트('금액을 고르지 못했습니다.'); return; }
   const 날 = String(r.거래일시 || '').slice(0, 10);
-  const 제목 = ['영수증', r.상호 || '', Number(돈.총금액 || 0).toLocaleString('ko-KR') + '원'].filter(Boolean).join(' · ');
+  const id = 'E' + Date.now() + Math.random().toString(36).slice(2, 6);
   try {
-    await fb.setDoc(fb.doc(fb.db, 'tasks', 'task_rcpt_' + Date.now()), plain({
-      title: 제목, proj: '', assignee: String(me()), status: 'todo',
-      due: /^\d{4}-\d{2}-\d{2}$/.test(날) ? 날 : '',
-      메모: [r.상호 && ('상호 ' + r.상호), r.거래일시 && ('일시 ' + r.거래일시), r.사업자번호 && ('사업자 ' + r.사업자번호),
-        r.대표자 && ('대표 ' + r.대표자), r.카드사 && ('카드 ' + r.카드사), r.승인번호 && ('승인 ' + r.승인번호),
-        돈.공급가액 != null && ('공급가액 ' + 돈.공급가액), 돈.부가세 != null && ('부가세 ' + 돈.부가세),
-        '총금액 ' + 돈.총금액].filter(Boolean).join(' · '),
-      createdAt: Date.now(),
+    await fb.setDoc(fb.doc(fb.db, 't_expenseEntries', id), plain({
+      id,
+      date: /^\d{4}-\d{2}-\d{2}$/.test(날) ? 날 : '',
+      cardId: '',                      // **짐작하지 않는다.** 카드는 재무부가 맞춘다
+      amount: Number(돈.총금액) || 0,
+      loc: '-', qty: '-',
+      usage: String(r.덧말 || r.상호 || '').slice(0, 300),   // 올릴 때 같이 친 그 줄이 사용 내역이다
+      receipts: r.파일열쇠 ? [{ name: String(r.파일이름 || '영수증'), key: r.파일열쇠,
+        mime: r.isPdf ? 'application/pdf' : 'image/jpeg', isPdf: !!r.isPdf }] : [],
+      메모: [r.상호 && ('상호 ' + r.상호), r.거래일시 && ('일시 ' + r.거래일시),
+        r.사업자번호 && ('사업자 ' + r.사업자번호), r.카드사 && ('카드 ' + r.카드사),
+        r.승인번호 && ('승인 ' + r.승인번호), 돈.공급가액 != null && ('공급가액 ' + 돈.공급가액),
+        돈.부가세 != null && ('부가세 ' + 돈.부가세)].filter(Boolean).join(' · '),
+      올린이: String(me()), 올린때: Date.now(),
     }));
-    토스트('업무관리에 등록했습니다 — ' + 제목, 3500);
+    토스트('경비 내역서에 올렸습니다 — ' + Number(돈.총금액 || 0).toLocaleString('ko-KR') + '원. 재무부가 확인합니다.', 3800);
   } catch (e) {
-    console.error('[영수증 등록]', e);
-    토스트('등록하지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 4000);
+    console.error('[경비 등록]', e);
+    토스트('올리지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 4000);
   }
 }
 
@@ -1616,7 +1638,7 @@ function 행동(el) {
     case 'reg-task': {
       const m = 메시지찾기(el.dataset.mid);
       if (!m || !m.영수증) { 토스트('영수증 내용을 찾지 못했습니다.'); break; }
-      업무로등록(m, el.dataset.pick == null ? null : Number(el.dataset.pick));
+      경비로등록(m, el.dataset.pick == null ? null : Number(el.dataset.pick));
       break;
     }
     case 'open-screen': {
