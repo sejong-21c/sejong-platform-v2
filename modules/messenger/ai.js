@@ -64,6 +64,36 @@ export async function 사내문서(질문, fb, topK = 10) {
   } catch (e) { return []; }
 }
 
+// ── 영수증 읽기 ─────────────────────────────────────────────────────────────
+// 눈은 맥에 있다(붙박이 Vision OCR). 왜 클라우드 비전이 아닌가: 회사 재무 자료가 밖으로
+//   안 나가고, 하루 한도도 요금도 없다. 실측 0.4초(2026-09-22 부장님: "구지 제미나이로?").
+// 금액은 맥에서 **코드가** 푼다 — 모델에게 산수를 시켰더니 틀린 쪽을 고쳐 통과시켰다.
+// 여기서는 파일을 base64 로 바꿔 보내고 결과를 그대로 받는다. 사진은 먼저 줄인다.
+export async function 영수증읽기(파일, fb, { 줄이기 } = {}) {
+  let f = 파일;
+  if (줄이기 && /^image\//.test(파일.type || '')) {
+    try { f = await 줄이기(파일, 1600, 0.85); } catch (e) { f = 파일; }   // 영수증 잔글씨라 1600px 로 둔다
+  }
+  const b64 = await new Promise((풀림, 깨짐) => {
+    const r = new FileReader();
+    r.onload = () => 풀림(String(r.result).replace(/^data:[^,]*,/, ''));
+    r.onerror = () => 깨짐(new Error('파일을 읽지 못했습니다'));
+    r.readAsDataURL(f);
+  });
+  if (b64.length > 9_000_000) throw new Error('그림이 너무 큽니다. 다시 찍거나 줄여서 올려 주세요.');
+  const c = new AbortController();
+  const 시계 = setTimeout(() => c.abort(), 90_000);          // 맥에서 OCR 0.4초 + 글자 칸 10~20초
+  try {
+    const r = await fetch(게이트웨이 + '/rag/receipt', {
+      method: 'POST', signal: c.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: await 토큰(fb) },
+      body: JSON.stringify({ 이미지: b64, 이름: String(파일.name || '').slice(0, 120) }),
+    });
+    if (!r.ok) throw new Error('영수증 서버 ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(시계); }
+}
+
 // ── NAS 표에 묻기 (v4.1) ────────────────────────────────────────────────────
 // 왜 검색으로 안 되나: "작년 견적 재료비 총액" 은 **세는** 질문이다. 벡터 검색은 비슷한 몇 줄만
 //   집어 오므로 97줄 중 30줄만 보고 답한다 — 그럴듯한데 틀린 숫자가 나온다(제일 나쁜 종류).

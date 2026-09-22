@@ -278,9 +278,24 @@ async function 맥표(env, 몸, 범위) {
   return await r.json();
 }
 
+// v4.2: 영수증 그림을 맥으로 넘긴다. 눈(맥 붙박이 Vision OCR)이 거기 있고, 무엇보다
+//   **회사 재무 자료가 클라우드 모델로 안 나간다.** 제미나이를 쓰면 하루 한도도 걸린다.
+//   이 길은 회사 자료를 하나도 안 본다 — 보내온 그림만 읽으므로 범위를 안 넘긴다.
+// 시간제한이 검색보다 길다: OCR 은 0.4초인데 글자 칸을 뽑는 로컬 모델이 10~20초 걸린다.
+async function 맥영수증(env, 몸) {
+  const 기한 = AbortSignal.timeout(Number(env.PAIS_RECEIPT_TIMEOUT_MS) || 60000);
+  const r = await fetch(String(env.PAIS_URL).replace(/\/$/, '') + '/api/rag/receipt', {
+    method: 'POST', signal: 기한,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + String(env.PAIS_TOKEN || '').trim() },
+    body: JSON.stringify({ 이미지: String(몸.이미지 || ''), 이름: String(몸.이름 || '').slice(0, 120), 페이지: 몸.페이지 }),
+  });
+  if (!r.ok) throw new Error('pais ' + r.status);
+  return await r.json();
+}
+
 async function handleRag(request, env, path, cors) {
   // 검색은 맥만 있어도 된다. 등록·기록은 여전히 Vectorize 바인딩이 필요하다.
-  const 맥으로된다 = (path === 'search' || path === 'table') && !!env.PAIS_URL;
+  const 맥으로된다 = (path === 'search' || path === 'table' || path === 'receipt') && !!env.PAIS_URL;
   if (!맥으로된다 && (!env.AI || !env.VECTORIZE)) {
     return json(501, { error: 'RAG not configured — Worker에 AI·VECTORIZE 바인딩 또는 PAIS_URL 을 설정하세요 (gateway/README.md 참고)' }, cors);
   }
@@ -288,6 +303,16 @@ async function handleRag(request, env, path, cors) {
   if (auth.status) return json(auth.status, { error: auth.error }, cors);
   let body;
   try { body = await request.json(); } catch (e) { return json(400, { error: 'invalid JSON body' }, cors); }
+
+  if (path === 'receipt') {
+    if (!env.PAIS_URL) return json(501, { error: '영수증 읽기는 맥(PAIS_URL)이 있어야 합니다' }, cors);
+    // 그림은 크다. 워커 한도와 맥 readBody(10MB) 안에서 놀게 여기서 먼저 자른다.
+    const b64 = String(body.이미지 || body.image || '');
+    if (b64.length < 1000) return json(400, { error: '이미지(base64)가 필요합니다' }, cors);
+    if (b64.length > 9_000_000) return json(413, { error: '그림이 너무 큽니다 — 줄여서 올려 주세요' }, cors);
+    try { return json(200, await 맥영수증(env, { ...body, 이미지: b64 }), cors); }
+    catch (e) { return json(200, { error: '영수증을 읽지 못했습니다: ' + String(e.message).slice(0, 120) }, cors); }
+  }
 
   if (path === 'table') {
     if (!env.PAIS_URL) return json(501, { error: '표 질의는 맥(PAIS_URL)이 있어야 합니다' }, cors);

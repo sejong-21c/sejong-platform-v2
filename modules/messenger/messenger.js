@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b77';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 표묻기, 화면고르기 } from './ai.js?v=b77';
+import * as L from './lib.js?v=b78';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 영수증읽기, 표묻기, 화면고르기 } from './ai.js?v=b78';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -638,8 +638,8 @@ function renderRoom() {
     else comp.removeAttribute('data-locked');
   }
   const inp0 = $('#msgInput'); if (inp0) inp0.placeholder = isAI ? 'AI 비서에게 물어보기' : '메시지 입력';
-  // 1단계에서 AI 방은 첨부를 받지 않는다(영수증·일정 첨부는 R2 와 색인이 붙는 다음 단계).
-  const att = $('[data-act="attach"]'); if (att) att.hidden = isAI;
+  // AI 방 첨부 = "읽어 달라". 2026-09-22 에 길이 생겼다 — 맥 붙박이 OCR 이 영수증을 읽는다.
+  const att = $('[data-act="attach"]'); if (att) att.hidden = false;
   // 같은 방이면 다시 그려도 읽던 자리를 지킨다(users·channels 스냅샷마다 맨 아래로 튀지 않게). 방이 바뀌었을 때만 처음부터.
   renderMessages(roomDom.cid !== ch.id);
 }
@@ -672,7 +672,7 @@ function 말풍선(m, info, members, readMarkBefore) {
     body = `<a class="sjm-bubble is-file sjm-file" ${m.fileUrl ? `href="${esc(m.fileUrl)}" target="_blank" rel="noopener"` : ''}>${ICON.file}<span><div class="sjm-file-name">${esc(m.file)}</div><div class="sjm-file-size">${esc(m.fileSize || '')}</div></span></a>`;
   } else if (m.md) {
     // AI 답변 — 글머리표·표를 그대로 그린다. 방 안 검색 하이라이트는 여기 안 붙는다(서식 태그를 깨뜨린다).
-    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${화면달기(m)}${출처달기(m)}</div>`;
+    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${화면달기(m)}${영수증달기(m)}${출처달기(m)}</div>`;
   } else {
     let text = esc(m.text || '');
     if (ui.rs.open && ui.rs.q) {
@@ -703,6 +703,104 @@ function 그림달기(m) {
       + ` onerror="this.closest('.sjm-md-fig').classList.add('is-gone')">`
       + `<figcaption>${설명}${g.page ? ` · p.${esc(String(g.page))}` : ''}</figcaption></figure>`;
   }).join('')}</div>`;
+
+}
+
+// ── 영수증 보내기 (AI 방) ───────────────────────────────────────────────────
+// AI 방의 첨부는 "남에게 파일을 보낸다" 가 아니라 **읽어 달라**는 뜻이다. 그래서 저장소에
+//   올리지 않고 맥으로 바로 보낸다 — 남의 재무 자료는 한 군데라도 덜 남는 게 낫다.
+// 읽는 건 맥 붙박이 OCR 이고 금액은 맥에서 **코드가** 푼다. 우리는 보여 주고 사람이 누른다.
+async function 영수증보내기(파일) {
+  const me_ = me(); const fb = getFB();
+  if (ui.aiThinking) { 토스트('아직 읽는 중입니다.'); return; }
+  if (!/^image\//.test(파일.type || '') && !/\.pdf$/i.test(파일.name || '')) {
+    토스트('AI 비서 방에는 영수증 사진이나 PDF 만 올릴 수 있습니다.'); return;
+  }
+  const ts = Date.now();
+  const 내말 = { author: String(me_), role: 'user', text: `영수증을 읽어 주세요 — ${파일.name || '사진'}`, type: 'text', at: nowStamp(), createdAt: ts };
+  const pend = { id: 'pending_ai_' + ts, channel: AI_CID, ...내말, _pending: true };
+  state.pending.push(pend);
+  ui.aiThinking = true; renderMessages(false);
+  const 치우기 = () => { state.pending = state.pending.filter((m) => m !== pend); };
+  try { await AI쓰기(내말); 치우기(); }
+  catch (e) { 치우기(); ui.aiThinking = false; renderMessages(true); 토스트('보내지 못했습니다.'); return; }
+  renderMessages(false);
+  try {
+    const r = await 영수증읽기(파일, fb, { 줄이기: L.사진줄이기 });
+    if (r.error) throw new Error(r.error);
+    const 돈 = r.금액;
+    const 돈글 = (n) => Number(n || 0).toLocaleString('ko-KR');
+    const 줄 = [];
+    if (돈) {
+      줄.push(`**${돈글(돈.총금액)}원**` + (돈.나눔없음
+        ? ' — 부가세가 따로 안 적혀 있습니다'
+        : ` (공급가액 ${돈글(돈.공급가액)} + 부가세 ${돈글(돈.부가세)})`));
+    } else if ((r.금액후보 || []).length) {
+      줄.push('영수증이 여러 장인 것 같습니다. 아래에서 골라 주세요.');
+    } else {
+      줄.push('금액을 못 읽었습니다. 아래 원문을 보시고 직접 등록해 주세요.');
+    }
+    if (r.상호) 줄.push(`상호 ${r.상호}`);
+    if (r.거래일시) 줄.push(`일시 ${r.거래일시}`);
+    if (r.카드사) 줄.push(`카드 ${r.카드사}`);
+    if (r.사업자번호) 줄.push(`사업자 ${r.사업자번호}`);
+    줄.push('', '맞는지 보시고 아래 버튼을 누르면 업무관리에 등록합니다.');
+    await AI쓰기({
+      author: AI_UID, role: 'ai', text: 줄.join('\n'), type: 'text', md: true,
+      // 원문을 같이 남긴다 — 사람이 확인하려면 근거가 보여야 한다.
+      영수증: { 금액: r.금액 || null, 금액후보: (r.금액후보 || []).slice(0, 5), 상호: r.상호 || '', 거래일시: r.거래일시 || '',
+        사업자번호: r.사업자번호 || '', 대표자: r.대표자 || '', 카드사: r.카드사 || '', 승인번호: r.승인번호 || '',
+        원문: (r.원문 || []).slice(0, 40) },
+      at: nowStamp(), createdAt: Date.now(),
+    });
+  } catch (e) {
+    console.warn('[영수증]', e && e.message);
+    try {
+      await AI쓰기({ author: AI_UID, role: 'ai', text: '영수증을 읽지 못했습니다: ' + String(e && e.message || e).slice(0, 160),
+        type: 'text', md: false, 실패: true, at: nowStamp(), createdAt: Date.now() });
+    } catch (e2) { 토스트('영수증을 읽지 못했습니다.'); }
+  } finally { ui.aiThinking = false; renderMessages(false); 읽음처리(AI_CID); }
+}
+
+// 말풍선 밑의 영수증 칸 — 등록 버튼과 읽은 원문. 원문을 접어서 같이 두는 게 핵심이다.
+//   사람이 "확인하고 저장" 하려면 무엇을 보고 그렇게 읽었는지 보여야 한다.
+function 영수증달기(m) {
+  const r = m.영수증; if (!r) return '';
+  const 돈글 = (n) => Number(n || 0).toLocaleString('ko-KR');
+  const 후보 = Array.isArray(r.금액후보) ? r.금액후보 : [];
+  const 원문 = Array.isArray(r.원문) ? r.원문 : [];
+  const 버튼 = r.금액
+    ? `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}">업무관리에 등록</button>`
+    : 후보.map((c, i) => `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}" data-pick="${i}">${돈글(c.총금액)}원으로 등록</button>`).join('');
+  const 원문칸 = 원문.length
+    ? `<details class="sjm-rcpt-raw"><summary>읽은 원문 ${원문.length}줄</summary><pre>${esc(원문.join('\n'))}</pre></details>`
+    : '';
+  return `<div class="sjm-md-go">${버튼}</div>${원문칸}`;
+}
+
+// 사람이 확인한 뒤에만 여기 온다. **AI 가 스스로 저장하지 않는다** — 회사 원칙이다.
+async function 업무로등록(m, 고른) {
+  const fb = getFB(); if (!fb || !fb.db) { 토스트('저장소에 연결되어 있지 않습니다.'); return; }
+  const r = m.영수증 || {};
+  const 돈 = 고른 == null ? r.금액 : (r.금액후보 || [])[고른];
+  if (!돈) { 토스트('금액을 고르지 못했습니다.'); return; }
+  const 날 = String(r.거래일시 || '').slice(0, 10);
+  const 제목 = ['영수증', r.상호 || '', Number(돈.총금액 || 0).toLocaleString('ko-KR') + '원'].filter(Boolean).join(' · ');
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'tasks', 'task_rcpt_' + Date.now()), plain({
+      title: 제목, proj: '', assignee: String(me()), status: 'todo',
+      due: /^\d{4}-\d{2}-\d{2}$/.test(날) ? 날 : '',
+      메모: [r.상호 && ('상호 ' + r.상호), r.거래일시 && ('일시 ' + r.거래일시), r.사업자번호 && ('사업자 ' + r.사업자번호),
+        r.대표자 && ('대표 ' + r.대표자), r.카드사 && ('카드 ' + r.카드사), r.승인번호 && ('승인 ' + r.승인번호),
+        돈.공급가액 != null && ('공급가액 ' + 돈.공급가액), 돈.부가세 != null && ('부가세 ' + 돈.부가세),
+        '총금액 ' + 돈.총금액].filter(Boolean).join(' · '),
+      createdAt: Date.now(),
+    }));
+    토스트('업무관리에 등록했습니다 — ' + 제목, 3500);
+  } catch (e) {
+    console.error('[영수증 등록]', e);
+    토스트('등록하지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 4000);
+  }
 }
 
 // ── 「화면 열기」 버튼 ──────────────────────────────────────────────────────
@@ -1037,6 +1135,8 @@ async function sendMsg() {
   const me_ = me();
   if (!me_) { 토스트('로그인이 필요합니다.'); return; }
   const chId = ui.cid; if (!chId) return;
+  // AI 방은 저장소로 안 보낸다 — 읽어 달라는 뜻이라 맥으로 바로 넘긴다(한 장씩).
+  if (chId === AI_CID) { await 영수증보내기(files[0]); return; }
   inp.value = ''; 입력높이(inp); 전송준비표시();
   if (chId === AI_CID) { AI에게묻기(text); return; }
   const ch_ = getChannel(chId);
@@ -1406,6 +1506,12 @@ function 행동(el) {
   const act = el.dataset.act;
   switch (act) {
     case 'tab': ui.tab = el.dataset.tab; ui.search.open = false; closeSheet(); if (ui.layout === 'phone' && ui.cid) { closeRoom(false); } render('all'); break;
+    case 'reg-task': {
+      const m = 메시지찾기(el.dataset.mid);
+      if (!m || !m.영수증) { 토스트('영수증 내용을 찾지 못했습니다.'); break; }
+      업무로등록(m, el.dataset.pick == null ? null : Number(el.dataset.pick));
+      break;
+    }
     case 'open-screen': {
       // 부모 앱에게 열라고 시킨다. nav 는 switchMod 가 권한을 한 번 더 본다.
       try { window.parent.화면열기(el.dataset.kind, el.dataset.id, el.dataset.dept || ''); }
