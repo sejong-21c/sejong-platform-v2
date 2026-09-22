@@ -605,6 +605,7 @@ table .ctr { text-align:center; }
       <div><label>사용 카드 (자동 인식되는 모든 영수증에 적용)</label>
         <select id="ai-card" style="width:280px;"></select>
       </div>
+      <button class="btn" onclick="맥인식()" id="ai-mac-btn" title="맥미니 붙박이 OCR — API 키 없이, 자료가 사내를 안 벗어납니다">🖥 맥으로 인식 (키 없이)</button>
       <button class="btn" onclick="runAIRecognition()" id="ai-run-btn">🔍 AI 자동 인식 실행</button>
       <button class="btn sec" onclick="clearAIPending()">초기화</button>
     </div>
@@ -1715,6 +1716,145 @@ function clearAIPending(){
   document.getElementById('ai-status').textContent = '';
 }
 
+// **밖으로 꺼냈다(2026-09-23).** 안쪽 함수라 맥 인식에서 못 불렀다.
+// ===== 카드 매칭 (단계적 fallback) =====
+// 등록된 카드의 매칭용 인덱스 구축
+function smartMatchCard(rec){
+  // 카드 목록은 **부를 때마다** 만든다. 최상위에 두면 화면이 뜰 때 한 번 돌아
+  //   그때 DATA.cards 가 비어 있어서 영영 미매칭이 된다.
+  const cardIndex = DATA.cards.map(c => {
+    const digits = String(c.no || '').replace(/[^0-9]/g, '');
+    return {
+      id: c.id,
+      digits: digits,
+      last4: digits.slice(-4),
+      last3: digits.slice(-4, -1),  // 마지막 4자리 중 앞 3자리
+      bin6: digits.slice(0, 6),
+    };
+  }).filter(c => c.digits.length >= 4);
+  // rec: AI 응답 객체 (card_last4, card_partial 포함)
+  const aiDigits = String(rec.card_last4 || '').replace(/[^0-9]/g, '');
+  const partial = String(rec.card_partial || '');
+  const partialDigits = partial.replace(/[^0-9]/g, '');
+  const recBin6 = partialDigits.slice(0, 6);
+
+  // 1차: 정확히 4자리 last4 일치
+  if (aiDigits.length === 4){
+    const hit = cardIndex.find(c => c.last4 === aiDigits);
+    if (hit) return { id: hit.id, reason: '1차: last4 정확 매칭' };
+  }
+  // 2차: 3자리 또는 2자리 → 등록 카드 last4의 앞 3자리(또는 2자리)와 일치
+  if (aiDigits.length >= 2 && aiDigits.length <= 3){
+    const candidates = cardIndex.filter(c => c.last4.startsWith(aiDigits));
+    if (candidates.length === 1) return { id: candidates[0].id, reason: `2차: ${aiDigits.length}자리 단독 매칭` };
+  }
+  // 3차: BIN(앞 6자리) 단독 매칭 — 영수증에 카드사 BIN이 보이는 경우
+  if (recBin6.length === 6){
+    const candidates = cardIndex.filter(c => c.bin6 === recBin6);
+    if (candidates.length === 1) return { id: candidates[0].id, reason: '3차: BIN 단독 매칭' };
+  }
+  // 4차: 등록 카드가 1장만 있고, 영수증에 카드 흔적이 있고, BIN 충돌 아닐 때 자동 매칭
+  if (cardIndex.length === 1 && (aiDigits || partialDigits)){
+    const single = cardIndex[0];
+    // BIN이 명확히 다르면 매칭하지 않음 (다른 카드사 사용)
+    if (recBin6.length === 6 && recBin6 !== single.bin6) {
+      return { id: '', reason: `BIN 불일치(${recBin6}≠${single.bin6}) — 다른 카드` };
+    }
+    return { id: single.id, reason: '4차: 단일 카드 + 흔적 일치' };
+  }
+  return { id: '', reason: aiDigits ? `미매칭(${aiDigits})` : '카드번호 식별 불가' };
+}
+
+// ===== 맥으로 인식 (2026-09-23) =====
+// 왜 이 길을 더했나: 위 AI 인식은 **개인 Claude·Gemini API 키**가 있어야 하고, 회사 영수증
+//   그림이 그 회사 서버로 나간다. 맥미니에 붙박이 OCR(Apple Vision)이 있고 실측 0.4초다 —
+//   요금도 하루 한도도 없고 재무 자료가 사내를 벗어나지 않는다.
+// **금액은 맥에서 코드가 푼다.** 모델에게 검산을 시켰더니 63,637+363=64,000 으로 틀린 쪽을
+//   고쳐 통과시킨 적이 있다(2026-09-22). 여기서는 a+b=c 이면서 부가세가 10%인 조합만 받는다.
+// 한 파일 = 한 장으로 본다. 부장님 정리 폴더가 이미 영수증 한 장에 파일 하나다.
+//   한 쪽에 여러 장이 붙어 있으면 위의 AI 인식(bbox 탐지)을 쓰면 된다.
+const 게이트웨이주소 = (localStorage.getItem('sjp_ai_gateway_url') || 'https://sejong-ai-gateway.cwkim-65d.workers.dev').replace(/\/+$/, '');
+
+async function 회사토큰() {
+  // 이 화면은 플랫폼 안의 iframe 이다 — 같은 출처라 부모의 로그인을 그대로 쓴다.
+  let u = null;
+  try {
+    const a = window.parent && window.parent !== window && window.parent.fb && window.parent.fb.auth;
+    if (a) { if (typeof a.authStateReady === 'function') await a.authStateReady(); u = a.currentUser; }
+  } catch (e) { /* 크로스오리진이면 못 읽는다 */ }
+  if (!u) throw new Error('플랫폼에 로그인한 뒤 품질관리부 도구함에서 열어 주세요');
+  return 'Bearer ' + await u.getIdToken();
+}
+
+// OCR 원문에서 카드 끝 네 자리를 뽑는다. 카드 매칭(smartMatchCard)이 이걸 쓴다.
+// 번호 전체는 어디에도 안 남긴다 — 끝 네 자리만 넘긴다.
+function 끝네자리(원문줄) {
+  const 글 = (원문줄 || []).join(' ');
+  const m = 글.match(/(?:\d|\*)[\d*\-\s]{8,}(\d{4})(?!\d)/);
+  return m ? m[1] : '';
+}
+
+async function 맥인식() {
+  if (!aiPendingFiles.length) { alert('먼저 영수증 이미지를 올려 주세요.'); return; }
+  const cardSel = document.getElementById('ai-card').value;
+  const isAutoMode = cardSel === '__auto__';
+  if (!isAutoMode && !cardSel) { alert('사용 카드를 고르거나 "🤖 AI 자동 분류"를 골라 주세요.'); return; }
+
+  const btn = document.getElementById('ai-mac-btn');
+  const status = document.getElementById('ai-status');
+  btn.disabled = true; btn.textContent = '🔄 맥이 읽는 중...';
+  status.style.color = '#1e3a8a';
+  document.getElementById('ai-results').innerHTML = '';
+  const 나온것 = [];
+  try {
+    const tok = await 회사토큰();
+    for (let i = 0; i < aiPendingFiles.length; i++) {
+      const f = aiPendingFiles[i];
+      status.textContent = `🖥 맥 OCR ${i + 1}/${aiPendingFiles.length}장… (한 장에 10~20초)`;
+      const b64 = String(f.data || '').replace(/^data:[^,]*,/, '');
+      let j;
+      try {
+        const r = await fetch(게이트웨이주소 + '/rag/receipt', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: tok },
+          body: JSON.stringify({ 이미지: b64, 이름: f.name || '' }),
+        });
+        j = await r.json();
+      } catch (e) { j = { error: String(e.message || e) }; }
+      if (j.error) { 나온것.push({ _실패: j.error, receipt: f }); continue; }
+      const 돈 = j.금액 || {};
+      // **금액을 못 고르면 비워 둔다.** 짐작해서 채우면 사람이 그대로 등록해 버린다.
+      나온것.push({
+        merchant: j.상호 || '',
+        date: String(j.거래일시 || '').slice(0, 10),
+        amount: 돈.총금액 != null ? Number(돈.총금액) : '',
+        location: '',
+        quantity: '',
+        usage: j.상호 || '',
+        card_last4: 끝네자리(j.원문),
+        card_partial: '',
+        _맥: true,
+        _후보: (j.금액후보 || []).map((c) => c.총금액),
+        receipt: { name: f.name || `영수증_${i + 1}`, data: f.data, mime: f.mime || 'image/jpeg', isPdf: !!f.isPdf },
+      });
+    }
+    aiResults = 나온것.filter((r) => !r._실패).map((r) => {
+      let id = '', why = '';
+      if (isAutoMode) { const m = smartMatchCard(r); id = m.id; why = m.reason; }
+      else { id = cardSel; why = '수동 지정'; }
+      return { ...r, cardId: id, _matchReason: why };
+    });
+    const 실패 = 나온것.filter((r) => r._실패).length;
+    renderAIResults();
+    status.style.color = 실패 ? '#b45309' : '#166534';
+    status.textContent = `맥 OCR 끝 — ${aiResults.length}장 읽음${실패 ? ` · ${실패}장 실패` : ''}. 내용을 확인하고 등록하세요.`;
+  } catch (e) {
+    status.style.color = '#b91c1c';
+    status.textContent = '맥 인식 실패: ' + (e.message || e);
+  } finally {
+    btn.disabled = false; btn.textContent = '🖥 맥으로 인식 (키 없이)';
+  }
+}
+
 async function runAIRecognition(){
   if (!aiPendingFiles.length){ alert('먼저 영수증 이미지를 업로드해주세요.'); return; }
   const cardSel = document.getElementById('ai-card').value;
@@ -1800,52 +1940,6 @@ async function runAIRecognition(){
     }
     if (!Array.isArray(parsed)){ throw new Error('AI 응답 형식이 올바르지 않습니다.'); }
 
-    // ===== 카드 매칭 (단계적 fallback) =====
-    // 등록된 카드의 매칭용 인덱스 구축
-    const cardIndex = DATA.cards.map(c => {
-      const digits = String(c.no || '').replace(/[^0-9]/g, '');
-      return {
-        id: c.id,
-        digits: digits,
-        last4: digits.slice(-4),
-        last3: digits.slice(-4, -1),  // 마지막 4자리 중 앞 3자리
-        bin6: digits.slice(0, 6),
-      };
-    }).filter(c => c.digits.length >= 4);
-
-    function smartMatchCard(rec){
-      // rec: AI 응답 객체 (card_last4, card_partial 포함)
-      const aiDigits = String(rec.card_last4 || '').replace(/[^0-9]/g, '');
-      const partial = String(rec.card_partial || '');
-      const partialDigits = partial.replace(/[^0-9]/g, '');
-      const recBin6 = partialDigits.slice(0, 6);
-
-      // 1차: 정확히 4자리 last4 일치
-      if (aiDigits.length === 4){
-        const hit = cardIndex.find(c => c.last4 === aiDigits);
-        if (hit) return { id: hit.id, reason: '1차: last4 정확 매칭' };
-      }
-      // 2차: 3자리 또는 2자리 → 등록 카드 last4의 앞 3자리(또는 2자리)와 일치
-      if (aiDigits.length >= 2 && aiDigits.length <= 3){
-        const candidates = cardIndex.filter(c => c.last4.startsWith(aiDigits));
-        if (candidates.length === 1) return { id: candidates[0].id, reason: `2차: ${aiDigits.length}자리 단독 매칭` };
-      }
-      // 3차: BIN(앞 6자리) 단독 매칭 — 영수증에 카드사 BIN이 보이는 경우
-      if (recBin6.length === 6){
-        const candidates = cardIndex.filter(c => c.bin6 === recBin6);
-        if (candidates.length === 1) return { id: candidates[0].id, reason: '3차: BIN 단독 매칭' };
-      }
-      // 4차: 등록 카드가 1장만 있고, 영수증에 카드 흔적이 있고, BIN 충돌 아닐 때 자동 매칭
-      if (cardIndex.length === 1 && (aiDigits || partialDigits)){
-        const single = cardIndex[0];
-        // BIN이 명확히 다르면 매칭하지 않음 (다른 카드사 사용)
-        if (recBin6.length === 6 && recBin6 !== single.bin6) {
-          return { id: '', reason: `BIN 불일치(${recBin6}≠${single.bin6}) — 다른 카드` };
-        }
-        return { id: single.id, reason: '4차: 단일 카드 + 흔적 일치' };
-      }
-      return { id: '', reason: aiDigits ? `미매칭(${aiDigits})` : '카드번호 식별 불가' };
-    }
 
     // 결과 조합
     aiResults = parsed.map((r, i) => {
