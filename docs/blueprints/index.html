@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>세종 AI 청사진 모음</title>
+<style>
+  :root { --bg:#f7f8fa; --card:#fff; --line:#e3e6eb; --t1:#111827; --t2:#4b5563; --t3:#9ca3af; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#171a21; --line:#272b34; --t1:#e8eaee; --t2:#a8afba; --t3:#6b7280; --accent:#60a5fa; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--t1); font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.3px; }
+  .sub { color: var(--t2); margin: 0 0 28px; font-size: 14px; }
+  a.card { display:block; text-decoration:none; color:inherit; background:var(--card); border:1px solid var(--line);
+           border-radius:12px; padding:16px 18px; margin-bottom:12px; transition:border-color .15s, transform .15s; }
+  a.card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .row { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .name { font-weight:700; font-size:16px; }
+  .tag { font-size:11px; font-weight:700; border-radius:999px; padding:2px 8px; border:1px solid var(--line); color:var(--t2); }
+  .tag.now { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .desc { color:var(--t2); font-size:13.5px; margin-top:6px; }
+  .note { margin-top:28px; padding:14px 16px; border:1px dashed var(--line); border-radius:10px; color:var(--t2); font-size:13px; }
+  .note b { color: var(--t1); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>세종 AI 청사진 모음</h1>
+  <p class="sub">Archify 도식. 브라우저에서 끌어 옮기고 확대·축소해서 봅니다. 좁은 화면이면 가로로도 밀어 보세요.</p>
+
+  <a class="card" href="blueprint-progress.html">
+    <div class="row"><span class="name">진행 표시본</span><span class="tag now">최신</span><span class="tag">2026-09-22</span></div>
+    <div class="desc">최종 청사진에 완료 표시를 얹은 판. 카드 첫 장이 고친 것, 둘째 장이 아직 남은 것.</div>
+  </a>
+
+  <a class="card" href="blueprint-final.html">
+    <div class="row"><span class="name">최종 청사진</span><span class="tag">2026-09-22</span></div>
+    <div class="desc">여덟 띠 전체 그림. 누가 쓰고, 누가 비용을 감당하고, 에이전트 다섯이 무슨 도구를 쥐고, 모델은 지금 무엇이고 유료 전환 때 무엇인지, 확장 파이프라인 일곱까지.</div>
+  </a>
+
+  <a class="card" href="blueprint-v2.html">
+    <div class="row"><span class="name">청사진 2판</span><span class="tag">중간본</span></div>
+    <div class="desc">중앙 엔진을 걷어내고 도구 목록과 MCP 로 단순화한 판.</div>
+  </a>
+
+  <a class="card" href="blueprint-v1.html">
+    <div class="row"><span class="name">청사진 1판</span><span class="tag">중간본</span></div>
+    <div class="desc">엠클라우드브리지를 참고해 처음 그린 판. 오케스트레이션 중앙 엔진이 들어 있다.</div>
+  </a>
+
+  <a class="card" href="platform-overview.html">
+    <div class="row"><span class="name">전체 구성도</span><span class="tag">현황</span></div>
+    <div class="desc">파이스 · 세종플랫폼 · AI 비서 · NAS 색인이 실제로 어떻게 붙어 있나. 끊긴 자리는 점선.</div>
+  </a>
+
+  <a class="card" href="ai-assistant-map.html">
+    <div class="row"><span class="name">AI 비서 구성도</span><span class="tag">현황</span></div>
+    <div class="desc">메신저 AI 비서가 지금 어떤 지식에 닿아 있고 무엇을 못 하나.</div>
+  </a>
+
+  <div class="note">
+    <b>이 주소는 공개입니다.</b> 이 저장소가 공개라서 링크를 아는 사람은 로그인 없이 볼 수 있습니다.
+    사내에서만 보이게 하려면 비공개 저장소로 옮기거나 플랫폼 안쪽 화면으로 넣어야 합니다.
+  </div>
+</div>
+</body>
+</html>
