@@ -644,20 +644,33 @@ function doSaveMin(){
 
 // ═══════════════ AI 게이트웨이 (회사 Cloudflare Worker — ai-assistant와 동일 관례) ═══════════════
 const GW=(localStorage.getItem('sjp_ai_gateway_url')||'https://sejong-ai-gateway.cwkim-65d.workers.dev').replace(/\/+$/,'');
+// 2026-09-23 실측(부장님 계정으로 게이트웨이를 직접 찔러 봤다):
+//   groq openai/gpt-oss-120b → 200  ·  groq llama-3.3-70b-versatile → 404 (폐기됨)
+//   cerebras → 402 결제 필요  ·  openrouter → 401 User not found  ·  nvidia → 410 수명 종료
+// 여기 적혀 있던 넷은 **전부 죽은 이름**이었다. 그래서 「AI 회의록 생성」 버튼이 늘 실패했다.
+// 모델 이름은 예고 없이 폐기된다 — 안 되면 여기부터 의심하고 게이트웨이를 직접 찔러 볼 것.
+// 제미나이는 여기 못 넣는다 — 게이트웨이에서 경로 모양이 다르다(/v1/gemini/models/<모델>:generateContent).
+// 이 함수는 OpenAI 꼴(chat/completions)만 말한다.
 const AI_CHAIN=[
-  {id:'groq',models:['llama-3.3-70b-versatile','llama-3.1-8b-instant']},
-  {id:'cerebras',models:['gpt-oss-120b','zai-glm-4.7']},
-  {id:'nvidia',models:['meta/llama-3.3-70b-instruct','meta/llama-3.1-70b-instruct']},
-  {id:'openrouter',models:['meta-llama/llama-3.3-70b-instruct:free','qwen/qwen3-next-80b-a3b-instruct:free','openai/gpt-oss-20b:free']},
+  {id:'groq',models:['openai/gpt-oss-120b','openai/gpt-oss-20b']},
 ];
+// 게이트웨이는 회사 계정(@sejong-21c.com)만 받는다. 로그인 토큰을 그때그때 받아 붙인다.
+async function 회사토큰(){
+  const u=window.fb&&window.fb.auth&&window.fb.auth.currentUser;
+  if(!u||typeof u.getIdToken!=='function')throw new Error('회사 계정으로 로그인해야 AI를 쓸 수 있습니다');
+  return 'Bearer '+await u.getIdToken();
+}
 async function callAI(messages){
   let lastErr=null;
   for(const p of AI_CHAIN){
     for(const model of p.models){
       const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),60000);
       try{
+        // **로그인 토큰을 반드시 붙인다.** 2026-09-23 실측: 안 붙이면 401 "Firebase login token required".
+        // 게이트웨이는 v3.4 부터 모든 제공자에 회사 계정 확인을 건다(주소가 사실상 공개라서).
+        // 여기만 안 붙이고 있었다 — 메신저·AI 비서는 붙이고 있었으니 이 버튼만 조용히 죽어 있었다.
         const res=await fetch(`${GW}/v1/${p.id}/chat/completions`,{method:'POST',signal:ctl.signal,
-          headers:{'Content-Type':'application/json'},
+          headers:{'Content-Type':'application/json',Authorization:await 회사토큰()},
           body:JSON.stringify({model,max_tokens:4000,temperature:0.3,messages})});
         clearTimeout(tm);
         if(!res.ok){lastErr=new Error(`${p.id} ${res.status}`);if(res.status===400||res.status===404)continue;break;}
