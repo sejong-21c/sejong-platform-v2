@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b68';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b68';
+import * as L from './lib.js?v=b69';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b69';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
