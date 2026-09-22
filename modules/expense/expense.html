@@ -1,0 +1,2754 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>㈜세종기술 업무 경비 내역서</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic','맑은 고딕',sans-serif; background:#f4f6f9; color:#222; font-size:13px; }
+header { background:#fff; border-bottom:2px solid #1e3a8a; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-svg { width:54px; height:38px; }
+.logo-txt h1 { font-size:18px; color:#111; letter-spacing:1px; }
+.logo-txt small { color:#888; font-size:10px; letter-spacing:3px; }
+.app-title { font-size:15px; font-weight:600; color:#1e3a8a; }
+.ver { font-size:11px; color:#888; }
+
+nav.tabs { background:#fff; border-bottom:1px solid #ddd; display:flex; padding:0 24px; }
+nav.tabs button { background:none; border:none; padding:12px 20px; font-size:13px; cursor:pointer; color:#555; border-bottom:3px solid transparent; font-weight:500; }
+nav.tabs button.active { color:#1e3a8a; border-bottom-color:#1e3a8a; font-weight:700; }
+nav.tabs button:hover { background:#f0f4fa; }
+
+main { padding:20px 24px; max-width:1400px; margin:0 auto; }
+.panel { display:none; }
+.panel.active { display:block; }
+
+h2.section { font-size:15px; color:#1e3a8a; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid #cfd8e3; }
+h3.sub { font-size:13px; color:#333; margin:12px 0 8px; }
+
+.card { background:#fff; border:1px solid #e0e6ee; border-radius:6px; padding:16px; margin-bottom:14px; }
+.row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:10px; }
+.row > div { display:flex; flex-direction:column; }
+label { font-size:11px; color:#666; margin-bottom:3px; }
+input[type=text], input[type=number], input[type=date], select, textarea {
+  border:1px solid #c8d0db; border-radius:4px; padding:6px 8px; font-size:13px; font-family:inherit; background:#fff;
+}
+input:focus, select:focus, textarea:focus { outline:none; border-color:#1e3a8a; }
+textarea { resize:vertical; min-height:50px; }
+button.btn { background:#1e3a8a; color:#fff; border:none; padding:7px 14px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:500; }
+button.btn:hover { background:#2647a8; }
+button.btn.sec { background:#e8edf5; color:#1e3a8a; }
+button.btn.sec:hover { background:#d6dfee; }
+button.btn.danger { background:#c53030; }
+button.btn.danger:hover { background:#a52121; }
+button.btn.sm { padding:4px 10px; font-size:11px; }
+
+table { width:100%; border-collapse:collapse; background:#fff; font-size:12px; }
+table th { background:#e8edf5; color:#1e3a8a; padding:8px 6px; border:1px solid #c8d0db; text-align:center; font-weight:600; }
+table td { padding:6px; border:1px solid #d8dde5; vertical-align:middle; }
+table tr:nth-child(even) td { background:#fbfcfe; }
+table .num { text-align:right; }
+table .ctr { text-align:center; }
+
+.empty { text-align:center; color:#999; padding:30px; font-style:italic; }
+
+.toolbar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+.toolbar select, .toolbar input { padding:6px 10px; }
+
+.thumb-grid { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.thumb { width:60px; height:60px; border:1px solid #c8d0db; border-radius:3px; object-fit:cover; cursor:pointer; }
+.thumb-pdf { width:60px; height:60px; border:1px solid #c8d0db; border-radius:3px; cursor:pointer; background:#fef3c7; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#92400e; font-size:9px; font-weight:bold; }
+.thumb-pdf .pdf-icon { font-size:20px; margin-bottom:2px; }
+
+.modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:100; }
+.modal-bg.active { display:flex; }
+.modal { background:#fff; padding:20px; border-radius:6px; max-width:90vw; max-height:90vh; overflow:auto; }
+.modal img { max-width:80vw; max-height:80vh; }
+
+/* ============ 인쇄용 회사 양식 ============ */
+.report-preview { background:#fff; padding:20px; border:1px solid #ddd; max-width:780px; margin:0 auto; }
+.report-form {
+  width:740px; margin:0 auto; background:#fff; padding:0;
+  font-family:'Malgun Gothic','맑은 고딕',sans-serif; color:#000; font-size:11pt;
+}
+
+/* 결재란 — 본문 표 컬럼과 정렬 (좌 54% / 빈 18% / 우 28%) */
+.approve-row { display:flex; margin-bottom:8px; width:100%; }
+.approve-box { display:flex; border:1px solid #000; box-sizing:border-box; }
+.approve-left { width:28%; }     /* 좌측 발생부서 (라벨+3셀) */
+.approve-spacer { width:36%; }   /* 가운데 빈 공간 */
+.approve-right { width:36%; }    /* 우측 경리부서 (라벨+4셀) — 셀 한 칸 폭이 발생부서와 동일 */
+.approve-label {
+  background:#fff; border-right:1px solid #000; width:24px;
+  display:flex; align-items:center; justify-content:center;
+  writing-mode:vertical-rl; text-orientation:upright;
+  font-size:9pt; letter-spacing:5px; padding:4px 0;
+  flex-shrink:0;
+}
+.approve-cells { display:flex; flex:1; }
+.approve-cell {
+  flex:1; display:flex; flex-direction:column;
+  border-right:1px solid #000;
+  min-width:0;
+}
+.approve-cell:last-child { border-right:none; }
+.approve-cell .ttl {
+  border-bottom:1px solid #000;
+  text-align:center; font-size:9pt; padding:4px 0; background:#fff;
+}
+.approve-cell .sig { height:32px; }
+
+/* 타이틀 블록 */
+.title-block { display:flex; border:1.5px solid #000; align-items:stretch; }
+.title-block .logo-cell {
+  flex:0 0 12%; border-right:1.5px solid #000;
+  display:flex; align-items:center; justify-content:center; padding:4px;
+  box-sizing:border-box;
+}
+.title-block .logo-cell .lc-svg { width:100%; max-width:80px; height:auto; }
+.title-block .ttl-cell {
+  flex:1; font-size:22pt; font-weight:bold; text-align:center;
+  letter-spacing:8px; display:flex; align-items:center; justify-content:center;
+  padding:8px;
+}
+
+/* 정보 테이블 */
+.info-table {
+  width:100%; border-collapse:collapse; border-top:none; table-layout:fixed;
+}
+.info-table td {
+  border:1.5px solid #000; padding:8px 8px; font-size:11pt; height:34px;
+  box-sizing:border-box;
+}
+.info-table td.lbl {
+  background:#FFFACD; text-align:center; font-weight:bold;
+  letter-spacing:6px; padding:6px 4px;
+  white-space:nowrap;
+}
+.info-table td.val { text-align:center; }
+
+/* 본문 표 */
+.detail-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+.detail-table thead th {
+  border:1.5px solid #000; background:#FFFACD;
+  font-size:11pt; font-weight:bold; padding:8px 4px; height:32px;
+  box-sizing:border-box;
+}
+.detail-table thead th.bigo { letter-spacing:8px; }
+.detail-table thead th.spl {
+  background:#FFE4A8; letter-spacing:0; font-size:10pt; height:26px;
+}
+.detail-table thead th.lbl-sp { letter-spacing:4px; }
+.detail-table tbody td {
+  border-left:1.5px solid #000; border-right:1.5px solid #000;
+  border-bottom:1px dotted #888;
+  padding:6px 6px; font-size:10pt; height:30px;
+  box-sizing:border-box;
+}
+.detail-table tbody td.dt { text-align:center; }
+.detail-table tbody td.usg { text-align:left; }
+.detail-table tbody td.amt { text-align:right; padding-right:8px; }
+.detail-table tbody td.loc { text-align:center; border-left:1.5px solid #000; }
+.detail-table tbody td.qty { text-align:center; border-left:1.5px solid #000; }
+.detail-table tbody tr.last-data td { border-bottom:1.5px solid #000; }
+.detail-table tr.total-row td {
+  border:1.5px solid #000; background:#FFFACD;
+  font-weight:bold; height:36px; font-size:12pt;
+}
+.detail-table tr.total-row td.lblt {
+  text-align:center; letter-spacing:24px; padding-left:24px;
+}
+.detail-table tr.total-row td.amtt {
+  text-align:right; padding-right:8px; letter-spacing:0;
+}
+
+.footer-rev { text-align:right; font-size:9pt; color:#000; margin-top:8px; }
+
+@media print {
+  /* ============ 모드 1: 경비 내역서 인쇄 (기본, 세로 A4) ============ */
+  /* body.printing-receipts 클래스가 없을 때만 적용 */
+  body:not(.printing-receipts) * { visibility:hidden; }
+  body:not(.printing-receipts) .report-preview,
+  body:not(.printing-receipts) .report-preview * { visibility:visible; }
+  body:not(.printing-receipts) .report-preview {
+    position:absolute !important;
+    left:0; top:0; right:0;
+    width:100% !important; max-width:none !important;
+    margin:0 !important; padding:0 !important;
+    border:none !important; background:#fff !important;
+    box-shadow:none !important;
+  }
+  body:not(.printing-receipts) .report-form {
+    width:100% !important; max-width:none !important;
+    margin:0 !important; padding:0 !important;
+  }
+
+  /* 컬러·배경 인쇄에 반영 */
+  .info-table td.lbl,
+  .detail-table thead th,
+  .detail-table tr.total-row td,
+  .approve-cell .ttl,
+  .approve-label,
+  .title-block,
+  .info-table td,
+  .detail-table tbody td {
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+
+  /* 페이지 설정 (경비내역서 기본: 세로) */
+  body:not(.printing-receipts) { background:#fff !important; }
+  body:not(.printing-receipts) .detail-table tr,
+  body:not(.printing-receipts) .info-table tr,
+  body:not(.printing-receipts) .approve-row,
+  body:not(.printing-receipts) .title-block { page-break-inside:avoid; break-inside:avoid; }
+  body:not(.printing-receipts) .detail-table thead { display:table-header-group; }
+  body:not(.printing-receipts) .detail-table tfoot { display:table-footer-group; }
+
+  /* 기본 페이지 = A4 세로 */
+  /* 상단 여백 25mm: 결재 후 파일철 펀칭(3공) 공간 확보 (재무부 요청) */
+  @page { size:A4 portrait; margin:25mm 8mm 8mm 8mm; }
+  .page-break { page-break-after:always; }
+
+  /* ============ 모드 2: 영수증 철 인쇄 (A4 가로, 페이지당 3장 — 세로 3등분) ============ */
+  /* @page는 자바스크립트로 동적 설정됨 (size:A4 landscape) */
+  body.printing-receipts * { visibility:hidden; }
+  body.printing-receipts #panel-daily,
+  body.printing-receipts #panel-daily * { visibility:visible; }
+  /* h2, toolbar는 display:none으로 공간도 차지 안 함 */
+  body.printing-receipts #panel-daily > h2,
+  body.printing-receipts #panel-daily > .toolbar,
+  body.printing-receipts #panel-daily > .section { display:none !important; }
+  body.printing-receipts #panel-daily {
+    position:absolute !important;
+    left:0; top:0; right:0;
+    margin:0 !important; padding:0 !important;
+    background:#fff !important;
+  }
+  body.printing-receipts #daily-list {
+    margin:0 !important; padding:0 !important;
+  }
+
+  /* ★ 핵심: 영수증 3장을 한 페이지 = 가로로 나란히 (좌→우) 3컬럼 ★ */
+  /* JS에서 인쇄 전 .print-row 로 3개씩 묶음. 각 row가 한 페이지를 차지 */
+  body.printing-receipts .print-row {
+    display:flex !important;
+    flex-direction:row !important;
+    justify-content:flex-start !important;
+    align-items:stretch !important;
+    gap:3mm !important;
+    height:188mm !important;
+    min-height:188mm !important;
+    max-height:188mm !important;
+    margin:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+    page-break-inside:avoid !important;
+    break-inside:avoid !important;
+  }
+
+  /* ★ 마지막 row 제외, 모든 print-row 다음에 페이지 분할 ★ */
+  /* page-breaker 별도 요소 사용 시 빈 페이지 발생 → :not(:last-of-type) 으로 직접 적용 */
+  body.printing-receipts .print-row:not(:last-of-type) {
+    page-break-after:always !important;
+    break-after:page !important;
+  }
+  body.printing-receipts .print-row:last-of-type {
+    page-break-after:auto !important;
+    break-after:auto !important;
+  }
+
+  /* 영수증 1장 = 페이지의 1/3 고정 폭 (마지막 페이지 영수증 1~2장일 때도 동일 폭 유지) */
+  body.printing-receipts .receipt-day {
+    flex:0 0 calc(33.333% - 2mm) !important;
+    width:calc(33.333% - 2mm) !important;
+    height:100% !important;
+    margin:0 !important;
+    padding:0 !important;
+    background:#fff !important;
+    border:1px solid #888 !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    overflow:hidden !important;
+    page-break-inside:avoid !important;
+    break-inside:avoid !important;
+    display:flex !important;
+    flex-direction:column !important;
+    min-width:0;
+  }
+  /* 헤더 (날짜 + 합계) — 상단 컴팩트 */
+  body.printing-receipts .receipt-day-header {
+    background:#f0f0f0 !important; color:#000 !important;
+    padding:5px 10px !important;
+    border-bottom:1px solid #888;
+    flex:0 0 auto !important;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  body.printing-receipts .receipt-day-header .dt { font-size:13px !important; font-weight:bold; }
+  body.printing-receipts .receipt-day-header .sum { font-size:11px !important; }
+  body.printing-receipts .receipt-day-header .sum b { color:#000 !important; }
+
+  /* ★ entry: 정보 위, 이미지 아래 (세로 배치) ★ */
+  body.printing-receipts .receipt-entry {
+    padding:5px 8px !important;
+    background:#fff !important;
+    flex:1 1 auto !important; min-height:0;
+    display:flex !important;
+    flex-direction:column !important;     /* row → column */
+    gap:5px !important;
+    border-bottom:none !important;
+    align-items:stretch !important;
+  }
+  /* 정보 영역 — 위쪽, 자동 높이 */
+  body.printing-receipts .receipt-entry-info {
+    flex:0 0 auto !important;
+    width:100% !important;
+    margin:0 !important; padding:5px 8px !important;
+    border:1px solid #ccc !important;
+    font-size:10px !important;
+    overflow:hidden;
+    box-sizing:border-box;
+  }
+  body.printing-receipts .receipt-info-tbl { width:100%; }
+  body.printing-receipts .receipt-info-tbl td { padding:2px 4px !important; font-size:10px !important; }
+  body.printing-receipts .receipt-info-tbl td.lbl {
+    width:55px !important; font-size:10px !important;
+    color:#666; font-weight:500;
+  }
+  /* 이미지 영역 — 아래쪽, 남은 공간 가득 채움 */
+  body.printing-receipts .receipt-images {
+    flex:1 1 0 !important;
+    width:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    display:flex !important;
+    flex-direction:row !important;     /* 이미지 여러 장이면 가로 나열 */
+    gap:4px !important;
+    align-items:stretch !important;
+    overflow:hidden !important;
+  }
+  body.printing-receipts .receipt-image-wrap,
+  body.printing-receipts .receipt-pdf-wrap {
+    flex:1 1 0 !important;
+    width:auto !important; height:auto !important;
+    min-width:0; min-height:0 !important;
+    max-height:100% !important;
+    padding:2px !important;
+    margin:0 !important;
+    box-shadow:none !important;
+    border:1px solid #e0e6ee !important;
+    background:#fff !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+    max-width:none !important;
+    box-sizing:border-box !important;
+  }
+  /* ★ 이미지가 길면 폼에 맞춰 자동 축소 (object-fit:contain) ★ */
+  body.printing-receipts .receipt-image-wrap img.receipt-img {
+    flex:1 1 0 !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-width:100% !important;
+    max-height:100% !important;
+    margin:0 !important;
+    object-fit:contain !important;
+    display:block !important;
+    cursor:auto !important;
+  }
+  body.printing-receipts .receipt-pdf-embed {
+    flex:1 1 0 !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    border:none !important; background:#fafafa !important;
+  }
+  body.printing-receipts .receipt-img-caption {
+    flex:0 0 auto;
+    font-size:8px !important; margin-top:2px !important;
+    text-align:center; word-break:break-all;
+  }
+  body.printing-receipts .receipt-pdf-header {
+    flex:0 0 auto;
+    font-size:9px !important; margin-bottom:2px !important;
+  }
+  body.printing-receipts .receipt-no-files {
+    font-size:10px !important; padding:8px !important;
+    flex:1; display:flex; align-items:center; justify-content:center;
+  }
+}
+
+/* ============ 영수증 철 ============ */
+.receipt-day {
+  background:#fff; border:1px solid #c8d0db; border-radius:8px;
+  margin-bottom:24px; padding:0; overflow:hidden;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);
+}
+.receipt-day-header {
+  background:linear-gradient(to right, #1e3a8a, #2647a8);
+  color:#fff; display:flex; justify-content:space-between; align-items:center;
+  padding:12px 18px;
+}
+.receipt-day-header .dt { font-size:16px; font-weight:bold; }
+.receipt-day-header .sum { font-size:13px; }
+.receipt-day-header .sum b { color:#ffd700; }
+
+.receipt-entry {
+  border-bottom:1px solid #e0e6ee;
+  padding:16px 18px;
+  background:#fbfcfe;
+}
+.receipt-entry:last-child { border-bottom:none; }
+
+.receipt-entry-info {
+  background:#fff; border:1px solid #e0e6ee; border-radius:4px;
+  padding:10px 14px; margin-bottom:12px;
+}
+.receipt-info-tbl { width:100%; font-size:12px; border-collapse:collapse; }
+.receipt-info-tbl td {
+  padding:4px 10px; border:none; background:transparent; vertical-align:top;
+}
+.receipt-info-tbl td.lbl {
+  width:80px; color:#666; font-weight:500;
+}
+
+.receipt-images {
+  display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start;
+}
+.receipt-image-wrap, .receipt-pdf-wrap {
+  background:#fff; border:1px solid #c8d0db; border-radius:4px;
+  padding:8px; box-shadow:0 1px 3px rgba(0,0,0,0.06);
+}
+.receipt-image-wrap img.receipt-img {
+  display:block; max-width:100%; width:auto; max-height:700px;
+  cursor:zoom-in;
+}
+.receipt-pdf-wrap { width:100%; max-width:600px; }
+.receipt-pdf-header {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:12px; color:#555; margin-bottom:6px; font-weight:500;
+}
+.receipt-pdf-embed {
+  width:100%; height:700px; border:1px solid #e0e6ee; background:#fafafa;
+}
+.receipt-img-caption {
+  font-size:11px; color:#888; text-align:center; margin-top:4px; word-break:break-all;
+}
+
+.receipt-no-files {
+  padding:14px; text-align:center; color:#aaa; font-style:italic;
+  background:#f4f6f9; border-radius:4px;
+}
+
+/* 영수증 철 인쇄 관련 CSS는 위 @media print 블록의 "모드 2"에서 통합 처리됨 */
+
+.tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+.tag.corp { background:#dbeafe; color:#1e3a8a; }
+.tag.priv { background:#fef3c7; color:#92400e; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div id="header-logo-container" class="logo-svg" style="display:flex;align-items:center;"></div>
+    <div class="logo-txt" id="header-logo-text">
+      <h1>SEJONG</h1>
+      <small>CHEMICAL PLANT</small>
+    </div>
+  </div>
+  <div>
+    <div class="app-title">업무 경비 내역서 관리 도구</div>
+    <div class="ver" style="text-align:right;">Version 1.8 · ⓒ Designed by Cwkim</div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="card" class="active">① 카드 관리</button>
+  <button data-tab="writer">② 작성자 관리</button>
+  <button data-tab="place">③ 출장지/거래처</button>
+  <button data-tab="entry">④ 사용 내역 입력</button>
+  <button data-tab="daily">⑤ 일자별 영수증 철</button>
+  <button data-tab="report">⑥ 경비 내역서</button>
+  <button data-tab="setting">⑦ AI 설정</button>
+  <button data-tab="data">⑧ 데이터</button>
+</nav>
+
+<main>
+
+<!-- ① 카드 관리 -->
+<section class="panel active" id="panel-card">
+  <h2 class="section">카드 관리</h2>
+
+  <div class="card" style="border-left:4px solid #1e3a8a;">
+    <h3 class="sub">🏢 회사 로고 (CI)</h3>
+    <p style="font-size:12px;color:#666;margin-bottom:10px;">
+      회사 공식 로고 이미지(PNG/JPG)를 업로드하면 상단 헤더와 경비 내역서 양식에 자동 반영됩니다.
+      배경 투명한 PNG 권장. 업로드된 로고는 JSON 백업에 함께 저장됩니다.
+    </p>
+    <div class="row" style="align-items:center;">
+      <div id="logo-preview" style="min-height:80px;display:flex;align-items:center;"></div>
+    </div>
+    <div class="row">
+      <input type="file" id="logo-file-input" accept="image/*" onchange="uploadCompanyLogo(this)" style="display:none;">
+      <button class="btn" onclick="document.getElementById('logo-file-input').click()">📤 로고 이미지 업로드</button>
+      <button class="btn sec" onclick="clearCompanyLogo()">🗑 기본 로고로 복원</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="sub">신규 카드 등록</h3>
+    <div class="row">
+      <div><label>구분</label>
+        <select id="card-type"><option value="법인카드">법인카드</option><option value="개인카드">개인카드</option></select>
+      </div>
+      <div><label>카드명</label><input type="text" id="card-name" placeholder="예: 신한 법인카드" style="width:180px;"></div>
+      <div><label>카드번호 (16자리)</label><input type="text" id="card-no" placeholder="9410-6441-0074-8912" style="width:200px;"></div>
+      <div><label>소유자</label><input type="text" id="card-owner" placeholder="예: 김철우" style="width:100px;"></div>
+      <div><label>메모</label><input type="text" id="card-memo" placeholder="용도 등" style="width:160px;"></div>
+      <div><button class="btn" onclick="addCard()">＋ 등록</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="sub">등록된 카드 목록</h3>
+    <table id="card-table">
+      <thead><tr><th>#</th><th>구분</th><th>카드명</th><th>카드번호</th><th>소유자</th><th>메모</th><th>관리</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ② 작성자 관리 -->
+<section class="panel" id="panel-writer">
+  <h2 class="section">작성자 관리</h2>
+  <div class="card">
+    <h3 class="sub">신규 작성자 등록</h3>
+    <div class="row">
+      <div><label>부서</label><input type="text" id="wr-dept" placeholder="예: 품질관리부" style="width:160px;"></div>
+      <div><label>직급</label><input type="text" id="wr-rank" placeholder="예: 부장" style="width:100px;"></div>
+      <div><label>이름</label><input type="text" id="wr-name" placeholder="예: 김철우" style="width:120px;"></div>
+      <div><button class="btn" onclick="addWriter()">＋ 등록</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="sub">등록된 작성자</h3>
+    <table id="writer-table">
+      <thead><tr><th>#</th><th>부서</th><th>직급</th><th>이름</th><th>표기 형식</th><th>관리</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ③ 출장지/거래처 -->
+<section class="panel" id="panel-place">
+  <h2 class="section">출장지 / 거래처 리스트</h2>
+  <div class="card">
+    <p style="font-size:12px; color:#666; margin-bottom:10px;">
+      자주 사용하는 출장지·거래처를 등록해두면, AI 영수증 자동 인식 시 가맹점명·지역·시간을 비교하여
+      <b>출장장소를 자동으로 추론</b>합니다. 별칭(예: 식당 이름)도 함께 등록해두면 정확도가 올라갑니다.
+    </p>
+    <div class="row">
+      <div><label>거래처/출장지명</label><input type="text" id="pl-name" placeholder="예: 정원화학" style="width:200px;"></div>
+      <div><label>지역</label><input type="text" id="pl-area" placeholder="예: 부산 강서구" style="width:200px;"></div>
+      <div style="flex:1;"><label>관련 별칭/키워드 (쉼표 구분)</label>
+        <input type="text" id="pl-alias" placeholder="예: 정원화학공업, JW Chemical, 정원화학(주)" style="width:100%;">
+      </div>
+      <div><button class="btn" onclick="addPlace()">＋ 등록</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="sub">등록된 출장지/거래처</h3>
+    <table id="place-table">
+      <thead><tr><th>#</th><th>거래처/출장지명</th><th>지역</th><th>별칭/키워드</th><th>관리</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ④ 사용 내역 입력 -->
+<section class="panel" id="panel-entry">
+  <h2 class="section">사용 내역 입력</h2>
+
+  <!-- AI 영수증 자동 인식 -->
+  <div class="card" style="border-left:4px solid #1e3a8a;">
+    <h3 class="sub">🤖 AI 영수증 자동 인식</h3>
+    <p style="font-size:12px; color:#666; margin-bottom:10px;">
+      여러 장의 영수증을 한꺼번에 올리면 AI가 일자·금액·사용처·내역을 자동으로 추출하여
+      한 건씩 등록할 수 있게 정리해줍니다. (먼저 ⑦ AI 설정 탭에서 API 키와 사용 카드를 지정해주세요)<br>
+      ※ <b>한 PDF 파일에 여러 영수증이 들어 있어도</b> 모두 분리하여 개별 인식합니다 (다중 페이지 PDF, 한 페이지에 여러 영수증 모두 지원).
+    </p>
+    <div style="background:#fff7ed; border-left:4px solid #f59e0b; padding:10px 12px; border-radius:4px; margin-bottom:12px; font-size:12px; color:#7c3a00; line-height:1.7;">
+      💡 <b>영수증 인식 정확도 향상 가이드</b><br>
+      ① <b>가능하면 영수증 1장당 1개 파일</b>로 업로드 (자르기 정확도 100%)<br>
+      ② 여러 영수증을 한 페이지에 스캔할 때는 <b>영수증 사이에 충분한 흰 여백</b> 확보<br>
+      ③ 영수증을 <b>똑바로 정렬</b>하여 스캔 (기울어지면 자르기 어려움)<br>
+      ④ 영수증이 서로 <b>겹치지 않도록</b> 배치<br>
+      ⑤ 자르기가 부정확하면 미리보기 표에서 <b>"✂ 영역 조정"</b> 버튼으로 직접 영역 다시 선택 가능
+    </div>
+    <div class="row">
+      <div style="flex:1;">
+        <label>영수증 일괄 업로드 (이미지 다중 선택 가능)</label>
+        <div id="ai-drop-zone" style="border:2px dashed #1e3a8a; border-radius:5px; padding:20px; text-align:center; color:#1e3a8a; cursor:pointer; background:#f0f4fa;">
+          📎 영수증 이미지를 끌어다 놓거나 클릭하여 일괄 선택
+        </div>
+        <input type="file" id="ai-files" multiple accept="image/*" style="display:none;">
+      </div>
+    </div>
+    <div class="row" id="ai-pending-row" style="display:none;">
+      <div style="flex:1;">
+        <label>업로드된 영수증 (<span id="ai-pending-count">0</span>장)</label>
+        <div class="thumb-grid" id="ai-pending-thumbs"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div><label>사용 카드 (자동 인식되는 모든 영수증에 적용)</label>
+        <select id="ai-card" style="width:280px;"></select>
+      </div>
+      <button class="btn" onclick="runAIRecognition()" id="ai-run-btn">🔍 AI 자동 인식 실행</button>
+      <button class="btn sec" onclick="clearAIPending()">초기화</button>
+    </div>
+    <div id="ai-status" style="font-size:12px; color:#1e3a8a; margin-top:6px;"></div>
+    <div id="ai-results"></div>
+  </div>
+
+  <!-- 수동 입력 (기존) -->
+  <div class="card">
+    <h3 class="sub">✍ 수동 입력 (직접 한 건씩 추가)</h3>
+    <div class="row">
+      <div><label>일자</label><input type="date" id="e-date"></div>
+      <div><label>사용 카드</label><select id="e-card" style="width:240px;"></select></div>
+      <div><label>금액 (원)</label><input type="number" id="e-amount" placeholder="0" style="width:130px;"></div>
+      <div><label>출장장소</label><input type="text" id="e-loc" placeholder="예: 정원화학, 국도화학, '-'" style="width:200px;"></div>
+      <div><label>투입인원</label><input type="text" id="e-qty" placeholder="예: 4명, '-'" style="width:90px;"></div>
+    </div>
+    <div class="row">
+      <div style="flex:1;"><label>사용 내역</label>
+        <input type="text" id="e-usage" placeholder="예: 중식(김홍란, 김철우, 신채완, 이윤호) / 주유(7802 김철우) / 택배 (가스농도 측정기 수리)" style="width:100%;">
+      </div>
+    </div>
+    <div class="row">
+      <div style="flex:1;"><label>영수증 첨부 (드래그앤드롭 또는 클릭)</label>
+        <div id="drop-zone" style="border:2px dashed #c8d0db; border-radius:5px; padding:14px; text-align:center; color:#888; cursor:pointer; background:#fbfcfe;">
+          영수증 이미지를 끌어다 놓거나 클릭하여 선택
+        </div>
+        <input type="file" id="e-files" multiple accept="image/*" style="display:none;">
+        <div class="thumb-grid" id="e-thumbs"></div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn" onclick="addEntry()">＋ 내역 추가</button>
+      <button class="btn sec" onclick="clearEntryForm()">초기화</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="sub">등록된 내역</h3>
+    <div class="toolbar">
+      <label>카드 필터:</label>
+      <select id="filter-card" onchange="renderEntries()"><option value="">전체</option></select>
+      <label>월 필터:</label>
+      <input type="month" id="filter-month" onchange="renderEntries()">
+      <button class="btn sm sec" onclick="document.getElementById('filter-card').value='';document.getElementById('filter-month').value='';renderEntries();">필터 해제</button>
+    </div>
+    <table id="entry-table">
+      <thead><tr><th>일자</th><th>카드</th><th>사용 내역</th><th>금액</th><th>출장장소</th><th>인원</th><th>영수증</th><th>관리</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ④ 일자별 영수증 철 -->
+<section class="panel" id="panel-daily">
+  <h2 class="section">일자별 영수증 철</h2>
+  <div class="toolbar no-print">
+    <label>카드:</label>
+    <select id="daily-card" onchange="renderDaily()"><option value="">전체</option></select>
+    <label>월:</label>
+    <input type="month" id="daily-month" onchange="renderDaily()">
+    <button class="btn sm sec" onclick="document.getElementById('daily-card').value='';document.getElementById('daily-month').value='';renderDaily();">필터 해제</button>
+    <button class="btn" onclick="safePrint()">🖨 인쇄 / PDF 저장</button>
+  </div>
+  <div id="daily-list"></div>
+</section>
+
+<!-- ⑤ 경비 내역서 -->
+<section class="panel" id="panel-report">
+  <h2 class="section">경비 내역서 출력</h2>
+  <div class="toolbar no-print">
+    <div><label>카드 선택</label><br><select id="rpt-card" style="width:240px;"></select></div>
+    <div><label>발생 시작일</label><br><input type="date" id="rpt-from"></div>
+    <div><label>발생 종료일</label><br><input type="date" id="rpt-to"></div>
+    <div><label>출장 장소 (헤더)</label><br><input type="text" id="rpt-loc" placeholder="자유 기재" style="width:200px;"></div>
+    <div><label>작성자</label><br><select id="rpt-writer" style="width:200px;"></select></div>
+    <div style="align-self:end;"><button class="btn" onclick="renderReport()">📄 미리보기</button></div>
+    <div style="align-self:end;"><button class="btn" onclick="window.print()">🖨 인쇄 / PDF 저장</button></div>
+  </div>
+  <div id="report-preview-wrap"></div>
+</section>
+
+<!-- ⑦ AI 설정 -->
+<section class="panel" id="panel-setting">
+  <h2 class="section">AI 설정</h2>
+  <div class="card">
+    <h3 class="sub">AI 제공자 선택</h3>
+    <div class="row">
+      <div><label>사용할 AI</label>
+        <select id="ai-provider" onchange="onProviderChange(); saveSettings();">
+          <option value="claude">Claude (Anthropic)</option>
+          <option value="gemini">Gemini (Google)</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="claude-setting">
+      <h3 class="sub">Claude API 설정</h3>
+      <div class="row">
+        <div style="flex:1;">
+          <label>API 키 (sk-ant-...)</label>
+          <input type="password" id="claude-key" placeholder="sk-ant-api03-..." style="width:100%;" onchange="saveSettings()">
+        </div>
+        <div style="align-self:end;">
+          <button class="btn sec sm" onclick="listClaudeModels()" title="입력한 API 키로 사용 가능한 모델을 실시간 조회">📋 사용 가능 모델 조회</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>① 추천 모델에서 선택</label>
+          <select id="claude-model-select" style="width:340px;" onchange="document.getElementById('claude-model').value=this.value;saveSettings();">
+            <optgroup label="✨ 최신 (Claude 4.7)">
+              <option value="claude-opus-4-7">claude-opus-4-7</option>
+            </optgroup>
+            <optgroup label="Claude 4.6">
+              <option value="claude-opus-4-6">claude-opus-4-6</option>
+              <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+            </optgroup>
+            <optgroup label="Claude 4.5">
+              <option value="claude-opus-4-5">claude-opus-4-5</option>
+              <option value="claude-sonnet-4-5-20250929" selected>claude-sonnet-4-5</option>
+              <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (빠름)</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1;">
+          <label>② 또는 모델명 직접 입력 (이게 실제 호출되는 값)</label>
+          <input type="text" id="claude-model" onchange="saveSettings()" oninput="saveSettings()" style="width:100%;" value="claude-sonnet-4-5-20250929" placeholder="모델명 직접 입력">
+        </div>
+      </div>
+      <p style="font-size:11px; color:#888;">
+        API 키는 <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>에서 발급. 정확한 모델 ID는 위의 "📋 사용 가능 모델 조회" 버튼으로 확인하세요.
+      </p>
+    </div>
+
+    <div id="gemini-setting" style="display:none;">
+      <h3 class="sub">Gemini API 설정</h3>
+      <div class="row">
+        <div style="flex:1;">
+          <label>API 키</label>
+          <input type="password" id="gemini-key" placeholder="AIza..." style="width:100%;" onchange="saveSettings()">
+        </div>
+        <div style="align-self:end;">
+          <button class="btn sec sm" onclick="listGeminiModels()" title="입력한 API 키로 사용 가능한 모델을 실시간 조회">📋 사용 가능 모델 조회</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>① 추천 모델에서 선택 (정확하지 않을 수 있음 → 위 조회 버튼 사용 권장)</label>
+          <select id="gemini-model-select" style="width:340px;" onchange="document.getElementById('gemini-model').value=this.value;saveSettings();">
+            <optgroup label="✨ 최신 Preview (예상 ID, 검증 필요)">
+              <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option>
+              <option value="gemini-3.1-flash-preview">gemini-3.1-flash-preview</option>
+              <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
+              <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+            </optgroup>
+            <optgroup label="✅ 안정 (Gemini 2.x — 검증됨)">
+              <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+              <option value="gemini-2.5-flash" selected>gemini-2.5-flash (무료 한도 큼)</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1;">
+          <label>② 또는 모델명 직접 입력 (이게 실제 호출되는 값)</label>
+          <input type="text" id="gemini-model" onchange="saveSettings()" oninput="saveSettings()" style="width:100%;" value="gemini-2.5-flash" placeholder="모델명 직접 입력 (예: gemini-3.1-pro-preview)">
+        </div>
+      </div>
+      <p style="font-size:11px; color:#888;">
+        API 키는 <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a>에서 발급.<br>
+        ⚠ Gemini 3.x 의 정확한 모델 ID는 시기에 따라 변경됩니다. <b>"📋 사용 가능 모델 조회"</b> 버튼으로 실시간 확인하세요.
+      </p>
+    </div>
+
+    <div style="background:#fff7ed; border-left:4px solid #ea7c00; padding:10px; margin-top:14px; font-size:12px; color:#7c3a00; border-radius:4px;">
+      ⚠ <b>보안 안내</b>: API 키는 브라우저 메모리에만 저장되며 외부로 전송되지 않습니다 (AI 호출 시 해당 제공자에게만 전송).
+      페이지를 새로고침하면 키를 다시 입력해야 합니다. JSON 백업에는 키가 포함되지 않습니다.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="sub">AI 인식 동작 방식</h3>
+    <ul style="font-size:12px; color:#444; line-height:1.8; padding-left:20px;">
+      <li>업로드된 모든 영수증을 <b>한 번의 호출</b>로 일괄 분석합니다 (비용·시간 절감).</li>
+      <li>추출 항목: <b>일자, 금액, 사용처(상호), 사용 내역(품목/카테고리), 출장장소 추론, 인원 추론</b></li>
+      <li>출장장소는 ③ 출장지/거래처 리스트와 비교하여 자동 매칭합니다. 매칭이 어렵거나 영수증에 정보가 없는 경우 빈칸으로 둡니다.</li>
+      <li>인원은 영수증에 인원 표기가 있거나 메뉴 수량으로 추정 가능한 경우만 채우고, 그 외는 빈칸으로 둡니다.</li>
+      <li>추출 결과는 미리보기 후 <b>"내역 등록" 버튼을 눌러야</b> 실제로 저장됩니다 (사용자가 검토·수정 가능).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ⑧ 데이터 -->
+<section class="panel" id="panel-data">
+  <h2 class="section">데이터 관리</h2>
+  <div class="card">
+    <h3 class="sub">JSON 익스포트 / 임포트</h3>
+    <p style="font-size:12px; color:#666; margin-bottom:10px;">전체 데이터(카드, 작성자, 사용 내역, 영수증 이미지)를 JSON 파일로 백업하거나 복원합니다.</p>
+    <div class="row">
+      <button class="btn" onclick="exportJson()">📤 JSON 내보내기</button>
+      <button class="btn sec" onclick="document.getElementById('import-file').click()">📥 JSON 불러오기</button>
+      <input type="file" id="import-file" accept="application/json" style="display:none;" onchange="importJson(event)">
+      <button class="btn danger" onclick="resetAll()">⚠ 전체 초기화</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="sub">현재 데이터 요약</h3>
+    <div id="data-summary" style="font-size:12px; color:#444; line-height:1.8;"></div>
+  </div>
+</section>
+
+</main>
+
+<!-- 모달 -->
+<div class="modal-bg" id="modal-bg" onclick="closeModal(event)">
+  <div class="modal"><img id="modal-img" src=""></div>
+</div>
+
+<!-- bbox 조정 모달 -->
+<div class="modal-bg" id="bbox-modal-bg">
+  <div class="modal" style="max-width:95vw; max-height:95vh; padding:16px; overflow:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h3 style="margin:0; font-size:14px; color:#1e3a8a;">✂ 영수증 영역 조정</h3>
+      <button class="btn sec sm" onclick="closeBboxModal()">× 닫기</button>
+    </div>
+    <p style="font-size:12px; color:#666; margin-bottom:8px;">
+      💡 <b>마우스로 드래그하여 새 영수증 영역을 선택</b>하세요. 빨간 박스가 잘려서 저장될 영역입니다.
+    </p>
+    <canvas id="bbox-canvas" style="border:1px solid #ddd; cursor:crosshair; max-width:100%; display:block;"></canvas>
+    <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn sec" onclick="closeBboxModal()">취소</button>
+      <button class="btn" onclick="applyBboxAdjustment()">✅ 적용 및 재자르기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== bbox 영역 조정 모달 ==========
+let bboxAdjusting = null;
+let bboxDragStart = null;
+
+function openBboxModal(resultIdx){
+  const r = aiResults[resultIdx];
+  if (!r) return;
+  const sourceFile = aiPendingFiles[r.source_index] || aiPendingFiles[0];
+  if (!sourceFile){ alert('원본 이미지를 찾을 수 없습니다.'); return; }
+  const canvas = document.getElementById('bbox-canvas');
+  setupBboxCanvas(canvas);
+  document.getElementById('bbox-modal-bg').classList.add('active');
+  const img = new Image();
+  img.onload = () => {
+    const maxW = Math.min(900, window.innerWidth - 100);
+    const maxH = window.innerHeight - 250;
+    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    bboxAdjusting = {
+      resultIdx,
+      canvas,
+      ctx: canvas.getContext('2d'),
+      imgEl: img,
+      bbox: {...(r.bbox || {x:0,y:0,w:1,h:1})}
+    };
+    drawBbox();
+  };
+  img.src = sourceFile.data;
+}
+
+function drawBbox(){
+  if (!bboxAdjusting) return;
+  const {canvas, ctx, imgEl, bbox} = bboxAdjusting;
+  // 원본 이미지 (어둡게)
+  ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // bbox 영역만 밝게 다시 그리기
+  const bx = bbox.x * canvas.width;
+  const by = bbox.y * canvas.height;
+  const bw = bbox.w * canvas.width;
+  const bh = bbox.h * canvas.height;
+  ctx.drawImage(imgEl,
+    bbox.x * imgEl.width, bbox.y * imgEl.height, bbox.w * imgEl.width, bbox.h * imgEl.height,
+    bx, by, bw, bh);
+  // 빨간 테두리
+  ctx.strokeStyle = '#dc2626';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(bx, by, bw, bh);
+  // 코너 마커
+  ctx.fillStyle = '#dc2626';
+  const cs = 6;
+  [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]].forEach(([px,py])=>{
+    ctx.fillRect(px-cs, py-cs, cs*2, cs*2);
+  });
+}
+
+function setupBboxCanvas(canvas){
+  if (canvas._bboxSetup) return;
+  canvas._bboxSetup = true;
+
+  const startDrag = (clientX, clientY) => {
+    if (!bboxAdjusting) return;
+    const rect = bboxAdjusting.canvas.getBoundingClientRect();
+    bboxDragStart = {
+      x: (clientX - rect.left) / rect.width,
+      y: (clientY - rect.top) / rect.height
+    };
+  };
+
+  const continueDrag = (clientX, clientY) => {
+    if (!bboxDragStart || !bboxAdjusting) return;
+    const rect = bboxAdjusting.canvas.getBoundingClientRect();
+    const curX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const curY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    const x = Math.min(bboxDragStart.x, curX);
+    const y = Math.min(bboxDragStart.y, curY);
+    const w = Math.abs(curX - bboxDragStart.x);
+    const h = Math.abs(curY - bboxDragStart.y);
+    if (w > 0.02 && h > 0.02){
+      bboxAdjusting.bbox = {x, y, w, h};
+      drawBbox();
+    }
+  };
+
+  const endDrag = () => bboxDragStart = null;
+
+  canvas.addEventListener('mousedown', e => startDrag(e.clientX, e.clientY));
+  canvas.addEventListener('mousemove', e => continueDrag(e.clientX, e.clientY));
+  canvas.addEventListener('mouseup', endDrag);
+  canvas.addEventListener('mouseleave', endDrag);
+  canvas.addEventListener('touchstart', e => { if (e.touches[0]){ e.preventDefault(); startDrag(e.touches[0].clientX, e.touches[0].clientY); }});
+  canvas.addEventListener('touchmove', e => { if (e.touches[0]){ e.preventDefault(); continueDrag(e.touches[0].clientX, e.touches[0].clientY); }});
+  canvas.addEventListener('touchend', endDrag);
+}
+
+function closeBboxModal(){
+  document.getElementById('bbox-modal-bg').classList.remove('active');
+  bboxAdjusting = null;
+  bboxDragStart = null;
+}
+
+async function applyBboxAdjustment(){
+  if (!bboxAdjusting) return;
+  const {resultIdx, bbox} = bboxAdjusting;
+  const r = aiResults[resultIdx];
+  if (!r) return;
+  const sourceFile = aiPendingFiles[r.source_index] || aiPendingFiles[0];
+  if (!sourceFile) return;
+  try {
+    const cropped = await cropImage(sourceFile.data, bbox);
+    r.bbox = {...bbox};
+    r.receipt = {
+      name: r.receipt?.name || `영수증_${resultIdx+1}.jpg`,
+      data: cropped,
+      mime: 'image/jpeg',
+      isPdf: false
+    };
+    closeBboxModal();
+    renderAIResults();
+  } catch(e) {
+    alert('재자르기 실패: ' + e.message);
+  }
+}
+</script>
+
+<script>
+// ========== 데이터 ==========
+let DATA = { cards:[], writers:[], places:[], entries:[], companyInfo:{logo:''} };
+let pendingFiles = []; // 신규 입력 중 첨부 영수증
+let aiPendingFiles = []; // AI 분석 대기 영수증
+let aiResults = []; // AI 분석 결과 (검토 대기)
+let SETTINGS = { provider:'claude', claudeKey:'', claudeModel:'claude-sonnet-4-5-20250929', geminiKey:'', geminiModel:'gemini-2.5-flash' };
+
+// ========== 회사 로고 ==========
+function uploadCompanyLogo(input){
+  const f = input.files[0];
+  if (!f) return;
+  if (!f.type.startsWith('image/')){
+    alert('이미지 파일만 업로드 가능합니다 (PNG, JPG 등).');
+    return;
+  }
+  const r = new FileReader();
+  r.onload = ev => {
+    DATA.companyInfo = DATA.companyInfo || {};
+    DATA.companyInfo.logo = ev.target.result;
+    refreshLogos();
+    alert('✅ 회사 로고가 업로드되었습니다.\n상단 헤더와 경비 내역서 양식에 자동 반영됩니다.');
+  };
+  r.readAsDataURL(f);
+  input.value = '';
+}
+function clearCompanyLogo(){
+  if (!confirm('업로드된 회사 로고를 삭제하시겠습니까? (기본 로고로 돌아갑니다)')) return;
+  if (DATA.companyInfo) DATA.companyInfo.logo = '';
+  refreshLogos();
+}
+function refreshLogos(){
+  const headerContainer = document.getElementById('header-logo-container');
+  const headerText = document.getElementById('header-logo-text');
+  const previewContainer = document.getElementById('logo-preview');
+  const hasLogo = !!(DATA.companyInfo && DATA.companyInfo.logo);
+  if (headerContainer){
+    if (hasLogo){
+      headerContainer.innerHTML = `<img src="${DATA.companyInfo.logo}" style="height:42px;object-fit:contain;display:block;">`;
+      if (headerText) headerText.style.display = 'none';
+    } else {
+      headerContainer.innerHTML = `<svg viewBox="0 0 110 105" xmlns="http://www.w3.org/2000/svg" style="width:60px;height:52px;display:block;"><circle cx="35" cy="35" r="30" fill="#2735D8"/><circle cx="80" cy="30" r="22" fill="#2735D8"/><circle cx="42" cy="75" r="26" fill="#A0EDF3"/></svg>`;
+      if (headerText) headerText.style.display = 'block';
+    }
+  }
+  if (previewContainer){
+    previewContainer.innerHTML = hasLogo
+      ? `<img src="${DATA.companyInfo.logo}" style="max-width:280px;max-height:80px;object-fit:contain;border:1px solid #e0e6ee;padding:8px;border-radius:4px;background:#fff;">`
+      : `<div style="color:#888;font-style:italic;font-size:12px;">업로드된 로고 없음 (기본 그래픽 사용 중)</div>`;
+  }
+}
+
+// 보고서용 로고 HTML (logo cell 내부에 들어갈 내용)
+function getReportLogoHTML(){
+  if (DATA.companyInfo && DATA.companyInfo.logo){
+    return `<img src="${DATA.companyInfo.logo}" style="max-width:108px;max-height:48px;object-fit:contain;display:block;margin:0 auto;">`;
+  }
+  return `<svg viewBox="0 0 380 115" xmlns="http://www.w3.org/2000/svg" style="width:108px;height:38px;">
+    <circle cx="35" cy="40" r="32" fill="#2735D8"/>
+    <circle cx="84" cy="34" r="22" fill="#2735D8"/>
+    <circle cx="44" cy="80" r="26" fill="#A0EDF3"/>
+    <text x="135" y="64" font-family="'Arial Black','Helvetica Neue',Arial,sans-serif" font-weight="900" font-size="44" fill="#111">SEJONG</text>
+    <polygon points="247,10 261,3 253,23" fill="#111"/>
+    <text x="135" y="92" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#a8a8a8" letter-spacing="6">CHEMICAL  PLANT</text>
+  </svg>`;
+}
+
+// ========== 탭 전환 ==========
+document.querySelectorAll('nav.tabs button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('panel-'+b.dataset.tab).classList.add('active');
+    if (b.dataset.tab==='daily') renderDaily();
+    if (b.dataset.tab==='data') renderSummary();
+    if (b.dataset.tab==='setting') loadSettingsToForm();
+    if (b.dataset.tab==='entry') refreshAICardSelect();
+  });
+});
+
+// ========== 카드 ==========
+function addCard(){
+  const t = document.getElementById('card-type').value;
+  const n = document.getElementById('card-name').value.trim();
+  const no = document.getElementById('card-no').value.trim();
+  const o = document.getElementById('card-owner').value.trim();
+  const m = document.getElementById('card-memo').value.trim();
+  if (!n || !no) { alert('카드명과 카드번호는 필수입니다.'); return; }
+  DATA.cards.push({ id: 'C'+Date.now(), type:t, name:n, no:no, owner:o, memo:m });
+  document.getElementById('card-name').value='';
+  document.getElementById('card-no').value='';
+  document.getElementById('card-owner').value='';
+  document.getElementById('card-memo').value='';
+  renderCards();
+  refreshCardSelects();
+}
+function deleteCard(id){
+  if (!confirm('이 카드를 삭제하시겠습니까? (해당 카드로 등록된 내역은 유지됩니다)')) return;
+  DATA.cards = DATA.cards.filter(c=>c.id!==id);
+  renderCards();
+  refreshCardSelects();
+}
+function renderCards(){
+  const tb = document.querySelector('#card-table tbody');
+  if (!DATA.cards.length){ tb.innerHTML='<tr><td colspan="7" class="empty">등록된 카드가 없습니다.</td></tr>'; return; }
+  tb.innerHTML = DATA.cards.map((c,i)=>`
+    <tr>
+      <td class="ctr">${i+1}</td>
+      <td class="ctr"><span class="tag ${c.type==='법인카드'?'corp':'priv'}">${c.type}</span></td>
+      <td>${esc(c.name)}</td>
+      <td class="ctr">${esc(c.no)}</td>
+      <td class="ctr">${esc(c.owner)}</td>
+      <td>${esc(c.memo)}</td>
+      <td class="ctr"><button class="btn sm danger" onclick="deleteCard('${c.id}')">삭제</button></td>
+    </tr>`).join('');
+}
+function refreshCardSelects(){
+  const html = '<option value="">— 카드 선택 —</option>' +
+    DATA.cards.map(c=>`<option value="${c.id}">[${c.type}] ${esc(c.name)} (${esc(c.no)})</option>`).join('');
+  ['e-card','filter-card','daily-card','rpt-card'].forEach(id=>{
+    const el = document.getElementById(id);
+    const cur = el.value;
+    if (id==='filter-card' || id==='daily-card') {
+      el.innerHTML = '<option value="">전체</option>' + DATA.cards.map(c=>`<option value="${c.id}">[${c.type}] ${esc(c.name)}</option>`).join('');
+    } else {
+      el.innerHTML = html;
+    }
+    el.value = cur;
+  });
+}
+
+// ========== 작성자 ==========
+function addWriter(){
+  const d = document.getElementById('wr-dept').value.trim();
+  const r = document.getElementById('wr-rank').value.trim();
+  const n = document.getElementById('wr-name').value.trim();
+  if (!d || !r || !n) { alert('부서, 직급, 이름을 모두 입력해주세요.'); return; }
+  DATA.writers.push({ id:'W'+Date.now(), dept:d, rank:r, name:n });
+  document.getElementById('wr-dept').value='';
+  document.getElementById('wr-rank').value='';
+  document.getElementById('wr-name').value='';
+  renderWriters();
+  refreshWriterSelects();
+}
+function deleteWriter(id){
+  if (!confirm('이 작성자를 삭제하시겠습니까?')) return;
+  DATA.writers = DATA.writers.filter(w=>w.id!==id);
+  renderWriters();
+  refreshWriterSelects();
+}
+function renderWriters(){
+  const tb = document.querySelector('#writer-table tbody');
+  if (!DATA.writers.length){ tb.innerHTML='<tr><td colspan="6" class="empty">등록된 작성자가 없습니다.</td></tr>'; return; }
+  tb.innerHTML = DATA.writers.map((w,i)=>`
+    <tr>
+      <td class="ctr">${i+1}</td>
+      <td class="ctr">${esc(w.dept)}</td>
+      <td class="ctr">${esc(w.rank)}</td>
+      <td class="ctr">${esc(w.name)}</td>
+      <td class="ctr">${esc(w.dept)} ${esc(w.rank)} ${esc(w.name)}</td>
+      <td class="ctr"><button class="btn sm danger" onclick="deleteWriter('${w.id}')">삭제</button></td>
+    </tr>`).join('');
+}
+function refreshWriterSelects(){
+  const html = '<option value="">— 작성자 선택 —</option>' +
+    DATA.writers.map(w=>`<option value="${w.id}">${esc(w.dept)} ${esc(w.rank)} ${esc(w.name)}</option>`).join('');
+  document.getElementById('rpt-writer').innerHTML = html;
+}
+
+// ========== 출장지/거래처 ==========
+function addPlace(){
+  const n = document.getElementById('pl-name').value.trim();
+  const a = document.getElementById('pl-area').value.trim();
+  const al = document.getElementById('pl-alias').value.trim();
+  if (!n) { alert('거래처/출장지명을 입력해주세요.'); return; }
+  DATA.places.push({ id:'P'+Date.now(), name:n, area:a, alias:al });
+  document.getElementById('pl-name').value='';
+  document.getElementById('pl-area').value='';
+  document.getElementById('pl-alias').value='';
+  renderPlaces();
+}
+function deletePlace(id){
+  if (!confirm('이 출장지를 삭제하시겠습니까?')) return;
+  DATA.places = DATA.places.filter(p=>p.id!==id);
+  renderPlaces();
+}
+function renderPlaces(){
+  const tb = document.querySelector('#place-table tbody');
+  if (!DATA.places.length){ tb.innerHTML='<tr><td colspan="5" class="empty">등록된 출장지/거래처가 없습니다.</td></tr>'; return; }
+  tb.innerHTML = DATA.places.map((p,i)=>`
+    <tr>
+      <td class="ctr">${i+1}</td>
+      <td>${esc(p.name)}</td>
+      <td>${esc(p.area)}</td>
+      <td>${esc(p.alias)}</td>
+      <td class="ctr"><button class="btn sm danger" onclick="deletePlace('${p.id}')">삭제</button></td>
+    </tr>`).join('');
+}
+
+// ========== AI 설정 ==========
+function loadSettingsToForm(){
+  document.getElementById('ai-provider').value = SETTINGS.provider;
+  document.getElementById('claude-key').value = SETTINGS.claudeKey;
+  document.getElementById('claude-model').value = SETTINGS.claudeModel;
+  document.getElementById('gemini-key').value = SETTINGS.geminiKey;
+  document.getElementById('gemini-model').value = SETTINGS.geminiModel;
+  onProviderChange();
+}
+function onProviderChange(){
+  const p = document.getElementById('ai-provider').value;
+  document.getElementById('claude-setting').style.display = p==='claude'?'block':'none';
+  document.getElementById('gemini-setting').style.display = p==='gemini'?'block':'none';
+}
+function saveSettings(){
+  SETTINGS.provider = document.getElementById('ai-provider').value;
+  SETTINGS.claudeKey = document.getElementById('claude-key').value;
+  SETTINGS.claudeModel = document.getElementById('claude-model').value;
+  SETTINGS.geminiKey = document.getElementById('gemini-key').value;
+  SETTINGS.geminiModel = document.getElementById('gemini-model').value;
+}
+function refreshAICardSelect(){
+  const el = document.getElementById('ai-card');
+  if (!el) return;
+  const cur = el.value;
+  el.innerHTML = '<option value="__auto__">🤖 AI 자동 분류 (영수증 카드번호로 자동 매칭)</option>' +
+    '<option value="" disabled>───── 단일 카드로 강제 통일 ─────</option>' +
+    DATA.cards.map(c=>`<option value="${c.id}">[${c.type}] ${esc(c.name)} (${esc(c.no)})</option>`).join('');
+  el.value = cur || '__auto__';
+}
+
+// ===== API에서 사용 가능한 모델 목록 조회 =====
+async function listGeminiModels(){
+  saveSettings();
+  const key = SETTINGS.geminiKey;
+  if (!key){ alert('먼저 Gemini API 키를 입력해주세요.'); return; }
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}&pageSize=200`);
+    if (!res.ok){
+      const err = await res.text();
+      alert('❌ 모델 목록 조회 실패 (HTTP ' + res.status + ')\n\n' + err.slice(0, 500));
+      return;
+    }
+    const data = await res.json();
+    const all = data.models || [];
+    // generateContent 지원하는 모델만 필터 (이미지 인식용)
+    const usable = all.filter(m =>
+      (m.supportedGenerationMethods || []).includes('generateContent')
+    ).map(m => ({
+      id: (m.name || '').replace(/^models\//, ''),
+      display: m.displayName || ''
+    })).filter(m => m.id);
+    if (!usable.length){
+      alert('❌ 사용 가능한 모델을 찾지 못했습니다.\n\n전체 응답:\n' + JSON.stringify(all, null, 2).slice(0, 1000));
+      return;
+    }
+    // 드롭다운 업데이트
+    const sel = document.getElementById('gemini-model-select');
+    if (sel){
+      // 우선순위 정렬: 3.x > 2.5 > 2.0 > 기타, pro > flash
+      const score = (id) => {
+        let s = 0;
+        if (id.includes('3.1')) s += 100;
+        else if (id.includes('3.0') || id.includes('3-')) s += 80;
+        else if (id.includes('2.5')) s += 60;
+        else if (id.includes('2.0')) s += 40;
+        if (id.includes('pro')) s += 10;
+        else if (id.includes('flash')) s += 5;
+        return -s;
+      };
+      usable.sort((a,b) => score(a.id) - score(b.id));
+      sel.innerHTML = '<optgroup label="✅ API에서 실시간 조회된 모델">' +
+        usable.map(m => `<option value="${m.id}">${m.id}${m.display?` — ${esc(m.display)}`:''}</option>`).join('') +
+        '</optgroup>';
+    }
+    const list = usable.map(m => `${m.id}${m.display?' — '+m.display:''}`).join('\n');
+    alert(`✅ ${usable.length}개 모델 조회 완료 — 드롭다운 업데이트됨\n\n사용 가능한 모델 (이미지 인식 가능):\n${list.slice(0, 1500)}`);
+  } catch(e){
+    alert('❌ 오류: ' + e.message);
+  }
+}
+
+async function listClaudeModels(){
+  saveSettings();
+  const key = SETTINGS.claudeKey;
+  if (!key){ alert('먼저 Claude API 키를 입력해주세요.'); return; }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/models?limit=200', {
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      }
+    });
+    if (!res.ok){
+      const err = await res.text();
+      alert('❌ 모델 목록 조회 실패 (HTTP ' + res.status + ')\n\n' + err.slice(0, 500));
+      return;
+    }
+    const data = await res.json();
+    const all = (data.data || []).map(m => ({
+      id: m.id,
+      display: m.display_name || ''
+    })).filter(m => m.id);
+    if (!all.length){
+      alert('❌ 사용 가능한 모델을 찾지 못했습니다.');
+      return;
+    }
+    const sel = document.getElementById('claude-model-select');
+    if (sel){
+      sel.innerHTML = '<optgroup label="✅ API에서 실시간 조회된 모델">' +
+        all.map(m => `<option value="${m.id}">${m.id}${m.display?` — ${esc(m.display)}`:''}</option>`).join('') +
+        '</optgroup>';
+    }
+    const list = all.map(m => `${m.id}${m.display?' — '+m.display:''}`).join('\n');
+    alert(`✅ ${all.length}개 모델 조회 완료 — 드롭다운 업데이트됨\n\n사용 가능한 모델:\n${list.slice(0, 1500)}`);
+  } catch(e){
+    alert('❌ 오류: ' + e.message);
+  }
+}
+
+// Step 1: 영수증 영역 탐지 전용 프롬프트 (bbox만 식별, 디테일 추출 X)
+function buildBoundaryPrompt(count){
+  return `당신은 영수증 영역 탐지 전문가입니다. 첨부된 ${count}개 이미지에서 영수증들의 정확한 직사각형 영역을 찾아주세요.
+
+== 작업 목적 ==
+나중에 각 영수증의 자세한 정보를 추출하기 위한 사전 작업입니다.
+지금은 "어디에 영수증이 있는지"만 정확히 표시하면 됩니다. 영수증의 상세 내용을 자세히 읽지 않아도 됩니다.
+
+== 영수증 식별 가이드 ==
+1. 흰색/연한 색 종이에 인쇄된 직사각형 영역
+2. 각 영수증은 보통 상단에 가맹점명, 하단에 합계금액이 있음
+3. 영수증끼리는 흰 여백으로 명확히 구분됨
+4. 영수증이 살짝 기울어져 있어도 그 전체를 둘러싸는 (이미지 축에 정렬된) 직사각형으로 잡으세요
+5. 영수증 1장은 보통 폭보다 세로가 깁니다 (긴 직사각형 모양)
+
+== ★★ 핵심: 1건의 결제 = 1개의 영수증으로 통합 ★★
+다음 케이스는 시각적으로 2개로 보여도 **반드시 1개**로 묶어주세요:
+
+(A) 신용카드 매출전표(작은 종이) + 거래명세표(큰 종이)가 함께 붙어있는 경우
+   → 같은 가맹점·같은 날짜·같은 결제건이면 두 영역을 모두 포함하는 큰 1개의 bbox로 잡기
+   → 예: 좌측 상단에 작은 카드전표 + 우측에 큰 거래명세표 → 전체를 둘러싸는 1개 bbox
+
+(B) 신용카드 매출전표 + 상품 영수증이 한 영수증의 위/아래에 인쇄된 경우 → 1개로 통합
+(C) 호텔/숙박업소의 결제영수증 + 체크인확인증 → 1개로 통합
+(D) 영수증과 영수증의 부속 안내문(반품안내, 바코드 등) → 1개로 통합
+
+== ★★ 별개 영수증으로 분리해야 하는 경우 ★★
+- 다른 가맹점 영수증
+- 같은 가맹점이지만 다른 날짜·다른 결제건 (예: 같은 주유소 두 번 방문)
+- 같은 가맹점·같은 날짜라도 명확히 다른 상품/서비스 결제
+
+== bbox 잡는 핵심 규칙 ==
+1. 영수증 전체(맨 위 헤더부터 맨 아래 합계까지)를 빠짐없이 포함
+2. 사방으로 5~10% 여백 추가 (잘림 방지)
+3. 인접 영수증과 절대 겹치지 않게 (각 bbox는 명확히 분리되어야 함)
+4. 작게 잘라서 영수증이 잘리는 것보다, 크게 잘라서 여백이 들어가는 게 훨씬 낫습니다
+5. 한 결제건의 두 부분(카드전표+명세표 등)은 사이의 흰 공간 포함하여 큰 bbox로
+
+== 출력 형식 ==
+JSON 배열만. 마크다운 코드블록 사용 금지. 다른 설명 없이 JSON만.
+
+각 이미지에서 발견된 영수증마다 1개 객체:
+[
+  {"source_index":0, "bbox":{"x":0.0, "y":0.0, "w":0.5, "h":1.0}, "hint":"GS25"},
+  {"source_index":0, "bbox":{"x":0.5, "y":0.0, "w":0.5, "h":1.0}, "hint":"은광주유소"},
+  {"source_index":1, "bbox":{"x":0.0, "y":0.0, "w":1.0, "h":1.0}, "hint":"호텔사랑"}
+]
+
+- source_index: 이미지 순서 (0부터 시작하는 정수)
+- bbox: 모든 값 0.0~1.0 비율 (이미지 너비/높이 = 1로 봤을 때)
+- hint: 영수증의 가맹점명 (한국어 짧게, 식별용)`;
+}
+
+// Step 2: 자른 영수증 1장씩에서 디테일 정보 추출
+function buildPrompt(placeHints, cardHints, count, autoMode){
+  const cardSection = autoMode ? `
+== 등록된 카드 리스트 (card_last4 매칭용) ==
+${cardHints || '(등록된 카드 없음)'}
+
+영수증의 카드번호는 보통 마스킹되어 표시됩니다 (예: "9410-64**-****-8912", "신한카드 ****-8912" 등).
+영수증에서 카드번호의 **마지막 4자리 숫자**를 정확히 추출하여 card_last4 필드에 4자리 숫자만 입력하세요 (예: "8912").
+이 값으로 위 등록된 카드 리스트와 매칭하여 법인/개인 카드를 자동 분류합니다.
+영수증에 카드번호 표기가 없거나 식별 불가능하면 "" (빈칸).
+` : '';
+
+  return `당신은 한국 영수증 OCR/추출 전문가입니다. 첨부된 ${count}개 이미지는 **각각 1장의 영수증**입니다 (이미 1단계에서 영역별로 잘린 상태).
+각 이미지에서 1건의 영수증 정보를 정확히 추출해주세요.
+
+== 입력 형식 (2단계 처리 중) ==
+첨부된 각 이미지 = 1장의 영수증.
+즉, ${count}개 이미지 → ${count}건의 영수증 정보를 반환하면 됩니다.
+
+== 추출 항목 (각 영수증마다) ==
+
+1. source_index: 이 영수증이 몇 번째 이미지에서 추출되었는지 (0부터 시작하는 정수)
+
+2. date: 영수증 발행일자 (YYYY-MM-DD)
+
+3. time: 영수증 발행 시간 (HH:MM, 24시간제, 못 찾으면 "")
+
+4. amount: 총 결제 금액 (숫자만)
+
+5. merchant: 가맹점/상호명
+
+6. usage: 사용 내역 (★★ 매우 중요 — 영수증의 모든 세부 정보를 최대한 살려서 작성)
+
+   ★ 절대 단순히 "식대", "숙박", "주유" 같은 카테고리만 쓰지 마세요.
+     반드시 영수증에서 읽을 수 있는 **상호명/메뉴명/품목명/차량번호/객실명** 등 모든 식별 정보를 괄호에 함께 적어주세요.
+
+   ★ 카테고리별 작성 형식:
+
+   [식대] — 시간(time)으로 자동 분류한 후, 괄호에 메뉴 또는 동행자 정보를 채움
+     - 06:00 ~ 10:30 → "조식(...)"
+     - 10:30 ~ 15:00 → "중식(...)"
+     - 15:00 ~ 22:00 → "석식(...)"
+     - 22:00 이후 또는 06:00 이전 → "야식(...)"
+     - 괄호 안에는 영수증의 **메뉴명**을 나열
+       · 예: "조식(포도봉봉, 고소하고부드럽게, 새우탕큰사발)"
+       · 예: "중식(밥반찬반돈까스, 누들핏새우탕맛)"
+       · 예: "석식(얼큰칼제비)"
+     - 메뉴가 너무 많으면 대표 메뉴 + "등" 표기: "중식(섞어국밥, 고기국밥 등)"
+     - 영수증에 동행자명이 적혀있으면 메뉴 대신/함께 표기: "식대(섞어국밥, 고기국밥) / 김철우, 고병선"
+
+   [숙박] — "숙박(호텔/숙박업소명)"
+     - 영수증의 상호명을 괄호에 포함
+     - 예: "숙박(천안 머무르다)"
+     - 예: "숙박(천안 브라운도트 천안쌍용점)"
+     - 예: "숙박(천안(청당) 월)"
+
+   [주유] — "주유(유종) 차량번호"
+     - 유종(휘발유 / 보통휘발유 / 경유 / LPG 등)을 괄호에
+     - 영수증에 차량번호가 표시되어 있으면 뒤에 붙임 (예: "69조 7802")
+     - 예: "주유(휘발유) 69조 7802"
+     - 예: "주유(보통휘발유) 69조 7802"
+
+   [택배] — "택배 (보내는 물품/사유)"
+     - 예: "택배 (가스농도 측정기 수리)"
+
+   [자재/부품 구매] — "품명 (용도)" 또는 "품명"
+     - 영수증의 품목을 그대로 표기
+     - 예: "Heat Exchanger (배관 복구 Lap Joint & Flange)"
+
+   [기타] — "카테고리(상세 내용)"
+     - 통행료, 주차, 사무용품, 다과, 접대 등
+     - 예: "통행료(서해안고속도로)", "주차(부산 광안리 공영주차장)", "사무용품(A4용지, 펜)"
+
+7. location: 출장장소 — 등록된 거래처/출장지 리스트와 매칭, 매칭 안 되면 ""
+
+8. quantity: 투입인원 — "N명" 형식, 식대가 아니거나 추정 불가면 "-"
+
+9. card_last4: 영수증 카드번호에서 **명확히 식별 가능한 마지막 자리들**
+   - 끝 4자리가 모두 숫자면 → 4자리 그대로 (예: "8912")
+   - **끝 자리에 별표가 있으면 별표 직전까지의 숫자만** 추출 (3자리, 2자리도 OK)
+     · "9410-64**-****-891*" → "891"  (끝이 별표라 3자리만)
+     · "9410-64**-****-89**" → "89"   (2자리만 식별 가능)
+     · "9410-64**-****-****" → ""     (끝 부분 모두 마스킹 → 빈값)
+   - **별표 자리를 추측해서 4자리로 채우지 마세요** (잘못된 매칭 발생)
+   - 카드번호 표기 자체가 없으면 ""
+
+10. card_partial: 영수증에 표기된 카드번호를 **마스킹 포함 그대로** 기록
+   - 예: "9410-64**-****-891*"
+   - 예: "9410-6441-****-8912"
+   - 예: "94106441****891*"
+   - 카드번호 미표기면 ""
+
+11. note: 추가 메모
+
+== 등록된 거래처/출장지 리스트 ==
+${placeHints || '(등록된 거래처 없음)'}
+${cardSection}
+== 응답 형식 ==
+JSON 배열만 출력. 마크다운 코드블록 없이.
+${count}개 이미지 → 정확히 ${count}개 객체 반환 (1대1 대응).
+
+예시:
+[
+  {"source_index":0, "date":"2026-04-13", "time":"15:30", "amount":40000, "merchant":"천안 머무르다", "usage":"숙박(천안 머무르다)", "location":"PPG Korea 천안", "quantity":"1명", "card_last4":"8912", "card_partial":"9410-64**-****-8912", "note":""},
+  {"source_index":1, "date":"2026-04-19", "time":"07:30", "amount":5800, "merchant":"GS25", "usage":"조식(포도봉봉, 고소하고부드럽게, 새우탕큰사발)", "location":"PPG Korea 천안", "quantity":"1명", "card_last4":"891", "card_partial":"9410-64**-****-891*", "note":""},
+  {"source_index":2, "date":"2026-04-19", "time":"17:11", "amount":119880, "merchant":"은광주유소", "usage":"주유(보통휘발유) 69조 7802", "location":"PPG Korea 천안", "quantity":"-", "card_last4":"", "card_partial":"9410-64**-****-****", "note":""}
+]`;
+}
+
+if(false){void `__legacy_leftover_neutralized__
+== 추출 항목 (각 영수증마다) ==
+
+1. source_index: 이 영수증이 몇 번째 이미지에서 추출되었는지 (0부터 시작)
+
+2. bbox: 이 영수증이 차지하는 영역의 좌표 (★★ 가장 중요)
+   - 형식: {"x": 좌상단x, "y": 좌상단y, "w": 너비, "h": 높이}
+   - 모든 값은 0.0~1.0 사이의 비율
+   - **반드시 영수증 전체가 잘리지 않고 다 포함되도록 충분히 여유있게 잡으세요.**
+   - 영수증이 비뚤어지거나 기울어져 있어도 영수증 전체를 둘러싸는 직사각형으로 잡으세요.
+   - 인접 영수증과 겹치지 않는 한 위/아래/좌/우로 5~10% 정도 여유를 두는 것이 좋습니다.
+   - 영수증 사이의 흰 공백을 약간 포함시켜도 OK입니다 (잘림 방지가 우선).
+   - 영수증이 이미지 전체를 차지하면 {"x":0.0, "y":0.0, "w":1.0, "h":1.0}
+
+3. date: 영수증 발행일자 (YYYY-MM-DD)
+
+4. time: 영수증 발행 시간 (HH:MM, 24시간제, 못 찾으면 "")
+
+5. amount: 총 결제 금액 (숫자만)
+
+6. merchant: 가맹점/상호명
+
+7. usage: 사용 내역 (★★ 매우 중요 — 영수증의 모든 세부 정보를 최대한 살려서 작성)
+
+   ★ 절대 단순히 "식대", "숙박", "주유" 같은 카테고리만 쓰지 마세요.
+     반드시 영수증에서 읽을 수 있는 **상호명/메뉴명/품목명/차량번호/객실명** 등 모든 식별 정보를 괄호에 함께 적어주세요.
+
+   ★ 카테고리별 작성 형식 (반드시 따를 것):
+
+   [식대] — 시간(time)으로 자동 분류한 후, 괄호에 메뉴 또는 동행자 정보를 채움
+     - 06:00 ~ 10:30 → "조식(...)"
+     - 10:30 ~ 15:00 → "중식(...)"
+     - 15:00 ~ 22:00 → "석식(...)"
+     - 22:00 이후 또는 06:00 이전 → "야식(...)"
+     - 괄호 안에는 영수증의 **메뉴명**을 나열
+       · 예: "조식(포도봉봉, 고소하고부드럽게, 새우탕큰사발)"
+       · 예: "중식(밥반찬반돈까스, 누들핏새우탕맛)"
+       · 예: "석식(얼큰칼제비)"
+     - 메뉴가 너무 많으면 대표 메뉴 + "등" 표기: "중식(섞어국밥, 고기국밥 등)"
+     - 영수증에 동행자명이 적혀있으면 메뉴 대신/함께 표기: "식대(섞어국밥, 고기국밥) / 김철우, 고병선"
+
+   [숙박] — "숙박(호텔/숙박업소명)"
+     - 영수증의 상호명을 괄호에 포함
+     - 예: "숙박(천안 머무르다)"
+     - 예: "숙박(천안 브라운도트 천안쌍용점)"
+     - 예: "숙박(천안 닉스폭스)"
+     - 예: "숙박(천안(청당) 월)"
+
+   [주유] — "주유(유종) 차량번호"
+     - 유종(휘발유 / 보통휘발유 / 경유 / LPG 등)을 괄호에
+     - 영수증에 차량번호가 표시되어 있으면 뒤에 붙임 (예: "69조 7802", "7802")
+     - 예: "주유(휘발유) 69조 7802"
+     - 예: "주유(보통휘발유) 69조 7802"
+     - 예: "주유(보통휘발유)" (차량번호 없으면 생략)
+
+   [택배] — "택배 (보내는 물품/사유)"
+     - 예: "택배 (가스농도 측정기 수리)"
+     - 예: "택배 (시료 발송)"
+
+   [자재/부품 구매] — "품명 (용도)" 또는 "품명"
+     - 영수증의 품목을 그대로 표기
+     - 예: "Heat Exchanger (배관 복구 Lap Joint & Flange)"
+     - 예: "볼트너트 (현장 보수)"
+     - 예: "산소 농도계 센서 교체"
+
+   [기타] — "카테고리(상세 내용)"
+     - 통행료, 주차, 사무용품, 다과, 접대 등
+     - 예: "통행료(서해안고속도로)"
+     - 예: "주차(부산 광안리 공영주차장)"
+     - 예: "사무용품(A4용지, 펜)"
+     - 예: "접대(거래처 미팅 - 커피 4잔)"
+
+   ★ 핵심 규칙:
+     1) 영수증에서 보이는 정보를 절대 버리지 말 것 (메뉴명, 상호, 차량번호, 객실명, 품목 모두 살려줘야 함)
+     2) 식대는 시간대 분류 + 괄호에 반드시 메뉴 또는 동행자
+     3) 카테고리만 단독으로 쓰지 말 것 (숙박X, 식대X, 주유X — 반드시 괄호로 구체화)
+
+8. location: 출장장소 — 등록된 거래처/출장지 리스트와 매칭, 매칭 안 되면 ""
+
+9. quantity: 투입인원 — "N명" 형식, 식대가 아니거나 추정 불가면 "-"
+
+10. card_last4: 영수증의 카드번호 마지막 4자리 (4자리 문자열, 못 찾으면 "")
+
+11. note: 추가 메모
+
+== 등록된 거래처/출장지 리스트 ==
+${placeHints || '(등록된 거래처 없음)'}
+${cardSection}
+== 응답 형식 ==
+JSON 배열만 출력. 마크다운 코드블록 없이.
+
+예시 (다양한 카테고리와 시간대 케이스):
+[
+  {"source_index":0,"bbox":{"x":0.0,"y":0.0,"w":0.5,"h":0.5},"date":"2026-04-13","time":"15:30","amount":40000,"merchant":"천안 머무르다","usage":"숙박(천안 머무르다)","location":"PPG Korea 천안","quantity":"1명","card_last4":"8912","note":""},
+  {"source_index":0,"bbox":{"x":0.5,"y":0.0,"w":0.5,"h":0.5},"date":"2026-04-15","time":"12:30","amount":38000,"merchant":"한식당","usage":"중식(섞어국밥, 고기국밥 외)","location":"PPG Korea 천안","quantity":"6명","card_last4":"8912","note":""},
+  {"source_index":0,"bbox":{"x":0.0,"y":0.5,"w":0.5,"h":0.5},"date":"2026-04-19","time":"07:30","amount":5800,"merchant":"GS25","usage":"조식(포도봉봉, 고소하고부드럽게, 새우탕큰사발)","location":"PPG Korea 천안","quantity":"1명","card_last4":"8912","note":""},
+  {"source_index":0,"bbox":{"x":0.5,"y":0.5,"w":0.5,"h":0.5},"date":"2026-04-19","time":"17:11","amount":119880,"merchant":"은광주유소","usage":"주유(보통휘발유) 69조 7802","location":"PPG Korea 천안","quantity":"-","card_last4":"8912","note":""}
+]`;
+}
+
+// ========== AI 영수증 자동 인식 ==========
+const aiDropZone = document.getElementById('ai-drop-zone');
+const aiFileInput = document.getElementById('ai-files');
+aiDropZone.addEventListener('click', ()=>aiFileInput.click());
+aiDropZone.addEventListener('dragover', e=>{e.preventDefault(); aiDropZone.style.background='#dbe9ff';});
+aiDropZone.addEventListener('dragleave', e=>{aiDropZone.style.background='#f0f4fa';});
+aiDropZone.addEventListener('drop', e=>{
+  e.preventDefault(); aiDropZone.style.background='#f0f4fa';
+  handleAIFiles(e.dataTransfer.files);
+});
+aiFileInput.addEventListener('change', e=>handleAIFiles(e.target.files));
+
+// ===== PDF.js 동적 로딩 =====
+let pdfjsLoaded = false;
+async function loadPdfJs(){
+  if (window.pdfjsLib && pdfjsLoaded) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      pdfjsLoaded = true;
+      resolve();
+    };
+    s.onerror = () => reject(new Error('PDF.js 로드 실패. 인터넷 연결 확인 필요.'));
+    document.head.appendChild(s);
+  });
+}
+
+// ===== PDF를 페이지별 JPEG로 변환 =====
+async function pdfToImages(pdfDataUrl, scale=2.0){
+  await loadPdfJs();
+  const b64 = pdfDataUrl.split(',')[1];
+  const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
+  const pdf = await window.pdfjsLib.getDocument({data: u8}).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({scale});
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({canvasContext: ctx, viewport}).promise;
+    pages.push({
+      dataUrl: canvas.toDataURL('image/jpeg', 0.88),
+      width: viewport.width,
+      height: viewport.height,
+      pageNum: i
+    });
+  }
+  return pages;
+}
+
+// ===== bbox(좌표 비율)로 이미지 자르기 =====
+function cropImage(imageDataUrl, bbox){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let x = (Number(bbox.x)||0) * img.width;
+        let y = (Number(bbox.y)||0) * img.height;
+        let w = (Number(bbox.w)||1) * img.width;
+        let h = (Number(bbox.h)||1) * img.height;
+        x = Math.max(0, Math.min(x, img.width-10));
+        y = Math.max(0, Math.min(y, img.height-10));
+        w = Math.max(10, Math.min(w, img.width - x));
+        h = Math.max(10, Math.min(h, img.height - y));
+        // 잘림 방지를 위한 큰 여백 (20px → 사진 크기에 비례 추가)
+        const padBase = 25;
+        const padPct = 0.03; // bbox 크기의 3%
+        const padX = Math.min(Math.max(padBase, w*padPct), x);
+        const padY = Math.min(Math.max(padBase, h*padPct), y);
+        const padR = Math.min(Math.max(padBase, w*padPct), img.width - (x + w));
+        const padB = Math.min(Math.max(padBase, h*padPct), img.height - (y + h));
+        x -= padX; y -= padY;
+        w += padX + padR; h += padY + padB;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.88));
+      } catch(e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error('이미지 로드 실패'));
+    img.src = imageDataUrl;
+  });
+}
+
+// ===== 업로드된 파일 처리 (PDF는 자동으로 페이지별 이미지 변환) =====
+async function handleAIFiles(files){
+  const status = document.getElementById('ai-status');
+  for (const f of Array.from(files)){
+    const isImg = f.type.startsWith('image/');
+    const isPdf = f.type==='application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+    if (!isImg && !isPdf) continue;
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = ev => res(ev.target.result);
+      r.onerror = () => rej(new Error('파일 읽기 실패'));
+      r.readAsDataURL(f);
+    });
+    if (isPdf){
+      try {
+        if (status){ status.style.color='#1e3a8a'; status.textContent = `📄 PDF 변환 중: ${f.name}`; }
+        const pages = await pdfToImages(dataUrl);
+        pages.forEach((p, idx) => {
+          aiPendingFiles.push({
+            name: pages.length > 1 ? `${f.name} (p.${idx+1})` : f.name,
+            data: p.dataUrl,
+            mime: 'image/jpeg',
+            isPdf: false
+          });
+        });
+        if (status) status.textContent = '';
+      } catch(err){
+        alert(`PDF 변환 실패 (${f.name}): ${err.message}\n\n PDF를 이미지(스크린샷)로 저장하여 다시 업로드해보세요.`);
+      }
+    } else {
+      aiPendingFiles.push({
+        name: f.name,
+        data: dataUrl,
+        mime: f.type || 'image/jpeg',
+        isPdf: false
+      });
+    }
+    renderAIPending();
+  }
+}
+function renderAIPending(){
+  document.getElementById('ai-pending-row').style.display = aiPendingFiles.length?'flex':'none';
+  document.getElementById('ai-pending-count').textContent = aiPendingFiles.length;
+  document.getElementById('ai-pending-thumbs').innerHTML = aiPendingFiles.map((f,i)=>{
+    const inner = f.isPdf
+      ? `<div class="thumb-pdf" onclick="openPendingFile(${i},'ai')" title="${esc(f.name)}"><div class="pdf-icon">📄</div>PDF</div>`
+      : `<img class="thumb" src="${f.data}" onclick="openPendingFile(${i},'ai')" title="${esc(f.name)}">`;
+    return `<div style="position:relative;">
+      ${inner}
+      <button onclick="removeAIPending(${i})" style="position:absolute;top:-6px;right:-6px;background:#c53030;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1;">×</button>
+    </div>`;
+  }).join('');
+}
+function removeAIPending(i){
+  aiPendingFiles.splice(i,1);
+  renderAIPending();
+}
+function clearAIPending(){
+  aiPendingFiles = [];
+  aiResults = [];
+  renderAIPending();
+  document.getElementById('ai-results').innerHTML = '';
+  document.getElementById('ai-status').textContent = '';
+}
+
+async function runAIRecognition(){
+  if (!aiPendingFiles.length){ alert('먼저 영수증 이미지를 업로드해주세요.'); return; }
+  const cardSel = document.getElementById('ai-card').value;
+  const isAutoMode = cardSel === '__auto__';
+  if (!isAutoMode && !cardSel){ alert('사용 카드를 선택하거나 "🤖 AI 자동 분류"를 선택해주세요.'); return; }
+  if (isAutoMode && !DATA.cards.length){ alert('자동 분류 모드를 사용하려면 먼저 ① 카드 관리 탭에서 카드를 등록해주세요.'); return; }
+  saveSettings();
+
+  const provider = SETTINGS.provider;
+  const key = provider==='claude'?SETTINGS.claudeKey:SETTINGS.geminiKey;
+  if (!key){ alert(`⑦ AI 설정 탭에서 ${provider==='claude'?'Claude':'Gemini'} API 키를 입력해주세요.`); return; }
+
+  const btn = document.getElementById('ai-run-btn');
+  const status = document.getElementById('ai-status');
+  btn.disabled = true; btn.textContent = '🔄 분석 중...';
+  status.style.color = '#1e3a8a';
+  status.textContent = `${aiPendingFiles.length}장의 영수증을 일괄 분석 중입니다... (시간이 다소 걸릴 수 있습니다)`;
+  document.getElementById('ai-results').innerHTML = '';
+
+  try {
+    // ===== Step 1: 영수증 영역 탐지 =====
+    status.textContent = `🔍 1/3단계: 영수증 영역 탐지 중... (${aiPendingFiles.length}개 이미지)`;
+    const boundaryPrompt = buildBoundaryPrompt(aiPendingFiles.length);
+    let boundaries;
+    if (provider==='claude') {
+      boundaries = await callClaude(boundaryPrompt, aiPendingFiles, key);
+    } else {
+      boundaries = await callGemini(boundaryPrompt, aiPendingFiles, key);
+    }
+    if (!Array.isArray(boundaries) || !boundaries.length){
+      throw new Error('영수증 영역을 찾지 못했습니다. 이미지가 흐릿하거나 영수증이 없을 수 있습니다.');
+    }
+    boundaries = boundaries.filter(b => b && b.bbox && typeof b.bbox === 'object');
+    if (!boundaries.length){
+      throw new Error('AI 응답에서 유효한 bbox를 찾지 못했습니다.');
+    }
+
+    // ===== Step 2: 영수증 자르기 =====
+    status.textContent = `✂ 2/3단계: ${boundaries.length}개 영수증 자르기...`;
+    const croppedFiles = [];
+    for (let i = 0; i < boundaries.length; i++){
+      const b = boundaries[i];
+      const srcIdx = (typeof b.source_index === 'number') ? b.source_index : 0;
+      const sourceFile = aiPendingFiles[srcIdx];
+      if (!sourceFile) continue;
+      try {
+        const croppedDataUrl = await cropImage(sourceFile.data, b.bbox);
+        croppedFiles.push({
+          data: croppedDataUrl,
+          mime: 'image/jpeg',
+          isPdf: false,
+          name: `${sourceFile.name}_영수증${i+1}.jpg`,
+          _origSourceIdx: srcIdx,
+          _bbox: b.bbox,
+          _hint: b.hint || ''
+        });
+      } catch(e){
+        console.warn('영수증 자르기 실패:', e);
+      }
+    }
+    if (!croppedFiles.length){
+      throw new Error('영수증을 자르지 못했습니다.');
+    }
+
+    // ===== Step 3: 자른 영수증에서 디테일 추출 =====
+    status.textContent = `📋 3/3단계: ${croppedFiles.length}건의 영수증 정보 추출 중...`;
+    const placeHints = DATA.places.map(p=>`${p.name}${p.area?` (${p.area})`:''}${p.alias?` [별칭: ${p.alias}]`:''}`).join('\n');
+    const cardHints = DATA.cards.map(c=>{
+      const last4 = String(c.no||'').replace(/[^0-9]/g, '').slice(-4);
+      return `- [${c.type}] ${c.name} (카드번호: ${c.no}, 마지막 4자리: ${last4})`;
+    }).join('\n');
+    const extractPrompt = buildPrompt(placeHints, cardHints, croppedFiles.length, isAutoMode);
+    const filesForExtract = croppedFiles.map(f => ({
+      data: f.data,
+      mime: f.mime,
+      isPdf: false
+    }));
+    let parsed;
+    if (provider==='claude') {
+      parsed = await callClaude(extractPrompt, filesForExtract, key);
+    } else {
+      parsed = await callGemini(extractPrompt, filesForExtract, key);
+    }
+    if (!Array.isArray(parsed)){ throw new Error('AI 응답 형식이 올바르지 않습니다.'); }
+
+    // ===== 카드 매칭 (단계적 fallback) =====
+    // 등록된 카드의 매칭용 인덱스 구축
+    const cardIndex = DATA.cards.map(c => {
+      const digits = String(c.no || '').replace(/[^0-9]/g, '');
+      return {
+        id: c.id,
+        digits: digits,
+        last4: digits.slice(-4),
+        last3: digits.slice(-4, -1),  // 마지막 4자리 중 앞 3자리
+        bin6: digits.slice(0, 6),
+      };
+    }).filter(c => c.digits.length >= 4);
+
+    function smartMatchCard(rec){
+      // rec: AI 응답 객체 (card_last4, card_partial 포함)
+      const aiDigits = String(rec.card_last4 || '').replace(/[^0-9]/g, '');
+      const partial = String(rec.card_partial || '');
+      const partialDigits = partial.replace(/[^0-9]/g, '');
+      const recBin6 = partialDigits.slice(0, 6);
+
+      // 1차: 정확히 4자리 last4 일치
+      if (aiDigits.length === 4){
+        const hit = cardIndex.find(c => c.last4 === aiDigits);
+        if (hit) return { id: hit.id, reason: '1차: last4 정확 매칭' };
+      }
+      // 2차: 3자리 또는 2자리 → 등록 카드 last4의 앞 3자리(또는 2자리)와 일치
+      if (aiDigits.length >= 2 && aiDigits.length <= 3){
+        const candidates = cardIndex.filter(c => c.last4.startsWith(aiDigits));
+        if (candidates.length === 1) return { id: candidates[0].id, reason: `2차: ${aiDigits.length}자리 단독 매칭` };
+      }
+      // 3차: BIN(앞 6자리) 단독 매칭 — 영수증에 카드사 BIN이 보이는 경우
+      if (recBin6.length === 6){
+        const candidates = cardIndex.filter(c => c.bin6 === recBin6);
+        if (candidates.length === 1) return { id: candidates[0].id, reason: '3차: BIN 단독 매칭' };
+      }
+      // 4차: 등록 카드가 1장만 있고, 영수증에 카드 흔적이 있고, BIN 충돌 아닐 때 자동 매칭
+      if (cardIndex.length === 1 && (aiDigits || partialDigits)){
+        const single = cardIndex[0];
+        // BIN이 명확히 다르면 매칭하지 않음 (다른 카드사 사용)
+        if (recBin6.length === 6 && recBin6 !== single.bin6) {
+          return { id: '', reason: `BIN 불일치(${recBin6}≠${single.bin6}) — 다른 카드` };
+        }
+        return { id: single.id, reason: '4차: 단일 카드 + 흔적 일치' };
+      }
+      return { id: '', reason: aiDigits ? `미매칭(${aiDigits})` : '카드번호 식별 불가' };
+    }
+
+    // 결과 조합
+    aiResults = parsed.map((r, i) => {
+      const cropIdx = (typeof r.source_index === 'number') ? r.source_index : i;
+      const croppedFile = croppedFiles[cropIdx] || croppedFiles[i] || croppedFiles[0];
+      const safeName = String(r.merchant||'').replace(/[^\w가-힣]/g,'_').slice(0,30);
+      const receipt = {
+        name: `영수증_${i+1}${safeName?'_'+safeName:''}.jpg`,
+        data: croppedFile.data,
+        mime: 'image/jpeg',
+        isPdf: false
+      };
+      let resolvedCardId = '';
+      let matchReason = '';
+      if (isAutoMode){
+        const m = smartMatchCard(r);
+        resolvedCardId = m.id;
+        matchReason = m.reason;
+      } else {
+        resolvedCardId = cardSel;
+        matchReason = '수동 지정';
+      }
+      return {
+        ...r,
+        cardId: resolvedCardId,
+        _matchReason: matchReason,
+        receipt: receipt,
+        source_index: croppedFile._origSourceIdx,
+        bbox: croppedFile._bbox,
+        _idx: i
+      };
+    });
+    aiResults.sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+
+    const matched = aiResults.filter(r=>r.cardId).length;
+    const unmatched = aiResults.length - matched;
+    let msg = `✅ ${parsed.length}건 추출 완료 (${aiPendingFiles.length}개 파일 → ${boundaries.length}건 영역 → ${parsed.length}건 정보)`;
+    if (isAutoMode){
+      msg += ` 카드 매칭: ${matched}건 ✓ / ${unmatched}건 미매칭`;
+    } else {
+      msg += ' 검토 후 등록.';
+    }
+    status.textContent = msg;
+    renderAIResults();
+  } catch (err) {
+    console.error(err);
+    status.style.color='#c53030';
+    status.textContent = `❌ 오류: ${err.message}`;
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 AI 자동 인식 실행';
+  }
+}
+
+async function callClaude(prompt, files, key){
+  const content = [];
+  files.forEach(f=>{
+    const b64 = f.data.split(',')[1];
+    if (f.isPdf){
+      content.push({
+        type:'document',
+        source:{ type:'base64', media_type:'application/pdf', data:b64 }
+      });
+    } else {
+      content.push({
+        type:'image',
+        source:{ type:'base64', media_type:f.mime||'image/jpeg', data:b64 }
+      });
+    }
+  });
+  content.push({ type:'text', text:prompt });
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key': key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({
+      model: SETTINGS.claudeModel,
+      max_tokens: 8000,
+      messages:[{ role:'user', content }]
+    })
+  });
+  if (!res.ok){
+    const err = await res.text();
+    throw new Error(`Claude API 오류 (${res.status}): ${err.slice(0,300)}`);
+  }
+  const data = await res.json();
+  const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  return parseJSON(text);
+}
+
+async function callGemini(prompt, files, key){
+  const parts = [];
+  files.forEach(f=>{
+    const b64 = f.data.split(',')[1];
+    parts.push({ inline_data:{ mime_type:f.isPdf?'application/pdf':(f.mime||'image/jpeg'), data:b64 } });
+  });
+  parts.push({ text:prompt });
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${SETTINGS.geminiModel}:generateContent?key=${encodeURIComponent(key)}`;
+  const body = {
+    contents:[{ parts }],
+    generationConfig:{
+      temperature: 0.2,
+      maxOutputTokens: 8192,
+      responseMimeType: 'application/json'
+    }
+  };
+  // Gemini 2.5/3.x 는 thinking 모드를 끄면 응답 토큰 절약 가능
+  if (SETTINGS.geminiModel.startsWith('gemini-2.5') || SETTINGS.geminiModel.startsWith('gemini-3')){
+    body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{ 'content-type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok){
+    const err = await res.text();
+    throw new Error(`Gemini API 오류 (${res.status}): ${err.slice(0,300)}`);
+  }
+  const data = await res.json();
+  const cand = data.candidates?.[0];
+  const finishReason = cand?.finishReason || '';
+  const text = cand?.content?.parts?.map(p=>p.text||'').join('') || '';
+  if (!text){
+    throw new Error(`Gemini 응답이 비어 있습니다 (finishReason: ${finishReason}). 모델을 변경하거나 영수증 수를 줄여 다시 시도해주세요.`);
+  }
+  return parseJSON(text, finishReason==='MAX_TOKENS');
+}
+
+function parseJSON(text, mayBeTruncated){
+  let cleaned = text.replace(/```json|```/g,'').trim();
+  // 1차: 그대로 파싱
+  try { return JSON.parse(cleaned); } catch(e) {}
+  // 2차: [...] 추출
+  const m = cleaned.match(/\[[\s\S]*\]/);
+  if (m){
+    try { return JSON.parse(m[0]); } catch(e) {}
+  }
+  // 3차: 잘린 JSON 복구 시도 — 마지막 완전한 객체까지만 살리기
+  const startIdx = cleaned.indexOf('[');
+  if (startIdx >= 0){
+    let truncated = cleaned.slice(startIdx);
+    // 마지막 완전한 } 위치 찾기 (간단 알고리즘: 중괄호 깊이 추적)
+    let depth = 0, lastGood = -1, inStr = false, escape = false;
+    for (let i=0; i<truncated.length; i++){
+      const c = truncated[i];
+      if (escape){ escape=false; continue; }
+      if (c==='\\'){ escape=true; continue; }
+      if (c==='"'){ inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c==='{') depth++;
+      else if (c==='}'){ depth--; if (depth===0) lastGood = i; }
+    }
+    if (lastGood > 0){
+      const repaired = truncated.slice(0, lastGood+1) + ']';
+      try {
+        const arr = JSON.parse(repaired);
+        if (mayBeTruncated){
+          alert(`⚠ 응답이 토큰 한도에 도달하여 일부만 추출되었습니다.\n${arr.length}건만 등록 가능합니다. 영수증을 나눠서 업로드하세요.`);
+        }
+        return arr;
+      } catch(e) {}
+    }
+  }
+  throw new Error('AI 응답에서 JSON을 찾을 수 없습니다: ' + cleaned.slice(0, 300));
+}
+
+function renderAIResults(){
+  const wrap = document.getElementById('ai-results');
+  if (!aiResults.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = `
+    <div style="margin-top:14px; padding:10px; background:#f0f4fa; border-radius:5px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <b style="color:#1e3a8a;">📋 AI 추출 결과 (${aiResults.length}건) — 검토 후 등록</b>
+        <div>
+          <button class="btn" onclick="registerAllAIResults()">✅ 전체 등록</button>
+          <button class="btn sec" onclick="clearAIResults()">취소</button>
+        </div>
+      </div>
+      <table style="font-size:11px;">
+        <thead>
+          <tr>
+            <th style="width:36px;">#</th>
+            <th style="width:50px;">파일</th>
+            <th style="width:50px;">영수증</th>
+            <th style="width:100px;">일자</th>
+            <th style="width:90px;">금액</th>
+            <th>사용 내역</th>
+            <th style="width:160px;">카드 (자동 매칭)</th>
+            <th style="width:120px;">출장장소</th>
+            <th style="width:70px;">인원</th>
+            <th style="width:55px;">관리</th>
+          </tr>
+        </thead>
+        <tbody>
+        ${aiResults.map((r,i)=>{
+          const rcp = r.receipt;
+          const srcLabel = `#${(r.source_index||0)+1}`;
+          const rcpHtml = !rcp ? '-' :
+            (rcp.isPdf
+              ? `<div class="thumb-pdf" style="width:32px;height:32px;font-size:8px;" onclick="window.open('${rcp.data}','_blank')"><div class="pdf-icon" style="font-size:12px;">📄</div>PDF</div>`
+              : `<img class="thumb" style="width:32px;height:32px;" src="${rcp.data}" onclick="openModal('${rcp.data}')">`);
+          // 카드 셀렉트
+          const cardOpts = '<option value="">⚠ 카드 선택</option>' +
+            DATA.cards.map(c=>`<option value="${c.id}" ${r.cardId===c.id?'selected':''}>[${c.type[0]}] ${esc(c.name)} ${esc(String(c.no||'').replace(/[^0-9]/g,'').slice(-4))}</option>`).join('');
+          const matchedCard = DATA.cards.find(c=>c.id===r.cardId);
+          const cardBg = matchedCard ? (matchedCard.type==='법인카드'?'#dbeafe':'#fef3c7') : '#fee2e2';
+          const last4Hint = (r.card_last4 || r.card_partial) ? `<div style="font-size:9px;color:#888;text-align:center;margin-top:2px;">영수증: ${esc(r.card_partial || ('****-'+r.card_last4))}</div>` : '';
+          const matchHint = r._matchReason ? `<div style="font-size:9px;color:${r.cardId?'#15803d':'#c53030'};text-align:center;margin-top:1px;">${esc(r._matchReason)}</div>` : '';
+          return `
+          <tr>
+            <td class="ctr">${i+1}</td>
+            <td class="ctr"><span style="background:#e8edf5;color:#1e3a8a;padding:1px 5px;border-radius:8px;font-size:10px;font-weight:600;">${srcLabel}</span></td>
+            <td class="ctr" style="vertical-align:middle;">
+              ${rcpHtml}
+              <div style="margin-top:3px;"><button class="btn sm sec" style="font-size:9px;padding:2px 6px;" onclick="openBboxModal(${i})" title="영역 다시 선택">✂ 조정</button></div>
+            </td>
+            <td><input type="date" value="${r.date||''}" onchange="aiResults[${i}].date=this.value" style="width:100%;"></td>
+            <td><input type="number" value="${r.amount||0}" onchange="aiResults[${i}].amount=parseFloat(this.value)||0" style="width:100%;text-align:right;"></td>
+            <td><input type="text" value="${esc(r.usage||'')}" onchange="aiResults[${i}].usage=this.value" style="width:100%;" placeholder="${esc(r.merchant||'')}"></td>
+            <td>
+              <select onchange="aiResults[${i}].cardId=this.value;renderAIResults();" style="width:100%;background:${cardBg};">${cardOpts}</select>
+              ${last4Hint}
+              ${matchHint}
+            </td>
+            <td><input type="text" value="${esc(r.location||'')}" onchange="aiResults[${i}].location=this.value" style="width:100%;" placeholder="(빈칸)"></td>
+            <td><input type="text" value="${esc(r.quantity||'-')}" onchange="aiResults[${i}].quantity=this.value" style="width:100%;text-align:center;"></td>
+            <td class="ctr"><button class="btn sm danger" onclick="aiResults.splice(${i},1);renderAIResults();">제거</button></td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+      <p style="font-size:11px; color:#666; margin-top:6px;">
+        💡 <b>카드 컬럼</b>: 파란색=법인카드 / 노란색=개인카드 / 빨간색=미선택 (직접 선택 필요).
+        영수증의 카드 끝 4자리(****-XXXX)와 등록 카드의 끝 4자리가 일치하면 자동 매칭됩니다.
+      </p>
+    </div>`;
+}
+
+function clearAIResults(){
+  if (!confirm('AI 추출 결과를 모두 버리시겠습니까?')) return;
+  aiResults = [];
+  document.getElementById('ai-results').innerHTML='';
+  document.getElementById('ai-status').textContent='';
+}
+
+function registerAllAIResults(){
+  if (!aiResults.length) return;
+  let added = 0, skipped = 0, noCard = 0;
+  aiResults.forEach(r=>{
+    if (!r.date || !r.amount){ skipped++; return; }
+    if (!r.cardId){ noCard++; return; }
+    DATA.entries.push({
+      id:'E'+Date.now()+Math.random().toString(36).slice(2,6),
+      date:r.date,
+      cardId:r.cardId,
+      amount:Number(r.amount)||0,
+      loc:(r.location||'').trim()||'-',
+      qty:(r.quantity||'').trim()||'-',
+      usage:(r.usage||r.merchant||'').trim(),
+      receipts: r.receipt?[r.receipt]:[]
+    });
+    added++;
+  });
+  if (noCard > 0 || skipped > 0){
+    let warn = `✅ ${added}건 등록 완료`;
+    if (noCard > 0) warn += `\n⚠ ${noCard}건은 카드 미선택으로 등록되지 않았습니다 (카드 컬럼에서 선택 후 다시 시도)`;
+    if (skipped > 0) warn += `\n⚠ ${skipped}건은 일자/금액 누락으로 건너뜀`;
+    alert(warn);
+    if (noCard > 0){
+      // 카드 미선택 항목만 남기고 나머지는 제거
+      aiResults = aiResults.filter(r=>!r.cardId && r.date && r.amount);
+      renderAIResults();
+      document.getElementById('ai-status').textContent = `${added}건 등록됨. ${noCard}건은 카드 선택 후 재등록 필요.`;
+      renderEntries();
+      return;
+    }
+  }
+  aiPendingFiles = [];
+  aiResults = [];
+  renderAIPending();
+  document.getElementById('ai-results').innerHTML='';
+  document.getElementById('ai-status').textContent = `✅ ${added}건 등록 완료`;
+  renderEntries();
+}
+
+// ========== 사용 내역 ==========
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('e-files');
+dropZone.addEventListener('click', ()=>fileInput.click());
+dropZone.addEventListener('dragover', e=>{e.preventDefault(); dropZone.style.background='#eaf2ff';});
+dropZone.addEventListener('dragleave', e=>{dropZone.style.background='#fbfcfe';});
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.style.background='#fbfcfe';
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e=>handleFiles(e.target.files));
+
+function handleFiles(files){
+  Array.from(files).forEach(f=>{
+    const isImg = f.type.startsWith('image/');
+    const isPdf = f.type==='application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+    if (!isImg && !isPdf) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      pendingFiles.push({ name:f.name, data:ev.target.result, mime: isPdf?'application/pdf':(f.type||'image/jpeg'), isPdf });
+      renderPendingThumbs();
+    };
+    r.readAsDataURL(f);
+  });
+}
+function renderPendingThumbs(){
+  const c = document.getElementById('e-thumbs');
+  c.innerHTML = pendingFiles.map((f,i)=>{
+    if (f.isPdf){
+      return `<div class="thumb-pdf" onclick="openFile(${i}, 'pending')" title="${esc(f.name)}"><div class="pdf-icon">📄</div>PDF</div>`;
+    }
+    return `<img class="thumb" src="${f.data}" onclick="openModal('${f.data}')" title="${esc(f.name)}">`;
+  }).join('');
+}
+function openFile(i, src){
+  const f = src==='pending' ? pendingFiles[i] : aiPendingFiles[i];
+  if (!f) return;
+  if (f.isPdf){ window.open(f.data, '_blank'); }
+  else { openModal(f.data); }
+}
+function clearEntryForm(){
+  ['e-date','e-amount','e-loc','e-qty','e-usage'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('e-card').value='';
+  pendingFiles = [];
+  renderPendingThumbs();
+}
+function addEntry(){
+  const date = document.getElementById('e-date').value;
+  const cardId = document.getElementById('e-card').value;
+  const amount = parseFloat(document.getElementById('e-amount').value)||0;
+  const loc = document.getElementById('e-loc').value.trim() || '-';
+  const qty = document.getElementById('e-qty').value.trim() || '-';
+  const usage = document.getElementById('e-usage').value.trim();
+  if (!date || !cardId || !amount || !usage){ alert('일자, 카드, 금액, 사용 내역은 필수입니다.'); return; }
+  DATA.entries.push({
+    id:'E'+Date.now(), date, cardId, amount, loc, qty, usage,
+    receipts: pendingFiles.slice()
+  });
+  clearEntryForm();
+  renderEntries();
+}
+function deleteEntry(id){
+  if (!confirm('이 내역을 삭제하시겠습니까?')) return;
+  DATA.entries = DATA.entries.filter(e=>e.id!==id);
+  renderEntries();
+}
+
+// ===== 인라인 수정 기능 =====
+let editingEntryId = null;
+
+function editEntry(id){
+  editingEntryId = id;
+  renderEntries();
+  // 첫 번째 입력 필드에 포커스
+  setTimeout(()=>{
+    const el = document.getElementById('edit-date-' + id);
+    if (el) el.focus();
+  }, 50);
+}
+
+function cancelEditEntry(){
+  editingEntryId = null;
+  renderEntries();
+}
+
+function saveEditEntry(id){
+  const date = document.getElementById('edit-date-' + id).value;
+  const cardId = document.getElementById('edit-card-' + id).value;
+  const amount = Number(document.getElementById('edit-amount-' + id).value) || 0;
+  const loc = document.getElementById('edit-loc-' + id).value.trim() || '-';
+  const qty = document.getElementById('edit-qty-' + id).value.trim() || '-';
+  const usage = document.getElementById('edit-usage-' + id).value.trim();
+
+  if (!date){ alert('일자를 입력하세요.'); return; }
+  if (!cardId){ alert('카드를 선택하세요.'); return; }
+  if (!amount){ alert('금액을 입력하세요.'); return; }
+  if (!usage){ alert('사용 내역을 입력하세요.'); return; }
+
+  const entry = DATA.entries.find(e => e.id === id);
+  if (!entry) return;
+  entry.date = date;
+  entry.cardId = cardId;
+  entry.amount = amount;
+  entry.loc = loc;
+  entry.qty = qty;
+  entry.usage = usage;
+
+  editingEntryId = null;
+  renderEntries();
+}
+function renderEntries(){
+  const tb = document.querySelector('#entry-table tbody');
+  const fc = document.getElementById('filter-card').value;
+  const fm = document.getElementById('filter-month').value;
+  let list = DATA.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  if (fc) list = list.filter(e=>e.cardId===fc);
+  if (fm) list = list.filter(e=>e.date.startsWith(fm));
+  if (!list.length){ tb.innerHTML='<tr><td colspan="8" class="empty">등록된 내역이 없습니다.</td></tr>'; return; }
+  tb.innerHTML = list.map(e=>{
+    const card = DATA.cards.find(c=>c.id===e.cardId);
+    const cardLabel = card ? `<span class="tag ${card.type==='법인카드'?'corp':'priv'}">${card.type}</span> ${esc(card.name)}` : '<span style="color:#c00;">(삭제됨)</span>';
+    const thumbs = e.receipts.map(r=>{
+      if (r.isPdf) return `<div class="thumb-pdf" style="width:36px;height:36px;font-size:8px;" onclick="window.open('${r.data}','_blank')"><div class="pdf-icon" style="font-size:14px;">📄</div>PDF</div>`;
+      return `<img class="thumb" style="width:36px;height:36px;" src="${r.data}" onclick="openModal('${r.data}')">`;
+    }).join('');
+
+    // ★ 수정 모드: input 필드로 전환 ★
+    if (editingEntryId === e.id) {
+      const cardOptions = DATA.cards.map(c =>
+        `<option value="${c.id}" ${c.id===e.cardId?'selected':''}>[${c.type}] ${esc(c.name)}</option>`
+      ).join('');
+      return `<tr style="background:#fff7e0;">
+        <td class="ctr"><input type="date" id="edit-date-${e.id}" value="${e.date}" style="width:140px;"></td>
+        <td><select id="edit-card-${e.id}" style="width:100%;min-width:160px;">${cardOptions}</select></td>
+        <td><input type="text" id="edit-usage-${e.id}" value="${esc(e.usage).replace(/"/g,'&quot;')}" style="width:100%;min-width:180px;"></td>
+        <td class="num"><input type="number" id="edit-amount-${e.id}" value="${e.amount}" style="width:100px;text-align:right;"></td>
+        <td class="ctr"><input type="text" id="edit-loc-${e.id}" value="${esc(e.loc).replace(/"/g,'&quot;')}" style="width:120px;"></td>
+        <td class="ctr"><input type="text" id="edit-qty-${e.id}" value="${esc(e.qty).replace(/"/g,'&quot;')}" style="width:60px;text-align:center;"></td>
+        <td><div class="thumb-grid">${thumbs||'<span style="color:#aaa;">-</span>'}</div></td>
+        <td class="ctr" style="white-space:nowrap;">
+          <button class="btn sm" onclick="saveEditEntry('${e.id}')">💾 저장</button>
+          <button class="btn sm sec" onclick="cancelEditEntry()">취소</button>
+        </td>
+      </tr>`;
+    }
+
+    // 일반 모드
+    return `<tr>
+      <td class="ctr">${formatDate(e.date)}</td>
+      <td>${cardLabel}</td>
+      <td>${esc(e.usage)}</td>
+      <td class="num">${num(e.amount)}</td>
+      <td class="ctr">${esc(e.loc)}</td>
+      <td class="ctr">${esc(e.qty)}</td>
+      <td><div class="thumb-grid">${thumbs||'<span style="color:#aaa;">-</span>'}</div></td>
+      <td class="ctr" style="white-space:nowrap;">
+        <button class="btn sm" onclick="editEntry('${e.id}')">✏️ 수정</button>
+        <button class="btn sm danger" onclick="deleteEntry('${e.id}')">삭제</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ========== 일자별 영수증 철 ==========
+function renderDaily(){
+  const fc = document.getElementById('daily-card').value;
+  const fm = document.getElementById('daily-month').value;
+  let list = DATA.entries.slice();
+  if (fc) list = list.filter(e=>e.cardId===fc);
+  if (fm) list = list.filter(e=>e.date.startsWith(fm));
+  list.sort((a,b)=>a.date.localeCompare(b.date));
+  const groups = {};
+  list.forEach(e=>{ if(!groups[e.date]) groups[e.date]=[]; groups[e.date].push(e); });
+  const wrap = document.getElementById('daily-list');
+  if (!Object.keys(groups).length){
+    wrap.innerHTML='<div class="empty">표시할 내역이 없습니다.</div>';
+    return;
+  }
+  const dates = Object.keys(groups);
+  wrap.innerHTML = dates.map((dt, dayIdx)=>{
+    const items = groups[dt];
+    const sum = items.reduce((s,e)=>s+e.amount,0);
+    const isLast = dayIdx === dates.length - 1;
+    return `
+    <div class="receipt-day ${!isLast?'page-break':''}">
+      <div class="receipt-day-header">
+        <div class="dt">📅 ${formatDate(dt)}</div>
+        <div class="sum">일일 합계: <b>${num(sum)} 원</b> · 사용 ${items.length}건</div>
+      </div>
+      ${items.map(e=>{
+        const card = DATA.cards.find(c=>c.id===e.cardId);
+        const cardLabel = card
+          ? `<span class="tag ${card.type==='법인카드'?'corp':'priv'}">${card.type}</span> ${esc(card.name)} (${esc(card.no)})`
+          : '<span style="color:#c00;">(삭제된 카드)</span>';
+        return `<div class="receipt-entry">
+          <div class="receipt-entry-info">
+            <table class="receipt-info-tbl">
+              <tr>
+                <td class="lbl">사용 내역</td>
+                <td><b>${esc(e.usage)}</b></td>
+                <td class="lbl">금액</td>
+                <td><b style="color:#c53030;">${num(e.amount)} 원</b></td>
+              </tr>
+              <tr>
+                <td class="lbl">출장장소</td>
+                <td>${esc(e.loc)}</td>
+                <td class="lbl">투입인원</td>
+                <td>${esc(e.qty)}</td>
+              </tr>
+              <tr>
+                <td class="lbl">사용 카드</td>
+                <td colspan="3">${cardLabel}</td>
+              </tr>
+            </table>
+          </div>
+          ${e.receipts.length ? `
+            <div class="receipt-images">
+              ${e.receipts.map((r, ri)=>{
+                if (r.isPdf){
+                  return `<div class="receipt-pdf-wrap">
+                    <div class="receipt-pdf-header">
+                      <span>📄 ${esc(r.name||'영수증.pdf')}</span>
+                      <button class="btn sm sec no-print" onclick="openEntryReceipt('${e.id}', ${ri})">🔍 새 창에서 열기</button>
+                    </div>
+                    <embed src="${r.data}" type="application/pdf" class="receipt-pdf-embed">
+                  </div>`;
+                } else {
+                  return `<div class="receipt-image-wrap">
+                    <img class="receipt-img" src="${r.data}" onclick="openEntryReceipt('${e.id}', ${ri})" alt="영수증" title="클릭하여 확대 보기">
+                    <div class="receipt-img-caption">${esc(r.name||'영수증')}</div>
+                  </div>`;
+                }
+              }).join('')}
+            </div>
+          ` : '<div class="receipt-no-files">⚠ 첨부된 영수증 이미지/PDF 없음</div>'}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ========== 경비 내역서 출력 ==========
+function renderReport(){
+  const cardId = document.getElementById('rpt-card').value;
+  const from = document.getElementById('rpt-from').value;
+  const to = document.getElementById('rpt-to').value;
+  const loc = document.getElementById('rpt-loc').value.trim() || '-';
+  const writerId = document.getElementById('rpt-writer').value;
+  if (!cardId){ alert('카드를 선택해주세요.'); return; }
+  if (!from || !to){ alert('발생 시작일과 종료일을 입력해주세요.'); return; }
+  const card = DATA.cards.find(c=>c.id===cardId);
+  const writer = DATA.writers.find(w=>w.id===writerId);
+  const writerLabel = writer ? `${writer.dept} ${writer.rank} ${writer.name}` : '';
+  let list = DATA.entries.filter(e=>e.cardId===cardId && e.date>=from && e.date<=to);
+  list.sort((a,b)=>a.date.localeCompare(b.date));
+  const total = list.reduce((s,e)=>s+e.amount,0);
+
+  // 빈 행 채우기 제거 - 데이터 행 + 합계 행만 출력 (페이지 가득 채우는 빈 행 X)
+  // 페이지 분할은 @media print의 page-break-inside:avoid 가 자동 처리
+  const fill = 0;
+
+  const html = `
+  <div class="report-preview">
+    <div class="report-form">
+      <!-- 결재란 -->
+      <div class="approve-row">
+        <div class="approve-box approve-left">
+          <div class="approve-label">발생부서</div>
+          <div class="approve-cells">
+            <div class="approve-cell"><div class="ttl">작성</div><div class="sig"></div></div>
+            <div class="approve-cell"><div class="ttl">검토</div><div class="sig"></div></div>
+            <div class="approve-cell"><div class="ttl">승인</div><div class="sig"></div></div>
+          </div>
+        </div>
+        <div class="approve-spacer"></div>
+        <div class="approve-box approve-right">
+          <div class="approve-label">경리부서</div>
+          <div class="approve-cells">
+            <div class="approve-cell"><div class="ttl">담당</div><div class="sig"></div></div>
+            <div class="approve-cell"><div class="ttl">팀장</div><div class="sig"></div></div>
+            <div class="approve-cell"><div class="ttl">임원</div><div class="sig"></div></div>
+            <div class="approve-cell"><div class="ttl">사장</div><div class="sig"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 타이틀 -->
+      <div class="title-block">
+        <div class="logo-cell">
+          ${getReportLogoHTML()}
+        </div>
+        <div class="ttl-cell">업 무  경 비  내 역 서</div>
+      </div>
+
+      <!-- 정보 -->
+      <table class="info-table">
+        <colgroup>
+          <col style="width:12%"><col style="width:42%">
+          <col style="width:18%"><col style="width:28%">
+        </colgroup>
+        <tr>
+          <td class="lbl">출장장소</td><td class="val">${esc(loc)}</td>
+          <td class="lbl">카드번호</td><td class="val">${esc(card.no)}</td>
+        </tr>
+        <tr>
+          <td class="lbl">발생일자</td><td class="val"><b>${fmtRpt(from)} ~ ${fmtRpt(to)}</b></td>
+          <td class="lbl">작성자</td><td class="val">${esc(writerLabel)}</td>
+        </tr>
+      </table>
+
+      <!-- 본문 -->
+      <table class="detail-table">
+        <colgroup>
+          <col style="width:12%">
+          <col style="width:42%">
+          <col style="width:18%">
+          <col style="width:18%">
+          <col style="width:10%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th rowspan="2" class="lbl-sp">일 자</th>
+            <th rowspan="2" class="lbl-sp">사 용 내 역</th>
+            <th rowspan="2" class="lbl-sp">금 액 (원)</th>
+            <th colspan="2" class="bigo">비 고</th>
+          </tr>
+          <tr>
+            <th class="spl">출장장소</th>
+            <th class="spl">투입인원</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map((e,idx)=>{
+            const isLast = (idx === list.length-1) && fill===0;
+            return `
+            <tr${isLast?' class="last-data"':''}>
+              <td class="dt">${formatDate(e.date)}</td>
+              <td class="usg">${esc(e.usage)}</td>
+              <td class="amt">${num(e.amount)}</td>
+              <td class="loc">${esc(e.loc)}</td>
+              <td class="qty">${esc(e.qty)}</td>
+            </tr>`;
+          }).join('')}
+          ${Array.from({length:fill}).map((_,i)=>{
+            const isLast = (i === fill-1);
+            return `<tr${isLast?' class="last-data"':''}>
+              <td class="dt"></td><td class="usg"></td><td class="amt"></td><td class="loc"></td><td class="qty"></td>
+            </tr>`;
+          }).join('')}
+          <tr class="total-row">
+            <td colspan="2" class="lblt">합 계</td>
+            <td class="amtt">${num(total)} 원</td>
+            <td class="loc"></td>
+            <td class="qty"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer-rev">(Rev.1) 2022.03.17 bwy ㈜세종기술</div>
+    </div>
+  </div>`;
+  document.getElementById('report-preview-wrap').innerHTML = html;
+}
+
+function fmtRpt(d){
+  if (!d) return '';
+  const [y,m,dd] = d.split('-');
+  return `${y.slice(2)}. ${m}. ${dd}.`;
+}
+function formatDate(d){
+  if (!d) return '';
+  const [y,m,dd] = d.split('-');
+  return `${y.slice(2)}.${m}.${dd}`;
+}
+function num(n){ return Number(n||0).toLocaleString('ko-KR'); }
+function esc(s){ return String(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+// 안전한 인쇄 함수 (모달 닫기 + 약간의 딜레이로 렌더링 대기)
+function safePrint(){
+  const modal = document.getElementById('modal-bg');
+  if (modal) modal.classList.remove('active');
+  setTimeout(()=>{
+    try { window.print(); }
+    catch(e){ alert('인쇄 호출 실패: '+e.message); }
+  }, 200);
+}
+
+// ===== 인쇄 모드 자동 분기 (Ctrl+P 도 자동 처리) =====
+// 현재 활성 탭이 영수증 철이면 → 가로 + 페이지당 3장 모드
+// 그 외 (경비내역서) → 기존 세로 모드
+let _dailyListBackup = '';  // 영수증 철 원본 HTML 백업 (인쇄 후 복원용)
+
+window.addEventListener('beforeprint', () => {
+  const activePanel = document.querySelector('.panel.active');
+  if (activePanel && activePanel.id === 'panel-daily') {
+    document.body.classList.add('printing-receipts');
+    let pageStyle = document.getElementById('dynamic-page-style');
+    if (!pageStyle) {
+      pageStyle = document.createElement('style');
+      pageStyle.id = 'dynamic-page-style';
+      document.head.appendChild(pageStyle);
+    }
+    pageStyle.textContent = '@page { size:A4 landscape; margin:8mm; }';
+
+    // ★ 영수증 단위 분해 + 3장씩 print-row 묶기 + 사이에 page-breaker 삽입 ★
+    const list = document.getElementById('daily-list');
+    if (list) {
+      // 원본 HTML 백업 (afterprint에서 복원)
+      _dailyListBackup = list.innerHTML;
+
+      const days = Array.from(list.children).filter(el => el.classList.contains('receipt-day'));
+      if (days.length){
+        // 1단계: receipt-day 안의 receipt-entry가 여러 개면 → 영수증 1개씩 별도의 receipt-day로 분해
+        const splitDays = [];
+        days.forEach(day => {
+          const header = day.querySelector('.receipt-day-header');
+          const entries = Array.from(day.querySelectorAll(':scope > .receipt-entry'));
+          if (entries.length <= 1){
+            splitDays.push(day.cloneNode(true));
+          } else {
+            entries.forEach(entry => {
+              const newDay = document.createElement('div');
+              newDay.className = 'receipt-day';
+              if (header) newDay.appendChild(header.cloneNode(true));
+              newDay.appendChild(entry.cloneNode(true));
+              splitDays.push(newDay);
+            });
+          }
+        });
+
+        // 2단계: 분해된 영수증을 3장씩 print-row 로 묶기
+        // (페이지 분할은 CSS의 .print-row:not(:last-of-type) { break-after:page } 가 처리)
+        list.innerHTML = '';
+        for (let i = 0; i < splitDays.length; i += 3){
+          const row = document.createElement('div');
+          row.className = 'print-row';
+          for (let j = i; j < Math.min(i + 3, splitDays.length); j++){
+            row.appendChild(splitDays[j]);
+          }
+          list.appendChild(row);
+        }
+      }
+    }
+  }
+});
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('printing-receipts');
+  const pageStyle = document.getElementById('dynamic-page-style');
+  if (pageStyle) pageStyle.textContent = '';
+
+  // ★ 원본 영수증 철 HTML 복원 ★
+  const list = document.getElementById('daily-list');
+  if (list && _dailyListBackup) {
+    list.innerHTML = _dailyListBackup;
+    _dailyListBackup = '';
+  }
+});
+
+function openModal(src){
+  document.getElementById('modal-img').src = src;
+  document.getElementById('modal-bg').classList.add('active');
+}
+function closeModal(e){
+  if (e.target.id==='modal-bg'){ document.getElementById('modal-bg').classList.remove('active'); }
+}
+
+// Blob URL로 변환하여 새 창에서 열기 (PDF/이미지 모두 지원)
+function openInNewTab(dataUrl){
+  if (!dataUrl) return;
+  try {
+    const arr = dataUrl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--){ u8arr[n] = bstr.charCodeAt(n); }
+    const blob = new Blob([u8arr], {type: mime});
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  } catch(e) {
+    alert('파일 열기 실패: ' + e.message);
+  }
+}
+
+// 등록된 내역의 영수증 클릭 (인덱스 기반, 효율적)
+function openEntryReceipt(entryId, ri){
+  const e = DATA.entries.find(en=>en.id===entryId);
+  if (!e || !e.receipts[ri]) return;
+  const r = e.receipts[ri];
+  if (r.isPdf) openInNewTab(r.data);
+  else openModal(r.data);
+}
+
+// pendingFiles / aiPendingFiles 클릭 처리 (수동 입력, AI 업로드 대기열)
+function openPendingFile(idx, src){
+  const r = (src==='ai') ? aiPendingFiles[idx] : pendingFiles[idx];
+  if (!r) return;
+  if (r.isPdf) openInNewTab(r.data);
+  else openModal(r.data);
+}
+
+// AI 결과 영수증 클릭
+function openAIResultReceipt(idx){
+  const r = aiResults[idx]?.receipt;
+  if (!r) return;
+  if (r.isPdf) openInNewTab(r.data);
+  else openModal(r.data);
+}
+
+// 기존 openFile 호환 (하위 호환용)
+function openFile(i, src){
+  if (src==='pending') openPendingFile(i, 'pending');
+  else openPendingFile(i, 'ai');
+}
+
+// ========== 데이터 입출력 ==========
+async function exportJson(){
+  const today = new Date().toISOString().slice(0,10);
+  const defaultName = `expense_data_${today}.json`;
+  const jsonStr = JSON.stringify(DATA, null, 2);
+  const blob = new Blob([jsonStr], {type:'application/json'});
+
+  // ① 모던 브라우저 (Chrome/Edge): 사용자가 저장 위치/파일명 직접 선택
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: defaultName,
+        types: [{
+          description: '경비 내역서 데이터 (JSON)',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      alert('JSON 파일을 저장했습니다.');
+      return;
+    } catch(err) {
+      // 사용자가 취소(AbortError)한 경우는 조용히 종료
+      if (err.name === 'AbortError') return;
+      console.warn('showSaveFilePicker 실패, 기본 다운로드로 fallback:', err);
+      // 그 외 에러는 fallback 으로 진행
+    }
+  }
+
+  // ② Fallback: showSaveFilePicker 미지원 브라우저 (Firefox 등) — 파일명만 입력받기
+  const fileName = prompt('저장할 파일명을 입력하세요 (브라우저 기본 다운로드 폴더에 저장됩니다):', defaultName);
+  if (fileName === null) return;  // 취소
+  const finalName = fileName.trim() || defaultName;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = finalName.endsWith('.json') ? finalName : finalName + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function importJson(ev){
+  const f = ev.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const obj = JSON.parse(e.target.result);
+      if (!obj.cards || !obj.entries) { alert('잘못된 데이터 파일입니다.'); return; }
+      if (!confirm('현재 데이터가 모두 대체됩니다. 진행하시겠습니까?')) return;
+      DATA = { cards: obj.cards||[], writers: obj.writers||[], places: obj.places||[], entries: obj.entries||[] };
+      renderAll();
+      alert('불러오기 완료.');
+    } catch(err) { alert('파일 읽기 실패: '+err.message); }
+  };
+  r.readAsText(f);
+  ev.target.value='';
+}
+function resetAll(){
+  if (!confirm('모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+  if (!confirm('정말로 초기화하시겠습니까?')) return;
+  DATA = { cards:[], writers:[], places:[], entries:[] };
+  renderAll();
+}
+function renderSummary(){
+  const totalAmt = DATA.entries.reduce((s,e)=>s+e.amount,0);
+  const corpAmt = DATA.entries.filter(e=>{const c=DATA.cards.find(x=>x.id===e.cardId); return c&&c.type==='법인카드';}).reduce((s,e)=>s+e.amount,0);
+  const privAmt = DATA.entries.filter(e=>{const c=DATA.cards.find(x=>x.id===e.cardId); return c&&c.type==='개인카드';}).reduce((s,e)=>s+e.amount,0);
+  const recCount = DATA.entries.reduce((s,e)=>s+(e.receipts?.length||0),0);
+  document.getElementById('data-summary').innerHTML = `
+    · 등록 카드: <b>${DATA.cards.length}</b>장 (법인 ${DATA.cards.filter(c=>c.type==='법인카드').length} / 개인 ${DATA.cards.filter(c=>c.type==='개인카드').length})<br>
+    · 등록 작성자: <b>${DATA.writers.length}</b>명<br>
+    · 등록 출장지/거래처: <b>${DATA.places.length}</b>곳<br>
+    · 사용 내역: <b>${DATA.entries.length}</b>건<br>
+    · 첨부 영수증: <b>${recCount}</b>장<br>
+    · 총 사용 금액: <b>${num(totalAmt)} 원</b><br>
+    &nbsp;&nbsp;- 법인카드 합계: ${num(corpAmt)} 원<br>
+    &nbsp;&nbsp;- 개인카드 합계: ${num(privAmt)} 원
+  `;
+}
+
+function renderAll(){
+  renderCards();
+  renderWriters();
+  renderPlaces();
+  refreshCardSelects();
+  refreshWriterSelects();
+  refreshAICardSelect();
+  renderEntries();
+  refreshLogos();
+}
+
+// ========== 초기화 ==========
+renderAll();
+// 오늘 날짜 기본값
+document.getElementById('e-date').value = new Date().toISOString().slice(0,10);
+</script>
+</body>
+</html>
