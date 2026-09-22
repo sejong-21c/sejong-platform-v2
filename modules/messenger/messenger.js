@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b80';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 영수증읽기, 표묻기, 화면고르기 } from './ai.js?v=b80';
+import * as L from './lib.js?v=b81';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 영수증읽기, 표묻기, 화면고르기 } from './ai.js?v=b81';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -894,7 +894,10 @@ async function 엑셀받기(mid) {
     const buf = await wb.xlsx.writeBuffer();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-    a.download = `센결과_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    // **UTC 를 쓰면 새벽에 하루 밀린다.** 한국은 +9 라 오전 9시 전에는 어제 날짜가 박힌다
+    //   (2026-09-23 05시에 받았더니 파일 이름이 09-22 였다). 사람이 날짜로 정리하니 현지 날짜로 쓴다.
+    const 오늘 = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    a.download = `센결과_${오늘}.xlsx`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   } catch (e) {
