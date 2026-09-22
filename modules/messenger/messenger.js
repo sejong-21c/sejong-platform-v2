@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b72';
-import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b72';
+import * as L from './lib.js?v=b73';
+import { AI_CID, AI_UID, AI_컬렉션, 답하기, 사내문서, 표묻기 } from './ai.js?v=b73';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -1205,7 +1205,10 @@ async function AI맥락(문서, 표 = null) {
     //   줄 수를 밝히고, 합이 필요하면 SQL 이 이미 낸 값만 쓰라고 못 박는다.
     const 보일것 = 표.줄.slice(0, 40);
     줄.push(`결과 ${표.줄.length}줄 중 ${보일것.length}줄:`);
-    for (const r of 보일것) 줄.push(JSON.stringify(r));
+    // 부동소수 꼬리를 자른다. SUM() 이 147377.56666666668 을 내면 모델이 그 긴 수를 그대로 답한다
+    //   — 부장님께 보이는 건 금액이므로 소수 둘째 자리까지면 된다(2026-09-22 실측).
+    const 반올림 = (k, v) => (typeof v === 'number' && !Number.isInteger(v) ? Math.round(v * 100) / 100 : v);
+    for (const r of 보일것) 줄.push(JSON.stringify(r, 반올림));
     줄.push("**이 줄들을 네가 직접 더하거나 세지 마라.** 이미 SQL 이 센 값이다. 합계가 필요한데");
     줄.push("위에 없으면 \"합계는 따로 세어 봐야 한다\" 고 말해라 — 손으로 더하면 틀린다.");
     if (표.잘림 || 표.줄.length > 보일것.length) 줄.push("(줄이 더 있어 잘렸다 — 다 보여 주지 못했다고 밝힐 것)");
