@@ -1863,6 +1863,119 @@ async function 맥인식() {
   }
 }
 
+// ===== 플랫폼 저장 (2026-09-23) =====
+// 왜: 지금까지 자료가 **JSON 파일 하나**였다. 내보내고 불러오는 걸 사람이 기억해야 했고,
+//   다른 PC 에서는 못 봤다. 이제 플랫폼 안에 있으니 저장도 플랫폼이 한다.
+// **왜 둘로 나누나:** 영수증이 base64 로 DATA 안에 들어간다. 몇 장만 담아도 Firestore
+//   한 문서 한도(1MB)를 그냥 넘는다. 그래서 **파일은 R2, 나머지만 Firestore**.
+//   R2 열쇠는 ASCII 만 된다(게이트웨이 규칙) — 한글 파일 이름은 열쇠로 못 쓴다.
+//   보이는 이름(name)은 그대로 두고 열쇠는 `expense/<내역id>/<번호>.<확장자>` 로 만든다.
+// 화면에 뜰 때는 서명 주소(url)를 쓴다. 서명은 한 시간짜리라 **열 때마다 새로 받는다**.
+const 경비칸 = 't_expense', 경비문서 = 'main';
+let _마지막판 = null, _저장중 = false, _불러옴 = false;
+
+function 부모fb() {
+  try { const p = window.parent; return (p && p !== window && p.fb && p.fb.db) ? p.fb : null; }
+  catch (e) { return null; }   // 크로스오리진이면 못 읽는다 — 그때는 예전처럼 JSON 으로 쓴다
+}
+
+function 볼주소(f) { return (f && (f.url || f.data)) || ''; }
+
+async function 파일올리기(열쇠, dataUrl, mime) {
+  const b64 = String(dataUrl || '').replace(/^data:[^,]*,/, '');
+  const 글 = atob(b64);
+  const 바이트 = new Uint8Array(글.length);
+  for (let i = 0; i < 글.length; i++) 바이트[i] = 글.charCodeAt(i);
+  const r = await fetch(`${게이트웨이주소}/file/put?key=${encodeURIComponent(열쇠)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': mime || 'application/octet-stream', Authorization: await 회사토큰() },
+    body: 바이트,
+  });
+  if (!r.ok) throw new Error('파일 올리기 실패 ' + r.status);
+}
+
+async function 주소받기(열쇠들) {
+  const 것 = [...new Set(열쇠들.filter(Boolean))];
+  const 결과 = {};
+  for (let i = 0; i < 것.length; i += 50) {          // 게이트웨이가 한 번에 50개까지 서명한다
+    const r = await fetch(`${게이트웨이주소}/file/sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: await 회사토큰() },
+      body: JSON.stringify({ keys: 것.slice(i, i + 50) }),
+    });
+    if (!r.ok) continue;
+    Object.assign(결과, (await r.json()).urls || {});
+  }
+  return 결과;
+}
+
+const 열쇠안전 = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '') || 'x';
+
+/** Firestore 에 넣을 판 — base64(data)와 화면용 서명 주소(url)는 뺀다. */
+function 저장할판() {
+  return JSON.parse(JSON.stringify(DATA, (k, v) => (k === 'data' || k === 'url') ? undefined : v));
+}
+
+async function 경비저장() {
+  const fb = 부모fb();
+  if (!fb || _저장중 || !_불러옴) return;              // 불러오기 전에 저장하면 빈 판이 덮어쓴다
+  _저장중 = true;
+  try {
+    // ① 아직 안 올라간 영수증을 R2 로. data 는 화면용으로 남겨 두고 저장본에서만 뺀다.
+    for (const e of (DATA.entries || [])) {
+      const rs = e.receipts || [];
+      for (let i = 0; i < rs.length; i++) {
+        const f = rs[i];
+        if (!f || f.key || !f.data) continue;
+        const 확장 = f.isPdf ? 'pdf' : ((String(f.mime || '').split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg');
+        const 열쇠 = `expense/${열쇠안전(e.id)}/${i}.${확장}`;
+        await 파일올리기(열쇠, f.data, f.mime);
+        f.key = 열쇠;
+      }
+    }
+    // 회사 로고도 base64 라 같이 올린다 — 안 그러면 이것만으로 한도를 먹는다.
+    const ci = DATA.companyInfo || (DATA.companyInfo = {});
+    if (ci.logo && !ci.logoKey) {
+      await 파일올리기('expense/logo.png', ci.logo, 'image/png');
+      ci.logoKey = 'expense/logo.png';
+    }
+    const 판 = JSON.stringify(저장할판());
+    if (판 === _마지막판) return;                      // 바뀐 게 없으면 쓰지 않는다(읽기·쓰기 한도)
+    await fb.setDoc(fb.doc(fb.db, 경비칸, 경비문서), JSON.parse(판));
+    _마지막판 = 판;
+  } catch (e) {
+    console.warn('[경비 저장]', e);
+  } finally { _저장중 = false; }
+}
+
+async function 경비불러오기() {
+  const fb = 부모fb();
+  if (!fb) { _불러옴 = true; return; }                 // 혼자 열었을 때는 예전처럼 JSON 으로
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, 경비칸, 경비문서));
+    if (snap.exists()) {
+      const 온것 = snap.data() || {};
+      DATA = Object.assign({ cards: [], writers: [], places: [], entries: [], companyInfo: {} }, 온것);
+      _마지막판 = JSON.stringify(저장할판());
+      // 서명 주소를 받아 화면에 붙인다. 한 시간짜리라 열 때마다 새로 받는다.
+      const 열쇠들 = [];
+      for (const e of DATA.entries || []) for (const f of (e.receipts || [])) if (f && f.key) 열쇠들.push(f.key);
+      if (DATA.companyInfo && DATA.companyInfo.logoKey) 열쇠들.push(DATA.companyInfo.logoKey);
+      if (열쇠들.length) {
+        const 주소 = await 주소받기(열쇠들);
+        for (const e of DATA.entries || []) for (const f of (e.receipts || [])) if (f && f.key && 주소[f.key]) f.url = 주소[f.key];
+        if (DATA.companyInfo.logoKey && 주소[DATA.companyInfo.logoKey]) DATA.companyInfo.logo = 주소[DATA.companyInfo.logoKey];
+      }
+    }
+  } catch (e) {
+    console.warn('[경비 불러오기]', e);
+  } finally {
+    _불러옴 = true;
+    try { renderCards(); renderWriters(); renderPlaces(); renderEntries(); refreshCardSelects(); refreshWriterSelects(); } catch (e) { /* 아직 화면이 없으면 그만 */ }
+  }
+}
+
+
 async function runAIRecognition(){
   if (!aiPendingFiles.length){ alert('먼저 영수증 이미지를 업로드해주세요.'); return; }
   const cardSel = document.getElementById('ai-card').value;
@@ -2153,8 +2266,8 @@ function renderAIResults(){
           const srcLabel = `#${(r.source_index||0)+1}`;
           const rcpHtml = !rcp ? '-' :
             (rcp.isPdf
-              ? `<div class="thumb-pdf" style="width:32px;height:32px;font-size:8px;" onclick="window.open('${rcp.data}','_blank')"><div class="pdf-icon" style="font-size:12px;">📄</div>PDF</div>`
-              : `<img class="thumb" style="width:32px;height:32px;" src="${rcp.data}" onclick="openModal('${rcp.data}')">`);
+              ? `<div class="thumb-pdf" style="width:32px;height:32px;font-size:8px;" onclick="window.open('${볼주소(rcp)}','_blank')"><div class="pdf-icon" style="font-size:12px;">📄</div>PDF</div>`
+              : `<img class="thumb" style="width:32px;height:32px;" src="${볼주소(rcp)}" onclick="openModal('${볼주소(rcp)}')">`);
           // 카드 셀렉트
           const cardOpts = '<option value="">⚠ 카드 선택</option>' +
             DATA.cards.map(c=>`<option value="${c.id}" ${r.cardId===c.id?'selected':''}>[${c.type[0]}] ${esc(c.name)} ${esc(String(c.no||'').replace(/[^0-9]/g,'').slice(-4))}</option>`).join('');
@@ -2361,8 +2474,8 @@ function renderEntries(){
     const card = DATA.cards.find(c=>c.id===e.cardId);
     const cardLabel = card ? `<span class="tag ${card.type==='법인카드'?'corp':'priv'}">${card.type}</span> ${esc(card.name)}` : '<span style="color:#c00;">(삭제됨)</span>';
     const thumbs = e.receipts.map(r=>{
-      if (r.isPdf) return `<div class="thumb-pdf" style="width:36px;height:36px;font-size:8px;" onclick="window.open('${r.data}','_blank')"><div class="pdf-icon" style="font-size:14px;">📄</div>PDF</div>`;
-      return `<img class="thumb" style="width:36px;height:36px;" src="${r.data}" onclick="openModal('${r.data}')">`;
+      if (r.isPdf) return `<div class="thumb-pdf" style="width:36px;height:36px;font-size:8px;" onclick="window.open('${볼주소(r)}','_blank')"><div class="pdf-icon" style="font-size:14px;">📄</div>PDF</div>`;
+      return `<img class="thumb" style="width:36px;height:36px;" src="${볼주소(r)}" onclick="openModal('${볼주소(r)}')">`;
     }).join('');
 
     // ★ 수정 모드: input 필드로 전환 ★
@@ -2729,24 +2842,24 @@ function openEntryReceipt(entryId, ri){
   const e = DATA.entries.find(en=>en.id===entryId);
   if (!e || !e.receipts[ri]) return;
   const r = e.receipts[ri];
-  if (r.isPdf) openInNewTab(r.data);
-  else openModal(r.data);
+  if (r.isPdf) openInNewTab(볼주소(r));
+  else openModal(볼주소(r));
 }
 
 // pendingFiles / aiPendingFiles 클릭 처리 (수동 입력, AI 업로드 대기열)
 function openPendingFile(idx, src){
   const r = (src==='ai') ? aiPendingFiles[idx] : pendingFiles[idx];
   if (!r) return;
-  if (r.isPdf) openInNewTab(r.data);
-  else openModal(r.data);
+  if (r.isPdf) openInNewTab(볼주소(r));
+  else openModal(볼주소(r));
 }
 
 // AI 결과 영수증 클릭
 function openAIResultReceipt(idx){
   const r = aiResults[idx]?.receipt;
   if (!r) return;
-  if (r.isPdf) openInNewTab(r.data);
-  else openModal(r.data);
+  if (r.isPdf) openInNewTab(볼주소(r));
+  else openModal(볼주소(r));
 }
 
 // 기존 openFile 호환 (하위 호환용)
@@ -2851,6 +2964,14 @@ function renderAll(){
 renderAll();
 // 오늘 날짜 기본값
 document.getElementById('e-date').value = new Date().toISOString().slice(0,10);
+
+// 자동 저장 — 함수가 마흔 개라 각각에 저장을 박지 않는다. **판이 바뀌었는지**만 주기로 본다.
+//   어느 함수가 DATA 를 고쳐도 빠지지 않는다. 떠날 때도 한 번 더 민다.
+setInterval(() => { 경비저장(); }, 4000);
+window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') 경비저장(); });
+window.addEventListener('pagehide', () => { 경비저장(); });
+경비불러오기();
+
 </script>
 </body>
 </html>
