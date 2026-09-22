@@ -287,6 +287,61 @@ async function 한번부르기(p, sys, 히스토리, 질문, auth) {
 }
 
 /** 질문 하나 → 답 하나. 앞 회사가 실패하면 다음 회사로 넘어가고, 전부 실패하면 마지막 이유를 던진다. */
+// ── 플랫폼 기록 세기 (2026-09-22) ─────────────────────────────────────────
+// 왜 따로 만드나: 검색은 **비슷한 것 몇 개**를 골라 오는 일이라 "몇 건이냐" 에 못 쓴다.
+//   조각 열 개를 받아 세면 열 건이라고 답한다 — 그럴듯한데 틀린 수다(제일 나쁜 종류).
+//   세는 건 Firestore 가 직접 한다. getCountFromServer 는 문서를 안 받고 수만 받으므로
+//   컬렉션당 읽기 **1회**다. (전 컬렉션을 훑다가 무료 하루 5만 읽기를 태운 적이 있다 — 2026-09-18)
+// 권한: 보안 규칙이 그대로 걸린다. 못 읽는 컬렉션은 예외가 나고 그 줄만 조용히 빠진다.
+export const 셀것 = [
+  { 이름: '부적합(NCR)', 컬렉션: 't_ncrs', 날짜: 'issuedAt', 별칭: ['ncr', '부적합', '부적합보고서'] },
+  { 이름: '시정조치(CAR)', 컬렉션: 't_cars', 날짜: 'issuedAt', 별칭: ['car', '시정조치', '시정조치요구서'] },
+  { 이름: '회의록', 컬렉션: 'meetingMinutes', 날짜: 'date', 별칭: ['회의록'] },
+  { 이름: '회의실 예약', 컬렉션: 'meetingReservations', 날짜: 'date', 별칭: ['회의실예약', '회의예약'] },
+  { 이름: '측정기구', 컬렉션: 'measurementTools', 별칭: ['측정기구', '계측기', '측정기'] },
+  { 이름: '측정기구 반출입', 컬렉션: 'measurementCheckouts', 별칭: ['반출입', '반출', '반입'] },
+  { 이름: '자산 기기', 컬렉션: 't_devices', 별칭: ['자산대장', '기기대장', '자산'] },
+  { 이름: '소프트웨어 라이선스', 컬렉션: 't_licenses', 별칭: ['라이선스'] },
+  { 이름: 'ITP·QA 문서', 컬렉션: 't_itpBuilderDocs', 별칭: ['itp', 'qa문서'] },
+];
+
+// "올해"·"작년"·"2025년" 을 연도로. 없으면 null(전체를 센다).
+function 연도뽑기(질문) {
+  const m = String(질문 || '').match(/(20\d{2})\s*년?/);
+  if (m) return m[1];
+  const 올 = new Date().getFullYear();
+  if (/올해|금년|이번\s*해|올 해/.test(질문)) return String(올);
+  if (/작년|지난해|지난 해/.test(질문)) return String(올 - 1);
+  if (/재작년/.test(질문)) return String(올 - 2);
+  return null;
+}
+
+/** 질문에 나온 기록 종류를 골라 **Firestore 에서 직접 센다.** 세는 질문이 아니면 부르지 않는다. */
+export async function 기록세기(질문, fb) {
+  // fb 에 getCountFromServer 가 없으면 옛 껍데기를 쓰고 있는 것이다 — 조용히 건너뛴다.
+  if (!fb || typeof fb.getCountFromServer !== 'function' || !fb.db) return [];
+  const g = 다듬(질문);
+  const 고른 = 셀것.filter((s) => s.별칭.some((a) => g.includes(다듬(a)))).slice(0, 3);
+  if (!고른.length) return [];
+  const 해 = 연도뽑기(질문);
+  const 답 = [];
+  for (const s of 고른) {
+    try {
+      const 밑 = fb.collection(fb.db, s.컬렉션);
+      // 날짜는 전부 'YYYY-MM-DD' 문자열이라 한 필드 범위로 끝난다 — 복합 색인이 필요 없다.
+      const q = (해 && s.날짜)
+        ? fb.query(밑, fb.where(s.날짜, '>=', 해 + '-01-01'), fb.where(s.날짜, '<=', 해 + '-12-31'))
+        : fb.query(밑);
+      const r = await fb.getCountFromServer(q);
+      답.push({ 이름: s.이름, 수: r.data().count, 해: (해 && s.날짜) ? 해 : null });
+    } catch (e) {
+      // 권한이 없거나 컬렉션이 없다. **말없이 빼지 않는다** — 안 센 걸 사람이 알아야 한다.
+      답.push({ 이름: s.이름, 오류: String(e && e.message || e).slice(0, 80) });
+    }
+  }
+  return 답;
+}
+
 // ── 답에 나온 화면 이름 고르기 ─────────────────────────────────────────────
 // 왜 이게 필요한가: 모델은 화면 이름만 알고 **버튼·차례는 모른다.** 그런데 "어떻게 하나요" 를
 //   물으면 아는 척 지어낸다("업무 등록 버튼 선택"). 프롬프트로 네 번(b69~b72) 막아 봤지만 졌다.

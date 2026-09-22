@@ -30,7 +30,8 @@
     initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
     getDocsFromCache, getDocFromCache,
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
-    query, where, orderBy, limit, documentId
+    query, where, orderBy, limit, documentId,
+    getCountFromServer   // v30.17: 세는 질문 — 문서를 안 받고 수만 받는다(컬렉션당 읽기 1회)
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -58,6 +59,7 @@
 
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit, documentId, // documentId: v29.59 AI 비서 ITP 문서 범위 쿼리용
+    getCountFromServer,                       // v30.17: 세는 질문. 전체를 훑으면 무료 한도를 태운다 — 태운 적 있다
     getDocsFromCache, getDocFromCache,        // 서버가 못 줄 때(한도·망) 캐시로 들어가려고 — hydrateUsersAndEnter
   };
 </script>
