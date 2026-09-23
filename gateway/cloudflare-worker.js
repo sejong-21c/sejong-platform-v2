@@ -775,13 +775,28 @@ async function 열기(env, 덩이) {
   return new TextDecoder().decode(pt);
 }
 
+// 같은 isolate 안에서만 잠깐 쥐고 있는다. 한 사람이 연달아 물을 때마다 Firestore 를 읽으면
+//   하루 읽기 한도(5만)를 열쇠 조회로 태운다 — 한도를 넘긴 사람일수록 더 자주 온다.
+const 열쇠캐시 = new Map();              // uid → { 열쇠, provider, exp }
+const 열쇠수명밀리초 = 5 * 60 * 1000;
+
+// { 열쇠, 못읽음 } — **"없다" 와 "못 읽었다" 는 다르다.** 둘을 같게 다루면 읽기 한도가 찬 날
+//   열쇠를 맡긴 사람에게 "등록하세요" 라고 말하게 된다. 맡겼는데.
 async function 개인열쇠읽기(env, uid, 제공자) {
-  if (!env.FIREBASE_SA_KEY || !env.KEY_SECRET) return null;
+  if (!env.FIREBASE_SA_KEY || !env.KEY_SECRET) return { 열쇠: null, 못읽음: false };
+  const c = 열쇠캐시.get(uid);
+  if (c && Date.now() < c.exp) return { 열쇠: c.provider === 제공자 ? c.열쇠 : null, 못읽음: false };
   try {
     const d = await fsGetDoc(env, await saAccessToken(env), 'aiUserKeys/' + uid);
-    if (!d || d.provider !== 제공자 || !d.enc) return null;
-    return await 열기(env, d.enc);
-  } catch (e) { return null; }   // 못 열면 없는 셈 친다 — 회사 열쇠 길로 돌아간다
+    const 푼것 = d && d.enc ? await 열기(env, d.enc) : null;
+    열쇠캐시.set(uid, { 열쇠: 푼것, provider: d && d.provider, exp: Date.now() + 열쇠수명밀리초 });
+    return { 열쇠: d && d.provider === 제공자 ? 푼것 : null, 못읽음: false };
+  } catch (e) {
+    // 자물쇠가 안 맞으면(KEY_SECRET 이 바뀜) 그건 "없다" 다 — 새로 맡기면 된다.
+    // Firestore 를 못 읽은 것이면 "모른다" 다. 섞으면 안 된다.
+    const 읽기탈 = /failed: \d\d\d/.test(String(e.message || ''));
+    return { 열쇠: null, 못읽음: 읽기탈 };
+  }
 }
 
 // POST /key/set {제공자, 열쇠} · /key/status {} · /key/del {}
@@ -793,11 +808,18 @@ async function handleKey(request, env, 무엇, cors) {
   const 길 = 'aiUserKeys/' + auth.uid;
 
   if (무엇 === 'status') {
-    const d = await fsGetDoc(env, token, 길);
-    return json(200, d ? { 있나: true, 제공자: d.provider, 끝네자리: d.tail, 등록: d.at } : { 있나: false }, cors);
+    // Firestore 읽기 한도가 찬 날(429) 여기서 500 을 내면 화면에 "열쇠 처리 실패 … 429" 가 뜬다.
+    //   직원 눈에는 기능이 고장난 걸로 보인다. **한도는 고장이 아니다** — 모른다고 말한다.
+    try {
+      const d = await fsGetDoc(env, token, 길);
+      return json(200, d ? { 있나: true, 제공자: d.provider, 끝네자리: d.tail, 등록: d.at } : { 있나: false }, cors);
+    } catch (e) {
+      return json(200, { 모름: true, 왜: '지금은 확인할 수 없습니다(저장소가 잠깐 바쁩니다). 맡기신 열쇠는 그대로 있습니다.' }, cors);
+    }
   }
   if (무엇 === 'del') {
     await fetch(fsBase(env) + '/' + 길, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    열쇠캐시.delete(auth.uid);
     return json(200, { 지웠다: true }, cors);
   }
   if (무엇 === 'set') {
@@ -817,6 +839,7 @@ async function handleKey(request, env, 무엇, cors) {
       uid: auth.uid, email: auth.email, provider: 제공자,
       enc: await 잠그기(env, 열쇠), tail: 열쇠.slice(-4), at: new Date().toISOString(),
     });
+    열쇠캐시.delete(auth.uid);   // 안 버리면 5분 동안 **옛 열쇠**로 나간다
     return json(200, { 저장했다: true, 제공자, 끝네자리: 열쇠.slice(-4) }, cors);
   }
   return json(404, { error: 'usage: POST /key/set · /key/status · /key/del' }, cors);
@@ -1188,13 +1211,16 @@ export default {
       const 쓴횟수 = await 장부에올린다(env, auth.uid || auth.email, auth.email);
       // 못 셌으면(장부 고장·서비스 계정 없음) null 이 온다 — **그럴 땐 막지 않는다.**
       if (쓴횟수 !== null && 쓴횟수 > 한도) {
-        개인열쇠 = await 개인열쇠읽기(env, auth.uid, m[1]);
+        const 내것 = await 개인열쇠읽기(env, auth.uid, m[1]);
+        개인열쇠 = 내것.열쇠;
         if (!개인열쇠) {
           return json(429, {
             error: `오늘 회사 몫 ${한도}번을 다 쓰셨습니다. 한국 시간 자정에 다시 열립니다.`
-              + ' 지금 바로 더 쓰시려면 **내 설정 › 개인 AI 열쇠**에 본인 열쇠를 등록하세요 —'
-              + ' 그 뒤로는 회사 몫과 상관없이 쓰실 수 있습니다.',
-            하루한도: 한도, 오늘쓴횟수: 쓴횟수, 개인열쇠필요: true,
+              + (내것.못읽음
+                ? ' (맡기신 개인 열쇠가 있는지 지금 확인하지 못했습니다 — 잠시 뒤 다시 해 보세요.)'
+                : ' 지금 바로 더 쓰시려면 **내 설정 › 개인 AI 열쇠**에 본인 열쇠를 등록하세요 —'
+                  + ' 그 뒤로는 회사 몫과 상관없이 쓰실 수 있습니다.'),
+            하루한도: 한도, 오늘쓴횟수: 쓴횟수, 개인열쇠필요: !내것.못읽음,
           }, cors);
         }
       }

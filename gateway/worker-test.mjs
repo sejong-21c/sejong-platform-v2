@@ -60,6 +60,7 @@ let 맥응답 = null;   // 맥(파이스) 검색 모의 응답. 시험마다 갈
 let 커밋고장 = false; // v3.9: 장부가 죽은 날을 흉내낸다 — 그래도 AI 는 돌아야 한다
 let 부른모델 = [];    // 제공자에게 실제로 나간 호출. 한도에 걸리면 **비어 있어야** 한다
 let 부른열쇠 = [];    // v4.1: 그때 **어떤 열쇠**로 나갔나 — 회사 것인지 본인 것인지
+let 읽기고장 = false; // v4.1: Firestore 읽기 한도가 찬 날(429) 을 흉내낸다
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -131,6 +132,7 @@ globalThis.fetch = async (input, init) => {
       return Response.json({ documents });
     }
     if (method === 'GET') {
+      if (읽기고장 && path.startsWith('aiUserKeys/')) return new Response('quota', { status: 429 });
       if (!fsStore[path]) return new Response('{}', { status: 404 });
       return Response.json({ name: 'projects/x/databases/(default)/documents/' + path, fields: fsStore[path] });
     }
@@ -626,6 +628,30 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   await 키post('/v1/groq/chat/completions', adminToken, { model: 'x', messages: [] });
   const 막힘 = await (await 키post('/v1/groq/chat/completions', adminToken, { model: 'x', messages: [] })).json();
   check('열쇠를 안 맡긴 사람은 429 + 어디로 가면 되는지', 막힘.개인열쇠필요 === true && /개인 AI 열쇠/.test(막힘.error || ''), JSON.stringify(막힘).slice(0, 120));
+
+  // 새 열쇠로 바꿨는데 5분 동안 옛 열쇠로 나가면, 직원은 "바꿨는데 왜 안 되지" 를 겪는다.
+  const 새열쇠 = 'gsk_' + 'y'.repeat(48) + 'NEW2';
+  await 키post('/key/set', staffToken, { 제공자: 'groq', 열쇠: 새열쇠 });
+  부른열쇠 = [];
+  await 키post('/v1/groq/chat/completions', staffToken, { model: 'x', messages: [] });
+  check('열쇠: 바꾸면 **바로** 새 열쇠로 나간다 (캐시에 옛것이 남으면 안 된다)',
+    부른열쇠[부른열쇠.length - 1] === 새열쇠, JSON.stringify(부른열쇠.map(k => k.slice(-4))));
+
+  // 읽기 한도가 찬 날. **한도는 고장이 아니다** — 어제 밤 채점에서 똑같은 것을 고쳤다.
+  읽기고장 = true;
+  const s2r = await 키post('/key/status', staffToken);
+  const s2 = await s2r.json();
+  check('열쇠: 저장소가 바쁘면 **고장이 아니라 "모른다"** 고 말한다 (500 을 내면 기능이 죽은 줄 안다)',
+    s2r.status === 200 && s2.모름 === true && !/429|failed/.test(JSON.stringify(s2)), JSON.stringify(s2));
+
+  // **아직 아무것도 안 물어본 사람**으로 본다. 앞에서 한 번이라도 조회한 사람은 isolate 캐시에
+  //   "없다" 가 남아 있어 Firestore 를 다시 안 읽는다(그건 설계대로다) — 그러면 이 길을 못 밟는다.
+  const 신입Token = await makeToken('newbie@sejong-21c.com');
+  await 키post('/v1/groq/chat/completions', 신입Token, { model: 'x', messages: [] });
+  const 모름막힘 = await (await 키post('/v1/groq/chat/completions', 신입Token, { model: 'x', messages: [] })).json();
+  check('한도 초과인데 열쇠를 **못 읽었으면** "등록하세요" 라고 하지 않는다 (맡겼는데 그러면 거짓말이다)',
+    모름막힘.개인열쇠필요 === false && /확인하지 못했습니다/.test(모름막힘.error || ''), (모름막힘.error || '').slice(0, 90));
+  읽기고장 = false;
 
   check('열쇠: 지우면 없어진다', (await (await 키post('/key/del', staffToken)).json()).지웠다 === true
     && !fsStore['aiUserKeys/u_staff@sejong-21c.com']);
