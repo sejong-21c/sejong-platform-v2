@@ -450,29 +450,14 @@ table .ctr { text-align:center; }
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div id="header-logo-container" class="logo-svg" style="display:flex;align-items:center;"></div>
-    <div class="logo-txt" id="header-logo-text">
-      <h1>SEJONG</h1>
-      <small>CHEMICAL PLANT</small>
-    </div>
-  </div>
-  <div>
-    <div class="app-title">업무 경비 내역서 관리 도구</div>
-    <div class="ver" style="text-align:right;">Version 1.8 · ⓒ Designed by Cwkim</div>
-  </div>
-</header>
 
 <nav class="tabs">
   <button data-tab="card" class="active">① 카드 관리</button>
-  <button data-tab="writer">② 작성자 관리</button>
-  <button data-tab="place">③ 출장지/거래처</button>
-  <button data-tab="entry">④ 사용 내역 입력</button>
-  <button data-tab="daily">⑤ 일자별 영수증 철</button>
-  <button data-tab="report">⑥ 경비 내역서</button>
-  <button data-tab="setting">⑦ AI 설정</button>
-  <button data-tab="data">⑧ 데이터</button>
+  <button data-tab="place">② 출장지/거래처</button>
+  <button data-tab="entry">③ 사용 내역 입력</button>
+  <button data-tab="daily">④ 일자별 영수증 철</button>
+  <button data-tab="report">⑤ 경비 내역서</button>
+  <button data-tab="data">⑥ 데이터</button>
 </nav>
 
 <main>
@@ -481,21 +466,6 @@ table .ctr { text-align:center; }
 <section class="panel active" id="panel-card">
   <h2 class="section">카드 관리</h2>
 
-  <div class="card" style="border-left:4px solid #1e3a8a;">
-    <h3 class="sub">🏢 회사 로고 (CI)</h3>
-    <p style="font-size:12px;color:#666;margin-bottom:10px;">
-      회사 공식 로고 이미지(PNG/JPG)를 업로드하면 상단 헤더와 경비 내역서 양식에 자동 반영됩니다.
-      배경 투명한 PNG 권장. 업로드된 로고는 JSON 백업에 함께 저장됩니다.
-    </p>
-    <div class="row" style="align-items:center;">
-      <div id="logo-preview" style="min-height:80px;display:flex;align-items:center;"></div>
-    </div>
-    <div class="row">
-      <input type="file" id="logo-file-input" accept="image/*" onchange="uploadCompanyLogo(this)" style="display:none;">
-      <button class="btn" onclick="document.getElementById('logo-file-input').click()">📤 로고 이미지 업로드</button>
-      <button class="btn sec" onclick="clearCompanyLogo()">🗑 기본 로고로 복원</button>
-    </div>
-  </div>
 
   <div class="card">
     <h3 class="sub">신규 카드 등록</h3>
@@ -520,25 +490,6 @@ table .ctr { text-align:center; }
 </section>
 
 <!-- ② 작성자 관리 -->
-<section class="panel" id="panel-writer">
-  <h2 class="section">작성자 관리</h2>
-  <div class="card">
-    <h3 class="sub">신규 작성자 등록</h3>
-    <div class="row">
-      <div><label>부서</label><input type="text" id="wr-dept" placeholder="예: 품질관리부" style="width:160px;"></div>
-      <div><label>직급</label><input type="text" id="wr-rank" placeholder="예: 부장" style="width:100px;"></div>
-      <div><label>이름</label><input type="text" id="wr-name" placeholder="예: 김철우" style="width:120px;"></div>
-      <div><button class="btn" onclick="addWriter()">＋ 등록</button></div>
-    </div>
-  </div>
-  <div class="card">
-    <h3 class="sub">등록된 작성자</h3>
-    <table id="writer-table">
-      <thead><tr><th>#</th><th>부서</th><th>직급</th><th>이름</th><th>표기 형식</th><th>관리</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
 
 <!-- ③ 출장지/거래처 -->
 <section class="panel" id="panel-place">
@@ -606,7 +557,6 @@ table .ctr { text-align:center; }
         <select id="ai-card" style="width:280px;"></select>
       </div>
       <button class="btn" onclick="맥인식()" id="ai-mac-btn" title="맥미니 붙박이 OCR — API 키 없이, 자료가 사내를 안 벗어납니다">🖥 맥으로 인식 (키 없이)</button>
-      <button class="btn" onclick="runAIRecognition()" id="ai-run-btn">🔍 AI 자동 인식 실행</button>
       <button class="btn sec" onclick="clearAIPending()">초기화</button>
     </div>
     <div id="ai-status" style="font-size:12px; color:#1e3a8a; margin-top:6px;"></div>
@@ -689,118 +639,6 @@ table .ctr { text-align:center; }
 </section>
 
 <!-- ⑦ AI 설정 -->
-<section class="panel" id="panel-setting">
-  <h2 class="section">AI 설정</h2>
-  <div class="card">
-    <h3 class="sub">AI 제공자 선택</h3>
-    <div class="row">
-      <div><label>사용할 AI</label>
-        <select id="ai-provider" onchange="onProviderChange(); saveSettings();">
-          <option value="claude">Claude (Anthropic)</option>
-          <option value="gemini">Gemini (Google)</option>
-        </select>
-      </div>
-    </div>
-
-    <div id="claude-setting">
-      <h3 class="sub">Claude API 설정</h3>
-      <div class="row">
-        <div style="flex:1;">
-          <label>API 키 (sk-ant-...)</label>
-          <input type="password" id="claude-key" placeholder="sk-ant-api03-..." style="width:100%;" onchange="saveSettings()">
-        </div>
-        <div style="align-self:end;">
-          <button class="btn sec sm" onclick="listClaudeModels()" title="입력한 API 키로 사용 가능한 모델을 실시간 조회">📋 사용 가능 모델 조회</button>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>① 추천 모델에서 선택</label>
-          <select id="claude-model-select" style="width:340px;" onchange="document.getElementById('claude-model').value=this.value;saveSettings();">
-            <optgroup label="✨ 최신 (Claude 4.7)">
-              <option value="claude-opus-4-7">claude-opus-4-7</option>
-            </optgroup>
-            <optgroup label="Claude 4.6">
-              <option value="claude-opus-4-6">claude-opus-4-6</option>
-              <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-            </optgroup>
-            <optgroup label="Claude 4.5">
-              <option value="claude-opus-4-5">claude-opus-4-5</option>
-              <option value="claude-sonnet-4-5-20250929" selected>claude-sonnet-4-5</option>
-              <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (빠름)</option>
-            </optgroup>
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <div style="flex:1;">
-          <label>② 또는 모델명 직접 입력 (이게 실제 호출되는 값)</label>
-          <input type="text" id="claude-model" onchange="saveSettings()" oninput="saveSettings()" style="width:100%;" value="claude-sonnet-4-5-20250929" placeholder="모델명 직접 입력">
-        </div>
-      </div>
-      <p style="font-size:11px; color:#888;">
-        API 키는 <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>에서 발급. 정확한 모델 ID는 위의 "📋 사용 가능 모델 조회" 버튼으로 확인하세요.
-      </p>
-    </div>
-
-    <div id="gemini-setting" style="display:none;">
-      <h3 class="sub">Gemini API 설정</h3>
-      <div class="row">
-        <div style="flex:1;">
-          <label>API 키</label>
-          <input type="password" id="gemini-key" placeholder="AIza..." style="width:100%;" onchange="saveSettings()">
-        </div>
-        <div style="align-self:end;">
-          <button class="btn sec sm" onclick="listGeminiModels()" title="입력한 API 키로 사용 가능한 모델을 실시간 조회">📋 사용 가능 모델 조회</button>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>① 추천 모델에서 선택 (정확하지 않을 수 있음 → 위 조회 버튼 사용 권장)</label>
-          <select id="gemini-model-select" style="width:340px;" onchange="document.getElementById('gemini-model').value=this.value;saveSettings();">
-            <optgroup label="✨ 최신 Preview (예상 ID, 검증 필요)">
-              <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option>
-              <option value="gemini-3.1-flash-preview">gemini-3.1-flash-preview</option>
-              <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
-              <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
-            </optgroup>
-            <optgroup label="✅ 안정 (Gemini 2.x — 검증됨)">
-              <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-              <option value="gemini-2.5-flash" selected>gemini-2.5-flash (무료 한도 큼)</option>
-              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-            </optgroup>
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <div style="flex:1;">
-          <label>② 또는 모델명 직접 입력 (이게 실제 호출되는 값)</label>
-          <input type="text" id="gemini-model" onchange="saveSettings()" oninput="saveSettings()" style="width:100%;" value="gemini-2.5-flash" placeholder="모델명 직접 입력 (예: gemini-3.1-pro-preview)">
-        </div>
-      </div>
-      <p style="font-size:11px; color:#888;">
-        API 키는 <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a>에서 발급.<br>
-        ⚠ Gemini 3.x 의 정확한 모델 ID는 시기에 따라 변경됩니다. <b>"📋 사용 가능 모델 조회"</b> 버튼으로 실시간 확인하세요.
-      </p>
-    </div>
-
-    <div style="background:#fff7ed; border-left:4px solid #ea7c00; padding:10px; margin-top:14px; font-size:12px; color:#7c3a00; border-radius:4px;">
-      ⚠ <b>보안 안내</b>: API 키는 브라우저 메모리에만 저장되며 외부로 전송되지 않습니다 (AI 호출 시 해당 제공자에게만 전송).
-      페이지를 새로고침하면 키를 다시 입력해야 합니다. JSON 백업에는 키가 포함되지 않습니다.
-    </div>
-  </div>
-
-  <div class="card">
-    <h3 class="sub">AI 인식 동작 방식</h3>
-    <ul style="font-size:12px; color:#444; line-height:1.8; padding-left:20px;">
-      <li>업로드된 모든 영수증을 <b>한 번의 호출</b>로 일괄 분석합니다 (비용·시간 절감).</li>
-      <li>추출 항목: <b>일자, 금액, 사용처(상호), 사용 내역(품목/카테고리), 출장장소 추론, 인원 추론</b></li>
-      <li>출장장소는 ③ 출장지/거래처 리스트와 비교하여 자동 매칭합니다. 매칭이 어렵거나 영수증에 정보가 없는 경우 빈칸으로 둡니다.</li>
-      <li>인원은 영수증에 인원 표기가 있거나 메뉴 수량으로 추정 가능한 경우만 채우고, 그 외는 빈칸으로 둡니다.</li>
-      <li>추출 결과는 미리보기 후 <b>"내역 등록" 버튼을 눌러야</b> 실제로 저장됩니다 (사용자가 검토·수정 가능).</li>
-    </ul>
-  </div>
-</section>
 
 <!-- ⑧ 데이터 -->
 <section class="panel" id="panel-data">
@@ -1006,6 +844,7 @@ function clearCompanyLogo(){
   refreshLogos();
 }
 function refreshLogos(){
+  return;   // 로고 올리는 칸을 없앴다(2026-09-23) — 플랫폼 로고를 쓴다
   const headerContainer = document.getElementById('header-logo-container');
   const headerText = document.getElementById('header-logo-text');
   const previewContainer = document.getElementById('logo-preview');
@@ -1028,9 +867,15 @@ function refreshLogos(){
 
 // 보고서용 로고 HTML (logo cell 내부에 들어갈 내용)
 function getReportLogoHTML(){
-  if (DATA.companyInfo && DATA.companyInfo.logo){
-    return `<img src="${DATA.companyInfo.logo}" style="max-width:108px;max-height:48px;object-fit:contain;display:block;margin:0 auto;">`;
-  }
+  // 2026-09-23 부장님: 로고를 따로 올리지 않는다. **플랫폼 왼쪽 위 로고**를 그대로 쓴다.
+  //   같은 출처라 부모 화면에서 그냥 읽힌다. 못 읽으면 아래 기본 그래픽으로 간다.
+  try {
+    const 부모로고 = window.parent && window.parent !== window
+      && window.parent.document.querySelector('.sb-logo-img, .sb-logo img');
+    if (부모로고 && 부모로고.src) {
+      return `<img src="${부모로고.src}" style="max-width:108px;max-height:48px;object-fit:contain;display:block;margin:0 auto;">`;
+    }
+  } catch (e) { /* 크로스오리진이면 기본 그래픽 */ }
   return `<svg viewBox="0 0 380 115" xmlns="http://www.w3.org/2000/svg" style="width:108px;height:38px;">
     <circle cx="35" cy="40" r="32" fill="#2735D8"/>
     <circle cx="84" cy="34" r="22" fill="#2735D8"/>
@@ -1126,7 +971,9 @@ function deleteWriter(id){
   refreshWriterSelects();
 }
 function renderWriters(){
+  // 작성자 관리 판을 없앴다(2026-09-23) — 그려 줄 표가 없으면 그냥 돌아간다.
   const tb = document.querySelector('#writer-table tbody');
+  if (!tb) return;
   if (!DATA.writers.length){ tb.innerHTML='<tr><td colspan="6" class="empty">등록된 작성자가 없습니다.</td></tr>'; return; }
   tb.innerHTML = DATA.writers.map((w,i)=>`
     <tr>
@@ -1139,6 +986,16 @@ function renderWriters(){
     </tr>`).join('');
 }
 function refreshWriterSelects(){
+  // 2026-09-23 부장님: 작성자를 손으로 등록하지 않는다. **플랫폼 직원 목록**을 쓴다 —
+  //   플랫폼이 이미 누가 어느 부서 무슨 직급인지 알고 있는데 또 적을 이유가 없다.
+  try {
+    const st = window.parent && window.parent !== window && window.parent.state;
+    const 사람 = (st && Array.isArray(st.users)) ? st.users : null;
+    if (사람 && 사람.length) {
+      DATA.writers = 사람.filter((u) => u && u.name)
+        .map((u) => ({ id: 'U' + u.id, dept: u.dept || '', rank: u.title || '', name: u.name }));
+    }
+  } catch (e) { /* 혼자 열었으면 예전처럼 DATA.writers 를 쓴다 */ }
   const html = '<option value="">— 작성자 선택 —</option>' +
     DATA.writers.map(w=>`<option value="${w.id}">${esc(w.dept)} ${esc(w.rank)} ${esc(w.name)}</option>`).join('');
   document.getElementById('rpt-writer').innerHTML = html;
@@ -1176,6 +1033,7 @@ function renderPlaces(){
 
 // ========== AI 설정 ==========
 function loadSettingsToForm(){
+  if (!document.getElementById('ai-provider')) return;   // AI 설정 판을 없앴다
   document.getElementById('ai-provider').value = SETTINGS.provider;
   document.getElementById('claude-key').value = SETTINGS.claudeKey;
   document.getElementById('claude-model').value = SETTINGS.claudeModel;
@@ -1189,6 +1047,7 @@ function onProviderChange(){
   document.getElementById('gemini-setting').style.display = p==='gemini'?'block':'none';
 }
 function saveSettings(){
+  if (!document.getElementById('ai-provider')) return;   // AI 설정 판을 없앴다
   SETTINGS.provider = document.getElementById('ai-provider').value;
   SETTINGS.claudeKey = document.getElementById('claude-key').value;
   SETTINGS.claudeModel = document.getElementById('claude-model').value;
