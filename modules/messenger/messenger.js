@@ -1960,6 +1960,7 @@ function 방읽음구독(cid) {
   const fb = getFB(); if (!fb || !fb.db) return;
   try {
     구독.방 = fb.onSnapshot(fb.query(fb.collection(fb.db, 'channelReads'), fb.where('channel', '==', cid)), (snap) => {
+      try { window.parent.잰다 && window.parent.잰다('메신저:방읽음', snap); } catch (e) { /* 혼자 뜬 창 */ }
       const r = {}; snap.docs.forEach((d) => { const x = d.data(); if (x && x.uid) r[x.uid] = x.lastRead || 0; });
       state.roomReads = r; if (ui.cid === cid) renderMessages(false);
     }, (e) => console.warn('[읽음 구독]', e && e.message));
@@ -1968,13 +1969,18 @@ function 방읽음구독(cid) {
 function 구독시작() {
   const fb = getFB(); if (!fb || !fb.db) return;
   구독해제();
+  // b95: **부모의 계량기에 메신저 몫도 얹는다.**
+  //   부팅 때 메시지만 500 + 공지 100 을 읽는데(위 메시지창·공지창) 지금까지 아무 데도 안 셌다.
+  //   플랫폼 본체 부팅이 213건인데 메신저가 600건이니, 안 세면 하루 읽기를 **네 배 적게** 본다.
+  //   메신저는 부모의 db 를 쓰므로(getFB) 부모 계량기에 넣는 게 맞다 — 같은 접속의 같은 지갑이다.
+  const 잰다 = (이름, snap) => { try { window.parent.잰다 && window.parent.잰다('메신저:' + 이름, snap); } catch (e) { /* 혼자 뜬 창 */ } };
   const on = (q, cb, tag) => {
     const 실패 = (e) => {
       console.warn(`[${tag}]`, e && e.message);
       // 메시지 구독이 막히면(규칙·망) "불러오는 중" 에 영영 머물지 않게 — 방 목록은 미리보기 없이라도 보여준다
       if (tag === 'messages' && !state.loaded.messages) { state.loaded.messages = true; renderPane(); }
     };
-    try { 구독.기본.push(fb.onSnapshot(q, cb, 실패)); } catch (e) { 실패(e); }
+    try { 구독.기본.push(fb.onSnapshot(q, (snap) => { 잰다(tag, snap); cb(snap); }, 실패)); } catch (e) { 실패(e); }
   };
   on(fb.collection(fb.db, 'users'), (snap) => { state.users = snap.docs.map((d) => ({ id: d.id, ...d.data() })); userMap = new Map(state.users.map((u) => [u.id, u])); render('all'); }, 'users');
   on(fb.collection(fb.db, 프로필컬렉션), (snap) => {
