@@ -12,7 +12,9 @@
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.pvcalc = factory();
-}(typeof self !== "undefined" ? self : this, function () {
+// 2026-09-23: ESM 으로 읽히면 `this` 가 undefined 라 여기서 터졌다. globalThis 는 어디서나 있다.
+//   (진짜 원인은 저장소가 type:module 이라 이 .js 가 ESM 이 된 것 — web/package.json 참고.)
+}(typeof self !== "undefined" ? self : globalThis, function () {
   "use strict";
 
   function mkResult(title, codeRef) {

@@ -1,0 +1,4 @@
+{
+  "type": "commonjs",
+  "//": "2026-09-23: 저장소 루트 package.json 이 \"type\": \"module\" 이라 이 폴더의 .js 가 ESM 으로 읽혔다. 그러면 pvcalc-core.js 의 UMD 감싸개에서 `module` 이 없어 CommonJS 갈래를 못 타고, test_core.mjs 의 createRequire 가 빈 것을 받아 **362벡터 대조 시험이 통째로 죽어 있었다**(unknown fn). 이 한 줄로 이 폴더만 CommonJS 로 되돌린다. 브라우저는 package.json 을 안 보므로 단독 실행판에는 영향이 없다."
+}

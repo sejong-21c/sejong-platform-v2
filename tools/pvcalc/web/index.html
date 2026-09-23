@@ -206,6 +206,7 @@
   <button data-tab="ghead">경판 (AC111 3.3.1.1.3·4)</button>
   <button data-tab="stub">미구현·필요자료</button>
   <button data-tab="mat">재료 데이터 관리</button>
+  <button data-tab="ds">📄 데이터시트</button>
   <button data-tab="info">정보·범위</button>
 </nav>
 
@@ -243,6 +244,35 @@
     </div>
   </form>
   <div class="result" id="res-shell"></div>
+</section>
+
+<!-- ================= 데이터시트 (2026-09-23) =================
+     계산은 되는데 **결과를 회사 양식으로 뽑을 데가 없었다.** 화면 숫자를 손으로 옮겨
+     적고 계셨다. pvcalc 로드맵 ②(데이터시트 표준 양식) 자리다.
+     · 계산한 탭만 싣는다 — 안 돌린 항목을 빈칸으로 넣으면 "검토했는데 통과" 로 읽힌다.
+     · 근거 조항과 PASS/FAIL 을 같이 싣는다. 숫자만 있는 표는 검토자가 못 믿는다.
+     · 회사 표준 양식이 따로 있으면 이 배치를 거기에 맞춘다(지금은 표준 항목 구성). -->
+<section class="panel" id="panel-ds">
+  <h3 style="margin:0 0 4px;font-size:15px;">데이터시트 / 계산서 묶음 내보내기</h3>
+  <p class="note">계산한 탭들의 결과를 한 장으로 묶어 엑셀로 내보냅니다.
+    <b>계산을 돌린 항목만 실립니다</b> — 안 돌린 항목은 아예 안 나옵니다(빈칸으로 두면
+    "검토했는데 이상 없음" 으로 읽히기 때문입니다).</p>
+  <div class="grid">
+    <div class="field"><label>프로젝트</label><input id="ds-proj" placeholder="예: SJ435-26 삼성전기"></div>
+    <div class="field"><label>고객사</label><input id="ds-client" placeholder="예: 삼성전기"></div>
+    <div class="field"><label>아이템 번호 (Tag)</label><input id="ds-tag" placeholder="예: V-101"></div>
+    <div class="field"><label>품명</label><input id="ds-name" placeholder="예: Separator"></div>
+    <div class="field"><label>도면번호</label><input id="ds-dwg" placeholder="예: SJ435-26-ME-001"></div>
+    <div class="field"><label>Rev.</label><input id="ds-rev" placeholder="예: 0"></div>
+    <div class="field"><label>작성자</label><input id="ds-by" placeholder="예: 김철우"></div>
+    <div class="field"><label>작성일</label><input id="ds-date" type="date"></div>
+  </div>
+  <div class="actions">
+    <button class="calc" onclick="dsPreview()">미리보기 새로고침</button>
+    <button class="calc" onclick="dsExcel()">📊 엑셀로 받기</button>
+    <button class="ghost" onclick="window.print()">인쇄</button>
+  </div>
+  <div class="result" id="res-ds"></div>
 </section>
 
 <!-- ================= UG-32 ================= -->
@@ -1052,6 +1082,14 @@ const store = (() => {
 })();
 let UNITS = store.getItem("pvcalc.units") || "SI";
 const lastReport = {};
+const lastResults = {};   // 데이터시트용 구조화 결과 (2026-09-23)
+// 탭 id → 데이터시트에 찍을 이름. 여기 없는 탭은 데이터시트에 안 실린다(재료 관리·정보 등).
+const DS이름 = {
+  shell: '동체', head: '경판', ext: '외압', noz: '노즐 보강', ug45: '노즐 목',
+  flg: '플랜지', sad: '새들', lod: '풍·지진 하중',
+  kshell: '동체(에너지공단)', khead: '경판(에너지공단)', a650: '셸 단별 두께(API 650)',
+  gshell: '동체(KGS)', ghead: '경판(KGS)',
+};
 
 /* ---------- units & tabs ---------- */
 function setUnits(u) {
@@ -1069,6 +1107,7 @@ function showTab(tab) {
     x.classList.toggle("on", x.dataset.tab === tab));
   document.querySelectorAll("section.panel").forEach(p =>
     p.classList.toggle("on", p.id === "panel-" + tab));
+  if (tab === "ds") dsPreview();       // 들어올 때마다 새로 그린다 — 그새 계산이 늘었을 수 있다
 }
 document.querySelectorAll("#tabs button").forEach(b =>
   b.onclick = () => showTab(b.dataset.tab));
@@ -1310,7 +1349,7 @@ const CODES = {
   },
 };
 
-const COMMON_TABS = ["mat", "info"];
+const COMMON_TABS = ["ds", "mat", "info"];   // ds: 데이터시트 — 어느 기준에서든 쓴다
 let CODE = CODES[store.getItem("pvcalc.code")] ? store.getItem("pvcalc.code") : "asme";
 let ITEM = null;
 
@@ -1456,6 +1495,13 @@ function render(panel, results, extraNote) {
   }
   const full = `인허가 기준 / 아이템: ${comboLabel()}\n\n` + matStamp(panel) + texts.join("\n\n");
   lastReport[panel] = full;
+  // 데이터시트는 글이 아니라 **값**이 필요하다 — 제목·근거·주요값·판정을 그대로 들고 있는다.
+  lastResults[panel] = results.map((r) => ({
+    title: r.title, codeRef: r.codeRef, ok: r.ok,
+    checks: (r.checks || []).map(([d, ok]) => [d, ok]),
+    results: { ...r.results }, notes: [...(r.notes || [])],
+    inputs: (r.inputs || []).map((x) => [...x]),
+  }));
   const det = document.createElement("details");
   det.innerHTML = `<summary>전체 계산서 보기 / 인쇄용</summary><pre class="sheet">${full
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`;
@@ -2211,6 +2257,186 @@ $("gh-type").onchange = () => {
 $("gh-type").onchange();
 
 /* ---------- input persistence ---------- */
+
+/* ══════════ 데이터시트 (2026-09-23) ══════════════════════════════
+   왜: 계산은 다 되는데 **결과를 양식으로 뽑을 데가 없었다.** 화면 숫자를 손으로
+     옮겨 적고 계셨다. 경비 내역서·회의록·차트와 같은 꼴 — 계산은 되는데 산출물이 없던 것.
+   원칙 둘:
+     ① **돌린 것만 싣는다.** 안 돌린 항목을 빈칸으로 넣으면 검토자가 "봤는데 이상 없음"
+        으로 읽는다. 압력용기에서 그건 사고다.
+     ② **근거와 판정을 같이 싣는다.** 숫자만 있는 표는 검토자가 못 믿고, 결국 계산서를
+        다시 달라고 한다. 그래서 요약 옆에 조항(codeRef)과 PASS/FAIL 을 붙이고,
+        엑셀에는 계산서 전문을 탭마다 한 장씩 같이 넣는다.
+   회사 표준 양식이 따로 있으면 배치를 거기에 맞춘다(지금은 표준 항목 구성). */
+
+/** 계산이 끝난 탭만 모은다. 순서는 화면 탭 순서를 따른다(사람이 읽는 순서). */
+function ds모음() {
+  const 순서 = [...document.querySelectorAll("#tabs button")].map((b) => b.dataset.tab);
+  const 것 = [];
+  for (const 탭 of 순서) {
+    if (!DS이름[탭]) continue;                       // 데이터시트에 실을 항목만
+    const rs = lastResults[탭];
+    if (!rs || !rs.length) continue;                 // **안 돌린 것은 아예 뺀다**
+    것.push({ 탭, 이름: DS이름[탭], 결과: rs, 글: lastReport[탭] || "" });
+  }
+  return 것;
+}
+
+function ds머리() {
+  const v = (id) => ($(id) && $(id).value || "").trim();
+  return {
+    프로젝트: v("ds-proj"), 고객사: v("ds-client"), 태그: v("ds-tag"), 품명: v("ds-name"),
+    도면번호: v("ds-dwg"), Rev: v("ds-rev"), 작성자: v("ds-by"),
+    작성일: v("ds-date") || new Date().toISOString().slice(0, 10),
+    기준: comboLabel(), 단위: UNITS === "SI" ? "SI (mm·MPa)" : "US (in·psi)",
+  };
+}
+
+/** 한 결과에서 "주요 값" 줄을 만든다. results 는 {이름: 값} 꼴이다. */
+const ds값 = (r) => Object.entries(r.results || {})
+  .map(([k, v]) => `${k} = ${fmt(v)}`).join(" · ");
+
+function dsPreview() {
+  const box = $("res-ds");
+  if (!box) return;
+  const 것 = ds모음();
+  if (!것.length) {
+    box.innerHTML = `<p class="note">아직 계산한 항목이 없습니다. 위 탭에서 계산을 먼저 돌려 주세요 —
+      <b>돌린 항목만 데이터시트에 실립니다.</b></p>`;
+    return;
+  }
+  const h = ds머리();
+  const 떨어진것 = [];
+  const 줄 = [];
+  for (const g of 것) {
+    for (const r of g.결과) {
+      if (r.checks.length && !r.ok) 떨어진것.push(`${g.이름} — ${r.title}`);
+      줄.push(`<tr>
+        <td>${g.이름}</td>
+        <td>${(r.title || "").replace(/</g, "&lt;")}</td>
+        <td class="ref" style="font-size:11px;">${(r.codeRef || "").replace(/</g, "&lt;")}</td>
+        <td>${ds값(r).replace(/</g, "&lt;")}</td>
+        <td>${r.checks.length ? `<span class="badge ${r.ok ? "pass" : "fail"}">${r.ok ? "PASS" : "FAIL"}</span>` : "-"}</td>
+      </tr>`);
+    }
+  }
+  box.innerHTML = `
+    <div class="card">
+      <h3>${(h.품명 || "(품명 미입력)")} ${h.태그 ? "· " + h.태그 : ""}</h3>
+      <div class="ref">${h.프로젝트 || "(프로젝트 미입력)"} · ${h.기준} · ${h.단위}</div>
+      <div class="kv">
+        <span>도면 <b>${h.도면번호 || "-"}</b></span><span>Rev <b>${h.Rev || "-"}</b></span>
+        <span>작성 <b>${h.작성자 || "-"}</b></span><span>일자 <b>${h.작성일}</b></span>
+      </div>
+    </div>
+    ${떨어진것.length
+      ? `<p class="note" style="color:#b91c1c;"><b>⚠ 판정에서 떨어진 항목 ${떨어진것.length}건</b> — ${떨어진것.join(", ")}.
+          그대로 내보내면 데이터시트에 FAIL 로 찍힙니다.</p>`
+      : ""}
+    <table class="tbl" style="width:100%;font-size:12px;">
+      <thead><tr><th>항목</th><th>계산</th><th>근거</th><th>주요 값</th><th>판정</th></tr></thead>
+      <tbody>${줄.join("")}</tbody>
+    </table>
+    <p class="note">엑셀에는 위 요약 한 장과, <b>항목별 계산서 전문</b>이 각각 한 장씩 들어갑니다.</p>`;
+}
+
+/** ExcelJS 를 그때 한 번 받는다(메신저·회의록이 쓰는 같은 CDN).
+ *  단독 실행판(오프라인)에서는 못 받는다 — 그때는 그렇게 말해 준다. */
+async function ds엑셀라이브러리() {
+  if (window.ExcelJS) return window.ExcelJS;
+  await new Promise((풀림, 깨짐) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+    s.onload = 풀림;
+    s.onerror = () => 깨짐(new Error("엑셀 라이브러리를 받지 못했습니다(인터넷 연결 확인)"));
+    document.head.appendChild(s);
+  });
+  return window.ExcelJS;
+}
+
+async function dsExcel() {
+  const 것 = ds모음();
+  if (!것.length) { alert("계산한 항목이 없습니다. 먼저 계산을 돌려 주세요."); return; }
+  const h = ds머리();
+  let ExcelJS;
+  try { ExcelJS = await ds엑셀라이브러리(); }
+  catch (e) { alert(e.message); return; }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "세종기술 pvcalc";
+  wb.created = new Date();
+
+  // ── 1장: DATA SHEET ───────────────────────────────────────────────
+  const ws = wb.addWorksheet("DATA SHEET", { properties: { defaultRowHeight: 18 } });
+  ws.columns = [{ width: 18 }, { width: 30 }, { width: 26 }, { width: 44 }, { width: 10 }];
+  const 제목 = ws.addRow(["압력용기 설계 계산 요약 (DATA SHEET)"]);
+  제목.font = { bold: true, size: 14 };
+  ws.mergeCells(제목.number, 1, 제목.number, 5);
+  ws.addRow([]);
+  const 머리줄 = [
+    ["프로젝트", h.프로젝트, "고객사", h.고객사],
+    ["품명", h.품명, "아이템 번호(Tag)", h.태그],
+    ["도면번호", h.도면번호, "Rev.", h.Rev],
+    ["작성자", h.작성자, "작성일", h.작성일],
+    ["인허가 기준 / 아이템", h.기준, "단위계", h.단위],
+  ];
+  for (const r of 머리줄) {
+    const row = ws.addRow([r[0], r[1], r[2], r[3]]);
+    row.getCell(1).font = { bold: true };
+    row.getCell(3).font = { bold: true };
+  }
+  ws.addRow([]);
+  const th = ws.addRow(["항목", "계산", "근거 조항", "주요 값", "판정"]);
+  th.font = { bold: true };
+  th.eachCell((c) => { c.border = { bottom: { style: "thin" } }; });
+
+  let 떨어짐 = 0;
+  for (const g of 것) {
+    for (const r of g.결과) {
+      const 판 = r.checks.length ? (r.ok ? "PASS" : "FAIL") : "-";
+      if (판 === "FAIL") 떨어짐++;
+      const row = ws.addRow([g.이름, r.title || "", r.codeRef || "", ds값(r), 판]);
+      row.getCell(4).alignment = { wrapText: true, vertical: "top" };
+      if (판 === "FAIL") row.getCell(5).font = { bold: true, color: { argb: "FFB91C1C" } };
+      if (판 === "PASS") row.getCell(5).font = { color: { argb: "FF15803D" } };
+    }
+  }
+  ws.addRow([]);
+  // **거짓말하지 않는 꼬리표.** 이 표가 무엇이고 무엇이 아닌지 문서 안에 적는다.
+  const 꼬리 = [
+    떨어짐 ? `⚠ 판정에서 떨어진 계산 ${떨어짐}건이 포함되어 있습니다.` : "",
+    "이 표에는 **실제로 계산을 돌린 항목만** 실려 있습니다. 여기 없는 항목은 검토하지 않은 것입니다.",
+    "각 계산의 전체 과정은 뒤쪽 장(항목별 계산서)에 있습니다.",
+    "재료 허용응력은 사용자가 입력한 값입니다 — 근거 판(Edition)은 계산서 머리에 찍힙니다.",
+  ].filter(Boolean);
+  for (const t of 꼬리) {
+    const row = ws.addRow([t]);
+    ws.mergeCells(row.number, 1, row.number, 5);
+    row.getCell(1).alignment = { wrapText: true };
+    row.getCell(1).font = { size: 10, color: { argb: "FF6B7280" } };
+  }
+
+  // ── 2장~: 항목별 계산서 전문 ───────────────────────────────────────
+  for (const g of 것) {
+    const 이름 = g.이름.replace(/[\/*?:[\]]/g, "_").slice(0, 28);   // 엑셀 시트 이름 규칙
+    const w2 = wb.addWorksheet(이름);
+    w2.columns = [{ width: 110 }];
+    for (const 줄 of String(g.글 || "").split("\n")) {
+      const row = w2.addRow([줄]);
+      row.getCell(1).font = { name: "Consolas", size: 10 };
+    }
+  }
+
+  const buf = await wb.xlsx.writeBuffer();
+  const 이름 = [h.도면번호 || h.태그 || "pvcalc", h.품명, "DATA SHEET", h.작성일]
+    .filter(Boolean).join("_").replace(/[\/:*?"<>|]/g, "-");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  a.download = 이름 + ".xlsx";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
 function saveInputs() {
   const data = {};
   document.querySelectorAll("main input[id], main select[id]").forEach(el =>
