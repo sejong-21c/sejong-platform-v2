@@ -126,6 +126,10 @@ service cloud.firestore {
     //   게이트웨이만 서비스 계정으로 오간다. 잠가 두긴 했지만(AES-GCM) 읽는 길 자체를 없앤다 —
     //   등록은 /key/set, 확인은 /key/status(끝 네 자리만), 돌려주는 길은 만들지 않았다.
     match /aiUserKeys/{docId}            { allow read, write: if false; }
+    // v30.19(2026-09-23) 읽기 장부: 그날 브라우저들이 문서를 몇 건 읽었나. **계량기지 통제가 아니다** —
+    //   직원 브라우저가 스스로 올려야 하므로 만들기·고치기를 연다. 지우기는 막는다(하루치가 통째로 날아간다).
+    //   틀린 값을 넣어 봤자 제 눈을 가리는 것뿐이고, 여기 없으면 한도를 또 모르고 태운다.
+    match /readDaily/{docId}             { allow read, create, update: if isCompanyUser(); allow delete: if false; }
     // v29.44: 관리 탭 기록들 — 오류·접속·작업 로그. 생성만 허용, 수정·삭제 불가
     match /errorLog/{docId}              { allow read, create: if isCompanyUser(); allow update, delete: if false; }
     match /accessLog/{docId}             { allow read, create: if isCompanyUser(); allow update, delete: if false; }

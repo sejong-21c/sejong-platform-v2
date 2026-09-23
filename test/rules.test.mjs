@@ -159,6 +159,12 @@ await T('맡긴 개인 열쇠는 본인도 못 읽는다', async () => {
   await assertFails(getDoc(doc(로그인(사람.부장), 'aiUserKeys', 사람.부장.uid)));
   await assertFails(setDoc(doc(로그인(사람.부장), 'aiUserKeys', 사람.부장.uid), { enc: 'z' }));
 });
+// v30.19: 읽기 장부. 브라우저가 스스로 올려야 하니 쓰기를 열되, **지우기는 막는다** —
+//   하루치가 통째로 날아가면 그날 얼마 썼는지 영영 모른다(그래서 또 태운다).
+await T('읽기 장부는 직원이 올릴 수 있다 — 계량기지 통제가 아니다', () =>
+  assertSucceeds(setDoc(doc(로그인(사람.생산원), 'readDaily', '2026-09-22'), { day: '2026-09-22', browser: 12 }, { merge: true })));
+await T('읽기 장부는 **지울 수 없다** — super 라도', () =>
+  assertFails(deleteDoc(doc(로그인(사람.부장), 'readDaily', '2026-09-22'))));
 await T('관리 명단은 super 만 고친다', () => assertFails(setDoc(doc(로그인(사람.임원), 'adminAccess', 'list'), { uids: [] })));
 await T('관리 명단을 super 는 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 'adminAccess', 'list'), { uids: [사람.부장.uid] })));
 await T('WBS 공유는 로그인 없이도 읽힌다(설계대로)', async () => {
