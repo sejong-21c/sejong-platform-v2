@@ -3452,9 +3452,19 @@ let _fsUnsubs = [];
 //   이후 = 그 뒤 실시간으로 바뀐 문서 수. **줄일 것은 '첫' 쪽이다.**
 const _읽기장부 = {};
 function 잰다(이름, snap) {
-  const 칸 = _읽기장부[이름] || (_읽기장부[이름] = { 첫: null, 이후: 0, 발화: 0 });
+  const 칸 = _읽기장부[이름] || (_읽기장부[이름] = { 첫: null, 이후: 0, 발화: 0, 과금: 0 });
   칸.발화++;
   const n = snap.size != null ? snap.size : (snap.exists ? 1 : 0);
+  // b94: **첫 과 과금 은 다른 것이다.**
+  //   첫  = 이 구독이 들고 있는 문서 수 — "이 화면이 얼마나 무거운가"(b87 이 재던 것)
+  //   과금 = 서버에서 **실제로 받아 와 돈이 나간** 문서 수 — 하루 5만은 이쪽으로 센다
+  //   영속 캐시(b41)가 있어 재방문 때는 바뀐 것만 받는다. 캐시에서 온 스냅숏까지 세면
+  //   실제보다 몇 배 크게 나오고, **틀린 자는 없는 자보다 나쁘다.**
+  //   fromCache 스냅숏은 건너뛰고, 서버 것만 docChanges(실제로 온 문서) 로 센다.
+  const 캐시에서 = !!(snap.metadata && snap.metadata.fromCache);
+  if (!캐시에서) {
+    try { 칸.과금 += snap.docChanges ? snap.docChanges().length : n; } catch (e) { 칸.과금 += n; }
+  }
   if (칸.첫 == null) { 칸.첫 = n; return; }
   try { 칸.이후 += snap.docChanges ? snap.docChanges().length : 1; } catch (e) { 칸.이후 += 1; }
 }
@@ -3477,7 +3487,9 @@ let _보낸읽기 = 0;
 async function 읽기장부보내기() {
   try {
     if (!fb.auth.currentUser || window.에뮬중) return;
-    const 합 = Object.values(_읽기장부).reduce((a, v) => a + (v.첫 || 0) + (v.이후 || 0), 0);
+    // **과금만 보낸다.** 첫(구독이 들고 있는 문서 수)을 보내면 캐시에서 온 것까지 세어
+    //   실제보다 몇 배 크게 나온다 — 틀린 자는 없는 자보다 나쁘다.
+    const 합 = Object.values(_읽기장부).reduce((a, v) => a + (v.과금 || 0), 0);
     const 델타 = 합 - _보낸읽기;
     if (델타 < 1) return;
     _보낸읽기 = 합;
@@ -3502,12 +3514,16 @@ window.오늘읽기 = async function () {
 
 window.부팅읽기 = function () {
   const 줄 = Object.entries(_읽기장부)
-    .map(([이름, v]) => ({ 이름, 첫: v.첫 || 0, 이후: v.이후, 발화: v.발화 }))
+    .map(([이름, v]) => ({ 이름, 첫: v.첫 || 0, 과금: v.과금 || 0, 이후: v.이후, 발화: v.발화 }))
     .sort((a, b) => b.첫 - a.첫);
   const 합 = 줄.reduce((a, b) => a + b.첫, 0);
+  const 과금합 = 줄.reduce((a, b) => a + b.과금, 0);
+  console.log(`서버에서 받아 온(돈 나가는) 문서 ${과금합.toLocaleString()}건 · 이 화면이 들고 있는 문서 ${합.toLocaleString()}건`);
+  console.log(`  하루 5만이면 이런 접속 ${Math.floor(50000 / Math.max(1, 과금합))}번. 캐시가 차 있으면 과금이 확 준다 — 그게 정상이다.`);
+  console.log('  ⚠ 아래로 센 값이다 — 계량기가 붙은 구독은 14곳뿐이고 iframe 모듈이 따로 읽는 것은 안 센다.');
   console.table(줄);
   console.log(`부팅 한 번 = 문서 ${합.toLocaleString()}건 (무료 하루 5만 → ${Math.floor(50000 / Math.max(1, 합))}번)`);
-  return { 줄, 합 };
+  return { 줄, 합, 과금합 };
 };
 
 function stopFirestoreSync() {
@@ -8376,7 +8392,7 @@ async function loadAiUsage() {
         <div style="width:${Math.min(100, Math.round(짐작 / 500))}%;height:100%;background:${색};"></div>
       </div>
       <div style="font-size:11px;color:var(--text-light);line-height:1.6;">
-        ${읽기 ? `브라우저 <b>${브.toLocaleString()}</b>건(직원 접속 전부) + 파이스 약 3,000건.
+        ${읽기 ? `브라우저 <b>${브.toLocaleString()}</b>건(직원 접속 전부, <b>아래로 센 값</b>) + 파이스 약 3,000건.
         한도일 ${읽기.한도날} · 마지막 기록 ${읽기.마지막}` : '아직 오늘 기록이 없습니다(또는 읽기 한도가 이미 찼습니다).'}
         ${짐작 > 40000 ? '<br><b style="color:#dc2626;">한도에 가깝습니다 — 오늘은 큰 배치·새로고침을 미루세요.</b>' : ''}
       </div>
