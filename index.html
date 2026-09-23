@@ -22,7 +22,7 @@
 <script type="module">
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { 에뮬붙이기 } from "./modules/shared/emu.mjs?v=b86";
+  import { 에뮬붙이기 } from "./modules/shared/emu.mjs?v=b87";
   import {
     getAuth, GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged,
     signInWithEmailAndPassword, connectAuthEmulator
@@ -72,7 +72,7 @@
   // v30.18: AI 행위의 권한·검증 순수 함수. **ai-assistant.js 의 인라인 사본을 베끼지 않고
   //   공유 모듈을 그대로 쓴다** — 같은 규칙이 세 곳이 되면 반드시 어긋난다.
   //   시험: node test/ai-perm.test.mjs (43항목).
-  import('./modules/shared/ai-perm.mjs?v=b86').then((m) => { window.AIPERM = m; })
+  import('./modules/shared/ai-perm.mjs?v=b87').then((m) => { window.AIPERM = m; })
     .catch((e) => console.warn('ai-perm 모듈을 못 읽었다 — AI 행위가 꺼진다', e));
 </script>
 <!-- v29.5: 개인 구글 캘린더 연동용 — Firebase Auth(로그인)와는 완전히 별개의 OAuth 클라이언트.
@@ -1529,7 +1529,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b66';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b86'; // b86: 에뮬레이터 하네스 — 시험이 회사 하루 읽기 한도를 안 먹는다(localhost 에서만 켜진다) · b85: 업무를 **새로** 등록한다 — 청사진의 '작업 지시 → 배분' 나머지 절반. 권한은 화면(업무 추가)과 같게 둔다 · b84: AI 행위 등록소 — 스케줄 진척·프로젝트 일정·상태·업무 완료·업무 배정 다섯을 한 틀로(권한은 ai-perm.mjs 와 canEditWbsMaster 재사용) · b83: AI 비서가 스케줄 진척률을 고친다 — AI 는 제안만, 대상 찾기·권한·쓰기는 부모 앱, 실행은 사람이 누른다 · b82: 영수증은 업무관리가 아니라 경비 내역서로 · b81: 엑셀 파일 이름이 UTC 라 새벽에 하루 밀렸다 · b80: 센 결과를 차트·엑셀로 받는다 · b79: 영수증 분기를 sendFiles 안으로 · b78: AI 방에 영수증 사진 — 맥 붙박이 OCR 이 읽고 금액은 코드가 풀고 사람이 확인해 업무관리에 등록 · b77: 플랫폼 기록을 센다(NCR 몇 건) · b76: 기록 출처 칩 문턱 · b75: 버튼 있으면 가는 길 설명 삭제 · b74: 「화면 열기」 버튼 — 지어내는 대신 진짜로 연다 · b73: 금액 부동소수 꼬리 · b72: 차례를 요구하던 넷째 줄 · b71: '무엇을 하면 되는지' 요구 삭제 · b70: 지침 속 화살표 본보기 삭제 · b69: 화살표 금지 · b68: 수압시험 사건 수리(대상 대조·조각 10개·반말 본보기 삭제) · b67: 화면을 못 지어내게 했더니 이번엔 파일 경로를 지어냈다 — 줄에 있는 값만 쓰게 · b66: SQL 이 파일별로 또 쪼개 줄이 수십 개가 되면 모델이 손으로 더하다 틀린다 — 묻는 축 하나로만 묶게 · b65: 지침에 표 계층과 정면으로 부딪히는 규칙이 있었다 — 말을 얹지 말고 지웠어야 했다 · b64: 표 결과 줄을 AI 가 손으로 더하다 틀리던 것 — 더하지 말라고 못 박음 · b63: 화면 안내 규칙이 '안내하지 마라'를 이기고 있었다 — 우선순위를 못 박음 · b62: 표에서 센 수에 없는 화면 경로를 안내하던 것 — NAS 파일 경로를 준다 · b61: 표에서 센 결과가 맥락 8000자 제한에 잘려 나가고 있었다 — 맨 앞으로 · b60: 표 고르는 규칙 — 기간 먼저 보게 하고 '없음' 탈출구를 좁혔다(3번 중 2번 없음이었다) · b59: 세는 질문인데 질의를 못 썼으면 그 사실을 말한다(조용히 넘어가니 없는 메뉴를 지어냈다) · b58: 표를 셌는데 0줄이면 그 사실을 AI 에게 말해 준다(안 말하니 없는 메뉴를 지어냈다) · b57: 표 질의가 두뇌 한 곳만 부르다 빈 응답이면 통째로 건너뛰던 것 — 체인을 돈다 · b56: AI 비서가 NAS 표(20표 323만 행)에 SQL 로 센다 — "작년 견적 재료비 총액" 같은 세는 질문. 범위는 맥의 SQLite 권한자가 막는다 · b55: 2단계 켬 — 백필(박을것 0)·복합색인 2개 READY·규칙 게시가 끝나서 스위치를 올렸다. 이제 readers 에 든 사람만 그 메시지를 받는다(부팅 읽기 500 → 자기 것 + 공지 100) · b54: 2단계는 스위치 뒤에서 대기(백필·색인·규칙 끝난 뒤 켠다) — 켠 채로 배포하면 그 사이 메신저가 멎는다 · b53: 2단계 — readers 로 좁혀 구독한다(남의 1:1 이 더는 안 내려오고, 부팅 읽기가 500→수십) · b52: 볼트 파일 경로는 문턱을 달리 쓴다(0.62 로 자르면 진짜 답이 잘렸다) · b51: 자료 질문에 화면 이야기로 답하던 것 + "(한 줄 안내)" 를 그대로 뱉던 것 · b50: 서비스워커가 ?v= 를 버려서 고친 게 안 닿던 것(그물 먼저) · 좁은 창에서 엔터가 안 먹던 것 · 출처 칩도 0.62 문턱(연봉 물었는데 ASME 가 붙던 것) · AI 가 볼트(NAS) 자료도 본다 · b49: 없는 메뉴를 지어내던 것 + 상관없는 도면이 딸려오던 것 · b48: 옛 대화를 다시 열면 ASME 그림이 사라지던 것(높이 0 ↔ lazy 교착) · b47: 폰에서 좌우로 흔들리던 것(방 본문 overflow-x) · 글자 끌어서 복사 · 표 그림 눌러서 확대 · b46: 보내는 메시지에 readers(읽어도 되는 사람)를 박는다 — 2단계 준비, 아직 규칙·구독은 그대로 · b45: 커튼 — 임원도 자기 부서 아니면 남의 부서·프로젝트 방을 못 본다(대표님 포함) · b41: 플랫폼·메신저 Firestore 영속 캐시(재접속 때 바뀐 것만 — 무료 하루 5만 읽기 대비) · b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
+const MESSENGER_BUILD = 'b87'; // b87: 부팅 읽기 계량기(콘솔 부팅읽기()) + wbsRec 을 제작공정 화면 열 때만 받게 · b86: 에뮬레이터 하네스 — 시험이 회사 하루 읽기 한도를 안 먹는다(localhost 에서만 켜진다) · b85: 업무를 **새로** 등록한다 — 청사진의 '작업 지시 → 배분' 나머지 절반. 권한은 화면(업무 추가)과 같게 둔다 · b84: AI 행위 등록소 — 스케줄 진척·프로젝트 일정·상태·업무 완료·업무 배정 다섯을 한 틀로(권한은 ai-perm.mjs 와 canEditWbsMaster 재사용) · b83: AI 비서가 스케줄 진척률을 고친다 — AI 는 제안만, 대상 찾기·권한·쓰기는 부모 앱, 실행은 사람이 누른다 · b82: 영수증은 업무관리가 아니라 경비 내역서로 · b81: 엑셀 파일 이름이 UTC 라 새벽에 하루 밀렸다 · b80: 센 결과를 차트·엑셀로 받는다 · b79: 영수증 분기를 sendFiles 안으로 · b78: AI 방에 영수증 사진 — 맥 붙박이 OCR 이 읽고 금액은 코드가 풀고 사람이 확인해 업무관리에 등록 · b77: 플랫폼 기록을 센다(NCR 몇 건) · b76: 기록 출처 칩 문턱 · b75: 버튼 있으면 가는 길 설명 삭제 · b74: 「화면 열기」 버튼 — 지어내는 대신 진짜로 연다 · b73: 금액 부동소수 꼬리 · b72: 차례를 요구하던 넷째 줄 · b71: '무엇을 하면 되는지' 요구 삭제 · b70: 지침 속 화살표 본보기 삭제 · b69: 화살표 금지 · b68: 수압시험 사건 수리(대상 대조·조각 10개·반말 본보기 삭제) · b67: 화면을 못 지어내게 했더니 이번엔 파일 경로를 지어냈다 — 줄에 있는 값만 쓰게 · b66: SQL 이 파일별로 또 쪼개 줄이 수십 개가 되면 모델이 손으로 더하다 틀린다 — 묻는 축 하나로만 묶게 · b65: 지침에 표 계층과 정면으로 부딪히는 규칙이 있었다 — 말을 얹지 말고 지웠어야 했다 · b64: 표 결과 줄을 AI 가 손으로 더하다 틀리던 것 — 더하지 말라고 못 박음 · b63: 화면 안내 규칙이 '안내하지 마라'를 이기고 있었다 — 우선순위를 못 박음 · b62: 표에서 센 수에 없는 화면 경로를 안내하던 것 — NAS 파일 경로를 준다 · b61: 표에서 센 결과가 맥락 8000자 제한에 잘려 나가고 있었다 — 맨 앞으로 · b60: 표 고르는 규칙 — 기간 먼저 보게 하고 '없음' 탈출구를 좁혔다(3번 중 2번 없음이었다) · b59: 세는 질문인데 질의를 못 썼으면 그 사실을 말한다(조용히 넘어가니 없는 메뉴를 지어냈다) · b58: 표를 셌는데 0줄이면 그 사실을 AI 에게 말해 준다(안 말하니 없는 메뉴를 지어냈다) · b57: 표 질의가 두뇌 한 곳만 부르다 빈 응답이면 통째로 건너뛰던 것 — 체인을 돈다 · b56: AI 비서가 NAS 표(20표 323만 행)에 SQL 로 센다 — "작년 견적 재료비 총액" 같은 세는 질문. 범위는 맥의 SQLite 권한자가 막는다 · b55: 2단계 켬 — 백필(박을것 0)·복합색인 2개 READY·규칙 게시가 끝나서 스위치를 올렸다. 이제 readers 에 든 사람만 그 메시지를 받는다(부팅 읽기 500 → 자기 것 + 공지 100) · b54: 2단계는 스위치 뒤에서 대기(백필·색인·규칙 끝난 뒤 켠다) — 켠 채로 배포하면 그 사이 메신저가 멎는다 · b53: 2단계 — readers 로 좁혀 구독한다(남의 1:1 이 더는 안 내려오고, 부팅 읽기가 500→수십) · b52: 볼트 파일 경로는 문턱을 달리 쓴다(0.62 로 자르면 진짜 답이 잘렸다) · b51: 자료 질문에 화면 이야기로 답하던 것 + "(한 줄 안내)" 를 그대로 뱉던 것 · b50: 서비스워커가 ?v= 를 버려서 고친 게 안 닿던 것(그물 먼저) · 좁은 창에서 엔터가 안 먹던 것 · 출처 칩도 0.62 문턱(연봉 물었는데 ASME 가 붙던 것) · AI 가 볼트(NAS) 자료도 본다 · b49: 없는 메뉴를 지어내던 것 + 상관없는 도면이 딸려오던 것 · b48: 옛 대화를 다시 열면 ASME 그림이 사라지던 것(높이 0 ↔ lazy 교착) · b47: 폰에서 좌우로 흔들리던 것(방 본문 overflow-x) · 글자 끌어서 복사 · 표 그림 눌러서 확대 · b46: 보내는 메시지에 readers(읽어도 되는 사람)를 박는다 — 2단계 준비, 아직 규칙·구독은 그대로 · b45: 커튼 — 임원도 자기 부서 아니면 남의 부서·프로젝트 방을 못 본다(대표님 포함) · b41: 플랫폼·메신저 Firestore 영속 캐시(재접속 때 바뀐 것만 — 무료 하루 5만 읽기 대비) · b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b24'; // v29.74: 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류(로컬 축소캐시로 서버 원본 덮어쓰는 사고 방지)
 const CAR_BUILD = 'b24'; // v29.74: 동일 — 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류
@@ -3204,10 +3204,35 @@ async function hydrateUsersAndEnter(uid) {
 
 // 프로젝트/업무/WBS를 Firestore와 실시간 동기화 (여러 사람이 같은 데이터를 봄)
 let _fsUnsubs = [];
+// ── 부팅 읽기 계량기 (2026-09-23) ─────────────────────────────────────────
+// 왜: 무료 하루 5만 읽기를 **누가 얼마나 쓰는지 아무도 몰랐다.** "한 번 열면 2,000건쯤" 은
+//   하루 총량을 접속 횟수로 나눈 짐작이었다. 짐작으로 구독을 좁히면 화면이 빈다.
+//   세는 건 공짜다(메모리 카운터) — 재고 나서 줄인다.
+// 보는 법: 콘솔에 `부팅읽기()`. 첫 = 구독을 걸 때 서버가 한 번에 준 문서 수(= 읽기 비용),
+//   이후 = 그 뒤 실시간으로 바뀐 문서 수. **줄일 것은 '첫' 쪽이다.**
+const _읽기장부 = {};
+function 잰다(이름, snap) {
+  const 칸 = _읽기장부[이름] || (_읽기장부[이름] = { 첫: null, 이후: 0, 발화: 0 });
+  칸.발화++;
+  const n = snap.size != null ? snap.size : (snap.exists ? 1 : 0);
+  if (칸.첫 == null) { 칸.첫 = n; return; }
+  try { 칸.이후 += snap.docChanges ? snap.docChanges().length : 1; } catch (e) { 칸.이후 += 1; }
+}
+window.부팅읽기 = function () {
+  const 줄 = Object.entries(_읽기장부)
+    .map(([이름, v]) => ({ 이름, 첫: v.첫 || 0, 이후: v.이후, 발화: v.발화 }))
+    .sort((a, b) => b.첫 - a.첫);
+  const 합 = 줄.reduce((a, b) => a + b.첫, 0);
+  console.table(줄);
+  console.log(`부팅 한 번 = 문서 ${합.toLocaleString()}건 (무료 하루 5만 → ${Math.floor(50000 / Math.max(1, 합))}번)`);
+  return { 줄, 합 };
+};
+
 function stopFirestoreSync() {
   _fsUnsubs.forEach(u => { try { u(); } catch (e) {} });
   _fsUnsubs = [];
   _draftsSyncStarted = false; // v30.13(B4): 지연 구독도 해제됐으므로 다음 로그인 때 다시 시작할 수 있게
+  _wbsRecSyncStarted = false;   // v30.18: wbsRec 지연 구독도 같은 이유
 }
 // WBS 행 하나의 진척률 계산 — wbs.html의 wCS()를 간이 포팅 (ITP 연동 부분 제외).
 // pctManual 우선 → 자식(소단락) 롤업 → 상태 문자열 → 시작/완료일 경과율 순.
@@ -3295,6 +3320,7 @@ function startFirestoreSync() {
   _channelsSeeded = false;
   state._channelsSynced = false; // v30.12: 재로그인 시 채널 준비 표시 초기화
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'projects'), snap => {
+    잰다('projects', snap);
     state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     reconcileProjectProgress();
     // v30.12(점검 A4): channels 스냅샷이 도착한 뒤에만 시드 — 빈 채널 목록으로 판단하면
@@ -3307,6 +3333,7 @@ function startFirestoreSync() {
   }, err => console.error('[Firestore] projects 동기화 오류:', err)));
   // v29.9: 사전 등록 대기 계정 목록 (슈퍼관리자만 조직/권한 화면에서 관리)
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'pendingUsers'), snap => {
+    잰다('pendingUsers', snap);
     state.pendingUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     // v29.18: 승계 미완 pending 문서가 있으면 슈퍼관리자 세션이 마저 정리
     reconcilePendingPromotions().catch(() => {});
@@ -3316,11 +3343,13 @@ function startFirestoreSync() {
   // 이전엔 localStorage에만 저장돼 다른 기기·사용자한테 안 보였고, 그 결과 캘린더의
   // "개인+부서" 가시성 필터도 실질적으로 무의미했음(공유될 데이터 자체가 없음).
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'events'), snap => {
+    잰다('events', snap);
     state.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     savePartial('events', state.events);
     scheduleRender();
   }, err => console.error('[Firestore] events 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'tasks'), snap => {
+    잰다('tasks', snap);
     state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     savePartial('tasks', state.tasks);
     scheduleRender();
@@ -3328,6 +3357,7 @@ function startFirestoreSync() {
   // v29.10: 자동 파싱 가상 업무의 개인별 진행상태(taskOverrides)를 여러 기기에서 동일하게 보이도록 동기화.
   if (state.currentUser) {
     _fsUnsubs.push(fb.onSnapshot(fb.doc(fb.db, 'userState', state.currentUser), snap => {
+      잰다('userState', snap);
       const d = snap.exists() ? snap.data() : {};
       state.taskOverrides = d.taskOverrides || {};
       savePartial('taskOverrides', state.taskOverrides);
@@ -3336,17 +3366,20 @@ function startFirestoreSync() {
   }
   // v29.11: 목표 관리 (okrs 컬렉션) 실시간 동기화. 부서/개인 필터는 클라이언트 side에서 처리.
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'okrs'), snap => {
+    잰다('okrs', snap);
     state.okrs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     savePartial('okrs', state.okrs);
     scheduleRender();
   }, err => console.error('[Firestore] okrs 동기화 오류:', err)));
   // v29.11: 결재 문서(approvals) 실시간 동기화. 스케줄 변경 요청·기존 기안·앞으로 추가될 유형 모두 여기.
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'approvals'), snap => {
+    잰다('approvals', snap);
     state.approvals = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     savePartial('approvals', state.approvals);
     scheduleRender();
   }, err => console.error('[Firestore] approvals 동기화 오류:', err)));
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsData'), snap => {
+    잰다('wbsData', snap);
     snap.docChanges().forEach(ch => {
       const pid = ch.doc.id;
       if (ch.type === 'removed') { delete state.wbs[pid]; delete state.items[pid]; return; }
@@ -3360,24 +3393,16 @@ function startFirestoreSync() {
     savePartial('items', state.items);
     scheduleRender();
   }, err => console.error('[Firestore] wbsData 동기화 오류:', err)));
-  // v: 제작공정관리(Traveller) 공정률 계산용 검사 실적(wbsRec) 구독.
-  //   wbs.html(MM 모드)이 아이템별 ITP 검사항목 결과를 wbsRec/{pid}_{itemId} 문서(rec 맵)에 저장한다.
-  //   카드 공정률 = 각 아이템 rec 항목 중 Accept/N/A 비율(아이템 평균). 프로젝트 총공정률(p.progress)과는 별개.
-  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsRec'), snap => {
-    snap.docChanges().forEach(ch => {
-      const d = ch.doc.data() || {};
-      const iid = d.itemId || ch.doc.id;
-      if (ch.type === 'removed') { delete state.wbsRec[iid]; return; }
-      state.wbsRec[iid] = d.rec || null;
-    });
-    scheduleRender();
-  }, err => console.error('[Firestore] wbsRec 동기화 오류:', err)));
+  // v30.18(부팅 읽기 줄이기): wbsRec 구독을 **부팅 경로에서 뺐다** — 아래 ensureWbsRecSync 로 옮김.
+  //   이 자료를 쓰는 곳은 제작 공정 관리(Traveller) 화면 하나뿐인데(getItemInspProgress),
+  //   전 직원이 들어올 때마다 프로젝트×아이템 검사 실적을 통째로 받고 있었다.
   // v30.13(점검 B4): Mobile Inspection 임시저장 구독을 부팅 경로에서 제거 —
   //   이 데이터는 '모바일 점검' 프로젝트 선택 화면의 "임시저장 N건" 배지 한 곳(renderMobileProjects)에서만
   //   쓰이는데, 부팅마다 전 직원이 폼 데이터 전체를 받고 있었다. → 그 화면을 열 때 1회 구독(ensureMobileDraftsSync).
   // 메신저 UI는 modules/messenger/messenger.html(iframe)로 이동했지만, 상단 알림배지는
   // 메신저를 열지 않아도 실시간으로 보여야 하므로 channels/messages/channelReads를 여기서도 독립 구독한다.
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'channels'), snap => {
+    잰다('channels', snap);
     state.channels = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     // v30.12(점검 A4): 채널 목록이 준비됐다는 표시 — projects 쪽 시드가 이걸 기다린다
     if (!state._channelsSynced) {
@@ -3391,6 +3416,7 @@ function startFirestoreSync() {
   //   messenger.html이 따로 받는다. 200건이면 실사용 미읽음 계산에 충분하고 부팅 전송량이 60% 줄어든다.
   const msgQuery = fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(200));
   _fsUnsubs.push(fb.onSnapshot(msgQuery, snap => {
+    잰다('messages(200)', snap);
     state.messages = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     updateNotifBadge();
   }, err => console.error('[Firestore] messages 동기화 오류:', err)));
@@ -3398,6 +3424,7 @@ function startFirestoreSync() {
   // 메신저 iframe 안에서 읽음 처리해도 부모 배지가 곧바로 갱신되도록)
   const readsQuery = fb.query(fb.collection(fb.db, 'channelReads'), fb.where('uid', '==', state.currentUser));
   _fsUnsubs.push(fb.onSnapshot(readsQuery, snap => {
+    잰다('channelReads(내것)', snap);
     const reads = {};
     snap.forEach(d => { const data = d.data(); reads[data.channel] = data.lastRead; });
     state.channelReads = reads;
@@ -4508,11 +4535,33 @@ function closeQAProj() { view.qaSelectedProj = null; render(); }
 // v30.13(점검 B4): 모바일 점검 임시저장 지연 구독 — 그 화면을 처음 열 때만 시작한다.
 // 한 번 시작하면 로그아웃(stopFirestoreSync)까지 유지되므로 배지는 실시간으로 갱신된다.
 let _draftsSyncStarted = false;
+// v30.18: 제작 공정 관리(Traveller) 검사 실적 — **그 화면을 열 때만** 받는다.
+//   부팅 경로에 있던 것을 옮긴 것이다. 쓰는 곳은 getItemInspProgress 하나뿐이고,
+//   그 함수는 자료가 아직 없으면 로컬 travellers 집계로 물러선다 — 그래서 늦게 와도 화면이 안 빈다.
+//   (먼저 재고 나서 옮겼다: 콘솔 `부팅읽기()` 가 컬렉션별 '첫' 문서 수를 보여 준다.)
+let _wbsRecSyncStarted = false;
+function ensureWbsRecSync() {
+  if (_wbsRecSyncStarted) return;
+  if (!window.fb || !fb.db || !state.currentUser) return;
+  _wbsRecSyncStarted = true;
+  _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 'wbsRec'), snap => {
+    잰다('wbsRec(지연)', snap);
+    snap.docChanges().forEach(ch => {
+      const d = ch.doc.data() || {};
+      const iid = d.itemId || ch.doc.id;
+      if (ch.type === 'removed') { delete state.wbsRec[iid]; return; }
+      state.wbsRec[iid] = d.rec || null;
+    });
+    scheduleRender();
+  }, err => console.error('[Firestore] wbsRec 동기화 오류:', err)));
+}
+
 function ensureMobileDraftsSync() {
   if (_draftsSyncStarted) return;
   if (!window.fb || !fb.db || !state.currentUser) return;
   _draftsSyncStarted = true;
   _fsUnsubs.push(fb.onSnapshot(fb.collection(fb.db, 't_mobileInspectionDrafts'), snap => {
+    잰다('mobileDrafts(지연)', snap);
     state.mobileInspectionDrafts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     scheduleRender();
   }, err => console.error('[Firestore] t_mobileInspectionDrafts 동기화 오류:', err)));
@@ -6762,6 +6811,7 @@ function closeTraveller() {
 
 /* ─── ① 1단계: 프로젝트 카드 목록 (Traveller 메인) ─── */
 function renderTravellerProjects() {
+  ensureWbsRecSync();
   const showHidden = view.showHiddenProj || false;
   const hiddenCount = state.projects.filter(p => p.hidden).length;
   const projs = showHidden ? state.projects : state.projects.filter(p => !p.hidden);

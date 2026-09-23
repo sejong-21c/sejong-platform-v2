@@ -1,0 +1,80 @@
+/* 부팅 읽기 불변식 (2026-09-23, b87).
+ *
+ * 무료 파이어스토어는 **하루 문서 읽기 5만 건**이다. 한 사람이 앱을 열 때마다
+ *   `startFirestoreSync()` 가 거는 구독들이 그 자리에서 컬렉션을 통째로 받아 온다 —
+ *   그게 부팅 한 번의 값이다. 열두 명일 땐 버티지만 연말에 70명이면 그대로 터진다.
+ *
+ * 되돌리기가 너무 쉬운 종류다. 컬렉션 하나를 부팅 목록에 얹는 건 한 줄이고,
+ *   화면은 멀쩡해 보이며, 한도는 **몇 주 뒤에** 터진다. 그래서 여기 못 박는다.
+ *
+ * 고칠 일이 생기면: 아래 목록을 고치기 전에 **먼저 재라** — 콘솔 `부팅읽기()` 가
+ *   컬렉션별로 서버가 한 번에 준 문서 수를 보여 준다(에뮬레이터에서 공짜로 잰다).
+ */
+import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
+
+const s = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const a = s.indexOf('function startFirestoreSync()');
+const b = s.indexOf('function finishLogin()');
+assert.ok(a > 0 && b > a, 'startFirestoreSync 를 찾지 못했다 — 이름이 바뀌었나?');
+const 부팅 = s.slice(a, b);
+
+let n = 0;
+const T = (why, fn) => { fn(); n++; console.log('PASS  ' + why); };
+
+// 부팅 때 **통째로** 받는 컬렉션. 줄이는 것이 목표고, 늘리려면 근거가 있어야 한다.
+const 허용 = ['projects', 'pendingUsers', 'events', 'tasks', 'okrs', 'approvals', 'wbsData', 'channels'];
+// 부팅 경로에 **있으면 안 되는** 것 — 이미 한 번 빼냈다. 다시 들어오면 조용히 값이 오른다.
+const 금지 = {
+  wbsRec: '제작 공정 관리 화면 하나에서만 쓴다 → ensureWbsRecSync (b87에 뺐다)',
+  t_mobileInspectionDrafts: '모바일 점검 화면의 배지 하나에만 쓴다 → ensureMobileDraftsSync (v30.13에 뺐다)',
+  messages: '걸러서 받아야 한다(최근 200건) — 통째로 받으면 안 된다',
+  channelReads: '내 것만 받아야 한다(where uid==나)',
+  users: '부팅 경로에서 구독하지 않는다(hydrateUsersAndEnter 가 1회 읽는다)',
+};
+
+const 통째로 = [...부팅.matchAll(/onSnapshot\(\s*fb\.collection\(fb\.db,\s*'([a-zA-Z_]+)'\s*\)/g)].map((m) => m[1]);
+
+T('부팅 때 통째로 받는 컬렉션이 목록 그대로다', () => {
+  assert.deepEqual(통째로.sort(), [...허용].sort(),
+    '부팅 구독이 바뀌었다. 늘렸다면 **먼저 재고**(콘솔 부팅읽기()) 근거와 함께 이 목록을 고쳐라 — '
+    + '한 줄 얹으면 전 직원 부팅 값이 그만큼 오르고, 한도는 몇 주 뒤에 터진다. 지금: ' + 통째로.join(', '));
+});
+
+for (const [c, 왜] of Object.entries(금지)) {
+  T(`${c} 는 부팅 경로에 없다 — ${왜}`, () => {
+    assert.ok(!통째로.includes(c), `${c} 가 부팅 구독으로 돌아왔다. ${왜}`);
+  });
+}
+
+T('걸러 받는 둘은 그대로다 — messages 는 limit, channelReads 는 내 것만', () => {
+  assert.ok(/fb\.limit\(200\)/.test(부팅), 'messages 구독의 limit(200) 이 사라졌다');
+  assert.ok(/'channelReads'\s*\)\s*,\s*fb\.where\('uid',\s*'==',\s*state\.currentUser\)/.test(부팅),
+    'channelReads 가 내 것만 받는 where 를 잃었다');
+});
+
+// ── 계량기가 모든 구독에 붙어 있나 ────────────────────────────────────────
+// 하나라도 빠지면 "부팅 한 번 = 몇 건" 이 **실제보다 작게** 나온다. 그 수를 믿고
+//   "괜찮네" 하고 넘어가는 것이 제일 위험하다 — 없는 것보다 나쁜 계량기다.
+T('부팅 구독 전부가 잰다() 를 부른다 — 하나라도 빠지면 계량기가 거짓말을 한다', () => {
+  const 구독수 = (부팅.match(/onSnapshot\(/g) || []).length;
+  const 잰수 = (부팅.match(/잰다\(/g) || []).length;
+  assert.equal(잰수, 구독수, `구독 ${구독수}개 중 ${잰수}개만 재고 있다`);
+});
+
+T('지연 구독 둘도 잰다() 를 부른다', () => {
+  for (const f of ['ensureWbsRecSync', 'ensureMobileDraftsSync']) {
+    const i = s.indexOf(`function ${f}(`);
+    assert.ok(i > 0, `${f} 가 없다`);
+    const 몸 = s.slice(i, i + 900);
+    assert.ok(/잰다\(/.test(몸), `${f} 가 잰다() 를 안 부른다`);
+    assert.ok(/지연/.test(몸), `${f} 의 계량기 이름에 '지연' 이 없다 — 부팅 값과 섞여 보인다`);
+  }
+});
+
+T('계량기 자체가 살아 있다', () => {
+  assert.ok(/window\.부팅읽기\s*=/.test(s), '부팅읽기() 가 없다 — 재는 법이 사라졌다');
+  assert.ok(/const _읽기장부/.test(s), '_읽기장부 가 없다');
+});
+
+console.log(`\nboot-reads 테스트 ${n}개 전체 통과 · 부팅 통째 구독 ${통째로.length}개`);
