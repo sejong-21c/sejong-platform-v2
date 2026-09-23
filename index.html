@@ -1517,7 +1517,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b66';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b82'; // b82: 영수증은 업무관리가 아니라 경비 내역서로 · b81: 엑셀 파일 이름이 UTC 라 새벽에 하루 밀렸다 · b80: 센 결과를 차트·엑셀로 받는다 · b79: 영수증 분기를 sendFiles 안으로 · b78: AI 방에 영수증 사진 — 맥 붙박이 OCR 이 읽고 금액은 코드가 풀고 사람이 확인해 업무관리에 등록 · b77: 플랫폼 기록을 센다(NCR 몇 건) · b76: 기록 출처 칩 문턱 · b75: 버튼 있으면 가는 길 설명 삭제 · b74: 「화면 열기」 버튼 — 지어내는 대신 진짜로 연다 · b73: 금액 부동소수 꼬리 · b72: 차례를 요구하던 넷째 줄 · b71: '무엇을 하면 되는지' 요구 삭제 · b70: 지침 속 화살표 본보기 삭제 · b69: 화살표 금지 · b68: 수압시험 사건 수리(대상 대조·조각 10개·반말 본보기 삭제) · b67: 화면을 못 지어내게 했더니 이번엔 파일 경로를 지어냈다 — 줄에 있는 값만 쓰게 · b66: SQL 이 파일별로 또 쪼개 줄이 수십 개가 되면 모델이 손으로 더하다 틀린다 — 묻는 축 하나로만 묶게 · b65: 지침에 표 계층과 정면으로 부딪히는 규칙이 있었다 — 말을 얹지 말고 지웠어야 했다 · b64: 표 결과 줄을 AI 가 손으로 더하다 틀리던 것 — 더하지 말라고 못 박음 · b63: 화면 안내 규칙이 '안내하지 마라'를 이기고 있었다 — 우선순위를 못 박음 · b62: 표에서 센 수에 없는 화면 경로를 안내하던 것 — NAS 파일 경로를 준다 · b61: 표에서 센 결과가 맥락 8000자 제한에 잘려 나가고 있었다 — 맨 앞으로 · b60: 표 고르는 규칙 — 기간 먼저 보게 하고 '없음' 탈출구를 좁혔다(3번 중 2번 없음이었다) · b59: 세는 질문인데 질의를 못 썼으면 그 사실을 말한다(조용히 넘어가니 없는 메뉴를 지어냈다) · b58: 표를 셌는데 0줄이면 그 사실을 AI 에게 말해 준다(안 말하니 없는 메뉴를 지어냈다) · b57: 표 질의가 두뇌 한 곳만 부르다 빈 응답이면 통째로 건너뛰던 것 — 체인을 돈다 · b56: AI 비서가 NAS 표(20표 323만 행)에 SQL 로 센다 — "작년 견적 재료비 총액" 같은 세는 질문. 범위는 맥의 SQLite 권한자가 막는다 · b55: 2단계 켬 — 백필(박을것 0)·복합색인 2개 READY·규칙 게시가 끝나서 스위치를 올렸다. 이제 readers 에 든 사람만 그 메시지를 받는다(부팅 읽기 500 → 자기 것 + 공지 100) · b54: 2단계는 스위치 뒤에서 대기(백필·색인·규칙 끝난 뒤 켠다) — 켠 채로 배포하면 그 사이 메신저가 멎는다 · b53: 2단계 — readers 로 좁혀 구독한다(남의 1:1 이 더는 안 내려오고, 부팅 읽기가 500→수십) · b52: 볼트 파일 경로는 문턱을 달리 쓴다(0.62 로 자르면 진짜 답이 잘렸다) · b51: 자료 질문에 화면 이야기로 답하던 것 + "(한 줄 안내)" 를 그대로 뱉던 것 · b50: 서비스워커가 ?v= 를 버려서 고친 게 안 닿던 것(그물 먼저) · 좁은 창에서 엔터가 안 먹던 것 · 출처 칩도 0.62 문턱(연봉 물었는데 ASME 가 붙던 것) · AI 가 볼트(NAS) 자료도 본다 · b49: 없는 메뉴를 지어내던 것 + 상관없는 도면이 딸려오던 것 · b48: 옛 대화를 다시 열면 ASME 그림이 사라지던 것(높이 0 ↔ lazy 교착) · b47: 폰에서 좌우로 흔들리던 것(방 본문 overflow-x) · 글자 끌어서 복사 · 표 그림 눌러서 확대 · b46: 보내는 메시지에 readers(읽어도 되는 사람)를 박는다 — 2단계 준비, 아직 규칙·구독은 그대로 · b45: 커튼 — 임원도 자기 부서 아니면 남의 부서·프로젝트 방을 못 본다(대표님 포함) · b41: 플랫폼·메신저 Firestore 영속 캐시(재접속 때 바뀐 것만 — 무료 하루 5만 읽기 대비) · b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
+const MESSENGER_BUILD = 'b83'; // b83: AI 비서가 스케줄 진척률을 고친다 — AI 는 제안만, 대상 찾기·권한·쓰기는 부모 앱, 실행은 사람이 누른다 · b82: 영수증은 업무관리가 아니라 경비 내역서로 · b81: 엑셀 파일 이름이 UTC 라 새벽에 하루 밀렸다 · b80: 센 결과를 차트·엑셀로 받는다 · b79: 영수증 분기를 sendFiles 안으로 · b78: AI 방에 영수증 사진 — 맥 붙박이 OCR 이 읽고 금액은 코드가 풀고 사람이 확인해 업무관리에 등록 · b77: 플랫폼 기록을 센다(NCR 몇 건) · b76: 기록 출처 칩 문턱 · b75: 버튼 있으면 가는 길 설명 삭제 · b74: 「화면 열기」 버튼 — 지어내는 대신 진짜로 연다 · b73: 금액 부동소수 꼬리 · b72: 차례를 요구하던 넷째 줄 · b71: '무엇을 하면 되는지' 요구 삭제 · b70: 지침 속 화살표 본보기 삭제 · b69: 화살표 금지 · b68: 수압시험 사건 수리(대상 대조·조각 10개·반말 본보기 삭제) · b67: 화면을 못 지어내게 했더니 이번엔 파일 경로를 지어냈다 — 줄에 있는 값만 쓰게 · b66: SQL 이 파일별로 또 쪼개 줄이 수십 개가 되면 모델이 손으로 더하다 틀린다 — 묻는 축 하나로만 묶게 · b65: 지침에 표 계층과 정면으로 부딪히는 규칙이 있었다 — 말을 얹지 말고 지웠어야 했다 · b64: 표 결과 줄을 AI 가 손으로 더하다 틀리던 것 — 더하지 말라고 못 박음 · b63: 화면 안내 규칙이 '안내하지 마라'를 이기고 있었다 — 우선순위를 못 박음 · b62: 표에서 센 수에 없는 화면 경로를 안내하던 것 — NAS 파일 경로를 준다 · b61: 표에서 센 결과가 맥락 8000자 제한에 잘려 나가고 있었다 — 맨 앞으로 · b60: 표 고르는 규칙 — 기간 먼저 보게 하고 '없음' 탈출구를 좁혔다(3번 중 2번 없음이었다) · b59: 세는 질문인데 질의를 못 썼으면 그 사실을 말한다(조용히 넘어가니 없는 메뉴를 지어냈다) · b58: 표를 셌는데 0줄이면 그 사실을 AI 에게 말해 준다(안 말하니 없는 메뉴를 지어냈다) · b57: 표 질의가 두뇌 한 곳만 부르다 빈 응답이면 통째로 건너뛰던 것 — 체인을 돈다 · b56: AI 비서가 NAS 표(20표 323만 행)에 SQL 로 센다 — "작년 견적 재료비 총액" 같은 세는 질문. 범위는 맥의 SQLite 권한자가 막는다 · b55: 2단계 켬 — 백필(박을것 0)·복합색인 2개 READY·규칙 게시가 끝나서 스위치를 올렸다. 이제 readers 에 든 사람만 그 메시지를 받는다(부팅 읽기 500 → 자기 것 + 공지 100) · b54: 2단계는 스위치 뒤에서 대기(백필·색인·규칙 끝난 뒤 켠다) — 켠 채로 배포하면 그 사이 메신저가 멎는다 · b53: 2단계 — readers 로 좁혀 구독한다(남의 1:1 이 더는 안 내려오고, 부팅 읽기가 500→수십) · b52: 볼트 파일 경로는 문턱을 달리 쓴다(0.62 로 자르면 진짜 답이 잘렸다) · b51: 자료 질문에 화면 이야기로 답하던 것 + "(한 줄 안내)" 를 그대로 뱉던 것 · b50: 서비스워커가 ?v= 를 버려서 고친 게 안 닿던 것(그물 먼저) · 좁은 창에서 엔터가 안 먹던 것 · 출처 칩도 0.62 문턱(연봉 물었는데 ASME 가 붙던 것) · AI 가 볼트(NAS) 자료도 본다 · b49: 없는 메뉴를 지어내던 것 + 상관없는 도면이 딸려오던 것 · b48: 옛 대화를 다시 열면 ASME 그림이 사라지던 것(높이 0 ↔ lazy 교착) · b47: 폰에서 좌우로 흔들리던 것(방 본문 overflow-x) · 글자 끌어서 복사 · 표 그림 눌러서 확대 · b46: 보내는 메시지에 readers(읽어도 되는 사람)를 박는다 — 2단계 준비, 아직 규칙·구독은 그대로 · b45: 커튼 — 임원도 자기 부서 아니면 남의 부서·프로젝트 방을 못 본다(대표님 포함) · b41: 플랫폼·메신저 Firestore 영속 캐시(재접속 때 바뀐 것만 — 무료 하루 5만 읽기 대비) · b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b24'; // v29.74: 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류(로컬 축소캐시로 서버 원본 덮어쓰는 사고 방지)
 const CAR_BUILD = 'b24'; // v29.74: 동일 — 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류
@@ -2274,6 +2274,194 @@ window.보이는화면들 = function () {
 // 메신저 iframe 이 두드리는 문. nav 는 switchMod 가 권한을 한 번 더 본다.
 window.화면열기 = function (종류, id, 부서) {
   if (종류 === 'nav') switchMod(id); else openTool(id, 부서 || undefined);
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// v30.18: AI 비서가 스케줄을 **고칠** 수 있게 하는 창구 (2026-09-23 부장님 지시)
+//   "삼성기 대단락 3번 Tank 제작 전체 완료 해줘" → 그 아래 전부 100%.
+//
+// **왜 여기(부모 앱)에 두나.** 권한 판정(canEditWbsMaster)과 프로젝트 목록(state)이 여기 있다.
+//   메신저는 iframe 이고, 거기서 권한을 다시 구현하면 두 벌이 되어 반드시 어긋난다.
+//   그리고 iframe 이 낮은 층(fb.setDoc)을 직접 부르는 길을 열어 주면 권한 검사가 장식이 된다 —
+//   **바꾸는 문은 이 함수 하나뿐이고, 그 안에서 권한을 다시 본다.**
+//
+// **AI 는 쓰지 않는다.** AI 가 하는 일은 "어느 프로젝트 · 어느 단락 · 몇 %" 를 말하는 것까지다.
+//   대상을 실제 자료에서 찾고, 무엇이 바뀌는지 세고, 쓰는 것은 전부 여기 코드다.
+//   사람이 확인 카드를 보고 「실행」을 눌러야 비로소 쓴다. 2026-09-22 에 배운 것 그대로 —
+//   부탁(프롬프트)으로 막지 말고 구조로 막는다.
+// ═══════════════════════════════════════════════════════════════════════
+
+// 이 사람이 스케줄을 **고칠 수 있는** 프로젝트만. 조회만 되는 것은 넣지 않는다 —
+// 목록에 있으면 AI 가 제안하고, 제안했는데 거부되면 사람은 "왜 안 되지" 만 남는다.
+window.고칠수있는프로젝트 = function () {
+  try {
+    return (state.projects || [])
+      .filter((p) => p && p.id && canEditWbsMaster(p.id))
+      .map((p) => ({ id: p.id, code: p.code || '', name: p.name || '', pm: p.pm || '' }));
+  } catch (e) { return []; }
+};
+
+// 진척률 롤업 — wbs.html 의 wCS() 를 **값이 확실할 때만** 옮긴 것.
+//   ITP 검사기록(wbsRec)에 물린 행은 여기서 못 판단한다(문서를 더 읽어야 한다) → null 을 돌려
+//   부르는 쪽이 projects.progress 쓰기를 통째로 건너뛰게 한다. **모르면 안 쓴다.**
+//   틀린 수를 대시보드에 박느니 옛 수가 그대로 남는 게 낫다 — 스케줄 화면을 열면 어차피 다시 계산된다.
+function _롤업(rows, w, 자식들) {
+  if (w.pctManual != null && w.pctManual !== '') return Math.max(0, Math.min(100, Math.round(Number(w.pctManual)) || 0));
+  const kids = 자식들(w);
+  if (kids.length) {
+    const vals = kids.map((k) => _롤업(rows, k, 자식들));
+    if (vals.some((v) => v == null)) return null;
+    // wtTank(TA 탱크 공정 가중치)는 값이 전부 같으면 결과가 같다. 다르면 가중치를 모르니 포기한다.
+    if (w.wtTank && !vals.every((v) => v === vals[0])) return null;
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+  if (w.itpLink) return null;                       // 검사기록에 물린 행 — 여기선 모른다
+  const st = w.status || (w.pct === 100 ? '완료' : w.pct > 0 ? '진행중' : '미시작');
+  if (st === '완료') return 100;
+  if (st === '미시작') return 0;
+  if (w.pct != null) return Math.max(0, Math.min(100, Math.round(Number(w.pct)) || 0));
+  return null;                                      // 진행중 + 날짜 경과율 — 오늘 날짜에 따라 변한다
+}
+
+/** 한 단락 아래(자기 포함) 모든 행. rows 는 WBS 순서대로 늘어서 있고 lv 로 깊이를 나타낸다. */
+function _단락아래(rows, 시작) {
+  const i = rows.findIndex((w) => w.id === 시작.id);
+  if (i < 0) return [];
+  const 것 = [rows[i]];
+  for (let j = i + 1; j < rows.length; j++) {
+    if (rows[j].projId !== 시작.projId) break;
+    if ((rows[j].lv || 0) <= (시작.lv || 0)) break;   // 형제·상위에 닿았다 → 끝
+    것.push(rows[j]);
+  }
+  return 것;
+}
+
+/** AI 가 말한 프로젝트·단락을 **실제 자료에서** 찾아 "무엇이 바뀌는지" 를 돌려준다. 아직 쓰지 않는다. */
+window.스케줄제안 = async function ({ 프로젝트, 단락, 값 }) {
+  const 후보 = window.고칠수있는프로젝트();
+  if (!후보.length) return { 안됨: '스케줄을 고칠 수 있는 프로젝트가 없습니다. 프로젝트 PM 이나 관리자에게 요청해 주세요.' };
+
+  const 다듬 = (s) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+  const 힌트 = 다듬(프로젝트);
+  let p = 후보.find((x) => x.id === 프로젝트)
+       || 후보.find((x) => 다듬(x.code) === 힌트 || 다듬(x.name) === 힌트);
+  if (!p && 힌트) {
+    const 맞는 = 후보.filter((x) => 다듬(x.code).includes(힌트) || 다듬(x.name).includes(힌트));
+    if (맞는.length === 1) p = 맞는[0];
+    else if (맞는.length > 1) return { 안됨: `"${프로젝트}" 에 맞는 프로젝트가 ${맞는.length}개입니다: ${맞는.map((x) => x.code || x.name).join(' · ')}. 하나를 집어 말씀해 주세요.` };
+  }
+  if (!p) return { 안됨: `"${프로젝트}" 라는 프로젝트를 고칠 수 있는 목록에서 찾지 못했습니다.` };
+
+  const 값N = Math.max(0, Math.min(100, Math.round(Number(값))));
+  if (!Number.isFinite(값N)) return { 안됨: '진척률을 숫자로 알아듣지 못했습니다.' };
+
+  let snap;
+  try { snap = await fb.getDoc(fb.doc(fb.db, 'wbsData', p.id)); }
+  catch (e) { return { 안됨: '스케줄을 읽지 못했습니다: ' + (e.message || e) }; }
+  if (!snap.exists()) return { 안됨: `${p.code || p.name} 에는 아직 스케줄(WBS)이 없습니다.` };
+  const d = snap.data() || {};
+  const rows = Array.isArray(d.rows) ? d.rows : [];
+  if (!rows.length) return { 안됨: `${p.code || p.name} 스케줄에 항목이 없습니다.` };
+
+  // 단락 찾기 — 코드("3", "3.1")가 정확히 맞는 것 우선, 없으면 이름에 든 것.
+  const h = 다듬(단락);
+  let 대상 = null;
+  if (h) {
+    대상 = rows.find((w) => 다듬(w.code) === h)
+        || rows.find((w) => 다듬(w.name) === h);
+    if (!대상) {
+      const 맞는 = rows.filter((w) => 다듬(w.name).includes(h) || (h.length >= 2 && 다듬(w.code).startsWith(h)));
+      if (맞는.length === 1) 대상 = 맞는[0];
+      else if (맞는.length > 1) {
+        // 제일 얕은 것 하나만 남으면 그걸로 — "3번 Tank 제작" 이 대단락이고 나머지가 그 자식일 때.
+        const 얕은 = Math.min(...맞는.map((w) => w.lv || 0));
+        const 위 = 맞는.filter((w) => (w.lv || 0) === 얕은);
+        if (위.length === 1) 대상 = 위[0];
+        else return { 안됨: `"${단락}" 에 맞는 항목이 ${맞는.length}개입니다: ${맞는.slice(0, 6).map((w) => `${w.code} ${w.name}`).join(' · ')}${맞는.length > 6 ? ' …' : ''}. 코드로 집어 말씀해 주세요.` };
+      }
+    }
+  }
+  if (!대상) return { 안됨: `${p.code || p.name} 스케줄에서 "${단락}" 을 찾지 못했습니다.` };
+
+  const 묶음 = _단락아래(rows, 대상);
+  const 바꿀것 = 묶음.map((w) => ({
+    id: w.id, code: w.code || '', name: w.name || '', lv: w.lv || 0,
+    지금: _롤업(rows, w, (x) => _단락아래(rows, x).slice(1).filter((y) => (y.lv || 0) === (x.lv || 0) + 1)),
+  }));
+  const 이미 = 바꿀것.filter((r) => r.지금 === 값N).length;
+
+  return {
+    pid: p.id, 프로젝트이름: p.code ? `${p.code} ${p.name}` : p.name,
+    단락코드: 대상.code || '', 단락이름: 대상.name || '', 값: 값N,
+    바꿀것, 이미, updatedAt: Number(d.updatedAt) || 0,
+  };
+};
+
+/** 확인 카드에서 「실행」 을 눌렀을 때. **여기서 권한을 다시 본다** — 카드는 오래됐을 수 있다. */
+window.스케줄실행 = async function (제안) {
+  if (!제안 || !제안.pid) return { 안됨: '무엇을 바꿀지 알 수 없습니다.' };
+  if (!canEditWbsMaster(제안.pid)) return { 안됨: '이 프로젝트 스케줄을 고칠 권한이 없습니다.' };
+
+  const 값N = Math.max(0, Math.min(100, Math.round(Number(제안.값))));
+  const 바꿀id = new Set((제안.바꿀것 || []).map((r) => r.id));
+  if (!바꿀id.size) return { 안됨: '바꿀 항목이 없습니다.' };
+
+  const ref = fb.doc(fb.db, 'wbsData', 제안.pid);
+  const snap = await fb.getDoc(ref);
+  if (!snap.exists()) return { 안됨: '스케줄 문서가 사라졌습니다.' };
+  const d = snap.data() || {};
+
+  // **덮어쓰기 방지.** 카드를 만든 뒤 누가 스케줄을 저장했으면 멈춘다. wbsData 는 프로젝트당
+  //   문서 하나에 rows 배열을 통째로 쓰는 구조라, 낡은 배열을 쓰면 그 사이 남의 편집이 통째로 사라진다.
+  if (Number(d.updatedAt || 0) !== Number(제안.updatedAt || 0)) {
+    return { 안됨: '그사이 다른 사람이 이 스케줄을 저장했습니다. 다시 물어봐 주세요 — 지금 실행하면 그 편집이 지워집니다.' };
+  }
+
+  const rows = Array.isArray(d.rows) ? d.rows : [];
+  const 상태 = 값N >= 100 ? '완료' : 값N > 0 ? '진행중' : '미시작';
+  // **수동 진척률은 말단 행에만 박는다.** 부모 행에 박으면 그 뒤 자식이 아무리 바뀌어도
+  //   부모 막대가 박은 값에 영원히 붙박이가 된다 — wbs.html v28.4.41 이 겪고 적어 둔 버그다
+  //   ("복사한 탱크가 전부 82%로 보이던 원인"). 부모는 자식 롤업이 진실이다.
+  //   여기서는 말단을 **전부 같은 값**으로 맞추므로 부모는 롤업만으로 정확히 그 값이 된다
+  //   (같은 수의 평균은 그 수다 — TA 탱크 가중평균이라도 마찬가지).
+  //   부모에 **이미 박혀 있던** 값은 지운다(null). 안 지우면 옛 값에 붙박인 채 남는다.
+  const 자식있나 = (i) => i < rows.length - 1 && rows[i + 1].projId === rows[i].projId && (rows[i + 1].lv || 0) > (rows[i].lv || 0);
+  let 바뀐수 = 0;
+  const 새rows = rows.map((w, i) => {
+    if (!바꿀id.has(w.id)) return w;
+    바뀐수++;
+    if (자식있나(i)) return { ...w, pctManual: null };
+    return { ...w, pctManual: 값N, status: 상태 };
+  });
+  if (!바뀐수) return { 안됨: '바꿀 항목을 스케줄에서 찾지 못했습니다.' };
+
+  const 이제 = Date.now();
+  // 진척률만 바뀌는 것은 Rev 를 올리지 않는다 — wbs.html 의 v28Save 와 같은 규칙이다
+  // (Rev·이력 스냅샷은 '일정·구성 변경' 일 때만).
+  await fb.setDoc(ref, { rows: 새rows, rev: Number(d.rev) || 0, updatedAt: 이제 }, { merge: true });
+
+  // 대시보드 카드의 진도율 맞추기 — **확실할 때만.** 위 _롤업 참고.
+  let 진척 = null;
+  try {
+    const 자식들 = (x) => _단락아래(새rows, x).slice(1).filter((y) => (y.lv || 0) === (x.lv || 0) + 1);
+    const tops = 새rows.filter((w) => (w.lv || 0) === 0);
+    const vals = tops.map((w) => _롤업(새rows, w, 자식들));
+    if (tops.length && !vals.some((v) => v == null)) {
+      진척 = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+      await fb.setDoc(fb.doc(fb.db, 'projects', 제안.pid), { progress: 진척 }, { merge: true });
+    }
+  } catch (e) { console.warn('진도율 동기화 실패', e); }
+
+  // 누가 언제 무엇을 바꿨나. ISO 9001 심사에서 답할 자료이기도 하다.
+  try {
+    await fb.setDoc(fb.doc(fb.collection(fb.db, 't_aiAuditLog')), {
+      at: 이제, by: state.currentUser || '', 경로: 'messenger-ai',
+      행위: '스케줄 진척률', pid: 제안.pid, 프로젝트: 제안.프로젝트이름 || '',
+      단락: `${제안.단락코드} ${제안.단락이름}`.trim(), 값: 값N, 건수: 바뀐수,
+    });
+  } catch (e) { console.warn('감사 기록 실패', e); }
+
+  return { 바뀐수, 값: 값N, 진척 };
 };
 
 function toggleDept(id) {

@@ -21,6 +21,12 @@ const 곳 = [
   { 이름: 'messenger.html ?v=', 값: (읽기('modules/messenger/messenger.html').match(/messenger\.js\?v=(b\d+)/) || [])[1] },
   { 이름: 'messenger.js 의 ai.js import', 값: (읽기('modules/messenger/messenger.js').match(/ai\.js\?v=(b\d+)/) || [])[1] },
   { 이름: 'sw.js 버전 주석', 값: (읽기('modules/messenger/sw.js').match(/const 버전 = 'sj-msg-v\d+';\s*\/\/ v\d+: (b\d+)/) || [])[1] },
+  // 2026-09-23 추가: 이 자리가 **b67 에 열여섯 판 동안 멈춰 있었다.** pwa-w1 시험은 보고 있었는데
+  //   배포 직전에 도는 건 이 파일이라(`npm run build`) 아무도 못 봤다. 서비스워커 캐시로 오면
+  //   URL 에 ?v= 가 없어 화면에 찍히는 판 번호가 이 상수다 — 틀리면 "무슨 판이 떠 있나" 를 못 믿는다.
+  { 이름: 'messenger.js 의 빌드 상수', 값: (읽기('modules/messenger/messenger.js').match(/const 빌드 = '(b\d+)'/) || [])[1] },
+  { 이름: 'messenger.html css ?v=', 값: (읽기('modules/messenger/messenger.html').match(/messenger\.css\?v=(b\d+)/) || [])[1] },
+  { 이름: 'messenger.js 의 lib.js import', 값: (읽기('modules/messenger/messenger.js').match(/lib\.js\?v=(b\d+)/) || [])[1] },
 ];
 
 let 탈 = 0;

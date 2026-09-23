@@ -5,7 +5,8 @@
   "description": "세종기술 통합 협업 플랫폼. 브라우저 쪽은 의존성 0(정적 HTML + gstatic CDN) — 여기 적힌 것은 전부 개발용 시험 도구다.",
   "scripts": {
     "rules": "firebase emulators:exec --only firestore --project demo-sejong \"node test/rules.test.mjs\"",
-    "build": "node test/build-version.test.mjs"
+    "build": "node test/build-version.test.mjs",
+    "test": "node test/messenger-lib.test.mjs && node test/pwa-w1.test.mjs && node test/ai-perm.test.mjs && node test/ai-action.test.mjs && node test/wbs-rollup.test.mjs && node test/build-version.test.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",

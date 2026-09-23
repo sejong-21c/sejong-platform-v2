@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b82';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b82';
+import * as L from './lib.js?v=b83';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b83';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b67';
+const 빌드 = 'b83';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -167,6 +167,15 @@ function 볼수있는화면() {
     const 것 = window.parent.보이는화면들();
     return Array.isArray(것) ? 것 : [];
   } catch (e) { return []; }   // 크로스오리진이거나 부모가 아직 안 떴을 때
+}
+// 스케줄을 **고칠 수 있는** 프로젝트만 부모에게 묻는다(2026-09-23).
+// 조회만 되는 것은 부모가 안 준다 — 목록에 있으면 AI 가 제안하고, 제안이 거부되면 사람은 헛걸음만 한다.
+function 고칠수있는프로젝트() {
+  try {
+    if (독립실행 || !window.parent || typeof window.parent.고칠수있는프로젝트 !== 'function') return [];
+    const 것 = window.parent.고칠수있는프로젝트();
+    return Array.isArray(것) ? 것 : [];
+  } catch (e) { return []; }
 }
 // iframe 안에서 만든 객체를 부모 Firestore 에 넘기면 "custom Object" 오류가 난다 → 실제로 쓰는 fb 가 사는 realm 의 JSON 으로 다시 만든다.
 // (부모에 fb 가 없어 자기 fb 를 쓸 때 부모 JSON 으로 만들면 거꾸로 같은 오류가 난다 — W1 시험대에서 잡힘)
@@ -672,7 +681,7 @@ function 말풍선(m, info, members, readMarkBefore) {
     body = `<a class="sjm-bubble is-file sjm-file" ${m.fileUrl ? `href="${esc(m.fileUrl)}" target="_blank" rel="noopener"` : ''}>${ICON.file}<span><div class="sjm-file-name">${esc(m.file)}</div><div class="sjm-file-size">${esc(m.fileSize || '')}</div></span></a>`;
   } else if (m.md) {
     // AI 답변 — 글머리표·표를 그대로 그린다. 방 안 검색 하이라이트는 여기 안 붙는다(서식 태그를 깨뜨린다).
-    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${화면달기(m)}${영수증달기(m)}${표달기(m)}${출처달기(m)}</div>`;
+    body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${화면달기(m)}${제안달기(m)}${영수증달기(m)}${표달기(m)}${출처달기(m)}</div>`;
   } else {
     let text = esc(m.text || '');
     if (ui.rs.open && ui.rs.q) {
@@ -825,6 +834,25 @@ async function 경비로등록(m, 고른) {
   }
 }
 
+// ── 고치기 제안 실행 ────────────────────────────────────────────────────────
+// 쓰는 일은 전부 부모 앱(window.스케줄실행)이 한다 — 권한을 거기서 다시 보고, 그사이 남이
+//   저장했으면 거절한다. 여기서는 두 번 눌리는 것만 막고 결과를 말풍선에 남긴다.
+async function 제안결과쓰기(m, 결과) {
+  m.제안 = { ...(m.제안 || {}), 결과 };        // 화면부터 바꾼다(저장이 늦어도 두 번 눌리지 않게)
+  renderMessages(false);
+  const fb = getFB(); if (!fb || !fb.db) return;
+  try { await fb.setDoc(fb.doc(fb.db, AI_컬렉션, m.id), plain({ 제안: m.제안 }), { merge: true }); }
+  catch (e) { console.warn('[제안] 결과 저장 실패', e); }
+}
+async function 제안실행(m, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '실행 중…'; }
+  let 결과;
+  try { 결과 = await window.parent.스케줄실행(m.제안); }
+  catch (e) { 결과 = { 안됨: '바꾸지 못했습니다: ' + String((e && e.message) || e).slice(0, 80) }; }
+  await 제안결과쓰기(m, 결과 || { 안됨: '결과를 받지 못했습니다.' });
+  토스트(결과 && 결과.바뀐수 ? `${결과.바뀐수}건을 ${결과.값}% 로 바꿨습니다.` : (결과 && 결과.안됨) || '바꾸지 못했습니다.', 3600);
+}
+
 // ── 센 결과를 차트·엑셀로 ────────────────────────────────────────────────────
 // 왜: 세는 건 됐는데(b56~b77) **결과물이 안 나왔다.** 부장님이 수를 받아 적어서 다시
 //   엑셀에 옮기고 계셨다. 답에 붙은 그 줄이 이미 표인데 내보낼 길만 없었다.
@@ -940,6 +968,34 @@ function 화면달기(m) {
   const 것 = (Array.isArray(m.화면) ? m.화면 : []).slice(0, 2);
   if (!것.length) return '';
   return `<div class="sjm-md-go">${것.map((s) => `<button class="sjm-go-btn" data-act="open-screen" data-kind="${esc(s.종류 || '')}" data-id="${esc(s.id || '')}" data-dept="${esc(s.부서 || '')}">「${esc(s.이름 || '')}」 열기</button>`).join('')}</div>`;
+}
+
+// ── 고치기 확인 카드 (2026-09-23) ─────────────────────────────────────────
+// **무엇이 바뀌는지 전부 보여 주고 사람이 누른다.** AI 가 고른 것을 그대로 쓰지 않는 이유는
+//   [[llm-sql-pipeline-traps]] 와 같다 — 모델은 그럴듯하게 틀린다. 틀렸으면 여기서 사람 눈에 걸린다.
+// 실행하고 나면 카드가 결과로 바뀐다(m.제안.결과). 카드가 남아 있으면 두 번 누르게 된다.
+function 제안달기(m) {
+  const p = m.제안;
+  if (!p) return '';
+  if (p.안됨) return `<div class="sjm-act sjm-act-no">${ICON.warn || ''}<span>${esc(p.안됨)}</span></div>`;
+  if (p.결과) {
+    const r = p.결과;
+    if (r.안됨) return `<div class="sjm-act sjm-act-no">${esc(r.안됨)}</div>`;
+    return `<div class="sjm-act sjm-act-ok">✓ ${esc(p.단락코드)} ${esc(p.단락이름)} 아래 <b>${r.바뀐수}건</b>을 <b>${r.값}%</b>로 바꿨습니다.${r.진척 != null ? ` 프로젝트 진도율 ${r.진척}%.` : ''}</div>`;
+  }
+  const 줄 = (p.바꿀것 || []);
+  const 보일것 = 줄.slice(0, 12);
+  const 미리 = 보일것.map((r) => `<div class="sjm-act-row"><span class="sjm-act-code">${esc(r.code)}</span><span class="sjm-act-name">${esc(r.name)}</span><span class="sjm-act-pct">${r.지금 == null ? '—' : r.지금 + '%'} → <b>${p.값}%</b></span></div>`).join('');
+  const 더 = 줄.length > 보일것.length ? `<div class="sjm-act-more">…외 ${줄.length - 보일것.length}건</div>` : '';
+  return `<div class="sjm-act">
+    <div class="sjm-act-head">${esc(p.프로젝트이름)} · ${esc(p.단락코드)} ${esc(p.단락이름)}</div>
+    <div class="sjm-act-sub">아래 <b>${줄.length}건</b>을 <b>${p.값}%</b>로 바꿉니다${p.이미 ? ` (이미 ${p.값}% 인 것 ${p.이미}건 포함)` : ''}.</div>
+    <div class="sjm-act-list">${미리}${더}</div>
+    <div class="sjm-act-btns">
+      <button class="sjm-act-run" data-act="act-run" data-mid="${esc(m.id)}">실행</button>
+      <button class="sjm-act-cancel" data-act="act-cancel" data-mid="${esc(m.id)}">취소</button>
+    </div>
+  </div>`;
 }
 
 function 출처달기(m) {
@@ -1565,9 +1621,19 @@ async function AI에게묻기(질문) {
       세는질문인가(물음) ? 기록세기(물음, fb) : Promise.resolve([]),
     ]);
     const 화면목록 = 볼수있는화면();
-    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표, 센것), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length), 화면들: 화면목록 });
+    const 고칠것 = 고칠수있는프로젝트();
+    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표, 센것), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length), 화면들: 화면목록, 고칠프로젝트: 고칠것 });
+    // 답 끝에 붙은 ```실행 덩이를 떼어낸다. 뗀 글만 말풍선에 보이고, 덩이는 확인 카드가 된다.
+    const { 글: 답글, 제안: 날것 } = 실행뽑기(답.text);
+    // **모델 말을 그대로 쓰지 않는다.** 프로젝트·단락을 실제 자료에서 찾고 무엇이 바뀌는지 세는 것은
+    //   부모 앱이다. 여기서 나오는 것은 "이 12개 행이 이렇게 바뀐다" 는 사실이고, 사람은 그걸 보고 누른다.
+    let 제안 = null;
+    if (날것) {
+      try { 제안 = await window.parent.스케줄제안(날것); }
+      catch (e) { 제안 = { 안됨: '스케줄을 확인하지 못했습니다: ' + (e.message || e) }; }
+    }
     // 답에 나온 화면 이름으로 버튼을 만든다. 이름은 위 목록에서 온 것뿐이라 지어낼 수가 없다.
-    const 갈곳 = 화면고르기(답.text, 화면목록);
+    const 갈곳 = 화면고르기(답글, 화면목록);
     // 근거로 쓴 조각에 딸린 도면(ASME 그림)을 같이 남긴다. 점수 높은 것부터 두 장까지 —
     // 더 붙이면 말풍선이 그림으로 뒤덮여 정작 답이 안 보인다.
     // **그림은 글보다 높은 문턱을 넘어야 붙인다.** 2026-09-21: "재무부 자료 읽어지나" 라고 물었는데
@@ -1597,7 +1663,8 @@ async function AI에게묻기(질문) {
         if (그림.length < 2 && !그림.some((x) => x.url === g.url)) 그림.push(g);
       }
     }
-    await AI쓰기({ author: AI_UID, role: 'ai', text: 길설명빼기(답.text, !!갈곳.length), type: 'text', md: true, model: 답.model,
+    await AI쓰기({ author: AI_UID, role: 'ai', text: 길설명빼기(답글, !!갈곳.length), type: 'text', md: true, model: 답.model,
+      ...(제안 ? { 제안: plain(제안) } : {}),
       // 표에서 센 것이면 **그 수가 어느 파일에서 나왔는지**도 칩으로 단다.
       // 수는 정확해도 출처가 없으면 사람이 확인할 수가 없다.
       sources: [...new Set([
@@ -1639,6 +1706,18 @@ function 행동(el) {
       const m = 메시지찾기(el.dataset.mid);
       if (!m || !m.영수증) { 토스트('영수증 내용을 찾지 못했습니다.'); break; }
       경비로등록(m, el.dataset.pick == null ? null : Number(el.dataset.pick));
+      break;
+    }
+    case 'act-run': {
+      const m = 메시지찾기(el.dataset.mid);
+      if (!m || !m.제안 || m.제안.안됨 || m.제안.결과) break;
+      제안실행(m, el);
+      break;
+    }
+    case 'act-cancel': {
+      const m = 메시지찾기(el.dataset.mid);
+      if (!m || !m.제안) break;
+      제안결과쓰기(m, { 안됨: '취소했습니다. 스케줄은 그대로입니다.' });
       break;
     }
     case 'open-screen': {
