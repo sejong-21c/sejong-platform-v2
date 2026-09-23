@@ -62,6 +62,11 @@
     getCountFromServer,                       // v30.17: 세는 질문. 전체를 훑으면 무료 한도를 태운다 — 태운 적 있다
     getDocsFromCache, getDocFromCache,        // 서버가 못 줄 때(한도·망) 캐시로 들어가려고 — hydrateUsersAndEnter
   };
+  // v30.18: AI 행위의 권한·검증 순수 함수. **ai-assistant.js 의 인라인 사본을 베끼지 않고
+  //   공유 모듈을 그대로 쓴다** — 같은 규칙이 세 곳이 되면 반드시 어긋난다.
+  //   시험: node test/ai-perm.test.mjs (43항목).
+  import('./modules/shared/ai-perm.mjs?v=b84').then((m) => { window.AIPERM = m; })
+    .catch((e) => console.warn('ai-perm 모듈을 못 읽었다 — AI 행위가 꺼진다', e));
 </script>
 <!-- v29.5: 개인 구글 캘린더 연동용 — Firebase Auth(로그인)와는 완전히 별개의 OAuth 클라이언트.
      로그인에는 전혀 영향 없음(별도 client_id, 별도 토큰). -->
@@ -1517,7 +1522,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b66';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b83'; // b83: AI 비서가 스케줄 진척률을 고친다 — AI 는 제안만, 대상 찾기·권한·쓰기는 부모 앱, 실행은 사람이 누른다 · b82: 영수증은 업무관리가 아니라 경비 내역서로 · b81: 엑셀 파일 이름이 UTC 라 새벽에 하루 밀렸다 · b80: 센 결과를 차트·엑셀로 받는다 · b79: 영수증 분기를 sendFiles 안으로 · b78: AI 방에 영수증 사진 — 맥 붙박이 OCR 이 읽고 금액은 코드가 풀고 사람이 확인해 업무관리에 등록 · b77: 플랫폼 기록을 센다(NCR 몇 건) · b76: 기록 출처 칩 문턱 · b75: 버튼 있으면 가는 길 설명 삭제 · b74: 「화면 열기」 버튼 — 지어내는 대신 진짜로 연다 · b73: 금액 부동소수 꼬리 · b72: 차례를 요구하던 넷째 줄 · b71: '무엇을 하면 되는지' 요구 삭제 · b70: 지침 속 화살표 본보기 삭제 · b69: 화살표 금지 · b68: 수압시험 사건 수리(대상 대조·조각 10개·반말 본보기 삭제) · b67: 화면을 못 지어내게 했더니 이번엔 파일 경로를 지어냈다 — 줄에 있는 값만 쓰게 · b66: SQL 이 파일별로 또 쪼개 줄이 수십 개가 되면 모델이 손으로 더하다 틀린다 — 묻는 축 하나로만 묶게 · b65: 지침에 표 계층과 정면으로 부딪히는 규칙이 있었다 — 말을 얹지 말고 지웠어야 했다 · b64: 표 결과 줄을 AI 가 손으로 더하다 틀리던 것 — 더하지 말라고 못 박음 · b63: 화면 안내 규칙이 '안내하지 마라'를 이기고 있었다 — 우선순위를 못 박음 · b62: 표에서 센 수에 없는 화면 경로를 안내하던 것 — NAS 파일 경로를 준다 · b61: 표에서 센 결과가 맥락 8000자 제한에 잘려 나가고 있었다 — 맨 앞으로 · b60: 표 고르는 규칙 — 기간 먼저 보게 하고 '없음' 탈출구를 좁혔다(3번 중 2번 없음이었다) · b59: 세는 질문인데 질의를 못 썼으면 그 사실을 말한다(조용히 넘어가니 없는 메뉴를 지어냈다) · b58: 표를 셌는데 0줄이면 그 사실을 AI 에게 말해 준다(안 말하니 없는 메뉴를 지어냈다) · b57: 표 질의가 두뇌 한 곳만 부르다 빈 응답이면 통째로 건너뛰던 것 — 체인을 돈다 · b56: AI 비서가 NAS 표(20표 323만 행)에 SQL 로 센다 — "작년 견적 재료비 총액" 같은 세는 질문. 범위는 맥의 SQLite 권한자가 막는다 · b55: 2단계 켬 — 백필(박을것 0)·복합색인 2개 READY·규칙 게시가 끝나서 스위치를 올렸다. 이제 readers 에 든 사람만 그 메시지를 받는다(부팅 읽기 500 → 자기 것 + 공지 100) · b54: 2단계는 스위치 뒤에서 대기(백필·색인·규칙 끝난 뒤 켠다) — 켠 채로 배포하면 그 사이 메신저가 멎는다 · b53: 2단계 — readers 로 좁혀 구독한다(남의 1:1 이 더는 안 내려오고, 부팅 읽기가 500→수십) · b52: 볼트 파일 경로는 문턱을 달리 쓴다(0.62 로 자르면 진짜 답이 잘렸다) · b51: 자료 질문에 화면 이야기로 답하던 것 + "(한 줄 안내)" 를 그대로 뱉던 것 · b50: 서비스워커가 ?v= 를 버려서 고친 게 안 닿던 것(그물 먼저) · 좁은 창에서 엔터가 안 먹던 것 · 출처 칩도 0.62 문턱(연봉 물었는데 ASME 가 붙던 것) · AI 가 볼트(NAS) 자료도 본다 · b49: 없는 메뉴를 지어내던 것 + 상관없는 도면이 딸려오던 것 · b48: 옛 대화를 다시 열면 ASME 그림이 사라지던 것(높이 0 ↔ lazy 교착) · b47: 폰에서 좌우로 흔들리던 것(방 본문 overflow-x) · 글자 끌어서 복사 · 표 그림 눌러서 확대 · b46: 보내는 메시지에 readers(읽어도 되는 사람)를 박는다 — 2단계 준비, 아직 규칙·구독은 그대로 · b45: 커튼 — 임원도 자기 부서 아니면 남의 부서·프로젝트 방을 못 본다(대표님 포함) · b41: 플랫폼·메신저 Firestore 영속 캐시(재접속 때 바뀐 것만 — 무료 하루 5만 읽기 대비) · b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
+const MESSENGER_BUILD = 'b84'; // b84: AI 행위 등록소 — 스케줄 진척·프로젝트 일정·상태·업무 완료·업무 배정 다섯을 한 틀로(권한은 ai-perm.mjs 와 canEditWbsMaster 재사용) · b83: AI 비서가 스케줄 진척률을 고친다 — AI 는 제안만, 대상 찾기·권한·쓰기는 부모 앱, 실행은 사람이 누른다 · b82: 영수증은 업무관리가 아니라 경비 내역서로 · b81: 엑셀 파일 이름이 UTC 라 새벽에 하루 밀렸다 · b80: 센 결과를 차트·엑셀로 받는다 · b79: 영수증 분기를 sendFiles 안으로 · b78: AI 방에 영수증 사진 — 맥 붙박이 OCR 이 읽고 금액은 코드가 풀고 사람이 확인해 업무관리에 등록 · b77: 플랫폼 기록을 센다(NCR 몇 건) · b76: 기록 출처 칩 문턱 · b75: 버튼 있으면 가는 길 설명 삭제 · b74: 「화면 열기」 버튼 — 지어내는 대신 진짜로 연다 · b73: 금액 부동소수 꼬리 · b72: 차례를 요구하던 넷째 줄 · b71: '무엇을 하면 되는지' 요구 삭제 · b70: 지침 속 화살표 본보기 삭제 · b69: 화살표 금지 · b68: 수압시험 사건 수리(대상 대조·조각 10개·반말 본보기 삭제) · b67: 화면을 못 지어내게 했더니 이번엔 파일 경로를 지어냈다 — 줄에 있는 값만 쓰게 · b66: SQL 이 파일별로 또 쪼개 줄이 수십 개가 되면 모델이 손으로 더하다 틀린다 — 묻는 축 하나로만 묶게 · b65: 지침에 표 계층과 정면으로 부딪히는 규칙이 있었다 — 말을 얹지 말고 지웠어야 했다 · b64: 표 결과 줄을 AI 가 손으로 더하다 틀리던 것 — 더하지 말라고 못 박음 · b63: 화면 안내 규칙이 '안내하지 마라'를 이기고 있었다 — 우선순위를 못 박음 · b62: 표에서 센 수에 없는 화면 경로를 안내하던 것 — NAS 파일 경로를 준다 · b61: 표에서 센 결과가 맥락 8000자 제한에 잘려 나가고 있었다 — 맨 앞으로 · b60: 표 고르는 규칙 — 기간 먼저 보게 하고 '없음' 탈출구를 좁혔다(3번 중 2번 없음이었다) · b59: 세는 질문인데 질의를 못 썼으면 그 사실을 말한다(조용히 넘어가니 없는 메뉴를 지어냈다) · b58: 표를 셌는데 0줄이면 그 사실을 AI 에게 말해 준다(안 말하니 없는 메뉴를 지어냈다) · b57: 표 질의가 두뇌 한 곳만 부르다 빈 응답이면 통째로 건너뛰던 것 — 체인을 돈다 · b56: AI 비서가 NAS 표(20표 323만 행)에 SQL 로 센다 — "작년 견적 재료비 총액" 같은 세는 질문. 범위는 맥의 SQLite 권한자가 막는다 · b55: 2단계 켬 — 백필(박을것 0)·복합색인 2개 READY·규칙 게시가 끝나서 스위치를 올렸다. 이제 readers 에 든 사람만 그 메시지를 받는다(부팅 읽기 500 → 자기 것 + 공지 100) · b54: 2단계는 스위치 뒤에서 대기(백필·색인·규칙 끝난 뒤 켠다) — 켠 채로 배포하면 그 사이 메신저가 멎는다 · b53: 2단계 — readers 로 좁혀 구독한다(남의 1:1 이 더는 안 내려오고, 부팅 읽기가 500→수십) · b52: 볼트 파일 경로는 문턱을 달리 쓴다(0.62 로 자르면 진짜 답이 잘렸다) · b51: 자료 질문에 화면 이야기로 답하던 것 + "(한 줄 안내)" 를 그대로 뱉던 것 · b50: 서비스워커가 ?v= 를 버려서 고친 게 안 닿던 것(그물 먼저) · 좁은 창에서 엔터가 안 먹던 것 · 출처 칩도 0.62 문턱(연봉 물었는데 ASME 가 붙던 것) · AI 가 볼트(NAS) 자료도 본다 · b49: 없는 메뉴를 지어내던 것 + 상관없는 도면이 딸려오던 것 · b48: 옛 대화를 다시 열면 ASME 그림이 사라지던 것(높이 0 ↔ lazy 교착) · b47: 폰에서 좌우로 흔들리던 것(방 본문 overflow-x) · 글자 끌어서 복사 · 표 그림 눌러서 확대 · b46: 보내는 메시지에 readers(읽어도 되는 사람)를 박는다 — 2단계 준비, 아직 규칙·구독은 그대로 · b45: 커튼 — 임원도 자기 부서 아니면 남의 부서·프로젝트 방을 못 본다(대표님 포함) · b41: 플랫폼·메신저 Firestore 영속 캐시(재접속 때 바뀐 것만 — 무료 하루 5만 읽기 대비) · b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b24'; // v29.74: 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류(로컬 축소캐시로 서버 원본 덮어쓰는 사고 방지)
 const CAR_BUILD = 'b24'; // v29.74: 동일 — 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류
@@ -2293,10 +2298,40 @@ window.화면열기 = function (종류, id, 부서) {
 
 // 이 사람이 스케줄을 **고칠 수 있는** 프로젝트만. 조회만 되는 것은 넣지 않는다 —
 // 목록에 있으면 AI 가 제안하고, 제안했는데 거부되면 사람은 "왜 안 되지" 만 남는다.
+// ── AI 행위 등록소 ────────────────────────────────────────────────────────
+// 여기 있는 것만 AI 가 제안할 수 있다. 등록되지 않은 일은 **말할 수조차 없다.**
+//
+// 한 행위 = { 설명, 인자, 쓸수있나(), 풀기(값), 쓰기(풀린것) }
+//   · 풀기  — 이름으로 실물을 찾고 **권한을 보고** 무엇이 바뀌는지 카드 줄을 만든다.
+//              권한이 없으면 카드를 아예 만들지 않는다(누를 것이 없어야 한다).
+//   · 쓰기  — 실제 저장. 여기 닿기 전에 AI행위실행 이 풀기를 **다시** 돌린다(아래).
+//
+// 권한 판정은 새로 쓰지 않는다 — window.AIPERM(modules/shared/ai-perm.mjs, 시험 43항목) 과
+//   이 파일의 canEditWbsMaster 를 그대로 쓴다. 같은 규칙을 두 번 쓰면 반드시 어긋난다.
+const 사람찾기 = (이름) => {
+  const q = String(이름 || '').trim();
+  if (!q) return null;
+  const us = state.users || [];
+  return us.find((u) => u.name === q) || us.find((u) => (u.name || '').includes(q)) || null;
+};
+const 프로젝트찾기 = (말) => {
+  const q = String(말 || '').toLowerCase().trim();
+  if (!q) return { 안됨: '어느 프로젝트인지 이름이나 코드를 알려 주세요.' };
+  const hits = (state.projects || []).filter((p) => !p.hidden
+    && ((p.code || '') + ' ' + (p.name || '')).toLowerCase().includes(q));
+  if (!hits.length) return { 안됨: `"${말}" 프로젝트를 찾지 못했습니다.` };
+  if (hits.length > 1) return { 안됨: `"${말}" 에 맞는 프로젝트가 ${hits.length}개입니다: ${hits.slice(0, 5).map((p) => (p.code || '') + ' ' + (p.name || '')).join(' · ')}${hits.length > 5 ? ' 외' : ''}. 코드로 집어 주세요.` };
+  return { 것: hits[0] };
+};
+const 나 = () => (typeof getU === 'function' ? getU(state.currentUser) : null);
+const 프로젝트이름 = (p) => ((p.code ? p.code + ' ' : '') + (p.name || '')).trim();
+
+// 이 사람이 스케줄을 **고칠 수 있는** 프로젝트만. 조회만 되는 것은 넣지 않는다 —
+// 목록에 있으면 AI 가 제안하고, 제안이 거부되면 사람은 헛걸음만 한다.
 window.고칠수있는프로젝트 = function () {
   try {
     return (state.projects || [])
-      .filter((p) => p && p.id && canEditWbsMaster(p.id))
+      .filter((p) => p && p.id && !p.hidden && canEditWbsMaster(p.id))
       .map((p) => ({ id: p.id, code: p.code || '', name: p.name || '', pm: p.pm || '' }));
   } catch (e) { return []; }
 };
@@ -2305,6 +2340,7 @@ window.고칠수있는프로젝트 = function () {
 //   ITP 검사기록(wbsRec)에 물린 행은 여기서 못 판단한다(문서를 더 읽어야 한다) → null 을 돌려
 //   부르는 쪽이 projects.progress 쓰기를 통째로 건너뛰게 한다. **모르면 안 쓴다.**
 //   틀린 수를 대시보드에 박느니 옛 수가 그대로 남는 게 낫다 — 스케줄 화면을 열면 어차피 다시 계산된다.
+//   경계는 test/wbs-rollup.test.mjs 가 못 박는다.
 function _롤업(rows, w, 자식들) {
   if (w.pctManual != null && w.pctManual !== '') return Math.max(0, Math.min(100, Math.round(Number(w.pctManual)) || 0));
   const kids = 자식들(w);
@@ -2335,133 +2371,301 @@ function _단락아래(rows, 시작) {
   }
   return 것;
 }
+const _직계자식 = (rows) => (x) => _단락아래(rows, x).slice(1).filter((y) => (y.lv || 0) === (x.lv || 0) + 1);
 
-/** AI 가 말한 프로젝트·단락을 **실제 자료에서** 찾아 "무엇이 바뀌는지" 를 돌려준다. 아직 쓰지 않는다. */
-window.스케줄제안 = async function ({ 프로젝트, 단락, 값 }) {
-  const 후보 = window.고칠수있는프로젝트();
-  if (!후보.length) return { 안됨: '스케줄을 고칠 수 있는 프로젝트가 없습니다. 프로젝트 PM 이나 관리자에게 요청해 주세요.' };
-
-  const 다듬 = (s) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
-  const 힌트 = 다듬(프로젝트);
-  let p = 후보.find((x) => x.id === 프로젝트)
-       || 후보.find((x) => 다듬(x.code) === 힌트 || 다듬(x.name) === 힌트);
-  if (!p && 힌트) {
-    const 맞는 = 후보.filter((x) => 다듬(x.code).includes(힌트) || 다듬(x.name).includes(힌트));
-    if (맞는.length === 1) p = 맞는[0];
-    else if (맞는.length > 1) return { 안됨: `"${프로젝트}" 에 맞는 프로젝트가 ${맞는.length}개입니다: ${맞는.map((x) => x.code || x.name).join(' · ')}. 하나를 집어 말씀해 주세요.` };
-  }
-  if (!p) return { 안됨: `"${프로젝트}" 라는 프로젝트를 고칠 수 있는 목록에서 찾지 못했습니다.` };
-
-  const 값N = Math.max(0, Math.min(100, Math.round(Number(값))));
-  if (!Number.isFinite(값N)) return { 안됨: '진척률을 숫자로 알아듣지 못했습니다.' };
-
-  let snap;
-  try { snap = await fb.getDoc(fb.doc(fb.db, 'wbsData', p.id)); }
-  catch (e) { return { 안됨: '스케줄을 읽지 못했습니다: ' + (e.message || e) }; }
-  if (!snap.exists()) return { 안됨: `${p.code || p.name} 에는 아직 스케줄(WBS)이 없습니다.` };
-  const d = snap.data() || {};
-  const rows = Array.isArray(d.rows) ? d.rows : [];
-  if (!rows.length) return { 안됨: `${p.code || p.name} 스케줄에 항목이 없습니다.` };
-
-  // 단락 찾기 — 코드("3", "3.1")가 정확히 맞는 것 우선, 없으면 이름에 든 것.
-  const h = 다듬(단락);
-  let 대상 = null;
-  if (h) {
-    대상 = rows.find((w) => 다듬(w.code) === h)
-        || rows.find((w) => 다듬(w.name) === h);
-    if (!대상) {
-      const 맞는 = rows.filter((w) => 다듬(w.name).includes(h) || (h.length >= 2 && 다듬(w.code).startsWith(h)));
-      if (맞는.length === 1) 대상 = 맞는[0];
-      else if (맞는.length > 1) {
-        // 제일 얕은 것 하나만 남으면 그걸로 — "3번 Tank 제작" 이 대단락이고 나머지가 그 자식일 때.
-        const 얕은 = Math.min(...맞는.map((w) => w.lv || 0));
-        const 위 = 맞는.filter((w) => (w.lv || 0) === 얕은);
-        if (위.length === 1) 대상 = 위[0];
-        else return { 안됨: `"${단락}" 에 맞는 항목이 ${맞는.length}개입니다: ${맞는.slice(0, 6).map((w) => `${w.code} ${w.name}`).join(' · ')}${맞는.length > 6 ? ' …' : ''}. 코드로 집어 말씀해 주세요.` };
+const AI행위 = {
+  // ── 스케줄(WBS) 진척률 ────────────────────────────────────────────────
+  '스케줄진척': {
+    설명: '프로젝트 스케줄(WBS)의 한 단락과 그 아래 전부를 같은 진척률로 맞춘다. "삼성전기 3번 Tank 제작 전체 완료" 같은 부탁',
+    인자: { 프로젝트: '프로젝트 이름이나 코드', 단락: '단락 코드나 이름 — 사람이 말한 그대로', 값: '0~100 정수' },
+    쓸수있나: () => window.고칠수있는프로젝트().length > 0,
+    풀기: async (v) => {
+      const f = 프로젝트찾기(v.프로젝트);
+      if (f.안됨) return { 안됨: f.안됨 };
+      const p = f.것;
+      if (!canEditWbsMaster(p.id)) return { 안됨: `${프로젝트이름(p)} 스케줄을 고칠 권한이 없습니다. PM 이나 관리자에게 요청해 주세요.` };
+      // **가두지(clamp) 않고 거절한다.** 모델이 "150" 이라 한 것을 조용히 100 으로 바꾸면,
+      //   사람은 카드에서 100 을 보고 "내가 말한 대로네" 하고 누른다 — 그건 확인이 아니다.
+      const 값N = Math.round(Number(v.값));
+      if (!Number.isFinite(값N) || 값N < 0 || 값N > 100) {
+        return { 안됨: `진척률은 0~100 사이 숫자여야 합니다(받은 값: ${v.값 === undefined ? '없음' : v.값}).` };
       }
-    }
-  }
-  if (!대상) return { 안됨: `${p.code || p.name} 스케줄에서 "${단락}" 을 찾지 못했습니다.` };
 
-  const 묶음 = _단락아래(rows, 대상);
-  const 바꿀것 = 묶음.map((w) => ({
-    id: w.id, code: w.code || '', name: w.name || '', lv: w.lv || 0,
-    지금: _롤업(rows, w, (x) => _단락아래(rows, x).slice(1).filter((y) => (y.lv || 0) === (x.lv || 0) + 1)),
-  }));
-  const 이미 = 바꿀것.filter((r) => r.지금 === 값N).length;
+      let snap;
+      try { snap = await fb.getDoc(fb.doc(fb.db, 'wbsData', p.id)); }
+      catch (e) { return { 안됨: '스케줄을 읽지 못했습니다: ' + (e.message || e) }; }
+      if (!snap.exists()) return { 안됨: `${프로젝트이름(p)} 에는 아직 스케줄(WBS)이 없습니다.` };
+      const d = snap.data() || {};
+      const rows = Array.isArray(d.rows) ? d.rows : [];
+      if (!rows.length) return { 안됨: `${프로젝트이름(p)} 스케줄에 항목이 없습니다.` };
 
-  return {
-    pid: p.id, 프로젝트이름: p.code ? `${p.code} ${p.name}` : p.name,
-    단락코드: 대상.code || '', 단락이름: 대상.name || '', 값: 값N,
-    바꿀것, 이미, updatedAt: Number(d.updatedAt) || 0,
-  };
+      // 단락 찾기 — 코드가 정확히 맞는 것 우선, 없으면 이름에 든 것.
+      const 다듬 = (s) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+      const h = 다듬(v.단락);
+      let 대상 = h && (rows.find((w) => 다듬(w.code) === h) || rows.find((w) => 다듬(w.name) === h));
+      if (!대상 && h) {
+        const 맞는 = rows.filter((w) => 다듬(w.name).includes(h) || (h.length >= 2 && 다듬(w.code).startsWith(h)));
+        if (맞는.length === 1) 대상 = 맞는[0];
+        else if (맞는.length > 1) {
+          // 제일 얕은 것 하나만 남으면 그걸로 — "3번 Tank 제작" 이 대단락이고 나머지가 그 자식일 때.
+          const 얕은 = Math.min(...맞는.map((w) => w.lv || 0));
+          const 위 = 맞는.filter((w) => (w.lv || 0) === 얕은);
+          if (위.length === 1) 대상 = 위[0];
+          else return { 안됨: `"${v.단락}" 에 맞는 항목이 ${맞는.length}개입니다: ${맞는.slice(0, 6).map((w) => `${w.code} ${w.name}`).join(' · ')}${맞는.length > 6 ? ' …' : ''}. 코드로 집어 주세요.` };
+        }
+      }
+      if (!대상) return { 안됨: `${프로젝트이름(p)} 스케줄에서 "${v.단락}" 을 찾지 못했습니다.` };
+
+      const 묶음 = _단락아래(rows, 대상);
+      const 자식들 = _직계자식(rows);
+      const 줄 = 묶음.map((w) => {
+        const 지금 = _롤업(rows, w, 자식들);
+        return `${w.code || ''} ${w.name || ''}   ${지금 == null ? '—' : 지금 + '%'} → ${값N}%`;
+      });
+      return {
+        제목: `${프로젝트이름(p)} · ${대상.code || ''} ${대상.name || ''}`,
+        머리: `아래 ${묶음.length}건을 ${값N}% 로 바꿉니다.`,
+        카드줄: 줄, 확인: 값N >= 100 ? '완료 처리' : '진척 변경',
+        데이터: { pid: p.id, ids: 묶음.map((w) => w.id), 값: 값N, 이름: 프로젝트이름(p), 단락: `${대상.code || ''} ${대상.name || ''}`.trim() },
+      };
+    },
+    쓰기: async (r) => {
+      const { pid, ids: id목록, 값: 값N } = r.데이터;
+      const 바꿀id = new Set(id목록);
+      const ref = fb.doc(fb.db, 'wbsData', pid);
+      const snap = await fb.getDoc(ref);
+      if (!snap.exists()) return { 안됨: '스케줄 문서가 사라졌습니다.' };
+      const d = snap.data() || {};
+      const rows = Array.isArray(d.rows) ? d.rows : [];
+      const 상태 = 값N >= 100 ? '완료' : 값N > 0 ? '진행중' : '미시작';
+      // **수동 진척률은 말단 행에만 박는다.** 부모 행에 박으면 그 뒤 자식이 아무리 바뀌어도
+      //   부모 막대가 박은 값에 영원히 붙박이가 된다 — wbs.html v28.4.41 이 겪고 적어 둔 버그다
+      //   ("복사한 탱크가 전부 82%로 보이던 원인"). 부모는 자식 롤업이 진실이다.
+      //   말단을 **전부 같은 값**으로 맞추므로 부모는 롤업만으로 정확히 그 값이 된다.
+      //   부모에 **이미 박혀 있던** 값은 지운다(null). 안 지우면 옛 값에 붙박인 채 남는다.
+      const 자식있나 = (i) => i < rows.length - 1 && rows[i + 1].projId === rows[i].projId && (rows[i + 1].lv || 0) > (rows[i].lv || 0);
+      let 바뀐수 = 0;
+      const 새rows = rows.map((w, i) => {
+        if (!바꿀id.has(w.id)) return w;
+        바뀐수++;
+        return 자식있나(i) ? { ...w, pctManual: null } : { ...w, pctManual: 값N, status: 상태 };
+      });
+      if (!바뀐수) return { 안됨: '바꿀 항목을 스케줄에서 찾지 못했습니다.' };
+
+      // 진척률만 바뀌는 것은 Rev 를 올리지 않는다 — wbs.html 의 v28Save 와 같은 규칙이다
+      // (Rev·이력 스냅샷은 '일정·구성 변경' 일 때만).
+      await fb.setDoc(ref, { rows: 새rows, rev: Number(d.rev) || 0, updatedAt: Date.now() }, { merge: true });
+
+      // 대시보드 카드의 진도율 맞추기 — **확실할 때만.** 위 _롤업 참고.
+      let 진척 = null;
+      try {
+        const 자식들 = _직계자식(새rows);
+        const tops = 새rows.filter((w) => (w.lv || 0) === 0);
+        const vals = tops.map((w) => _롤업(새rows, w, 자식들));
+        if (tops.length && !vals.some((v) => v == null)) {
+          진척 = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+          await fb.setDoc(fb.doc(fb.db, 'projects', pid), { progress: 진척 }, { merge: true });
+        }
+      } catch (e) { console.warn('진도율 동기화 실패', e); }
+      return { 알림: `${바뀐수}건을 ${값N}% 로 바꿨습니다.${진척 != null ? ` 프로젝트 진도율 ${진척}%.` : ''}` };
+    },
+  },
+
+  // ── 프로젝트 일정(시작일·마감일) ──────────────────────────────────────
+  '프로젝트일정': {
+    설명: '프로젝트 시작일·마감일 변경. "SJ435 마감을 4월 말로 미뤄줘" 같은 부탁. 날짜는 반드시 YYYY-MM-DD 로 바꿔서 넘긴다',
+    인자: { 프로젝트: '프로젝트 이름이나 코드', 시작일: 'YYYY-MM-DD (바꿀 때만)', 마감일: 'YYYY-MM-DD (바꿀 때만)' },
+    쓸수있나: () => !!window.AIPERM,
+    풀기: async (v) => {
+      const f = 프로젝트찾기(v.프로젝트);
+      if (f.안됨) return { 안됨: f.안됨 };
+      const p = f.것;
+      const perm = window.AIPERM.judgeEditProject(나(), p, state.users);
+      if (!perm.ok) return { 안됨: perm.why };
+      const chk = window.AIPERM.checkScheduleChange(p, v.시작일, v.마감일);
+      if (!chk.ok) return { 안됨: chk.why };
+      const pm = (state.users || []).find((u) => u.id === p.pm);
+      return {
+        제목: 프로젝트이름(p),
+        머리: `PM ${pm ? pm.name : '(미지정)'} · 내 권한: ${perm.why}`,
+        카드줄: [
+          chk.updates.start ? `시작: ${p.start || '(없음)'} → ${chk.updates.start}` : null,
+          chk.updates.end ? `마감: ${p.end || '(없음)'} → ${chk.updates.end}` : null,
+        ].filter(Boolean),
+        확인: '일정 변경',
+        데이터: { pid: p.id, updates: chk.updates, 이름: 프로젝트이름(p) },
+      };
+    },
+    // 바뀌는 필드만 merge — projects 문서의 다른 필드·wbsData 는 절대 건드리지 않는다.
+    쓰기: async (r) => {
+      await fb.setDoc(fb.doc(fb.db, 'projects', r.데이터.pid), r.데이터.updates, { merge: true });
+      return { 알림: '프로젝트 일정을 바꿨습니다.' };
+    },
+  },
+
+  // ── 프로젝트 상태·진행률 ──────────────────────────────────────────────
+  '프로젝트상태': {
+    설명: '프로젝트 상태(진행중·완료·마감예정)나 진행률(0~100) 변경. WBS 가 있는 프로젝트는 자동 계산이라 거부될 수 있고, 그 이유를 그대로 전한다',
+    인자: { 프로젝트: '프로젝트 이름이나 코드', 상태: '진행중 / 완료 / 마감예정 (바꿀 때만)', 진행률: '0~100 (바꿀 때만)' },
+    쓸수있나: () => !!window.AIPERM,
+    풀기: async (v) => {
+      const f = 프로젝트찾기(v.프로젝트);
+      if (f.안됨) return { 안됨: f.안됨 };
+      const p = f.것;
+      const perm = window.AIPERM.judgeEditProject(나(), p, state.users);
+      if (!perm.ok) return { 안됨: perm.why };
+      // WBS 가 있으면 progress·status 를 reconcileProjectProgress() 가 되돌린다 —
+      // 충돌하는 요청은 판정 단계에서 거부한다(조용한 되돌림 방지).
+      const hasWbs = !!((state.wbs || {})[p.id] || []).length;
+      const wbsPct = hasWbs && typeof computeProjectProgress === 'function' ? computeProjectProgress(p.id) : null;
+      const chk = window.AIPERM.checkProjectStatusChange(p, v.상태, v.진행률, wbsPct);
+      if (!chk.ok) return { 안됨: chk.why };
+      const 라벨 = (s) => (PROJ_STATUS_META[s] || PROJ_STATUS_META.active).label;
+      return {
+        제목: 프로젝트이름(p),
+        머리: `내 권한: ${perm.why}`,
+        카드줄: [
+          chk.updates.status ? `상태: ${라벨(p.status)} → ${라벨(chk.updates.status)}` : null,
+          chk.updates.progress != null ? `진행률: ${p.progress || 0}% → ${chk.updates.progress}%` : null,
+        ].filter(Boolean),
+        확인: chk.updates.status ? '상태 변경' : '진행률 변경',
+        데이터: { pid: p.id, updates: chk.updates, 이름: 프로젝트이름(p) },
+      };
+    },
+    쓰기: async (r) => {
+      await fb.setDoc(fb.doc(fb.db, 'projects', r.데이터.pid), r.데이터.updates, { merge: true });
+      return { 알림: '프로젝트를 바꿨습니다.' };
+    },
+  },
+
+  // ── 업무 완료 ─────────────────────────────────────────────────────────
+  '업무완료': {
+    설명: '업무(할 일)를 완료로 바꾼다. "OO 업무 끝났어" 같은 부탁',
+    인자: { 업무: '업무 이름 — 일부만 말해도 된다' },
+    쓸수있나: () => !!window.AIPERM && typeof moveTask === 'function',
+    풀기: async (v) => {
+      const q = String(v.업무 || '').toLowerCase().trim();
+      if (!q) return { 안됨: '어떤 업무인지 이름을 알려 주세요.' };
+      const pool = (typeof allKanbanTasks === 'function' ? allKanbanTasks() : (state.tasks || []))
+        .filter((x) => x.status !== 'done');
+      const hits = pool.filter((x) => (x.title || '').toLowerCase().includes(q));
+      if (!hits.length) return { 안됨: `"${v.업무}" 업무를 찾지 못했습니다(아직 안 끝난 업무에서 찾았습니다).` };
+      if (hits.length > 1) return { 안됨: `"${v.업무}" 에 맞는 업무가 ${hits.length}개입니다: ${hits.slice(0, 5).map((x) => `"${x.title}"`).join(' · ')}${hits.length > 5 ? ' 외' : ''}. 정확히 알려 주세요.` };
+      const t = hits[0];
+      const proj = (state.projects || []).find((p) => p.id === t.proj);
+      const perm = window.AIPERM.judgeEditTask(나(), t, proj, state.users);
+      if (!perm.ok) return { 안됨: perm.why };
+      const u = (state.users || []).find((z) => z.id === t.assignee);
+      return {
+        제목: t.title || '',
+        머리: `${u ? '담당 ' + u.name + ' · ' : ''}${t.due ? '마감 ' + t.due + ' · ' : ''}내 권한: ${perm.why}`,
+        카드줄: [`상태: ${t.status || ''} → 완료`],
+        확인: '완료 처리',
+        데이터: { taskId: t.id, 이름: t.title || '' },
+      };
+    },
+    // moveTask 가 실제 tasks 문서·부서 WBS·브리핑 가상 업무를 유형별로 알아서 저장한다.
+    쓰기: async (r) => { await moveTask(r.데이터.taskId, 'done'); return { 알림: '완료로 바꿨습니다.' }; },
+  },
+
+  // ── 업무 담당자·마감일 ────────────────────────────────────────────────
+  '업무배정': {
+    설명: '업무의 담당자나 마감일 변경. 담당자는 이름만 넘긴다(사번·내부 id 쓰지 말 것)',
+    인자: { 업무: '업무 이름 — 일부만 말해도 된다', 담당자: '새 담당자 이름 (바꿀 때만)', 마감일: 'YYYY-MM-DD (바꿀 때만)' },
+    쓸수있나: () => !!window.AIPERM,
+    풀기: async (v) => {
+      const q = String(v.업무 || '').toLowerCase().trim();
+      if (!q) return { 안됨: '어떤 업무인지 이름을 알려 주세요.' };
+      // 진짜 tasks 문서만 — 칸반에는 브리핑·부서스케줄·OKR 가상 업무가 섞여 있고
+      // 그것들은 tasks 컬렉션에 없어서 여기서 못 고친다.
+      const hits = (state.tasks || []).filter((x) => (x.title || '').toLowerCase().includes(q));
+      if (!hits.length) return { 안됨: `"${v.업무}" 업무를 찾지 못했습니다(업무관리에 등록된 것에서 찾았습니다 — 브리핑·부서 스케줄 항목은 이 길로 못 바꿉니다).` };
+      if (hits.length > 1) return { 안됨: `"${v.업무}" 에 맞는 업무가 ${hits.length}개입니다: ${hits.slice(0, 5).map((x) => `"${x.title}"`).join(' · ')}${hits.length > 5 ? ' 외' : ''}. 정확히 알려 주세요.` };
+      const t = hits[0];
+      const proj = (state.projects || []).find((p) => p.id === t.proj);
+      const perm = window.AIPERM.judgeEditTask(나(), t, proj, state.users);
+      if (!perm.ok) return { 안됨: perm.why };
+      let 새사람 = null;
+      if (v.담당자 && String(v.담당자).trim()) {
+        새사람 = 사람찾기(v.담당자);
+        if (!새사람) return { 안됨: `"${v.담당자}" 직원을 찾지 못했습니다 — 정확한 이름을 알려 주세요.` };
+      }
+      const chk = window.AIPERM.checkReassign(t, 새사람 && 새사람.id, v.마감일);
+      if (!chk.ok) return { 안됨: chk.why };
+      const 옛사람 = (state.users || []).find((u) => u.id === t.assignee);
+      return {
+        제목: (t.title || '') + (proj ? ` (${proj.code || proj.name})` : ''),
+        머리: `내 권한: ${perm.why}`,
+        카드줄: [
+          chk.updates.assignee ? `담당: ${옛사람 ? 옛사람.name : '(미지정)'} → ${새사람.name}` : null,
+          chk.updates.due ? `마감: ${t.due || '(없음)'} → ${chk.updates.due}` : null,
+        ].filter(Boolean),
+        확인: chk.updates.assignee ? '담당 변경' : '마감 변경',
+        데이터: { taskId: t.id, updates: chk.updates, 이름: t.title || '' },
+      };
+    },
+    쓰기: async (r) => {
+      await fb.setDoc(fb.doc(fb.db, 'tasks', r.데이터.taskId), r.데이터.updates, { merge: true });
+      return { 알림: '업무를 바꿨습니다.' };
+    },
+  },
 };
 
-/** 확인 카드에서 「실행」 을 눌렀을 때. **여기서 권한을 다시 본다** — 카드는 오래됐을 수 있다. */
-window.스케줄실행 = async function (제안) {
-  if (!제안 || !제안.pid) return { 안됨: '무엇을 바꿀지 알 수 없습니다.' };
-  if (!canEditWbsMaster(제안.pid)) return { 안됨: '이 프로젝트 스케줄을 고칠 권한이 없습니다.' };
-
-  const 값N = Math.max(0, Math.min(100, Math.round(Number(제안.값))));
-  const 바꿀id = new Set((제안.바꿀것 || []).map((r) => r.id));
-  if (!바꿀id.size) return { 안됨: '바꿀 항목이 없습니다.' };
-
-  const ref = fb.doc(fb.db, 'wbsData', 제안.pid);
-  const snap = await fb.getDoc(ref);
-  if (!snap.exists()) return { 안됨: '스케줄 문서가 사라졌습니다.' };
-  const d = snap.data() || {};
-
-  // **덮어쓰기 방지.** 카드를 만든 뒤 누가 스케줄을 저장했으면 멈춘다. wbsData 는 프로젝트당
-  //   문서 하나에 rows 배열을 통째로 쓰는 구조라, 낡은 배열을 쓰면 그 사이 남의 편집이 통째로 사라진다.
-  if (Number(d.updatedAt || 0) !== Number(제안.updatedAt || 0)) {
-    return { 안됨: '그사이 다른 사람이 이 스케줄을 저장했습니다. 다시 물어봐 주세요 — 지금 실행하면 그 편집이 지워집니다.' };
-  }
-
-  const rows = Array.isArray(d.rows) ? d.rows : [];
-  const 상태 = 값N >= 100 ? '완료' : 값N > 0 ? '진행중' : '미시작';
-  // **수동 진척률은 말단 행에만 박는다.** 부모 행에 박으면 그 뒤 자식이 아무리 바뀌어도
-  //   부모 막대가 박은 값에 영원히 붙박이가 된다 — wbs.html v28.4.41 이 겪고 적어 둔 버그다
-  //   ("복사한 탱크가 전부 82%로 보이던 원인"). 부모는 자식 롤업이 진실이다.
-  //   여기서는 말단을 **전부 같은 값**으로 맞추므로 부모는 롤업만으로 정확히 그 값이 된다
-  //   (같은 수의 평균은 그 수다 — TA 탱크 가중평균이라도 마찬가지).
-  //   부모에 **이미 박혀 있던** 값은 지운다(null). 안 지우면 옛 값에 붙박인 채 남는다.
-  const 자식있나 = (i) => i < rows.length - 1 && rows[i + 1].projId === rows[i].projId && (rows[i + 1].lv || 0) > (rows[i].lv || 0);
-  let 바뀐수 = 0;
-  const 새rows = rows.map((w, i) => {
-    if (!바꿀id.has(w.id)) return w;
-    바뀐수++;
-    if (자식있나(i)) return { ...w, pctManual: null };
-    return { ...w, pctManual: 값N, status: 상태 };
-  });
-  if (!바뀐수) return { 안됨: '바꿀 항목을 스케줄에서 찾지 못했습니다.' };
-
-  const 이제 = Date.now();
-  // 진척률만 바뀌는 것은 Rev 를 올리지 않는다 — wbs.html 의 v28Save 와 같은 규칙이다
-  // (Rev·이력 스냅샷은 '일정·구성 변경' 일 때만).
-  await fb.setDoc(ref, { rows: 새rows, rev: Number(d.rev) || 0, updatedAt: 이제 }, { merge: true });
-
-  // 대시보드 카드의 진도율 맞추기 — **확실할 때만.** 위 _롤업 참고.
-  let 진척 = null;
+/** AI 에게 알려 줄 행위 목록. 지금 못 하는 것은 아예 주지 않는다. */
+window.AI행위목록 = function () {
   try {
-    const 자식들 = (x) => _단락아래(새rows, x).slice(1).filter((y) => (y.lv || 0) === (x.lv || 0) + 1);
-    const tops = 새rows.filter((w) => (w.lv || 0) === 0);
-    const vals = tops.map((w) => _롤업(새rows, w, 자식들));
-    if (tops.length && !vals.some((v) => v == null)) {
-      진척 = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-      await fb.setDoc(fb.doc(fb.db, 'projects', 제안.pid), { progress: 진척 }, { merge: true });
-    }
-  } catch (e) { console.warn('진도율 동기화 실패', e); }
+    return Object.entries(AI행위)
+      .filter(([, d]) => { try { return d.쓸수있나(); } catch (e) { return false; } })
+      .map(([이름, d]) => ({ 이름, 설명: d.설명, 인자: d.인자 }));
+  } catch (e) { return []; }
+};
 
+/** AI 가 말한 것을 실제 자료에서 풀어 "무엇이 바뀌는지" 를 만든다. 아직 쓰지 않는다. */
+window.AI행위풀기 = async function (이름, 인자) {
+  const d = AI행위[이름];
+  if (!d) return { 안됨: `"${이름}" 는 제가 할 수 있는 일이 아닙니다.` };
+  try {
+    if (!d.쓸수있나()) return { 안됨: '지금은 그 일을 할 수 없습니다.' };
+    const r = await d.풀기(인자 || {});
+    if (r.안됨) return r;
+    if (!r.카드줄 || !r.카드줄.length) return { 안됨: '바뀌는 내용이 없습니다.' };
+    // **지문** — 사람이 카드에서 본 내용 그대로다. 실행할 때 다시 풀어 이 값과 대조한다.
+    return { ...r, 행위: 이름, 인자: 인자 || {}, 지문: JSON.stringify([r.제목, r.카드줄]) };
+  } catch (e) {
+    console.warn('[AI행위]', 이름, e);
+    return { 안됨: '확인하지 못했습니다: ' + String((e && e.message) || e).slice(0, 80) };
+  }
+};
+
+/** 확인 카드에서 「실행」을 눌렀을 때.
+ *  **풀기를 다시 돌린다.** 그래서 권한·자료가 그때와 같은지 한 번에 본다 —
+ *  카드는 몇 분 전 것일 수 있고, 그사이 남이 고쳤을 수도 권한이 바뀌었을 수도 있다.
+ *  지문이 다르면 쓰지 않는다. 덮어쓰기는 조용히 일어나고 되돌릴 수가 없다. */
+window.AI행위실행 = async function (풀린것) {
+  if (!풀린것 || !풀린것.행위) return { 안됨: '무엇을 바꿀지 알 수 없습니다.' };
+  const d = AI행위[풀린것.행위];
+  if (!d) return { 안됨: '알 수 없는 행위입니다.' };
+  const 새 = await window.AI행위풀기(풀린것.행위, 풀린것.인자);
+  if (새.안됨) return { 안됨: 새.안됨 };
+  if (새.지문 !== 풀린것.지문) {
+    return { 안됨: '그사이 자료가 바뀌었습니다. 다시 물어봐 주세요 — 지금 실행하면 바뀐 내용을 덮어씁니다.' };
+  }
+  let r;
+  try { r = await d.쓰기(새); }
+  catch (e) {
+    console.error('[AI행위 쓰기]', 풀린것.행위, e);
+    return { 안됨: '바꾸지 못했습니다: ' + String((e && e.message) || e).slice(0, 80) };
+  }
+  if (!r || r.안됨) return r || { 안됨: '바꾸지 못했습니다.' };
   // 누가 언제 무엇을 바꿨나. ISO 9001 심사에서 답할 자료이기도 하다.
   try {
     await fb.setDoc(fb.doc(fb.collection(fb.db, 't_aiAuditLog')), {
-      at: 이제, by: state.currentUser || '', 경로: 'messenger-ai',
-      행위: '스케줄 진척률', pid: 제안.pid, 프로젝트: 제안.프로젝트이름 || '',
-      단락: `${제안.단락코드} ${제안.단락이름}`.trim(), 값: 값N, 건수: 바뀐수,
+      at: Date.now(), by: state.currentUser || '', 경로: 'messenger-ai',
+      행위: 풀린것.행위, 대상: String((새.데이터 && 새.데이터.이름) || 새.제목 || ''),
+      인자: JSON.stringify(풀린것.인자 || {}).slice(0, 500), 결과: r.알림 || '',
     });
   } catch (e) { console.warn('감사 기록 실패', e); }
-
-  return { 바뀐수, 값: 값N, 진척 };
+  return r;
 };
 
 function toggleDept(id) {

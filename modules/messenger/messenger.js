@@ -19,8 +19,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import * as L from './lib.js?v=b83';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b83';
+import * as L from './lib.js?v=b84';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b84';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -47,7 +47,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b83';
+const 빌드 = 'b84';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -174,6 +174,14 @@ function 고칠수있는프로젝트() {
   try {
     if (독립실행 || !window.parent || typeof window.parent.고칠수있는프로젝트 !== 'function') return [];
     const 것 = window.parent.고칠수있는프로젝트();
+    return Array.isArray(것) ? 것 : [];
+  } catch (e) { return []; }
+}
+// 지금 이 사람이 **할 수 있는 일**만 부모가 걸러 준다. 등록소에 행위를 더하면 여기 저절로 따라온다.
+function 할수있는행위() {
+  try {
+    if (독립실행 || !window.parent || typeof window.parent.AI행위목록 !== 'function') return [];
+    const 것 = window.parent.AI행위목록();
     return Array.isArray(것) ? 것 : [];
   } catch (e) { return []; }
 }
@@ -847,10 +855,11 @@ async function 제안결과쓰기(m, 결과) {
 async function 제안실행(m, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '실행 중…'; }
   let 결과;
-  try { 결과 = await window.parent.스케줄실행(m.제안); }
+  try { 결과 = await window.parent.AI행위실행(m.제안); }
   catch (e) { 결과 = { 안됨: '바꾸지 못했습니다: ' + String((e && e.message) || e).slice(0, 80) }; }
-  await 제안결과쓰기(m, 결과 || { 안됨: '결과를 받지 못했습니다.' });
-  토스트(결과 && 결과.바뀐수 ? `${결과.바뀐수}건을 ${결과.값}% 로 바꿨습니다.` : (결과 && 결과.안됨) || '바꾸지 못했습니다.', 3600);
+  결과 = 결과 || { 안됨: '결과를 받지 못했습니다.' };
+  await 제안결과쓰기(m, 결과);
+  토스트(결과.알림 || 결과.안됨 || '바꾸지 못했습니다.', 3600);
 }
 
 // ── 센 결과를 차트·엑셀로 ────────────────────────────────────────────────────
@@ -971,28 +980,28 @@ function 화면달기(m) {
 }
 
 // ── 고치기 확인 카드 (2026-09-23) ─────────────────────────────────────────
-// **무엇이 바뀌는지 전부 보여 주고 사람이 누른다.** AI 가 고른 것을 그대로 쓰지 않는 이유는
-//   [[llm-sql-pipeline-traps]] 와 같다 — 모델은 그럴듯하게 틀린다. 틀렸으면 여기서 사람 눈에 걸린다.
-// 실행하고 나면 카드가 결과로 바뀐다(m.제안.결과). 카드가 남아 있으면 두 번 누르게 된다.
+// **무엇이 바뀌는지 다 보여 주고 사람이 누른다.** AI 가 고른 것을 그대로 쓰지 않는 이유는
+//   [[llm-sql-pipeline-traps]] 와 같다 — 모델은 그럴듯하게 틀린다. 틀렸으면 여기서 눈에 걸린다.
+// 누르고 나면 카드가 결과로 바뀐다(m.제안.결과). 카드가 남아 있으면 두 번 누르게 된다.
 function 제안달기(m) {
   const p = m.제안;
   if (!p) return '';
-  if (p.안됨) return `<div class="sjm-act sjm-act-no">${ICON.warn || ''}<span>${esc(p.안됨)}</span></div>`;
+  if (p.안됨) return `<div class="sjm-act sjm-act-no">${esc(p.안됨)}</div>`;
   if (p.결과) {
     const r = p.결과;
-    if (r.안됨) return `<div class="sjm-act sjm-act-no">${esc(r.안됨)}</div>`;
-    return `<div class="sjm-act sjm-act-ok">✓ ${esc(p.단락코드)} ${esc(p.단락이름)} 아래 <b>${r.바뀐수}건</b>을 <b>${r.값}%</b>로 바꿨습니다.${r.진척 != null ? ` 프로젝트 진도율 ${r.진척}%.` : ''}</div>`;
+    return r.안됨
+      ? `<div class="sjm-act sjm-act-no">${esc(r.안됨)}</div>`
+      : `<div class="sjm-act sjm-act-ok">✓ ${esc(r.알림 || '바꿨습니다.')}</div>`;
   }
-  const 줄 = (p.바꿀것 || []);
+  const 줄 = Array.isArray(p.카드줄) ? p.카드줄 : [];
   const 보일것 = 줄.slice(0, 12);
-  const 미리 = 보일것.map((r) => `<div class="sjm-act-row"><span class="sjm-act-code">${esc(r.code)}</span><span class="sjm-act-name">${esc(r.name)}</span><span class="sjm-act-pct">${r.지금 == null ? '—' : r.지금 + '%'} → <b>${p.값}%</b></span></div>`).join('');
   const 더 = 줄.length > 보일것.length ? `<div class="sjm-act-more">…외 ${줄.length - 보일것.length}건</div>` : '';
   return `<div class="sjm-act">
-    <div class="sjm-act-head">${esc(p.프로젝트이름)} · ${esc(p.단락코드)} ${esc(p.단락이름)}</div>
-    <div class="sjm-act-sub">아래 <b>${줄.length}건</b>을 <b>${p.값}%</b>로 바꿉니다${p.이미 ? ` (이미 ${p.값}% 인 것 ${p.이미}건 포함)` : ''}.</div>
-    <div class="sjm-act-list">${미리}${더}</div>
+    <div class="sjm-act-head">${esc(p.제목 || '')}</div>
+    ${p.머리 ? `<div class="sjm-act-sub">${esc(p.머리)}</div>` : ''}
+    <div class="sjm-act-list">${보일것.map((t) => `<div class="sjm-act-row">${esc(t)}</div>`).join('')}${더}</div>
     <div class="sjm-act-btns">
-      <button class="sjm-act-run" data-act="act-run" data-mid="${esc(m.id)}">실행</button>
+      <button class="sjm-act-run" data-act="act-run" data-mid="${esc(m.id)}">${esc(p.확인 || '실행')}</button>
       <button class="sjm-act-cancel" data-act="act-cancel" data-mid="${esc(m.id)}">취소</button>
     </div>
   </div>`;
@@ -1622,15 +1631,17 @@ async function AI에게묻기(질문) {
     ]);
     const 화면목록 = 볼수있는화면();
     const 고칠것 = 고칠수있는프로젝트();
-    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표, 센것), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length), 화면들: 화면목록, 고칠프로젝트: 고칠것 });
+    const 행위들 = 할수있는행위();
+    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표, 센것), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length), 화면들: 화면목록, 고칠프로젝트: 고칠것, 행위들 });
     // 답 끝에 붙은 ```실행 덩이를 떼어낸다. 뗀 글만 말풍선에 보이고, 덩이는 확인 카드가 된다.
-    const { 글: 답글, 제안: 날것 } = 실행뽑기(답.text);
-    // **모델 말을 그대로 쓰지 않는다.** 프로젝트·단락을 실제 자료에서 찾고 무엇이 바뀌는지 세는 것은
-    //   부모 앱이다. 여기서 나오는 것은 "이 12개 행이 이렇게 바뀐다" 는 사실이고, 사람은 그걸 보고 누른다.
+    const { 글: 답글, 제안: 날것 } = 실행뽑기(답.text, 행위들.map((a) => a.이름));
+    // **모델 말을 그대로 쓰지 않는다.** 대상을 실제 자료에서 찾고 권한을 보고 무엇이 바뀌는지
+    //   세는 것은 전부 부모 앱이다. 여기서 나오는 건 "이것이 이렇게 바뀐다" 는 사실이고,
+    //   사람은 그걸 보고 누른다. 모델이 엉뚱한 것을 집었으면 카드에 그대로 찍혀 눈에 걸린다.
     let 제안 = null;
     if (날것) {
-      try { 제안 = await window.parent.스케줄제안(날것); }
-      catch (e) { 제안 = { 안됨: '스케줄을 확인하지 못했습니다: ' + (e.message || e) }; }
+      try { 제안 = await window.parent.AI행위풀기(날것.행위, 날것.인자); }
+      catch (e) { 제안 = { 안됨: '확인하지 못했습니다: ' + (e.message || e) }; }
     }
     // 답에 나온 화면 이름으로 버튼을 만든다. 이름은 위 목록에서 온 것뿐이라 지어낼 수가 없다.
     const 갈곳 = 화면고르기(답글, 화면목록);

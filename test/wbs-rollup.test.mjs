@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 
 const s = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const a = s.indexOf('function _롤업(');
-const b = s.indexOf('window.스케줄제안 =');
+const b = s.indexOf('const AI행위 = {');
 assert.ok(a > 0 && b > a, 'index.html 에서 _롤업·_단락아래 를 찾지 못했다 — 이름이 바뀌었나?');
 const { _롤업, _단락아래 } = await import(
   'data:text/javascript;base64,' +

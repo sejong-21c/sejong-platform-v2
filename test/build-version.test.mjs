@@ -27,6 +27,9 @@ const 곳 = [
   { 이름: 'messenger.js 의 빌드 상수', 값: (읽기('modules/messenger/messenger.js').match(/const 빌드 = '(b\d+)'/) || [])[1] },
   { 이름: 'messenger.html css ?v=', 값: (읽기('modules/messenger/messenger.html').match(/messenger\.css\?v=(b\d+)/) || [])[1] },
   { 이름: 'messenger.js 의 lib.js import', 값: (읽기('modules/messenger/messenger.js').match(/lib\.js\?v=(b\d+)/) || [])[1] },
+  // b84: index.html 이 AI 행위 권한 모듈을 ?v= 로 받는다. 안 올리면 **권한 규칙만 옛 캐시본**이
+  //   쓰인다 — 화면은 멀쩡하고 권한만 조용히 예전 것이다. 제일 나쁜 종류라 여기서 잡는다.
+  { 이름: 'index.html 의 ai-perm.mjs import', 값: (읽기('index.html').match(/ai-perm\.mjs\?v=(b\d+)/) || [])[1] },
 ];
 
 let 탈 = 0;
