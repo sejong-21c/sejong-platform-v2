@@ -20,9 +20,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b88';
-import * as L from './lib.js?v=b88';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b88';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b89';
+import * as L from './lib.js?v=b89';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b89';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -53,7 +53,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b88';
+const 빌드 = 'b89';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -824,6 +824,19 @@ async function 경비로등록(m, 고른) {
   const 돈 = 고른 == null ? r.금액 : (r.금액후보 || [])[고른];
   if (!돈) { 토스트('금액을 고르지 못했습니다.'); return; }
   const 날 = String(r.거래일시 || '').slice(0, 10);
+  // 2026-09-23: 재무부가 **마감한 달**로는 못 들어간다. 내역서를 뽑아 결재를 올린 뒤에
+  //   뒤늦게 한 건이 끼어들면 결재받은 종이와 화면 숫자가 갈라진다 — 그게 언제 갈라졌는지
+  //   아무도 모른다. 설정 문서 한 건만 읽는다(읽기 1회).
+  if (/^\d{4}-\d{2}/.test(날)) {
+    try {
+      const s = await fb.getDoc(fb.doc(fb.db, 't_expense', 'main'));
+      const 잠 = s.exists() && ((s.data() || {}).마감 || {})[날.slice(0, 7)];
+      if (잠 && 잠.때) {
+        토스트(`${날.slice(0, 7)} 은 재무부가 마감한 달입니다 — 등록되지 않았습니다. 재무부에 말씀해 주세요.`, 5000);
+        return;
+      }
+    } catch (e) { /* 설정을 못 읽으면 막지 않는다 — 올리는 쪽을 세우는 게 더 나쁘다 */ }
+  }
   const id = 'E' + Date.now() + Math.random().toString(36).slice(2, 6);
   try {
     await fb.setDoc(fb.doc(fb.db, 't_expenseEntries', id), plain({
