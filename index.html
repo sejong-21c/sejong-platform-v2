@@ -22,16 +22,18 @@
 <script type="module">
   // Firebase Auth(Google 로그인) + Firestore(사용자 프로필) — sejong-21c.com 사내 계정 전용
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { 에뮬붙이기 } from "./modules/shared/emu.mjs?v=b86";
   import {
     getAuth, GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged,
-    signInWithEmailAndPassword
+    signInWithEmailAndPassword, connectAuthEmulator
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
     getDocsFromCache, getDocFromCache,
     doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot,
     query, where, orderBy, limit, documentId,
-    getCountFromServer   // v30.17: 세는 질문 — 문서를 안 받고 수만 받는다(컬렉션당 읽기 1회)
+    getCountFromServer,  // v30.17: 세는 질문 — 문서를 안 받고 수만 받는다(컬렉션당 읽기 1회)
+    connectFirestoreEmulator
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -52,8 +54,13 @@
   // 메신저는 부모(여기)의 fb.db 를 쓰므로(messenger.js getFB) 이 한 줄이 메신저까지 같이 고친다.
   // 탭 관리자: 플랫폼·iframe 모듈·메신저 새 창이 같은 출처 여러 탭에서 동시에 뜬다 → multiple 이어야 한다.
   const fbDb = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  // 2026-09-23: 내 PC(localhost)에서 ?emu=1 이면 **가짜 Firestore** 를 본다 — 시험이 회사
+  //   하루 읽기 한도를 안 먹게. 운영에서는 절대 안 켜진다(호스트 이름으로 막는다).
+  //   붙이는 것은 **첫 요청 전에** 해야 해서 초기화 바로 다음 줄이다. emu.mjs 머리말 참고.
+  const fbAuth = getAuth(fbApp);
+  window.에뮬중 = 에뮬붙이기({ db: fbDb, auth: fbAuth, connectFirestoreEmulator, connectAuthEmulator });
   window.fb = {
-    auth: getAuth(fbApp), db: fbDb,
+    auth: fbAuth, db: fbDb,
     GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged,
     signInWithEmailAndPassword, // v30.16.3: 초청(예외) 계정용 이메일 로그인
 
@@ -65,7 +72,7 @@
   // v30.18: AI 행위의 권한·검증 순수 함수. **ai-assistant.js 의 인라인 사본을 베끼지 않고
   //   공유 모듈을 그대로 쓴다** — 같은 규칙이 세 곳이 되면 반드시 어긋난다.
   //   시험: node test/ai-perm.test.mjs (43항목).
-  import('./modules/shared/ai-perm.mjs?v=b85').then((m) => { window.AIPERM = m; })
+  import('./modules/shared/ai-perm.mjs?v=b86').then((m) => { window.AIPERM = m; })
     .catch((e) => console.warn('ai-perm 모듈을 못 읽었다 — AI 행위가 꺼진다', e));
 </script>
 <!-- v29.5: 개인 구글 캘린더 연동용 — Firebase Auth(로그인)와는 완전히 별개의 OAuth 클라이언트.
@@ -1522,7 +1529,7 @@ function defaultState() {
 // 브라우저/CDN이 예전 버전을 계속 캐싱해 보여주는 문제를 방지한다.
 const WBS_BUILD = 'b66';
 // messenger.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
-const MESSENGER_BUILD = 'b85'; // b85: 업무를 **새로** 등록한다 — 청사진의 '작업 지시 → 배분' 나머지 절반. 권한은 화면(업무 추가)과 같게 둔다 · b84: AI 행위 등록소 — 스케줄 진척·프로젝트 일정·상태·업무 완료·업무 배정 다섯을 한 틀로(권한은 ai-perm.mjs 와 canEditWbsMaster 재사용) · b83: AI 비서가 스케줄 진척률을 고친다 — AI 는 제안만, 대상 찾기·권한·쓰기는 부모 앱, 실행은 사람이 누른다 · b82: 영수증은 업무관리가 아니라 경비 내역서로 · b81: 엑셀 파일 이름이 UTC 라 새벽에 하루 밀렸다 · b80: 센 결과를 차트·엑셀로 받는다 · b79: 영수증 분기를 sendFiles 안으로 · b78: AI 방에 영수증 사진 — 맥 붙박이 OCR 이 읽고 금액은 코드가 풀고 사람이 확인해 업무관리에 등록 · b77: 플랫폼 기록을 센다(NCR 몇 건) · b76: 기록 출처 칩 문턱 · b75: 버튼 있으면 가는 길 설명 삭제 · b74: 「화면 열기」 버튼 — 지어내는 대신 진짜로 연다 · b73: 금액 부동소수 꼬리 · b72: 차례를 요구하던 넷째 줄 · b71: '무엇을 하면 되는지' 요구 삭제 · b70: 지침 속 화살표 본보기 삭제 · b69: 화살표 금지 · b68: 수압시험 사건 수리(대상 대조·조각 10개·반말 본보기 삭제) · b67: 화면을 못 지어내게 했더니 이번엔 파일 경로를 지어냈다 — 줄에 있는 값만 쓰게 · b66: SQL 이 파일별로 또 쪼개 줄이 수십 개가 되면 모델이 손으로 더하다 틀린다 — 묻는 축 하나로만 묶게 · b65: 지침에 표 계층과 정면으로 부딪히는 규칙이 있었다 — 말을 얹지 말고 지웠어야 했다 · b64: 표 결과 줄을 AI 가 손으로 더하다 틀리던 것 — 더하지 말라고 못 박음 · b63: 화면 안내 규칙이 '안내하지 마라'를 이기고 있었다 — 우선순위를 못 박음 · b62: 표에서 센 수에 없는 화면 경로를 안내하던 것 — NAS 파일 경로를 준다 · b61: 표에서 센 결과가 맥락 8000자 제한에 잘려 나가고 있었다 — 맨 앞으로 · b60: 표 고르는 규칙 — 기간 먼저 보게 하고 '없음' 탈출구를 좁혔다(3번 중 2번 없음이었다) · b59: 세는 질문인데 질의를 못 썼으면 그 사실을 말한다(조용히 넘어가니 없는 메뉴를 지어냈다) · b58: 표를 셌는데 0줄이면 그 사실을 AI 에게 말해 준다(안 말하니 없는 메뉴를 지어냈다) · b57: 표 질의가 두뇌 한 곳만 부르다 빈 응답이면 통째로 건너뛰던 것 — 체인을 돈다 · b56: AI 비서가 NAS 표(20표 323만 행)에 SQL 로 센다 — "작년 견적 재료비 총액" 같은 세는 질문. 범위는 맥의 SQLite 권한자가 막는다 · b55: 2단계 켬 — 백필(박을것 0)·복합색인 2개 READY·규칙 게시가 끝나서 스위치를 올렸다. 이제 readers 에 든 사람만 그 메시지를 받는다(부팅 읽기 500 → 자기 것 + 공지 100) · b54: 2단계는 스위치 뒤에서 대기(백필·색인·규칙 끝난 뒤 켠다) — 켠 채로 배포하면 그 사이 메신저가 멎는다 · b53: 2단계 — readers 로 좁혀 구독한다(남의 1:1 이 더는 안 내려오고, 부팅 읽기가 500→수십) · b52: 볼트 파일 경로는 문턱을 달리 쓴다(0.62 로 자르면 진짜 답이 잘렸다) · b51: 자료 질문에 화면 이야기로 답하던 것 + "(한 줄 안내)" 를 그대로 뱉던 것 · b50: 서비스워커가 ?v= 를 버려서 고친 게 안 닿던 것(그물 먼저) · 좁은 창에서 엔터가 안 먹던 것 · 출처 칩도 0.62 문턱(연봉 물었는데 ASME 가 붙던 것) · AI 가 볼트(NAS) 자료도 본다 · b49: 없는 메뉴를 지어내던 것 + 상관없는 도면이 딸려오던 것 · b48: 옛 대화를 다시 열면 ASME 그림이 사라지던 것(높이 0 ↔ lazy 교착) · b47: 폰에서 좌우로 흔들리던 것(방 본문 overflow-x) · 글자 끌어서 복사 · 표 그림 눌러서 확대 · b46: 보내는 메시지에 readers(읽어도 되는 사람)를 박는다 — 2단계 준비, 아직 규칙·구독은 그대로 · b45: 커튼 — 임원도 자기 부서 아니면 남의 부서·프로젝트 방을 못 본다(대표님 포함) · b41: 플랫폼·메신저 Firestore 영속 캐시(재접속 때 바뀐 것만 — 무료 하루 5만 읽기 대비) · b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
+const MESSENGER_BUILD = 'b86'; // b86: 에뮬레이터 하네스 — 시험이 회사 하루 읽기 한도를 안 먹는다(localhost 에서만 켜진다) · b85: 업무를 **새로** 등록한다 — 청사진의 '작업 지시 → 배분' 나머지 절반. 권한은 화면(업무 추가)과 같게 둔다 · b84: AI 행위 등록소 — 스케줄 진척·프로젝트 일정·상태·업무 완료·업무 배정 다섯을 한 틀로(권한은 ai-perm.mjs 와 canEditWbsMaster 재사용) · b83: AI 비서가 스케줄 진척률을 고친다 — AI 는 제안만, 대상 찾기·권한·쓰기는 부모 앱, 실행은 사람이 누른다 · b82: 영수증은 업무관리가 아니라 경비 내역서로 · b81: 엑셀 파일 이름이 UTC 라 새벽에 하루 밀렸다 · b80: 센 결과를 차트·엑셀로 받는다 · b79: 영수증 분기를 sendFiles 안으로 · b78: AI 방에 영수증 사진 — 맥 붙박이 OCR 이 읽고 금액은 코드가 풀고 사람이 확인해 업무관리에 등록 · b77: 플랫폼 기록을 센다(NCR 몇 건) · b76: 기록 출처 칩 문턱 · b75: 버튼 있으면 가는 길 설명 삭제 · b74: 「화면 열기」 버튼 — 지어내는 대신 진짜로 연다 · b73: 금액 부동소수 꼬리 · b72: 차례를 요구하던 넷째 줄 · b71: '무엇을 하면 되는지' 요구 삭제 · b70: 지침 속 화살표 본보기 삭제 · b69: 화살표 금지 · b68: 수압시험 사건 수리(대상 대조·조각 10개·반말 본보기 삭제) · b67: 화면을 못 지어내게 했더니 이번엔 파일 경로를 지어냈다 — 줄에 있는 값만 쓰게 · b66: SQL 이 파일별로 또 쪼개 줄이 수십 개가 되면 모델이 손으로 더하다 틀린다 — 묻는 축 하나로만 묶게 · b65: 지침에 표 계층과 정면으로 부딪히는 규칙이 있었다 — 말을 얹지 말고 지웠어야 했다 · b64: 표 결과 줄을 AI 가 손으로 더하다 틀리던 것 — 더하지 말라고 못 박음 · b63: 화면 안내 규칙이 '안내하지 마라'를 이기고 있었다 — 우선순위를 못 박음 · b62: 표에서 센 수에 없는 화면 경로를 안내하던 것 — NAS 파일 경로를 준다 · b61: 표에서 센 결과가 맥락 8000자 제한에 잘려 나가고 있었다 — 맨 앞으로 · b60: 표 고르는 규칙 — 기간 먼저 보게 하고 '없음' 탈출구를 좁혔다(3번 중 2번 없음이었다) · b59: 세는 질문인데 질의를 못 썼으면 그 사실을 말한다(조용히 넘어가니 없는 메뉴를 지어냈다) · b58: 표를 셌는데 0줄이면 그 사실을 AI 에게 말해 준다(안 말하니 없는 메뉴를 지어냈다) · b57: 표 질의가 두뇌 한 곳만 부르다 빈 응답이면 통째로 건너뛰던 것 — 체인을 돈다 · b56: AI 비서가 NAS 표(20표 323만 행)에 SQL 로 센다 — "작년 견적 재료비 총액" 같은 세는 질문. 범위는 맥의 SQLite 권한자가 막는다 · b55: 2단계 켬 — 백필(박을것 0)·복합색인 2개 READY·규칙 게시가 끝나서 스위치를 올렸다. 이제 readers 에 든 사람만 그 메시지를 받는다(부팅 읽기 500 → 자기 것 + 공지 100) · b54: 2단계는 스위치 뒤에서 대기(백필·색인·규칙 끝난 뒤 켠다) — 켠 채로 배포하면 그 사이 메신저가 멎는다 · b53: 2단계 — readers 로 좁혀 구독한다(남의 1:1 이 더는 안 내려오고, 부팅 읽기가 500→수십) · b52: 볼트 파일 경로는 문턱을 달리 쓴다(0.62 로 자르면 진짜 답이 잘렸다) · b51: 자료 질문에 화면 이야기로 답하던 것 + "(한 줄 안내)" 를 그대로 뱉던 것 · b50: 서비스워커가 ?v= 를 버려서 고친 게 안 닿던 것(그물 먼저) · 좁은 창에서 엔터가 안 먹던 것 · 출처 칩도 0.62 문턱(연봉 물었는데 ASME 가 붙던 것) · AI 가 볼트(NAS) 자료도 본다 · b49: 없는 메뉴를 지어내던 것 + 상관없는 도면이 딸려오던 것 · b48: 옛 대화를 다시 열면 ASME 그림이 사라지던 것(높이 0 ↔ lazy 교착) · b47: 폰에서 좌우로 흔들리던 것(방 본문 overflow-x) · 글자 끌어서 복사 · 표 그림 눌러서 확대 · b46: 보내는 메시지에 readers(읽어도 되는 사람)를 박는다 — 2단계 준비, 아직 규칙·구독은 그대로 · b45: 커튼 — 임원도 자기 부서 아니면 남의 부서·프로젝트 방을 못 본다(대표님 포함) · b41: 플랫폼·메신저 Firestore 영속 캐시(재접속 때 바뀐 것만 — 무료 하루 5만 읽기 대비) · b34: lib·ai import 에 ?v=(옛 ai.js 가 캐시에서 계속 쓰이던 것) · b33: 🤖 버튼이 메신저 창을 연다(왼쪽 메뉴에서 메신저 제거) + AI 제공자 체인 실측 교체 · b32: AI 비서가 내 업무·일정도 본다 · b31: 연락처 맨 위 AI 비서 방(t_aiChat, 본인만) · b30: 첫 탭 이름 '친구'→'연락처' · b29: 카톡식 UI 전면 개편(4탭, css/js 분리) (SJ메신저 W2) · b28: PWA 껍데기 (W1)
 // ncr.html / car.html / qa-dashboard.html iframe 캐시 무효화용 빌드 번호 (동일한 관례)
 const NCR_BUILD = 'b24'; // v29.74: 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류(로컬 축소캐시로 서버 원본 덮어쓰는 사고 방지)
 const CAR_BUILD = 'b24'; // v29.74: 동일 — 부팅 직후 Firestore 첫 스냅샷 받기 전 클라우드 쓰기 보류
@@ -2549,7 +2556,19 @@ const AI행위 = {
       const pool = (typeof allKanbanTasks === 'function' ? allKanbanTasks() : (state.tasks || []))
         .filter((x) => x.status !== 'done');
       const hits = pool.filter((x) => (x.title || '').toLowerCase().includes(q));
-      if (!hits.length) return { 안됨: `"${v.업무}" 업무를 찾지 못했습니다(아직 안 끝난 업무에서 찾았습니다).` };
+      if (!hits.length) {
+        // **"없다" 와 "안 보인다" 를 가른다.** 업무관리 칸반은 내 것 + 내 부서 것만 보여 준다
+        //   (visibleTasks). 남의 부서 업무를 대고 "찾지 못했습니다" 라고 하면 사람은 이름을
+        //   잘못 쳤다고 여기고 계속 다시 친다 — 에뮬레이터에서 실제로 그렇게 헤맸다(2026-09-23).
+        const 있긴한가 = (state.tasks || []).filter((x) => (x.title || '').toLowerCase().includes(q));
+        if (있긴한가.length) {
+          const u = (state.users || []).find((z) => z.id === 있긴한가[0].assignee);
+          return { 안됨: `"${v.업무}" 는 있지만 제 업무관리 화면에 안 보입니다`
+            + (u ? ` — 담당이 ${u.name}(${u.dept || '부서 미상'})님이라 다른 부서 업무입니다.` : ' — 다른 부서 업무입니다.')
+            + ' 담당자나 그 부서 분이 처리해야 합니다.' };
+        }
+        return { 안됨: `"${v.업무}" 업무를 찾지 못했습니다(아직 안 끝난 내 부서 업무에서 찾았습니다).` };
+      }
       if (hits.length > 1) return { 안됨: `"${v.업무}" 에 맞는 업무가 ${hits.length}개입니다: ${hits.slice(0, 5).map((x) => `"${x.title}"`).join(' · ')}${hits.length > 5 ? ' 외' : ''}. 정확히 알려 주세요.` };
       const t = hits[0];
       const proj = (state.projects || []).find((p) => p.id === t.proj);
@@ -2620,10 +2639,15 @@ const AI행위 = {
       //   같은 이름의 업무를 일부러 두 건 만드는 경우가 실제로 있다(호기별 검사 등).
       const 겹침 = (state.tasks || []).filter((t) => t.status !== 'done' && (t.title || '').trim() === 제목).length;
       const 남의것 = 사람.id !== state.currentUser;
+      // 업무관리 칸반은 **내 부서 것만** 보여 준다(visibleTasks). 남의 부서에 배정하면
+      //   등록은 되는데 내 화면에서는 사라진다 — 미리 말해 주지 않으면 "안 만들어졌네" 로 읽힌다.
+      const 내부서 = (getU(state.currentUser) || {}).dept;
+      const 딴부서 = 남의것 && 사람.dept && 내부서 && 사람.dept !== 내부서;
 
       return {
         제목: 제목,
         머리: [남의것 ? `**${사람.name}${사람.title ? ' ' + 사람.title : ''}** 에게 배정합니다` : '나에게 배정합니다',
+          딴부서 ? `${사람.dept} 업무라 등록 뒤 제 업무관리 화면에는 안 보입니다` : '',
           겹침 ? `⚠ 같은 이름으로 아직 안 끝난 업무가 ${겹침}건 있습니다` : ''].filter(Boolean).join(' · '),
         카드줄: [
           `담당: ${사람.name}${사람.title ? ' ' + 사람.title : ''}${사람.pending ? ' (대기 계정)' : ''}`,

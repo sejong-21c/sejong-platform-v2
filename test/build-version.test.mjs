@@ -30,6 +30,10 @@ const 곳 = [
   // b84: index.html 이 AI 행위 권한 모듈을 ?v= 로 받는다. 안 올리면 **권한 규칙만 옛 캐시본**이
   //   쓰인다 — 화면은 멀쩡하고 권한만 조용히 예전 것이다. 제일 나쁜 종류라 여기서 잡는다.
   { 이름: 'index.html 의 ai-perm.mjs import', 값: (읽기('index.html').match(/ai-perm\.mjs\?v=(b\d+)/) || [])[1] },
+  // b86: 에뮬레이터 스위치를 네 곳이 물고 있다. 하나라도 옛 캐시본을 쓰면 **그 화면만**
+  //   진짜 회사 Firestore 를 본다 — 화면은 멀쩡하고 자료만 진짜다(제일 나쁜 종류).
+  ...['index.html', 'modules/projects/wbs.html', 'modules/projects/wbs-share.html', 'modules/messenger/messenger.js']
+    .map((f) => ({ 이름: f + ' 의 emu.mjs import', 값: (읽기(f).match(/emu\.mjs\?v=(b\d+)/) || [])[1] })),
 ];
 
 let 탈 = 0;

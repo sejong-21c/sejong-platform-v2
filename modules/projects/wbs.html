@@ -3,8 +3,9 @@
 <script type="module">
   // Firebase Firestore — 프로젝트 메타/WBS 데이터를 index.html과 공유 (같은 오리진이라 로그인 세션도 자동 공유됨)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { 에뮬붙이기 } from "../shared/emu.mjs?v=b86";
+  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs, query, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -19,7 +20,12 @@
   // 없으면 안 되는 이유: 하루 읽기 한도(5만)가 차면 `getDocs` 가 영영 안 끝난다(SDK 가 조용히 재시도한다).
   // 캐시가 없으면 그날 이 화면이 통째로 멈춘다 — 9/19 에 실제로 그랬다. 캐시가 있으면 어제 것이라도 뜬다.
   const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
-  window.fb = { auth: getAuth(fbApp), db, doc, getDoc, setDoc, deleteDoc, onSnapshot, onAuthStateChanged, collection, getDocs, query, where };
+  // 2026-09-23: 내 PC(localhost)에서 ?emu=1 이면 **가짜 Firestore** 를 본다 — 시험이 회사
+  //   하루 읽기 한도를 안 먹게. 운영에서는 절대 안 켜진다(호스트 이름으로 막는다).
+  //   붙이는 것은 **첫 요청 전에** 해야 해서 초기화 바로 다음 줄이다. emu.mjs 머리말 참고.
+  const wAuth = getAuth(fbApp);
+  에뮬붙이기({ db, auth: wAuth, connectFirestoreEmulator, connectAuthEmulator });
+  window.fb = { auth: wAuth, db, doc, getDoc, setDoc, deleteDoc, onSnapshot, onAuthStateChanged, collection, getDocs, query, where };
 </script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
