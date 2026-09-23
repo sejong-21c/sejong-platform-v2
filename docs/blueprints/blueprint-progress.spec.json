@@ -1,0 +1,1054 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "세종 AI 청사진 — 진행 표시본 (2026-09-23) · 말로 시키면 바뀐다 (행위 여덟) · 시험은 가짜 자료로",
+    "quality_profile": "standard",
+    "viewBox": [
+      2100,
+      1160
+    ]
+  },
+  "components": [
+    {
+      "id": "cliMsgr",
+      "type": "frontend",
+      "label": "① 메신저 AI 방 — 전 직원",
+      "sublabel": "질문·사진·파일 던지기 · 확인 버튼 누르기",
+      "tag": "✔ 9/23 말로 시키면 확인 카드 → 「실행」 (행위 여덟)",
+      "pos": [
+        330,
+        40
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "cliDesk",
+      "type": "frontend",
+      "label": "② 개인 PC Claude·ChatGPT",
+      "sublabel": "커넥터 한 번 등록 → 회사 지식이 도구로 뜬다",
+      "tag": "✔ 부장님 지금 된다 · 직원은 인증 붙인 뒤",
+      "pos": [
+        620,
+        40
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "cliPais",
+      "type": "frontend",
+      "label": "③ 파이스 — 부장님",
+      "sublabel": "슈퍼 에이전트 · 전권 · Claude 구독",
+      "tag": "있음",
+      "pos": [
+        910,
+        40
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "acCompany",
+      "type": "security",
+      "label": "회사 공용 열쇠",
+      "sublabel": "조회·세기 무료 체인 → 시연 뒤 회사 유료",
+      "tag": "게이트웨이가 쥠",
+      "pos": [
+        330,
+        180
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "acOwn",
+      "type": "security",
+      "label": "개인 구독 연결 (BYO)",
+      "sublabel": "직원 자기 Claude·ChatGPT 가 모델, 회사는 자료만",
+      "tag": "✔ 9/22 첫 사용자 = 부장님 · 회사 비용 0",
+      "pos": [
+        620,
+        180
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "acApi",
+      "type": "security",
+      "label": "개인 API 열쇠 등록",
+      "sublabel": "구독 없는 직원 · 암호화 보관 · 대신 부름",
+      "tag": "만들 것",
+      "pos": [
+        1200,
+        180
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "acLedger",
+      "type": "security",
+      "label": "사용자별 장부·한도",
+      "sublabel": "게이트웨이가 목에서 센다 · 넘으면 429 · 관리 화면",
+      "tag": "✔ 9/23",
+      "pos": [
+        1490,
+        180
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "gw",
+      "type": "security",
+      "label": "게이트웨이 (직원용)",
+      "sublabel": "토큰 → 부서·등급 → 범위 주입",
+      "tag": "✔ 9/22 둘 다 본다 · Cloudflare 무료",
+      "pos": [
+        330,
+        320
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "backend",
+      "label": "MCP 엔드포인트 — 파이스 위",
+      "sublabel": "터널 · 에이전트 다섯의 도구 공개",
+      "tag": "✔ 9/22 도구 5종 — 창구는 8월에 이미 있었다",
+      "pos": [
+        910,
+        320
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "agKnow",
+      "type": "backend",
+      "label": "지식 에이전트",
+      "sublabel": "search_docs · find_file",
+      "tag": "✔ 9/22 수리 · 지금 groq gpt-oss-120b → 유료 Claude Sonnet 5",
+      "pos": [
+        40,
+        460
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "agData",
+      "type": "backend",
+      "label": "데이터 에이전트",
+      "sublabel": "query_tables · count_records · make_chart",
+      "tag": "✔ count_records · make_chart · 지금 groq → 유료 Sonnet 5",
+      "pos": [
+        330,
+        460
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "agWork",
+      "type": "backend",
+      "label": "업무 에이전트",
+      "sublabel": "do_work · 스케줄·프로젝트·업무를 고친다 · 사람 확인 뒤",
+      "tag": "✔ 9/23 행위 등록소 여덟 — 스케줄·프로젝트·업무·NCR·CAR",
+      "pos": [
+        620,
+        460
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "agDoc",
+      "type": "backend",
+      "label": "문서 생성 에이전트",
+      "sublabel": "draft_doc · 회의록·보고서·견적 초안·성적서",
+      "tag": "지금 groq → 유료 Sonnet 5 · 개인 구독 권장",
+      "pos": [
+        910,
+        460
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "agSec",
+      "type": "security",
+      "label": "보안·감사 에이전트",
+      "sublabel": "범위 검사 · 금칙어 · 채점 판정 · 기록",
+      "tag": "지금 groq 20b/맥 로컬 → 유료 Haiku 4.5",
+      "pos": [
+        1490,
+        460
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "dCode",
+      "type": "database",
+      "label": "규격·도면 색인",
+      "sublabel": "ASME·KGS·에너지법 + 도면 표제란 20,332 · B등급은 비밀",
+      "tag": "✔ 9/22 조각 10개·몫 분리 · 재조각은 뒤",
+      "pos": [
+        40,
+        600
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "dVault",
+      "type": "database",
+      "label": "NAS 파일 카드",
+      "sublabel": "217만 · 경로만",
+      "tag": "✔ 9/22 몫 1/3 로 제한",
+      "pos": [
+        330,
+        600
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "dXl",
+      "type": "database",
+      "label": "NAS 표 + 의미층",
+      "sublabel": "327만 행 · 폴더·대표 파일로 표를 고른다",
+      "tag": "✔ 9/23 의미층 — 표마다 어디서 온 자료인지 보여 준다",
+      "pos": [
+        620,
+        600
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "dRec",
+      "type": "database",
+      "label": "플랫폼 기록 색인",
+      "sublabel": "NCR·CAR·검사·회의록·결재 · 맥으로",
+      "tag": "✔ 9/22 재연결 — 맥과 같이 본다",
+      "pos": [
+        910,
+        600
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "dFs",
+      "type": "cloud",
+      "label": "Firestore + R2",
+      "sublabel": "35컬렉션 · users 권한 · 첨부 · AI 가 만든 초안",
+      "tag": "✔ 경비 48건 · 월 마감으로 잠근다 · Spark 무료",
+      "pos": [
+        1200,
+        600
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "aNight",
+      "type": "backend",
+      "label": "야간 배치 (launchd)",
+      "sublabel": "07:20 백업 있음 · 카드·표·도면·기록·채점 옮길 것",
+      "tag": "✔ 채점 4:40 추가 · 새벽에 맥이 돈다",
+      "pos": [
+        40,
+        740
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "gScope",
+      "type": "security",
+      "label": "범위표 + SQLite 권한자",
+      "sublabel": "검색 전에 거른다 · 비밀은 super 도 못 봄",
+      "tag": "있음 · 가장 튼튼",
+      "pos": [
+        330,
+        740
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "gEval",
+      "type": "security",
+      "label": "정합성 평가 (야간)",
+      "sublabel": "검색·표·영수증·볼트·배포·창구를 매일 잰다",
+      "tag": "✔ 9/23 새벽 4:40 · 13문항 (경비 건수까지)",
+      "pos": [
+        620,
+        740
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "gBan",
+      "type": "security",
+      "label": "금칙어 · 라벨",
+      "sublabel": "급여·인사·B등급은 색인에서 제외",
+      "tag": "일부 있음",
+      "pos": [
+        910,
+        740
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "aAlert",
+      "type": "backend",
+      "label": "자동 처리 (이미 돈다)",
+      "sublabel": "D-1 마감·3일 대기 결재 · 검교정 만료 알림",
+      "tag": "있음",
+      "pos": [
+        1200,
+        740
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "gLedger",
+      "type": "security",
+      "label": "감사 장부",
+      "sublabel": "읽기 장부 · 질문 기록 · 한도 경보",
+      "tag": "✔ t_aiAuditLog — AI 가 바꾼 것은 전부 한 줄씩",
+      "pos": [
+        1490,
+        740
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "mGroq",
+      "type": "external",
+      "label": "groq 무료 체인",
+      "sublabel": "gpt-oss-120b → 20b · 조회·SQL·초안",
+      "tag": "지금 · 0원",
+      "pos": [
+        40,
+        880
+      ],
+      "size": [
+        250,
+        70
+      ]
+    },
+    {
+      "id": "mGemini",
+      "type": "external",
+      "label": "Gemini Flash — 예비",
+      "sublabel": "맥 OCR 이 못 읽은 것만 (손글씨·구겨진 감열지)",
+      "tag": "거의 안 쓴다 · 무료 한도로 충분",
+      "pos": [
+        330,
+        880
+      ],
+      "size": [
+        250,
+        70
+      ]
+    },
+    {
+      "id": "mClaude",
+      "type": "external",
+      "label": "Claude — 부장님 구독",
+      "sublabel": "파이스 두뇌(Fable 5.1) · 유료 전환 시 Sonnet 5 로 비서까지",
+      "tag": "이미 씀 · 유료의 본줄기",
+      "pos": [
+        620,
+        880
+      ],
+      "size": [
+        250,
+        70
+      ]
+    },
+    {
+      "id": "mBge",
+      "type": "external",
+      "label": "bge-m3 (맥미니 로컬)",
+      "sublabel": "임베딩 · 유료로 바꿀 이유 없음",
+      "tag": "0원 · 유지",
+      "pos": [
+        910,
+        880
+      ],
+      "size": [
+        250,
+        70
+      ]
+    },
+    {
+      "id": "mLocal",
+      "type": "external",
+      "label": "맥 로컬 — 눈·귀·판단",
+      "sublabel": "Vision OCR(붙박이) · 위스퍼 · gemma4 12b · qwen3.5 2b",
+      "tag": "✔ 영수증 0.41초 · 0원 · 밖으로 안 나감",
+      "pos": [
+        1200,
+        880
+      ],
+      "size": [
+        250,
+        70
+      ]
+    },
+    {
+      "id": "pReceipt",
+      "type": "frontend",
+      "label": "영수증 → 업무 등록",
+      "sublabel": "직원이 메신저에 사진+한 줄 → 맥 OCR → 재무부 경비 내역서",
+      "tag": "✔ 실물 영수증으로 확인",
+      "pos": [
+        40,
+        1020
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "pMeeting",
+      "type": "frontend",
+      "label": "회의 → 회의록",
+      "sublabel": "녹음 → 전사 → AI 초안(주제·안건·담당·기한) → 사람 확인 → 엑셀",
+      "tag": "✔ 9/23 돈다 (b9)",
+      "pos": [
+        330,
+        1020
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "pChart",
+      "type": "frontend",
+      "label": "질문 → 표 → 차트·엑셀",
+      "sublabel": "질문 → SQL 로 센다 → 막대 차트 · 엑셀 내려받기",
+      "tag": "✔ 9/23 차트·엑셀 (b81)",
+      "pos": [
+        620,
+        1020
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "pCalc",
+      "type": "frontend",
+      "label": "압력용기 계산 → 데이터시트",
+      "sublabel": "pvcalc 225건 PASS → 요약+계산서 엑셀 ✔ → DXF",
+      "tag": "✔ 9/23 데이터시트 — 계산 결과를 엑셀 한 벌로 · DXF 는 뒤",
+      "pos": [
+        910,
+        1020
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "pTask",
+      "type": "frontend",
+      "label": "AI 작업 지시 → 배분",
+      "sublabel": "말로 지시 → tasks 새로 등록 ✔ → 담당 알림 → D-1 재알림",
+      "tag": "✔ 9/23 말로 등록·배정·완료·마감까지 — 알림은 원래 있었다",
+      "pos": [
+        1200,
+        1020
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "pDraft",
+      "type": "frontend",
+      "label": "문서 초안 → 확인 → 저장",
+      "sublabel": "견적·성적서·보고서 초안 → 사람이 고침 → 플랫폼 저장·색인",
+      "tag": "문서 생성 에이전트 · 개인 구독",
+      "pos": [
+        1490,
+        1020
+      ],
+      "size": [
+        250,
+        74
+      ]
+    },
+    {
+      "id": "pDwg",
+      "type": "frontend",
+      "label": "도면 → 표제란 → 색인",
+      "sublabel": "DWG 23,054 → 도번·개정 → 색인 · B등급은 비밀 범위",
+      "tag": "있음 · 야간으로",
+      "pos": [
+        1780,
+        1020
+      ],
+      "size": [
+        250,
+        74
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "누가 감당하나 — 조회는 회사 공용, 생성·긴 작업은 개인 구독/열쇠, 전부 장부에",
+      "wraps": [
+        "acCompany",
+        "acOwn",
+        "acApi",
+        "acLedger"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "맥미니 192.168.0.27 — 에이전트·자료·거버넌스·배치·로컬 모델 전부 여기",
+      "wraps": [
+        "mcp",
+        "agKnow",
+        "agData",
+        "agWork",
+        "agDoc",
+        "agSec",
+        "dCode",
+        "dVault",
+        "dXl",
+        "dRec",
+        "aNight",
+        "gScope",
+        "gEval",
+        "gBan",
+        "gLedger",
+        "mBge",
+        "mLocal"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "거버넌스 — 자료가 모델에 닿기 전에",
+      "wraps": [
+        "gScope",
+        "gEval",
+        "gBan",
+        "gLedger"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "확장 파이프라인 — 전부 '사람 확인' 단계를 거친다",
+      "wraps": [
+        "pReceipt",
+        "pMeeting",
+        "pChart",
+        "pCalc",
+        "pTask",
+        "pDraft",
+        "pDwg"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "e-msgr-co",
+      "from": "cliMsgr",
+      "to": "acCompany",
+      "label": "기본은 회사 열쇠",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-desk-own",
+      "from": "cliDesk",
+      "to": "acOwn",
+      "label": "자기 구독으로",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-pais-mcp",
+      "from": "cliPais",
+      "to": "mcp",
+      "label": "직접 · 전권",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-co-gw",
+      "from": "acCompany",
+      "to": "gw",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-api-gw",
+      "from": "acApi",
+      "to": "gw",
+      "label": "직원 열쇠로 대신 부름",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-own-mcp",
+      "from": "acOwn",
+      "to": "mcp",
+      "label": "MCP + OAuth",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-ledger-mcp",
+      "from": "acLedger",
+      "to": "mcp",
+      "label": "질문마다 기록",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-gw-mcp",
+      "from": "gw",
+      "to": "mcp",
+      "label": "같은 함수 · 범위 박힘",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelDy": 46
+    },
+    {
+      "id": "e-mcp-know",
+      "from": "mcp",
+      "to": "agKnow",
+      "label": "모델이 고른다 · 라우터 없음",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-mcp-data",
+      "from": "mcp",
+      "to": "agData",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-mcp-work",
+      "from": "mcp",
+      "to": "agWork",
+      "label": "쓰기는 확인 뒤",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-mcp-doc",
+      "from": "mcp",
+      "to": "agDoc",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-mcp-sec",
+      "from": "mcp",
+      "to": "agSec",
+      "label": "모든 호출 검사",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-know-code",
+      "from": "agKnow",
+      "to": "dCode",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-know-vault",
+      "from": "agKnow",
+      "to": "dVault",
+      "label": "경로",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-know-rec",
+      "from": "agKnow",
+      "to": "dRec",
+      "label": "NCR 도 답이 된다",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-data-xl",
+      "from": "agData",
+      "to": "dXl",
+      "label": "SQL",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-data-fs",
+      "from": "agData",
+      "to": "dFs",
+      "label": "getCount",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-work-fs",
+      "from": "agWork",
+      "to": "dFs",
+      "label": "등록·지시 쓰기",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-doc-fs",
+      "from": "agDoc",
+      "to": "dFs",
+      "label": "초안 저장 → 다시 색인",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-sec-ledger",
+      "from": "agSec",
+      "to": "gLedger",
+      "label": "감사 기록",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-night-code",
+      "from": "aNight",
+      "to": "dCode",
+      "label": "조각·표제란",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "e-night-vault",
+      "from": "aNight",
+      "to": "dVault",
+      "label": "카드 217만",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        302,
+        688
+      ]
+    },
+    {
+      "id": "e-night-xl",
+      "from": "aNight",
+      "to": "dXl",
+      "label": "표 재생성",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        454,
+        688
+      ]
+    },
+    {
+      "id": "e-scope-vault",
+      "from": "gScope",
+      "to": "dVault",
+      "label": "경로 → 범위",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        380,
+        702
+      ]
+    },
+    {
+      "id": "e-scope-xl",
+      "from": "gScope",
+      "to": "dXl",
+      "label": "권한자",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "e-eval-code",
+      "from": "gEval",
+      "to": "dCode",
+      "label": "골든셋 채점",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "e-ban-rec",
+      "from": "gBan",
+      "to": "dRec",
+      "label": "민감 기록 제외",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -30
+    },
+    {
+      "id": "e-alert-fs",
+      "from": "aAlert",
+      "to": "dFs",
+      "label": "알림 메시지",
+      "variant": "default",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -30
+    },
+    {
+      "id": "e-ledger-fs",
+      "from": "gLedger",
+      "to": "dFs",
+      "label": "하루 5만 지킴",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        1470,
+        688
+      ]
+    },
+    {
+      "id": "e-bge-night",
+      "from": "mBge",
+      "to": "aNight",
+      "label": "임베딩 모델",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "e-local-eval",
+      "from": "mLocal",
+      "to": "gEval",
+      "label": "채점 판정",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "e-local-meeting",
+      "from": "mLocal",
+      "to": "pMeeting",
+      "label": "받아쓰기",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "e-gemini-receipt",
+      "from": "mGemini",
+      "to": "pReceipt",
+      "label": "사진 읽기",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        300,
+        968
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "오늘 마친 것 — 2026-09-23 오후 (b86~b89 · pvcalc a8)",
+      "items": [
+        "✔ **에뮬레이터 하네스** — 시험이 회사 하루 읽기 한도를 안 먹는다. 주소에 ?emu=1 을 붙이면 내 PC 안 가짜 Firestore(운영에서는 호스트 이름으로 막혀 절대 안 켜진다). 이게 생기고 나서 **오늘 만든 것을 전부 눌러 보고 확인했다**",
+        "✔ **부팅 읽기 계량기** — \"한 번 열면 2,000건쯤\" 은 짐작이었다. 이제 콘솔에서 부팅읽기() 가 컬렉션별로 센다. wbsRec 은 제작공정 화면 열 때만 받게 뺐다(부팅 통째 구독 여덟)",
+        "✔ **표 의미층** — 견적서 꼴 표가 넷이라 모델이 찍고 있었다(3번 중 2번 \"없음\"). 이제 표마다 ↳ 로 어디서 온 자료인지 보여 준다 — 표06 = 영업부/QUOTATION·259폴더. 범위 밖 폴더는 안 샌다",
+        "✔ **NCR·CAR 발행** — 초안만 만들고 등급·원인·조치는 비워 둔다(품질기록은 심사 대상이라 지어내면 안 된다). 번호는 쓰기 직전 다시 따고 t_recordLog 에 남긴다",
+        "✔ **경비 월 마감** — 결재 올린 달을 잠근다. 직원이 메신저로 올리는 길도 막는다. 푸는 것도 되지만 **왜 푸는지 적어야** 하고 기록이 쌓인다",
+        "✔ **압력용기 데이터시트** — 계산은 다 됐는데 양식으로 뽑을 데가 없어 손으로 옮겨 적고 계셨다. 요약 한 장(근거 조항·PASS/FAIL) + 항목별 계산서 전문 엑셀. **돌린 항목만 싣는다**",
+        "⚠ 조용히 죽어 있던 시험 하나를 살렸다 — pvcalc 362벡터 엔진 대조가 저장소의 type:module 설정 때문에 통째로 안 돌고 있었다. 이제 1,609 대조 0 실패"
+      ]
+    },
+    {
+      "title": "9/23 오전에 마친 것 (b83~b85)",
+      "items": [
+        "✔ **AI 에게 시키면 플랫폼이 바뀐다** — 확인 카드에 바뀔 항목이 전부 뜨고 「실행」을 눌러야 바뀐다. AI 는 제안만, 대상 찾기·권한·쓰기는 전부 플랫폼 코드",
+        "✔ 권한을 새로 만들지 않았다 — 옛 AI 비서의 ai-perm.mjs(시험 43항목)를 그대로 쓴다. **짓기 전에 있는지부터 봤다**",
+        "✔ 밤 채점 13문항 · 경비 48건 NAS→플랫폼 이사 · 경비 화면 탭 여덟 → 다섯"
+      ],
+      "dot": "cyan"
+    },
+    {
+      "dot": "cyan",
+      "title": "9/22 에 마친 것 (요약)",
+      "items": [
+        "✔ 고장 다섯 수리(반말·수압시험 대상 대조·볼트가 코드북 밀어냄·금액 부동소수·없는 버튼)",
+        "✔ 「화면 열기」 버튼 · 기록 색인 재연결(나흘 잠들어 있었다) · 기록 세기 · 배포 판 번호(b67 에 멈춰 있었다)",
+        "✔ 개인 Claude 커넥터 · 영수증 파이프라인 · 밤마다 채점 · 회의록 AI 수리 · 차트·엑셀 · 경비 도구 이전"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "✔ 영수증 — 직원은 메신저로, 재무부가 경비 내역서에서 받는다 (실물 확인)",
+      "items": [
+        "직원은 AI 비서 방에 **사진 한 장과 한 줄**만 올린다. 그 줄이 곧 사용 내역이 된다. 도구는 재무부 것",
+        "실물 영수증 0.48초에 87,273 + 8,727 = 96,000 · 사업자·대표자·승인번호까지 정확, 지어낸 값 없음"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "누가 감당하나 — 제가 먼저 고민했어야 할 것",
+      "items": [
+        "조회·세기(지식·데이터) = 회사 공용 열쇠. 지금 groq 무료, 시연 뒤 회사 유료. 사용자별 장부로 누가 얼마나 쓰는지 본다",
+        "생성·긴 작업(문서 초안·긴 분석) = 직원 개인 구독을 연결한다(BYO). 직원 Claude·ChatGPT 가 모델을 대고 회사는 자료·권한만 댄다 — 회사 비용 0, 권한은 그대로 우리가 잡는다",
+        "구독 없는 직원 = 개인 API 열쇠를 플랫폼에 등록(암호화). 게이트웨이가 그 열쇠로 대신 부른다. 한도 넘으면 회사 길 → 개인 길로 자동 전환",
+        "한 사람이 만든 초안은 확인 뒤 저장되고 다시 색인된다 — 직원이 자료를 조회하고 만드는 순환이 여기서 닫힌다"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "모델 추천 — 지금(0원) → 유료 전환 때",
+      "items": [
+        "지식 답변: groq gpt-oss-120b → Claude Sonnet 5 (근거 인용·조건절 보존이 제일 낫고 부장님 구독과 한 줄기)",
+        "데이터 SQL·세기: groq → Sonnet 5, 절약하면 Haiku 4.5 (카탈로그가 좋으면 충분)",
+        "업무 행동(파이스): Claude Fable 5.1/Opus 5 — 이미 쓰는 것, 바꿀 이유 없음",
+        "문서 생성: groq → Sonnet 5 — 단 직원 개인 구독으로 미는 것이 원칙",
+        "보안·채점 판정: groq 20b 또는 맥 로컬 → Haiku 4.5 (싸고 빠른 판정용)",
+        "비전(영수증·도면 사진): Gemini Flash 무료 한도 → Sonnet 5 비전 · 임베딩 bge-m3 와 받아쓰기 위스퍼는 로컬 유지 — 유료로 바꿀 이유가 없다"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "직원은 이렇게 쓴다",
+      "items": [
+        "① 메신저 AI 방에 그냥 묻는다 — 규격·자료 위치·몇 건·얼마. 사진·파일을 던지면 읽는다. 자기 부서 범위 안에서만 답이 온다",
+        "② 자료를 만들고 싶으면 개인 PC 의 Claude·ChatGPT 에 '세종 지식' 커넥터를 한 번 등록한다. 그다음부터 회사 자료가 도구로 뜬다",
+        "③ AI 가 무엇을 등록·지시·저장하려 하면 확인 버튼이 뜬다. 누르기 전엔 아무것도 바뀌지 않는다",
+        "④ 급여·인사·B등급 도면은 물어도 안 나온다 — 권한자가 막는다. 부장(manager)만 전사 공지를 쓴다"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "파이프라인 일곱 — 이때까지 나온 생각 전부 · 있음/다음/뒤",
+      "items": [
+        "있음: 도면 → 표제란 → 색인(23,054) · 회의 받아쓰기 · 일일 알림 · 검교정 알림 · 07:20 백업",
+        "✔ 새로 있음: 영수증 → 경비 내역서 · 회의 → 회의록 · 질문 → SQL → 차트·엑셀 · **말로 시키는 업무·스케줄·NCR·CAR** · **압력용기 계산 → 데이터시트 엑셀**",
+        "다음: 문서 초안(견적·성적서·보고서) → 확인 → 저장·색인 · 직원 개방(개인 구독·개인 API 열쇠·사용자별 장부) · 데이터시트 → DXF 외형도",
+        "전부 '사람 확인' 한 단계를 거친다 — 회사 원칙이고 시연회에서 보여 줄 신뢰의 근거다"
+      ]
+    }
+  ]
+}
