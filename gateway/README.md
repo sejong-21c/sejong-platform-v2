@@ -76,6 +76,7 @@ https://sejong-ai-gateway.<계정이름>.workers.dev
 | 변수 이름 | 값 | 기본값 |
 |---|---|---|
 | `RAG_ADMIN_EMAILS` | `cwkim@sejong-21c.com,quality@sejong-21c.com` | cwkim@sejong-21c.com |
+| `AI_DAILY_LIMIT` | `300` | 300 | v3.9: 한 사람이 하루에 부를 수 있는 모델 호출 수. 넘으면 429. 공용 열쇠 무료 한도를 한 사람이 다 쓰는 걸 막는다. 누가 얼마나 썼는지는 플랫폼 관리 › AI 사용량 맨 위 「게이트웨이 장부」. |
 
 4. 최신 `cloudflare-worker.js`(v3)를 붙여넣고 **Deploy**
 5. **문서 등록**: 플랫폼 → 🤖 AI 비서 → 🔑 → 맨 위 **"📚 사내 문서 등록"** 섹션에

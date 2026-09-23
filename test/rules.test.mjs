@@ -142,6 +142,16 @@ await T('AI 사용 기록도 고칠 수 없다', async () => {
   await assertSucceeds(setDoc(doc(로그인(사람.품질원), 'aiUsage', 'u1'), { uid: 사람.품질원.uid, at: 1 }));
   await assertFails(setDoc(doc(로그인(사람.품질원), 'aiUsage', 'u1'), { at: 2 }, { merge: true }));
 });
+// v3.9(2026-09-23): 게이트웨이 장부. 브라우저가 쓸 수 있으면 자기 횟수를 0 으로 되돌려
+//   하루 한도를 빠져나간다 — 그러면 한도는 장식이다. super 도 못 쓴다(게이트웨이만 쓴다).
+await T('게이트웨이 장부는 아무도 못 쓴다 — super 도', async () => {
+  await assertFails(setDoc(doc(로그인(사람.부장), 'aiUsageDaily', '2026-09-23_u1'), { n: 0 }));
+  await assertFails(setDoc(doc(로그인(사람.생산원), 'aiUsageDaily', '2026-09-23_u1'), { n: 0 }));
+});
+await T('게이트웨이 장부는 직원이 읽을 수는 있다 — 누가 얼마나 썼는지 감출 이유가 없다', async () => {
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'aiUsageDaily', '2026-09-23_u1'), { n: 3 }); });
+  await assertSucceeds(getDoc(doc(로그인(사람.생산원), 'aiUsageDaily', '2026-09-23_u1')));
+});
 await T('관리 명단은 super 만 고친다', () => assertFails(setDoc(doc(로그인(사람.임원), 'adminAccess', 'list'), { uids: [] })));
 await T('관리 명단을 super 는 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 'adminAccess', 'list'), { uids: [사람.부장.uid] })));
 await T('WBS 공유는 로그인 없이도 읽힌다(설계대로)', async () => {

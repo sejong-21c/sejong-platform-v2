@@ -1,10 +1,14 @@
 /*
- * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.7, 2026-09-19)
+ * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.9, 2026-09-23)
  *
  * 역할:
  *  1) 회사 공용 API 키를 이 서버에 숨겨두고, 직원들은 키 입력 없이 AI 비서를 사용
  *  2) 브라우저 직접 호출이 차단된 회사(NVIDIA)도 이 서버를 거쳐 사용 가능
  *  3) 회사당 키 여러 개 등록 시 한도 초과(429)·키 오류(401/403)면 자동으로 다음 키로 교대
+ *  3-b) v3.9: **사용자별 장부·하루 한도** — /v1/ 를 지나는 모델 호출을 사람·날짜로 센다
+ *     (aiUsageDaily/YYYY-MM-DD_<uid>, 쓰기 1회·읽기 0회). 한도(AI_DAILY_LIMIT, 기본 300)를
+ *     넘으면 제공자를 부르기 **전에** 429 로 돌려보낸다. 공용 열쇠는 무료 한도가 있어
+ *     한 사람이 하루치를 다 쓰면 다른 직원이 못 쓴다. 장부를 못 쓰면 막지 않는다.
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
@@ -696,6 +700,46 @@ async function fsAddDoc(env, token, collectionId, obj) {
   if (!r.ok) throw new Error(collectionId + ' add failed: ' + r.status);
 }
 
+// ── v3.9(2026-09-23): 사용자별 장부·한도 ────────────────────────────────────
+// 왜: 게이트웨이는 **누가 부르는지 이미 알면서**(회사 계정 확인을 거친다) 아무 데도 안 남기고 있었다.
+//   직원에게 열기 전에 이게 없으면, 공용 열쇠가 마르는 날 누가 썼는지 물어볼 수조차 없고
+//   직원 눈에는 "AI 가 또 안 된다" 로만 보인다. 무료 열쇠라 **돈이 아니라 한도가 나간다** —
+//   하루 치를 한 사람이 다 쓸 수 있다. 실제로 Firestore 읽기 한도는 그렇게 여러 번 말랐다.
+//
+// 세는 법: 하루·한 사람당 문서 하나에 increment 로 얹는다. **쓰기 1회, 읽기 0회** —
+//   올린 결과를 commit 응답이 돌려주므로 한도 검사에 읽기가 따로 안 든다
+//   (Firestore 무료는 읽기 5만·쓰기 2만이 **따로** 세니 화면이 쓰는 읽기 한도를 안 건드린다).
+//
+// 필드 이름이 전부 영문인 이유: fieldPath 에 한글을 쓰면 백틱으로 싸야 하고, 안 싸면
+//   **조용히** 다른 필드를 만든다(기억 [[ascii-only-places]] — 같은 함정에 여섯 번 빠졌다).
+//
+// 못 세면 **막지 않는다.** 장부가 고장나서 전사가 멎으면 그게 더 큰 고장이다.
+function 오늘KST() {
+  // 워커는 UTC 로 돈다. 그냥 toISOString 하면 한국 새벽 0~9시가 어제로 기록된다(b81 과 같은 함정).
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+async function 장부에올린다(env, uid, email) {
+  if (!env.FIREBASE_SA_KEY) return null;                 // 서비스 계정이 없으면 셀 방법이 없다
+  const 날 = 오늘KST();
+  const 이름 = 'projects/' + fsProjectId(env) + '/databases/(default)/documents/aiUsageDaily/' + 날 + '_' + uid;
+  const token = await saAccessToken(env);
+  const r = await fetch(fsBase(env) + ':commit', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ writes: [{
+      // update + updateTransforms 를 **한 write 에** 넣는다. 둘로 쪼개면 쓰기가 2회다.
+      update: { name: 이름, fields: { day: fsVal(날), email: fsVal(email), at: fsVal(new Date().toISOString()) } },
+      updateMask: { fieldPaths: ['day', 'email', 'at'] },
+      updateTransforms: [{ fieldPath: 'n', increment: { integerValue: '1' } }],
+    }] }),
+  });
+  if (!r.ok) return null;
+  const d = await r.json();
+  const n = Number(d?.writeResults?.[0]?.transformResults?.[0]?.integerValue);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function postAlertMessage(env, token, channelId, text) {
   // 채널 문서 보장 (있으면 그대로 둠 — 통째 PATCH로 members를 지우지 않도록 GET 먼저)
   if (!(await fsGetDoc(env, token, 'channels/' + channelId))) {
@@ -1032,9 +1076,22 @@ export default {
     // 누구나 회사 Gemini·Groq·Claude 키를 공짜로 쓸 수 있었다(이 주소는 sejong21c.com 이 내려주는
     // 자바스크립트 안에 그대로 들어 있어 사실상 공개다). 플랫폼 AI 비서도 메신저도 게이트웨이를 쓸 때는
     // 늘 로그인 토큰을 붙이므로(ai-assistant.js gatewayAuthHeaders · modules/messenger/ai.js) 깨지는 곳은 없다.
+    // v3.9: 여기가 **유일한 목**이다 — 플랫폼에서 나가는 모델 호출은 전부 이 줄을 지난다.
+    //   누군지 이미 확인했으니 장부에 한 줄 얹고, 하루 한도를 넘으면 여기서 돌려보낸다.
     {
       const auth = await verifyCompanyFirebaseToken(request, env);
       if (auth.status) return json(auth.status, { error: auth.error }, cors);
+      const 한도 = Number(env.AI_DAILY_LIMIT || 300);
+      const 쓴횟수 = await 장부에올린다(env, auth.uid || auth.email, auth.email);
+      // 못 셌으면(장부 고장·서비스 계정 없음) null 이 온다 — **그럴 땐 막지 않는다.**
+      if (쓴횟수 !== null && 쓴횟수 > 한도) {
+        return json(429, {
+          error: `오늘 AI 호출 ${한도}번을 다 쓰셨습니다. 한국 시간 자정에 다시 열립니다.`
+            + ' (회사 공용 열쇠는 무료 한도가 있어 한 사람이 다 쓰면 다른 직원이 못 씁니다.'
+            + ' 더 필요하시면 품질관리부로 말씀해 주세요.)',
+          하루한도: 한도, 오늘쓴횟수: 쓴횟수,
+        }, cors);
+      }
     }
 
     // v2: 9router는 플랫폼에서 공유한 동적 설정(터널 주소/키/모델)을 먼저 쓰고, env를 폴백으로.

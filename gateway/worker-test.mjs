@@ -57,6 +57,8 @@ const postedMessages = [];
 const FS = 'https://firestore.googleapis.com/v1/projects/sejong-platform/databases/(default)/documents';
 
 let 맥응답 = null;   // 맥(파이스) 검색 모의 응답. 시험마다 갈아 끼운다
+let 커밋고장 = false; // v3.9: 장부가 죽은 날을 흉내낸다 — 그래도 AI 는 돌아야 한다
+let 부른모델 = [];    // 제공자에게 실제로 나간 호출. 한도에 걸리면 **비어 있어야** 한다
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -70,6 +72,10 @@ globalThis.fetch = async (input, init) => {
     return Response.json({ access_token: 'fake-sa-token', expires_in: 3600 });
   }
   // 맥(파이스) /api/rag/search 모의 — 맥응답 이 null 이면 꺼진 셈 친다
+  if (url.startsWith('https://api.groq.com/')) {   // v3.9: 제공자 모의
+    부른모델.push(url);
+    return Response.json({ choices: [{ message: { content: '네' } }] });
+  }
   if (url.startsWith('https://pais.test/')) {
     if (!맥응답) return new Response('down', { status: 500 });
     return Response.json(맥응답);
@@ -81,6 +87,26 @@ globalThis.fetch = async (input, init) => {
     if (rest === ':listCollectionIds') { // v3.2 백업: 루트 컬렉션 동적 열거
       const ids = [...new Set(Object.keys(fsStore).map(p => p.split('/')[0]))];
       return Response.json({ collectionIds: ids });
+    }
+    // v3.9 장부: update + updateTransforms(increment) 를 한 write 로 보낸다.
+    //   **진짜 Firestore 처럼 늘어난 값을 돌려준다** — 워커가 그 값으로 한도를 보므로
+    //   여기서 대충 {} 를 주면 한도 시험이 통째로 헛돈다.
+    if (rest === ':commit') {
+      if (커밋고장) return new Response('boom', { status: 503 });
+      const 결과 = [];
+      for (const w of (body.writes || [])) {
+        const p = w.update.name.split('/documents/')[1];
+        fsStore[p] = { ...(fsStore[p] || {}), ...w.update.fields };
+        const t = [];
+        for (const tr of (w.updateTransforms || [])) {
+          const 이전 = Number((fsStore[p][tr.fieldPath] || {}).integerValue || 0);
+          const 새 = 이전 + Number(tr.increment.integerValue);
+          fsStore[p][tr.fieldPath] = { integerValue: String(새) };
+          t.push({ integerValue: String(새) });
+        }
+        결과.push({ transformResults: t });
+      }
+      return Response.json({ writeResults: 결과 });
     }
     if (rest === ':runQuery') {
       const sq = body.structuredQuery;
@@ -481,6 +507,57 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   check('맥이 꺼져도 기록 색인으로 답한다', r2.status === 200 && (d2.matches || []).length > 0, JSON.stringify(d2.source));
   check('물러선 사실을 응답에 남긴다', !!d2.paisError, JSON.stringify(d2));
   맥응답 = null;
+}
+
+// ── v3.9: 사용자별 장부·한도 ────────────────────────────────────
+// 왜 이걸 시험하나: 장부는 **안 돌아도 아무 소리가 안 난다.** AI 는 멀쩡히 답하고,
+//   그냥 누가 얼마나 썼는지가 영영 안 남을 뿐이다. 그래서 여기서 매번 센다.
+{
+  // 워커와 **따로** 계산한다 — 워커가 UTC 로 밀리면 여기서 어긋나 잡힌다(b81 과 같은 함정).
+  const 오늘 = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const 장부칸 = (email) => fsStore['aiUsageDaily/' + 오늘 + '_u_' + email];
+  const 부르기 = (token, 한도) => worker.fetch(new Request('https://gw.test/v1/groq/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'x', messages: [] }),
+  }), { ...env, GROQ_KEYS: 'testkey', AI_DAILY_LIMIT: String(한도) });
+
+  부른모델 = [];
+  const r1 = await 부르기(staffToken, 3);
+  const 장1 = 장부칸('staff@sejong-21c.com');
+  check('장부: 첫 호출에 하루·사람·횟수가 남는다', r1.status === 200 && Number(장1?.n?.integerValue) === 1
+    && 장1?.email?.stringValue === 'staff@sejong-21c.com', JSON.stringify(장1));
+  check('장부: 날짜 칸은 **한국 날짜**다 (UTC 로 적으면 새벽 0~9시가 어제로 밀린다)',
+    장1?.day?.stringValue === 오늘, 장1?.day?.stringValue + ' vs ' + 오늘);
+
+  await 부르기(staffToken, 3);
+  check('장부: 같은 사람이 또 부르면 얹힌다', Number(장부칸('staff@sejong-21c.com')?.n?.integerValue) === 2);
+
+  await 부르기(adminToken, 3);
+  check('장부: 사람마다 따로 센다 (한 사람 쓴 게 남에게 안 얹힌다)',
+    Number(장부칸('cwkim@sejong-21c.com')?.n?.integerValue) === 1
+    && Number(장부칸('staff@sejong-21c.com')?.n?.integerValue) === 2);
+
+  await 부르기(staffToken, 3);            // n=3 — 한도와 같으니 아직 통과
+  부른모델 = [];
+  const r4 = await 부르기(staffToken, 3); // n=4 — 넘었다
+  const j4 = await r4.json();
+  check('한도: 넘으면 429 로 돌려보낸다', r4.status === 429, 'status=' + r4.status);
+  check('한도: **제공자를 아예 안 부른다** (부르고 나서 막으면 한도는 이미 나갔다)',
+    부른모델.length === 0, JSON.stringify(부른모델));
+  check('한도: 직원이 읽고 뭘 해야 할지 아는 말이 온다 (횟수·언제 풀리는지)',
+    /자정/.test(j4.error || '') && j4.하루한도 === 3 && j4.오늘쓴횟수 === 4, JSON.stringify(j4));
+
+  커밋고장 = true;
+  부른모델 = [];
+  const r5 = await 부르기(staffToken, 3);
+  커밋고장 = false;
+  check('장부가 죽어도 **AI 는 막지 않는다** (장부 고장으로 전사가 멎으면 그게 더 큰 고장이다)',
+    r5.status === 200 && 부른모델.length === 1, 'status=' + r5.status + ' 부름=' + 부른모델.length);
+
+  const r6 = await 부르기(outsiderToken, 3);
+  check('장부: 회사 계정이 아니면 세기 전에 막힌다 (남의 계정이 장부에 안 생긴다)',
+    r6.status === 401 && !fsStore['aiUsageDaily/' + 오늘 + '_u_evil@gmail.com'], 'status=' + r6.status);
 }
 
 // ── 결과 출력 ───────────────────────────────────────────────────
