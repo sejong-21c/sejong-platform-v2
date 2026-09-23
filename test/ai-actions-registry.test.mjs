@@ -32,6 +32,8 @@ const getU = () => state.currentUserObj;
 const moveTask = async (id) => { 쓴것.push(['moveTask', id]); };
 const allKanbanTasks = () => state.tasks;
 const computeProjectProgress = () => 0;
+const DEPTS = [{ name: '품질관리부' }, { name: '생산부' }, { name: '기술부' }];
+const canDo = (m, a) => globalThis.권한켬 !== false;
 `;
 const mod = await import('data:text/javascript;base64,' + Buffer.from(
   가짜 + src.slice(a, b) + '\nexport { AI행위, window, _롤업, _단락아래 };', 'utf8').toString('base64'));
@@ -54,6 +56,17 @@ globalThis.fb = {
   doc: (x, coll, id) => (coll === undefined ? { coll: x.coll, id: '자동' } : { coll, id }),
   getDoc: async (ref) => (ref.coll === 'wbsData' && wbs문서
     ? { exists: () => true, data: () => wbs문서 } : { exists: () => false }),
+  // 품질번호() 가 쓰는 것들. 기본은 "아직 한 건도 없다" → 001 부터.
+  // globalThis.있는품질 에 id 를 넣으면 그게 마지막 번호인 것처럼 굴어 채번을 시험할 수 있다.
+  query: (c, ...rest) => ({ coll: c.coll, rest }),
+  where: (...a) => ['where', ...a],
+  orderBy: (...a) => ['orderBy', ...a],
+  limit: (n) => ['limit', n],
+  documentId: () => '__name__',
+  getDocs: async (q) => {
+    const id = globalThis.있는품질 && globalThis.있는품질[q.coll];
+    return id ? { empty: false, docs: [{ id }] } : { empty: true, docs: [] };
+  },
   setDoc: async (ref, data) => { 쓴것.push([ref.coll, ref.id, data]); if (ref.coll === 'wbsData') wbs문서 = { ...wbs문서, ...data }; },
 };
 const { AI행위, window: W } = mod;
@@ -65,7 +78,7 @@ const 돌 = async (why, fn) => { await fn(); n++; };
 // ── 꼴 검사 — 새 행위를 더할 때 빠뜨리기 쉬운 것들 ────────────────────────
 await 돌('행위마다 설명·인자·쓸수있나·풀기·쓰기가 다 있다', async () => {
   const 이름들 = Object.keys(AI행위);
-  assert.ok(이름들.length >= 6, '행위가 여섯 개는 있어야 한다 — 있는 것: ' + 이름들.join(','));
+  assert.ok(이름들.length >= 8, '행위가 여덟 개는 있어야 한다 — 있는 것: ' + 이름들.join(','));
   for (const [이름, d] of Object.entries(AI행위)) {
     for (const k of ['설명', '인자', '쓸수있나', '풀기', '쓰기']) {
       assert.ok(d[k], `${이름} 에 ${k} 가 없다`);
@@ -243,6 +256,70 @@ await 돌('업무등록 — 같은 이름이 열려 있으면 알려만 주고 �
   assert.ok(r.머리.includes('1건'), '겹친다고 알려는 줘야 한다: ' + r.머리);
 });
 
+// ── 품질기록 발행 (2026-09-23) — 심사 대상이라 제일 조심스럽다 ──────────────
+await 돌('NCR발행 — 초안이고, 무엇이 빈칸인지 카드에 적는다', async () => {
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('NCR발행', { 내용: '용접부 언더컷 3개소 확인됨', 프로젝트: '삼성전기', 품목: '노즐 N1' });
+  assert.ok(!r.안됨, r.안됨);
+  assert.ok(/NCR-\d{4}-001/.test(r.머리), '지금 기준 번호를 보여 줘야 한다: ' + r.머리);
+  assert.ok(r.카드줄.some((l) => l.includes('용접부 언더컷')));
+  assert.ok(r.카드줄.some((l) => l.includes('NCR 관리 화면에서 채워')), '빈칸을 알려 줘야 한다');
+  assert.equal(쓴것.length, 0, '풀기는 아무것도 쓰지 않는다');
+});
+
+await 돌('NCR발행 — 쓴 문서가 NCR 화면이 만드는 꼴과 같다', async () => {
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('NCR발행', { 내용: '도장 두께 미달 (120um 요구, 85um 측정)', 프로젝트: '삼성전기' });
+  const 결 = await W.AI행위실행(r);
+  assert.ok(!결.안됨, 결.안됨);
+  const 쓴n = 쓴것.find((x) => x[0] === 't_ncrs');
+  assert.ok(쓴n, 't_ncrs 에 써야 한다');
+  const d = 쓴n[2];
+  assert.ok(/^NCR-\d{4}-\d{3}$/.test(d.id), 'id 가 NCR-연도-번호 꼴이어야 한다: ' + d.id);
+  assert.equal(d.status, 'open', '새 NCR 은 미조치로 시작한다');
+  assert.equal(d.rev, 1, '판이 1 이어야 한다 — 규칙이 판 증가를 강제한다');
+  assert.equal(d.source, 'ai');
+  assert.equal(d.proj, 'p1');
+  for (const 빈칸 of ['location', 'cause', 'causeDetail', 'disposition']) {
+    assert.equal(d[빈칸], '', `${빈칸} 은 비워 둔다 — 판단이 필요한 칸을 지어내지 않는다`);
+  }
+});
+
+await 돌('NCR발행 — 내용이 없거나 너무 짧으면 거절한다', async () => {
+  assert.ok((await W.AI행위풀기('NCR발행', { 프로젝트: '삼성전기' })).안됨);
+  assert.ok((await W.AI행위풀기('NCR발행', { 내용: '불량' })).안됨, '네 글자로 NCR 을 만들면 안 된다');
+});
+
+await 돌('NCR·CAR — 권한이 없으면 목록에도 안 나오고 카드도 안 만든다', async () => {
+  globalThis.권한켬 = false;
+  const 목록 = W.AI행위목록().map((x) => x.이름);
+  const r = await W.AI행위풀기('NCR발행', { 내용: '용접부 언더컷 3개소' });
+  globalThis.권한켬 = true;
+  assert.ok(!목록.includes('NCR발행') && !목록.includes('CAR발행'), '권한 없으면 목록에서 빠져야 한다: ' + 목록.join(','));
+  assert.ok(r.안됨 && r.안됨.includes('권한'), r.안됨);
+});
+
+await 돌('CAR발행 — 없는 부서·틀린 날짜는 거절한다', async () => {
+  assert.ok((await W.AI행위풀기('CAR발행', { 내용: '용접 절차 재교육 요청', 요청부서: '없는부서' })).안됨);
+  assert.ok((await W.AI행위풀기('CAR발행', { 내용: '용접 절차 재교육 요청', 회신기한: '10/5' })).안됨);
+  const r = await W.AI행위풀기('CAR발행', { 내용: '용접 절차 재교육 요청', 요청부서: '생산부', 회신기한: '2026-10-05' });
+  assert.ok(!r.안됨, r.안됨);
+  assert.ok(r.카드줄.some((l) => l.includes('생산부')) && r.카드줄.some((l) => l.includes('2026-10-05')));
+});
+
+await 돌('CAR발행 — 쓴 문서 꼴', async () => {
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('CAR발행', { 내용: '용접 절차 재교육 요청', 요청부서: '생산부' });
+  await W.AI행위실행(r);
+  const d = (쓴것.find((x) => x[0] === 't_cars') || [])[2];
+  assert.ok(d, 't_cars 에 써야 한다');
+  assert.ok(/^CAR-\d{4}-\d{3}$/.test(d.id), d.id);
+  assert.equal(d.status, 'in-progress');
+  assert.equal(d.rev, 1);
+  assert.equal(d.reqDept, '생산부');
+  assert.equal(d.causeDetail, '', '원인은 비워 둔다');
+});
+
 await 돌('모르는 행위는 거절한다', async () => {
   assert.ok((await W.AI행위풀기('NCR발행', { 프로젝트: 'A' })).안됨);
   assert.ok((await W.AI행위실행({ 행위: 'NCR발행', 인자: {}, 지문: 'x' })).안됨);
@@ -250,7 +327,7 @@ await 돌('모르는 행위는 거절한다', async () => {
 
 await 돌('행위목록은 할 수 있는 것만 준다', async () => {
   const 것 = W.AI행위목록();
-  assert.ok(것.length >= 6, '전부 나와야 한다: ' + JSON.stringify(것.map((x) => x.이름)));
+  assert.ok(것.length >= 8, '전부 나와야 한다: ' + JSON.stringify(것.map((x) => x.이름)));
   assert.ok(것.every((x) => x.이름 && x.설명 && x.인자));
 });
 
