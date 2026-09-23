@@ -113,6 +113,13 @@ globalThis.fetch = async (input, init) => {
       }
       return Response.json({ writeResults: 결과 });
     }
+    // v4.3 백업은 **읽기 전에 센다.** 모의가 이걸 안 주면 '못 셌다' 길로만 가서
+    //   정작 지키려는 길(큰 컬렉션 건너뛰기)이 한 번도 안 돌아간다.
+    if (rest === ':runAggregationQuery') {
+      const coll = body.structuredAggregationQuery.structuredQuery.from[0].collectionId;
+      const n = Object.keys(fsStore).filter(p => p.startsWith(coll + '/')).length;
+      return Response.json([{ result: { aggregateFields: { n: { integerValue: String(n) } } } }]);
+    }
     if (rest === ':runQuery') {
       const sq = body.structuredQuery;
       const coll = sq.from[0].collectionId;
@@ -565,6 +572,31 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   const r6 = await 부르기(outsiderToken, 3);
   check('장부: 회사 계정이 아니면 세기 전에 막힌다 (남의 계정이 장부에 안 생긴다)',
     r6.status === 401 && !fsStore['aiUsageDaily/' + 오늘 + '_u_evil@gmail.com'], 'status=' + r6.status);
+}
+
+// ── v4.3: 백업이 **읽기 전에 센다** ──────────────────────────────
+// 왜 이걸 시험하나: 2026-09-23 에 알아낸 것 — 백업이 chunk__·dwg_ 를 **받아 온 뒤에 버리고**
+//   있었다. 주석에는 "제외" 라고 적혀 있는데 파이어스토어는 이미 읽기로 센다.
+//   버리는 문서에 하루치(5만)를 다 쓰고, 그날 내내 플랫폼이 429 가 됐다.
+//   **읽은문서(과금)와 docs(파일에 담은 수)가 다르면 그 차이가 버린 것이다.**
+{
+  const 큰것 = {};
+  for (let i = 0; i < 40; i++) 큰것['chunkStore/chunk__' + i] = { b: { stringValue: 'x' } };
+  Object.assign(fsStore, 큰것);
+  const 백업env = { ...env, BACKUP_SKIP_OVER: '20', BACKUP_READ_BUDGET: '10000' };
+  const r = await worker.fetch(new Request('https://gw.test/backup/run', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' }, body: '{}',
+  }), 백업env);
+  const j = await r.json();
+  check('백업: 큰 컬렉션은 **읽지 않고** 건너뛴다 (버릴 것을 읽느라 하루치를 태우던 자리)',
+    !!(j.건너뛴것 && j.건너뛴것.chunkStore) && !(j.summary || {}).chunkStore, JSON.stringify(j.건너뛴것 || {}));
+  check('백업: 건너뛴 이유를 **수와 함께** 남긴다 (조용히 빠지면 백업이 빈 줄 모른다)',
+    /40건/.test((j.건너뛴것 || {}).chunkStore || ''), (j.건너뛴것 || {}).chunkStore);
+  check('백업: 과금된 읽기 수를 보고에 남긴다 — docs 와 다르면 버린 것이 있다는 뜻',
+    typeof j.읽은문서 === 'number' && j.읽은문서 >= (j.docs || 0), JSON.stringify({ 읽은문서: j.읽은문서, docs: j.docs }));
+  check('백업: 건너뛴 것 말고는 그대로 받는다 (예산 때문에 통째로 멎으면 안 된다)',
+    (j.docs || 0) > 0 && Object.keys(j.summary || {}).length >= 3, JSON.stringify(Object.keys(j.summary || {})));
+  for (const k of Object.keys(큰것)) delete fsStore[k];
 }
 
 // ── v4.1: 개인 API 열쇠 ─────────────────────────────────────────

@@ -1066,6 +1066,36 @@ async function runDailyBackup(env) {
   // 그래서 한 번에 못 끝내도 며칠에 걸쳐 반드시 완성된다 — 아예 못 받는 것보다 낫다.
   const 예산 = 900;
   let 쓴요청 = 1;                       // listCollectionIds 한 번
+
+  // v4.3(2026-09-23): **읽기 예산.** 위의 '예산' 은 워커 하위요청 수지 파이어스토어 읽기가 아니다.
+  //   한 요청이 1,000건을 받으므로 900 요청이면 최대 90만 건 — 무료 하루 5만의 18배다.
+  //   그리고 chunk__·dwg_ 는 **받아 온 뒤에 버린다.** 주석은 "제외" 라고 적혀 있지만
+  //   파이어스토어는 이미 읽기로 센다. 버리는 문서에 하루치를 다 쓰고 있었다.
+  //   (2026-09-23 실측: 브라우저 부팅은 213건뿐인데 하루 47,000건이 어디론가 나갔다.)
+  //
+  // 파이스에는 이 원칙이 이미 있다 — scripts/platform-count.mjs "돌리기 전에 먼저 센다".
+  //   집계 질의는 **1,000건당 읽기 1건**이라 세는 건 거의 공짜다. 워커에도 같은 걸 둔다.
+  const 읽기예산 = Number(env.BACKUP_READ_BUDGET || 12000);   // 5만의 4분의 1. 사람 몫을 남긴다
+  const 큰컬렉션 = Number(env.BACKUP_SKIP_OVER || 5000);       // 이보다 크면 건너뛴다(첨부 조각 창고다)
+  let 읽은문서 = 0;
+  const 건너뛴것 = {};
+  /** 몇 건인지 먼저 센다. 집계 하나(읽기 1건 남짓). 못 세면 null — 그럼 조심해서 건너뛴다. */
+  const 세기 = async (coll) => {
+    try {
+      const r = await fetch(fsBase(env) + ':runAggregationQuery', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ structuredAggregationQuery: {
+          structuredQuery: { from: [{ collectionId: coll }] },
+          aggregations: [{ alias: 'n', count: {} }],
+        } }),
+      });
+      if (!r.ok) return null;
+      const j = await r.json();
+      const n = Number((((j[0] || {}).result || {}).aggregateFields || {}).n?.integerValue);
+      return Number.isFinite(n) ? n : null;
+    } catch (e) { return null; }
+  };
   const 상태키 = 'backup/_state.json';
   let 끝낸것 = [];
   try {
@@ -1077,8 +1107,26 @@ async function runDailyBackup(env) {
     if (끝낸것.includes(coll)) continue;
     if (쓴요청 >= 예산) {
       await env.BACKUP.put(상태키, JSON.stringify({ day, done: 끝낸것 }), { httpMetadata: { contentType: 'application/json' } });
-      return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, summary };
+      return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, 읽은문서, 건너뛴것, summary };
     }
+    // **읽기 전에 센다.** 이 세 줄이 하루 한도를 지킨다.
+    const 몇건 = await 세기(coll);
+    쓴요청++;
+    // 못 셌다고 **건너뛰면 백업이 조용히 멈춘다.** 집계가 잠깐 안 되는 날 아무도 모르게
+    //   백업이 빈 채로 돌고, 그건 백업이 없는 것과 같다. 세지 못하면 읽되 상한을 건다(아래 자른다).
+    if (몇건 !== null && 몇건 > 큰컬렉션) {
+      // 첨부 조각(chunk__·dwg_) 창고다. 어차피 아래에서 버릴 것을 읽느라 하루치를 태워 왔다.
+      건너뛴것[coll] = `${몇건.toLocaleString()}건 — ${큰컬렉션.toLocaleString()} 넘어 건너뜀`;
+      끝낸것.push(coll); continue;
+    }
+    if (몇건 !== null && 읽은문서 + 몇건 > 읽기예산) {
+      건너뛴것[coll] = `${몇건.toLocaleString()}건 — 오늘 읽기 예산(${읽기예산.toLocaleString()}) 남은 만큼이 모자라 내일로`;
+      continue;   // 끝낸것에 안 넣는다 — 내일 이어서 한다
+    }
+    if (읽은문서 >= 읽기예산) { 건너뛴것[coll] = '오늘 읽기 예산을 다 썼다 — 내일로'; continue; }
+    읽은문서 += (몇건 === null ? 0 : 몇건);
+    const 못셌다 = 몇건 === null;
+
     const docs = [];
     let pageToken = '';
     do {
@@ -1096,7 +1144,13 @@ async function runDailyBackup(env) {
         docs.push(fsParseDoc(doc));
       });
       pageToken = d.nextPageToken || '';
+      // 못 센 컬렉션이 알고 보니 조각 창고였을 수 있다. 여기서 끊어 하루치를 지킨다.
+      if (못셌다) { 읽은문서 += (d.documents || []).length; if (읽은문서 > 큰컬렉션) break; }
     } while (pageToken && 쓴요청 < 예산);
+    if (못셌다 && pageToken) {   // 다 못 받았다 — **반쪽 파일을 남기지 않는다**(있으면 복구 때 속는다)
+      건너뛴것[coll] = `몇 건인지 못 셌고 ${큰컬렉션.toLocaleString()}건을 넘어 중단 — 반쪽은 저장하지 않는다`;
+      끝낸것.push(coll); continue;
+    }
     const body = JSON.stringify(docs);
     await env.BACKUP.put('backup/' + day + '/' + coll + '.json', body, {
       httpMetadata: { contentType: 'application/json' },
@@ -1110,7 +1164,9 @@ async function runDailyBackup(env) {
   // 다 끝났다 — 이어서할 자리 표시를 지우고, 오래된 날짜를 정리한다(정리도 요청을 쓰므로 맨 끝에).
   try { await env.BACKUP.delete(상태키); } catch (e) { /* 없어도 그만 */ }
   try { await cleanupOldBackups(env, day); } catch (e) { console.warn('[backup] cleanup:', e && e.message); }
-  return { day, collections: collections.length, docs: totalDocs, kb: totalKb, 요청: 쓴요청, summary };
+  // **읽은문서** 는 파이어스토어가 과금한 수, **docs** 는 파일에 담은 수다. 둘이 다르면
+  //   그 차이가 '받아 놓고 버린 것' 이다 — 그게 하루 한도를 태우던 자리다.
+  return { day, collections: collections.length, docs: totalDocs, kb: totalKb, 요청: 쓴요청, 읽은문서, 건너뛴것, summary };
 }
 
 function corsHeaders(origin, allowed) {
