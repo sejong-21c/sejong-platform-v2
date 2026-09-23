@@ -857,6 +857,34 @@ async function 열쇠한번불러보기(env, 이름, 열쇠) {
   } catch (e) { return { 된다: false, 왜: String(e.message || e).slice(0, 60) }; }
 }
 
+/* v4.4(2026-09-24): 백업이 읽은 문서 수를 **공용 읽기 장부에 얹는다.**
+ *
+ * 왜: 어제 백업을 다시 켰는데(하루 약 15,000 읽기) 그걸 세는 곳이 없었다.
+ *   장부는 셋을 봐야 한다 — 브라우저(readDaily.browser, 플랫폼 b94) · 파이스(맥의 파일 장부) ·
+ *   **게이트웨이**. 제일 큰 몫이 안 세이면 "오늘 얼마 썼나" 가 통째로 틀린다.
+ *   자기가 쓴 걸 자기가 안 적는 게 제일 흔한 구멍이다.
+ *
+ * 문서 id 는 **태평양 날짜**다(한도가 그 자정에 풀린다). 백업 파일의 day 는 한국 날짜라 다르다 —
+ *   같은 날이 아닐 수 있으니 여기서 따로 구한다. 섞으면 하루가 두 동강 난다.
+ * 못 적어도 백업을 실패로 만들지 않는다. 장부는 백업보다 덜 중요하다.
+ */
+async function 읽기장부에올린다(env, token, 몇건) {
+  if (!(몇건 > 0)) return;
+  try {
+    const 태평양날 = new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
+    const 이름 = 'projects/' + fsProjectId(env) + '/databases/(default)/documents/readDaily/' + 태평양날;
+    await fetch(fsBase(env) + ':commit', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writes: [{
+        update: { name: 이름, fields: { day: fsVal(태평양날), at: fsVal(Date.now()) } },
+        updateMask: { fieldPaths: ['day', 'at'] },
+        updateTransforms: [{ fieldPath: 'gateway', increment: { integerValue: String(몇건) } }],
+      }] }),
+    });
+  } catch (e) { console.warn('[backup] 읽기 장부:', e && e.message); }
+}
+
 async function postAlertMessage(env, token, channelId, text) {
   // 채널 문서 보장 (있으면 그대로 둠 — 통째 PATCH로 members를 지우지 않도록 GET 먼저)
   if (!(await fsGetDoc(env, token, 'channels/' + channelId))) {
@@ -1163,6 +1191,7 @@ async function runDailyBackup(env) {
   }
   // 다 끝났다 — 이어서할 자리 표시를 지우고, 오래된 날짜를 정리한다(정리도 요청을 쓰므로 맨 끝에).
   try { await env.BACKUP.delete(상태키); } catch (e) { /* 없어도 그만 */ }
+  await 읽기장부에올린다(env, token, 읽은문서);
   try { await cleanupOldBackups(env, day); } catch (e) { console.warn('[backup] cleanup:', e && e.message); }
   // **읽은문서** 는 파이어스토어가 과금한 수, **docs** 는 파일에 담은 수다. 둘이 다르면
   //   그 차이가 '받아 놓고 버린 것' 이다 — 그게 하루 한도를 태우던 자리다.

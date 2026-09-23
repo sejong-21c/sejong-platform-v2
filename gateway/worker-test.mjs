@@ -583,6 +583,9 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   const 큰것 = {};
   for (let i = 0; i < 40; i++) 큰것['chunkStore/chunk__' + i] = { b: { stringValue: 'x' } };
   Object.assign(fsStore, 큰것);
+  // 앞의 백업 시험이 이미 장부에 얹어 놨다(누적되는 게 맞다). 이 블록만 재려고 비우고 시작한다.
+  const 태평양날 = new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
+  delete fsStore['readDaily/' + 태평양날];
   const 백업env = { ...env, BACKUP_SKIP_OVER: '20', BACKUP_READ_BUDGET: '10000' };
   const r = await worker.fetch(new Request('https://gw.test/backup/run', {
     method: 'POST', headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' }, body: '{}',
@@ -596,7 +599,18 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
     typeof j.읽은문서 === 'number' && j.읽은문서 >= (j.docs || 0), JSON.stringify({ 읽은문서: j.읽은문서, docs: j.docs }));
   check('백업: 건너뛴 것 말고는 그대로 받는다 (예산 때문에 통째로 멎으면 안 된다)',
     (j.docs || 0) > 0 && Object.keys(j.summary || {}).length >= 3, JSON.stringify(Object.keys(j.summary || {})));
+
+  // v4.4: 백업은 하루 약 15,000건을 읽는다 — **셋 중 제일 큰 몫**이다(브라우저·파이스·관문).
+  //   자기가 쓴 걸 자기가 안 적으면 "오늘 얼마 썼나" 가 통째로 틀린다. 제일 흔한 구멍이다.
+  const 장부 = fsStore['readDaily/' + 태평양날];
+  check('백업: 읽은 만큼을 **공용 읽기 장부에 얹는다** (안 적으면 하루 총계가 통째로 틀린다)',
+    !!장부 && Number(장부.gateway?.integerValue) === j.읽은문서 && Number(장부.gateway?.integerValue) > 0,
+    JSON.stringify({ 장부: 장부 && 장부.gateway, 보고: j.읽은문서 }));
+  check('백업: 장부 문서 id 는 **태평양 날짜**다 — 백업 파일의 day(한국 날짜)와 섞으면 하루가 두 동강 난다',
+    장부?.day?.stringValue === 태평양날, JSON.stringify({ 장부날: 장부 && 장부.day, 백업날_한국: j.day }));
+
   for (const k of Object.keys(큰것)) delete fsStore[k];
+  delete fsStore['readDaily/' + 태평양날];
 }
 
 // ── v4.1: 개인 API 열쇠 ─────────────────────────────────────────
