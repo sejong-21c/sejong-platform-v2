@@ -453,11 +453,10 @@ table .ctr { text-align:center; }
 
 <nav class="tabs">
   <button data-tab="card" class="active">① 카드 관리</button>
-  <button data-tab="place">② 출장지/거래처</button>
-  <button data-tab="entry">③ 사용 내역 입력</button>
-  <button data-tab="daily">④ 일자별 영수증 철</button>
-  <button data-tab="report">⑤ 경비 내역서</button>
-  <button data-tab="data">⑥ 데이터</button>
+  <button data-tab="entry">② 사용 내역 입력</button>
+  <button data-tab="daily">③ 일자별 영수증 철</button>
+  <button data-tab="report">④ 경비 내역서</button>
+  <button data-tab="data">⑤ 데이터</button>
 </nav>
 
 <main>
@@ -491,31 +490,6 @@ table .ctr { text-align:center; }
 
 <!-- ② 작성자 관리 -->
 
-<!-- ③ 출장지/거래처 -->
-<section class="panel" id="panel-place">
-  <h2 class="section">출장지 / 거래처 리스트</h2>
-  <div class="card">
-    <p style="font-size:12px; color:#666; margin-bottom:10px;">
-      자주 사용하는 출장지·거래처를 등록해두면, AI 영수증 자동 인식 시 가맹점명·지역·시간을 비교하여
-      <b>출장장소를 자동으로 추론</b>합니다. 별칭(예: 식당 이름)도 함께 등록해두면 정확도가 올라갑니다.
-    </p>
-    <div class="row">
-      <div><label>거래처/출장지명</label><input type="text" id="pl-name" placeholder="예: 정원화학" style="width:200px;"></div>
-      <div><label>지역</label><input type="text" id="pl-area" placeholder="예: 부산 강서구" style="width:200px;"></div>
-      <div style="flex:1;"><label>관련 별칭/키워드 (쉼표 구분)</label>
-        <input type="text" id="pl-alias" placeholder="예: 정원화학공업, JW Chemical, 정원화학(주)" style="width:100%;">
-      </div>
-      <div><button class="btn" onclick="addPlace()">＋ 등록</button></div>
-    </div>
-  </div>
-  <div class="card">
-    <h3 class="sub">등록된 출장지/거래처</h3>
-    <table id="place-table">
-      <thead><tr><th>#</th><th>거래처/출장지명</th><th>지역</th><th>별칭/키워드</th><th>관리</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
 
 <!-- ④ 사용 내역 입력 -->
 <section class="panel" id="panel-entry">
@@ -1019,7 +993,9 @@ function deletePlace(id){
   renderPlaces();
 }
 function renderPlaces(){
+  // 출장지/거래처 판을 없앴다(2026-09-23) — 그려 줄 표가 없으면 그냥 돌아간다.
   const tb = document.querySelector('#place-table tbody');
+  if (!tb) return;
   if (!DATA.places.length){ tb.innerHTML='<tr><td colspan="5" class="empty">등록된 출장지/거래처가 없습니다.</td></tr>'; return; }
   tb.innerHTML = DATA.places.map((p,i)=>`
     <tr>
@@ -2856,8 +2832,6 @@ function renderSummary(){
   const recCount = DATA.entries.reduce((s,e)=>s+(e.receipts?.length||0),0);
   document.getElementById('data-summary').innerHTML = `
     · 등록 카드: <b>${DATA.cards.length}</b>장 (법인 ${DATA.cards.filter(c=>c.type==='법인카드').length} / 개인 ${DATA.cards.filter(c=>c.type==='개인카드').length})<br>
-    · 등록 작성자: <b>${DATA.writers.length}</b>명<br>
-    · 등록 출장지/거래처: <b>${DATA.places.length}</b>곳<br>
     · 사용 내역: <b>${DATA.entries.length}</b>건<br>
     · 첨부 영수증: <b>${recCount}</b>장<br>
     · 총 사용 금액: <b>${num(totalAmt)} 원</b><br>
