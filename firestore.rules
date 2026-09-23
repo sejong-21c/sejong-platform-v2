@@ -122,6 +122,10 @@ service cloud.firestore {
     //   게이트웨이는 서비스 계정으로 쓰므로 규칙을 우회한다 — 여기를 닫아도 기록은 남는다.
     //   이름에 t_ 를 안 붙인 이유: 맨 아래 catch-all 이 `^t_.*` 를 전부 열어 준다.
     match /aiUsageDaily/{docId}          { allow read: if isCompanyUser(); allow write: if false; }
+    // v4.1(2026-09-23) 맡긴 개인 API 열쇠: **아무도 읽지도 쓰지도 못한다.**
+    //   게이트웨이만 서비스 계정으로 오간다. 잠가 두긴 했지만(AES-GCM) 읽는 길 자체를 없앤다 —
+    //   등록은 /key/set, 확인은 /key/status(끝 네 자리만), 돌려주는 길은 만들지 않았다.
+    match /aiUserKeys/{docId}            { allow read, write: if false; }
     // v29.44: 관리 탭 기록들 — 오류·접속·작업 로그. 생성만 허용, 수정·삭제 불가
     match /errorLog/{docId}              { allow read, create: if isCompanyUser(); allow update, delete: if false; }
     match /accessLog/{docId}             { allow read, create: if isCompanyUser(); allow update, delete: if false; }

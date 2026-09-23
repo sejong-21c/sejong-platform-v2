@@ -59,6 +59,7 @@ const FS = 'https://firestore.googleapis.com/v1/projects/sejong-platform/databas
 let 맥응답 = null;   // 맥(파이스) 검색 모의 응답. 시험마다 갈아 끼운다
 let 커밋고장 = false; // v3.9: 장부가 죽은 날을 흉내낸다 — 그래도 AI 는 돌아야 한다
 let 부른모델 = [];    // 제공자에게 실제로 나간 호출. 한도에 걸리면 **비어 있어야** 한다
+let 부른열쇠 = [];    // v4.1: 그때 **어떤 열쇠**로 나갔나 — 회사 것인지 본인 것인지
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -73,6 +74,9 @@ globalThis.fetch = async (input, init) => {
   }
   // 맥(파이스) /api/rag/search 모의 — 맥응답 이 null 이면 꺼진 셈 친다
   if (url.startsWith('https://api.groq.com/')) {   // v3.9: 제공자 모의
+    const 열 = (init?.headers && (init.headers.get ? init.headers.get('Authorization') : init.headers.Authorization)) || '';
+    부른열쇠.push(String(열).replace(/^Bearer /, ''));
+    if (url.endsWith('/models')) return Response.json({ data: [] });   // v4.1: 열쇠 등록 때 한 번 불러 본다
     부른모델.push(url);
     return Response.json({ choices: [{ message: { content: '네' } }] });
   }
@@ -131,6 +135,7 @@ globalThis.fetch = async (input, init) => {
       return Response.json({ name: 'projects/x/databases/(default)/documents/' + path, fields: fsStore[path] });
     }
     if (method === 'PATCH') { fsStore[path] = body.fields; return Response.json({ name: path }); }
+    if (method === 'DELETE') { delete fsStore[path]; return Response.json({}); }   // v4.1: /key/del
     if (method === 'POST') { // 자동 id 생성
       const id = 'auto' + (postedMessages.length + 1);
       fsStore[path + '/' + id] = body.fields;
@@ -558,6 +563,72 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   const r6 = await 부르기(outsiderToken, 3);
   check('장부: 회사 계정이 아니면 세기 전에 막힌다 (남의 계정이 장부에 안 생긴다)',
     r6.status === 401 && !fsStore['aiUsageDaily/' + 오늘 + '_u_evil@gmail.com'], 'status=' + r6.status);
+}
+
+// ── v4.1: 개인 API 열쇠 ─────────────────────────────────────────
+// 왜 이걸 시험하나: 여기는 **직원의 진짜 API 열쇠**가 지나가는 자리다. 조용히 새면
+//   알 방법이 없고, 조용히 안 잠기면 야간 백업에 평문으로 실려 R2 로 나간다.
+{
+  const 오늘 = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const KEY_SECRET = Buffer.from(wc.getRandomValues(new Uint8Array(32))).toString('base64');
+  // 회사 열쇠 값이 ASCII 인 이유: HTTP 헤더는 ASCII 만 된다. 시험용으로 한글을 넣었다가
+  //   undici 가 통째로 터졌다 — /key/set 이 한글 열쇠를 거절하는 것도 같은 이유다.
+  const 열쇠env = { ...env, KEY_SECRET, GROQ_KEYS: 'COMPANY-KEY', AI_DAILY_LIMIT: '1' };
+  const 키post = (길, token, obj) => worker.fetch(new Request('https://gw.test' + 길, {
+    method: 'POST',
+    headers: token ? { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' },
+    body: JSON.stringify(obj || {}),
+  }), 열쇠env);
+
+  check('열쇠: 로그인 없이는 아무것도 못 한다', (await 키post('/key/status', null)).status === 401);
+  check('열쇠: 회사 계정이 아니면 못 맡긴다',
+    (await 키post('/key/set', outsiderToken, { 제공자: 'groq', 열쇠: 'gsk_' + 'a'.repeat(40) })).status === 401);
+
+  const s0 = await (await 키post('/key/status', staffToken)).json();
+  check('열쇠: 안 맡겼으면 없다고 한다', s0.있나 === false, JSON.stringify(s0));
+
+  check('열쇠: 모르는 제공자는 거절한다',
+    (await 키post('/key/set', staffToken, { 제공자: '남의회사', 열쇠: 'x'.repeat(40) })).status === 400);
+  check('열쇠: 짧거나 한글 섞인 것은 거절한다 — 열쇠 모양이 아니다',
+    (await 키post('/key/set', staffToken, { 제공자: 'groq', 열쇠: '내열쇠' })).status === 400
+    && (await 키post('/key/set', staffToken, { 제공자: 'groq', 열쇠: 'gsk_한글' + 'a'.repeat(40) })).status === 400);
+
+  // 진짜 열쇠 하나를 맡긴다. 등록할 때 제공자를 한 번 불러 보므로 모의가 200 을 준다.
+  const 내열쇠 = 'gsk_' + 'z'.repeat(48) + 'TAIL';
+  const r = await (await 키post('/key/set', staffToken, { 제공자: 'groq', 열쇠: 내열쇠 })).json();
+  check('열쇠: 맡으면 끝 네 자리만 돌려준다', r.저장했다 === true && r.끝네자리 === 'TAIL', JSON.stringify(r));
+
+  const 저장된 = fsStore['aiUserKeys/u_staff@sejong-21c.com'];
+  const 덩이 = 저장된?.enc?.stringValue || '';
+  check('열쇠: **평문으로 저장하지 않는다** (야간 백업이 R2 로 전 컬렉션을 떠낸다)',
+    !!덩이 && !덩이.includes(내열쇠) && !JSON.stringify(저장된).includes(내열쇠), 덩이.slice(0, 24));
+  check('열쇠: 잠근 덩이는 iv 가 따로 붙는다(같은 값을 두 번 잠가도 달라야 한다)', 덩이.split('.').length === 2);
+
+  const s1 = await (await 키post('/key/status', staffToken)).json();
+  check('열쇠: 확인해도 **열쇠 자체는 안 돌려준다** — 끝 네 자리와 제공자만',
+    s1.있나 === true && s1.끝네자리 === 'TAIL' && !JSON.stringify(s1).includes(내열쇠), JSON.stringify(s1));
+
+  // 한도 1 이라 두 번째 호출부터 넘는다 → 맡긴 열쇠로 가야 한다.
+  // 모의 Firestore 는 시험끼리 **같은 통**이다. 앞의 장부 시험이 이 사람 횟수를 이미 올려놔서
+  //   첫 호출부터 한도를 넘었다(처음엔 코드가 틀린 줄 알았다). 여기서 장부를 비우고 시작한다.
+  const 오늘장부 = 'aiUsageDaily/' + 오늘 + '_u_';
+  delete fsStore[오늘장부 + 'staff@sejong-21c.com'];
+  delete fsStore[오늘장부 + 'cwkim@sejong-21c.com'];
+  부른모델 = []; 부른열쇠 = [];
+  await 키post('/v1/groq/chat/completions', staffToken, { model: 'x', messages: [] });   // 1회 — 회사 몫
+  await 키post('/v1/groq/chat/completions', staffToken, { model: 'x', messages: [] });   // 2회 — 넘었다
+  check('한도를 넘으면 **자기 열쇠로** 계속 쓴다 (429 로 막다른 길이 아니다)',
+    부른열쇠.length === 2 && 부른열쇠[1] === 내열쇠, JSON.stringify(부른열쇠.map(k => k.slice(-4))));
+  check('한도를 넘어도 **회사 열쇠로는 안 간다** (실패하면 조용히 회사 몫으로 넘어가면 한도가 무의미하다)',
+    부른열쇠[0] === 'COMPANY-KEY' && !부른열쇠.slice(1).includes('COMPANY-KEY'), JSON.stringify(부른열쇠.map(k => k.slice(-4))));
+
+  // 열쇠를 안 맡긴 사람은 그대로 429 인데, **뭘 하면 되는지**가 응답에 있어야 한다.
+  await 키post('/v1/groq/chat/completions', adminToken, { model: 'x', messages: [] });
+  const 막힘 = await (await 키post('/v1/groq/chat/completions', adminToken, { model: 'x', messages: [] })).json();
+  check('열쇠를 안 맡긴 사람은 429 + 어디로 가면 되는지', 막힘.개인열쇠필요 === true && /개인 AI 열쇠/.test(막힘.error || ''), JSON.stringify(막힘).slice(0, 120));
+
+  check('열쇠: 지우면 없어진다', (await (await 키post('/key/del', staffToken)).json()).지웠다 === true
+    && !fsStore['aiUserKeys/u_staff@sejong-21c.com']);
 }
 
 // ── 결과 출력 ───────────────────────────────────────────────────

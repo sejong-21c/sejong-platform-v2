@@ -152,6 +152,13 @@ await T('게이트웨이 장부는 직원이 읽을 수는 있다 — 누가 얼
   await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'aiUsageDaily', '2026-09-23_u1'), { n: 3 }); });
   await assertSucceeds(getDoc(doc(로그인(사람.생산원), 'aiUsageDaily', '2026-09-23_u1')));
 });
+// v4.1: 맡긴 개인 API 열쇠. 잠가 뒀지만 **읽는 길 자체를 없앤다** — 남의 계정 토큰 하나로
+//   남의 열쇠 덩이를 긁어가는 일이 없게. 게이트웨이만 서비스 계정으로 오간다.
+await T('맡긴 개인 열쇠는 본인도 못 읽는다', async () => {
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'aiUserKeys', 사람.부장.uid), { enc: 'x.y' }); });
+  await assertFails(getDoc(doc(로그인(사람.부장), 'aiUserKeys', 사람.부장.uid)));
+  await assertFails(setDoc(doc(로그인(사람.부장), 'aiUserKeys', 사람.부장.uid), { enc: 'z' }));
+});
 await T('관리 명단은 super 만 고친다', () => assertFails(setDoc(doc(로그인(사람.임원), 'adminAccess', 'list'), { uids: [] })));
 await T('관리 명단을 super 는 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 'adminAccess', 'list'), { uids: [사람.부장.uid] })));
 await T('WBS 공유는 로그인 없이도 읽힌다(설계대로)', async () => {

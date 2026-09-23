@@ -1,5 +1,5 @@
 /*
- * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v3.9, 2026-09-23)
+ * 세종플랫폼 AI 게이트웨이 — Cloudflare Worker (v4.1, 2026-09-23)
  *
  * 역할:
  *  1) 회사 공용 API 키를 이 서버에 숨겨두고, 직원들은 키 입력 없이 AI 비서를 사용
@@ -9,6 +9,10 @@
  *     (aiUsageDaily/YYYY-MM-DD_<uid>, 쓰기 1회·읽기 0회). 한도(AI_DAILY_LIMIT, 기본 300)를
  *     넘으면 제공자를 부르기 **전에** 429 로 돌려보낸다. 공용 열쇠는 무료 한도가 있어
  *     한 사람이 하루치를 다 쓰면 다른 직원이 못 쓴다. 장부를 못 쓰면 막지 않는다.
+ *  3-c) v4.1: **개인 API 열쇠** — 한도를 넘긴 사람이 자기 열쇠를 맡겨 두었으면 그 열쇠로 간다.
+ *     POST /key/set {제공자,열쇠} · /key/status · /key/del. **돌려주는 길은 없다**(끝 네 자리만).
+ *     AES-GCM 으로 잠가 aiUserKeys/<uid> 에 둔다 — 야간 백업이 R2 로 전 컬렉션을 떠내기 때문.
+ *     필요 Secret: KEY_SECRET(무작위 32바이트 base64). 없으면 /key/set 이 501 을 낸다.
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
@@ -740,6 +744,96 @@ async function 장부에올린다(env, uid, email) {
   return Number.isFinite(n) ? n : null;
 }
 
+// ── v4.1(2026-09-23): 개인 API 열쇠 ─────────────────────────────────────────
+// 왜: 하루 한도에 걸린 직원에게 지금은 "내일 오세요" 말고 해줄 말이 없다. 청사진의 답은
+//   「초과 시 개인 길로」 — 구독이 없는 직원은 **자기 API 열쇠**를 맡기고, 회사 열쇠가
+//   마른 뒤에도 그 열쇠로 계속 쓴다. 회사 비용 0, 권한·자료는 그대로 우리가 쥔다.
+//
+// 맡긴 열쇠는 **돌려주지 않는다.** 등록하는 길만 있고 읽는 길은 없다 — 화면에는 끝 네 자리만 보인다.
+//   길을 열어 두면 남의 계정 토큰만 있으면 남의 열쇠를 가져갈 수 있다.
+//
+// 왜 굳이 암호화하나(Firestore 는 어차피 저장 시 암호화된다): **야간 백업이 R2 로 전 컬렉션을
+//   떠낸다.** 평문으로 두면 직원 API 열쇠가 백업 파일에 그대로 실린다. 여기서 잠가 두면
+//   백업에는 자물쇠 걸린 덩이만 간다. 여는 열쇠(KEY_SECRET)는 워커 비밀에만 있다.
+function 바이트를b64(b) { let s = ''; for (const x of b) s += String.fromCharCode(x); return btoa(s); }
+function b64를바이트(s) { return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); }
+
+let _자물쇠 = null;
+async function 자물쇠(env) {
+  if (!env.KEY_SECRET) throw new Error('KEY_SECRET not configured');
+  if (!_자물쇠) _자물쇠 = await crypto.subtle.importKey('raw', b64를바이트(env.KEY_SECRET), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  return _자물쇠;
+}
+async function 잠그기(env, 평문) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));   // GCM 은 같은 iv 를 두 번 쓰면 안 된다 — 매번 새로
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await 자물쇠(env), new TextEncoder().encode(평문)));
+  return 바이트를b64(iv) + '.' + 바이트를b64(ct);
+}
+async function 열기(env, 덩이) {
+  const [a, b] = String(덩이).split('.');
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64를바이트(a) }, await 자물쇠(env), b64를바이트(b));
+  return new TextDecoder().decode(pt);
+}
+
+async function 개인열쇠읽기(env, uid, 제공자) {
+  if (!env.FIREBASE_SA_KEY || !env.KEY_SECRET) return null;
+  try {
+    const d = await fsGetDoc(env, await saAccessToken(env), 'aiUserKeys/' + uid);
+    if (!d || d.provider !== 제공자 || !d.enc) return null;
+    return await 열기(env, d.enc);
+  } catch (e) { return null; }   // 못 열면 없는 셈 친다 — 회사 열쇠 길로 돌아간다
+}
+
+// POST /key/set {제공자, 열쇠} · /key/status {} · /key/del {}
+async function handleKey(request, env, 무엇, cors) {
+  const auth = await verifyCompanyFirebaseToken(request, env);
+  if (auth.status) return json(auth.status, { error: auth.error }, cors);
+  if (!env.FIREBASE_SA_KEY) return json(501, { error: '게이트웨이에 서비스 계정이 없어 열쇠를 보관할 수 없습니다.' }, cors);
+  const token = await saAccessToken(env);
+  const 길 = 'aiUserKeys/' + auth.uid;
+
+  if (무엇 === 'status') {
+    const d = await fsGetDoc(env, token, 길);
+    return json(200, d ? { 있나: true, 제공자: d.provider, 끝네자리: d.tail, 등록: d.at } : { 있나: false }, cors);
+  }
+  if (무엇 === 'del') {
+    await fetch(fsBase(env) + '/' + 길, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    return json(200, { 지웠다: true }, cors);
+  }
+  if (무엇 === 'set') {
+    if (!env.KEY_SECRET) return json(501, { error: '게이트웨이에 KEY_SECRET 이 없어 열쇠를 잠글 수 없습니다.' }, cors);
+    let b = {}; try { b = await request.json(); } catch (e) {}
+    const 제공자 = String(b.제공자 || '').trim();
+    const 열쇠 = String(b.열쇠 || '').trim();
+    if (!PROVIDERS[제공자]) return json(400, { error: '모르는 제공자입니다: ' + 제공자 }, cors);
+    // 자리·글자만 본다. 진짜인지는 여기서 모르므로 **한 번 불러 본다**(아래) — 안 그러면
+    // 오타를 저장해 두고 한도에 걸린 날에야 "열쇠가 틀렸다" 를 만나게 된다. 그때는 늦다.
+    if (열쇠.length < 16 || 열쇠.length > 400 || /[^\x21-\x7e]/.test(열쇠)) {
+      return json(400, { error: '열쇠 모양이 아닙니다(공백·한글 없이 16~400자).' }, cors);
+    }
+    const 확인 = await 열쇠한번불러보기(env, 제공자, 열쇠);
+    if (!확인.된다) return json(400, { error: '그 열쇠로는 ' + 제공자 + ' 가 응답하지 않습니다: ' + 확인.왜 }, cors);
+    await fsSetDoc(env, token, 길, {
+      uid: auth.uid, email: auth.email, provider: 제공자,
+      enc: await 잠그기(env, 열쇠), tail: 열쇠.slice(-4), at: new Date().toISOString(),
+    });
+    return json(200, { 저장했다: true, 제공자, 끝네자리: 열쇠.slice(-4) }, cors);
+  }
+  return json(404, { error: 'usage: POST /key/set · /key/status · /key/del' }, cors);
+}
+
+// 등록할 때 딱 한 번 진짜로 불러 본다. 오타·만료를 **그 자리에서** 알려주려는 것이다.
+async function 열쇠한번불러보기(env, 이름, 열쇠) {
+  const p = PROVIDERS[이름];
+  const h = new Headers({ 'Content-Type': 'application/json' });
+  p.auth(h, 열쇠);
+  try {
+    const r = await fetch(p.base + (이름 === 'gemini' ? '/models' : '/models'), { headers: h, signal: AbortSignal.timeout(12000) });
+    if (r.status === 401 || r.status === 403) return { 된다: false, 왜: '거부됨(' + r.status + ')' };
+    return { 된다: true };   // 200 이 아니어도 401/403 만 아니면 열쇠 자체는 산 것으로 본다
+  } catch (e) { return { 된다: false, 왜: String(e.message || e).slice(0, 60) }; }
+}
+
 async function postAlertMessage(env, token, channelId, text) {
   // 채널 문서 보장 (있으면 그대로 둠 — 통째 PATCH로 members를 지우지 않도록 GET 먼저)
   if (!(await fsGetDoc(env, token, 'channels/' + channelId))) {
@@ -1065,6 +1159,14 @@ export default {
       catch (e) { return json(500, { error: 'RAG 처리 실패: ' + (e.message || e) }, cors); }
     }
 
+    // v4.1: 개인 API 열쇠 — 맡기기·확인·지우기. 돌려주는 길은 **없다**.
+    const keyMatch = url.pathname.match(/^\/key\/([a-z]+)$/);
+    if (keyMatch) {
+      if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
+      try { return await handleKey(request, env, keyMatch[1], cors); }
+      catch (e) { return json(500, { error: '열쇠 처리 실패: ' + (e.message || e) }, cors); }
+    }
+
     // 경로: /v1/<provider>/<나머지 경로>
     const m = url.pathname.match(/^\/v1\/([a-z0-9]+)\/(.+)$/);
     if (!m) return json(404, { error: 'usage: POST /v1/<provider>/<path>' }, cors);
@@ -1078,6 +1180,7 @@ export default {
     // 늘 로그인 토큰을 붙이므로(ai-assistant.js gatewayAuthHeaders · modules/messenger/ai.js) 깨지는 곳은 없다.
     // v3.9: 여기가 **유일한 목**이다 — 플랫폼에서 나가는 모델 호출은 전부 이 줄을 지난다.
     //   누군지 이미 확인했으니 장부에 한 줄 얹고, 하루 한도를 넘으면 여기서 돌려보낸다.
+    let 개인열쇠 = null;   // v4.1: 한도를 넘었고 자기 열쇠를 맡겨 뒀으면 그걸로 간다
     {
       const auth = await verifyCompanyFirebaseToken(request, env);
       if (auth.status) return json(auth.status, { error: auth.error }, cors);
@@ -1085,12 +1188,15 @@ export default {
       const 쓴횟수 = await 장부에올린다(env, auth.uid || auth.email, auth.email);
       // 못 셌으면(장부 고장·서비스 계정 없음) null 이 온다 — **그럴 땐 막지 않는다.**
       if (쓴횟수 !== null && 쓴횟수 > 한도) {
-        return json(429, {
-          error: `오늘 AI 호출 ${한도}번을 다 쓰셨습니다. 한국 시간 자정에 다시 열립니다.`
-            + ' (회사 공용 열쇠는 무료 한도가 있어 한 사람이 다 쓰면 다른 직원이 못 씁니다.'
-            + ' 더 필요하시면 품질관리부로 말씀해 주세요.)',
-          하루한도: 한도, 오늘쓴횟수: 쓴횟수,
-        }, cors);
+        개인열쇠 = await 개인열쇠읽기(env, auth.uid, m[1]);
+        if (!개인열쇠) {
+          return json(429, {
+            error: `오늘 회사 몫 ${한도}번을 다 쓰셨습니다. 한국 시간 자정에 다시 열립니다.`
+              + ' 지금 바로 더 쓰시려면 **내 설정 › 개인 AI 열쇠**에 본인 열쇠를 등록하세요 —'
+              + ' 그 뒤로는 회사 몫과 상관없이 쓰실 수 있습니다.',
+            하루한도: 한도, 오늘쓴횟수: 쓴횟수, 개인열쇠필요: true,
+          }, cors);
+        }
       }
     }
 
@@ -1100,6 +1206,9 @@ export default {
     let keys = (env[provider.envKey] || '').split(/[\s,;]+/).filter(Boolean);
     if (dyn && dyn.key) keys = [dyn.key];
     if (!keys.length && m[1] === '9router' && dyn) keys = ['9router'];   // 9Router 기본 키 관례
+    // v4.1: 한도를 넘은 사람은 **자기 열쇠 하나만** 쓴다. 회사 열쇠를 뒤에 붙이면
+    //   자기 열쇠가 잠깐 실패했을 때 조용히 회사 몫으로 넘어가 한도가 무의미해진다.
+    if (개인열쇠) keys = [개인열쇠];
     if (!keys.length) return json(501, { error: m[1] + ' keys not configured on gateway' }, cors);
 
     let body = await request.text();
