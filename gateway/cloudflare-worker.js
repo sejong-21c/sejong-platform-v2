@@ -461,6 +461,9 @@ async function handleRag(request, env, path, cors) {
     inspection: '검사보고서',
     itp:        'ITP',
     meeting:    '회의록',
+    // v3.8(2026-09-23): AI 가 쓴 초안을 사람이 확인해 저장한 문서(견적·성적서·보고서 …).
+    //   이게 있어야 **꺼내 쓰고 다시 채우는 순환**이 닫힌다 — 지금까지는 꺼내 쓰기만 됐다.
+    doc:        '문서',
   };
   // 벡터 id에 들어가므로 구분자(:)와 공백을 막는다
   const normRecId = (v) => String(v || '').trim().replace(/[^A-Za-z0-9가-힣._-]/g, '_').slice(0, 80);

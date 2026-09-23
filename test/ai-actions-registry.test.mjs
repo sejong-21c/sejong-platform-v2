@@ -32,6 +32,8 @@ const getU = () => state.currentUserObj;
 const moveTask = async (id) => { 쓴것.push(['moveTask', id]); };
 const allKanbanTasks = () => state.tasks;
 const computeProjectProgress = () => 0;
+// 색인 창구 — 기본은 성공, globalThis.색인터짐 이 켜지면 던진다.
+window.SJP_indexRecord = async () => { if (globalThis.색인터짐) throw new Error('색인 서버 오류'); return { ok: true }; };
 const DEPTS = [{ name: '품질관리부' }, { name: '생산부' }, { name: '기술부' }];
 const canDo = (m, a) => globalThis.권한켬 !== false;
 `;
@@ -78,7 +80,7 @@ const 돌 = async (why, fn) => { await fn(); n++; };
 // ── 꼴 검사 — 새 행위를 더할 때 빠뜨리기 쉬운 것들 ────────────────────────
 await 돌('행위마다 설명·인자·쓸수있나·풀기·쓰기가 다 있다', async () => {
   const 이름들 = Object.keys(AI행위);
-  assert.ok(이름들.length >= 8, '행위가 여덟 개는 있어야 한다 — 있는 것: ' + 이름들.join(','));
+  assert.ok(이름들.length >= 9, '행위가 아홉 개는 있어야 한다 — 있는 것: ' + 이름들.join(','));
   for (const [이름, d] of Object.entries(AI행위)) {
     for (const k of ['설명', '인자', '쓸수있나', '풀기', '쓰기']) {
       assert.ok(d[k], `${이름} 에 ${k} 가 없다`);
@@ -320,6 +322,52 @@ await 돌('CAR발행 — 쓴 문서 꼴', async () => {
   assert.equal(d.causeDetail, '', '원인은 비워 둔다');
 });
 
+// ── 문서 초안 저장 (2026-09-23) — 본문은 말풍선 글 그대로 ──────────────────
+await 돌('문서저장 — 본문이 없으면 거절한다(초안을 먼저 써야 한다)', async () => {
+  assert.ok((await W.AI행위풀기('문서저장', { 제목: 'x', 종류: '보고서' })).안됨);
+  assert.ok((await W.AI행위풀기('문서저장', { 제목: 'x' }, { 본문: '짧다' })).안됨, '40자 미만은 거절');
+});
+
+await 돌('문서저장 — 제목이 없으면 거절한다', async () => {
+  const 긴글 = '수압시험 결과 보고\n'.repeat(8);
+  assert.ok((await W.AI행위풀기('문서저장', { 종류: '보고서' }, { 본문: 긴글 })).안됨);
+});
+
+await 돌('문서저장 — 카드에 앞 몇 줄을 보여 준다', async () => {
+  const 본문 = Array.from({ length: 12 }, (_, i) => `${i + 1}행 수압시험 결과 항목`).join('\n');
+  const r = await W.AI행위풀기('문서저장', { 제목: 'SP-101 수압시험 보고서', 종류: '보고서', 프로젝트: '삼성전기' }, { 본문 });
+  assert.ok(!r.안됨, r.안됨);
+  assert.ok(r.머리.includes('줄'), r.머리);
+  assert.ok(r.카드줄.some((l) => l.includes('아래로 6줄 더')), '긴 글은 접어서 보여 준다: ' + JSON.stringify(r.카드줄));
+  assert.ok(r.카드줄[r.카드줄.length - 1].includes('삼성전기'));
+});
+
+await 돌('문서저장 — **읽은 글 그대로** 저장한다(모델이 다시 안 쓴다)', async () => {
+  쓴것.length = 0;
+  const 본문 = ['가. 수압시험 1.5배', '나. 유지 30분', '다. 이상 없음',
+    '라. 검사원 입회', '마. 사진 첨부'].join('\n');
+  const r = await W.AI행위풀기('문서저장', { 제목: '수압시험 결과', 종류: '성적서' }, { 본문 });
+  await W.AI행위실행(r);
+  const d = (쓴것.find((x) => x[0] === 't_docs') || [])[2];
+  assert.ok(d, 't_docs 에 써야 한다');
+  assert.equal(d.본문, 본문, '카드에서 본 글과 저장된 글이 **글자 하나까지** 같아야 한다');
+  assert.equal(d.종류, '성적서');
+  assert.equal(d.만든길, 'messenger-ai');
+  assert.ok(쓴것.some((x) => x[0] === 't_aiAuditLog'));
+});
+
+await 돌('문서저장 — 색인이 실패해도 문서는 남는다', async () => {
+  쓴것.length = 0;
+  globalThis.색인터짐 = true;                       // 아래 가짜 SJP_indexRecord 가 던진다
+  const 본문 = '색인 실패 시험용 본문입니다.\n'.repeat(4);
+  const r = await W.AI행위풀기('문서저장', { 제목: '색인 실패 시험', 종류: '기타' }, { 본문 });
+  const 결 = await W.AI행위실행(r);
+  globalThis.색인터짐 = false;
+  assert.ok(쓴것.some((x) => x[0] === 't_docs'), '색인이 터져도 문서는 저장돼야 한다');
+  assert.ok(!결.안됨, '색인 실패를 통째 실패로 만들면 안 된다: ' + JSON.stringify(결));
+  assert.ok(/실패/.test(결.알림), '실패했다는 말은 해야 한다: ' + 결.알림);
+});
+
 await 돌('모르는 행위는 거절한다', async () => {
   assert.ok((await W.AI행위풀기('NCR발행', { 프로젝트: 'A' })).안됨);
   assert.ok((await W.AI행위실행({ 행위: 'NCR발행', 인자: {}, 지문: 'x' })).안됨);
@@ -327,7 +375,7 @@ await 돌('모르는 행위는 거절한다', async () => {
 
 await 돌('행위목록은 할 수 있는 것만 준다', async () => {
   const 것 = W.AI행위목록();
-  assert.ok(것.length >= 8, '전부 나와야 한다: ' + JSON.stringify(것.map((x) => x.이름)));
+  assert.ok(것.length >= 9, '전부 나와야 한다: ' + JSON.stringify(것.map((x) => x.이름)));
   assert.ok(것.every((x) => x.이름 && x.설명 && x.인자));
 });
 

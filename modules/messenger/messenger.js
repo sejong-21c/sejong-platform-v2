@@ -20,9 +20,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b89';
-import * as L from './lib.js?v=b89';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b89';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b90';
+import * as L from './lib.js?v=b90';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b90';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -53,7 +53,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b89';
+const 빌드 = 'b90';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1659,7 +1659,9 @@ async function AI에게묻기(질문) {
     //   사람은 그걸 보고 누른다. 모델이 엉뚱한 것을 집었으면 카드에 그대로 찍혀 눈에 걸린다.
     let 제안 = null;
     if (날것) {
-      try { 제안 = await window.parent.AI행위풀기(날것.행위, 날것.인자); }
+      // **말풍선 글을 같이 넘긴다.** 문서 저장처럼 본문이 곧 내용인 행위가 있다 —
+      //   모델에게 JSON 안에 초안을 다시 쓰라고 하면 사람이 읽은 것과 저장되는 것이 달라진다.
+      try { 제안 = await window.parent.AI행위풀기(날것.행위, 날것.인자, { 본문: 답글 }); }
       catch (e) { 제안 = { 안됨: '확인하지 못했습니다: ' + (e.message || e) }; }
     }
     // 답에 나온 화면 이름으로 버튼을 만든다. 이름은 위 목록에서 온 것뿐이라 지어낼 수가 없다.
