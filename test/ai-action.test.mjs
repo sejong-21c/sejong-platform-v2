@@ -15,7 +15,7 @@
 import assert from 'node:assert';
 import { 실행뽑기 } from '../modules/messenger/ai.js';
 
-const 있는행위 = ['스케줄진척', '프로젝트일정', '프로젝트상태', '업무완료', '업무배정'];
+const 있는행위 = ['스케줄진척', '프로젝트일정', '프로젝트상태', '업무완료', '업무배정', '업무등록'];
 let n = 0;
 const T = (why, fn) => { fn(); n++; };
 

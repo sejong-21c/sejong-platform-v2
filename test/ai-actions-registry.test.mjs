@@ -65,7 +65,7 @@ const 돌 = async (why, fn) => { await fn(); n++; };
 // ── 꼴 검사 — 새 행위를 더할 때 빠뜨리기 쉬운 것들 ────────────────────────
 await 돌('행위마다 설명·인자·쓸수있나·풀기·쓰기가 다 있다', async () => {
   const 이름들 = Object.keys(AI행위);
-  assert.ok(이름들.length >= 5, '행위가 다섯 개는 있어야 한다 — 있는 것: ' + 이름들.join(','));
+  assert.ok(이름들.length >= 6, '행위가 여섯 개는 있어야 한다 — 있는 것: ' + 이름들.join(','));
   for (const [이름, d] of Object.entries(AI행위)) {
     for (const k of ['설명', '인자', '쓸수있나', '풀기', '쓰기']) {
       assert.ok(d[k], `${이름} 에 ${k} 가 없다`);
@@ -193,6 +193,56 @@ await 돌('프로젝트일정 — 바뀌는 줄만 카드에 올린다', async (
   assert.ok(r.카드줄[0].includes('2026-04-30'));
 });
 
+// ── 업무 새로 등록 (2026-09-23, 청사진 '작업 지시 → 배분' 의 나머지 절반) ──
+await 돌('업무등록 — 담당자를 안 주면 나에게 붙인다', async () => {
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('업무등록', { 업무: '노즐 보강 계산' });
+  assert.ok(!r.안됨, r.안됨);
+  assert.equal(r.데이터.assignee, 'u1');
+  assert.ok(r.머리.includes('나에게'), r.머리);
+  assert.equal(쓴것.length, 0, '풀기는 아무것도 쓰지 않는다');
+});
+
+await 돌('업무등록 — 남에게 배정하면 카드에 크게 보인다', async () => {
+  const r = await W.AI행위풀기('업무등록', { 업무: '도면 출도', 담당자: '이영희', 마감일: '2026-10-01', 우선순위: '높음' });
+  assert.ok(!r.안됨, r.안됨);
+  assert.equal(r.데이터.assignee, 'u2');
+  assert.ok(r.머리.includes('이영희'), '누구에게 시키는지가 머리에 있어야 한다: ' + r.머리);
+  assert.ok(r.카드줄.some((l) => l.includes('2026-10-01')) && r.카드줄.some((l) => l.includes('높음')));
+});
+
+await 돌('업무등록 — 실제로 쓴 것이 화면이 만드는 꼴과 같다', async () => {
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('업무등록', { 업무: '수압시험 입회', 담당자: '이영희', 프로젝트: '삼성전기' });
+  await W.AI행위실행(r);
+  const 쓴t = 쓴것.find((x) => x[0] === 'tasks');
+  assert.ok(쓴t, 'tasks 에 써야 한다');
+  assert.ok(/^t\d+/.test(쓴t[1]), "id 는 't'+시각 꼴이어야 한다: " + 쓴t[1]);
+  const d = 쓴t[2];
+  assert.equal(d.title, '수압시험 입회');
+  assert.equal(d.assignee, 'u2');
+  assert.equal(d.proj, 'p1');
+  assert.equal(d.status, 'todo', '새 업무는 반드시 todo 로 시작한다');
+  assert.equal(d.priority, 'mid', '안 주면 보통');
+  assert.equal(d.due, '', '안 주면 빈칸 — null 이 아니다(화면이 문자열로 읽는다)');
+  assert.equal(d.createdBy, 'u1', '누가 시켰는지 남는다');
+  assert.ok(쓴것.some((x) => x[0] === 't_aiAuditLog'));
+});
+
+await 돌('업무등록 — 없는 사람·틀린 날짜·빈 이름은 거절한다', async () => {
+  assert.ok((await W.AI행위풀기('업무등록', { 업무: 'x', 담당자: '홍길동' })).안됨);
+  assert.ok((await W.AI행위풀기('업무등록', { 업무: 'x', 마감일: '10/1' })).안됨);
+  assert.ok((await W.AI행위풀기('업무등록', { 업무: '   ' })).안됨);
+  assert.ok((await W.AI행위풀기('업무등록', { 업무: 'x', 프로젝트: '듣보잡' })).안됨);
+});
+
+await 돌('업무등록 — 같은 이름이 열려 있으면 알려만 주고 막지는 않는다', async () => {
+  // 같은 이름의 업무를 일부러 두 건 만드는 경우가 있다(호기별 검사 등). 막으면 그게 안 된다.
+  const r = await W.AI행위풀기('업무등록', { 업무: '도면 검토' });   // state.tasks 에 열려 있는 같은 이름
+  assert.ok(!r.안됨, '막으면 안 된다');
+  assert.ok(r.머리.includes('1건'), '겹친다고 알려는 줘야 한다: ' + r.머리);
+});
+
 await 돌('모르는 행위는 거절한다', async () => {
   assert.ok((await W.AI행위풀기('NCR발행', { 프로젝트: 'A' })).안됨);
   assert.ok((await W.AI행위실행({ 행위: 'NCR발행', 인자: {}, 지문: 'x' })).안됨);
@@ -200,7 +250,7 @@ await 돌('모르는 행위는 거절한다', async () => {
 
 await 돌('행위목록은 할 수 있는 것만 준다', async () => {
   const 것 = W.AI행위목록();
-  assert.ok(것.length >= 5, '전부 나와야 한다: ' + JSON.stringify(것.map((x) => x.이름)));
+  assert.ok(것.length >= 6, '전부 나와야 한다: ' + JSON.stringify(것.map((x) => x.이름)));
   assert.ok(것.every((x) => x.이름 && x.설명 && x.인자));
 });
 
