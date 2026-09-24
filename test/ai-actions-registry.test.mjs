@@ -72,6 +72,7 @@ globalThis.fb = {
   setDoc: async (ref, data) => { 쓴것.push([ref.coll, ref.id, data]); if (ref.coll === 'wbsData') wbs문서 = { ...wbs문서, ...data }; },
 };
 const { AI행위, window: W } = mod;
+W.품질규칙 = await import('../modules/shared/audit.mjs');   // 번호 규칙 한 벌(품질번호가 쓴다)
 
 let n = 0;
 const T = (why, fn) => fn() instanceof Promise ? fn().then(() => { n++; }) : n++;
@@ -242,6 +243,23 @@ await 돌('업무등록 — 실제로 쓴 것이 화면이 만드는 꼴과 같�
   assert.equal(d.due, '', '안 주면 빈칸 — null 이 아니다(화면이 문자열로 읽는다)');
   assert.equal(d.createdBy, 'u1', '누가 시켰는지 남는다');
   assert.ok(쓴것.some((x) => x[0] === 't_aiAuditLog'));
+});
+
+await 돌('업무등록 — 이름에 직함이 붙어도 찾는다(9/24 라이브: "김철우 부장" 을 못 찾았다)', async () => {
+  for (const 말 of ['김철우 부장', '김철우부장님', '이영희 대리', '이영희님']) {
+    const r = await W.AI행위풀기('업무등록', { 업무: '직함 시험', 담당자: 말 });
+    assert.ok(!r.안됨, 말 + ' → ' + (r.안됨 || ''));
+  }
+});
+
+await 돌('NCR발행 — 대장이 SJ-NCR-2026-NN 이면 그 계열을 잇는다(9/24 라이브: NCR-2026-001 로 새 계열을 열었다)', async () => {
+  globalThis.있는품질 = { t_ncrs: 'SJ-NCR-2026-23' };
+  const r = await W.AI행위풀기('NCR발행', { 내용: '번호 계열 시험 — 대장을 잇는가' });
+  assert.ok(String(r.머리).includes('SJ-NCR-2026-24'), '다음 번호가 SJ-NCR-2026-24 여야 한다: ' + r.머리);
+  globalThis.있는품질 = { t_cars: 'CAR-2026-010' };
+  const c = await W.AI행위풀기('CAR발행', { 내용: '번호 계열 시험 — CAR 는 CAR-2026-NNN 대장' });
+  assert.ok(String(c.머리).includes('CAR-2026-011'), 'CAR 대장은 그대로 이어야 한다: ' + c.머리);
+  globalThis.있는품질 = null;
 });
 
 await 돌('업무등록 — 없는 사람·틀린 날짜·빈 이름은 거절한다', async () => {

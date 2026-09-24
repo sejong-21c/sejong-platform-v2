@@ -473,7 +473,9 @@ export function 길설명빼기(글, 버튼있나) {
 export function 실행뽑기(글, 할수있는행위 = null) {
   const s = String(글 || '');
   // ```실행 … ``` 또는 ```json … ``` 어느 쪽으로 싸도 받는다(모델이 종종 json 으로 쓴다).
-  const m = s.match(/```(?:실행|json)?\s*(\{[\s\S]*?\})\s*```/);
+  // 2026-09-24 라이브: 스케줄진척을 시키면 모델이 **```json 다음 줄에 「실행」** 을 쓰고 { } 를 붙였다.
+  //   이 꼴을 못 받아 JSON 이 말풍선에 그대로 찍히고 카드가 안 떴다 — 두 번 시켜 두 번 다. 꼬리표 둘 다 받는다.
+  const m = s.match(/```\s*(?:실행|json)?\s*(?:실행|json)?\s*(\{[\s\S]*?\})\s*```/);
   if (!m) return { 글: s, 제안: null };
   const 남은 = s.replace(m[0], '').trim();
   let o = null;

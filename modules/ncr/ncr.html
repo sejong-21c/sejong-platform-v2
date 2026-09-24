@@ -639,6 +639,13 @@ function getP(id) { return (state.projects||[]).find(p => p.id === id) || {}; }
 // (길이만 줄어들어 이미 쓰인 번호와 겹침) 동기화 지연으로 배열이 잠깐 짧아지는 경우
 // 기존 번호와 충돌해 서로 덮어쓰는 사고로 이어졌음. 실제 존재하는 최대 번호+1로 계산해
 // 결번(삭제) 유무와 무관하게 항상 미사용 번호를 반환한다.
+// 2026-09-24: 번호 꼴은 **대장이 정한다**(audit.mjs 다음번호 — 메신저 AI 발행과 같은 규칙 한 벌).
+//   대장은 SJ-NCR-2026-NN 인데 여기는 NCR-2026-NNN 을 새로 열고 있었다. 모듈이 아직 안 왔으면 옛 규칙.
+function nextNcrId(year) {
+  const 규칙 = window.기록이력 && window.기록이력.다음번호;
+  if (규칙) return 규칙((state.ncrs || []).map((n) => n.id), 'NCR', year);
+  return `NCR-${year}-${nextNcrNo(year)}`;
+}
 function nextNcrNo(year) {
   const prefix = `NCR-${year}-`;
   const maxNum = (state.ncrs||[]).reduce((max, n) => {
@@ -980,8 +987,7 @@ function openNewNCR() {
     const causeDetail = document.getElementById('ncrDetail').value;
     const disposition = document.getElementById('ncrDisp').value;
     if (!desc) { alert('부적합 내용을 입력하세요.'); return; }
-    const num = nextNcrNo(new Date().getFullYear());
-    const id = ncrNo || `NCR-${new Date().getFullYear()}-${num}`;
+    const id = ncrNo || nextNcrId(new Date().getFullYear());
     if ((state.ncrs||[]).some(n => n.id === id)) { alert(`NCR No. [${id}] 이미 존재합니다.`); return; }
     if (!state.ncrs) state.ncrs = [];
     state.ncrs.push({
@@ -1239,7 +1245,7 @@ function issueNCRFromTrav(itemId, stage) {
     const num = nextNcrNo(new Date().getFullYear());
     // v29.9: dueDate 입력을 제거 (표에 표시되지 않아 사용자가 입력한 값이 사라지는 것처럼 보였음)
     // 기한 관리는 CAR 발행으로 위임 (CAR에 replyDue 필드 + 기한초과 알림 있음).
-    state.ncrs.push({ id:`NCR-${new Date().getFullYear()}-${num}`, proj, item:it?.tag||itemId, source:'traveller', grade, desc, status:'open', issuedBy:state.currentUser, issuedAt:data.date||new Date().toISOString().slice(0,10), carId:null, travItemId:itemId, travStage:stage, meta:{} });
+    state.ncrs.push({ id:nextNcrId(new Date().getFullYear()), proj, item:it?.tag||itemId, source:'traveller', grade, desc, status:'open', issuedBy:state.currentUser, issuedAt:data.date||new Date().toISOString().slice(0,10), carId:null, travItemId:itemId, travStage:stage, meta:{} });
     save(); closeModal(); render();
   });
 }

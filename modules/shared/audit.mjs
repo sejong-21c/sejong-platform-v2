@@ -21,6 +21,19 @@
 
 export const 이력컬렉션 = 't_recordLog';
 
+/** 다음 품질기록 번호. **대장에 쓰인 꼴을 잇는다.**
+ *  `SJ-종류-연도-` 로 시작하는 번호가 하나라도 있으면 그 계열을, 없으면 `종류-연도-` 를 잇고, 자리 수도
+ *  그 계열 것을 따른다(SJ-NCR-2026-23 → SJ-NCR-2026-24 · CAR-2026-010 → CAR-2026-011).
+ *  2026-09-24: NCR 대장은 SJ-NCR-2026-NN 인데 자동 번호만 NCR-2026-001 로 새 계열을 열었다. */
+export function 다음번호(ids, 종류, 연도) {
+  for (const 머리 of [`SJ-${종류}-${연도}-`, `${종류}-${연도}-`]) {
+    const 수 = (ids || []).filter((i) => typeof i === 'string' && i.startsWith(머리))
+      .map((i) => i.slice(머리.length)).filter((t) => /^\d+$/.test(t));
+    if (수.length) return 머리 + String(Math.max(...수.map(Number)) + 1).padStart(Math.max(...수.map((t) => t.length)), '0');
+  }
+  return `${종류}-${연도}-001`;
+}
+
 const 긴값 = 200;                 // 이보다 길면 잘라서 적는다
 const 최대칸 = 40;                // 한 번에 적을 칸 수 상한(통째로 바뀐 경우 대비)
 // 본문에 큰 덩어리가 들어 있는 칸 — 값은 절대 안 적고 "바뀜" 으로만 남긴다.
