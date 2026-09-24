@@ -460,6 +460,7 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   env.BACKUP = {
     put: async (k, v) => { r2Store.set(k, String(v)); },
     delete: async (k) => { r2Store.delete(k); },
+    get: async (k) => r2Store.has(k) ? { json: async () => JSON.parse(r2Store.get(k)), text: async () => r2Store.get(k) } : null,
     list: async ({ prefix }) => ({ objects: [...r2Store.keys()].filter(k => k.startsWith(prefix)).map(key => ({ key })), truncated: false }),
   };
 
@@ -704,6 +705,19 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
 }
 
 // ── 결과 출력 ───────────────────────────────────────────────────
+// ── 크론 심장박동(v4.5) ─────────────────────────────
+{
+  // 첫 자동 백업 날(9/24) R2 가 비어 있었는데 "안 돈 것" 인지 "돌고 조용히 실패한 것" 인지 가를 길이 없었다.
+  await env.BACKUP.delete('backup/_cron.json');
+  const ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
+  await Promise.all(ps.map(p => p.catch(() => {})));
+  const hbObj = await env.BACKUP.get('backup/_cron.json');
+  const hb = hbObj ? await hbObj.json() : null;
+  check('크론이 돌면 backup/_cron.json 에 시각·크론식·알림·백업 결과가 남는다',
+    !!hb && hb.cron === '0 0 * * *' && !!hb.at && !!hb.alerts && !!hb.backup && typeof hb.backup.docs === 'number',
+    JSON.stringify(hb || {}).slice(0, 200));
+}
+
 let fails = 0;
 results.forEach(r => { if (!r.pass) fails++; console.log((r.pass ? 'PASS' : 'FAIL') + '  ' + r.name + (r.pass ? '' : '   << ' + r.detail)); });
 console.log('\n' + (fails ? fails + '개 실패' : '전체 ' + results.length + '개 통과'));

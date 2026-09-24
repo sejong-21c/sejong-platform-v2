@@ -1223,8 +1223,16 @@ function json(status, obj, cors) {
 export default {
   // v3.1: Cron Trigger(대시보드 Settings → Triggers → Cron, 예: "0 0 * * *" = 한국 09:00)
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runDailyAlerts(env).catch(e => console.error('[ai-alerts]', e && e.message)));
-    ctx.waitUntil(runDailyBackup(env).catch(e => console.error('[backup]', e && e.message))); // v3.2
+    const 알림 = runDailyAlerts(env).catch(e => { console.error('[ai-alerts]', e && e.message); return { error: String(e && e.message) }; });
+    const 백업 = runDailyBackup(env).catch(e => { console.error('[backup]', e && e.message); return { error: String(e && e.message) }; }); // v3.2
+    ctx.waitUntil(알림); ctx.waitUntil(백업);
+    // v4.5(2026-09-24): **크론이 돌았는지, 무엇을 돌려줬는지를 R2 에 한 줄 남긴다.**
+    //   첫 자동 백업 날 아침, R2 에 파일이 하나도 없었다. 대시보드는 "다음 실행 내일" 만 보여 주고 지난 실행 기록이
+    //   없고, Workers 로그도 꺼져 있어서 "크론이 안 돈 것" 과 "돌고 조용히 실패한 것" 을 가를 길이 없었다.
+    //   이제 아침에 한 명령으로 본다: npx wrangler r2 object get sejong-backup/backup/_cron.json --pipe
+    if (env.BACKUP) ctx.waitUntil(Promise.all([알림, 백업]).then(([a, b]) => env.BACKUP.put('backup/_cron.json',
+      JSON.stringify({ at: new Date().toISOString(), cron: (event && event.cron) || '', alerts: a, backup: b }),
+      { httpMetadata: { contentType: 'application/json' } })).catch(e => console.error('[cron]', e && e.message)));
   },
   async fetch(request, env) {
     const url = new URL(request.url);

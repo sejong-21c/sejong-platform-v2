@@ -33,6 +33,10 @@ index_name = "sejong-docs"
 [triggers]
 crons = ["0 0 * * *"]
 
+# 2026-09-24: 첫 자동 백업이 흔적 없이 사라져서 켰다 — console.error 가 대시보드(Workers 로그)에 남는다
+[observability]
+enabled = true
+
 # 파일 저장소 — ASME 코드북 그림 · 메신저 사진 · 영수증. 2026-09-18 R2 활성화하고 만들었다(apac).
 # 꺼내 쓰는 길은 cloudflare-worker.js 의 /file/* — 서명된 주소라야 내준다(img 태그가 토큰을 못 실어서).
 [[r2_buckets]]
