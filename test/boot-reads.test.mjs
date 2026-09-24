@@ -89,6 +89,11 @@ T('계량기 자체가 살아 있다', () => {
     assert.ok(i > 0 && /잰다\(tag, snap\)/.test(msg.slice(i, i + 700)),
       '구독 헬퍼 on() 이 잰다() 를 안 거친다 — 여기를 지나야 메시지 500건이 잡힌다');
   });
+  T('AI 행위 풀기·실행은 시간을 재고 끊는다 — 부모가 안 돌아오면 AI 방이 영영 멈춘다(b98)', () => {
+    assert.ok(/시간제한\(window\.parent\.AI행위풀기\(/.test(msg), '풀기가 시간제한 없이 불린다');
+    assert.ok(/시간제한\(window\.parent\.AI행위실행\(/.test(msg), '실행이 시간제한 없이 불린다');
+    assert.ok(!/await window\.parent\.AI행위(풀기|실행)\(/.test(msg), '시간제한을 안 거친 호출이 남아 있다');
+  });
   T('부모의 잰다() 는 자식이 부를 수 있어야 한다 (최상위 function 이라 window 에 붙는다)', () => {
     assert.ok(/^function 잰다\(이름, snap\)/m.test(s),
       '잰다 가 const/let 이면 window 에 안 붙어 iframe 이 못 부른다 — 조용히 안 세게 된다');

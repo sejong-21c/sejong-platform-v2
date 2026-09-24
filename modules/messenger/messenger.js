@@ -20,9 +20,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b97';
-import * as L from './lib.js?v=b97';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b97';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b98';
+import * as L from './lib.js?v=b98';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b98';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -53,7 +53,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b97';
+const 빌드 = 'b98';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -874,10 +874,19 @@ async function 제안결과쓰기(m, 결과) {
   try { await fb.setDoc(fb.doc(fb.db, AI_컬렉션, m.id), plain({ 제안: m.제안 }), { merge: true }); }
   catch (e) { console.warn('[제안] 결과 저장 실패', e); }
 }
+// 부모의 풀기·쓰기가 **끝나지 않으면** AI 방이 「입력 중」·「실행 중…」 에 영영 멈춘다. 2026-09-24 라이브:
+//   Aside 브라우저의 Firestore 로컬 캐시가 한 문서(wbsData)에서 꼬여 getDoc 이 돌아오지 않았다(캐시를 지우니
+//   42ms). 코드 탓이 아니어도 사람은 멈춘 화면만 본다 — 시간을 재고 끊어서 무슨 일인지 말해 준다.
+const 시간초과 = Symbol('시간초과');
+const 시간제한 = (p, 초) => Promise.race([p, new Promise((r) => setTimeout(() => r(시간초과), 초 * 1000))]);
 async function 제안실행(m, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '실행 중…'; }
   let 결과;
-  try { 결과 = await window.parent.AI행위실행(m.제안); }
+  try {
+    결과 = await 시간제한(window.parent.AI행위실행(m.제안), 30);
+    // 쓰기가 늦게라도 끝났을 수 있다 — "못 바꿨다" 가 아니라 "확인해 달라" 고 말한다.
+    if (결과 === 시간초과) 결과 = { 안됨: '30초 안에 끝나지 않았습니다. 바뀌었는지 해당 화면에서 확인해 주세요(새로 고침 후 다시 시도).' };
+  }
   catch (e) { 결과 = { 안됨: '바꾸지 못했습니다: ' + String((e && e.message) || e).slice(0, 80) }; }
   결과 = 결과 || { 안됨: '결과를 받지 못했습니다.' };
   await 제안결과쓰기(m, 결과);
@@ -1668,7 +1677,10 @@ async function AI에게묻기(질문) {
       //   **"저장할 초안이 없습니다"** 가 났다(2026-09-24 라이브). 이번 답이 짧으면 사람이 읽은 **바로 앞 AI 말풍선**을 넘긴다.
       const 앞초안 = () => (AI히스토리().slice(0, -1).reverse().find((h) => h.role === 'ai') || {}).text || '';
       const 본문 = 날것.행위 === '문서저장' && 답글.trim().length < 40 ? 앞초안() : 답글;
-      try { 제안 = await window.parent.AI행위풀기(날것.행위, 날것.인자, { 본문 }); }
+      try {
+        제안 = await 시간제한(window.parent.AI행위풀기(날것.행위, 날것.인자, { 본문 }), 20);
+        if (제안 === 시간초과) 제안 = { 안됨: '자료를 20초 안에 읽지 못했습니다 — 화면을 새로 고친 뒤 다시 말씀해 주세요.' };
+      }
       catch (e) { 제안 = { 안됨: '확인하지 못했습니다: ' + (e.message || e) }; }
     }
     // 답에 나온 화면 이름으로 버튼을 만든다. 이름은 위 목록에서 온 것뿐이라 지어낼 수가 없다.
