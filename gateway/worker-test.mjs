@@ -761,6 +761,18 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   check('같은 날 다시 부르면 처음부터 읽지 않고 "이미 끝냈다" + 결과를 돌려준다', /이미 끝냈다/.test(again.skipped || '') && again.결과 && again.결과.docs === jN.docs, JSON.stringify(again).slice(0, 160));
   delete env.BACKUP_REQ_BUDGET;
   await env.BACKUP.delete('backup/_state.json');
+
+  // v4.8: 새 실행으로도 못 받는 크기는 '이어서함' 만 영원히 돌지 않고 이유를 남기며 건너뛴다
+  await 비우기();
+  env.BACKUP_REQ_BUDGET = '5';   // 4(토큰·목록·상태·세기) 뒤 남는 1 로는 어떤 컬렉션도 못 받는다
+  // 세는 것만으로도 예산이 차니 한 번에는 못 끝난다 — 그래도 부를수록 '끝낸 것' 이 늘어 **반드시 끝난다**(영원히 이어서함 ×)
+  let tiny = await (await post('/backup/run', adminToken, {})).json(), tn = 1;
+  while (tiny.이어서함 && tn < 60) { tiny = await (await post('/backup/run', adminToken, {})).json(); tn++; }
+  check('한 실행으로 못 받을 크기면 영원히 이어서함 하지 않고 건너뛴 이유를 남기며 끝난다(' + tn + '번)',
+    !tiny.이어서함 && tn < 60 && tiny.docs === 0 && Object.keys(tiny.건너뛴것 || {}).length === tiny.collections && Object.values(tiny.건너뛴것).every(v => /끝까지 못 받는다/.test(v)),
+    JSON.stringify({ tn, 이어서함: tiny.이어서함, docs: tiny.docs, 건너뜀: Object.keys(tiny.건너뛴것 || {}).length, 예: Object.values(tiny.건너뛴것 || {})[0] }).slice(0, 220));
+  delete env.BACKUP_REQ_BUDGET;
+  await env.BACKUP.delete('backup/_state.json');
 }
 
 let fails = 0;

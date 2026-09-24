@@ -1167,7 +1167,13 @@ async function runDailyBackup(env) {
     if (읽은문서 >= 읽기예산) { 건너뛴것[coll] = '오늘 읽기 예산을 다 썼다 — 내일로'; continue; }
     // 남은 요청으로 이 컬렉션을 **끝까지** 받을 수 있을 때만 시작한다. 중간에 예산이 끊기면 반쪽 파일이
     //   '끝낸 것' 으로 저장된다 — 900 예산일 때는 거기 닿기 전에 죽어서 드러나지 않던 구멍이다(v4.7).
-    const 필요 = (몇건 === null ? 5 : Math.ceil(Math.max(1, 몇건) / 1000)) + 1;   // 쪽 수 + 저장 1
+    // v4.8: pageSize=1000 을 달아도 파이어스토어는 **한 쪽에 300건**만 준다(9/24 실측: activityLog 9,900 = 33쪽×300 에서
+    //   끊겼고 messages 1,800 = 6쪽×300 — 둘 다 반쪽이 '끝낸 것' 으로 저장됐다). 쪽 수는 300 으로 센다.
+    const 필요 = (몇건 === null ? 5 : Math.ceil(Math.max(1, 몇건) / 300)) + 1;   // 쪽 수 + 저장 1
+    if (필요 > 예산 - 4) {   // 새 실행(토큰·목록·상태·세기 = 4)으로도 못 받는 크기 — 영원히 '이어서함' 만 돌지 않게 건너뛴다
+      건너뛴것[coll] = `${(몇건 ?? 0).toLocaleString()}건 — 한 실행 요청 예산(${예산})으로는 끝까지 못 받는다(쪽 ${필요 - 1}). 맥 백업에 있다`;
+      끝낸것.push(coll); continue;
+    }
     if (쓴요청 + 필요 > 예산) {
       await 상태저장();
       return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, 읽은문서, 다음: coll, 필요, 남은요청: 예산 - 쓴요청 };
@@ -1263,7 +1269,9 @@ export default {
     // v4.5(2026-09-24): **크론이 돌았는지, 무엇을 돌려줬는지를 R2 에 한 줄 남긴다.**
     //   첫 자동 백업 날 아침, R2 에 파일이 하나도 없었다. 대시보드는 "다음 실행 내일" 만 보여 주고 지난 실행 기록이
     //   없고, Workers 로그도 꺼져 있어서 "크론이 안 돈 것" 과 "돌고 조용히 실패한 것" 을 가를 길이 없었다.
-    //   이제 아침에 한 명령으로 본다: npx wrangler r2 object get sejong-backup/backup/_cron.json --pipe
+    //   이제 아침에 한 명령으로 본다: npx wrangler r2 object get sejong-backup/backup/_cron.json --remote --pipe
+    //   (**--remote 필수** — Wrangler 4 는 r2 object 명령을 로컬 저장소에 대고 돈다. 없으면 진짜 버킷에 있는 파일도 "없다" 고 한다.
+    //    9/24 아침 내내 그 함정에 빠져 있었다.)
     if (env.BACKUP) ctx.waitUntil(Promise.all([알림, 백업]).then(([a, b]) => env.BACKUP.put('backup/_cron.json',
       JSON.stringify({ at: new Date().toISOString(), cron: (event && event.cron) || '', alerts: a, backup: b }),
       { httpMetadata: { contentType: 'application/json' } })).catch(e => console.error('[cron]', e && e.message)));
