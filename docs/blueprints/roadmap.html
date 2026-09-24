@@ -42,13 +42,13 @@
 <body>
 <div class="wrap">
   <h1>세종 AI 로드맵 — 연말 시연회까지</h1>
-  <p class="sub">2026-09-25 기준 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
+  <p class="sub">2026-09-25 오후 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
 
   <div class="lead">
     <b>지금 어디까지 왔나.</b> 직원 개방 세 칸(사용자별 장부 · 개인 API 열쇠 · 개인 구독 연결)이 다 찼다.
     직원은 메신저 AI 비서로 플랫폼을 말로 고치고(행위 아홉 — 사람 손 시험 완료), 자기 Claude·ChatGPT 로
-    회사 규격·NAS 자료를 <b>자기 부서 범위</b>에서 읽는다. 백업은 사본 셋(맥 · 드라이브 · R2)이고 백업이 쓰는 읽기는 0 이다.
-    남은 큰 줄기는 <b>직원이 자기 부서 파일을 찾아 읽는 것</b> · <b>읽기 한도를 흔들리지 않게 하는 것</b> · <b>연말 유료 전환 판단</b>이다.
+    회사 규격·NAS 파일과 원본을 <b>자기 부서 범위</b>에서 찾아 읽는다(개인 자료 폴더는 본인만). 백업은 사본 셋(맥 · 드라이브 · R2), 맥 백업은 매일 전체 대조.
+    남은 큰 줄기는 <b>ChatGPT 끝까지 확인</b> · <b>옛 한글·워드 문서 읽기</b> · <b>연말 유료 전환 판단</b>이다.
   </div>
 
   <h2>9/22 ~ 9/25 에 마친 것 <span class="chip done">기록</span></h2>
@@ -57,7 +57,7 @@
     부장님 claude.ai 로 끝까지 확인. 주소 <code>pais.sejong21c.com/mcp</code>, 안내는 플랫폼 설정 › 🔌 내 Claude·ChatGPT 연결.</div></div>
   <div class="item"><div class="row"><span class="t">카드의 원본 읽기 · 옛 엑셀(.xls)</span><span class="chip done">완료</span></div>
     <div class="d">"BT-1 LINE 스케줄" 을 물으면 원본 공정률표·스케줄 PDF 를 연다. 회사 자료 폴더 표 · 부서 범위 · NAS 원본 아래만 · 도면·마크업·반출금지는 안 연다(B등급 원칙).
-    2019~2020년 .xls 를 읽게 됐다(맥 전용 가상환경 · 무료). 지금은 super 만 — 직원 개방은 아래 1번.</div></div>
+    2019~2020년 .xls 를 읽게 됐다(맥 전용 가상환경 · 무료). 9/25 오후 직원에게도 열었다(아래 1번).</div></div>
   <div class="item"><div class="row"><span class="t">MCP 규격 검색·표 질의 복구</span><span class="chip done">완료</span></div>
     <div class="d">칸 이름이 한글이라 API 가 도구째 빼고 있었다(9/22 부터 claude.ai 에서 한 번도 안 돎). 영문으로 바꾸고 셀프체크가 지킨다.</div></div>
   <div class="item"><div class="row"><span class="t">AI 행위 아홉 — 사람 손 시험</span><span class="chip done">완료</span></div>
@@ -66,13 +66,13 @@
     <div class="d">R2 사본은 맥 스냅샷을 옮긴다(읽기 0) · 옛 작업 기록 9,489건을 보관본 셋 두고 떼어 내 DB 15,310 → 5,831 · 한도 사고(9/24 10:45) 원인이던 장부 밖 읽기를 막고 429 를 보면 밤 채점이 안다.</div></div>
 
   <h2>다음 — 추천 순 <span class="chip next">할 일</span></h2>
-  <div class="item"><div class="row"><span class="t">1. 직원도 자기 부서 파일을 찾아 읽는다</span><span class="chip next">다음</span><span class="who">제 몫 · 1일</span></div>
+  <div class="item"><div class="row"><span class="t">1. 직원도 자기 부서 파일을 찾아 읽는다</span><span class="chip done">완료 9/25</span><span class="who">개인 자료는 본인만</span></div>
     <div class="d">지금 직원 연결에는 볼트 검색이 없어 파일 카드를 못 찾고, 원본 읽기도 super 만 된다. 부서 범위로 거른 파일 검색 + 원본 읽기를 직원에게 연다
-    (개인 노트·도면색인·인사 자료는 표 밖이라 그대로 안 나간다). BYO 가 "규격만 되는 연결" 에서 "내 부서 자료가 되는 연결" 이 된다.</div></div>
-  <div class="item"><div class="row"><span class="t">2. 읽기 한도 뒤처리 셋</span><span class="chip next">다음</span><span class="who">제 몫 · 반나절</span></div>
-    <div class="d">브라우저도 429 를 보면 표시를 남긴다 · 접속마다 장부 한 줄(0건과 고장 구분) · 맥 백업을 매일 통째로(5.8k) — 사본이 늘 정확해지고 일요일 대조가 필요 없어진다.</div></div>
+    (개인 노트·도면색인·인사 자료는 표 밖이라 그대로 안 나간다). BYO 가 "규격만 되는 연결" 에서 "내 부서 자료가 되는 연결" 이 된다.<br><b>9/25 완료</b> — 직원은 자기 부서·전사 카드와 원본, <b>개인 자료 폴더는 본인만</b>(super 도 예외 없음). 메신저 AI 도 같은 규칙. 맥 실측: 기술부 직원이 "개인 자료 김철우 차장" 을 대놓고 찾아도 0건. 한글 분해형(NFD) 경로에서 규칙이 빗나가던 구멍을 직원 연결 0명일 때 잡아 막았다.</div></div>
+  <div class="item"><div class="row"><span class="t">2. 읽기 한도 뒤처리 셋</span><span class="chip done">완료 9/25</span><span class="who">b100</span></div>
+    <div class="d">브라우저도 429 를 보면 표시를 남긴다 · 접속마다 장부 한 줄(0건과 고장 구분) · 맥 백업을 매일 통째로(5.8k) — 사본이 늘 정확해지고 일요일 대조가 필요 없어진다.<br><b>9/25 완료</b> — 브라우저 한도 표시(browserLimitHitAt) · 접속마다 sessions · 맥 백업 매일 전체 대조(거울 정확: messages 3,569/3,569 · activityLog 616/616).</div></div>
   <div class="item"><div class="row"><span class="t">3. ChatGPT 연결 시험</span><span class="chip next">다음</span><span class="who">ChatGPT 쓰는 직원 1명 · 10분</span></div>
-    <div class="d">Claude 는 끝까지 확인했다. ChatGPT 는 같은 표준이라 될 가능성이 높지만 아직 0건 — 안내문에 「시험 중」.</div></div>
+    <div class="d">Claude 는 끝까지 확인했다. ChatGPT 는 같은 표준이라 될 가능성이 높지만 아직 0건 — 안내문에 「시험 중」.<br>9/25 서버 쪽 준비 확인 — ChatGPT 콜백 등록·허용 화면 이동·메타데이터 OK. <b>남은 것은 ChatGPT 계정으로 끝까지 붙여 보는 것뿐</b>(연결하면 이용 기록으로 바로 보인다).</div></div>
   <div class="item"><div class="row"><span class="t">4. 한글(.hwp) · 옛 워드(.doc) 읽기</span><span class="chip next">다음</span><span class="who">제 몫 · 반나절</span></div>
     <div class="d">.xls 와 같은 방식(맥 가상환경 · 무료 도구)으로 넣는다. NAS 옛 문서의 상당수가 이 두 형식이다.</div></div>
   <div class="item"><div class="row"><span class="t">5. AI 행위 늘리기 — 캘린더 일정 · 부서 스케줄</span><span class="chip later">그다음</span><span class="who">제 몫 · 1일</span></div>
@@ -93,7 +93,7 @@
   <h2>부장님 결정이 남은 것 <span class="chip ask">결정</span></h2>
   <ul class="plain">
     <li>시험 흔적 정리 — NCR-2026-001(SJ 계열 밖, 종결·무효 표시됨) · [시험] 업무·메모 문서: 둘지 지울지</li>
-    <li>직원 원본 읽기의 범위 — 부서 폴더 전부인가, 개인 자료 폴더(예: 1.설계팀/5.개인 자료)는 본인만인가</li>
+    <li><s>직원 원본 읽기의 범위</s> — <b>9/25 결정: 개인 자료 폴더는 본인만</b>(super 도 예외 없음), 나머지는 부서 범위</li>
     <li>유료 모델 · Blaze — 연말</li>
   </ul>
 
