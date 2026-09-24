@@ -1084,6 +1084,18 @@ async function fsListCollections(env, token) {
 
 const BACKUP_KEEP_DAYS = 30;
 
+/** v5.0: 맥이 올린 사본(snap/YYYY-MM-DD.json.gz) 중 보관 기한이 지난 것을 지운다. 하루 한 번 올라오니 지울 것도 하루 하나 남짓. */
+async function 오래된사본지우기(env, 오늘) {
+  const 기한 = new Date(new Date(오늘).getTime() - BACKUP_KEEP_DAYS * 86400e3).toISOString().slice(0, 10);
+  const l = await env.BACKUP.list({ prefix: 'snap/' });
+  let n = 0;
+  for (const o of l.objects) {
+    const m = o.key.match(/^snap\/(\d{4}-\d{2}-\d{2})\.json\.gz$/);
+    if (m && m[1] < 기한) { await env.BACKUP.delete(o.key); n++; }
+  }
+  return n;
+}
+
 async function cleanupOldBackups(env, todayKst) {
   const cutoff = new Date(new Date(todayKst).getTime() - BACKUP_KEEP_DAYS * 86400e3).toISOString().slice(0, 10);
   let cursor;
@@ -1291,30 +1303,24 @@ function json(status, obj, cors) {
 export default {
   // v3.1: Cron Trigger(대시보드 Settings → Triggers → Cron, 예: "0 0 * * *" = 한국 09:00)
   async scheduled(event, env, ctx) {
-    // v4.7: 크론이 하루 네 번(00:00·04·08·12Z) 돈다 — 백업이 무료 플랜 요청 한도(50) 안에서 이어 받기 위해서다.
-    //   알림은 첫 크론에서만(시험·수동 /cron/run 은 cron 이 없으니 돈다).
-    const 첫크론 = !event || !event.cron || event.cron === '0 0 * * *';
-    const 알림 = 첫크론
-      ? runDailyAlerts(env).catch(e => { console.error('[ai-alerts]', e && e.message); return { error: String(e && e.message) }; })
-      : Promise.resolve({ skipped: '첫 크론에서만' });
-    // v4.6(2026-09-24): 백업은 **BACKUP_WEEKDAY 요일(UTC)에만** 돈다 — 비우면 매일. 맥이 매일 17:20 증분 사본을 만들고
-    //   드라이브에 올리므로(9/20~) R2 는 다른 회사에 두는 재해용 셋째 사본이다. 매일 전체를 읽으면 하루 한도의 30%(~15,000)를
-    //   쓰기에 부장님이 주 1회(일요일)로 정했다. 00:00Z = KST 09:00 이라 요일이 같다. 수동 /backup/run 은 요일 무관.
-    const 요일 = (env.BACKUP_WEEKDAY || '').trim();
-    const 오늘돈다 = !요일 || String(new Date().getUTCDay()) === 요일;
-    const 백업 = 오늘돈다
-      ? runDailyBackup(env).catch(e => { console.error('[backup]', e && e.message); return { error: String(e && e.message) }; }) // v3.2
-      : Promise.resolve({ skipped: 'BACKUP_WEEKDAY=' + 요일 + ' 요일에만 돈다(오늘 ' + new Date().getUTCDay() + ')' });
-    ctx.waitUntil(알림); ctx.waitUntil(백업);
-    // v4.5(2026-09-24): **크론이 돌았는지, 무엇을 돌려줬는지를 R2 에 한 줄 남긴다.**
-    //   첫 자동 백업 날 아침, R2 에 파일이 하나도 없었다. 대시보드는 "다음 실행 내일" 만 보여 주고 지난 실행 기록이
-    //   없고, Workers 로그도 꺼져 있어서 "크론이 안 돈 것" 과 "돌고 조용히 실패한 것" 을 가를 길이 없었다.
-    //   이제 아침에 한 명령으로 본다: npx wrangler r2 object get sejong-backup/backup/_cron.json --remote --pipe
-    //   (**--remote 필수** — Wrangler 4 는 r2 object 명령을 로컬 저장소에 대고 돈다. 없으면 진짜 버킷에 있는 파일도 "없다" 고 한다.
-    //    9/24 아침 내내 그 함정에 빠져 있었다.)
-    if (env.BACKUP) ctx.waitUntil(Promise.all([알림, 백업]).then(([a, b]) => env.BACKUP.put('backup/_cron.json',
-      JSON.stringify({ at: new Date().toISOString(), cron: (event && event.cron) || '', alerts: a, backup: b }),
-      { httpMetadata: { contentType: 'application/json' } })).catch(e => console.error('[cron]', e && e.message)));
+    const 알림 = runDailyAlerts(env).catch(e => { console.error('[ai-alerts]', e && e.message); return { error: String(e && e.message) }; });
+    ctx.waitUntil(알림);
+    // v5.0(2026-09-24): **크론은 더 이상 파이어스토어를 통째로 읽어 백업하지 않는다.** 맥이 매일 사본을 올린다(/backup/upload).
+    //   v4.5~4.9 의 흔적: 요청 한도(무료 50)로 죽고 · 쪽당 300건에 반쪽이 남고 · 장부 밖 읽기로 하루 5만을 태웠다.
+    //   손으로 부르는 /backup/run 은 맥이 죽었을 때의 비상구로 남긴다(장부 기준 예산이 지킨다).
+    // v4.5: 심장박동 — 크론이 돌았는지 · 알림 결과 · **맥 사본이 제때 왔는지**를 R2 에 한 줄 남긴다.
+    //   npx wrangler r2 object get sejong-backup/backup/_cron.json --remote --pipe
+    //   (**--remote 필수** — Wrangler 4 는 r2 object 명령을 로컬 저장소에 대고 돈다. 9/24 아침 내내 그 함정에 빠져 있었다.)
+    if (env.BACKUP) ctx.waitUntil((async () => {
+      const a = await 알림;
+      let 사본 = null;
+      try {
+        const l = await env.BACKUP.list({ prefix: 'snap/' });
+        사본 = { 최신: l.objects.map(o => o.key).sort().pop() || null, 개수: l.objects.length };
+      } catch (e) { 사본 = { error: String(e && e.message) }; }
+      await env.BACKUP.put('backup/_cron.json', JSON.stringify({ at: new Date().toISOString(), cron: (event && event.cron) || '', alerts: a, 사본 }),
+        { httpMetadata: { contentType: 'application/json' } });
+    })().catch(e => console.error('[cron]', e && e.message)));
   },
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -1327,6 +1333,26 @@ export default {
     // 허용 목록이 설정돼 있으면, 목록에 없는 사이트의 브라우저 요청은 거부
     if (allowed.length && origin && !allowed.includes(origin)) {
       return json(403, { error: 'origin not allowed' }, cors);
+    }
+
+    // v5.0(2026-09-24): **맥이 만든 사본을 받아 R2 에 둔다 — 파이어스토어를 한 건도 안 읽는다.**
+    //   전에는 R2 사본을 만들려고 워커가 DB 전체(~15,000건)를 직접 읽었고, 그게 9/24 하루 읽기 5만을 태웠다.
+    //   맥은 9/20 부터 매일 17:20 에 증분으로 사본을 만든다 — 그 파일을 옮기기만 하면 된다.
+    //   열쇠는 첨부 이관과 같은 서버 전용 비밀값(MIGRATE_TOKEN, 맥 data/migrate-token.txt). 범위는 '올리기' 뿐이다.
+    //   PUT /backup/upload?day=YYYY-MM-DD   본문 = 그날 스냅샷 json.gz
+    if (url.pathname === '/backup/upload') {
+      if (request.method !== 'PUT') return json(405, { error: 'PUT only' }, cors);
+      if (!env.BACKUP) return json(501, { error: 'BACKUP(R2) binding not set' }, cors);
+      if (!서버토큰인가(request, env)) return json(401, { error: 'server token required' }, cors);
+      const day = url.searchParams.get('day') || '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return json(400, { error: 'day=YYYY-MM-DD' }, cors);
+      const 본문 = await request.arrayBuffer();
+      if (!본문.byteLength || 본문.byteLength > 50 * 1048576) return json(413, { error: 'size ' + 본문.byteLength }, cors);
+      const key = 'snap/' + day + '.json.gz';
+      await env.BACKUP.put(key, 본문, { httpMetadata: { contentType: 'application/gzip' } });
+      let 지움 = 0;
+      try { 지움 = await 오래된사본지우기(env, day); } catch (e) { console.warn('[snap] 정리:', e && e.message); }
+      return json(200, { key, bytes: 본문.byteLength, 지움 }, cors);
     }
 
     // v3.1: 능동 알림 수동 실행(테스트용) — 관리자 계정으로 POST /cron/run

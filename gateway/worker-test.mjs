@@ -717,35 +717,26 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
 {
   // 첫 자동 백업 날(9/24) R2 가 비어 있었는데 "안 돈 것" 인지 "돌고 조용히 실패한 것" 인지 가를 길이 없었다.
   await env.BACKUP.delete('backup/_cron.json'); await env.BACKUP.delete('backup/_state.json');
+  for (const o of (await env.BACKUP.list({ prefix: 'backup/20' })).objects) await env.BACKUP.delete(o.key);
   const ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
   await Promise.all(ps.map(p => p.catch(() => {})));
   const hbObj = await env.BACKUP.get('backup/_cron.json');
   const hb = hbObj ? await hbObj.json() : null;
-  check('크론이 돌면 backup/_cron.json 에 시각·크론식·알림·백업 결과가 남는다',
-    !!hb && hb.cron === '0 0 * * *' && !!hb.at && !!hb.alerts && !!hb.backup && typeof hb.backup.docs === 'number',
+  check('크론이 돌면 backup/_cron.json 에 시각·크론식·알림 결과·맥 사본 현황이 남는다',
+    !!hb && hb.cron === '0 0 * * *' && !!hb.at && !!hb.alerts && !!hb.사본 && !hb.backup,
     JSON.stringify(hb || {}).slice(0, 200));
+  check('v5.0: 크론은 파이어스토어를 통째로 읽어 백업하지 않는다(날짜 폴더가 안 생긴다)',
+    (await env.BACKUP.list({ prefix: 'backup/20' })).objects.length === 0);
 }
 
-// ── 백업 요일 제한(v4.6) ─────────────────────────────
-{
-  const today = new Date().getUTCDay();
-  env.BACKUP_WEEKDAY = String((today + 1) % 7);
-  let ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
-  await Promise.all(ps.map(p => p.catch(() => {})));
-  let hb = await (await env.BACKUP.get('backup/_cron.json')).json();
-  check('BACKUP_WEEKDAY 가 오늘이 아니면 백업을 건너뛰고 심장박동에 그렇게 적는다', !!hb.backup && /요일에만/.test(hb.backup.skipped || ''), JSON.stringify(hb.backup));
-  env.BACKUP_WEEKDAY = String(today); await env.BACKUP.delete('backup/_state.json');
-  ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
-  await Promise.all(ps.map(p => p.catch(() => {})));
-  hb = await (await env.BACKUP.get('backup/_cron.json')).json();
-  check('BACKUP_WEEKDAY 가 오늘이면 돈다', !!hb.backup && typeof hb.backup.docs === 'number', JSON.stringify(hb.backup).slice(0, 120));
-  delete env.BACKUP_WEEKDAY;
-}
 
 // ── 무료 플랜 요청 예산 안에서 이어 받기(v4.7) ─────────────────────────────
 {
   const 비우기 = async () => { for (const o of (await env.BACKUP.list({ prefix: 'backup/' })).objects) if (!/_cron\.json$/.test(o.key)) await env.BACKUP.delete(o.key); };
   await 비우기();
+  // 백업은 끝에 자기 장부(readDaily)를 쓴다 — 그 컬렉션이 아직 없으면 첫 판만 한 건 적게 센다. 미리 만들어 둔다.
+  const 장부날 = new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
+  if (!fsStore['readDaily/' + 장부날]) fsStore['readDaily/' + 장부날] = { day: { stringValue: 장부날 } };
   const full = await (await post('/backup/run', adminToken, {})).json();
   check('예산 40(기본)이면 모의 자료는 한 번에 끝난다', !full.이어서함 && typeof full.docs === 'number' && full.docs > 0, JSON.stringify({ docs: full.docs, 요청: full.요청 }));
   await 비우기();
@@ -818,6 +809,31 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   장부고장 = false;
   check('하루 읽기 한도가 이미 찼으면(장부 429) 읽지 않고 이유를 남기고 멈춘다', /429/.test(j3.skipped || '') && 장부값() === before, JSON.stringify(j3).slice(0, 160));
   await 새로();
+}
+
+// ── 맥 사본 받기(v5.0) ─────────────────────────────
+{
+  env.MIGRATE_TOKEN = 'SERVER-TOKEN-TEST';
+  const 올리기 = (day, 열쇠, 몸 = new Uint8Array([31, 139, 8, 0, 1, 2, 3])) => worker.fetch(new Request('https://gw.test/backup/upload?day=' + day, {
+    method: 'PUT', headers: 열쇠 ? { Authorization: 'Bearer ' + 열쇠 } : {}, body: 몸,
+  }), env);
+  const 오늘 = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const 전 = (일) => new Date(Date.parse(오늘) - 일 * 86400e3).toISOString().slice(0, 10);
+  check('사본 올리기: 서버 토큰이 없으면 401', (await 올리기(오늘, '')).status === 401);
+  check('사본 올리기: 틀린 토큰이면 401', (await 올리기(오늘, 'SERVER-TOKEN-TESX')).status === 401);
+  check('사본 올리기: 날짜 꼴이 아니면 400(열쇠 경로를 남이 못 정한다)', (await 올리기('../x', 'SERVER-TOKEN-TEST')).status === 400);
+  await env.BACKUP.put('snap/' + 전(40) + '.json.gz', 'old');
+  await env.BACKUP.put('snap/' + 전(5) + '.json.gz', 'recent');
+  const r = await 올리기(오늘, 'SERVER-TOKEN-TEST');
+  const j = await r.json();
+  const 남은 = (await env.BACKUP.list({ prefix: 'snap/' })).objects.map(o => o.key);
+  check('사본 올리기: snap/<날>.json.gz 로 저장되고 크기를 돌려준다', r.status === 200 && j.key === 'snap/' + 오늘 + '.json.gz' && j.bytes === 7 && 남은.includes(j.key), JSON.stringify(j));
+  check('사본 올리기: 30일 넘은 사본은 지우고 최근 것은 남긴다', j.지움 === 1 && !남은.includes('snap/' + 전(40) + '.json.gz') && 남은.includes('snap/' + 전(5) + '.json.gz'), JSON.stringify(남은));
+  const ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
+  await Promise.all(ps.map(p => p.catch(() => {})));
+  const hb = await (await env.BACKUP.get('backup/_cron.json')).json();
+  check('심장박동에 가장 최근 맥 사본이 찍힌다(안 오면 아침에 바로 보인다)', hb.사본 && hb.사본.최신 === 'snap/' + 오늘 + '.json.gz', JSON.stringify(hb.사본));
+  delete env.MIGRATE_TOKEN;
 }
 
 let fails = 0;
