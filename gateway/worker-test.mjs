@@ -57,6 +57,7 @@ const postedMessages = [];
 const FS = 'https://firestore.googleapis.com/v1/projects/sejong-platform/databases/(default)/documents';
 
 let 맥응답 = null;   // 맥(파이스) 검색 모의 응답. 시험마다 갈아 끼운다
+let 맥에보낸몸 = null; // v5.1: 맥에 보낸 몸(범위에 사람:<이름> 이 실리는지 본다)
 let 커밋고장 = false; // v3.9: 장부가 죽은 날을 흉내낸다 — 그래도 AI 는 돌아야 한다
 let 부른모델 = [];    // 제공자에게 실제로 나간 호출. 한도에 걸리면 **비어 있어야** 한다
 let 부른열쇠 = [];    // v4.1: 그때 **어떤 열쇠**로 나갔나 — 회사 것인지 본인 것인지
@@ -84,6 +85,7 @@ globalThis.fetch = async (input, init) => {
     return Response.json({ choices: [{ message: { content: '네' } }] });
   }
   if (url.startsWith('https://pais.test/')) {
+    try { 맥에보낸몸 = JSON.parse(init && init.body || '{}'); } catch (e) { 맥에보낸몸 = null; }   // v5.1: 사람:<이름> 확인용
     if (!맥응답) return new Response('down', { status: 500 });
     return Response.json(맥응답);
   }
@@ -502,6 +504,9 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   const d = await r.json();
   const 기록것 = (d.matches || []).filter(m => m.docName !== '맥규격');   // 기록 색인에서 온 것 전부
   const 맥것 = (d.matches || []).filter(m => m.docName === '맥규격');
+  check('v5.1: 맥에 보내는 범위에 사람:<이름> 이 실린다 — 개인 자료는 본인만(파이스가 주인을 가린다)',
+    !!맥에보낸몸 && (맥에보낸몸.범위 || []).includes('사람:생산부원') && (맥에보낸몸.범위 || []).includes('부서:생산부'),
+    JSON.stringify(맥에보낸몸 && 맥에보낸몸.범위));
   check('맥+기록: 둘 다 나온다 (맥만 보고 끝내지 않는다)', 맥것.length > 0 && 기록것.length > 0,
     JSON.stringify({ source: d.source, 맥: 맥것.length, 기록: 기록것.length }));
   check('맥+기록: 맥 점수가 높으면 기록은 최소 한 자리만 (색인이 붙어 있는지는 늘 보인다)',
