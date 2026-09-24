@@ -60,6 +60,8 @@ let 맥응답 = null;   // 맥(파이스) 검색 모의 응답. 시험마다 갈
 let 커밋고장 = false; // v3.9: 장부가 죽은 날을 흉내낸다 — 그래도 AI 는 돌아야 한다
 let 부른모델 = [];    // 제공자에게 실제로 나간 호출. 한도에 걸리면 **비어 있어야** 한다
 let 부른열쇠 = [];    // v4.1: 그때 **어떤 열쇠**로 나갔나 — 회사 것인지 본인 것인지
+let 장부고장 = false; // v4.9: 하루 읽기 한도가 찬 날 — 장부(readDaily)부터 429
+let 목록한도 = null;  // v4.9: 이 컬렉션 목록을 받다 429 가 난다(백업 도중 한도가 차는 날)
 let 읽기고장 = false; // v4.1: Firestore 읽기 한도가 찬 날(429) 을 흉내낸다
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
@@ -104,8 +106,11 @@ globalThis.fetch = async (input, init) => {
         fsStore[p] = { ...(fsStore[p] || {}), ...w.update.fields };
         const t = [];
         for (const tr of (w.updateTransforms || [])) {
-          const 이전 = Number((fsStore[p][tr.fieldPath] || {}).integerValue || 0);
-          const 새 = 이전 + Number(tr.increment.integerValue);
+          const 있던 = fsStore[p][tr.fieldPath];
+          const 이전 = Number((있던 || {}).integerValue || 0);
+          const 새 = tr.minimum   // v4.9: 한도 표시는 minimum — 처음 찬 시각이 남는다(없으면 그 값)
+            ? (있던 ? Math.min(이전, Number(tr.minimum.integerValue)) : Number(tr.minimum.integerValue))
+            : 이전 + Number(tr.increment.integerValue);
           fsStore[p][tr.fieldPath] = { integerValue: String(새) };
           t.push({ integerValue: String(새) });
         }
@@ -133,6 +138,7 @@ globalThis.fetch = async (input, init) => {
     }
     const path = rest.replace(/^\//, '').split('?')[0];
     if (method === 'GET' && path.indexOf('/') === -1) { // 컬렉션 목록
+      if (목록한도 === path) return new Response('quota', { status: 429 });
       const documents = Object.entries(fsStore)
         .filter(([p]) => p.startsWith(path + '/'))
         .map(([p, fields]) => ({ name: 'projects/x/databases/(default)/documents/' + p, fields }));
@@ -140,6 +146,7 @@ globalThis.fetch = async (input, init) => {
     }
     if (method === 'GET') {
       if (읽기고장 && path.startsWith('aiUserKeys/')) return new Response('quota', { status: 429 });
+      if (장부고장 && path.startsWith('readDaily/')) return new Response('quota', { status: 429 });
       if (!fsStore[path]) return new Response('{}', { status: 404 });
       return Response.json({ name: 'projects/x/databases/(default)/documents/' + path, fields: fsStore[path] });
     }
@@ -742,7 +749,7 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   const full = await (await post('/backup/run', adminToken, {})).json();
   check('예산 40(기본)이면 모의 자료는 한 번에 끝난다', !full.이어서함 && typeof full.docs === 'number' && full.docs > 0, JSON.stringify({ docs: full.docs, 요청: full.요청 }));
   await 비우기();
-  env.BACKUP_REQ_BUDGET = '7';   // 토큰·목록·상태 3 + 컬렉션 하나(세기 1 + 쪽 1 + 저장 1)
+  env.BACKUP_REQ_BUDGET = '8';   // 토큰·목록·상태·장부 4 + 컬렉션 하나(세기 1 + 쪽 1 + 저장 1) + 여유 1
   const j1 = await (await post('/backup/run', adminToken, {})).json();
   const st1 = await (await env.BACKUP.get('backup/_state.json')).json();
   check('예산이 모자라면 이어서함=true 로 멈추고 상태 파일에 끝낸 것·읽은 수를 적는다',
@@ -764,7 +771,7 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
 
   // v4.8: 새 실행으로도 못 받는 크기는 '이어서함' 만 영원히 돌지 않고 이유를 남기며 건너뛴다
   await 비우기();
-  env.BACKUP_REQ_BUDGET = '5';   // 4(토큰·목록·상태·세기) 뒤 남는 1 로는 어떤 컬렉션도 못 받는다
+  env.BACKUP_REQ_BUDGET = '6';   // 5(토큰·목록·상태·장부·세기) 뒤 남는 1 로는 어떤 컬렉션도 못 받는다
   // 세는 것만으로도 예산이 차니 한 번에는 못 끝난다 — 그래도 부를수록 '끝낸 것' 이 늘어 **반드시 끝난다**(영원히 이어서함 ×)
   let tiny = await (await post('/backup/run', adminToken, {})).json(), tn = 1;
   while (tiny.이어서함 && tn < 60) { tiny = await (await post('/backup/run', adminToken, {})).json(); tn++; }
@@ -773,6 +780,44 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
     JSON.stringify({ tn, 이어서함: tiny.이어서함, docs: tiny.docs, 건너뜀: Object.keys(tiny.건너뛴것 || {}).length, 예: Object.values(tiny.건너뛴것 || {})[0] }).slice(0, 220));
   delete env.BACKUP_REQ_BUDGET;
   await env.BACKUP.delete('backup/_state.json');
+}
+
+// ── 장부 기준 예산 · 어떻게 끝나든 장부에(v4.9) ─────────────────────────────
+{
+  // 9/24: 상태 파일을 지우고 두 번째 완주를 돌리니 예산이 0 부터 다시 셌고, 하루 5만을 다 태웠다.
+  const 태평양 = new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
+  const 장부값 = () => Number((fsStore['readDaily/' + 태평양] || {}).gateway?.integerValue || 0);
+  const 새로 = async () => { await env.BACKUP.delete('backup/_state.json'); };
+  const 기준 = await (async () => { await 새로(); delete fsStore['readDaily/' + 태평양]; return (await (await post('/backup/run', adminToken, {})).json()); })();
+  const 전체읽음 = 기준.읽은문서;
+
+  // ① 장부에 이미 예산 거의 다 — 상태 파일을 지워도 큰 것은 건너뛴다
+  await 새로(); fsStore['readDaily/' + 태평양] = { gateway: { integerValue: '8' } };
+  env.BACKUP_READ_BUDGET = '10';
+  const j1 = await (await post('/backup/run', adminToken, {})).json();
+  check('상태 파일을 지우고 다시 돌려도 오늘 장부에 쓴 만큼은 예산에서 빠진다',
+    j1.장부앞서 === 8 && j1.읽은문서 <= 2 && Object.values(j1.건너뛴것 || {}).some(v => /장부상 이미/.test(v)) && 장부값() === 8 + j1.읽은문서,
+    JSON.stringify({ 장부앞서: j1.장부앞서, 읽은: j1.읽은문서, 장부: 장부값(), 건너뜀: Object.keys(j1.건너뛴것 || {}).length }));
+  delete env.BACKUP_READ_BUDGET;
+
+  // ② 도중에 429 로 죽어도 거기까지 읽은 만큼은 장부에 남는다
+  await 새로(); delete fsStore['readDaily/' + 태평양];
+  목록한도 = Object.keys(기준.summary).pop();
+  const r2 = await post('/backup/run', adminToken, {});
+  목록한도 = null;
+  check('백업 도중 429 로 끊겨도 거기까지 읽은 만큼은 장부에 올라간다(안 올리면 다음 판단이 한도를 모른다)',
+    r2.status === 500 && 장부값() > 0 && 장부값() < 전체읽음, JSON.stringify({ status: r2.status, 장부: 장부값(), 전체: 전체읽음 }));
+  const 표시 = Number((fsStore['readDaily/' + 태평양] || {}).limitHitAt?.integerValue || 0);
+  check('429 를 만나면 장부에 처음 찬 시각(limitHitAt)을 남긴다 — 밤 채점이 "장부는 적은데 한도는 찼다" 를 안다',
+    표시 > Date.now() - 60000 && 표시 <= Date.now(), String(표시));
+
+  // ③ 장부부터 429 면 아무것도 안 읽고 멈춘다
+  await 새로(); 장부고장 = true;
+  const before = 장부값();
+  const j3 = await (await post('/backup/run', adminToken, {})).json();
+  장부고장 = false;
+  check('하루 읽기 한도가 이미 찼으면(장부 429) 읽지 않고 이유를 남기고 멈춘다', /429/.test(j3.skipped || '') && 장부값() === before, JSON.stringify(j3).slice(0, 160));
+  await 새로();
 }
 
 let fails = 0;

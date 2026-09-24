@@ -885,6 +885,25 @@ async function 읽기장부에올린다(env, token, 몇건) {
   } catch (e) { console.warn('[backup] 읽기 장부:', e && e.message); }
 }
 
+/* v4.9(2026-09-24): 파이어스토어가 429(하루 읽기 한도)를 내면 **그 시각을 장부에 남긴다.** 장부 합계는 장부에 적힌 것만
+ *   더하므로, 적히지 않은 읽기(죽은 실행 · 다른 도구)로 한도가 찬 날에도 "여유 있다" 고 말한다 — 9/24 가 그랬다
+ *   (장부 15,318 인데 실제로는 5만을 다 썼다). 이 표시는 밤 채점이 본다. minimum 이라 **처음 찬 시각**이 남는다. */
+async function 한도찼다고적는다(env, token) {
+  try {
+    const 태평양날 = new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
+    const 이름 = 'projects/' + fsProjectId(env) + '/databases/(default)/documents/readDaily/' + 태평양날;
+    await fetch(fsBase(env) + ':commit', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writes: [{
+        update: { name: 이름, fields: { day: fsVal(태평양날) } },
+        updateMask: { fieldPaths: ['day'] },
+        updateTransforms: [{ fieldPath: 'limitHitAt', minimum: { integerValue: String(Date.now()) } }],
+      }] }),
+    });
+  } catch (e) { console.warn('[backup] 한도 표시:', e && e.message); }
+}
+
 async function postAlertMessage(env, token, channelId, text) {
   // 채널 문서 보장 (있으면 그대로 둠 — 통째 PATCH로 members를 지우지 않도록 GET 먼저)
   if (!(await fsGetDoc(env, token, 'channels/' + channelId))) {
@@ -1144,86 +1163,107 @@ async function runDailyBackup(env) {
     }
   } catch (e) { /* 상태 파일이 깨졌으면 처음부터 한다 */ }
 
-  for (const coll of collections) {
-    if (끝낸것.includes(coll)) continue;
-    if (쓴요청 >= 예산) {
-      await 상태저장();
-      return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, 읽은문서, 건너뛴것, summary };
-    }
-    // **읽기 전에 센다.** 이 세 줄이 하루 한도를 지킨다.
-    const 몇건 = await 세기(coll);
-    쓴요청++;
-    // 못 셌다고 **건너뛰면 백업이 조용히 멈춘다.** 집계가 잠깐 안 되는 날 아무도 모르게
-    //   백업이 빈 채로 돌고, 그건 백업이 없는 것과 같다. 세지 못하면 읽되 상한을 건다(아래 자른다).
-    if (몇건 !== null && 몇건 > 큰컬렉션) {
-      // 첨부 조각(chunk__·dwg_) 창고다. 어차피 아래에서 버릴 것을 읽느라 하루치를 태워 왔다.
-      건너뛴것[coll] = `${몇건.toLocaleString()}건 — ${큰컬렉션.toLocaleString()} 넘어 건너뜀`;
-      끝낸것.push(coll); continue;
-    }
-    if (몇건 !== null && 읽은문서 + 몇건 > 읽기예산) {
-      건너뛴것[coll] = `${몇건.toLocaleString()}건 — 오늘 읽기 예산(${읽기예산.toLocaleString()}) 남은 만큼이 모자라 내일로`;
-      continue;   // 끝낸것에 안 넣는다 — 내일 이어서 한다
-    }
-    if (읽은문서 >= 읽기예산) { 건너뛴것[coll] = '오늘 읽기 예산을 다 썼다 — 내일로'; continue; }
-    // 남은 요청으로 이 컬렉션을 **끝까지** 받을 수 있을 때만 시작한다. 중간에 예산이 끊기면 반쪽 파일이
-    //   '끝낸 것' 으로 저장된다 — 900 예산일 때는 거기 닿기 전에 죽어서 드러나지 않던 구멍이다(v4.7).
-    // v4.8: pageSize=1000 을 달아도 파이어스토어는 **한 쪽에 300건**만 준다(9/24 실측: activityLog 9,900 = 33쪽×300 에서
-    //   끊겼고 messages 1,800 = 6쪽×300 — 둘 다 반쪽이 '끝낸 것' 으로 저장됐다). 쪽 수는 300 으로 센다.
-    const 필요 = (몇건 === null ? 5 : Math.ceil(Math.max(1, 몇건) / 300)) + 1;   // 쪽 수 + 저장 1
-    if (필요 > 예산 - 4) {   // 새 실행(토큰·목록·상태·세기 = 4)으로도 못 받는 크기 — 영원히 '이어서함' 만 돌지 않게 건너뛴다
-      건너뛴것[coll] = `${(몇건 ?? 0).toLocaleString()}건 — 한 실행 요청 예산(${예산})으로는 끝까지 못 받는다(쪽 ${필요 - 1}). 맥 백업에 있다`;
-      끝낸것.push(coll); continue;
-    }
-    if (쓴요청 + 필요 > 예산) {
-      await 상태저장();
-      return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, 읽은문서, 다음: coll, 필요, 남은요청: 예산 - 쓴요청 };
-    }
-    읽은문서 += (몇건 === null ? 0 : 몇건);
-    const 못셌다 = 몇건 === null;
-
-    const docs = [];
-    let pageToken = '';
-    do {
-      쓴요청++;
-      const url = fsBase(env) + '/' + encodeURIComponent(coll) + '?pageSize=1000'
-        + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
-      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-      if (!r.ok) throw new Error(coll + ' backup list failed: ' + r.status);
-      const d = await r.json();
-      (d.documents || []).forEach(doc => {
-        const id = doc.name.split('/').pop();
-        // 첨부 조각(base64 수백KB×수백 개)은 워커 메모리·CPU 한도를 넘길 수 있어 제외.
-        // 구조 데이터(업무·결재·WBS 등) 복구가 이 백업의 목적이다.
-        if (id.startsWith('chunk__') || id.startsWith('dwg_')) return;
-        docs.push(fsParseDoc(doc));
-      });
-      pageToken = d.nextPageToken || '';
-      // 못 센 컬렉션이 알고 보니 조각 창고였을 수 있다. 여기서 끊어 하루치를 지킨다.
-      if (못셌다) { 읽은문서 += (d.documents || []).length; if (읽은문서 > 큰컬렉션) break; }
-    } while (pageToken && 쓴요청 < 예산);
-    if (못셌다 && pageToken) {   // 다 못 받았다 — **반쪽 파일을 남기지 않는다**(있으면 복구 때 속는다)
-      건너뛴것[coll] = `몇 건인지 못 셌고 ${큰컬렉션.toLocaleString()}건을 넘어 중단 — 반쪽은 저장하지 않는다`;
-      끝낸것.push(coll); continue;
-    }
-    const body = JSON.stringify(docs);
-    await env.BACKUP.put('backup/' + day + '/' + coll + '.json', body, {
-      httpMetadata: { contentType: 'application/json' },
-    });
-    쓴요청++;
-    끝낸것.push(coll);
-    summary[coll] = docs.length;
-    totalDocs += docs.length;
-    totalKb += Math.round(body.length / 1024);
+  // v4.9(2026-09-24): **하루 읽기 예산은 장부 기준이다.** 상태 파일 기준이면 상태를 지우고 다시 돌릴 때 0 부터 다시 센다 —
+  //   9/24 그렇게 두 번째 완주를 돌리다 무료 하루 5만을 다 태웠다(앞서 요청 한도로 죽은 실행 둘이 읽은 ~2만 건은
+  //   장부에 오르지도 않았다). 그래서 ① 시작할 때 오늘 장부(readDaily.gateway)를 읽어 이미 쓴 만큼을 빼고
+  //   ② 이번 실행이 읽은 만큼은 **어떻게 끝나든**(이어서함 · 429 · 완주) 장부에 올린다(아래 finally).
+  const 태평양날 = new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
+  let 이미 = 0, 장부못읽음 = false, 이번읽음 = 0;
+  try { const l = await fsGetDoc(env, token, 'readDaily/' + 태평양날); 이미 = Number(l && l.gateway) || 0; }
+  catch (e) {
+    if (/ 429$/.test(String(e && e.message))) { await 한도찼다고적는다(env, token); return { day, skipped: '파이어스토어 하루 읽기 한도가 이미 찼다(429) — KST 17시 리셋 뒤에 이어서 한다' }; }
+    장부못읽음 = true;   // 못 읽었다고 멈추면 백업이 조용히 선다 — 이미=0 으로 보고 결과에 남긴다
   }
-  // 다 끝났다 — 이어서할 자리 표시를 지우고, 오래된 날짜를 정리한다(정리도 요청을 쓰므로 맨 끝에).
-  const 결과 = { day, collections: collections.length, docs: totalDocs, kb: totalKb, 요청: 쓴요청, 읽은문서, 건너뛴것, summary };
-  // 끝났다는 표시를 **남긴다**(지우지 않는다) — 같은 날 뒤 크론이 처음부터 다시 읽으면 일요일 읽기가 두 배가 된다.
-  try { await env.BACKUP.put(상태키, JSON.stringify({ day, done: 'ALL', result: 결과 }), { httpMetadata: { contentType: 'application/json' } }); } catch (e) { /* 없어도 그만 */ }
-  await 읽기장부에올린다(env, token, 읽은문서);
-  try { await cleanupOldBackups(env, day); } catch (e) { console.warn('[backup] cleanup:', e && e.message); }
-  // **읽은문서** 는 파이어스토어가 과금한 수, **docs** 는 파일에 담은 수다. 둘이 다르면
-  //   그 차이가 '받아 놓고 버린 것' 이다 — 그게 하루 한도를 태우던 자리다.
-  return 결과;
+  쓴요청++;
+
+  try {
+    for (const coll of collections) {
+      if (끝낸것.includes(coll)) continue;
+      if (쓴요청 >= 예산) {
+        await 상태저장();
+        return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, 읽은문서, 건너뛴것, summary };
+      }
+      // **읽기 전에 센다.** 이 세 줄이 하루 한도를 지킨다.
+      const 몇건 = await 세기(coll);
+      쓴요청++;
+      // 못 셌다고 **건너뛰면 백업이 조용히 멈춘다.** 집계가 잠깐 안 되는 날 아무도 모르게
+      //   백업이 빈 채로 돌고, 그건 백업이 없는 것과 같다. 세지 못하면 읽되 상한을 건다(아래 자른다).
+      if (몇건 !== null && 몇건 > 큰컬렉션) {
+        // 첨부 조각(chunk__·dwg_) 창고다. 어차피 아래에서 버릴 것을 읽느라 하루치를 태워 왔다.
+        건너뛴것[coll] = `${몇건.toLocaleString()}건 — ${큰컬렉션.toLocaleString()} 넘어 건너뜀`;
+        끝낸것.push(coll); continue;
+      }
+      if (몇건 !== null && 이미 + 이번읽음 + 몇건 > 읽기예산) {
+        건너뛴것[coll] = `${몇건.toLocaleString()}건 — 오늘 읽기 예산(${읽기예산.toLocaleString()}, 장부상 이미 ${(이미 + 이번읽음).toLocaleString()}) 남은 만큼이 모자라 내일로`;
+        continue;   // 끝낸것에 안 넣는다 — 내일 이어서 한다
+      }
+      if (이미 + 이번읽음 >= 읽기예산) { 건너뛴것[coll] = '오늘 읽기 예산을 다 썼다(장부 기준) — 내일로'; continue; }
+      // 남은 요청으로 이 컬렉션을 **끝까지** 받을 수 있을 때만 시작한다. 중간에 예산이 끊기면 반쪽 파일이
+      //   '끝낸 것' 으로 저장된다 — 900 예산일 때는 거기 닿기 전에 죽어서 드러나지 않던 구멍이다(v4.7).
+      // v4.8: pageSize=1000 을 달아도 파이어스토어는 **한 쪽에 300건**만 준다(9/24 실측: activityLog 9,900 = 33쪽×300 에서
+      //   끊겼고 messages 1,800 = 6쪽×300 — 둘 다 반쪽이 '끝낸 것' 으로 저장됐다). 쪽 수는 300 으로 센다.
+      const 필요 = (몇건 === null ? 5 : Math.ceil(Math.max(1, 몇건) / 300)) + 1;   // 쪽 수 + 저장 1
+      if (필요 > 예산 - 5) {   // 새 실행(토큰·목록·상태·장부·세기 = 5)으로도 못 받는 크기 — 영원히 '이어서함' 만 돌지 않게 건너뛴다
+        건너뛴것[coll] = `${(몇건 ?? 0).toLocaleString()}건 — 한 실행 요청 예산(${예산})으로는 끝까지 못 받는다(쪽 ${필요 - 1}). 맥 백업에 있다`;
+        끝낸것.push(coll); continue;
+      }
+      if (쓴요청 + 필요 > 예산) {
+        await 상태저장();
+        return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, 읽은문서, 이번읽음, 장부앞서: 이미, 다음: coll, 필요, 남은요청: 예산 - 쓴요청 };
+      }
+      const 못셌다 = 몇건 === null;
+
+      const docs = [];
+      let pageToken = '', 이컬렉션 = 0;
+      do {
+        쓴요청++;
+        const url = fsBase(env) + '/' + encodeURIComponent(coll) + '?pageSize=1000'
+          + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+        if (!r.ok) { if (r.status === 429) await 한도찼다고적는다(env, token); throw new Error(coll + ' backup list failed: ' + r.status); }
+        const d = await r.json();
+        (d.documents || []).forEach(doc => {
+          const id = doc.name.split('/').pop();
+          // 첨부 조각(base64 수백KB×수백 개)은 워커 메모리·CPU 한도를 넘길 수 있어 제외.
+          // 구조 데이터(업무·결재·WBS 등) 복구가 이 백업의 목적이다.
+          if (id.startsWith('chunk__') || id.startsWith('dwg_')) return;
+          docs.push(fsParseDoc(doc));
+        });
+        pageToken = d.nextPageToken || '';
+        // 못 센 컬렉션이 알고 보니 조각 창고였을 수 있다. 여기서 끊어 하루치를 지킨다.
+        // v4.9: **받은 만큼만** 센다. 미리 세 둔 수로 선불하면 429 로 끊긴 날 장부가 부풀려진다.
+        const 받은 = (d.documents || []).length;
+        읽은문서 += 받은; 이번읽음 += 받은; 이컬렉션 += 받은;
+        if (못셌다 && 이컬렉션 > 큰컬렉션) break;
+      } while (pageToken && 쓴요청 < 예산);
+      if (못셌다 && pageToken) {   // 다 못 받았다 — **반쪽 파일을 남기지 않는다**(있으면 복구 때 속는다)
+        건너뛴것[coll] = `몇 건인지 못 셌고 ${큰컬렉션.toLocaleString()}건을 넘어 중단 — 반쪽은 저장하지 않는다`;
+        끝낸것.push(coll); continue;
+      }
+      const body = JSON.stringify(docs);
+      await env.BACKUP.put('backup/' + day + '/' + coll + '.json', body, {
+        httpMetadata: { contentType: 'application/json' },
+      });
+      쓴요청++;
+      끝낸것.push(coll);
+      summary[coll] = docs.length;
+      totalDocs += docs.length;
+      totalKb += Math.round(body.length / 1024);
+    }
+    // 다 끝났다 — 이어서할 자리 표시를 지우고, 오래된 날짜를 정리한다(정리도 요청을 쓰므로 맨 끝에).
+    const 결과 = { day, collections: collections.length, docs: totalDocs, kb: totalKb, 요청: 쓴요청, 읽은문서, 이번읽음, 장부앞서: 이미, 장부못읽음, 건너뛴것, summary };
+    // 끝났다는 표시를 **남긴다**(지우지 않는다) — 같은 날 뒤 크론이 처음부터 다시 읽으면 일요일 읽기가 두 배가 된다.
+    try { await env.BACKUP.put(상태키, JSON.stringify({ day, done: 'ALL', result: 결과 }), { httpMetadata: { contentType: 'application/json' } }); } catch (e) { /* 없어도 그만 */ }
+    // 정리(cleanup)는 지울 게 많으면 요청 한도를 넘길 수 있다 — 장부를 **그 전에** 올린다.
+    await 읽기장부에올린다(env, token, 이번읽음); 이번읽음 = 0;
+    try { await cleanupOldBackups(env, day); } catch (e) { console.warn('[backup] cleanup:', e && e.message); }
+    // **읽은문서** 는 파이어스토어가 과금한 수, **docs** 는 파일에 담은 수다. 둘이 다르면
+    //   그 차이가 '받아 놓고 버린 것' 이다 — 그게 하루 한도를 태우던 자리다.
+    return 결과;
+  } finally {
+    // 이어서함 · 429 · 뜻밖의 오류 — 어떻게 끝나든 이번 실행이 읽은 만큼은 장부에 남긴다(완주 때는 위에서 올리고 0 으로 비웠다)
+    await 읽기장부에올린다(env, token, 이번읽음);
+  }
 }
 
 function corsHeaders(origin, allowed) {
