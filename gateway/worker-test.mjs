@@ -587,6 +587,7 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   // 앞의 백업 시험이 이미 장부에 얹어 놨다(누적되는 게 맞다). 이 블록만 재려고 비우고 시작한다.
   const 태평양날 = new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
   delete fsStore['readDaily/' + 태평양날];
+  await env.BACKUP.delete('backup/_state.json');   // v4.7: 앞 실행이 남긴 '오늘 끝냈다' 표시를 지우고 새로 돈다
   const 백업env = { ...env, BACKUP_SKIP_OVER: '20', BACKUP_READ_BUDGET: '10000' };
   const r = await worker.fetch(new Request('https://gw.test/backup/run', {
     method: 'POST', headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' }, body: '{}',
@@ -708,7 +709,7 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
 // ── 크론 심장박동(v4.5) ─────────────────────────────
 {
   // 첫 자동 백업 날(9/24) R2 가 비어 있었는데 "안 돈 것" 인지 "돌고 조용히 실패한 것" 인지 가를 길이 없었다.
-  await env.BACKUP.delete('backup/_cron.json');
+  await env.BACKUP.delete('backup/_cron.json'); await env.BACKUP.delete('backup/_state.json');
   const ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
   await Promise.all(ps.map(p => p.catch(() => {})));
   const hbObj = await env.BACKUP.get('backup/_cron.json');
@@ -726,12 +727,40 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   await Promise.all(ps.map(p => p.catch(() => {})));
   let hb = await (await env.BACKUP.get('backup/_cron.json')).json();
   check('BACKUP_WEEKDAY 가 오늘이 아니면 백업을 건너뛰고 심장박동에 그렇게 적는다', !!hb.backup && /요일에만/.test(hb.backup.skipped || ''), JSON.stringify(hb.backup));
-  env.BACKUP_WEEKDAY = String(today);
+  env.BACKUP_WEEKDAY = String(today); await env.BACKUP.delete('backup/_state.json');
   ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
   await Promise.all(ps.map(p => p.catch(() => {})));
   hb = await (await env.BACKUP.get('backup/_cron.json')).json();
   check('BACKUP_WEEKDAY 가 오늘이면 돈다', !!hb.backup && typeof hb.backup.docs === 'number', JSON.stringify(hb.backup).slice(0, 120));
   delete env.BACKUP_WEEKDAY;
+}
+
+// ── 무료 플랜 요청 예산 안에서 이어 받기(v4.7) ─────────────────────────────
+{
+  const 비우기 = async () => { for (const o of (await env.BACKUP.list({ prefix: 'backup/' })).objects) if (!/_cron\.json$/.test(o.key)) await env.BACKUP.delete(o.key); };
+  await 비우기();
+  const full = await (await post('/backup/run', adminToken, {})).json();
+  check('예산 40(기본)이면 모의 자료는 한 번에 끝난다', !full.이어서함 && typeof full.docs === 'number' && full.docs > 0, JSON.stringify({ docs: full.docs, 요청: full.요청 }));
+  await 비우기();
+  env.BACKUP_REQ_BUDGET = '7';   // 토큰·목록·상태 3 + 컬렉션 하나(세기 1 + 쪽 1 + 저장 1)
+  const j1 = await (await post('/backup/run', adminToken, {})).json();
+  const st1 = await (await env.BACKUP.get('backup/_state.json')).json();
+  check('예산이 모자라면 이어서함=true 로 멈추고 상태 파일에 끝낸 것·읽은 수를 적는다',
+    j1.이어서함 === true && Array.isArray(st1.done) && st1.done.length === j1.끝낸것 && typeof st1.읽은문서 === 'number',
+    JSON.stringify({ 끝낸것: j1.끝낸것, 다음: j1.다음, st: st1.done }));
+  const 저장된 = (await env.BACKUP.list({ prefix: 'backup/' + j1.day + '/' })).objects.map(o => o.key.split('/').pop().replace(/\.json$/, ''));
+  check('저장된 파일 = 끝낸 컬렉션 — 반쪽 파일이 없다', 저장된.length > 0 && 저장된.every(c => st1.done.includes(c)), JSON.stringify({ 저장된, done: st1.done }));
+  let jN = j1, n = 1;
+  while (jN.이어서함 && n < 25) { jN = await (await post('/backup/run', adminToken, {})).json(); n++; }
+  check('이어서 부르면 결국 끝나고, 누적 결과가 한 번에 돌린 것과 같다(' + n + '번)',
+    !jN.이어서함 && jN.docs === full.docs && jN.읽은문서 === full.읽은문서 && jN.collections === full.collections,
+    JSON.stringify({ n, docs: [jN.docs, full.docs], 읽은문서: [jN.읽은문서, full.읽은문서] }));
+  const stAll = await (await env.BACKUP.get('backup/_state.json')).json();
+  check('끝나면 상태 파일이 ALL 로 남는다(지우지 않는다)', stAll.done === 'ALL' && stAll.result && stAll.result.docs === jN.docs);
+  const again = await (await post('/backup/run', adminToken, {})).json();
+  check('같은 날 다시 부르면 처음부터 읽지 않고 "이미 끝냈다" + 결과를 돌려준다', /이미 끝냈다/.test(again.skipped || '') && again.결과 && again.결과.docs === jN.docs, JSON.stringify(again).slice(0, 160));
+  delete env.BACKUP_REQ_BUDGET;
+  await env.BACKUP.delete('backup/_state.json');
 }
 
 let fails = 0;

@@ -1092,8 +1092,11 @@ async function runDailyBackup(env) {
   //   ① 한 쪽에 300 → 1000 건으로 받아 요청 수를 3분의 1로 줄이고
   //   ② 그래도 모자라면 **어디까지 했는지 적어 두고 멈춘다**. 다음 실행이 이어서 한다.
   // 그래서 한 번에 못 끝내도 며칠에 걸쳐 반드시 완성된다 — 아예 못 받는 것보다 낫다.
-  const 예산 = 900;
-  let 쓴요청 = 1;                       // listCollectionIds 한 번
+  // v4.7(2026-09-24): **무료 플랜은 한 실행에 하위 요청 50개다.** 900 은 유료 플랜 숫자였다 — 그래서 첫 자동 백업이
+  //   "Too many subrequests" 로 죽었고, 예산에 닿기 전에 죽으니 상태 파일도 못 남겨 흔적이 없었다(수동 실행으로 잡았다).
+  //   40 으로 잡고 나머지 10 은 상태 저장·장부·정리 몫. 한 번에 못 끝내면 몇 분 뒤 크론이 이어서 한다(wrangler.toml 크론 넷).
+  const 예산 = Number(env.BACKUP_REQ_BUDGET || 40);
+  let 쓴요청 = 3;                       // 토큰 · listCollectionIds · 상태 파일 읽기 —                       // listCollectionIds 한 번
 
   // v4.3(2026-09-23): **읽기 예산.** 위의 '예산' 은 워커 하위요청 수지 파이어스토어 읽기가 아니다.
   //   한 요청이 1,000건을 받으므로 900 요청이면 최대 90만 건 — 무료 하루 5만의 18배다.
@@ -1126,15 +1129,25 @@ async function runDailyBackup(env) {
   };
   const 상태키 = 'backup/_state.json';
   let 끝낸것 = [];
+  // 이어 받기는 **누적**이어야 한다 — 읽은 수·요약·건너뛴 것을 같이 넘기지 않으면 마지막 실행 몫만 장부에 오른다.
+  const 상태저장 = () => env.BACKUP.put(상태키, JSON.stringify({ day, done: 끝낸것, 읽은문서, summary, 건너뛴것, kb: totalKb }), { httpMetadata: { contentType: 'application/json' } });
   try {
     const st = await env.BACKUP.get(상태키);
-    if (st) { const j = await st.json(); if (j && j.day === day && Array.isArray(j.done)) 끝낸것 = j.done; }
+    if (st) {
+      const j = await st.json();
+      if (j && j.day === day && j.done === 'ALL') return { day, skipped: '오늘 이미 끝냈다', 결과: j.result || null };   // 같은 날 뒤 크론이 처음부터 다시 읽지 않게
+      if (j && j.day === day && Array.isArray(j.done)) {
+        끝낸것 = j.done; 읽은문서 = Number(j.읽은문서) || 0; totalKb = Number(j.kb) || 0;
+        Object.assign(summary, j.summary || {}); Object.assign(건너뛴것, j.건너뛴것 || {});
+        totalDocs = Object.values(summary).reduce((a, b) => a + b, 0);
+      }
+    }
   } catch (e) { /* 상태 파일이 깨졌으면 처음부터 한다 */ }
 
   for (const coll of collections) {
     if (끝낸것.includes(coll)) continue;
     if (쓴요청 >= 예산) {
-      await env.BACKUP.put(상태키, JSON.stringify({ day, done: 끝낸것 }), { httpMetadata: { contentType: 'application/json' } });
+      await 상태저장();
       return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, 읽은문서, 건너뛴것, summary };
     }
     // **읽기 전에 센다.** 이 세 줄이 하루 한도를 지킨다.
@@ -1152,6 +1165,13 @@ async function runDailyBackup(env) {
       continue;   // 끝낸것에 안 넣는다 — 내일 이어서 한다
     }
     if (읽은문서 >= 읽기예산) { 건너뛴것[coll] = '오늘 읽기 예산을 다 썼다 — 내일로'; continue; }
+    // 남은 요청으로 이 컬렉션을 **끝까지** 받을 수 있을 때만 시작한다. 중간에 예산이 끊기면 반쪽 파일이
+    //   '끝낸 것' 으로 저장된다 — 900 예산일 때는 거기 닿기 전에 죽어서 드러나지 않던 구멍이다(v4.7).
+    const 필요 = (몇건 === null ? 5 : Math.ceil(Math.max(1, 몇건) / 1000)) + 1;   // 쪽 수 + 저장 1
+    if (쓴요청 + 필요 > 예산) {
+      await 상태저장();
+      return { day, 이어서함: true, 남은컬렉션: collections.length - 끝낸것.length, 끝낸것: 끝낸것.length, docs: totalDocs, kb: totalKb, 읽은문서, 다음: coll, 필요, 남은요청: 예산 - 쓴요청 };
+    }
     읽은문서 += (몇건 === null ? 0 : 몇건);
     const 못셌다 = 몇건 === null;
 
@@ -1190,12 +1210,14 @@ async function runDailyBackup(env) {
     totalKb += Math.round(body.length / 1024);
   }
   // 다 끝났다 — 이어서할 자리 표시를 지우고, 오래된 날짜를 정리한다(정리도 요청을 쓰므로 맨 끝에).
-  try { await env.BACKUP.delete(상태키); } catch (e) { /* 없어도 그만 */ }
+  const 결과 = { day, collections: collections.length, docs: totalDocs, kb: totalKb, 요청: 쓴요청, 읽은문서, 건너뛴것, summary };
+  // 끝났다는 표시를 **남긴다**(지우지 않는다) — 같은 날 뒤 크론이 처음부터 다시 읽으면 일요일 읽기가 두 배가 된다.
+  try { await env.BACKUP.put(상태키, JSON.stringify({ day, done: 'ALL', result: 결과 }), { httpMetadata: { contentType: 'application/json' } }); } catch (e) { /* 없어도 그만 */ }
   await 읽기장부에올린다(env, token, 읽은문서);
   try { await cleanupOldBackups(env, day); } catch (e) { console.warn('[backup] cleanup:', e && e.message); }
   // **읽은문서** 는 파이어스토어가 과금한 수, **docs** 는 파일에 담은 수다. 둘이 다르면
   //   그 차이가 '받아 놓고 버린 것' 이다 — 그게 하루 한도를 태우던 자리다.
-  return { day, collections: collections.length, docs: totalDocs, kb: totalKb, 요청: 쓴요청, 읽은문서, 건너뛴것, summary };
+  return 결과;
 }
 
 function corsHeaders(origin, allowed) {
@@ -1223,7 +1245,12 @@ function json(status, obj, cors) {
 export default {
   // v3.1: Cron Trigger(대시보드 Settings → Triggers → Cron, 예: "0 0 * * *" = 한국 09:00)
   async scheduled(event, env, ctx) {
-    const 알림 = runDailyAlerts(env).catch(e => { console.error('[ai-alerts]', e && e.message); return { error: String(e && e.message) }; });
+    // v4.7: 크론이 하루 네 번(00:00·04·08·12Z) 돈다 — 백업이 무료 플랜 요청 한도(50) 안에서 이어 받기 위해서다.
+    //   알림은 첫 크론에서만(시험·수동 /cron/run 은 cron 이 없으니 돈다).
+    const 첫크론 = !event || !event.cron || event.cron === '0 0 * * *';
+    const 알림 = 첫크론
+      ? runDailyAlerts(env).catch(e => { console.error('[ai-alerts]', e && e.message); return { error: String(e && e.message) }; })
+      : Promise.resolve({ skipped: '첫 크론에서만' });
     // v4.6(2026-09-24): 백업은 **BACKUP_WEEKDAY 요일(UTC)에만** 돈다 — 비우면 매일. 맥이 매일 17:20 증분 사본을 만들고
     //   드라이브에 올리므로(9/20~) R2 는 다른 회사에 두는 재해용 셋째 사본이다. 매일 전체를 읽으면 하루 한도의 30%(~15,000)를
     //   쓰기에 부장님이 주 1회(일요일)로 정했다. 00:00Z = KST 09:00 이라 요일이 같다. 수동 /backup/run 은 요일 무관.
