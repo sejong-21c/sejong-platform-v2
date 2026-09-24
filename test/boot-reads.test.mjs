@@ -98,6 +98,14 @@ T('계량기 자체가 살아 있다', () => {
     assert.ok(/^function 잰다\(이름, snap\)/m.test(s),
       '잰다 가 const/let 이면 window 에 안 붙어 iframe 이 못 부른다 — 조용히 안 세게 된다');
   });
+  T('b100: 읽기가 하루 한도(429)에 막히면 장부에 표시를 남긴다 — 읽기 셋을 fb 에서 감싼다', () => {
+    assert.ok(/getDoc: 감싼getDoc/.test(s) && /getDocs: 감싼getDocs/.test(s) && /onSnapshot: 감싼onSnapshot/.test(s),
+      'window.fb 의 읽기 셋이 감싼 것이 아니면 한도가 찬 날 브라우저가 아무 흔적도 안 남긴다(9/24 그랬다)');
+    assert.ok(/resource-exhausted/.test(s) && /browserLimitHitAt/.test(s), '한도 오류를 알아보고 browserLimitHitAt 을 적어야 한다');
+  });
+  T('b100: 접속마다 장부에 한 줄(sessions) — "읽기 0건" 과 "장부 고장" 을 가른다', () => {
+    assert.ok(/sessions: fb\.increment\(1\)/.test(s), '더운 캐시 접속은 읽기가 0 이라 보낼 게 없어 문서가 안 생겼다');
+  });
 }
 
 // ── 화면 하나가 하루치를 태우지 않나 (b95) ────────────────────────────────
