@@ -1224,7 +1224,14 @@ export default {
   // v3.1: Cron Trigger(대시보드 Settings → Triggers → Cron, 예: "0 0 * * *" = 한국 09:00)
   async scheduled(event, env, ctx) {
     const 알림 = runDailyAlerts(env).catch(e => { console.error('[ai-alerts]', e && e.message); return { error: String(e && e.message) }; });
-    const 백업 = runDailyBackup(env).catch(e => { console.error('[backup]', e && e.message); return { error: String(e && e.message) }; }); // v3.2
+    // v4.6(2026-09-24): 백업은 **BACKUP_WEEKDAY 요일(UTC)에만** 돈다 — 비우면 매일. 맥이 매일 17:20 증분 사본을 만들고
+    //   드라이브에 올리므로(9/20~) R2 는 다른 회사에 두는 재해용 셋째 사본이다. 매일 전체를 읽으면 하루 한도의 30%(~15,000)를
+    //   쓰기에 부장님이 주 1회(일요일)로 정했다. 00:00Z = KST 09:00 이라 요일이 같다. 수동 /backup/run 은 요일 무관.
+    const 요일 = (env.BACKUP_WEEKDAY || '').trim();
+    const 오늘돈다 = !요일 || String(new Date().getUTCDay()) === 요일;
+    const 백업 = 오늘돈다
+      ? runDailyBackup(env).catch(e => { console.error('[backup]', e && e.message); return { error: String(e && e.message) }; }) // v3.2
+      : Promise.resolve({ skipped: 'BACKUP_WEEKDAY=' + 요일 + ' 요일에만 돈다(오늘 ' + new Date().getUTCDay() + ')' });
     ctx.waitUntil(알림); ctx.waitUntil(백업);
     // v4.5(2026-09-24): **크론이 돌았는지, 무엇을 돌려줬는지를 R2 에 한 줄 남긴다.**
     //   첫 자동 백업 날 아침, R2 에 파일이 하나도 없었다. 대시보드는 "다음 실행 내일" 만 보여 주고 지난 실행 기록이

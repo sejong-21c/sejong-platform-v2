@@ -718,6 +718,22 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
     JSON.stringify(hb || {}).slice(0, 200));
 }
 
+// ── 백업 요일 제한(v4.6) ─────────────────────────────
+{
+  const today = new Date().getUTCDay();
+  env.BACKUP_WEEKDAY = String((today + 1) % 7);
+  let ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
+  await Promise.all(ps.map(p => p.catch(() => {})));
+  let hb = await (await env.BACKUP.get('backup/_cron.json')).json();
+  check('BACKUP_WEEKDAY 가 오늘이 아니면 백업을 건너뛰고 심장박동에 그렇게 적는다', !!hb.backup && /요일에만/.test(hb.backup.skipped || ''), JSON.stringify(hb.backup));
+  env.BACKUP_WEEKDAY = String(today);
+  ps = []; await worker.scheduled({ cron: '0 0 * * *' }, env, { waitUntil: x => ps.push(x) });
+  await Promise.all(ps.map(p => p.catch(() => {})));
+  hb = await (await env.BACKUP.get('backup/_cron.json')).json();
+  check('BACKUP_WEEKDAY 가 오늘이면 돈다', !!hb.backup && typeof hb.backup.docs === 'number', JSON.stringify(hb.backup).slice(0, 120));
+  delete env.BACKUP_WEEKDAY;
+}
+
 let fails = 0;
 results.forEach(r => { if (!r.pass) fails++; console.log((r.pass ? 'PASS' : 'FAIL') + '  ' + r.name + (r.pass ? '' : '   << ' + r.detail)); });
 console.log('\n' + (fails ? fails + '개 실패' : '전체 ' + results.length + '개 통과'));

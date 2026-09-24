@@ -19,6 +19,7 @@ PAIS_URL = "https://pais.sejong21c.com"
 # 백업 울타리 두 개(관문 v4.3). 아래 [[r2_buckets]] BACKUP 주석에 고른 근거가 있다.
 BACKUP_SKIP_OVER = "12000"     # 한 컬렉션이 이보다 크면 읽지 않고 건너뛴다(이유는 보고에 남는다)
 BACKUP_READ_BUDGET = "20000"   # 하루 읽기 예산. 넘으면 넘는 컬렉션부터 내일로 미룬다
+BACKUP_WEEKDAY = "0"           # UTC 요일에만 백업(0=일요일 09:00 KST). 비우면 매일. 맥+드라이브가 매일 있어 R2 는 주 1회 — 부장님 결정 9/24
 
 # Workers AI — RAG 임베딩(bge-m3)용
 [ai]
