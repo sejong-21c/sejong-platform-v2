@@ -156,4 +156,77 @@ await T('더 줄일 것이 없으면 같은 몸을 되풀이하지 않고 다음
   assert.equal(r.text, '재료비 총액은 …');
 });
 
+// ── 넓히기(2026-09-25 b106): 두 축 교차표 · 값으로 축 고르기 · 측정기구·자산·라이선스·WBS ─────────
+const { 축들고르기, 값으로축고르기, 줄펴기 } = await import('../modules/messenger/ai.js');
+const 측정 = 셀것.find((s) => s.컬렉션 === 'measurementTools');
+const 자산 = 셀것.find((s) => s.컬렉션 === 't_devices');
+const WBS = 셀것.find((s) => s.컬렉션 === 'wbsData');
+await T('두 축 — 질문에 나온 순서대로(앞 = 줄, 뒤 = 열) · 세부원인은 원인을 품는다', () => {
+  assert.deepEqual(축들고르기('NCR 월별 원인별로', NCR), ['월', '원인']);
+  assert.deepEqual(축들고르기('NCR 원인별 월별로', NCR), ['원인', '월']);
+  assert.deepEqual(축들고르기('NCR 세부 원인별', NCR), ['세부원인']);
+  const r = 의도가르기('올해 NCR 프로젝트별 상태별로 정리해줘');
+  assert.deepEqual([r.갈래, r.축, r.축2], ['기록', '프로젝트', '상태']);
+});
+await T('교차표 — 줄마다 합계와 열값, 줄은 때 순', () => {
+  const r = 묶어세기(기록, NCR, '분기', { 축2: '원인' });
+  assert.deepEqual(r.열, ['절차미준수', '설계불량', '(비어 있음)']);
+  assert.deepEqual(r.줄[0], { 분기: '2026년 1분기', 합계: 2, 절차미준수: 1, 설계불량: 1, '(비어 있음)': 0 });
+  assert.equal(r.줄.reduce((a, x) => a + x.합계, 0), r.수, '합계를 더하면 전체');
+});
+await T('교차표 열이 많으면 8개 + 그 밖 — 표가 옆으로 끝없이 늘지 않는다', () => {
+  const 많다 = Array.from({ length: 20 }, (_, i) => ({ id: 'x' + i, cause: '원인' + i, issuedAt: '2026-0' + (1 + (i % 3)) + '-01' }));
+  const r = 묶어세기(많다, NCR, '월', { 축2: '원인' });
+  assert.equal(r.열.length, 9);
+  assert.equal(r.열[8], '그 밖');
+  assert.equal(r.줄.reduce((a, x) => a + x['그 밖'], 0), 12);
+});
+await T('연도 축 값은 "2026년" — 수로 읽혀 차트가 이름·값 칸을 바꿔 잡지 않게', () => {
+  assert.equal(묶어세기(기록, NCR, '연도').줄[0].연도, '2026년');
+});
+await T('축을 안 말해도 기록의 값이 나오면 그 축으로 묶는다("교정 만료 몇 개" · "세창엔텍 NCR")', () => {
+  const 기구 = [{ status: 'normal' }, { status: 'calib_expired' }, { status: 'calib_expired' }];
+  assert.equal(값으로축고르기('교정 만료된 측정기구 몇 개야?', 기구, 측정), '상태');
+  assert.equal(값으로축고르기('세창엔텍 NCR 몇 건', [{ vendor: '세창엔텍' }, { vendor: '대성테크' }], NCR), '업체');
+  assert.equal(값으로축고르기('측정기구 몇 개야?', 기구, 측정), null, '값이 안 나오면 묶지 않는다');
+  assert.deepEqual(묶어세기(기구, 측정, '상태').줄, [{ 상태: '교정 만료', 건수: 2 }, { 상태: '정상', 건수: 1 }]);
+});
+await T('자산 — 종류·상태를 화면 말로, 구입연도는 "2016년"', () => {
+  const pc = [{ type: 'laptop', status: 'aged', purchaseYear: 2016 }, { type: 'desktop', status: 'active', purchaseYear: '2016' }];
+  assert.deepEqual(묶어세기(pc, 자산, '종류').줄.map((x) => x.종류).sort(), ['노트북', '데스크톱']);
+  assert.ok(묶어세기(pc, 자산, '상태').줄.some((x) => x.상태 === '노후'));
+  assert.deepEqual(묶어세기(pc, 자산, '구입연도').줄, [{ 구입연도: '2016년', 건수: 2 }]);
+});
+await T('사람 이름 축은 없다 — 라이선스·PC 사용자를 사람별로 세지 않는다', () => {
+  for (const s of 셀것) for (const [, 정] of Object.entries(s.축 || {})) {
+    const 칸 = Array.isArray(정) ? 정[0] : 정;
+    assert.ok(!/user|userName|assignee|mgr|byName|issuerName/i.test(칸), `${s.이름}: ${칸}`);
+  }
+});
+await T('WBS — 말단 줄만 · 끝날 지났는데 완료 아니면 지연 · 부서 자체 업무 이름', () => {
+  const 문서 = [{ id: 'p1', rows: [
+    { id: 'a', projId: 'p1', lv: 0, name: '제작', e: '2000-01-01' },
+    { id: 'b', projId: 'p1', lv: 1, name: '용접', e: '2000-01-01', status: '진행중' },
+    { id: 'c', projId: 'p1', lv: 1, name: '도장', e: '2999-01-01', status: '미시작' },
+    { id: 'd', projId: 'p1', lv: 0, name: '출하', e: '2000-01-01', status: '완료' }] },
+  { id: 'dept_quality', rows: [{ id: 'q', projId: 'dept_quality', lv: 0, dept: '품질관리부', name: '내부심사', e: '2999-12-31' }] }];
+  const 줄 = 줄펴기(문서, WBS);
+  assert.deepEqual(줄.map((w) => w.id), ['b', 'c', 'd', 'q'], '대단락 a 는 자식이 있어 빠진다');
+  assert.deepEqual(줄.map((w) => w.__wbs상태), ['지연', '미시작', '완료', '미시작']);
+  const r = 묶어세기(문서, WBS, '프로젝트', { 프로젝트이름: (id) => (id === 'p1' ? 'SJ435 삼성' : id) });
+  assert.deepEqual(r.줄.map((x) => x.프로젝트), ['SJ435 삼성', '품질관리부 자체 업무']);
+  assert.equal(r.수, 4);
+});
+await T('기록세기 — WBS 는 문서를 받아 줄의 끝날로 기간을 거른다 · 측정기구는 "다음 교정일" 기준', async () => {
+  const 문서 = [{ id: 'p1', rows: [{ id: 'b', projId: 'p1', lv: 0, e: '2026-09-10', status: '진행중' }, { id: 'c', projId: 'p1', lv: 0, e: '2027-01-10' }] }];
+  const fb = 가짜fb(문서);
+  const [r] = await 기록세기('이번 달 끝나는 공정 몇 개야', fb, { 의도: { ...의도가르기('이번 달 끝나는 공정 몇 개야'), 기간: { 시작: '2026-09-01', 끝: '2026-09-30', 말: '2026년 9월' } } });
+  assert.deepEqual(fb.한일, [['count', 'wbsData', 0], ['docs', 'wbsData']], 'WBS 는 문서 단위 범위 질의를 안 건다');
+  assert.equal(r.수, 1);
+  const fb2 = 가짜fb([{ id: 't1', status: 'normal', nextCalibration: '2026-09-20' }]);
+  const [m] = await 기록세기('이번 달 교정 도래 측정기구 몇 개', fb2, { 의도: { ...의도가르기('이번 달 교정 측정기구 몇 개'), 기간: { 시작: '2026-09-01', 끝: '2026-09-30', 말: '2026년 9월' } } });
+  assert.equal(m.기준, '다음 교정일');
+  assert.deepEqual(fb2.한일[0], ['count', 'measurementTools', 2]);
+});
+
 console.log(`data-agent 테스트 ${n}개 전체 통과 (의도 가르기 · 기간 · 묶어 세기 · 읽기 길)`);

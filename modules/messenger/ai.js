@@ -402,9 +402,17 @@ async function 한번부르기(p, sys, 히스토리, 질문, auth) {
 //   컬렉션당 읽기 **1회**다. (전 컬렉션을 훑다가 무료 하루 5만 읽기를 태운 적이 있다 — 2026-09-18)
 // 권한: 보안 규칙이 그대로 걸린다. 못 읽는 컬렉션은 예외가 나고 그 줄만 조용히 빠진다.
 // 축: 묶어 셀 칸. [칸, 이름표] 면 값을 화면과 같은 말로 바꾼다(ncr.html NCR_GRADE · car.html CAR_STATUS 와 같은 것).
+// 날짜말: 기간을 어느 날짜로 거르나(측정기구는 '다음 교정일' — "이번 달 교정 도래" 가 된다).
+// 펼칠칸: 문서 하나에 여러 줄이 든 기록(wbsData.rows) — 줄을 한 건으로 센다.
+// **사람 이름 축은 두지 않는다**(라이선스 사용자·PC 사용자 등) — 자산 화면도 총무·임원만 전체를 본다.
 const NCR등급 = { major: '중대', minor: '일반', obs: '경미' };
 const NCR상태 = { open: '진행중', closed: '종결' };
 const CAR상태 = { 'in-progress': '조치중', closed: '완료' };
+const 측정상태 = { normal: '정상', calib_expired: '교정 만료' };
+const 자산상태 = { active: '사용중', aged: '노후', retired: '폐기' };
+const 자산종류 = { desktop: '데스크톱', laptop: '노트북', mini: '미니 PC' };
+// WBS 상태는 화면이 한국어(완료·진행중·미시작)로 쓰지만 옛 줄·가져온 줄에 영어가 섞여 있다(9/25 실물: todo 9줄).
+const WBS상태 = { todo: '미시작', doing: '진행중', 'in-progress': '진행중', done: '완료' };
 export const 셀것 = [
   { 이름: '부적합(NCR)', 컬렉션: 't_ncrs', 날짜: 'issuedAt', 별칭: ['ncr', '부적합', '부적합보고서'],
     축: { 원인: 'cause', 세부원인: 'causeDetail', 처리: 'disposition', 장소: 'location', 업체: 'vendor', 프로젝트: 'proj', 등급: ['grade', NCR등급], 상태: ['status', NCR상태] } },
@@ -412,11 +420,18 @@ export const 셀것 = [
     축: { 원인: 'cause', 분야: 'field', 조항: 'qualReq', 상태: ['status', CAR상태] } },
   { 이름: '회의록', 컬렉션: 'meetingMinutes', 날짜: 'date', 별칭: ['회의록'], 축: { 부서: 'dept' } },
   { 이름: '회의실 예약', 컬렉션: 'meetingReservations', 날짜: 'date', 별칭: ['회의실예약', '회의예약'] },
-  { 이름: '측정기구', 컬렉션: 'measurementTools', 별칭: ['측정기구', '계측기', '측정기'] },
+  { 이름: '측정기구', 컬렉션: 'measurementTools', 날짜: 'nextCalibration', 날짜말: '다음 교정일', 별칭: ['측정기구', '계측기', '측정기'],
+    축: { 상태: ['status', 측정상태], 종류: 'name', 제조사: 'maker', 교정주기: 'calibrationCycle' } },
   { 이름: '측정기구 반출입', 컬렉션: 'measurementCheckouts', 별칭: ['반출입', '반출', '반입'] },
-  { 이름: '자산 기기', 컬렉션: 't_devices', 별칭: ['자산대장', '기기대장', '자산'] },
-  { 이름: '소프트웨어 라이선스', 컬렉션: 't_licenses', 별칭: ['라이선스'] },
+  { 이름: '자산 기기', 컬렉션: 't_devices', 별칭: ['자산대장', '기기대장', '자산', '컴퓨터', '노트북'],
+    축: { 종류: ['type', 자산종류], 상태: ['status', 자산상태], 부서: 'useDept', 구입연도: 'purchaseYear', 위치: 'location' } },
+  { 이름: '소프트웨어 라이선스', 컬렉션: 't_licenses', 별칭: ['라이선스', '소프트웨어'],
+    축: { 분류: 'category', 프로그램: 'programName', 공급사: 'vendor', 취득연도: 'acquiredYear' } },
   { 이름: 'ITP·QA 문서', 컬렉션: 't_itpBuilderDocs', 별칭: ['itp', 'qa문서'] },
+  // 스케줄 공정 — 프로젝트·부서 자체 업무의 WBS 줄. **말단 줄만** 센다(대단락은 자식의 합이라 겹친다).
+  //   상태는 계산한다: 완료 · 지연(끝날이 지났는데 완료 아님) · 진행중 · 미시작. 기간은 줄의 끝날(e).
+  { 이름: '스케줄 공정(WBS)', 컬렉션: 'wbsData', 펼칠칸: 'rows', 날짜: 'e', 날짜말: '끝나는 날', 별칭: ['wbs', '공정', '공정표'],
+    축: { 상태: ['__wbs상태', WBS상태], 프로젝트: 'projId', 부서: 'dept' } },
 ];
 
 // "올해"·"작년"·"2025년" 을 연도로. 없으면 null(전체를 센다).
@@ -438,21 +453,31 @@ function 연도뽑기(질문) {
 //   글자 규칙이라 모델 호출이 하나도 안 는다. 틀리면 무엇으로 갈렸는지 답에 남는다(m.갈래).
 // 축 부르는 말 — 공백을 다 뺀 질문에 "<말>별·마다·로 나눠·분포·비중" 이 붙어 있나 본다. 세부원인이 원인보다 먼저.
 const 축말 = { 세부원인: ['세부원인', '상세원인'], 원인: ['원인'], 처리: ['처리', '처분', '처리방법'], 장소: ['장소', '발생장소', '발생위치'],
-  업체: ['업체', '협력사', '공급사'], 프로젝트: ['프로젝트', '공사'], 등급: ['등급'], 상태: ['상태', '진행상황'],
-  분야: ['분야'], 조항: ['조항', '요구사항'], 부서: ['부서'] };
+  업체: ['업체', '협력사'], 공급사: ['공급사', '판매사'], 프로젝트: ['프로젝트', '공사'], 등급: ['등급'], 상태: ['상태', '진행상황'],
+  분야: ['분야'], 조항: ['조항', '요구사항'], 부서: ['부서'], 종류: ['종류', '품목', '기종'], 제조사: ['제조사', '메이커'],
+  교정주기: ['교정주기', '주기'], 구입연도: ['구입연도', '구매연도', '연식'], 위치: ['위치'], 분류: ['분류'], 프로그램: ['프로그램'],
+  취득연도: ['취득연도', '구입연도'] };
 const 축꼬리 = '(별|마다|로나눠|로나누어|로묶어|분포|비중|비율)';
 const 시간축말 = { 월: /월별|달별|매달|월간|월마다|추이/, 분기: /분기별|분기마다/, 연도: /연도별|년도별|해마다|연별/ };
 
-/** 질문에서 묶을 축 하나. 그 기록에 없는 축이면 안 고른다. 없으면 null(건수만). */
-export function 축고르기(질문, s) {
+/** 질문에서 묶을 축 — **두 개까지**, 질문에 나온 순서대로(앞 = 줄, 뒤 = 열). 그 기록에 없는 축은 안 고른다. */
+export function 축들고르기(질문, s) {
   const g = String(질문 || '').replace(/\s+/g, '');
+  const 찾음 = [];
   for (const [축, 말들] of Object.entries(축말)) {
-    if (!s || !s.축 || !s.축[축]) continue;
-    if (말들.some((w) => new RegExp(w + 축꼬리).test(g))) return 축;
+    if (!s || !s.축 || !s.축[축] || 찾음.some((x) => x.축 === 축)) continue;
+    for (const w of 말들) {
+      const m = new RegExp(w + 축꼬리).exec(g);
+      if (m) { 찾음.push({ 축, 자리: m.index }); break; }
+    }
   }
-  if (s && s.날짜) for (const [축, 말] of Object.entries(시간축말)) if (말.test(g)) return 축;
-  return null;
+  if (s && s.날짜) for (const [축, 말] of Object.entries(시간축말)) { const m = 말.exec(g); if (m) { 찾음.push({ 축, 자리: m.index }); break; } }
+  // '세부원인별' 은 '원인별' 도 품는다 — 겹친 자리의 짧은 것을 버린다.
+  const 남김 = 찾음.filter((x) => !(x.축 === '원인' && 찾음.some((y) => y.축 === '세부원인')));
+  return 남김.sort((a, b) => a.자리 - b.자리).slice(0, 2).map((x) => x.축);
 }
+/** 한 축만 필요할 때(예전 이름). */
+export const 축고르기 = (질문, s) => 축들고르기(질문, s)[0] || null;
 
 /** 기간 — 올해·작년·2025년 · 이번/지난 분기 · N분기 · 상/하반기 · 이번 달/지난달/N월. 없으면 null(전체). */
 export function 기간뽑기(질문, 지금 = new Date()) {
@@ -490,9 +515,9 @@ export const 시키는질문인가 = (질문) => 시키는말.test(String(질문
 export function 의도가르기(질문) {
   const g = 다듬(질문);
   const 대상 = 셀것.filter((s) => s.별칭.some((a) => g.includes(다듬(a))));
-  const 축 = 대상.length ? 축고르기(질문, 대상[0]) : null;
-  const 셈 = 세는질문인가(질문) || !!축;
-  if (대상.length && 셈) return { 갈래: '기록', 대상: 대상.slice(0, 3), 축, 기간: 기간뽑기(질문) };
+  const 축들 = 대상.length ? 축들고르기(질문, 대상[0]) : [];
+  const 셈 = 세는질문인가(질문) || 축들.length > 0;
+  if (대상.length && 셈) return { 갈래: '기록', 대상: 대상.slice(0, 3), 축: 축들[0] || null, 축2: 축들[1] || null, 기간: 기간뽑기(질문) };
   if (셈) return { 갈래: '표' };
   return { 갈래: '찾기', 시킴: 시키는질문인가(질문) };
 }
@@ -501,38 +526,102 @@ export function 의도가르기(질문) {
 // 9/24 AI 행위 시험으로 만든 NCR-2026-001 · CAR-2026-011 은 '[시험 발행 — 무효]' 로 남겼다 — 세면 안 된다
 //   (플랫폼 ai-assistant.js SJP_isVoidTest · 파이스 platform_sync.js 와 같은 표시).
 const 무효시험 = (d) => { try { return JSON.stringify(d).includes('[시험 발행 — 무효]'); } catch (e) { return false; } };
-const 시간자리 = { 월: 7, 연도: 4 };
 
-/** 받은 기록 문서 → { 수, 뺀것, 줄 }. 줄은 [{<축>: 값, 건수}] — 시간 축은 때 순, 나머지는 많은 순. 순수 함수. */
-export function 묶어세기(문서들, s, 축, { 프로젝트이름 = null } = {}) {
-  const 쓸것 = (문서들 || []).filter((d) => d && !무효시험(d) && !String(d.id || '').startsWith('chunk__'));
-  const 뺀것 = (문서들 || []).length - 쓸것.length;
-  if (!축) return { 수: 쓸것.length, 뺀것, 줄: null };
-  const 값 = (d) => {
-    const 날 = String(d[s.날짜] || '');
-    if (축 === '분기') return 날.length >= 7 ? `${날.slice(0, 4)}년 ${Math.ceil(Number(날.slice(5, 7)) / 3)}분기` : '';
-    if (시간자리[축]) return 날.slice(0, 시간자리[축]);
-    const 정 = s.축[축];
-    const [칸, 이름표] = Array.isArray(정) ? 정 : [정, null];
-    let v = d[칸];
-    if (칸 === 'proj') v = v === '__direct__' ? ((d.meta && d.meta.projDirect) || '(직접 입력)') : (프로젝트이름 && v ? 프로젝트이름(v) : v);
-    v = String(v ?? '').trim();
-    return 이름표 && 이름표[v] ? 이름표[v] : v;
-  };
-  const 셈 = new Map();
-  for (const d of 쓸것) { const k = 값(d) || '(비어 있음)'; 셈.set(k, (셈.get(k) || 0) + 1); }
-  const 줄 = [...셈].map(([k, n]) => ({ [축]: k, 건수: n }));
-  const 시간축 = 축 === '분기' || !!시간자리[축];
-  줄.sort(시간축 ? (a, b) => String(a[축]).localeCompare(String(b[축])) : (a, b) => b.건수 - a.건수);
-  return { 수: 쓸것.length, 뺀것, 줄 };
+/** 문서 하나에 여러 줄이 든 기록(wbsData)을 **말단 줄**로 편다. 대단락은 자식의 합이라 세면 겹친다. */
+export function 줄펴기(문서들, s) {
+  if (!s.펼칠칸) return 문서들;
+  const 오늘 = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);   // 한국 날짜
+  const 줄 = [];
+  for (const d of 문서들) {
+    const rows = Array.isArray(d[s.펼칠칸]) ? d[s.펼칠칸] : [];
+    rows.forEach((w, i) => {
+      if (!w || typeof w !== 'object') return;
+      const 다음 = rows[i + 1];
+      if (다음 && 다음.projId === w.projId && (다음.lv || 0) > (w.lv || 0)) return;      // 자식이 있다 = 대단락
+      const 완료 = w.status === '완료' || w.status === 'done' || Number(w.pct) === 100 || Number(w.pctManual) === 100;
+      const 지연 = !완료 && w.e && w.e < 오늘;
+      줄.push({ ...w, projId: w.projId || d.id, __wbs상태: 완료 ? '완료' : 지연 ? '지연' : (w.status || '미시작') });
+    });
+  }
+  return 줄;
 }
 
-// 문서를 받아 세는 상한. NCR 23 · CAR 10 · 회의록 3(2026-09-25) — 몇 해 쌓여도 한참 남는다.
+const 시간자리 = { 월: 7, 연도: 4 };
+const 시간축인가 = (축) => 축 === '분기' || !!시간자리[축];
+
+/** 한 줄의 축 값(사람이 읽는 말). */
+function 축값(d, s, 축, 프로젝트이름) {
+  const 날 = String(d[s.날짜] || '');
+  if (축 === '분기') return 날.length >= 7 ? `${날.slice(0, 4)}년 ${Math.ceil(Number(날.slice(5, 7)) / 3)}분기` : '';
+  if (축 === '연도') return 날.length >= 4 ? 날.slice(0, 4) + '년' : '';      // '2026' 은 수로 읽혀 차트가 이름·값 칸을 바꿔 잡는다
+  if (시간자리[축]) return 날.slice(0, 시간자리[축]);
+  const 정 = s.축[축];
+  const [칸, 이름표] = Array.isArray(정) ? 정 : [정, null];
+  let v = d[칸];
+  if (칸 === 'proj' || 칸 === 'projId') {
+    if (v === '__direct__') v = (d.meta && d.meta.projDirect) || '(직접 입력)';
+    else if (/^dept_/.test(String(v || ''))) v = (d.dept || String(v).slice(5)) + ' 자체 업무';
+    else if (프로젝트이름 && v) v = 프로젝트이름(v);
+  }
+  v = String(v ?? '').trim();
+  // 연도·주기는 수로도 글자로도 들어 있다(2016 · '2016') — 같은 꼴로 맞춰야 한 줄로 센다. '2016' 그대로면 차트가 수로 읽는다.
+  if (/Year$/.test(칸) && /^\d{4}$/.test(v)) v += '년';
+  if (/Cycle$/.test(칸) && /^\d+$/.test(v)) v += '개월';
+  return 이름표 && 이름표[v] ? 이름표[v] : v;
+}
+
+/** 받은 기록 문서 → { 수, 뺀것, 줄 }. 축 하나면 [{<축>, 건수}], 둘이면 교차표 [{<축>, 합계, <열값>…}].
+ *  시간 축 줄은 때 순, 나머지는 많은 순. 교차표 열은 많은 순 8개 + '그 밖'. 순수 함수. */
+export function 묶어세기(문서들, s, 축, { 축2 = null, 프로젝트이름 = null } = {}) {
+  const 받은것 = (문서들 || []).filter((d) => d && !String(d.id || '').startsWith('chunk__'));
+  const 편것 = 줄펴기(받은것, s);
+  const 쓸것 = 편것.filter((d) => !무효시험(d));
+  const 뺀것 = 편것.length - 쓸것.length;
+  if (!축) return { 수: 쓸것.length, 뺀것, 줄: null };
+  const 값 = (d, k) => 축값(d, s, k, 프로젝트이름) || '(비어 있음)';
+  const 줄순 = (a, b, 키, 수) => (시간축인가(축) ? String(a[키]).localeCompare(String(b[키])) : b[수] - a[수]);
+  if (!축2 || 축2 === 축) {
+    const 셈 = new Map();
+    for (const d of 쓸것) { const k = 값(d, 축); 셈.set(k, (셈.get(k) || 0) + 1); }
+    const 줄 = [...셈].map(([k, n]) => ({ [축]: k, 건수: n }));
+    줄.sort((a, b) => 줄순(a, b, 축, '건수'));
+    return { 수: 쓸것.length, 뺀것, 줄 };
+  }
+  // 교차표 — 열(축2)이 많으면 표가 옆으로 끝없이 는다. 많은 순 8개만 두고 나머지는 '그 밖'.
+  const 열합 = new Map();
+  for (const d of 쓸것) { const k = 값(d, 축2); 열합.set(k, (열합.get(k) || 0) + 1); }
+  let 열들 = [...열합].sort((a, b) => (시간축인가(축2) ? String(a[0]).localeCompare(String(b[0])) : b[1] - a[1])).map(([k]) => k);
+  const 넘친열 = 열들.length > 8 ? new Set(열들.slice(8)) : null;
+  if (넘친열) 열들 = [...열들.slice(0, 8), '그 밖'];
+  const 줄맵 = new Map();
+  for (const d of 쓸것) {
+    const r = 값(d, 축); let c = 값(d, 축2); if (넘친열 && 넘친열.has(c)) c = '그 밖';
+    if (!줄맵.has(r)) 줄맵.set(r, { [축]: r, 합계: 0, ...Object.fromEntries(열들.map((x) => [x, 0])) });
+    const 줄 = 줄맵.get(r); 줄.합계++; 줄[c]++;
+  }
+  const 줄 = [...줄맵.values()].sort((a, b) => 줄순(a, b, 축, '합계'));
+  return { 수: 쓸것.length, 뺀것, 줄, 열: 열들 };
+}
+
+/** 축을 안 말했는데 질문에 그 기록의 **값**이 나오면("교정 만료 몇 개" · "세창엔텍 NCR 몇 건") 그 축으로 묶는다.
+ *  그래야 표에 그 값의 수가 들어간다 — 총 건수만 주면 모델이 모른다. 두 글자 넘는 값만, 처음 걸린 축 하나. */
+export function 값으로축고르기(질문, 문서들, s) {
+  if (!s.축) return null;
+  const g = 다듬(질문);
+  for (const 축 of Object.keys(s.축)) {
+    const 값들 = new Set(문서들.map((d) => 축값(d, s, 축, null)).filter((v) => 다듬(v).length >= 2));
+    for (const v of 값들) if (g.includes(다듬(v))) return 축;
+  }
+  return null;
+}
+
+// 문서를 받아 세는 상한. NCR 23 · CAR 10 · 측정기구 86 · 라이선스 89 · WBS 33(2026-09-25) — 몇 해 쌓여도 한참 남는다.
 //   넘으면 건수만 센다(읽기 1). 무료 하루 5만을 AI 질문 하나가 먹게 두지 않는다.
 const 문서상한 = 300;
 
 /** 질문에 나온 기록 종류를 **Firestore 에서 직접 센다.** '기록' 갈래가 아니면 아무것도 안 읽는다.
- *  축이 있는 기록(NCR·CAR·회의록)은 먼저 세어 보고(읽기 1) 적으면 문서를 받아 무효 시험을 빼고 축별로 묶는다. */
+ *  축이 있는 기록은 먼저 세어 보고(읽기 1) 적으면 문서를 받아 무효 시험을 빼고 축(하나나 둘)으로 묶는다.
+ *  펼칠칸이 있는 기록(WBS)은 기간을 줄 단위로 걸러야 해서 문서를 통째로 받고 여기서 거른다. */
 export async function 기록세기(질문, fb, { 의도 = null, 프로젝트이름 = null } = {}) {
   // fb 에 getCountFromServer 가 없으면 옛 껍데기를 쓰고 있는 것이다 — 조용히 건너뛴다.
   if (!fb || typeof fb.getCountFromServer !== 'function' || !fb.db) return [];
@@ -540,18 +629,24 @@ export async function 기록세기(질문, fb, { 의도 = null, 프로젝트이�
   if (뜻.갈래 !== '기록') return [];
   const 답 = [];
   for (const [i, s] of 뜻.대상.entries()) {
-    const 축 = i === 0 ? 뜻.축 : null;       // 묶기는 첫 대상만 — 여럿이면 나머지는 건수만
+    let 축 = i === 0 ? 뜻.축 : null;          // 묶기는 첫 대상만 — 여럿이면 나머지는 건수만
+    const 축2 = i === 0 ? (뜻.축2 || null) : null;
     const 기간 = s.날짜 ? 뜻.기간 : null;
     try {
       const 밑 = fb.collection(fb.db, s.컬렉션);
-      // 날짜는 전부 'YYYY-MM-DD' 문자열이라 한 필드 범위로 끝난다 — 복합 색인이 필요 없다.
-      const q = 기간 ? fb.query(밑, fb.where(s.날짜, '>=', 기간.시작), fb.where(s.날짜, '<=', 기간.끝)) : fb.query(밑);
+      // 날짜는 전부 'YYYY-MM-DD' 문자열이라 한 필드 범위로 끝난다 — 복합 색인이 필요 없다. 펼칠칸이면 줄에서 거른다.
+      const q = 기간 && !s.펼칠칸 ? fb.query(밑, fb.where(s.날짜, '>=', 기간.시작), fb.where(s.날짜, '<=', 기간.끝)) : fb.query(밑);
       const n = (await fb.getCountFromServer(q)).data().count;
-      const 센 = { 이름: s.이름, 수: n, 기간: 기간 ? 기간.말 : null };
+      const 센 = { 이름: s.이름, 수: n, 기간: 기간 ? 기간.말 : null, 기준: 기간 && s.날짜말 ? s.날짜말 : null };
       if (s.축 && n <= 문서상한) {
-        const docs = n ? (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() })) : [];
-        const 묶 = 묶어세기(docs, s, 축, { 프로젝트이름 });
-        Object.assign(센, { 수: 묶.수, 뺀것: 묶.뺀것 }, 축 ? { 축, 줄: 묶.줄 } : {});
+        let docs = n ? (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() })) : [];
+        if (s.펼칠칸) {
+          docs = 줄펴기(docs, s);
+          if (기간) docs = docs.filter((w) => w[s.날짜] && w[s.날짜] >= 기간.시작 && w[s.날짜] <= 기간.끝);
+        }
+        if (!축) 축 = 값으로축고르기(질문, docs, s);
+        const 묶 = 묶어세기(docs, s.펼칠칸 ? { ...s, 펼칠칸: null } : s, 축, { 축2, 프로젝트이름 });
+        Object.assign(센, { 수: 묶.수, 뺀것: 묶.뺀것 }, 축 ? { 축, 줄: 묶.줄 } : {}, 축2 && 묶.열 ? { 축2, 열: 묶.열 } : {});
       } else if (축) 센.못묶음 = `${n}건이라 ${축}별로 묶지 않았다(${문서상한}건까지만 받아 센다)`;
       답.push(센);
     } catch (e) {
@@ -743,7 +838,8 @@ const 글을조각으로 = (글) => String(글 || '').split('\n').map((줄) => (
  *  질문은 **질문 하나가 정말 클 때만** 자른다 — 자른 뒤 다시 재고, 센 수·표 머리 자리는 먼저 뗀다. */
 export function 크기맞추기({ 질문, 앞말, 맥락, 짓기, 한도 = 입력한도 }) {
   const 조각들 = Array.isArray(맥락) ? 맥락 : 글을조각으로(맥락);
-  const 고정 = 추정토큰(짓기('')) + 80;
+  // 틀 몫 — 9/25 실물 두 번: 어림 4,923 → 실제 4,972 · 5,126 → 5,206 (메시지 틀이 어림보다 컸다). 80 → 180.
+  const 고정 = 추정토큰(짓기('')) + 180;
   const 말 = (앞말 || []).slice(-12);
   let 물음 = String(질문 || '');
   const 말토큰 = (m) => m.reduce((a, x) => a + 추정토큰(x.text) + 4, 0);
