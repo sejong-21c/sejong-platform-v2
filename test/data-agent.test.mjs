@@ -229,4 +229,22 @@ await T('기록세기 — WBS 는 문서를 받아 줄의 끝날로 기간을 �
   assert.deepEqual(fb2.한일[0], ['count', 'measurementTools', 2]);
 });
 
+// ── 축을 말했는데 다른 축의 값이 나오면 거른다(9/25 실물: "지연된 공정 프로젝트별로" 가 전체 줄 수로 나갔다) ──
+const { 값으로거르기 } = await import('../modules/messenger/ai.js');
+await T('값으로거르기 — "지연된 공정 프로젝트별" 은 지연만 남기고, 그룹 축의 값으로는 안 거른다', () => {
+  const 줄 = [{ projId: 'p1', __wbs상태: '지연' }, { projId: 'p1', __wbs상태: '완료' }, { projId: 'p2', __wbs상태: '지연' }];
+  const r = 값으로거르기('지연된 공정 프로젝트별로 몇 개야?', 줄, WBS, ['프로젝트'], (id) => id);
+  assert.deepEqual([r.문서들.length, r.거름], [2, { 축: '상태', 값: '지연' }]);
+  const 안 = 값으로거르기('공정 프로젝트별로 몇 개야?', 줄, WBS, ['프로젝트'], (id) => id);
+  assert.equal(안.거름, null, '값이 안 나오면 그대로');
+  const 그룹축 = 값으로거르기('지연 상태별로', 줄, WBS, ['상태'], (id) => id);
+  assert.equal(그룹축.거름, null, '묶는 축의 값으로는 거르지 않는다(그러면 한 줄만 남는다)');
+});
+await T('기록세기 — 거른 것을 결과에 밝힌다', async () => {
+  const 문서 = [{ id: 'p1', rows: [{ id: 'a', projId: 'p1', lv: 0, e: '2000-01-01', status: '진행중' }, { id: 'b', projId: 'p1', lv: 0, e: '2999-01-01', status: '미시작' }] }];
+  const [r] = await 기록세기('지연된 공정 프로젝트별로', 가짜fb(문서), { 프로젝트이름: (id) => (id === 'p1' ? 'SJ435' : id) });
+  assert.equal(r.거름, '상태: 지연만');
+  assert.deepEqual(r.줄, [{ 프로젝트: 'SJ435', 건수: 1 }]);
+});
+
 console.log(`data-agent 테스트 ${n}개 전체 통과 (의도 가르기 · 기간 · 묶어 세기 · 읽기 길)`);
