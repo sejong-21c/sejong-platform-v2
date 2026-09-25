@@ -1214,8 +1214,16 @@
     return lines.join('\n').slice(0, 19000);   // 워커 상한(20,000자) 안전 여유
   };
 
+  // 2026-09-25: 무효 처리된 시험 기록은 AI 가 근거로 쓰면 안 된다(9/24 AI 행위 사람 손 시험의 NCR-2026-001 ·
+  //   CAR-2026-011 — 기록은 '시험 발행 — 무효' 로 남기고 색인에서만 뺐다). 저장·일괄 보충이 모두 이 함수를
+  //   지나므로 여기서 막는다: 그런 기록을 색인하라고 하면 **지우기**로 바꾼다(다시 저장해도 되살아나지 않게).
+  //   같은 규칙이 파이스 platform_sync.js(볼트 노트)에도 있다.
+  window.SJP_isVoidTest = function (rec) {
+    try { return !!rec && JSON.stringify(rec).indexOf('[시험 발행 — 무효]') !== -1; } catch (e) { return false; }
+  };
   window.SJP_indexRecord = function (kind, id, title, text, opts) {
     opts = opts || {};
+    if (opts.rec && !opts.remove && window.SJP_isVoidTest(opts.rec)) opts = { remove: true };
     return (async function () {
       try {
         var gw = getGatewayUrl();
@@ -1266,7 +1274,7 @@
       ? await fetchRemoteCollection(g.remote).catch(function () { return []; })
       : ((window.state && state[g.key]) || []);
     return arr.filter(function (r) {
-      return r && r.id && !String(r.id).startsWith('chunk__') && !String(r.id).startsWith('dwg_');
+      return r && r.id && !String(r.id).startsWith('chunk__') && !String(r.id).startsWith('dwg_') && !window.SJP_isVoidTest(r);
     });
   }
   function reindexSay(html) { var el = $id('aiReindexStatus'); if (el) el.innerHTML = html; }
