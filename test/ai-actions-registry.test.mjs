@@ -57,7 +57,7 @@ globalThis.fb = {
   collection: (_db, coll) => ({ coll }),
   // 두 꼴을 다 받는다: doc(db, '컬렉션', 'id') 와 doc(collection(db,'컬렉션')) — 뒤엣것은 자동 id(감사기록).
   doc: (x, coll, id) => (coll === undefined ? { coll: x.coll, id: '자동' } : { coll, id }),
-  getDoc: async (ref) => (ref.coll === 'wbsData' && wbs문서
+  getDoc: async (ref) => (ref.coll === 'wbsHistory' && globalThis.있는이력 && globalThis.있는이력.has(ref.id)) ? { exists: () => true, data: () => ({}) } : (ref.coll === 'wbsData' && wbs문서
     ? { exists: () => true, data: () => wbs문서 } : { exists: () => false }),
   // 품질번호() 가 쓰는 것들. 기본은 "아직 한 건도 없다" → 001 부터.
   // globalThis.있는품질 에 id 를 넣으면 그게 마지막 번호인 것처럼 굴어 채번을 시험할 수 있다.
@@ -454,6 +454,18 @@ await 돌('부서스케줄 — 있던 행은 그대로 두고 끝에 붙인다, 
   assert.equal(본.rows[3].code, '3');
   assert.equal(본.rev, 6);
   assert.deepEqual(쓴것.find((x) => x[0] === 'wbsHistory')[2].items, [{ id: 'i1' }]);
+});
+
+await 돌('부서스케줄 — 이력이 이미 있으면 덮어쓰지 않는다(rev 칸 없는 부서, 9/25 실물)', async () => {
+  wbs문서 = { rows: [] };
+  globalThis.있는이력 = new Set(['dept_quality_0001']);
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('부서스케줄', { 업무: '교정', 시작일: '2026-10-01' });
+  const 결 = await W.AI행위실행(r);
+  globalThis.있는이력 = undefined;
+  assert.ok(!결.안됨, '행은 들어간다: ' + JSON.stringify(결));
+  assert.ok(쓴것.some((x) => x[0] === 'wbsData'));
+  assert.ok(!쓴것.some((x) => x[0] === 'wbsHistory'), '있던 이력을 덮으면 안 된다');
 });
 
 await 돌('부서스케줄 — 권한 없는 부서·거꾸로 된 기간·없는 담당자는 카드를 안 만든다', async () => {

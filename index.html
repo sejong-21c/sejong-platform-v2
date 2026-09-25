@@ -3135,8 +3135,11 @@ const AI행위 = {
       await fb.setDoc(ref, { rows: 새rows, rev, updatedAt: 지금, lastRevSummary: 요약 }, { merge: true });
       try {
         const 누구 = (fb.auth && fb.auth.currentUser && fb.auth.currentUser.uid) || state.currentUser || null;
-        await fb.setDoc(fb.doc(fb.db, 'wbsHistory', x.pid + '_' + String(rev).padStart(4, '0')),
-          { pid: x.pid, rev, rows: 새rows, items: d.items || [], at: 지금, byUid: 누구, source: 'messenger-ai', summary: 요약 });
+        // 이력은 **덮어쓰지 않는다.** 9/25 실물: 품질관리부 자체 업무에 rev 칸이 아예 없었다(= 0 으로 읽힘).
+        //   rev 없이 이력만 있는 부서가 있으면 _0001 을 새로 쓰는 순간 옛 스냅샷이 사라진다.
+        const 이력ref = fb.doc(fb.db, 'wbsHistory', x.pid + '_' + String(rev).padStart(4, '0'));
+        if ((await fb.getDoc(이력ref)).exists()) throw new Error('이력 ' + rev + ' 이 이미 있다 — 덮어쓰지 않는다');
+        await fb.setDoc(이력ref, { pid: x.pid, rev, rows: 새rows, items: d.items || [], at: 지금, byUid: 누구, source: 'messenger-ai', summary: 요약 });
       } catch (e) { console.warn('[부서스케줄] 이력 스냅샷 실패 —', String((e && e.message) || e).slice(0, 120)); }
       return { 알림: `${x.dept} 스케줄에 넣었습니다 — ${x.번호} ${x.이름} (${x.s}~${x.e})` };
     },
