@@ -34,7 +34,8 @@ const allKanbanTasks = () => state.tasks;
 const computeProjectProgress = () => 0;
 // 색인 창구 — 기본은 성공, globalThis.색인터짐 이 켜지면 던진다.
 window.SJP_indexRecord = async () => { if (globalThis.색인터짐) throw new Error('색인 서버 오류'); return { ok: true }; };
-const DEPTS = [{ name: '품질관리부' }, { name: '생산부' }, { name: '기술부' }];
+const DEPTS = [{ id: 'quality', name: '품질관리부' }, { id: 'production', name: '생산부' }, { id: 'design', name: '기술부' }];
+const canEditDeptSchedule = (dept) => (globalThis.부서권한 ? globalThis.부서권한(dept) : true);
 const canDo = (m, a) => globalThis.권한켬 !== false;
 `;
 const mod = await import('data:text/javascript;base64,' + Buffer.from(
@@ -386,6 +387,87 @@ await 돌('문서저장 — 색인이 실패해도 문서는 남는다', async (
   assert.ok(/실패/.test(결.알림), '실패했다는 말은 해야 한다: ' + 결.알림);
 });
 
+// ── 캘린더 일정 · 부서 스케줄 (2026-09-25, 로드맵 5) ─────────────────────
+await 돌('일정등록 — 부서를 안 주면 내 부서, 화면(openEvent)과 같은 꼴로 events 에 쓴다', async () => {
+  state.currentUserObj.dept = '품질관리부';
+  state.events = [];
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('일정등록', { 제목: 'RT 검사 입회', 날짜: '2026-09-29', 시간: '10:00', 분류: '검사' });
+  assert.ok(!r.안됨, r.안됨);
+  assert.equal(쓴것.length, 0, '풀기는 아무것도 쓰지 않는다');
+  assert.ok(r.카드줄[0].includes('2026-09-29 (화) 10:00'), '요일까지 카드에 — 사람이 날짜를 되짚는다: ' + r.카드줄[0]);
+  assert.ok(r.카드줄.includes('부서: 품질관리부'));
+  await W.AI행위실행(r);
+  const e = 쓴것.find((x) => x[0] === 'events');
+  assert.ok(e && /^e\d+/.test(e[1]), "id 는 'e'+시각 꼴: " + (e && e[1]));
+  assert.deepEqual([e[2].title, e[2].date, e[2].time, e[2].color, e[2].dept, e[2].createdBy],
+    ['RT 검사 입회', '2026-09-29', '10:00', 'orange', '품질관리부', 'u1']);
+  assert.ok(쓴것.some((x) => x[0] === 't_aiAuditLog'), '감사 기록');
+});
+
+await 돌('일정등록 — 없는 날·틀린 시간·모르는 분류는 고치지 않고 거절한다', async () => {
+  assert.ok((await W.AI행위풀기('일정등록', { 제목: 'x', 날짜: '2026-02-30' })).안됨, '2월 30일은 없다');
+  assert.ok((await W.AI행위풀기('일정등록', { 제목: 'x', 날짜: '2026-10-01', 시간: '25:00' })).안됨);
+  assert.ok((await W.AI행위풀기('일정등록', { 제목: 'x', 날짜: '2026-10-01', 분류: '출장' })).안됨, '출장을 조용히 회의로 바꾸면 안 된다');
+  assert.ok((await W.AI행위풀기('일정등록', { 제목: 'x', 날짜: '2026-10-01', 부서: '없는부' })).안됨);
+  const 종일 = await W.AI행위풀기('일정등록', { 제목: '교육', 날짜: '2026-10-01', 부서: '생산' });
+  assert.ok(!종일.안됨 && 종일.카드줄[0].endsWith('종일') && 종일.데이터.dept === '생산부', '줄여 말한 부서도 하나면 찾는다');
+});
+
+await 돌('부서스케줄 — 문서가 없으면 1번으로 만들고, Rev 1 과 이력 스냅샷을 남긴다', async () => {
+  state.currentUserObj.dept = '품질관리부';
+  wbs문서 = null;
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('부서스케줄', { 업무: 'ISO 내부심사', 시작일: '2026-10-13', 종료일: '2026-10-17', 담당: '이영희 대리' });
+  assert.ok(!r.안됨, r.안됨);
+  assert.equal(r.데이터.pid, 'dept_quality');
+  assert.equal(r.데이터.번호, '1');
+  assert.ok(r.카드줄.includes('담당: 이영희'), '직함은 떼고 직원 이름으로: ' + r.카드줄);
+  await W.AI행위실행(r);
+  const 본 = 쓴것.find((x) => x[0] === 'wbsData');
+  assert.equal(본[1], 'dept_quality');
+  const 행 = 본[2].rows[0];
+  assert.deepEqual([행.code, 행.name, 행.lv, 행.projId, 행.dept, 행.status, 행.s, 행.e, 행.mgr],
+    ['1', 'ISO 내부심사', 0, 'dept_quality', '품질관리부', '미시작', '2026-10-13', '2026-10-17', '이영희'],
+    'dept 가 비면 부서 필터에 걸려 화면에서 안 보인다');
+  assert.equal(본[2].rev, 1);
+  const 이력 = 쓴것.find((x) => x[0] === 'wbsHistory');
+  assert.ok(이력 && 이력[1] === 'dept_quality_0001' && 이력[2].source === 'messenger-ai', '이력 id 는 wbs.html 과 같은 pid_0001 꼴');
+});
+
+await 돌('부서스케줄 — 있던 행은 그대로 두고 끝에 붙인다, 그사이 누가 넣으면 멈춘다', async () => {
+  wbs문서 = { rev: 4, items: [{ id: 'i1' }], rows: [
+    { id: 'a', code: '1', name: '교정', lv: 0, projId: 'dept_quality', dept: '품질관리부' },
+    { id: 'b', code: '1.1', name: '압력계', lv: 1, projId: 'dept_quality', dept: '품질관리부' }] };
+  쓴것.length = 0;
+  const r = await W.AI행위풀기('부서스케줄', { 업무: '외부심사', 시작일: '2026-11-02' });
+  assert.equal(r.데이터.번호, '2', '대단락 순번');
+  assert.equal(r.데이터.e, '2026-11-02', '종료일을 안 주면 시작일과 같게');
+  // 카드를 띄운 뒤 남이 한 줄 넣었다
+  wbs문서 = { ...wbs문서, rev: 5, rows: [...wbs문서.rows, { id: 'c', code: '2', name: '남이 넣음', lv: 0, projId: 'dept_quality', dept: '품질관리부' }] };
+  const 막힘 = await W.AI행위실행(r);
+  assert.ok(막힘.안됨 && !쓴것.some((x) => x[0] === 'wbsData'), '지문이 달라졌으면 쓰지 않는다');
+  const r2 = await W.AI행위풀기('부서스케줄', { 업무: '외부심사', 시작일: '2026-11-02' });
+  await W.AI행위실행(r2);
+  const 본 = 쓴것.find((x) => x[0] === 'wbsData')[2];
+  assert.deepEqual(본.rows.map((w) => w.id).slice(0, 3), ['a', 'b', 'c'], '있던 행을 덮으면 안 된다');
+  assert.equal(본.rows[3].code, '3');
+  assert.equal(본.rev, 6);
+  assert.deepEqual(쓴것.find((x) => x[0] === 'wbsHistory')[2].items, [{ id: 'i1' }]);
+});
+
+await 돌('부서스케줄 — 권한 없는 부서·거꾸로 된 기간·없는 담당자는 카드를 안 만든다', async () => {
+  globalThis.부서권한 = (d) => d === '품질관리부';
+  assert.ok((await W.AI행위풀기('부서스케줄', { 업무: 'x', 시작일: '2026-10-01', 부서: '생산부' })).안됨);
+  globalThis.부서권한 = undefined;
+  assert.ok((await W.AI행위풀기('부서스케줄', { 업무: 'x', 시작일: '2026-10-05', 종료일: '2026-10-01' })).안됨);
+  assert.ok((await W.AI행위풀기('부서스케줄', { 업무: 'x', 시작일: '2026-10-01', 담당: '없는사람' })).안됨);
+  globalThis.부서권한 = () => false;
+  assert.ok(!W.AI행위목록().some((x) => x.이름 === '부서스케줄'), '어느 부서도 못 고치면 목록에서 빠진다');
+  globalThis.부서권한 = undefined;
+  delete state.currentUserObj.dept;
+});
+
 await 돌('모르는 행위는 거절한다', async () => {
   assert.ok((await W.AI행위풀기('NCR발행', { 프로젝트: 'A' })).안됨);
   assert.ok((await W.AI행위실행({ 행위: 'NCR발행', 인자: {}, 지문: 'x' })).안됨);
@@ -397,4 +479,4 @@ await 돌('행위목록은 할 수 있는 것만 준다', async () => {
   assert.ok(것.every((x) => x.이름 && x.설명 && x.인자));
 });
 
-console.log(`ai-actions-registry 테스트 ${n}개 전체 통과 (등록소 · 스케줄 한 바퀴)`);
+console.log(`ai-actions-registry 테스트 ${n}개 전체 통과 (등록소 · 스케줄 한 바퀴 · 일정·부서 스케줄)`);
