@@ -20,9 +20,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b103';
-import * as L from './lib.js?v=b103';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 실행뽑기, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b103';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b104';
+import * as L from './lib.js?v=b104';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 실행뽑기, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b104';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -53,7 +53,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b103';
+const 빌드 = 'b104';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -968,7 +968,9 @@ async function 엑셀받기(mid) {
     토스트('엑셀을 만드는 중…');
     await 엑셀불러오기();
     const 줄들 = m.표.줄;
-    const 열 = [...new Set(줄들.flatMap((r) => Object.keys(r || {})))];
+    // 글자 열을 앞에, 수만 든 열을 뒤에 — 저장하면서 칸 순서가 바뀌어 '건수 | 원인' 으로 나오던 것(9/25 실물).
+    const 수뿐 = (k) => 줄들.every((r) => r == null || r[k] == null || r[k] === '' || Number.isFinite(Number(r[k])));
+    const 열 = [...new Set(줄들.flatMap((r) => Object.keys(r || {})))].sort((a, b) => 수뿐(a) - 수뿐(b));
     const wb = new window.ExcelJS.Workbook();
     const ws = wb.addWorksheet('센 결과');
     ws.addRow(열);
@@ -1673,8 +1675,11 @@ async function AI에게묻기(질문) {
     const 묶음 = 센것.find((c) => c.줄 && c.줄.length) || null;
     const 센근거 = 센것.filter((c) => !c.오류).map((c) => `플랫폼 ${c.이름}${c.기간 ? ' ' + c.기간 : ''} ${c.수}건`);
     const 화면목록 = 볼수있는화면();
-    const 고칠것 = 고칠수있는프로젝트();
-    const 행위들 = 할수있는행위();
+    // 세는 질문(표·기록)에는 고치기 목록을 싣지 않는다 — 행위 열하나 + 프로젝트 목록이 지침의 큰 몫이라
+    //   NAS 표 결과까지 얹히면 무료 모델 한 요청 한도(8,000 토큰)를 넘었다(2026-09-25 groq 413).
+    const 센다 = 뜻.갈래 !== '찾기';
+    const 고칠것 = 센다 ? [] : 고칠수있는프로젝트();
+    const 행위들 = 센다 ? [] : 할수있는행위();
     const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표, 센것), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length), 화면들: 화면목록, 고칠프로젝트: 고칠것, 행위들 });
     // 답 끝에 붙은 ```실행 덩이를 떼어낸다. 뗀 글만 말풍선에 보이고, 덩이는 확인 카드가 된다.
     const { 글: 답글, 제안: 날것 } = 실행뽑기(답.text, 행위들.map((a) => a.이름));

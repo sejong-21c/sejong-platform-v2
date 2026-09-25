@@ -639,12 +639,20 @@ export async function 답하기({ 질문, 히스토리 = [], 맥락 = '', 권한
   // 실패를 **전부** 모은다. 마지막 것만 보여 주면 "cerebras 402" 한 줄만 남아서
   // 앞의 두 곳이 왜 안 됐는지(모델 폐기·지역 차단) 알 수 없다 — 부장님 첫 질문 때 실제로 그랬다.
   const 실패들 = [];
+  // **너무 크면 줄여서 다시.** 2026-09-25 실물: "작년 견적 재료비 총액" 이 groq 413(한 요청 8,237 > 분당 8,000 토큰)으로
+  //   통째로 실패했다. 맥락은 정확한 것부터 앞에 쌓으므로(AI맥락) 뒤를 자르면 검색 조각부터 빠진다.
+  const 너무큼 = (m) => /\b413\b|too large|reduce your message|context length|maximum context/i.test(m);
   for (const p of 체인) {
-    try { return await 한번부르기(p, sys, 최근, 질문, auth); }
-    catch (e) {
-      const msg = (e && e.name === 'AbortError') ? `${p.id}/${p.model}: ${제한초}초 초과` : ((e && e.message) || String(e));
-      실패들.push(msg);
-      console.warn('[AI]', msg);
+    let 맥 = 맥락, 앞말 = 최근;
+    for (let 번 = 0; 번 < 3; 번++) {
+      try { return await 한번부르기(p, 번 ? 지침(맥, 권한, 표있다, 화면들, 고칠프로젝트, 행위들) : sys, 앞말, 질문, auth); }
+      catch (e) {
+        const msg = (e && e.name === 'AbortError') ? `${p.id}/${p.model}: ${제한초}초 초과` : ((e && e.message) || String(e));
+        console.warn('[AI]', msg);
+        if (번 < 2 && 너무큼(msg)) { 맥 = 맥.slice(0, Math.floor(맥.length * 0.6)); 앞말 = 앞말.slice(-4); continue; }
+        실패들.push(msg.slice(0, 300));
+        break;
+      }
     }
   }
   throw new Error('AI가 답하지 못했습니다. 아래를 그대로 개발 담당에게 알려 주세요.\n' + 실패들.map((m) => '· ' + m).join('\n'));

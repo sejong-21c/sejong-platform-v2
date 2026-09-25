@@ -6,7 +6,7 @@
  *   · 9/24 시험으로 남긴 무효 NCR·CAR 를 세면 건수가 하나씩 는다.
  */
 import assert from 'node:assert';
-import { 의도가르기, 기간뽑기, 축고르기, 묶어세기, 기록세기, 셀것 } from '../modules/messenger/ai.js';
+import { 의도가르기, 기간뽑기, 축고르기, 묶어세기, 기록세기, 셀것, 답하기 } from '../modules/messenger/ai.js';
 
 let n = 0;
 const T = async (why, fn) => { try { await fn(); n++; } catch (e) { console.error('✗', why); throw e; } };
@@ -122,6 +122,26 @@ await T('못 읽으면 조용히 빼지 않고 오류를 남긴다', async () =>
   const fb = { ...가짜fb([]), getCountFromServer: async () => { throw new Error('permission-denied'); } };
   const [r] = await 기록세기('CAR 몇 건', fb);
   assert.ok(/permission/.test(r.오류));
+});
+
+// ── 너무 큰 요청은 줄여서 다시(2026-09-25 groq 413) ─────────────────────
+await T('413 이면 맥락을 줄여 같은 모델로 다시 보낸다 — 맥락 뒤(검색 조각)부터 빠진다', async () => {
+  const 보낸몸 = [];
+  const 원fetch = globalThis.fetch;
+  globalThis.fetch = async (url, o) => {
+    const b = JSON.parse(o.body); 보낸몸.push({ url, 시스템길이: b.messages[0].content.length, 앞말: b.messages.length - 2 });
+    if (보낸몸.length === 1) return { ok: false, status: 413, json: async () => ({ error: { message: 'Request too large for model on tokens per minute (TPM): Limit 8000, Requested 8237' } }) };
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '재료비 총액은 …' } }] }) };
+  };
+  try {
+    const 히스토리 = Array.from({ length: 10 }, (_, i) => ({ role: i % 2 ? 'ai' : 'user', text: '앞말 ' + i }));
+    const r = await 답하기({ 질문: '작년 견적 재료비 총액', 히스토리, 맥락: '표 결과 '.repeat(2000) + '검색 조각 '.repeat(2000), 권한: {}, fb: { auth: { currentUser: { getIdToken: async () => 't' } } } });
+    assert.equal(r.text, '재료비 총액은 …');
+    assert.equal(보낸몸.length, 2, '한 번 줄여서 다시');
+    assert.ok(보낸몸[1].url === 보낸몸[0].url, '같은 모델로 — 다음 회사로 넘기지 않는다');
+    assert.ok(보낸몸[1].시스템길이 < 보낸몸[0].시스템길이 * 0.8, '지침(맥락 포함)이 줄었다');
+    assert.ok(보낸몸[1].앞말 <= 4 && 보낸몸[0].앞말 > 4, '앞 대화도 넷까지만');
+  } finally { globalThis.fetch = 원fetch; }
 });
 
 console.log(`data-agent 테스트 ${n}개 전체 통과 (의도 가르기 · 기간 · 묶어 세기 · 읽기 길)`);
