@@ -378,3 +378,22 @@ export function 읽을사람(ch, users, projects) {
     default: return null;
   }
 }
+
+// ── 출처 칩 ───────────────────────────────────────────────────────────
+// 칩 한 줄에 보일 이름. 색인 docName 은 "[자동] CAR CAR-2026-002 — 현행요건 : …" 처럼 길다 → 알아볼 데까지만.
+// 2026-09-25: 회의록은 id 가 문서 자동 id 라 "회의록 mmu9xp1p5f9n3" 로 나왔다 — 사람이 못 읽는다.
+//   id 가 사람 번호(NCR-2026-001 처럼 '-' 나 한글이 든 것)가 아니면 제목을 보여 준다.
+export function 출처이름(s) {
+  const 원 = String(s || '').replace(/^\[자동\]\s*/, '');
+  const [앞, ...뒤] = 원.split('—');
+  let t = 앞.trim();
+  const m = /^(\S+)\s+([A-Za-z0-9]{12,})$/.exec(t);
+  if (m && 뒤.length && 뒤.join('—').trim()) t = m[1] + ' ' + 뒤.join('—').trim();
+  return t.length > 26 ? t.slice(0, 26) + '…' : t;
+}
+// 답에 붙일 근거. **행위 카드(제안)가 있는 답에는 안 붙인다** — 카드는 무엇이 바뀌는지를 보여 주는 것이고,
+//   검색이 곁들여 가져온 문서는 그 근거가 아니다(9/25 실물: "RT 검사 입회 일정 넣어줘" 밑에 회의록·카톡 파일 칩).
+export function 근거칩(문서들, 표줄, 제안) {
+  if (제안) return [];
+  return [...new Set([...(문서들 || []).map((m) => m.docName), ...(표줄 || []).map((r) => r._파일)].filter(Boolean))].slice(0, 4);
+}

@@ -20,9 +20,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b101';
-import * as L from './lib.js?v=b101';
-import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b101';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b102';
+import * as L from './lib.js?v=b102';
+import { AI_CID, AI_UID, AI_컬렉션, 기록세기, 길설명빼기, 답하기, 사내문서, 세는질문인가, 실행뽑기, 영수증읽기, 영수증파일올리기, 표묻기, 화면고르기 } from './ai.js?v=b102';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -53,7 +53,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b101';
+const 빌드 = 'b102';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1041,8 +1041,8 @@ function 제안달기(m) {
 function 출처달기(m) {
   // 색인의 docName 은 "[자동] CAR CAR-2026-002 — 현행요건 : 기술부 내부 …" 처럼 본문까지 붙어 길다.
   // 말풍선 아래 한 줄이라 앞부분(문서를 알아볼 수 있는 데까지)만 남긴다.
-  const 짧게 = (s) => { const t = String(s).split('—')[0].replace(/^\[자동\]\s*/, '').trim(); return t.length > 26 ? t.slice(0, 26) + '…' : t; };
-  const src = [...new Set((Array.isArray(m.sources) ? m.sources : []).filter(Boolean).map(짧게))].slice(0, 3);
+  if (m.제안) return '';   // 행위 카드 답 — 9/25 이전에 저장된 것도 칩을 안 그린다(L.근거칩 참고)
+  const src = [...new Set((Array.isArray(m.sources) ? m.sources : []).filter(Boolean).map(L.출처이름))].slice(0, 3);
   if (!src.length) return '';
   return `<div class="sjm-md-src" title="${esc((m.sources || []).join('\n'))}">${ICON.file}<span>${src.map((x) => esc(x)).join(' · ')}</span></div>`;
 }
@@ -1709,7 +1709,7 @@ async function AI에게묻기(질문) {
     //   짧은 기록 한 건은 긴 규격 조각만큼 점수가 안 나온다. kind 가 붙은 것은 낮은 문턱을 쓴다.
     const 쓸만한 = 문서.filter((m) => (m.score || 0) >= (m.kind ? 볼트문턱 : 근거문턱));
     const 그림 = [];
-    for (const m of 쓸만한) {
+    for (const m of (제안 ? [] : 쓸만한)) {   // 행위 카드 답에는 그림도 안 붙인다(L.근거칩 참고)
       for (const g of (m.images || [])) {
         if (그림.length < 2 && !그림.some((x) => x.url === g.url)) 그림.push(g);
       }
@@ -1718,10 +1718,7 @@ async function AI에게묻기(질문) {
       ...(제안 ? { 제안: plain(제안) } : {}),
       // 표에서 센 것이면 **그 수가 어느 파일에서 나왔는지**도 칩으로 단다.
       // 수는 정확해도 출처가 없으면 사람이 확인할 수가 없다.
-      sources: [...new Set([
-        ...쓸만한.map((m) => m.docName),
-        ...(표 && 표.줄 ? 표.줄.map((r) => r._파일).filter(Boolean) : []),
-      ].filter(Boolean))].slice(0, 4),
+      sources: L.근거칩(쓸만한, 표 && 표.줄, 제안),
       ...(그림.length ? { 그림 } : {}), ...(갈곳.length ? { 화면: 갈곳 } : {}), ...(표 && 표.줄 && 표.줄.length ? { 표: { sql: 표.sql || '', 줄: 표.줄.slice(0, 200) } } : {}), at: nowStamp(), createdAt: Date.now() });
   } catch (e) {
     // warn 이지 error 가 아니다: 여기 오는 건 "한도 초과·로그인 만료·시간 초과" 처럼 늘 있을 수 있는 일이고,

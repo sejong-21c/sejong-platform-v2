@@ -192,6 +192,13 @@ const R = (ch) => L.읽을사람(ch, 직원, 프로젝트);
 확인('빈 부서방도 안 박는다', R({ id: 'dept_x', type: 'dept', name: '해외사업부' }), null);
 
 // 보내는 길이 셋(글·파일·시스템)인데 하나라도 빠뜨리면 그 메시지만 나중에 안 보인다.
+// 출처 칩(2026-09-25) — 행위 카드 답엔 안 붙이고, 무작위 id 는 제목으로
+확인('칩 이름: NCR 번호는 그대로', L.출처이름('[자동] NCR SJ-NCR-2026-22 — 용접부 기공'), 'NCR SJ-NCR-2026-22');
+확인('칩 이름: 무작위 id 회의록은 제목으로', L.출처이름('[자동] 회의록 mmu9xp1p5f9n3 — 주간 품질회의'), '회의록 주간 품질회의');
+확인('칩 이름: 제목이 없으면 id 라도', L.출처이름('[자동] 회의록 mmu9xp1p5f9n3'), '회의록 mmu9xp1p5f9n3');
+확인('칩 이름: 긴 것은 26자', L.출처이름('ASME BPVC Section VIII Division 1 Mandatory Appendix').length, 27);
+확인('근거칩: 행위 카드가 있으면 비운다', L.근거칩([{ docName: '회의록 x' }], [{ _파일: 'a.xls' }], { 행위: '일정등록' }).length, 0);
+확인('근거칩: 없으면 문서·표 파일, 겹침 없이 넷까지', JSON.stringify(L.근거칩([{ docName: 'A' }, { docName: 'A' }, { docName: 'B' }], [{ _파일: 'c.xls' }, {}], null)), '["A","B","c.xls"]');
 const 앱소스 = (await import('node:fs')).readFileSync(new URL('../modules/messenger/messenger.js', import.meta.url), 'utf8');
 확인('보내는 길 셋이 전부 readers 를 박는다', (앱소스.match(/읽을사람박기\(/g) || []).length, 4);   // 정의 1 + 부르는 곳 3
 
