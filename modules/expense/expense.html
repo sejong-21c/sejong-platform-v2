@@ -1315,6 +1315,10 @@ async function 맥인식() {
         card_partial: '',
         _맥: true,
         _후보: (j.금액후보 || []).map((c) => c.총금액),
+        // **몇 번째 파일인지 적는다.** ✂ 조정(openBboxModal·applyBboxAdjustment)이 이걸로 원본을 찾는데,
+        //   없으면 늘 첫 파일을 열어 **남의 영수증 그림으로 갈아 끼웠다**(2026-09-26 헤드리스 재현).
+        //   실패한 장은 결과에서 빠지니 결과 번호로는 못 찾는다 — 파일 번호 i 를 그대로 둔다.
+        source_index: i,
         receipt: { name: f.name || `영수증_${i + 1}`, data: f.data, mime: f.mime || 'image/jpeg', isPdf: !!f.isPdf },
       });
     }
