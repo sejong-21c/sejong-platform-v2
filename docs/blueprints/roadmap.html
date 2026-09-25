@@ -42,16 +42,16 @@
 <body>
 <div class="wrap">
   <h1>세종 AI 로드맵 — 연말 시연회까지</h1>
-  <p class="sub">2026-09-25 밤 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
+  <p class="sub">2026-09-26 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
 
   <div class="lead">
     <b>지금 어디까지 왔나.</b> 직원 개방 세 칸(사용자별 장부 · 개인 API 열쇠 · 개인 구독 연결)이 다 찼다.
     직원은 메신저 AI 비서로 플랫폼을 말로 고치고(행위 열하나 — 캘린더 일정·부서 스케줄까지), 자기 Claude·ChatGPT 로
     회사 규격·NAS 파일과 원본을 <b>자기 부서 범위</b>에서 찾아 읽는다(개인 자료 폴더는 본인만). 백업은 사본 셋(맥 · 드라이브 · R2), 맥 백업은 매일 전체 대조.
-    남은 큰 줄기는 <b>연말 유료 전환 판단</b>이고, ChatGPT 확인은 회사 GPT 계정을 산 뒤 <b>맨 끝</b>에 한다. "NCR 원인별로" 같은 수치 질문은 이제 표·차트로 답한다. 작업 기록은 매달 1일 저절로 떼어 낸다. 옛 한글·워드·엑셀 문서도 이제 읽는다.
+    AI 사용량은 이제 <b>게이트웨이 장부 하나</b>가 기능·모델·413·한도·토큰까지 센다(연말 판단 재료). 옛 파워포인트까지 옛 형식은 전부 읽는다.<br><b>남은 가장 큰 일은 직원 실사용이다</b> — 9/26 점검: 계정 12개 중 AI 방에 물어본 사람 2명, 개인 Claude 연결 1명(부장님). 그다음이 <b>연말 유료 전환 판단</b>이고, ChatGPT 확인은 회사 GPT 계정을 산 뒤 <b>맨 끝</b>에 한다. "NCR 원인별로" 같은 수치 질문은 이제 표·차트로 답한다. 작업 기록은 매달 1일 저절로 떼어 낸다. 옛 한글·워드·엑셀 문서도 이제 읽는다.
   </div>
 
-  <h2>9/22 ~ 9/25 에 마친 것 <span class="chip done">기록</span></h2>
+  <h2>9/22 ~ 9/26 에 마친 것 <span class="chip done">기록</span></h2>
   <div class="item"><div class="row"><span class="t">직원 개방 ③ 개인 구독 연결(BYO)</span><span class="chip done">완료 · 인수 통과</span></div>
     <div class="d">파이스 MCP 창구에 OAuth(플랫폼 로그인) · 사람마다 자기 부서 범위 · 흐름을 시작한 브라우저에서만 허용 · 토큰 해시 저장 · 이용 기록(누가·언제·어느 도구, 물은 말은 안 남김).
     부장님 claude.ai 로 끝까지 확인. 주소 <code>pais.sejong21c.com/mcp</code>, 안내는 플랫폼 설정 › 🔌 내 Claude·ChatGPT 연결.</div></div>
@@ -88,6 +88,30 @@
 
   <div class="item"><div class="row"><span class="t">12. 저장소 설정 파일 맞추기</span><span class="chip done">완료 9/25</span><span class="who">맥 · 밤 채점 설정 갈래</span></div>
     <div class="d">저장소의 백업 launchd 설정이 아직 02:30 — 실제는 17:20. 파이스가 이 파일을 읽고 판단하니 맞춘다.<br><b>9/25 완료</b> — 백업이 저장소 스크립트를 직접 부르게(밖 사본 은퇴) · 파이스 일감 plist 6개를 실물 그대로 · 어긋나면 밤 채점이 잡는다.</div></div>
+  <div class="item"><div class="row"><span class="t">13. AI 사용량 장부 하나로</span><span class="chip done">완료 9/26</span><span class="who">관문 v5.3 · b108</span></div>
+    <div class="d">옛 장부(aiUsage)는 브라우저 AI 비서만 적어 메신저를 통째로 못 봤고, 게이트웨이 장부는 호출 수 하나뿐이었다.<br><b>9/26 완료</b> — 호출마다 <b>기능</b>(메신저 대화·표 질문 SQL·회의록·CAR·품질 보고서) · 제공자·모델 · <b>결과</b>(413 · 제공자 429 · 하루 한도) · <b>토큰</b>(회사 몫 / 개인 열쇠 따로)을 같은 줄에. 관리 › AI 사용량이 이것만 읽는다(5분 쥐고 있음). 실물: 메신저 꼴 호출 1건 → 입력 78 · 답 20 토큰이 제공자 usage 와 똑같이 붙었다. 적대 검토에서 잡은 것: 긴 스트림 토큰 세기 CPU 341ms → 1.9ms(무료 워커 10ms 에 답이 끊길 뻔) · 장부 쓰기가 던지면 AI 전체가 죽던 구멍(v3.9 부터). 밤 채점이 올라간 게이트웨이의 CORS 까지 대조한다.</div></div>
+
+  <div class="item"><div class="row"><span class="t">14. 옛 파워포인트(.ppt) 읽기</span><span class="chip done">완료 9/26</span><span class="who">무료 · 맥</span></div>
+    <div class="d">옛 형식 중 마지막 남은 것. <b>9/26 완료</b> — 레코드를 직접 푸는 작은 해석기(olefile). 실물: 원자력 교안 6벌 30~53장 · 한 벌 46~94ms, 직원 원본 읽기(개인 Claude)로 끝까지 확인. 실물에서 잡은 것: 교안은 글이 전부 자리 밖 글상자 · 노트 마스터 틀 글이 노트에 섞임. <b>곁가지로 찾은 조용한 고장</b>: 맥에서만 셀프체크 1건이 9/25 아침부터 실패해 자동 되돌리기 기준점(last-good)이 멈춰 있었다 → 고치고 밤 채점이 매일 본다.</div></div>
+
+  <div class="item"><div class="row"><span class="t">15. 시연 준비 ① — AI 방 첫 화면 · 준비 점검</span><span class="chip done">완료 9/26</span><span class="who">b109</span></div>
+    <div class="d">처음 여는 직원에게 "등록·수정은 플랫폼에서 하세요"(b84 뒤로 틀린 말)가 떴다 → 라이브에서 돌려 본 질문 보기 여섯(누르면 입력칸에) · 카드로 제안·「실행」은 내가 · 내 Claude 연결 위치. 점검(맥 백업 사본, 읽기 0): 계정 12 · 14일 안 접속 6 · AI 방에 물어본 사람 2 · 개인 Claude 연결 1.</div></div>
+
+  <div class="item"><div class="row"><span class="t">16. 직원 실사용 — 2~3명 한 주</span><span class="chip next">다음</span><span class="who">부장님 공지 · 제가 장부로 확인</span></div>
+    <div class="d">시연 그림이 "직원 여럿이 쓰는 모습"이다. 최근 접속·부서로 본 후보: 품질관리부 두 분(한 분은 이미 2건 물어봄) · 기술부 한 분(부서 파일·규격). 공지 초안은 준비돼 있다. 한 주 뒤 게이트웨이 장부(기능·결과·토큰)와 이용 기록으로 무엇을 묻고 어디서 막혔는지 본다 — 막힌 질문이 다음 일감이 된다.</div></div>
+
+  <div class="item"><div class="row"><span class="t">17. 개인 Claude 연결 — 1시간 뒤에도 붙어 있나</span><span class="chip next">다음</span><span class="who">claude.ai 에서 한 번 써 보기 · 10분</span></div>
+    <div class="d">9/26 관찰: 부장님 OAuth 커넥터가 출입 토큰(1시간) 만료 뒤 "서버 오류" 만 내고 <b>갱신 요청이 서버에 안 왔다</b>. 서버는 401 + 안내를 제대로 준다. 직원에게 권하기 전에 claude.ai 웹에서 한 번 써서 갱신이 되는지 본다 — 이제 갱신·실패가 이용 기록에 남는다. 안 되면 원인을 찾고(재연결 안내 또는 토큰 수명), 되면 직원 안내에 그대로.</div></div>
+
+  <div class="item"><div class="row"><span class="t">18. 옛 형식 파일 카드에도 요약</span><span class="chip next">후보</span><span class="who">맥 · 밤 배치 · 무료</span></div>
+    <div class="d">파일 카드 217만 장 중 옛 형식(.hwp·.doc·.xls·.ppt)은 색인 때 요약을 건너뛰었다(그땐 못 읽었다). 이제 읽으니 밤마다 조금씩 요약을 채우면 "내용 요약 없음" 카드가 줄고 검색이 본문으로 걸린다. 원본 읽기는 이미 되니 급하지 않다.</div></div>
+
+  <div class="item"><div class="row"><span class="t">19. 10/1 작업 기록 첫 자동 정리 확인</span><span class="chip next">10/1</span><span class="who">17:50 · 제 몫</span></div>
+    <div class="d">보관본 셋(맥·R2·드라이브) → 대조 → 지우기가 처음 실전으로 돈다. 그날 로그와 DB 건수를 본다.</div></div>
+
+  <div class="item"><div class="row"><span class="t">20. 연말 판단 보고서</span><span class="chip later">자료가 2주 쌓인 뒤</span><span class="who">맥 · 백업 사본 · 읽기 0</span></div>
+    <div class="d">장부가 9/26 부터 기능·결과·토큰을 센다. 두 주 뒤 맥 백업 사본에서 하루 호출·토큰·413 비율·한도 걸린 사람·기능별 몫을 뽑아 "유료 모델로 가나 · 얼마나 드나" 한 장으로.</div></div>
+
   <div class="item"><div class="row"><span class="t">마지막. ChatGPT 연결 시험</span><span class="chip later">맨 끝</span><span class="who">회사 GPT 계정 구매 뒤 · 10분</span></div>
     <div class="d">Claude 는 끝까지 확인했다. ChatGPT 는 같은 표준이라 될 가능성이 높지만 아직 0건 — 안내문에 「시험 중」.<br>9/25 서버 쪽 준비 확인 — ChatGPT 콜백 등록·허용 화면 이동·메타데이터 OK. <b>남은 것은 ChatGPT 계정으로 끝까지 붙여 보는 것뿐</b>(연결하면 이용 기록으로 바로 보인다).</div></div>
 
@@ -103,6 +127,8 @@
   <ul class="plain">
     <li>시험 흔적 정리 — NCR-2026-001(SJ 계열 밖, 종결·무효 표시됨) · [시험] 업무·메모 문서: 둘지 지울지</li>
     <li><s>직원 원본 읽기의 범위</s> — <b>9/25 결정: 개인 자료 폴더는 본인만</b>(super 도 예외 없음), 나머지는 부서 범위</li>
+    <li>직원 실사용 대상 2~3명 고르기 · 공지 올리기(초안 준비됨)</li>
+    <li>pvcalc 외형도 DXF 를 AutoCAD·ZWCAD 로 한 번 열어 보기(아직 실제 CAD 로 안 열어 봄)</li>
     <li>유료 모델 · Blaze — 연말</li>
   </ul>
 
