@@ -357,6 +357,10 @@ mark.sjm-mark.is-current { background: #fb923c; color: #fff; }
 .sjm-day.sjm-readmark { background: transparent; color: #98a2b3; font-size: 11.5px; border-top: 1px solid var(--line); border-radius: 0; width: 100%; text-align: center; padding-top: 6px; margin-top: 10px; }
 .sjm-day.sjm-edge { background: transparent; color: #98a2b3; font-size: 11.5px; }
 .sjm-room-blank { color: rgba(0,0,0,.5) !important; margin: auto; }
+/* b109: AI 방 첫 화면 보기 — 누르면 입력칸에 채운다. 좁은 폰에서도 줄바꿈해 다 보인다 */
+.sjm-ai-ex { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 440px; margin: 14px auto 2px; }
+.sjm-ai-ex .sjm-chip { background: #fff; color: var(--text-2); cursor: pointer; font-size: 12.5px; }
+.sjm-ai-ex .sjm-chip:hover { border-color: var(--text-3); color: var(--text); }
 /* 말풍선 꼬리 — 묶음의 첫 말풍선에만 */
 .sjm-msg.is-first:not(.is-system) .sjm-bubble:not(.is-img):not(.is-file)::before { content: ''; position: absolute; top: 8px; border: 6px solid transparent; }
 .sjm-msg.is-first:not(.is-me):not(.is-system) .sjm-bubble:not(.is-img):not(.is-file)::before { left: -10px; border-right-color: var(--bubble-you); }

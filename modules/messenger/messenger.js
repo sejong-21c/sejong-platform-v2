@@ -20,9 +20,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b108';
-import * as L from './lib.js?v=b108';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 답하기, 사내문서, 실행뽑기, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b108';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b109';
+import * as L from './lib.js?v=b109';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 답하기, 사내문서, 실행뽑기, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b109';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -53,7 +53,7 @@ window.fb = {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b108';
+const 빌드 = 'b109';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1119,7 +1119,7 @@ function renderMessages내부(강제) {
   if (경계) html += `<div class="sjm-day sjm-edge">${경계}</div>`;
   if (!msgs.length) {
     const 빈 = ch.type === 'dm' ? `${esc(방이름(ch))}님과 대화를 시작해 보세요.` : ch.type === 'announce' ? '회사 소식과 공지가 올라오는 곳입니다.'
-      : ch.type === 'ai' ? 'AI 비서입니다. 사내 문서·프로젝트·업무를 물어보세요.<br><span class="sjm-note">보이는 범위는 내 권한을 따릅니다. 등록·수정은 플랫폼에서 하세요.</span>'
+      : ch.type === 'ai' ? AI첫화면()
       : ch.type === 'dept' ? `${esc(ch.name)} ${방멤버(ch).length}명이 함께하는 채팅방입니다.` : ch.type === 'project' ? `${esc(ch.name)} 프로젝트 채팅방입니다.` : '첫 메시지를 남겨 보세요.';
     html += `<div class="sjm-empty sjm-room-blank">${빈}</div>`;
   } else {
@@ -1504,6 +1504,26 @@ async function logout() {
 //   ① 대화가 messages 가 아니라 t_aiChat 에 쌓인다(본인만 읽고 쓴다 — ai.js 머리말 참고)
 //   ② 보내면 상대가 사람이 아니라 게이트웨이다
 //   ③ 답에 표·글머리표가 있어서 말풍선이 서식을 그린다(lib.js 서식)
+
+// b109(2026-09-26, 시연 준비): AI 방을 처음 여는 직원에게 **무엇을 물으면 되는지.** 전 첫 화면은
+//   "등록·수정은 플랫폼에서 하세요" 였다 — b84 부터 AI 가 등록·수정을 카드로 **제안**하고 사람이 「실행」을 누르니 틀린 안내가 첫인상이었다.
+//   보기는 라이브에서 돌려 본 질문만 넣는다(9/25~26: NCR 원인별 22건 · 교정 만료 14 · 지연 공정 184 · 일정등록 카드).
+//   누르면 입력칸에 채울 뿐 바로 보내지 않는다 — 자기 프로젝트·날짜로 고쳐 물을 수 있게.
+const AI보기 = [
+  '올해 NCR 원인별로 세어 줘',
+  '교정 만료된 측정기구 몇 개야?',
+  '지연된 공정 프로젝트별로 알려 줘',
+  '압력용기 수압시험 압력 기준은?',
+  '내 이번 주 업무 뭐 있어?',
+  '다음 주 화요일 10시에 품질회의 일정 잡아 줘',
+];
+function AI첫화면() {
+  return 'AI 비서입니다. 회사 기록·규격·NAS 파일·내 업무를 물어보세요.'
+    + `<div class="sjm-ai-ex">${AI보기.map((q) => `<button type="button" class="sjm-chip" data-act="ai-ex" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`
+    + '<span class="sjm-note">보이는 범위는 내 권한을 따릅니다. 일정·업무 등록은 AI 가 카드로 제안하고 「실행」은 내가 누릅니다.<br>'
+    + '영수증 사진을 올리면 경비 내역으로 정리해 줍니다. 내 Claude·ChatGPT 에서도 쓰려면 — 플랫폼 오른쪽 위 내 이름 › 🔌 내 Claude·ChatGPT 연결.</span>';
+}
+
 function 내권한() {
   const u = 나();
   return { ...L.AI권한(u), 이름: u.name || '', 직급: u.title || '' };
@@ -1871,6 +1891,7 @@ function 행동(el) {
       if (ui.cid === AI_CID) { openSheet(`<div class="sjm-sheet-title">AI 비서</div>${항목('ai-clear', ICON.refresh, '새 대화 (지금까지 대화 지우기)', '', 'is-danger')}<button class="sjm-sheet-cancel" data-act="sheet-close">취소</button>`); break; }
       renderDrawer(); break;
     case 'ai-clear': closeSheet(); AI대화지우기(); break;
+    case 'ai-ex': { const i = $('#msgInput'); if (i) { i.value = el.dataset.q || ''; 입력높이(i); 전송준비표시(); i.focus(); } break; }   // b109 첫 화면 보기
     case 'drawer-close': closeDrawer(); break;
     case 'invite': closeDrawer(); 초대하기(el.dataset.cid); break;
     case 'leave': leaveChannel(el.dataset.cid); break;
