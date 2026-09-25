@@ -464,6 +464,9 @@ await 돌('부서스케줄 — 권한 없는 부서·거꾸로 된 기간·없�
   assert.ok((await W.AI행위풀기('부서스케줄', { 업무: 'x', 시작일: '2026-10-01', 담당: '없는사람' })).안됨);
   globalThis.부서권한 = () => false;
   assert.ok(!W.AI행위목록().some((x) => x.이름 === '부서스케줄'), '어느 부서도 못 고치면 목록에서 빠진다');
+  const 원 = state.currentUser; state.currentUser = null;
+  assert.ok(!W.AI행위목록().some((x) => x.이름 === '일정등록'), '로그아웃이면 일정등록도 빠진다 — getU(null) 은 {} 다');
+  state.currentUser = 원;
   globalThis.부서권한 = undefined;
   delete state.currentUserObj.dept;
 });
