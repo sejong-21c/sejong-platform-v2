@@ -396,10 +396,16 @@ async function 한번부르기(p, sys, 히스토리, 질문, auth) {
 //   세는 건 Firestore 가 직접 한다. getCountFromServer 는 문서를 안 받고 수만 받으므로
 //   컬렉션당 읽기 **1회**다. (전 컬렉션을 훑다가 무료 하루 5만 읽기를 태운 적이 있다 — 2026-09-18)
 // 권한: 보안 규칙이 그대로 걸린다. 못 읽는 컬렉션은 예외가 나고 그 줄만 조용히 빠진다.
+// 축: 묶어 셀 칸. [칸, 이름표] 면 값을 화면과 같은 말로 바꾼다(ncr.html NCR_GRADE · car.html CAR_STATUS 와 같은 것).
+const NCR등급 = { major: '중대', minor: '일반', obs: '경미' };
+const NCR상태 = { open: '진행중', closed: '종결' };
+const CAR상태 = { 'in-progress': '조치중', closed: '완료' };
 export const 셀것 = [
-  { 이름: '부적합(NCR)', 컬렉션: 't_ncrs', 날짜: 'issuedAt', 별칭: ['ncr', '부적합', '부적합보고서'] },
-  { 이름: '시정조치(CAR)', 컬렉션: 't_cars', 날짜: 'issuedAt', 별칭: ['car', '시정조치', '시정조치요구서'] },
-  { 이름: '회의록', 컬렉션: 'meetingMinutes', 날짜: 'date', 별칭: ['회의록'] },
+  { 이름: '부적합(NCR)', 컬렉션: 't_ncrs', 날짜: 'issuedAt', 별칭: ['ncr', '부적합', '부적합보고서'],
+    축: { 원인: 'cause', 세부원인: 'causeDetail', 처리: 'disposition', 장소: 'location', 업체: 'vendor', 프로젝트: 'proj', 등급: ['grade', NCR등급], 상태: ['status', NCR상태] } },
+  { 이름: '시정조치(CAR)', 컬렉션: 't_cars', 날짜: 'issuedAt', 별칭: ['car', '시정조치', '시정조치요구서'],
+    축: { 원인: 'cause', 분야: 'field', 조항: 'qualReq', 상태: ['status', CAR상태] } },
+  { 이름: '회의록', 컬렉션: 'meetingMinutes', 날짜: 'date', 별칭: ['회의록'], 축: { 부서: 'dept' } },
   { 이름: '회의실 예약', 컬렉션: 'meetingReservations', 날짜: 'date', 별칭: ['회의실예약', '회의예약'] },
   { 이름: '측정기구', 컬렉션: 'measurementTools', 별칭: ['측정기구', '계측기', '측정기'] },
   { 이름: '측정기구 반출입', 컬렉션: 'measurementCheckouts', 별칭: ['반출입', '반출', '반입'] },
@@ -419,24 +425,124 @@ function 연도뽑기(질문) {
   return null;
 }
 
-/** 질문에 나온 기록 종류를 골라 **Firestore 에서 직접 센다.** 세는 질문이 아니면 부르지 않는다. */
-export async function 기록세기(질문, fb) {
+// ── ② 의도 가르기 (2026-09-25) ─────────────────────────────────────────────
+// 전에는 모든 질문에 문서 검색을 돌리고, 세는 말이 있으면 NAS 표 SQL 과 플랫폼 기록 세기를 **둘 다** 돌렸다.
+//   "올해 NCR 몇 건" 에 NAS 엑셀에서 센 수와 플랫폼에서 센 수가 같이 들어가면 모델은 아무거나 고른다.
+//   그래서 먼저 가른다: 플랫폼 기록(NCR·CAR·회의록…)을 가리키며 세거나 나누면 '기록', 그 밖에 세면 '표',
+//   아니면 '찾기'. 고치기(행위)는 모델이 목록을 보고 고른다 — 여기서 가르지 않는다.
+//   글자 규칙이라 모델 호출이 하나도 안 는다. 틀리면 무엇으로 갈렸는지 답에 남는다(m.갈래).
+// 축 부르는 말 — 공백을 다 뺀 질문에 "<말>별·마다·로 나눠·분포·비중" 이 붙어 있나 본다. 세부원인이 원인보다 먼저.
+const 축말 = { 세부원인: ['세부원인', '상세원인'], 원인: ['원인'], 처리: ['처리', '처분', '처리방법'], 장소: ['장소', '발생장소', '발생위치'],
+  업체: ['업체', '협력사', '공급사'], 프로젝트: ['프로젝트', '공사'], 등급: ['등급'], 상태: ['상태', '진행상황'],
+  분야: ['분야'], 조항: ['조항', '요구사항'], 부서: ['부서'] };
+const 축꼬리 = '(별|마다|로나눠|로나누어|로묶어|분포|비중|비율)';
+const 시간축말 = { 월: /월별|달별|매달|월간|월마다|추이/, 분기: /분기별|분기마다/, 연도: /연도별|년도별|해마다|연별/ };
+
+/** 질문에서 묶을 축 하나. 그 기록에 없는 축이면 안 고른다. 없으면 null(건수만). */
+export function 축고르기(질문, s) {
+  const g = String(질문 || '').replace(/\s+/g, '');
+  for (const [축, 말들] of Object.entries(축말)) {
+    if (!s || !s.축 || !s.축[축]) continue;
+    if (말들.some((w) => new RegExp(w + 축꼬리).test(g))) return 축;
+  }
+  if (s && s.날짜) for (const [축, 말] of Object.entries(시간축말)) if (말.test(g)) return 축;
+  return null;
+}
+
+/** 기간 — 올해·작년·2025년 · 이번/지난 분기 · N분기 · 상/하반기 · 이번 달/지난달/N월. 없으면 null(전체). */
+export function 기간뽑기(질문, 지금 = new Date()) {
+  const q = String(질문 || '');
+  const 올 = 지금.getFullYear(), 이달 = 지금.getMonth() + 1, 분기 = Math.ceil(이달 / 3);
+  const 해 = 연도뽑기(q);
+  const y = Number(해 || 올);
+  const 두 = (n) => String(n).padStart(2, '0');
+  const 범위 = (yy, m1, m2, 말) => ({ 시작: `${yy}-${두(m1)}-01`, 끝: `${yy}-${두(m2)}-${두(new Date(yy, m2, 0).getDate())}`, 말 });
+  let m;
+  if (/이번\s*분기|금\s*분기/.test(q)) return 범위(올, 분기 * 3 - 2, 분기 * 3, `${올}년 ${분기}분기`);
+  if (/지난\s*분기|전\s*분기|저번\s*분기/.test(q)) {
+    const p = 분기 === 1 ? 4 : 분기 - 1, yy = 분기 === 1 ? 올 - 1 : 올;
+    return 범위(yy, p * 3 - 2, p * 3, `${yy}년 ${p}분기`);
+  }
+  if ((m = q.match(/([1-4])\s*분기/))) return 범위(y, +m[1] * 3 - 2, +m[1] * 3, `${y}년 ${m[1]}분기`);
+  if (/상반기/.test(q)) return 범위(y, 1, 6, `${y}년 상반기`);
+  if (/하반기/.test(q)) return 범위(y, 7, 12, `${y}년 하반기`);
+  if (/이번\s*달|이달|금월/.test(q)) return 범위(올, 이달, 이달, `${올}년 ${이달}월`);
+  if (/지난\s*달|저번\s*달|전월/.test(q)) {
+    const mm = 이달 === 1 ? 12 : 이달 - 1, yy = 이달 === 1 ? 올 - 1 : 올;
+    return 범위(yy, mm, mm, `${yy}년 ${mm}월`);
+  }
+  if ((m = q.match(/(?:^|[^0-9])(1[0-2]|[1-9])\s*월(?!\s*별)/))) return 범위(y, +m[1], +m[1], `${y}년 ${+m[1]}월`);
+  if (해) return 범위(y, 1, 12, `${y}년`);
+  return null;
+}
+
+export function 의도가르기(질문) {
+  const g = 다듬(질문);
+  const 대상 = 셀것.filter((s) => s.별칭.some((a) => g.includes(다듬(a))));
+  const 축 = 대상.length ? 축고르기(질문, 대상[0]) : null;
+  const 셈 = 세는질문인가(질문) || !!축;
+  if (대상.length && 셈) return { 갈래: '기록', 대상: 대상.slice(0, 3), 축, 기간: 기간뽑기(질문) };
+  if (셈) return { 갈래: '표' };
+  return { 갈래: '찾기' };
+}
+
+// ── ③ 묶어 세기 ─────────────────────────────────────────────────────────────
+// 9/24 AI 행위 시험으로 만든 NCR-2026-001 · CAR-2026-011 은 '[시험 발행 — 무효]' 로 남겼다 — 세면 안 된다
+//   (플랫폼 ai-assistant.js SJP_isVoidTest · 파이스 platform_sync.js 와 같은 표시).
+const 무효시험 = (d) => { try { return JSON.stringify(d).includes('[시험 발행 — 무효]'); } catch (e) { return false; } };
+const 시간자리 = { 월: 7, 연도: 4 };
+
+/** 받은 기록 문서 → { 수, 뺀것, 줄 }. 줄은 [{<축>: 값, 건수}] — 시간 축은 때 순, 나머지는 많은 순. 순수 함수. */
+export function 묶어세기(문서들, s, 축, { 프로젝트이름 = null } = {}) {
+  const 쓸것 = (문서들 || []).filter((d) => d && !무효시험(d) && !String(d.id || '').startsWith('chunk__'));
+  const 뺀것 = (문서들 || []).length - 쓸것.length;
+  if (!축) return { 수: 쓸것.length, 뺀것, 줄: null };
+  const 값 = (d) => {
+    const 날 = String(d[s.날짜] || '');
+    if (축 === '분기') return 날.length >= 7 ? `${날.slice(0, 4)}년 ${Math.ceil(Number(날.slice(5, 7)) / 3)}분기` : '';
+    if (시간자리[축]) return 날.slice(0, 시간자리[축]);
+    const 정 = s.축[축];
+    const [칸, 이름표] = Array.isArray(정) ? 정 : [정, null];
+    let v = d[칸];
+    if (칸 === 'proj') v = v === '__direct__' ? ((d.meta && d.meta.projDirect) || '(직접 입력)') : (프로젝트이름 && v ? 프로젝트이름(v) : v);
+    v = String(v ?? '').trim();
+    return 이름표 && 이름표[v] ? 이름표[v] : v;
+  };
+  const 셈 = new Map();
+  for (const d of 쓸것) { const k = 값(d) || '(비어 있음)'; 셈.set(k, (셈.get(k) || 0) + 1); }
+  const 줄 = [...셈].map(([k, n]) => ({ [축]: k, 건수: n }));
+  const 시간축 = 축 === '분기' || !!시간자리[축];
+  줄.sort(시간축 ? (a, b) => String(a[축]).localeCompare(String(b[축])) : (a, b) => b.건수 - a.건수);
+  return { 수: 쓸것.length, 뺀것, 줄 };
+}
+
+// 문서를 받아 세는 상한. NCR 23 · CAR 10 · 회의록 3(2026-09-25) — 몇 해 쌓여도 한참 남는다.
+//   넘으면 건수만 센다(읽기 1). 무료 하루 5만을 AI 질문 하나가 먹게 두지 않는다.
+const 문서상한 = 300;
+
+/** 질문에 나온 기록 종류를 **Firestore 에서 직접 센다.** '기록' 갈래가 아니면 아무것도 안 읽는다.
+ *  축이 있는 기록(NCR·CAR·회의록)은 먼저 세어 보고(읽기 1) 적으면 문서를 받아 무효 시험을 빼고 축별로 묶는다. */
+export async function 기록세기(질문, fb, { 의도 = null, 프로젝트이름 = null } = {}) {
   // fb 에 getCountFromServer 가 없으면 옛 껍데기를 쓰고 있는 것이다 — 조용히 건너뛴다.
   if (!fb || typeof fb.getCountFromServer !== 'function' || !fb.db) return [];
-  const g = 다듬(질문);
-  const 고른 = 셀것.filter((s) => s.별칭.some((a) => g.includes(다듬(a)))).slice(0, 3);
-  if (!고른.length) return [];
-  const 해 = 연도뽑기(질문);
+  const 뜻 = 의도 || 의도가르기(질문);
+  if (뜻.갈래 !== '기록') return [];
   const 답 = [];
-  for (const s of 고른) {
+  for (const [i, s] of 뜻.대상.entries()) {
+    const 축 = i === 0 ? 뜻.축 : null;       // 묶기는 첫 대상만 — 여럿이면 나머지는 건수만
+    const 기간 = s.날짜 ? 뜻.기간 : null;
     try {
       const 밑 = fb.collection(fb.db, s.컬렉션);
       // 날짜는 전부 'YYYY-MM-DD' 문자열이라 한 필드 범위로 끝난다 — 복합 색인이 필요 없다.
-      const q = (해 && s.날짜)
-        ? fb.query(밑, fb.where(s.날짜, '>=', 해 + '-01-01'), fb.where(s.날짜, '<=', 해 + '-12-31'))
-        : fb.query(밑);
-      const r = await fb.getCountFromServer(q);
-      답.push({ 이름: s.이름, 수: r.data().count, 해: (해 && s.날짜) ? 해 : null });
+      const q = 기간 ? fb.query(밑, fb.where(s.날짜, '>=', 기간.시작), fb.where(s.날짜, '<=', 기간.끝)) : fb.query(밑);
+      const n = (await fb.getCountFromServer(q)).data().count;
+      const 센 = { 이름: s.이름, 수: n, 기간: 기간 ? 기간.말 : null };
+      if (s.축 && n <= 문서상한) {
+        const docs = n ? (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() })) : [];
+        const 묶 = 묶어세기(docs, s, 축, { 프로젝트이름 });
+        Object.assign(센, { 수: 묶.수, 뺀것: 묶.뺀것 }, 축 ? { 축, 줄: 묶.줄 } : {});
+      } else if (축) 센.못묶음 = `${n}건이라 ${축}별로 묶지 않았다(${문서상한}건까지만 받아 센다)`;
+      답.push(센);
     } catch (e) {
       // 권한이 없거나 컬렉션이 없다. **말없이 빼지 않는다** — 안 센 걸 사람이 알아야 한다.
       답.push({ 이름: s.이름, 오류: String(e && e.message || e).slice(0, 80) });
