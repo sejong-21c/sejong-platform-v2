@@ -64,6 +64,8 @@ let 부른열쇠 = [];    // v4.1: 그때 **어떤 열쇠**로 나갔나 — 회
 let 장부고장 = false; // v4.9: 하루 읽기 한도가 찬 날 — 장부(readDaily)부터 429
 let 목록한도 = null;  // v4.9: 이 컬렉션 목록을 받다 429 가 난다(백업 도중 한도가 차는 날)
 let 읽기고장 = false; // v4.1: Firestore 읽기 한도가 찬 날(429) 을 흉내낸다
+let 커밋던짐 = false; // v5.3: Firestore 로 가는 fetch 자체가 던지는 날(서비스 계정 토큰 실패도 같은 길)
+let 제공자답 = null;  // v5.3: null 이면 200+usage. {status:413} 이면 그 상태, {sse:true} 면 SSE 로 답한다
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -82,7 +84,29 @@ globalThis.fetch = async (input, init) => {
     부른열쇠.push(String(열).replace(/^Bearer /, ''));
     if (url.endsWith('/models')) return Response.json({ data: [] });   // v4.1: 열쇠 등록 때 한 번 불러 본다
     부른모델.push(url);
-    return Response.json({ choices: [{ message: { content: '네' } }] });
+    // v5.3: 진짜 제공자처럼 usage 를 준다. 제공자답 으로 상태(413 등)·SSE 를 흉내낸다
+    if (제공자답 && 제공자답.status) return Response.json({ error: { message: 'mock ' + 제공자답.status } }, { status: 제공자답.status });
+    if (제공자답 && 제공자답.긴sse) {   // 9/26 검토: 조각 수천 개(≈ 1MB) — 조각마다 꼬리를 다시 복사하면 CPU 가 제곱으로 는다
+      const 조각 = 'data: {"choices":[{"delta":{"reasoning":"' + '생각'.repeat(40) + '","content":"네"}}]}\n\n';
+      let k = 0;
+      const 흐름 = new ReadableStream({ pull(c) {
+        if (k < 제공자답.긴sse) { c.enqueue(new TextEncoder().encode(조각)); k++; return; }
+        c.enqueue(new TextEncoder().encode('data: {"choices":[],"x_groq":{"usage":{"prompt_tokens":900,"completion_tokens":4000}}}\n\ndata: [DONE]\n\n'));
+        c.close();
+      } });
+      return new Response(흐름, { headers: { 'Content-Type': 'text/event-stream' } });
+    }
+    if (제공자답 && 제공자답.sse) {
+      return new Response('data: {"choices":[{"delta":{"content":"네"}}]}\n\n'
+        + 'data: {"choices":[],"x_groq":{"usage":{"prompt_tokens":40,"completion_tokens":7}}}\n\ndata: [DONE]\n\n',
+      { headers: { 'Content-Type': 'text/event-stream' } });
+    }
+    return Response.json({ choices: [{ message: { content: '네' } }], usage: { prompt_tokens: 12, completion_tokens: 3 } });
+  }
+  if (url.startsWith('https://generativelanguage.googleapis.com/')) {   // v5.3: gemini 모의 — 모델이 주소에, 토큰은 usageMetadata
+    if (!url.includes(':generateContent')) return Response.json({ models: [] });
+    return Response.json({ candidates: [{ content: { parts: [{ text: '네' }] } }],
+      usageMetadata: { promptTokenCount: 20, candidatesTokenCount: 5, thoughtsTokenCount: 2 } });
   }
   if (url.startsWith('https://pais.test/')) {
     try { 맥에보낸몸 = JSON.parse(init && init.body || '{}'); } catch (e) { 맥에보낸몸 = null; }   // v5.1: 사람:<이름> 확인용
@@ -102,6 +126,13 @@ globalThis.fetch = async (input, init) => {
     //   여기서 대충 {} 를 주면 한도 시험이 통째로 헛돈다.
     if (rest === ':commit') {
       if (커밋고장) return new Response('boom', { status: 503 });
+      if (커밋던짐) throw new TypeError('network connection lost');   // 9/26: 응답이 아니라 **예외** — 잡는 곳이 없으면 1101
+      // v5.3: 진짜처럼 **필드 경로를 검사한다.** 조각이 영문·숫자·밑줄(숫자로 시작 안 함)이 아니면 400.
+      //   전에는 아무 경로나 받아 줘서 c.9router 같은 틀린 경로가 시험을 통과했을 것이다 — 실전에선
+      //   commit 이 죽고 → 장부 null → "못 세면 막지 않는다" → 하루 한도가 조용히 꺼진다.
+      const 틀린칸 = (body.writes || []).flatMap((w) => [...((w.updateMask || {}).fieldPaths || []), ...(w.updateTransforms || []).map((t) => t.fieldPath)])
+        .find((f) => !f.split('.').every((s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s)));
+      if (틀린칸) return Response.json({ error: { message: 'invalid field path: ' + 틀린칸 } }, { status: 400 });
       const 결과 = [];
       for (const w of (body.writes || [])) {
         const p = w.update.name.split('/documents/')[1];
@@ -860,6 +891,93 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   check('보관본: 사본 정리(30일)가 archive/ 는 건드리지 않는다', 정리후.status === 200 && !!(await env.BACKUP.get('archive/' + 이름)));
   env.BACKUP.put = 원put; delete env.BACKUP.head;
   delete env.MIGRATE_TOKEN;
+}
+
+// ── v5.3: 장부 하나로 — 호출 **뒤** 결과·기능·모델·토큰 ─────────────
+// 왜: 연말에 "유료로 가나" 를 이 장부로 판단한다. 호출 수만 있고 413·한도·토큰이 없으면 판단할 재료가 없다.
+//   뒤 쓰기는 ctx.waitUntil 에서 돈다 — 여기선 waitUntil 에 모인 약속을 기다린 뒤 본다.
+{
+  const 오늘 = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const 사람 = 'ledger5@sejong-21c.com';
+  const 토큰5 = await makeToken(사람);
+  const 줄 = () => fsStore['aiUsageDaily/' + 오늘 + '_u_' + 사람] || {};
+  const 수 = (f) => Number((줄()[f] || {}).integerValue || 0);
+  const 결과합 = () => Object.keys(줄()).filter((k) => k.startsWith('o.')).reduce((a, k) => a + 수(k), 0);
+  const KS = Buffer.from(wc.getRandomValues(new Uint8Array(32))).toString('base64');
+  const 부르기 = async ({ 경로 = '/v1/groq/chat/completions', 기능 = null, 한도 = 300, 몸 = { model: 'openai/gpt-oss-120b', messages: [] } } = {}) => {
+    const ps = [];
+    const h = { Authorization: 'Bearer ' + 토큰5, 'Content-Type': 'application/json' };
+    if (기능) h['x-sj-feature'] = 기능;
+    const r = await worker.fetch(new Request('https://gw.test' + 경로, { method: 'POST', headers: h, body: JSON.stringify(몸) }),
+      { ...env, GROQ_KEYS: 'testkey', GEMINI_KEYS: 'gkey', AI_DAILY_LIMIT: String(한도), KEY_SECRET: KS }, { waitUntil: (p) => ps.push(p) });
+    const 본문 = await r.text();   // 클라이언트가 **먼저** 끝까지 받는다 — 복제본이 흐름을 막으면 여기서 멈춘다
+    await Promise.all(ps);
+    return { r, 본문 };
+  };
+
+  const a = await 부르기({ 기능: 'msg_chat' });
+  check('장부 v5.3: 클라이언트는 본문을 온전히 받는다(복제본으로 토큰을 세도)', a.r.status === 200 && JSON.parse(a.본문).choices[0].message.content === '네', a.본문.slice(0, 80));
+  check('장부 v5.3: 한 줄에 기능·제공자·모델·결과·토큰이 얹힌다',
+    수('n') === 1 && 수('o.ok') === 1 && 수('f.msg_chat') === 1 && 수('c.groq') === 1 && 수('m.openai_gpt_oss_120b') === 1
+    && 수('ti.groq') === 12 && 수('to.groq') === 3, JSON.stringify(줄()));
+
+  await 부르기();
+  await 부르기({ 기능: 'Msg Chat!' });
+  check('장부 v5.3: 기능 헤더가 없으면 none, 이상한 값은 etc (마음대로 칸을 못 만든다)', 수('f.none') === 1 && 수('f.etc') === 1, JSON.stringify(줄()));
+
+  제공자답 = { status: 413 };
+  const b = await 부르기({ 기능: 'msg_chat' });
+  제공자답 = null;
+  check('장부 v5.3: 413 은 e413 으로 — 무료 한도(8천 토큰)에 걸린 횟수가 판단 재료다', b.r.status === 413 && 수('o.e413') === 1 && 수('ti.groq') === 36, JSON.stringify(줄()));
+
+  제공자답 = { sse: true };
+  const c = await 부르기({ 기능: 'assistant' });
+  제공자답 = null;
+  check('장부 v5.3: SSE 는 마지막 조각의 usage(groq x_groq)에서 센다 — 클라이언트 흐름은 그대로',
+    c.본문.includes('[DONE]') && 수('ti.groq') === 36 + 40 && 수('to.groq') === 9 + 7, `ti=${수('ti.groq')} to=${수('to.groq')}`);
+
+  await 부르기({ 경로: '/v1/gemini/models/gemini-2.5-flash:generateContent', 기능: 'msg_chat', 몸: { contents: [] } });
+  check('장부 v5.3: gemini 는 모델을 주소에서, 토큰은 usageMetadata(생각 토큰은 답 몫)',
+    수('c.gemini') === 1 && 수('m.gemini_2_5_flash') === 1 && 수('ti.gemini') === 20 && 수('to.gemini') === 7, JSON.stringify(줄()));
+
+  await 부르기({ 경로: '/v1/9router/chat/completions', 기능: 'car' });
+  check('장부 v5.3: 숫자로 시작하는 제공자(9router)도 경로가 안 깨진다 → _9router (깨지면 한도가 꺼진다)',
+    수('c._9router') === 1 && 수('o.cfg') === 1, JSON.stringify(줄()));
+
+  부른모델 = [];
+  const d = await 부르기({ 한도: 수('n') });   // 이번 호출이 한도+1 이다
+  check('장부 v5.3: 한도에 걸리면 lim 으로 — 제공자는 안 부르고 c.* 에도 안 얹는다',
+    d.r.status === 429 && 수('o.lim') === 1 && 부른모델.length === 0 && 수('c.groq') === 5, JSON.stringify(줄()));
+
+  await 부르기({ 경로: '/key/set', 몸: { 제공자: 'groq', 열쇠: 'gsk_' + 'z'.repeat(48) + 'OWN5' } });
+  const 회사ti = 수('ti.groq');
+  const e = await 부르기({ 기능: 'msg_chat', 한도: 1 });
+  check('장부 v5.3: 개인 열쇠로 나간 호출은 k 로 세고 토큰은 ki/ko — 회사 몫(ti/to)에 안 섞는다',
+    e.r.status === 200 && 수('k') === 1 && 수('ki') === 12 && 수('ko') === 3 && 수('ti.groq') === 회사ti, JSON.stringify(줄()));
+
+  const 전ti = 수('ti.groq'), 전to = 수('to.groq');
+  제공자답 = { 긴sse: 4000 };
+  const t0 = performance.now();
+  const g = await 부르기({ 기능: 'assistant' });
+  const 걸림 = performance.now() - t0;
+  제공자답 = null;
+  check('장부 v5.3: 긴 SSE(조각 4천 개 ≈ 1MB)도 끝 usage 를 찾고 클라이언트는 다 받는다',
+    g.본문.includes('[DONE]') && 수('ti.groq') === 전ti + 900 && 수('to.groq') === 전to + 4000, `ti=${수('ti.groq') - 전ti} to=${수('to.groq') - 전to}`);
+  check('장부 v5.3: 긴 SSE 에 토큰 세기가 무겁지 않다(조각마다 꼬리를 다시 복사하면 수백 ms — 무료 워커는 10ms 에 끊는다)',
+    걸림 < 400, Math.round(걸림) + 'ms(모의 스트림·Firestore 포함 전체)');
+
+  커밋던짐 = true;
+  부른모델 = [];
+  const h = await 부르기({ 기능: 'msg_chat' });
+  커밋던짐 = false;
+  check('장부 v5.3: 장부 쓰기가 **던져도**(네트워크·서비스 계정) AI 는 돈다 — 전엔 잡는 곳이 없어 1101 로 전부 죽었다',
+    h.r.status === 200 && 부른모델.length === 1, 'status=' + h.r.status);
+
+  check('장부 v5.3: Σ결과 = n — 어긋나면 뒤 쓰기가 빠진 것(관리 화면이 「기록 빠짐」으로 보여 준다)', 결과합() === 수('n'), 결과합() + ' vs ' + 수('n'));
+
+  const 앞 = await worker.fetch(new Request('https://gw.test/v1/groq/chat/completions', { method: 'OPTIONS', headers: { Origin: 'https://sejong21c.com' } }), env);
+  check('장부 v5.3: preflight 가 x-sj-feature 를 허용한다 (빠지면 AI 호출이 전부 죽는다)',
+    /x-sj-feature/i.test(앞.headers.get('Access-Control-Allow-Headers') || ''), 앞.headers.get('Access-Control-Allow-Headers'));
 }
 
 let fails = 0;

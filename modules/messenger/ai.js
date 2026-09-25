@@ -166,7 +166,7 @@ async function 표부르기(fb, 몸) {
 async function 두뇌하나(규칙, 물음, auth) {
   for (const p of 체인) {
     try {
-      const r = await 한번부르기(p, 규칙, [], 물음, auth);
+      const r = await 한번부르기(p, 규칙, [], 물음, auth, 'msg_sql');
       if (r && r.text) return r.text;
     } catch (e) { /* 다음 회사 */ }
   }
@@ -364,7 +364,8 @@ export function 지침(맥락, perm, 표있다 = false, 화면들 = [], 고칠�
   ].join('\n');
 }
 
-async function 한번부르기(p, sys, 히스토리, 질문, auth) {
+// 기능: 게이트웨이 장부(v5.3)의 f.<기능> 칸 — 대화(msg_chat)와 데이터 에이전트 SQL(msg_sql)을 따로 센다.
+async function 한번부르기(p, sys, 히스토리, 질문, auth, 기능 = 'msg_chat') {
   const { signal, 정리 } = 시간제한();
   const url = `${게이트웨이}/v1/${p.id}/` + (p.형식 === 'gemini' ? `models/${p.model}:generateContent` : 'chat/completions');
   const body = p.형식 === 'gemini'
@@ -380,7 +381,7 @@ async function 한번부르기(p, sys, 히스토리, 질문, auth) {
         { role: 'user', content: 질문 }],
     };
   try {
-    const r = await fetch(url, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: auth }, body: JSON.stringify(body) });
+    const r = await fetch(url, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: auth, 'x-sj-feature': 기능 }, body: JSON.stringify(body) });
     정리();
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(`${p.id} ${r.status}: ${(j.error && (j.error.message || j.error)) || ''}`.trim());

@@ -13,6 +13,9 @@
  *     POST /key/set {제공자,열쇠} · /key/status · /key/del. **돌려주는 길은 없다**(끝 네 자리만).
  *     AES-GCM 으로 잠가 aiUserKeys/<uid> 에 둔다 — 야간 백업이 R2 로 전 컬렉션을 떠내기 때문.
  *     필요 Secret: KEY_SECRET(무작위 32바이트 base64). 없으면 /key/set 이 501 을 낸다.
+ *  3-d) v5.3(2026-09-26): **장부 하나로** — 같은 줄에 호출 **뒤** 결과까지 얹는다(쓰기 1회 더).
+ *     기능(x-sj-feature 헤더)·제공자·모델·결과(ok·e413·e429·lim…)·토큰(회사 몫 ti/to, 개인 열쇠 ki/ko).
+ *     옛 aiUsage(브라우저가 적던 것)는 메신저를 못 봐서 연말 판단에 못 쓴다 — 이제 여기가 유일하다.
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
@@ -726,9 +729,11 @@ function 오늘KST() {
   return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-async function 장부에올린다(env, uid, email) {
+// v5.3: 더하기 = { 필드경로: 늘릴 값 }. 호출 앞에는 { n: 1 } 로 한도를 보고(돌려받는 값은 **첫 칸**),
+//   호출 뒤에는 결과·토큰을 같은 문서에 한 write 로 얹는다. 날은 부르는 쪽이 한 번 구해 둘 다 넘긴다 —
+//   자정을 걸친 호출이 앞은 오늘, 뒤는 내일 문서로 갈라지지 않게.
+async function 장부에올린다(env, uid, email, 날 = 오늘KST(), 더하기 = { n: 1 }) {
   if (!env.FIREBASE_SA_KEY) return null;                 // 서비스 계정이 없으면 셀 방법이 없다
-  const 날 = 오늘KST();
   const 이름 = 'projects/' + fsProjectId(env) + '/databases/(default)/documents/aiUsageDaily/' + 날 + '_' + uid;
   const token = await saAccessToken(env);
   const r = await fetch(fsBase(env) + ':commit', {
@@ -738,13 +743,79 @@ async function 장부에올린다(env, uid, email) {
       // update + updateTransforms 를 **한 write 에** 넣는다. 둘로 쪼개면 쓰기가 2회다.
       update: { name: 이름, fields: { day: fsVal(날), email: fsVal(email), at: fsVal(new Date().toISOString()) } },
       updateMask: { fieldPaths: ['day', 'email', 'at'] },
-      updateTransforms: [{ fieldPath: 'n', increment: { integerValue: '1' } }],
+      updateTransforms: Object.entries(더하기).filter(([, v]) => v > 0)
+        .map(([f, v]) => ({ fieldPath: f, increment: { integerValue: String(Math.round(v)) } })),
     }] }),
   });
   if (!r.ok) return null;
   const d = await r.json();
   const n = Number(d?.writeResults?.[0]?.transformResults?.[0]?.integerValue);
   return Number.isFinite(n) ? n : null;
+}
+
+// 칸 이름은 영문·숫자·밑줄만 — 숫자로 시작하면 앞에 _ 를 붙인다(9router → _9router, 모델 openai/gpt-oss-120b →
+//   openai_gpt_oss_120b). 이 꼴이면 fieldPath 에 백틱이 필요 없다. 틀린 경로는 commit 을 400 으로 죽이고,
+//   앞 쓰기가 죽으면 null → "못 세면 막지 않는다" → **하루 한도가 조용히 꺼진다**(시험 모의가 경로를 검사한다).
+function 칸(s) {
+  // 밑줄은 하나로 합친다 — Firestore 는 __이름__ 꼴을 예약해 두어서 그런 칸이 섞이면 commit 이 통째로 거부된다
+  const t = String(s || '').replace(/[^A-Za-z0-9_]/g, '_').replace(/_+/g, '_').slice(0, 40) || 'etc';
+  return /^[0-9]/.test(t) ? '_' + t : t;
+}
+const 결과말 = (s) => s < 300 ? 'ok' : s === 413 ? 'e413' : s === 429 ? 'e429' : s === 501 ? 'cfg' : s < 500 ? 'e4xx' : 'e5xx';
+
+// 응답 복제본을 끝까지 읽어 토큰을 뽑는다. 클라이언트 쪽은 기다리지 않는다(ctx.waitUntil 에서 돈다).
+//   JSON 이면 usage(openai 꼴·claude) / usageMetadata(gemini), SSE 면 **마지막** usage 조각(groq 는 x_groq.usage).
+//   못 뽑으면 null(토큰만 빈다). ⚠ 여기 CPU 는 무료 워커의 요청당 10ms 에 들어간다 — 넘으면 **답이 중간에 끊긴다.**
+//   처음(9/26 검토 전)엔 조각마다 끝 256KB 를 다시 잘라 복사해서, 긴 SSE(4096 토큰 ≈ 1MB)에 수백 ms 가 들었다(적대 검토 실측).
+//   그래서 SSE 는 끝 16KB 만 두 배 찼을 때 몰아서 자르고(usage 조각은 1KB 안팎·맨 끝), 줄은 **뒤에서부터** usage 든 줄만 푼다.
+//   JSON 답은 통째가 있어야 풀리니 모으되 1MB 넘으면 포기한다(답 한 덩이는 수십 KB).
+async function 토큰읽기(resp) {
+  const sse = /event-stream/i.test(resp.headers.get('Content-Type') || '');
+  const rd = resp.body.getReader(), dec = new TextDecoder();
+  let 글 = '', 전부 = 0;
+  for (;;) {
+    const { done, value } = await rd.read();
+    if (done) break;
+    전부 += value.length;
+    if (전부 > 8e6 || (!sse && 전부 > 1048576)) { rd.cancel().catch(() => {}); return null; }
+    글 += dec.decode(value, { stream: true });
+    if (sse && 글.length > 65536) 글 = 글.slice(-16384);
+  }
+  if (!sse) { try { return 토큰뽑기(JSON.parse(글)); } catch { /* JSON 이 아니다(9router 는 stream:false 여도 SSE 로 답할 때가 있다) — 아래로 */ } }
+  const 줄들 = 글.split('\n');
+  for (let i = 줄들.length - 1; i >= 0; i--) {
+    const l = 줄들[i];
+    if (!l.startsWith('data:') || !l.includes('sage')) continue;   // usage · usageMetadata 가 든 줄만 푼다
+    try { const t = 토큰뽑기(JSON.parse(l.slice(5))); if (t) return t; } catch { /* 잘린 줄 */ }
+  }
+  return null;
+}
+function 토큰뽑기(d) {
+  const u = d && (d.usage || (d.x_groq && d.x_groq.usage));
+  if (u && (u.prompt_tokens != null || u.input_tokens != null)) {
+    return { i: Number(u.prompt_tokens ?? u.input_tokens) || 0, o: Number(u.completion_tokens ?? u.output_tokens) || 0 };
+  }
+  const g = d && d.usageMetadata;   // 생각하는 모델은 thoughtsTokenCount 도 답 몫으로 센다(그만큼 한도가 나간다)
+  if (g && g.promptTokenCount != null) return { i: Number(g.promptTokenCount) || 0, o: (Number(g.candidatesTokenCount) || 0) + (Number(g.thoughtsTokenCount) || 0) };
+  return null;
+}
+
+// 호출 뒤 한 줄. 결과는 늘 1 올린다 — 그래서 보통 **Σ o.* = n** 이다. 모자란 만큼이 「결과 없음」:
+//   직원 쪽이 먼저 끊은 호출(메신저 40초·회의록 60초 시간초과 — 끊기면 끝() 전에 핸들러가 취소된다)이거나 뒤 쓰기가 빠진 것.
+//   비율이 크면(관리 화면이 20% 넘으면 붉게) 뒤 쓰기를 의심한다 — 틀린 칸 이름이면 거의 전부가 빠진다.
+//   개인 열쇠로 나간 호출의 토큰은 ki/ko 로 따로 — 회사가 대는 몫(ti/to)과 섞으면 연말 판단이 틀린다.
+async function 결과를적는다(env, 누구, 날, { 결과, 기능, 제공자, 모델, 개인, 돌림, 응답 }) {
+  if (!누구) return;
+  const 더하기 = { ['o.' + 결과]: 1, ['f.' + 칸(기능)]: 1 };
+  if (제공자) { 더하기['c.' + 칸(제공자)] = 1; if (모델) 더하기['m.' + 칸(모델)] = 1; }
+  if (개인) 더하기.k = 1;
+  if (돌림) 더하기.rot = 돌림;   // 앞 열쇠가 429·401 로 넘긴 수 — 성공하면 흔적이 안 남던 것
+  const t = 응답 ? await 토큰읽기(응답).catch(() => null) : null;
+  if (t && 제공자) {
+    if (개인) { 더하기.ki = t.i; 더하기.ko = t.o; }
+    else { 더하기['ti.' + 칸(제공자)] = t.i; 더하기['to.' + 칸(제공자)] = t.o; }
+  }
+  await 장부에올린다(env, 누구.uid, 누구.email, 날, 더하기);
 }
 
 // ── v4.1(2026-09-23): 개인 API 열쇠 ─────────────────────────────────────────
@@ -1288,7 +1359,9 @@ function corsHeaders(origin, allowed) {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
     // v3.2.1: Authorization 추가 — RAG/9router/cron 수동 실행이 Firebase 로그인 토큰을
     // 이 헤더로 보낸다. 빠져 있으면 브라우저 preflight가 차단돼 "Failed to fetch".
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, anthropic-version, anthropic-dangerous-direct-browser-access, x-title',
+    // v5.3: x-sj-feature — 어느 기능의 호출인지 장부에 남긴다. **빠지면 AI 호출이 전부 preflight 에서 죽는다**
+    //   (클라이언트가 이 헤더를 붙이므로). 그래서 게이트웨이를 먼저 올리고 화면을 나중에 올린다.
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, anthropic-version, anthropic-dangerous-direct-browser-access, x-title, x-sj-feature',
     'Access-Control-Max-Age': '86400',
   };
   if (!allowed.length) { h['Access-Control-Allow-Origin'] = '*'; return h; }
@@ -1325,7 +1398,7 @@ export default {
         { httpMetadata: { contentType: 'application/json' } });
     })().catch(e => console.error('[cron]', e && e.message)));
   },
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const allowed = (env.ALLOWED_ORIGINS || '').split(/[\s,;]+/).filter(Boolean);
@@ -1426,16 +1499,24 @@ export default {
     // v3.9: 여기가 **유일한 목**이다 — 플랫폼에서 나가는 모델 호출은 전부 이 줄을 지난다.
     //   누군지 이미 확인했으니 장부에 한 줄 얹고, 하루 한도를 넘으면 여기서 돌려보낸다.
     let 개인열쇠 = null;   // v4.1: 한도를 넘었고 자기 열쇠를 맡겨 뒀으면 그걸로 간다
+    // v5.3: 호출 뒤 결과를 같은 줄에. 날은 여기서 한 번 — 앞뒤 두 쓰기가 같은 날 문서로 간다.
+    const 날 = 오늘KST();
+    const 기능 = ((h) => !h ? 'none' : /^[a-z][a-z0-9_]{0,19}$/.test(h) ? h : 'etc')(request.headers.get('x-sj-feature'));
+    const 뒤에 = (p) => { const q = Promise.resolve(p).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(q); };
+    let 누구 = null;
     {
       const auth = await verifyCompanyFirebaseToken(request, env);
       if (auth.status) return json(auth.status, { error: auth.error }, cors);
+      누구 = { uid: auth.uid || auth.email, email: auth.email };
       const 한도 = Number(env.AI_DAILY_LIMIT || 300);
-      const 쓴횟수 = await 장부에올린다(env, auth.uid || auth.email, auth.email);
+      // .catch: 서비스 계정 토큰 실패·네트워크 오류는 **던진다** — 안 잡으면 CORS 없는 1101 로 AI 호출이 전부 죽는다(9/26 검토, v3.9 부터 있던 구멍)
+      const 쓴횟수 = await 장부에올린다(env, 누구.uid, 누구.email, 날).catch(() => null);
       // 못 셌으면(장부 고장·서비스 계정 없음) null 이 온다 — **그럴 땐 막지 않는다.**
       if (쓴횟수 !== null && 쓴횟수 > 한도) {
         const 내것 = await 개인열쇠읽기(env, auth.uid, m[1]);
         개인열쇠 = 내것.열쇠;
         if (!개인열쇠) {
+          뒤에(결과를적는다(env, 누구, 날, { 결과: 'lim', 기능 }));   // 제공자는 안 불렀다 — c.* 에는 안 얹는다
           return json(429, {
             error: `오늘 회사 몫 ${한도}번을 다 쓰셨습니다. 한국 시간 자정에 다시 열립니다.`
               + (내것.못읽음
@@ -1448,6 +1529,15 @@ export default {
       }
     }
 
+    // v5.3: 여기부터 나가는 응답은 전부 끝() 을 지난다 — 결과·토큰을 장부에 얹고 그대로 돌려준다.
+    //   return 을 새로 만들고 끝() 을 빼먹으면 Σo < n 이 되어 관리 화면에 「결과 없음」으로 드러난다.
+    let 돌림 = 0, 모델 = '';
+    const 끝 = (out) => {
+      const 복제 = out.ok && out.body ? out.clone() : null;   // 클라이언트 몫은 그대로 흘려보내고 복제본으로 토큰을 센다
+      뒤에(결과를적는다(env, 누구, 날, { 결과: 결과말(out.status), 기능, 제공자: m[1], 모델, 개인: !!개인열쇠, 돌림, 응답: 복제 }));
+      return out;
+    };
+
     // v2: 9router는 플랫폼에서 공유한 동적 설정(터널 주소/키/모델)을 먼저 쓰고, env를 폴백으로.
     const dyn = m[1] === '9router' ? await fetchSharedNineRouter(env, request) : null;
 
@@ -1457,12 +1547,12 @@ export default {
     // v4.1: 한도를 넘은 사람은 **자기 열쇠 하나만** 쓴다. 회사 열쇠를 뒤에 붙이면
     //   자기 열쇠가 잠깐 실패했을 때 조용히 회사 몫으로 넘어가 한도가 무의미해진다.
     if (개인열쇠) keys = [개인열쇠];
-    if (!keys.length) return json(501, { error: m[1] + ' keys not configured on gateway' }, cors);
+    if (!keys.length) return 끝(json(501, { error: m[1] + ' keys not configured on gateway' }, cors));
 
     let body = await request.text();
     let baseUrl = (provider.baseEnv ? (env[provider.baseEnv] || '') : provider.base || '').trim().replace(/\/+$/, '');
     if (dyn && dyn.base) baseUrl = dyn.base;
-    if (!baseUrl) return json(501, { error: m[1] + ' base URL not configured on gateway (플랫폼 🔑에서 로컬 LLM 공용 공유를 하거나 NINEROUTER_BASE를 설정하세요)' }, cors);
+    if (!baseUrl) return 끝(json(501, { error: m[1] + ' base URL not configured on gateway (플랫폼 🔑에서 로컬 LLM 공용 공유를 하거나 NINEROUTER_BASE를 설정하세요)' }, cors));
     if (provider.modelEnv) {
       // v2: 모델 우선순위 — 공유 설정 > env > 클라이언트가 보낸 model 그대로 (없어도 501 내지 않음)
       const model = (dyn && dyn.model) || (env[provider.modelEnv] || '').trim();
@@ -1472,10 +1562,12 @@ export default {
           payload.model = model;
           body = JSON.stringify(payload);
         } catch (error) {
-          return json(400, { error: 'invalid JSON request body for ' + m[1] }, cors);
+          return 끝(json(400, { error: 'invalid JSON request body for ' + m[1] }, cors));
         }
       }
     }
+    try { 모델 = String(JSON.parse(body).model || ''); } catch { /* 몸이 JSON 이 아니면 모델 칸만 빈다 */ }
+    if (!모델) 모델 = (m[2].match(/models\/([^:/]+)/) || [])[1] || '';   // gemini 는 모델이 주소에 있다
     const upstreamUrl = baseUrl + '/' + m[2] + url.search;
 
     // 키 교대: 마지막으로 성공한 키부터 시작, 한도 초과/불량 키면 다음 키
@@ -1494,10 +1586,12 @@ export default {
         resp = await fetch(upstreamUrl, { method: 'POST', headers, body });
       } catch (e) {
         lastResp = json(502, { error: 'upstream fetch failed: ' + (e.message || e) }, cors);
+        돌림++;
         continue;
       }
       if (resp.status === 429 || resp.status === 401 || resp.status === 402 || resp.status === 403) {
         lastResp = resp; // 이 키 소진/불량/플랜 미설정(402) → 다음 키
+        돌림++;
         continue;
       }
       // v3.2.4: Gemini는 불량 키를 401이 아니라 400("API key not valid")으로 돌려준다 —
@@ -1506,23 +1600,24 @@ export default {
         const bodyText = await resp.text().catch(() => '');
         if (/api[ _]?key.{0,20}not valid/i.test(bodyText)) {
           lastResp = new Response(bodyText, { status: 400, headers: { 'Content-Type': 'application/json' } });
+          돌림++;
           continue; // 불량 키 → 다음 키
         }
         // 키 문제가 아닌 400(모델명 등)은 본문을 되살려 그대로 반환
         const out400 = new Response(bodyText, { status: 400, headers: { 'Content-Type': 'application/json', ...cors } });
-        return out400;
+        return 끝(out400);
       }
       keyCursor[m[1]] = idx; // 이 키가 살아있음
       const out = new Response(resp.body, resp);
       Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
-      return out;
+      return 끝(out);
     }
     // 모든 키 실패 — 마지막 응답을 그대로 전달 (플랫폼이 상태코드 보고 다음 회사로 넘어감)
     if (lastResp instanceof Response && !lastResp.headers.get('Access-Control-Allow-Origin')) {
       const out = new Response(lastResp.body, lastResp);
       Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
-      return out;
+      return 끝(out);
     }
-    return lastResp || json(502, { error: 'all keys failed' }, cors);
+    return 끝(lastResp || json(502, { error: 'all keys failed' }, cors));
   },
 };

@@ -676,7 +676,7 @@ async function callAI(messages){
         // 게이트웨이는 v3.4 부터 모든 제공자에 회사 계정 확인을 건다(주소가 사실상 공개라서).
         // 여기만 안 붙이고 있었다 — 메신저·AI 비서는 붙이고 있었으니 이 버튼만 조용히 죽어 있었다.
         const res=await fetch(`${GW}/v1/${p.id}/chat/completions`,{method:'POST',signal:ctl.signal,
-          headers:{'Content-Type':'application/json',Authorization:await 회사토큰()},
+          headers:{'Content-Type':'application/json',Authorization:await 회사토큰(),'x-sj-feature':'meeting'},   // 기능 칸: 게이트웨이 장부 v5.3
           body:JSON.stringify({model,max_tokens:4000,temperature:0.3,messages})});
         clearTimeout(tm);
         if(!res.ok){lastErr=new Error(`${p.id} ${res.status}`);if(res.status===400||res.status===404)continue;break;}

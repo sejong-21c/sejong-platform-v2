@@ -621,7 +621,7 @@ async function aiSummarizeText(text) {
   const idToken = await fb.auth.currentUser.getIdToken();
   const res = await fetch(_aiGatewayUrl() + '/v1/9router/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken, 'x-sj-feature': 'car' },   // 기능 칸: 게이트웨이 장부 v5.3
     body: JSON.stringify({
       model: 'cc/claude-opus-4-7',
       max_tokens: 150,

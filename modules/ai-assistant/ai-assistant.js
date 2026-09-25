@@ -1,6 +1,9 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.82: 옛 사용 기록(aiUsage, 질문 1건당 문서 1개)을 그만 쓴다 — 메신저를 못 보는 장부라 연말 판단에 못 썼다.
+ *          이제 게이트웨이 장부(v5.3)가 유일하다. 게이트웨이 길 호출에 x-sj-feature: assistant 를 붙여 기능을 센다.
+ *          loopLimit 도 뺐다 — 쌓인 82건 중 true 0건, 읽는 곳도 없었다.
  * v29.80: 루마 키에 바닥값(0.07) — 압축 영상의 근검정이 옅은 정사각형으로 비치던 것 제거, 패널 배경과 이어짐.
  *          index.html 쪽: 패널 머리에 ⧉ "새 창" 버튼 — ?aipop=1 로 같은 앱을 팝업에 띄워 AI 비서만 전체 화면.
  * v29.79: 뇌 영상을 WebGL 루마 키(밝기=투명도)로 그려 **진짜 투명** — 검은 배경이 사라지고 뇌만
@@ -2407,7 +2410,9 @@
   async function callOneModel(p, key, model, h, signal, onToken) {
     // key === null 이면 회사 게이트웨이 경유. 9Router는 로그인 토큰까지 붙여 Worker가 직원 계정만 확인한다.
     var gw = key === null ? getGatewayUrl() + '/v1/' + p.id : null;
-    var gatewayHeaders = key === null ? await gatewayAuthHeaders() : null;
+    // v29.82: x-sj-feature — 게이트웨이 장부(v5.3)가 어느 기능의 호출인지 센다. 게이트웨이 길에만 붙인다
+    //   (제공자 직접 호출에 붙이면 그쪽 preflight 가 모르는 헤더로 막는다).
+    var gatewayHeaders = key === null ? Object.assign({ 'x-sj-feature': 'assistant' }, await gatewayAuthHeaders()) : null;
     if (p.id === 'gemini') return callGeminiOnce(key, model, h, signal, gw, gatewayHeaders, onToken);
     if (p.id === 'claude') return callClaudeOnce(key, model, h, signal, gw, gatewayHeaders, onToken);
     if (p.id === '9router') return callOpenAiCompatOnce('9Router', gw + '/chat/completions', key, model, h, signal, gatewayHeaders, onToken);
@@ -2573,9 +2578,7 @@
     return base + '…';
   }
 
-  var lastLoopLimit = false; // v29.62: 이번 질문이 5회 루프 한계에 걸렸는지 (aiUsage 계측용)
   async function runConversation(userText, file, onStatus, onToken) {
-    lastLoopLimit = false;
     var entry = { role: 'user', text: userText };
     if (file) entry.file = file;   // v29.66: PDF/이미지 멀티모달 첨부
     history.push(entry);
@@ -2591,7 +2594,6 @@
       history.push({ role: 'model', text: result.text });
       return result.text;
     }
-    lastLoopLimit = true; // 이 빈도가 높으면 에이전트 모드(로드맵 12단계)를 검토할 근거가 된다
     var loopMsg = '요청을 처리하는 데 단계가 너무 많이 필요합니다. 질문을 조금 더 구체적으로 나눠서 다시 시도해주세요.';
     history.push({ role: 'model', text: loopMsg }); // v29.64(A14): history 짝 맞춤 — 안 남기면 다음 턴이 function 턴 뒤 user 턴으로 깨짐
     return loopMsg;
@@ -2938,23 +2940,6 @@
     }
   };
 
-  // v29.43: 사용 기록 — 질문 1건당 aiUsage 문서 1개 (관리 탭 'AI 사용량'에서 집계).
-  // 실패해도 조용히 무시 — 기록 때문에 채팅이 죽는 일은 없어야 한다.
-  function logAiUsage(ok, provider, errMsg) {
-    try {
-      if (!window.fb || !fb.db || !state || !state.currentUser) return;
-      var u = (state.users || []).find(function (x) { return x.id === state.currentUser; });
-      var now = new Date();
-      var day = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-      fb.setDoc(fb.doc(fb.collection(fb.db, 'aiUsage')), {
-        day: day, at: Date.now(),
-        uid: state.currentUser, user: (u && u.name) || '(미확인)', dept: (u && u.dept) || '',
-        provider: provider || '', ok: !!ok, err: errMsg ? String(errMsg).slice(0, 120) : '',
-        loopLimit: lastLoopLimit // v29.62: 도구 루프 5회 한계 도달 여부 — 에이전트 모드 필요성 판단용
-      }).catch(function () {});
-    } catch (e) {}
-  }
-
   // ── v29.66: 파일 첨부 — PDF·이미지는 멀티모달(Gemini/Claude), Excel/CSV/TXT는 텍스트 변환 ──
   var pendingFile = null;   // {kind:'binary',mime,data,name} | {kind:'text',text,name}
   function renderFileChip() {
@@ -3076,7 +3061,6 @@
         setAssistantFinal(assistantMsgEl, reply);
       }
       if (lastProviderLabel) appendMsg('system', '— ' + lastProviderLabel);
-      logAiUsage(true, lastProviderLabel);
       // v29.45.1: 로컬 LLM을 설정했는데 실패해서 다른 곳으로 넘어갔으면, 원인을 세션당 1회 안내
       if (getLocalUrl() && lastLocalFail && lastProviderLabel.indexOf('로컬') === -1 && !localFailHintShown) {
         localFailHintShown = true;
@@ -3085,7 +3069,6 @@
     } catch (e) {
       clearStatus();
       appendMsg('system', '오류: ' + (e.message || e));
-      logAiUsage(false, lastProviderLabel, e.message || e);
     } finally {
       aiBusy = false;
       if (btn) { btn.disabled = false; btn.textContent = '전송'; }
