@@ -340,8 +340,8 @@ console.log("== 기준 × 아이템 ==");
   ok("ASME 부제 표시", $("code-sub").textContent.includes("Section VIII Div.1"));
 
   /* ASME × 압력용기 — 계산 탭 8개, stub 없음 */
-  ok("ASME·압력용기 탭 8 + 공통 2", visible().join(",") ===
-     "shell,head,ext,noz,ug45,flg,sad,lod,mat,info", visible().join(","));
+  ok("ASME·압력용기 탭 8 + 공통 3(재료·데이터시트·정보)", visible().join(",") ===
+     "shell,head,ext,noz,ug45,flg,sad,lod,mat,ds,info", visible().join(","));
   ok("압력용기는 stub 탭 없음", !visible().includes("stub"));
   ok("ASME 아이템 3종(압력용기·열교환기·Condenser)",
      items().join(",") === "pv,hx,cond", items().join(","));
@@ -370,7 +370,7 @@ console.log("== 기준 × 아이템 ==");
   w.setCode("api650");
   ok("API 650 아이템은 저장탱크", items().join(",") === "tank");
   ok("API 650 셸 탭 + stub + 공통",
-     visible().join(",") === "a650,stub,mat,info", visible().join(","));
+     visible().join(",") === "a650,stub,mat,ds,info", visible().join(","));
   ok("ASME 압력용기 탭이 새지 않음", !visible().includes("shell"));
   ok("셸 탭이 자동 표시", d.querySelector("#panel-a650").classList.contains("on"));
   ok("API 650 은 ASME 와 별개 기준임을 명시", stubText().includes("별개 기준"));
@@ -429,7 +429,7 @@ console.log("== KPM 탭 (한국에너지공단) ==");
 
   w.setCode("kec");
   ok("에너지공단 탭에 동체·경판 노출",
-     visible().join(",") === "kshell,khead,stub,mat,info", visible().join(","));
+     visible().join(",") === "kshell,khead,stub,mat,ds,info", visible().join(","));
   ok("아이템은 압력용기·열교환기", [...d.querySelectorAll("#item-btns button")]
      .map(b => b.dataset.item).join(",") === "pv,hx");
 
@@ -613,7 +613,7 @@ console.log("== KGS AC111 탭 ==");
 
   w.setCode("kgs");
   ok("KGS 탭에 동체·경판 노출",
-     visible().join(",") === "gshell,ghead,stub,mat,info", visible().join(","));
+     visible().join(",") === "gshell,ghead,stub,mat,ds,info", visible().join(","));
 
   /* 동체: P=1, Di=2000, σa=100, η=1 → 2000/198.8 = 10.0604 (α 없음!) */
   w.showTab("gshell");
@@ -770,6 +770,48 @@ console.log("== 부서 공유 저장 seam ==");
   /* 빈 원격값은 무시하고 로컬로 되돌아감 */
   w.pvcalcAttachRemote({ edition: "빈-판", materials: [] }, null);
   ok("빈 원격값은 미적용", !$("matbar").classList.contains("on"));
+}
+
+/* ══ 외형도(견적용 GA · DXF) — 2026-09-25 ════════════════════ */
+console.log("== 외형도 ==");
+{
+  const w = await load(), d = w.document, $ = (id) => d.getElementById(id);
+  ok("외형도 모듈이 실린다", typeof w.pvcalcDxf === "object" && typeof w.gaPreview === "function");
+  // 아무것도 안 돌리고 가져오면 — 숨은 두께 칸(기본 12)·새들 기본값을 가져오면 안 된다(9/25 검토)
+  $("ga-t").value = ""; $("ga-L").value = ""; $("ga-a").value = "";
+  w.ga채우기();
+  ok("안 돌린 탭의 기본값은 안 가져온다(숨은 두께 12 · 새들 6000)", $("ga-t").value === "" && $("ga-L").value === "" && $("ga-a").value === "",
+    `t=${$("ga-t").value} L=${$("ga-L").value} a=${$("ga-a").value}`);
+  // 셸을 필요두께 모드로 계산 → 필요두께+CA 를 올려서 넣고, 그렇다고 밝힌다
+  $("sh-R").value = "1500"; $("sh-P").value = "2.2"; $("sh-S").value = "138"; $("sh-E").value = "1"; $("sh-CA").value = "3";
+  w.calcShell();
+  // 경판을 기본값과 다른 반구형으로 계산 → 형식이 따라온다
+  $("hd-type").value = "hemi"; $("hd-type").dispatchEvent(new w.Event("change"));
+  $("hd-D").value = "3000"; $("hd-P").value = "2.2"; $("hd-S").value = "138"; $("hd-E").value = "1"; $("hd-CA").value = "3";
+  w.calcHead();
+  // 새들을 기본값과 다른 치수로 계산
+  $("sd-L").value = "7200"; $("sd-a").value = "900"; $("sd-b").value = "300";
+  w.calcSad();
+  w.ga채우기();
+  ok("셸 R → 내경 D = 2R (경판 D 보다 셸 R 이 먼저)", $("ga-D").value === "3000", $("ga-D").value);
+  const 필요 = grab(d, "shell", "t_req_ca");   // lastResults 는 전역 const 라 창에서 안 보인다 — 화면 값으로
+  ok("필요두께 모드면 필요두께(+CA)를 올려 넣는다 — 숨은 칸 12 가 아니다", $("ga-t").value === String(Math.ceil(필요)), `${$("ga-t").value} vs ${필요}`);
+  ok("올렸다고 밝힌다", /올림/.test(d.querySelector("#res-ga").textContent));
+  ok("경판 형식(반구)이 따라온다", $("ga-ht").value === "hemi", $("ga-ht").value);
+  ok("돌린 새들 탭의 L·a·b 를 가져온다", $("ga-L").value === "7200" && $("ga-a").value === "900" && $("ga-b").value === "300");
+  $("ga-noz").value = 'N1, 4", 1500, 위, 200\nN2, 2B, 4500, 아래\nM1, 500A, , 오른경판';
+  const m = w.gaPreview();
+  ok("미리보기가 SVG 를 그린다", !!d.querySelector("#res-ga svg") && d.querySelector("#res-ga").textContent.includes("T/T 7200"));
+  ok("노즐 표가 모형에 들어간다(KS 2B·500A 포함)", m && m.글.some((x) => x.글 === 'N1 (4")') && m.글.some((x) => x.글 === "N2 4500") && m.글.some((x) => x.글 === "M1 (500A)"));
+  $("ds-dwg").value = "SJ435-26-ME-001"; $("ds-rev").value = "0";
+  ok("표제란은 데이터시트 칸을 쓴다", w.gaPreview().글.some((x) => /SJ435-26-ME-001\s+Rev\.0/.test(x.글)));
+  $("ga-noz").value = "N9, 2, 1500, 상단부";
+  w.gaPreview();
+  ok("모르는 노즐 방향은 까닭을 말한다(왼쪽 경판에 말없이 그리지 않는다)", /방향 "상단부" 을 모릅니다/.test(d.querySelector("#res-ga").textContent));
+  $("ga-noz").value = ""; $("ga-L").value = "";
+  w.gaPreview();
+  ok("치수가 빠지면 까닭을 말한다(그림을 지어내지 않는다)", /못 그렸습니다/.test(d.querySelector("#res-ga").textContent));
+  ok("외형도 칸도 저장된다(노즐 표 포함)", /"ga-noz"/.test(w.eval('store.getItem("pvcalc.inputs")') || ""));   // 페이지 저장소(store) — jsdom file 주소는 localStorage 가 막힌다
 }
 
 console.log(`\n${n} checks, ${bad} failure(s)`);

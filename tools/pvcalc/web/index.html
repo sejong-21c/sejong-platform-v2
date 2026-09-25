@@ -273,6 +273,36 @@
     <button class="ghost" onclick="window.print()">인쇄</button>
   </div>
   <div class="result" id="res-ds"></div>
+
+  <!-- 2026-09-25 로드맵 ③: 계산 탭 치수로 견적용 외형도(GA) — DXF R12 + 미리보기. 제작 도면이 아니다. -->
+  <h3 style="margin:22px 0 4px;font-size:15px;">📐 외형도 (견적용 · DXF)</h3>
+  <p class="note">셸·경판·새들 탭에 넣은 치수를 가져와 외형도를 그립니다. 비어 있으면 여기서 직접 넣으세요.
+    <b>견적·사전검토용이며 제작 도면이 아닙니다</b> — 새들·스커트·노즐 목 길이는 개략입니다. 표제란은 위 칸(프로젝트·도면번호…)을 씁니다.</p>
+  <div class="grid">
+    <div class="field"><label>배치</label><select id="ga-dir"><option value="수평">수평 (새들)</option><option value="수직">수직 (스커트)</option></select></div>
+    <div class="field"><label>D 내경 (<span class="u-len">mm</span>)</label><input id="ga-D" type="number" step="any"></div>
+    <div class="field"><label>t 셸 두께 (<span class="u-len">mm</span>)</label><input id="ga-t" type="number" step="any"></div>
+    <div class="field"><label>L 접선간 길이 T/T (<span class="u-len">mm</span>)</label><input id="ga-L" type="number" step="any"></div>
+    <div class="field"><label>경판 형식</label><select id="ga-ht">
+      <option value="ellip2">2:1 타원형</option><option value="ellipG">일반 타원형 (D/2h)</option><option value="toriS">표준 접시형 (r = 6%L)</option>
+      <option value="toriG">일반 접시형 (L, r)</option><option value="hemi">반구형</option><option value="cone">원추형</option><option value="flat">평판</option></select></div>
+    <div class="field"><label>경판 두께 (<span class="u-len">mm</span>)</label><input id="ga-th" type="number" step="any"></div>
+    <div class="field"><label>D/2h (일반 타원)</label><input id="ga-k" type="number" step="any" placeholder="2"></div>
+    <div class="field"><label>L 크라운 반경 (접시형)</label><input id="ga-Lc" type="number" step="any"></div>
+    <div class="field"><label>r 너클 반경 (일반 접시)</label><input id="ga-r" type="number" step="any"></div>
+    <div class="field"><label>α 반꼭지각 (원추, deg)</label><input id="ga-alpha" type="number" step="any" placeholder="30"></div>
+    <div class="field"><label>새들–접선 거리 a (<span class="u-len">mm</span>)</label><input id="ga-a" type="number" step="any"></div>
+    <div class="field"><label>새들 폭 b (<span class="u-len">mm</span>)</label><input id="ga-b" type="number" step="any"></div>
+    <div class="field"><label>새들 높이 / 스커트 높이 (<span class="u-len">mm</span>)</label><input id="ga-sh" type="number" step="any"></div>
+  </div>
+  <div class="field" style="margin-top:6px;"><label>노즐 — 한 줄에 하나: 마크, 호칭(4" · 2B · 50A · DN50), 위치(왼쪽·아래 TL 부터, 쉼표 없이), 쪽, 돌출(생략 가능). 쪽 — 수평: 위·아래·왼경판·오른경판 / 수직: 왼쪽·오른쪽(셸)·위·아래(경판)</label>
+    <textarea id="ga-noz" rows="4" style="width:100%;font-family:monospace;" placeholder='N1, 4", 1500, 위, 200&#10;N2, 2", 4500, 아래&#10;M1, 20, , 오른경판'></textarea></div>
+  <div class="actions">
+    <button class="ghost" onclick="ga채우기()">계산 탭에서 치수 가져오기</button>
+    <button class="calc" onclick="gaPreview()">외형도 미리보기</button>
+    <button class="calc" onclick="gaDxf()">📐 DXF 받기</button>
+  </div>
+  <div class="result" id="res-ga"></div>
 </section>
 
 <!-- ================= UG-32 ================= -->
@@ -1072,6 +1102,7 @@
 <!-- 사내 재료 데이터 (Sec II-D 전사본). 저작권상 미커밋 — 없으면 수동 입력으로 동작. -->
 <script src="materials.js" onerror="void 0"></script>
 <script src="pvcalc-core.js"></script>
+<script src="pvcalc-dxf.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -2437,9 +2468,85 @@ async function dsExcel() {
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
+/* ============ 외형도 (견적용 GA · DXF) — 2026-09-25 로드맵 ③ ============
+   계산 탭 치수를 가져와 pvcalc-dxf.js 로 그린다. **제작 도면이 아니다**(표제란에 찍힌다). */
+function ga채우기() {
+  // 9/25 검토: 숨은 칸(필요두께 모드의 두께 기본값 12)·안 돌린 탭의 기본값(새들 6000/600/200)을 가져와
+  //   아무도 넣지 않은 두께로 OD·전장을 그렸다. 이제 **보이는 입력**이거나 **돌린 계산**에서만 가져오고, 가져온 곳을 밝힌다.
+  const v = (id) => ($(id) && String($(id).value).trim()) || "";
+  const 넣 = (id, 값) => { if (값 !== "" && 값 != null && $(id)) $(id).value = 값; };
+  const 출처 = [];
+  const 올림 = (x) => UNITS === "US" ? Math.ceil(x * 16) / 16 : Math.ceil(x);   // 필요두께 → 판 두께 어림(mm 는 1, in 는 1/16 올림)
+  const 두께 = (칸, 모드, 탭, 이름) => {
+    if (radio(모드) === "mawp") { 출처.push(`${이름}: ${탭} 탭 입력 ${v(칸)}`); return v(칸); }
+    const r = (lastResults[탭] || [])[0];
+    const 필요 = r && (r.results.t_req_ca ?? r.results.t_req);
+    if (필요 == null) return "";
+    const 값 = 올림(필요);
+    출처.push(`${이름}: 필요두께(+CA) ${fmt(필요)} → ${값} 으로 올림 — 실제 공칭 두께로 고치세요`);
+    return String(값);
+  };
+  const R = v("sh-R");
+  if (R) { 넣("ga-D", String(Number(R) * 2)); 출처.push(`D: 셸 R ${R} × 2`); }
+  else if (v("hd-D")) { 넣("ga-D", v("hd-D")); 출처.push(`D: 경판 D ${v("hd-D")}`); }
+  넣("ga-t", 두께("sh-t", "sh-mode", "shell", "셸 t"));
+  if (lastResults.head) {
+    if ($("ga-ht").querySelector(`option[value="${v("hd-type")}"]`)) $("ga-ht").value = v("hd-type");
+    넣("ga-th", 두께("hd-t", "hd-mode", "head", "경판 t"));
+    넣("ga-k", v("hd-ratio")); 넣("ga-Lc", v("hd-L")); 넣("ga-r", v("hd-r")); 넣("ga-alpha", v("hd-alpha"));
+    출처.push(`경판 형식: 경판 탭(${$("hd-type").selectedOptions[0]?.textContent || v("hd-type")})`);
+  }
+  if (lastResults.sad) {
+    넣("ga-L", v("sd-L")); 넣("ga-a", v("sd-a")); 넣("ga-b", v("sd-b"));
+    출처.push(`L·a·b: 새들 탭 ${v("sd-L")} · ${v("sd-a")} · ${v("sd-b")}`);
+  }
+  saveInputs();
+  gaPreview(출처.length ? `가져온 것 — ${출처.join(" · ")}. 안 돌린 탭(${[!lastResults.head && "경판", !lastResults.sad && "새들"].filter(Boolean).join("·") || "없음"})의 값은 가져오지 않았습니다.` : "가져올 계산 결과가 없습니다 — 셸·경판·새들 탭을 먼저 계산하거나 여기에 직접 넣으세요.");
+}
+function ga입력() {
+  const n = (id) => { const s = ($(id) && String($(id).value).trim()) || ""; return s === "" ? null : Number(s); };
+  const 방향 = $("ga-dir").value;
+  const 노즐 = String($("ga-noz").value || "").split("\n").map((줄) => 줄.trim()).filter(Boolean).map((줄) => {
+    const [마크, 호칭, 위치, 쪽, 돌출] = 줄.split(",").map((x) => x.trim());
+    return { 마크, 호칭, 위치: 위치 === "" || 위치 == null ? null : Number(위치), 쪽: 쪽 || "위", 돌출: 돌출 ? Number(돌출) : null };
+  });
+  return {
+    단위: UNITS, 방향, D: n("ga-D"), t: n("ga-t"), L: n("ga-L"),
+    경판: { 형식: $("ga-ht").value, t: n("ga-th") ?? n("ga-t"), k: n("ga-k") ?? 2, L: n("ga-Lc"), r: n("ga-r"), alpha: n("ga-alpha") ?? 30 },
+    새들: { a: n("ga-a"), b: n("ga-b"), 높이: n("ga-sh") }, 스커트: { 높이: n("ga-sh") },
+    노즐, 표제: ds머리(),
+  };
+}
+function gaPreview(알림 = "") {
+  const box = $("res-ga");
+  if (!box) return null;
+  saveInputs();                                    // 외형도 칸·노즐 표도 새로 고침에 남는다(9/25 검토)
+  const 머리 = 알림 ? `<p class="note" style="margin:0 0 6px;">${String(알림).replace(/</g, "&lt;")}</p>` : "";
+  try {
+    const m = pvcalcDxf.외형도(ga입력());
+    box.innerHTML = `<div class="card">${머리}<p class="note" style="margin:0 0 6px;">축척 1:${m.축척} · 선 ${m.선.length} · 호 ${m.호.length} · 글 ${m.글.length} —
+      <b>견적·사전검토용 외형도</b>. DXF 는 R12(AutoCAD·ZWCAD 에서 열림), 한글은 맑은 고딕.</p>${pvcalcDxf.svg(m)}</div>`;
+    return m;
+  } catch (e) {
+    box.innerHTML = `${머리}<p class="note" style="color:#b91c1c;">외형도를 못 그렸습니다: ${String(e.message || e).replace(/</g, "&lt;")}</p>`;
+    return null;
+  }
+}
+function gaDxf() {
+  const m = gaPreview();
+  if (!m) return;
+  const h = ds머리();
+  const 이름 = [h.도면번호 || h.태그 || "pvcalc", h.품명, "GA", h.작성일].filter(Boolean).join("_").replace(/[\/:*?"<>|]/g, "-");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([pvcalcDxf.dxf(m)], { type: "application/dxf" }));
+  a.download = 이름 + ".dxf";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
 function saveInputs() {
   const data = {};
-  document.querySelectorAll("main input[id], main select[id]").forEach(el =>
+  document.querySelectorAll("main input[id], main select[id], main textarea[id]").forEach(el =>   // textarea: 외형도 노즐 표(9/25)
     data[el.id] = el.type === "checkbox" ? el.checked : el.value);
   store.setItem("pvcalc.inputs", JSON.stringify(data));
 }
