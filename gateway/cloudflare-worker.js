@@ -1347,6 +1347,24 @@ export default {
       if (request.method !== 'PUT') return json(405, { error: 'PUT only' }, cors);
       if (!env.BACKUP) return json(501, { error: 'BACKUP(R2) binding not set' }, cors);
       if (!서버토큰인가(request, env)) return json(401, { error: 'server token required' }, cors);
+      // v5.2(2026-09-25): ?archive= — 파이어스토어에서 **지우기 전에 떼어 둔 영구 보관본**(맥 activity-prune, 매달 1일).
+      //   archive/ 는 정리 대상이 아니고 **덮어쓰지 않는다** — 같은 이름에 다른 내용이 오면 409.
+      //   sha256 을 돌려줘 맥이 자기 파일과 대조한 뒤에야 지운다.
+      const 보관 = url.searchParams.get('archive');
+      if (보관 !== null) {
+        if (!/^[A-Za-z]+-\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.json\.gz$/.test(보관)) return json(400, { error: 'archive=<컬렉션>-YYYY-MM-DD_YYYY-MM-DD.json.gz' }, cors);
+        const 몸 = await request.arrayBuffer();
+        if (!몸.byteLength || 몸.byteLength > 50 * 1048576) return json(413, { error: 'size ' + 몸.byteLength }, cors);
+        const sha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', 몸))].map(b => b.toString(16).padStart(2, '0')).join('');
+        const key = 'archive/' + 보관;
+        const 있던 = await env.BACKUP.head(key);
+        if (있던) {
+          if (있던.customMetadata && 있던.customMetadata.sha256 === sha256) return json(200, { key, bytes: 몸.byteLength, sha256, 있었다: true }, cors);
+          return json(409, { error: 'archive exists with different content' }, cors);
+        }
+        await env.BACKUP.put(key, 몸, { httpMetadata: { contentType: 'application/gzip' }, customMetadata: { sha256 } });
+        return json(200, { key, bytes: 몸.byteLength, sha256 }, cors);
+      }
       const day = url.searchParams.get('day') || '';
       if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return json(400, { error: 'day=YYYY-MM-DD' }, cors);
       const 본문 = await request.arrayBuffer();

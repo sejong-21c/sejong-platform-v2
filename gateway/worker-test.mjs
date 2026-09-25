@@ -838,6 +838,27 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   await Promise.all(ps.map(p => p.catch(() => {})));
   const hb = await (await env.BACKUP.get('backup/_cron.json')).json();
   check('심장박동에 가장 최근 맥 사본이 찍힌다(안 오면 아침에 바로 보인다)', hb.사본 && hb.사본.최신 === 'snap/' + 오늘 + '.json.gz', JSON.stringify(hb.사본));
+
+  // v5.2 영구 보관본(떼어 낸 옛 작업 기록) — 덮어쓰기 금지 · sha256 대조
+  const 메타 = new Map();
+  const 원put = env.BACKUP.put;
+  env.BACKUP.put = async (k, v, o) => { 메타.set(k, o && o.customMetadata); return 원put(k, v); };
+  env.BACKUP.head = async (k) => ((await env.BACKUP.get(k)) ? { customMetadata: 메타.get(k) } : null);
+  const 보관올리기 = (이름, 몸, 열쇠 = 'SERVER-TOKEN-TEST') => worker.fetch(new Request('https://gw.test/backup/upload?archive=' + encodeURIComponent(이름), {
+    method: 'PUT', headers: 열쇠 ? { Authorization: 'Bearer ' + 열쇠 } : {}, body: 몸,
+  }), env);
+  const 이름 = 'activityLog-2026-08-25_2026-08-31.json.gz';
+  check('보관본: 서버 토큰이 없으면 401', (await 보관올리기(이름, new Uint8Array([1]), '')).status === 401);
+  check('보관본: 이름 꼴이 아니면 400(경로를 남이 못 정한다)', (await 보관올리기('../snap/x.json.gz', new Uint8Array([1]))).status === 400);
+  const a1 = await 보관올리기(이름, new Uint8Array([31, 139, 1, 2]));
+  const j1 = await a1.json();
+  check('보관본: archive/<이름> 에 두고 sha256 을 돌려준다', a1.status === 200 && j1.key === 'archive/' + 이름 && /^[0-9a-f]{64}$/.test(j1.sha256) && !!(await env.BACKUP.get('archive/' + 이름)), JSON.stringify(j1));
+  const a2 = await (await 보관올리기(이름, new Uint8Array([31, 139, 1, 2]))).json();
+  check('보관본: 같은 내용을 다시 올리면 그대로 200(다시 돌려도 안전)', a2.있었다 === true && a2.sha256 === j1.sha256, JSON.stringify(a2));
+  check('보관본: 같은 이름에 다른 내용이면 409 — 영구 보관본은 덮어쓰지 않는다', (await 보관올리기(이름, new Uint8Array([9, 9]))).status === 409);
+  const 정리후 = await 올리기(오늘, 'SERVER-TOKEN-TEST');
+  check('보관본: 사본 정리(30일)가 archive/ 는 건드리지 않는다', 정리후.status === 200 && !!(await env.BACKUP.get('archive/' + 이름)));
+  env.BACKUP.put = 원put; delete env.BACKUP.head;
   delete env.MIGRATE_TOKEN;
 }
 
