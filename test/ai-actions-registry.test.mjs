@@ -29,7 +29,8 @@ const window = { AIPERM: {
 const PROJ_STATUS_META = { active: { label: '진행중' }, done: { label: '완료' } };
 const canEditWbsMaster = (pid) => pid !== 'p_남의것';
 const getU = () => state.currentUserObj;
-const moveTask = async (id) => { 쓴것.push(['moveTask', id]); };
+// 진짜 moveTask 는 저장했을 때만 true(2026-09-26). globalThis.옮김실패 면 alert 로 삼킨 꼴을 흉내 낸다.
+const moveTask = async (id) => { 쓴것.push(['moveTask', id]); return globalThis.옮김실패 ? undefined : true; };
 const allKanbanTasks = () => state.tasks;
 const computeProjectProgress = () => 0;
 // 색인 창구 — 기본은 성공, globalThis.색인터짐 이 켜지면 던진다.
@@ -201,6 +202,62 @@ await 돌('업무완료 — 권한이 없으면 카드를 안 만든다', async 
   const r = await W.AI행위풀기('업무완료', { 업무: '도면' });
   state.currentUserObj = 옛;
   assert.ok(r.안됨 && r.안됨.includes('권한'), r.안됨);
+});
+
+// 2026-09-26 직원 시범 전 대조: moveTask 가 저장 실패를 alert 로 삼켜도 카드는 '완료로 바꿨습니다' ✓ 였다.
+await 돌('업무완료 — 저장이 안 되면 카드도 실패다(거짓 성공 없음)', async () => {
+  const r = await W.AI행위풀기('업무완료', { 업무: '도면' });
+  globalThis.옮김실패 = true;
+  const 원error = console.error; console.error = () => {};   // 스택에 data: 주소 통째(160KB)가 찍힌다
+  const 결 = await W.AI행위실행(r).finally(() => { console.error = 원error; });
+  globalThis.옮김실패 = false;
+  assert.ok(결.안됨 && 결.안됨.includes('바꾸지 못했습니다'), JSON.stringify(결));
+});
+
+// 같은 대조: 부서 자체 업무(부서 스케줄 대단락)는 assignee 가 '나' 라 일반 직원도 완료로 바꿀 수 있었고,
+//   OKR 자리표는 저장 없이 ✓ 였다.
+await 돌('업무완료 — 부서 스케줄 줄은 부서 스케줄 권한이 있어야, OKR 자리표는 안 잡는다', async () => {
+  const 옛 = state.tasks;
+  state.tasks = [...옛,
+    { id: 'wbs_dept_quality_0', title: 'ISO 내부심사', status: 'todo', assignee: 'u1', virtual: true, wbsBacked: true, _wbsPid: 'dept_quality', _wbsIdx: 0 },
+    { id: 'okr_ph_o1', title: '불량률 목표 — 마일스톤을 추가하세요', status: 'todo', assignee: 'u1', virtual: true, okrPlaceholder: true }];
+  globalThis.부서권한 = () => false;
+  const 막힘 = await W.AI행위풀기('업무완료', { 업무: 'ISO' });
+  globalThis.부서권한 = undefined;
+  const 됨 = await W.AI행위풀기('업무완료', { 업무: 'ISO' });
+  const 자리표 = await W.AI행위풀기('업무완료', { 업무: '불량률' });
+  state.tasks = 옛;
+  assert.ok(막힘.안됨 && 막힘.안됨.includes('부서장'), '부서장이 아니면 거절 — 까닭까지: ' + 막힘.안됨);
+  assert.ok(!됨.안됨, '부서 스케줄 권한이 있으면 카드가 나온다: ' + 됨.안됨);
+  assert.ok(자리표.안됨 && 자리표.안됨.includes('마일스톤'), '자리표는 카드를 만들지 않는다: ' + 자리표.안됨);
+});
+
+await 돌('AI못하는행위 — 목록에서 빠진 것만, 행위의 못하면 문구 그대로', async () => {
+  assert.deepEqual(W.AI못하는행위(), [], '다 되는 사람에겐 빈 목록');
+  globalThis.권한켬 = false;
+  globalThis.부서권한 = () => false;
+  const 못 = W.AI못하는행위();
+  const 목록 = W.AI행위목록().map((x) => x.이름);
+  globalThis.권한켬 = true;
+  globalThis.부서권한 = undefined;
+  const 까닭 = Object.fromEntries(못.map((x) => [x.이름, x.까닭]));
+  assert.ok(까닭.NCR발행 && 까닭.NCR발행.includes('품질관리부'), JSON.stringify(못));
+  assert.ok(까닭.CAR발행 && 까닭.CAR발행.includes('품질관리부'));
+  assert.equal(까닭.부서스케줄, AI행위.부서스케줄.못하면);
+  assert.ok(못.every((x) => !목록.includes(x.이름)), '할 수 있는 목록과 겹치면 안 된다');
+});
+
+await 돌('AI못하는행위 — 로그아웃·쓸수있나 예외에도 던지지 않는다', async () => {
+  const 원 = state.currentUser, 원obj = state.currentUserObj;
+  state.currentUser = null; state.currentUserObj = {};   // getU(null) 은 {} 다
+  globalThis.부서권한 = () => { throw new Error('users 없음'); };
+  let 못;
+  try { 못 = W.AI못하는행위(); } finally {
+    state.currentUser = 원; state.currentUserObj = 원obj; globalThis.부서권한 = undefined;
+  }
+  const 이름들 = 못.map((x) => x.이름);
+  assert.ok(이름들.includes('일정등록') && 이름들.includes('부서스케줄'), JSON.stringify(이름들));
+  assert.ok(못.every((x) => typeof x.까닭 === 'string' && x.까닭), '까닭은 늘 글이다');
 });
 
 await 돌('프로젝트일정 — 바뀌는 줄만 카드에 올린다', async () => {
@@ -493,5 +550,36 @@ await 돌('행위목록은 할 수 있는 것만 준다', async () => {
   assert.ok(것.length >= 9, '전부 나와야 한다: ' + JSON.stringify(것.map((x) => x.이름)));
   assert.ok(것.every((x) => x.이름 && x.설명 && x.인자));
 });
+
+// ── 진짜 moveTask — 저장했을 때만 true (2026-09-26) ─────────────────────────
+// 업무완료 쓰기가 이 값으로 성공을 가린다. 위 등록소 시험은 가짜 moveTask 라 이 약속을 못 본다.
+{
+  const ma = src.indexOf('async function moveTask(');
+  const mb = src.indexOf('// 드래그 핸들러', ma);
+  assert.ok(ma > 0 && mb > ma, 'index.html 에서 moveTask 를 찾지 못했다');
+  const { moveTask: 진짜 } = await import('data:text/javascript;base64,' + Buffer.from(`
+const allKanbanTasks = () => globalThis.칸반;
+const alert = (m) => globalThis.알림들.push(m);
+const view = {}; const render = () => {}; const savePartial = () => {};
+${src.slice(ma, mb)}
+export { moveTask };`, 'utf8').toString('base64'));
+  const 원fb = globalThis.fb;
+  const 돌려 = async (t, 터짐) => {
+    globalThis.칸반 = [t]; globalThis.알림들 = [];
+    globalThis.fb = { ...원fb, setDoc: async () => { if (터짐) throw new Error('permission-denied'); } };
+    try { return await 진짜(t.id, 'done'); } finally { globalThis.fb = 원fb; }
+  };
+  state.wbs = { dept_quality: [{ lv: 0, name: 'ISO 내부심사' }] };
+  const 실물 = { id: 't1', status: 'todo' };
+  const 부서줄 = { id: 'w0', status: 'todo', virtual: true, wbsBacked: true, _wbsPid: 'dept_quality', _wbsIdx: 0 };
+  await 돌('moveTask — 저장하면 true, 실패·자리표면 true 가 아니다', async () => {
+    assert.equal(await 돌려(실물, false), true);
+    assert.notEqual(await 돌려(실물, true), true, '업무 저장 실패를 성공으로 넘기면 안 된다');
+    assert.equal(globalThis.알림들.length, 1, '실패 alert 는 그대로 뜬다');
+    assert.equal(await 돌려(부서줄, false), true);
+    assert.notEqual(await 돌려(부서줄, true), true, '부서 스케줄 저장 실패');
+    assert.notEqual(await 돌려({ id: 'okr_ph_o1', status: 'todo', virtual: true, okrPlaceholder: true }, false), true, '자리표는 저장이 없다');
+  });
+}
 
 console.log(`ai-actions-registry 테스트 ${n}개 전체 통과 (등록소 · 스케줄 한 바퀴 · 일정·부서 스케줄)`);

@@ -2658,10 +2658,20 @@ const AI행위 = {
     풀기: async (v) => {
       const q = String(v.업무 || '').toLowerCase().trim();
       if (!q) return { 안됨: '어떤 업무인지 이름을 알려 주세요.' };
-      const pool = (typeof allKanbanTasks === 'function' ? allKanbanTasks() : (state.tasks || []))
+      const 전부 = (typeof allKanbanTasks === 'function' ? allKanbanTasks() : (state.tasks || []))
         .filter((x) => x.status !== 'done');
+      // 2026-09-26 직원 시범 전 대조에서 발견: 부서 자체 업무(부서 스케줄 대단락)는 assignee 가 '나' 로
+      //   만들어져서 일반 직원도 judgeEditTask 를 통과해 부서 스케줄 줄을 통째로 완료로 바꿀 수 있었다
+      //   — 부서 스케줄은 부서장·관리자급만(부서스케줄 행위와 같은 문). OKR 자리표(마일스톤 없음)는
+      //   moveTask 가 저장 없이 돌아가는데 카드는 ✓ 였다.
+      const 부서줄되나 = canEditDeptSchedule((나() || {}).dept);
+      const pool = 전부.filter((x) => !x.okrPlaceholder && (!x.wbsBacked || 부서줄되나));
       const hits = pool.filter((x) => (x.title || '').toLowerCase().includes(q));
       if (!hits.length) {
+        const 가려진 = 전부.find((x) => !pool.includes(x) && (x.title || '').toLowerCase().includes(q));
+        if (가려진) return { 안됨: 가려진.okrPlaceholder
+          ? '이 목표에는 아직 마일스톤이 없습니다 — 목표 관리 화면에서 마일스톤을 먼저 추가해 주세요.'
+          : '부서 스케줄 항목은 부서장·관리자급만 완료로 바꿀 수 있습니다 — 부서장에게 요청해 주세요.' };
         // **"없다" 와 "안 보인다" 를 가른다.** 업무관리 칸반은 내 것 + 내 부서 것만 보여 준다
         //   (visibleTasks). 남의 부서 업무를 대고 "찾지 못했습니다" 라고 하면 사람은 이름을
         //   잘못 쳤다고 여기고 계속 다시 친다 — 에뮬레이터에서 실제로 그렇게 헤맸다(2026-09-23).
@@ -2689,7 +2699,12 @@ const AI행위 = {
       };
     },
     // moveTask 가 실제 tasks 문서·부서 WBS·브리핑 가상 업무를 유형별로 알아서 저장한다.
-    쓰기: async (r) => { await moveTask(r.데이터.taskId, 'done'); return { 알림: '완료로 바꿨습니다.' }; },
+    //   저장 실패는 moveTask 가 alert 로 삼키고 돌아온다 → 저장했을 때만 true 를 받고, 아니면 던져서
+    //   AI행위실행 의 catch 로 보낸다(9/26 대조: 실패해도 카드가 ✓ 였다).
+    쓰기: async (r) => {
+      if (await moveTask(r.데이터.taskId, 'done') !== true) throw new Error('저장하지 못했습니다');
+      return { 알림: '완료로 바꿨습니다.' };
+    },
   },
 
   // ── 문서 초안 저장 · 색인 ───────────────────────────────────────────────
@@ -3166,6 +3181,18 @@ window.AI행위목록 = function () {
     return Object.entries(AI행위)
       .filter(([, d]) => { try { return d.쓸수있나(); } catch (e) { return false; } })
       .map(([이름, d]) => ({ 이름, 설명: d.설명, 인자: d.인자 }));
+  } catch (e) { return []; }
+};
+
+/** 이 사람이 지금 못 하는 행위와 그 까닭 — 메신저가 지침에 싣는다.
+ *  2026-09-26 직원 시범 전 대조에서 발견: 목록에서 빼기만 하니 AI 가 "우리 부서 스케줄에 넣어줘"·
+ *  "NCR 올려줘" 에 "플랫폼이 아직 못 하는 일" 이라고 **틀린 까닭**을 댔다(못하면 문구는 풀기 안에서만 쓰였다).
+ *  로그아웃이어도 던지지 않는다 — 나() 는 {} 라 쓸수있나 가 거짓·예외로 갈린다. */
+window.AI못하는행위 = function () {
+  try {
+    return Object.entries(AI행위)
+      .filter(([, d]) => { try { return !d.쓸수있나(); } catch (e) { return true; } })
+      .map(([이름, d]) => ({ 이름, 까닭: d.못하면 || '지금은 그 일을 할 수 없습니다.' }));
   } catch (e) { return []; }
 };
 
@@ -7222,6 +7249,7 @@ function allKanbanTasks() {
 }
 
 // 드래그앤드롭 진행 상태 이동. 실제 tasks 문서 / 부서 WBS / 브리핑 오버라이드를 각각 다른 경로로 저장.
+// **저장했을 때만 true.** 실패는 여기서 alert 로 삼키므로 AI 업무완료 카드는 이 값으로 성공을 가린다(2026-09-26).
 async function moveTask(taskId, newStatus) {
   if (!['todo','doing','review','done'].includes(newStatus)) return;
   const all = allKanbanTasks();
@@ -7240,6 +7268,7 @@ async function moveTask(taskId, newStatus) {
     try {
       await fb.setDoc(fb.doc(fb.db, 'tasks', taskId),
         { status: newStatus, completedAt: completedAt }, { merge: true });
+      return true;
     } catch (e) { alert('업무 이동 저장 실패: ' + (e.message || e)); }
     return;
   }
@@ -7254,7 +7283,7 @@ async function moveTask(taskId, newStatus) {
     if (ms.done === targetDone) return;
     const newMs = { ...ms, done: targetDone, at: targetDone ? new Date().toISOString().slice(0,10) : null };
     const updated = { ...o, milestones: (o.milestones||[]).map((m,i) => i===idx?newMs:m), updatedAt: Date.now() };
-    try { await fb.setDoc(fb.doc(fb.db, 'okrs', o.id), updated); }
+    try { await fb.setDoc(fb.doc(fb.db, 'okrs', o.id), updated); return true; }
     catch (e) { alert('마일스톤 상태 저장 실패: ' + (e.message || e)); }
     return;
   }
@@ -7269,6 +7298,7 @@ async function moveTask(taskId, newStatus) {
       render();
       try {
         await fb.setDoc(fb.doc(fb.db, 'wbsData', pid), { rows, updatedAt: Date.now() }, { merge: true });
+        return true;
       } catch (e) { alert('부서 업무 상태 저장 실패: ' + (e.message || e)); }
     }
     return;
@@ -7281,6 +7311,7 @@ async function moveTask(taskId, newStatus) {
   try {
     await fb.setDoc(fb.doc(fb.db, 'userState', state.currentUser),
       { taskOverrides: state.taskOverrides }, { merge: true });
+    return true;
   } catch (e) { console.warn('[taskOverrides] Firestore 저장 실패:', e.message); }
 }
 
