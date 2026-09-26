@@ -459,29 +459,38 @@ setInterval(() => {
 // 가져온다. 이 창의 로컬 캐시 상태와 무관하게 항상 최신값을 받을 수 있음(국도화학 T-8405
 // 실사용 중 로컬 값만으로는 반영이 계속 안 되는 문제가 있어 추가 — proj/items는 이미 같은
 // 방식으로 클라우드에서 정상적으로 받아오고 있었음).
-async function pullMasterListsFromItpBuilderCloud() {
-  if (!window.fb || !fb.db) { setTimeout(pullMasterListsFromItpBuilderCloud, 300); return; }
-  if (!fb.auth?.currentUser) { setTimeout(pullMasterListsFromItpBuilderCloud, 400); return; }
-  try {
-    const snap = await fb.getDoc(fb.doc(fb.db, "t_itpBuilderDocs", QAG_PID));
-    if (!snap.exists()) return;
-    const d = snap.data();
-    if (Array.isArray(d.wpsList) && d.wpsList.length) {
-      window.WPS_LIST = d.wpsList;
-      try { localStorage.setItem(MASTER_WPS_KEY, JSON.stringify(d.wpsList)); } catch(e) {}
-    }
-    if (Array.isArray(d.welderList) && d.welderList.length) {
-      window.WELDER_LIST = d.welderList;
-      try { localStorage.setItem(MASTER_WELDER_KEY, JSON.stringify(d.welderList)); } catch(e) {}
-    }
-    if (Array.isArray(d.inspectorList) && d.inspectorList.length) {
-      window.INSPECTOR_LIST = d.inspectorList;
-      try { localStorage.setItem(MASTER_INSPECTOR_KEY, JSON.stringify(d.inspectorList)); } catch(e) {}
-    }
-  } catch(e) { console.error("[QA Doc Generator] WPS/Welder/검사자 List 클라우드 조회 실패", e); }
+// c25(2026-09-26): 5초마다 getDoc 하던 것을 **문서 구독 하나**로. 사람이 안 보고 있어도 시간당 720번 서버에 묻고 있었다
+//   (읽기 한도 누수 후보 — 9/26 코드 훑기). ITP Builder 가 목록을 바꿀 때만 받는다. 로그인 전이면 기다렸다 한 번만 건다.
+//   구독이 오류로 끊기면(로그아웃 등) 다시 걸지 않는다 — 거부 → 재구독 되풀이를 만들지 않으려고. 다시 열면 다시 건다.
+function 목록반영(d) {
+  if (Array.isArray(d.wpsList) && d.wpsList.length) {
+    window.WPS_LIST = d.wpsList;
+    try { localStorage.setItem(MASTER_WPS_KEY, JSON.stringify(d.wpsList)); } catch(e) {}
+  }
+  if (Array.isArray(d.welderList) && d.welderList.length) {
+    window.WELDER_LIST = d.welderList;
+    try { localStorage.setItem(MASTER_WELDER_KEY, JSON.stringify(d.welderList)); } catch(e) {}
+  }
+  if (Array.isArray(d.inspectorList) && d.inspectorList.length) {
+    window.INSPECTOR_LIST = d.inspectorList;
+    try { localStorage.setItem(MASTER_INSPECTOR_KEY, JSON.stringify(d.inspectorList)); } catch(e) {}
+  }
 }
-pullMasterListsFromItpBuilderCloud();
-setInterval(pullMasterListsFromItpBuilderCloud, 5000);
+let _목록구독 = null;
+function subscribeMasterListsFromItpBuilderCloud() {
+  if (!window.fb || !fb.db) { setTimeout(subscribeMasterListsFromItpBuilderCloud, 300); return; }
+  if (!fb.auth?.currentUser) { setTimeout(subscribeMasterListsFromItpBuilderCloud, 1000); return; }   // 로그인 전 — 읽기 없음
+  if (_목록구독) return;
+  _목록구독 = fb.onSnapshot(fb.doc(fb.db, "t_itpBuilderDocs", QAG_PID),
+    (snap) => { if (snap.exists()) 목록반영(snap.data()); },
+    (e) => {
+      console.error("[QA Doc Generator] WPS/Welder/검사자 List 구독 실패", e); _목록구독 = null;
+      // 로그아웃 때문에 끊겼으면(8시간 유휴·수동 로그아웃) 다시 로그인하길 기다렸다 다시 건다 — 기다리는 동안은 읽기 없음.
+      //   로그인된 채 거부된 것(권한)은 다시 걸지 않는다: 거부 → 재구독 되풀이를 만들지 않으려고(적대 검토 9/26).
+      if (!fb.auth?.currentUser) subscribeMasterListsFromItpBuilderCloud();
+    });
+}
+subscribeMasterListsFromItpBuilderCloud();
 
 const getWPS = () => window.WPS_LIST || WPS_SEED;
 const generateDocNo = (projNo, type, seq) => {
@@ -2526,7 +2535,7 @@ function App(){
   // v1.8 — 클라우드(Firestore t_itpBuilderDocs) 우선 읽기. 기존엔 이 창 localStorage만 봐서
   // 다른 컴퓨터에서 작성한 ITP는 못 가져왔음(ITP Builder의 "보내기" 버튼도 결국 이 한계 때문에
   // 무의미했음 → 그 버튼은 삭제). 이제 클라우드 문서가 있으면 그걸 우선 쓰고, 없으면 localStorage로
-  // 폴백. pullMasterListsFromItpBuilderCloud가 WPS/Welder에 이미 쓰는 것과 동일 패턴.
+  // 폴백. subscribeMasterListsFromItpBuilderCloud(c25 문서 구독)가 WPS/Welder에 쓰는 것과 같은 자리.
   const pullFromItpBuilder = async ({force=false, silent=false, noOwnItemsYet=null, noOwnProjectYet=null}={}) => {
     try {
       let itpData = null;

@@ -73,8 +73,17 @@
     try { if (e && (e.code === 'resource-exhausted' || /quota/i.test(String(e.message || '')))) window.읽기한도봤다 && window.읽기한도봤다(); } catch (x) {}
     return e;
   };
-  const 감싼getDoc = (...a) => getDoc(...a).catch((e) => { throw 한도봤나(e); });
-  const 감싼getDocs = (...a) => getDocs(...a).catch((e) => { throw 한도봤나(e); });
+  // b110(9/26): **한 번 조회도 센다.** 부팅 계량기(잰다)는 구독만 세서 AI 질문·관리 화면·로그인 때의 getDocs 가 장부 밖이었다
+  //   (9/26 코드 훑기 — 그날 콘솔 16만 vs 장부 9천). 서버에서 온 것만(캐시 폴백은 0), 0건이어도 1(쿼리 최소 과금),
+  //   세기(getCountFromServer)는 1천 건당 1. 메신저(플랫폼 안)는 이 fb 를 같이 써서 같이 잡힌다.
+  //   ⚠ 결과 건수(s.size)를 그대로 과금에 넣으면 **부푼다**(적대 검토): 영속 캐시가 재개 토큰으로 30분 안의 같은 조회를 이어 받아
+  //   실제 과금은 바뀐 문서뿐인데, 스냅숏은 늘 전체 건수로 온다(공개 API 로는 서버가 보낸 수를 모른다). 그래서
+  //   **과금 칸엔 조회 1번에 1(아래로 센 값)**, 결과 건수는 **상한 칸**(readDaily.browserOnceMax)으로 따로. 세기는 정확히 알아 과금에 넣는다.
+  const 한번셈 = (과금, 상한) => { try { window.한번읽기셈 && window.한번읽기셈(과금, 상한); } catch (x) {} };
+  const 서버에서 = (s) => !(s && s.metadata && s.metadata.fromCache);
+  const 감싼getDoc = (...a) => getDoc(...a).then((s) => { if (서버에서(s)) 한번셈(1, 1); return s; }, (e) => { throw 한도봤나(e); });
+  const 감싼getDocs = (...a) => getDocs(...a).then((s) => { if (서버에서(s)) 한번셈(1, Math.max(1, s.size)); return s; }, (e) => { throw 한도봤나(e); });
+  const 감싼세기 = (...a) => getCountFromServer(...a).then((s) => { const n = Math.max(1, Math.ceil((Number(s.data().count) || 0) / 1000)); 한번셈(n, n); return s; }, (e) => { throw 한도봤나(e); });
   const 감싼onSnapshot = (ref, ...나머지) => {
     // 오류 받는 자리를 찾아 감싼다: (ref, next, error) · (ref, opts, next, error) · (ref, { next, error })
     const i = 나머지.findIndex((x) => typeof x === 'function');
@@ -94,7 +103,7 @@
 
     doc, getDoc: 감싼getDoc, setDoc, updateDoc, deleteDoc, getDocs: 감싼getDocs, collection, onSnapshot: 감싼onSnapshot,
     query, where, orderBy, limit, documentId, // documentId: v29.59 AI 비서 ITP 문서 범위 쿼리용
-    getCountFromServer,                       // v30.17: 세는 질문. 전체를 훑으면 무료 한도를 태운다 — 태운 적 있다
+    getCountFromServer: 감싼세기,              // v30.17: 세는 질문. 전체를 훑으면 무료 한도를 태운다 — 태운 적 있다 · b110 부터 센다
     increment,                                // v30.19(b94): 읽기 장부
     getDocsFromCache, getDocFromCache,        // 서버가 못 줄 때(한도·망) 캐시로 들어가려고 — hydrateUsersAndEnter
   };
@@ -1567,7 +1576,7 @@ const QADASH_BUILD = 'b31'; // b31: 경향 보고서 호출에 기능 칸(x-sj-f
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
 const ITPBUILDER_BUILD = 'c48'; // c48: 결재 도장표에 개인 서명 이미지 지원(등록 시 도장 대신 서명 표시)
-const QADOC_BUILD = 'c24'; // c24: 클라우드 강제 불러오기 버튼(+pid 진단)
+const QADOC_BUILD = 'c25'; // c25: WPS·용접사·검사자 목록 5초 폴링 → 문서 구독(9/26 읽기 누수 후보) · c24: 클라우드 강제 불러오기 버튼(+pid 진단)
 const MTOOLS_BUILD = 'b13'; // b13: 결재 도장표에 개인 서명 이미지 지원(등록 시 도장 대신 서명 표시)
 // v30.16: 로그인 화면 배경 영상 경로. 비어 있으면 <video>를 렌더하지 않고 이미지 2컷 모션만 쓴다(불필요한 404 없음).
 // Higgsfield 등으로 mp4(H.264 yuv420p, 무음, faststart, ≤8MB 권장)를 만들면 assets/login/sejong-hero.mp4 로 넣고 여기에 경로를 적는다.
@@ -3668,6 +3677,9 @@ function 잰다(이름, snap) {
   if (칸.첫 == null) { 칸.첫 = n; return; }
   try { 칸.이후 += snap.docChanges ? snap.docChanges().length : 1; } catch (e) { 칸.이후 += 1; }
 }
+// b110(9/26): 한 번 조회(getDoc·getDocs·getCountFromServer)는 index.html 머리 감싸기가 여기로 센다 — 과금만 올린다(첫 은 부팅 무게라 안 건드린다).
+//   과금 = 조회 1번에 1(아래로 센 값 — 재개로 실제가 더 적을 수는 없다: 최소 과금) · 상한 = 결과 건수(재개가 없었다면 이만큼). 상한은 따로 보낸다.
+window.한번읽기셈 = function (과금, 상한) { const 칸 = _읽기장부["한번읽기"] || (_읽기장부["한번읽기"] = { 첫: 0, 이후: 0, 발화: 0, 과금: 0, 상한: 0 }); 칸.발화++; 칸.과금 += (Number(과금) || 0); 칸.상한 = (칸.상한 || 0) + (Number(상한) || 0); };
 /* ── 읽기 장부 (b94, 2026-09-23) ────────────────────────────────────────────
  * 왜: 무료 하루 5만 읽기를 여러 번 태웠는데, **누가 태웠는지 세는 곳이 없었다.**
  *   파이스는 제 읽기를 세고 3만에서 스스로 멈춘다(platform_sync.js 읽기기록).
@@ -3683,7 +3695,7 @@ function 잰다(이름, snap) {
  *   그날 조심할지 말지가 갈린다. 지금은 그 자릿수조차 몰라서 매번 벽에 부딪혔다.
  */
 function 한도날() { return new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10); }
-let _보낸읽기 = 0;
+let _보낸읽기 = 0, _보낸상한 = 0;   // _보낸상한: b110 한 번 조회 결과 건수(상한) — browserOnceMax
 // b100: **접속마다 한 줄**(sessions +1). 9/24 에 "오늘 문서가 없다" 가 '아무도 안 읽었다' 인지 '장부가 안 써진다' 인지
 //   겉으로 같아서 갈라 볼 길이 없었다(더운 캐시 접속은 읽기가 0 이라 보낼 게 없다). 이제 접속이 있으면 문서가 늘 생긴다.
 let _접속적음 = false;
@@ -3694,14 +3706,15 @@ async function 읽기장부보내기() {
     //   실제보다 몇 배 크게 나온다 — 틀린 자는 없는 자보다 나쁘다.
     const 합 = Object.values(_읽기장부).reduce((a, v) => a + (v.과금 || 0), 0);
     const 델타 = 합 - _보낸읽기;
-    if (델타 < 1 && _접속적음) return;
+    const 상한합 = (_읽기장부['한번읽기'] || {}).상한 || 0, 상한델타 = 상한합 - _보낸상한;
+    if (델타 < 1 && 상한델타 < 1 && _접속적음) return;
     const 첫 = !_접속적음;
-    _보낸읽기 = 합; _접속적음 = true;
+    _보낸읽기 = 합; _보낸상한 = 상한합; _접속적음 = true;
     // increment 라 여럿이 동시에 올려도 안 엉킨다. 쓰기 1회(쓰기 한도는 2만, 지금 하루 500 쓴다).
     await fb.setDoc(fb.doc(fb.db, 'readDaily', 한도날()),
-      { day: 한도날(), ...(델타 > 0 ? { browser: fb.increment(델타) } : {}), ...(첫 ? { sessions: fb.increment(1) } : {}), at: Date.now() },
+      { day: 한도날(), ...(델타 > 0 ? { browser: fb.increment(델타) } : {}), ...(상한델타 > 0 ? { browserOnceMax: fb.increment(상한델타) } : {}), ...(첫 ? { sessions: fb.increment(1) } : {}), at: Date.now() },
       { merge: true });
-  } catch (e) { _보낸읽기 = 0; _접속적음 = false; }   // 못 보냈으면 다음 차례에 통째로 다시 보낸다
+  } catch (e) { _보낸읽기 = 0; _보낸상한 = 0; _접속적음 = false; }   // 못 보냈으면 다음 차례에 통째로 다시 보낸다
 }
 // b100: 읽기가 한도(429)에 막힌 것을 봤다 — 이 접속에서 한 번만 적는다. **쓰기라 한도가 차도 들어간다.**
 //   필드는 관문의 limitHitAt(처음 찬 시각, minimum)과 따로 둔다 — 브라우저는 minimum 변환을 못 쓴다.
@@ -3723,7 +3736,7 @@ function 읽기장부켜기() {
 window.오늘읽기 = async function () {
   const d = await fb.getDoc(fb.doc(fb.db, 'readDaily', 한도날()));
   const v = d.exists() ? d.data() : {};
-  return { 한도날: 한도날(), 브라우저: v.browser || 0, 관문: v.gateway || 0, 마지막: v.at ? new Date(v.at).toLocaleString('ko-KR') : '-' };
+  return { 한도날: 한도날(), 브라우저: v.browser || 0, 관문: v.gateway || 0, 한번상한: v.browserOnceMax || 0, 마지막: v.at ? new Date(v.at).toLocaleString('ko-KR') : '-' };
 };
 
 window.부팅읽기 = function () {
@@ -8391,8 +8404,22 @@ const _admTime = ts => { const d = new Date(ts); return _admDay(ts).slice(5) + '
  *   KPI 에 rows.length 를 쓰던 자리가 있어서 그냥 자르면 **숫자가 거짓말을 한다** —
  *   그래서 전체 를 따로 돌려주고, 잘렸으면 화면에 "최근 N건 기준" 이라고 적는다.
  */
-async function _admFetch30d(colName, 최대 = 300) {
-  const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+// b110(9/26): **5분 쥔다 · 기준 시각을 날짜로 내린다.** 관리 화면은 구독이 바뀔 때마다 다시 그려져(render → admin → loadAdminTab)
+//   그때마다 300건을 다시 읽었고, since 가 매번 달라(Date.now()) 캐시도 못 먹는 새 쿼리였다 — 9/26 코드 훑기가 짚은 가장 큰 구조적 누수 자리.
+//   같은 순간 여러 번 불려도 한 번만 읽는다. ↺ 새로고침(머리 단추)만 바로 다시 읽는다.
+const _adm보관 = {}, _adm읽는중 = {};
+async function _admFetch30d(colName, 최대 = 300, 새로 = false) {
+  // 읽는 중이면 새로고침도 거기 합류한다(적대 검토: 겹치면 두 번 읽거나, 옛 보관이 새 결과를 가렸다). 자기 약속만 지운다.
+  if (_adm읽는중[colName]) return _adm읽는중[colName];
+  const 쥔 = _adm보관[colName];
+  if (!새로 && 쥔 && Date.now() - 쥔.at < 5 * 60e3) return 쥔.값;
+  const 약속 = _adm30일읽기(colName, 최대).then((값) => { _adm보관[colName] = { at: Date.now(), 값 }; return 값; });
+  _adm읽는중[colName] = 약속;
+  try { return await 약속; } finally { if (_adm읽는중[colName] === 약속) delete _adm읽는중[colName]; }
+}
+async function _adm30일읽기(colName, 최대) {
+  const 오늘0시 = new Date(); 오늘0시.setHours(0, 0, 0, 0);
+  const since = 오늘0시.getTime() - 30 * 24 * 60 * 60 * 1000;   // 날짜로 내려야 같은 쿼리가 된다(영속 캐시가 대상을 다시 쓴다)
   const snap = await fb.getDocs(fb.query(fb.collection(fb.db, colName),
     fb.where('at', '>=', since), fb.orderBy('at', 'desc'), fb.limit(최대)));
   const rows = []; snap.forEach(d => rows.push(d.data()));
@@ -8496,28 +8523,29 @@ function admin() {
   const tabs = [['ai','🤖 AI 사용량'], ['err','🐞 시스템 오류'], ['acc','🚪 접속 기록'], ['act','🛠 작업 활동'], ['perm','🔐 접근 권한']];
   return `<div class="mod-head">
       <div style="font-size:12px;color:var(--text-light);">AI 사용량 · 시스템 오류 · 접속/작업 기록 (최근 30일)</div>
-      <button class="back-btn" onclick="loadAdminTab()">↺ 새로고침</button>
+      <button class="back-btn" onclick="loadAdminTab(true)">↺ 새로고침</button>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
       ${tabs.map(([id, label]) => `<button class="btn ${view.adminTab === id ? 'btn-primary' : ''}" onclick="view.adminTab='${id}';render()">${label}</button>`).join('')}
     </div>
     <div id="adminBody"><div class="card" style="padding:30px;text-align:center;color:var(--text-light);">불러오는 중…</div></div>`;
 }
-function loadAdminTab() {
+function loadAdminTab(새로) {   // 새로: ↺ 새로고침 단추만 true — 렌더에서 불릴 땐 쥔 것을 쓴다(b110)
   const t = view.adminTab || 'ai';
-  if (t === 'ai')  return loadAiUsage();
-  if (t === 'err') return loadErrorLog();
-  if (t === 'acc') return loadAccessLog();
-  if (t === 'act') return loadActivityLog();
+  if (t === 'ai')  return loadAiUsage(새로);
+  if (t === 'err') return loadErrorLog(새로);
+  if (t === 'acc') return loadAccessLog(새로);
+  if (t === 'act') return loadActivityLog(새로);
   return renderAdminPerm();
 }
 const _admLoadFail = (box, e) => { box.innerHTML = `<div class="card" style="padding:24px;color:#991b1b;">기록을 불러오지 못했습니다: ${_admEsc(e.message||e)}<br><span style="font-size:12px;color:var(--text-light);">Firebase 콘솔에 firestore.rules 최신본이 게시됐는지 확인하세요.</span></div>`; };
 
 // 🐞 시스템 오류
-async function loadErrorLog() {
-  const box = document.getElementById('adminBody'); if (!box) return;
+async function loadErrorLog(새로) {
+  let box = document.getElementById('adminBody'); if (!box) return;
   let rows, 전체, 잘림;
-  try { ({ rows, 전체, 잘림 } = await _admFetch30d('errorLog')); } catch (e) { return _admLoadFail(box, e); }
+  try { ({ rows, 전체, 잘림 } = await _admFetch30d('errorLog', 300, 새로)); } catch (e) { return _admLoadFail(box, e); }
+  box = document.getElementById('adminBody'); if (!box || (view.adminTab || 'ai') !== 'err') return;   // 읽는 사이 다시 그려졌거나 다른 탭으로 갔다
   const 건수 = 전체 == null ? '300건 이상' : 전체.toLocaleString() + '건';
   const 기준 = 잘림 ? ' <span style="font-size:10px;color:var(--text-lighter);">(표는 최근 300건 기준)</span>' : '';
   const trs = rows.slice(0, 100).map(r => `
@@ -8534,10 +8562,11 @@ async function loadErrorLog() {
 }
 
 // 🚪 접속 기록
-async function loadAccessLog() {
-  const box = document.getElementById('adminBody'); if (!box) return;
+async function loadAccessLog(새로) {
+  let box = document.getElementById('adminBody'); if (!box) return;
   let rows, 전체, 잘림;
-  try { ({ rows, 전체, 잘림 } = await _admFetch30d('accessLog')); } catch (e) { return _admLoadFail(box, e); }
+  try { ({ rows, 전체, 잘림 } = await _admFetch30d('accessLog', 300, 새로)); } catch (e) { return _admLoadFail(box, e); }
+  box = document.getElementById('adminBody'); if (!box || (view.adminTab || 'ai') !== 'acc') return;   // 읽는 사이 다시 그려졌거나 다른 탭으로 갔다
   const 건수 = 전체 == null ? '300건 이상' : 전체.toLocaleString() + '건';
   const 기준 = 잘림 ? ' <span style="font-size:10px;color:var(--text-lighter);">(표는 최근 300건 기준)</span>' : '';
   const today = _admDay(Date.now());
@@ -8561,10 +8590,11 @@ async function loadAccessLog() {
 }
 
 // 🛠 작업 활동
-async function loadActivityLog() {
-  const box = document.getElementById('adminBody'); if (!box) return;
+async function loadActivityLog(새로) {
+  let box = document.getElementById('adminBody'); if (!box) return;
   let rows, 전체, 잘림;
-  try { ({ rows, 전체, 잘림 } = await _admFetch30d('activityLog')); } catch (e) { return _admLoadFail(box, e); }
+  try { ({ rows, 전체, 잘림 } = await _admFetch30d('activityLog', 300, 새로)); } catch (e) { return _admLoadFail(box, e); }
+  box = document.getElementById('adminBody'); if (!box || (view.adminTab || 'ai') !== 'act') return;   // 읽는 사이 다시 그려졌거나 다른 탭으로 갔다
   const 건수 = 전체 == null ? '300건 이상' : 전체.toLocaleString() + '건';
   const 기준 = 잘림 ? ' <span style="font-size:10px;color:var(--text-lighter);">(표는 최근 300건 기준)</span>' : '';
   const byUser = {};
@@ -8740,7 +8770,7 @@ async function loadAiUsage(새로) {
         <div style="width:${Math.min(100, Math.round(짐작 / 500))}%;height:100%;background:${색};"></div>
       </div>
       <div style="font-size:11px;color:var(--text-light);line-height:1.6;">
-        ${읽기 ? `브라우저 <b>${브.toLocaleString()}</b>건(직원 접속 전부, <b>아래로 센 값</b>) + 게이트웨이 <b>${관문.toLocaleString()}</b>건(야간 백업) + 파이스 약 3,000건.
+        ${읽기 ? `브라우저 <b>${브.toLocaleString()}</b>건(직원 접속 전부, <b>아래로 센 값</b>${수(읽기.한번상한) ? ` · 한 번 조회는 최대 ${수(읽기.한번상한).toLocaleString()}건` : ''}) + 게이트웨이 <b>${관문.toLocaleString()}</b>건(야간 백업) + 파이스 약 3,000건.
         한도일 ${읽기.한도날} · 마지막 기록 ${읽기.마지막}` : '아직 오늘 기록이 없습니다(또는 읽기 한도가 이미 찼습니다).'}
         ${짐작 > 40000 ? '<br><b style="color:#dc2626;">한도에 가깝습니다 — 오늘은 큰 배치·새로고침을 미루세요.</b>' : ''}
       </div>
