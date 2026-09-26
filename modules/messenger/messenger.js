@@ -25,7 +25,7 @@ import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b112';
 import { 틀붙이기 } from '../shared/frame-fs.mjs?v=f1';
 import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b112';
 import * as L from './lib.js?v=b112';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 답하기, 사내문서, 시키는질문인가, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b112';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 답하기, 문서순, 사내문서, 시키는질문인가, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b112';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -1778,10 +1778,11 @@ async function AI맥락(문서, 표 = null, 센것 = [], 갈래 = '찾기', 물�
     //   화면엔 없는 그림을 설명하라고 시켰다(9/25 두 번째 검토). 고르는 규칙은 답 밑 그림과 같은 붙일그림().
     const 그림자리 = new Map();
     for (const { i, g } of 붙일그림(문서)) 그림자리.set(i, [...(그림자리.get(i) || []), g]);
+    const 순들 = 문서순(문서, 물음);         // 파일 물음이면 맨 뒤에 온 볼트 카드를 규격보다 나중에 뺀다(ai.js 문서순)
     문서.forEach((m, i) => {
       const 그림들 = 그림자리.get(i) || [];
       const 안내 = 그림들.length ? `\n(이 조각의 도면 ${그림들.map((g) => 'Figure ' + (g.no || '')).join(', ')} 이 답 바로 아래에 함께 표시된다 — "어디서 찾아보라" 하지 말고 그림이 무엇을 보여 주는지·어떻게 읽는지 설명해라)` : '';
-      넣(`[${m.docName || '문서'}] ${String(m.text || '').slice(0, 700)}${안내}`, 문급, { 무리: '문서', 문서: m.docName || '문서', 조각: i });
+      넣(`[${m.docName || '문서'}] ${String(m.text || '').slice(0, 700)}${안내}`, 문급, { 무리: '문서', 문서: m.docName || '문서', 조각: i, 순: 순들[i] });
     });
   }
   return 줄;
