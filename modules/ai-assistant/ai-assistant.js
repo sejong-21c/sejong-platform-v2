@@ -1,6 +1,7 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.85.1: 기록 색인(SJP_indexRecord 등)을 index.html 로 옮겼다 — 첫 저장이 이 파일(190KB)을 받느라 늦던 것.
  * v29.85: 로컬 LLM 칸은 이 PC(루프백) 주소만 — localhost·127.x.x.x·[::1]. 바깥 주소(회사 라우터 등)를 넣으면
  *          게이트웨이를 안 거쳐 장부 밖으로 나갔다. 저장 때 거르고, 예전에 저장된 바깥 주소는 무시(🔑 창에 경고).
  * v29.84: 로컬 LLM '전 직원 공용 공유'(t_aiSharedConfig) 삭제 — 누구나 고칠 수 있는 문서라 주소를 바꾸면 전 직원의
@@ -1077,135 +1078,9 @@
     }
   };
 
-  // v29.67 (로드맵 9-1c): 기록 저장 직후 자동 색인 — NCR·CAR 등을 저장하면 AI가 즉시 학습한다.
-  // iframe 모듈(ncr.html 등)은 window.parent.SJP_indexRecord(...)로 호출한다.
-  //
-  // 절대 원칙: 색인이 실패해도 저장 흐름을 막지 않는다. 그래서
-  //  · 예외를 밖으로 던지지 않고 항상 resolve (호출부는 await 없이 던져놓기만 해도 됨)
-  //  · 15초 타임아웃 — 게이트웨이가 막힌 환경(신과장 PC 등)에서 저장이 멈추지 않게
-  //  · 게이트웨이 미설정·비로그인은 조용히 스킵
-  // (2026-07-16 교훈: 로컬 캐시 실패가 클라우드 저장까지 막아 데이터가 남에게 안 보이던 사고)
-  //
-  // v29.68 (9-1d): 색인 텍스트를 만드는 코드는 여기 한 곳에만 둔다. iframe(ncr.html 등)은
-  // 레코드 원본만 {rec:...}로 넘기고, 관리 탭의 일괄 재색인도 같은 함수를 쓴다 —
-  // 두 곳에 같은 로직을 두면 한쪽만 고쳐져서 저장 색인과 재색인 결과가 달라진다.
-  var REC_NCR_GRADE  = { major: '중대', minor: '일반', obs: '경미' };
-  var REC_NCR_STATUS = { open: '진행중', closed: '종결' };
-  var REC_CAR_STATUS = { 'in-progress': '조치중', closed: '완료' };
-  function recProj(rec) {
-    if (rec.proj === '__direct__') return ((rec.meta || {}).projDirect) || '직접입력';
-    var p = (state.projects || []).find(function (x) { return x.id === rec.proj; });
-    return p ? (p.code || '') + (p.name ? ' ' + p.name : '') : '';
-  }
-  function recUserName(id) {
-    var u = (state.users || []).find(function (x) { return x.id === id; });
-    return u ? (u.name || '') + (u.title ? ' ' + u.title : '') : '';
-  }
-  var REC_SPECS = {
-    ncr: {
-      head: '부적합 보고서(NCR) ', titleOf: function (n) { return [n.item, REC_NCR_GRADE[n.grade]].filter(Boolean).join(' · '); },
-      fields: [
-        ['item', '아이템'], ['grade', '등급', REC_NCR_GRADE], ['status', '상태', REC_NCR_STATUS],
-        ['desc', '부적합 내용'], ['location', '발생장소'], ['cause', '불량원인'], ['causeDetail', '원인 상세'],
-        ['disposition', '처리방안'], ['issuedAt', '발행일'], ['closedAt', '종결일'], ['carId', '연계 CAR'],
-      ],
-      meta: [['client', '발주처'], ['dwgNo', '도면번호'], ['wrNo', 'W/R번호']],
-      who: 'issuedBy', whoLabel: '발행자',
-    },
-    car: {
-      head: '시정조치 요구서(CAR) ', titleOf: function (c) { return String(c.reqContent || '').slice(0, 80); },
-      fields: [
-        ['ncrId', '연계 NCR'], ['reqDept', '요청부서'], ['status', '상태', REC_CAR_STATUS],
-        ['field', '분야'], ['cause', '원인 분류'], ['reqContent', '시정 요구사항'], ['causeDetail', '원인 상세'],
-        ['action', '시정 조치'], ['result', '조치 결과'], ['issuedAt', '발행일'], ['replyDue', '회신 기한'],
-        ['repliedAt', '회신일'], ['actionAt', '조치일'], ['closedAt', '완료일'], ['qualReq', '품질 요구사항'],
-      ],
-      meta: [],
-    },
-    // v29.69: 회의록 — 안건·참석자가 중첩 배열이라 extra 훅으로 푼다
-    meeting: {
-      head: '회의록 ', titleOf: function (m) { return String(m.topic || m.title || '').slice(0, 80); },
-      fields: [['docNo', '문서번호'], ['topic', '회의 주제'], ['date', '회의일'], ['byName', '작성자'], ['dept', '부서'], ['summary', '요약']],
-      meta: [],
-      extra: function (m, lines) {
-        var att = (m.attendees || []).map(function (a) { return (a.name || '').trim(); }).filter(Boolean);
-        if (att.length) lines.push('참석자: ' + att.join(', '));
-        (m.agendas || []).forEach(function (ag, i) {
-          if (ag.title) lines.push('안건 ' + (i + 1) + ': ' + ag.title);
-          (ag.items || []).forEach(function (it) {
-            if (!it.content) return;
-            lines.push(it.content + (it.owner ? ' (담당: ' + it.owner + (it.deadline ? ', 기한: ' + it.deadline : '') + ')' : ''));
-          });
-        });
-        // 전사본은 길다 — 워커 상한(20,000자) 안에서 앞부분만
-        if (m.transcript) lines.push('녹취 요지: ' + String(m.transcript).slice(0, 8000));
-      },
-    },
-  };
-  window.SJP_buildRecordText = function (kind, rec) {
-    var spec = REC_SPECS[kind];
-    if (!spec || !rec) return '';
-    var lines = [spec.head + rec.id];
-    var pj = recProj(rec);
-    if (pj) lines.push('프로젝트: ' + pj);
-    spec.fields.forEach(function (f) {
-      var v = rec[f[0]];
-      if (v == null || v === '') return;
-      if (Array.isArray(v)) { if (!v.length) return; v = v.join(', '); }
-      lines.push(f[1] + ': ' + (f[2] ? (f[2][v] || v) : v));
-    });
-    var m = rec.meta || {};
-    spec.meta.forEach(function (f) { if (m[f[0]]) lines.push(f[1] + ': ' + m[f[0]]); });
-    if (spec.who) { var w = recUserName(rec[spec.who]); if (w) lines.push(spec.whoLabel + ': ' + w); }
-    if (spec.extra) { try { spec.extra(rec, lines); } catch (e) {} }
-    return lines.join('\n').slice(0, 19000);   // 워커 상한(20,000자) 안전 여유
-  };
-
-  // 2026-09-25: 무효 처리된 시험 기록은 AI 가 근거로 쓰면 안 된다(9/24 AI 행위 사람 손 시험의 NCR-2026-001 ·
-  //   CAR-2026-011 — 기록은 '시험 발행 — 무효' 로 남기고 색인에서만 뺐다). 저장·일괄 보충이 모두 이 함수를
-  //   지나므로 여기서 막는다: 그런 기록을 색인하라고 하면 **지우기**로 바꾼다(다시 저장해도 되살아나지 않게).
-  //   같은 규칙이 파이스 platform_sync.js(볼트 노트)에도 있다.
-  window.SJP_isVoidTest = function (rec) {
-    try { return !!rec && JSON.stringify(rec).indexOf('[시험 발행 — 무효]') !== -1; } catch (e) { return false; }
-  };
-  window.SJP_indexRecord = function (kind, id, title, text, opts) {
-    opts = opts || {};
-    if (opts.rec && !opts.remove && window.SJP_isVoidTest(opts.rec)) opts = { remove: true };
-    return (async function () {
-      try {
-        var gw = getGatewayUrl();
-        if (!gw) return { skipped: 'no-gateway' };
-        if (!window.fb || !fb.auth || !fb.auth.currentUser) return { skipped: 'not-logged-in' };
-        if (!id) return { skipped: 'no-id' };
-        // 레코드 원본을 받았으면 제목·본문을 여기서 만든다 (호출부마다 만들면 로직이 갈라진다)
-        if (opts.rec && !opts.remove) {
-          var sp = REC_SPECS[kind];
-          title = sp ? sp.titleOf(opts.rec) : title;
-          text = window.SJP_buildRecordText(kind, opts.rec);
-        }
-        var body = opts.remove
-          ? { kind: kind, id: id, remove: true }
-          : { kind: kind, id: id, title: String(title || ''), text: String(text || '') };
-        if (!opts.remove && !body.text.trim()) return { skipped: 'empty-text' };
-        var ctl = new AbortController();
-        var timer = setTimeout(function () { ctl.abort(); }, 15000);
-        var headers = Object.assign({ 'Content-Type': 'application/json' }, await gatewayAuthHeaders());
-        var res = await fetch(gw + '/rag/record', {
-          method: 'POST', headers: headers, body: JSON.stringify(body), signal: ctl.signal
-        });
-        clearTimeout(timer);
-        var d = await res.json().catch(function () { return {}; });
-        if (!res.ok) {
-          console.warn('[자동색인] ' + kind + ' ' + id + ' 실패(저장은 정상):', res.status, d.error || '');
-          return { error: d.error || ('오류 ' + res.status) };
-        }
-        return d;
-      } catch (e) {
-        console.warn('[자동색인] ' + kind + ' ' + id + ' 실패(저장은 정상):', e.message || e);
-        return { error: String(e.message || e) };
-      }
-    })();
-  };
+  // 2026-09-26(v29.85.1): 기록 저장 때 AI 색인(SJP_indexRecord · SJP_buildRecordText · SJP_isVoidTest · REC_SPECS)은
+  //   index.html <script id="record-index"> 로 옮겼다 — 이 파일은 이제 부를 때만 실린다(old-ai-loader). 여기 사본을 다시
+  //   두지 말 것: 실리는 순간 늘 실리는 정의를 덮고, 두 곳 로직이 갈라진다. 아래 일괄 보충은 window 의 것을 부른다.
 
   // v29.68 (로드맵 9-1d): 색인 상태 점검 · 누락분 일괄 보충.
   // 자동 색인은 v29.67부터라, 그 전에 쌓인 NCR·CAR은 AI가 모른다. 이 버튼이 그걸 메운다.

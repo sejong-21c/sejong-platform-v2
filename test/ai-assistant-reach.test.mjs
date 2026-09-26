@@ -64,6 +64,11 @@ T('SJP_indexRecord — 부르는 쪽이 있으면 늘 실리는 스크립트에 
   assert.ok(집, '진짜 SJP_indexRecord(function (kind, …)) 정의를 못 찾았다');
   for (const 이름 of ['SJP_buildRecordText', 'SJP_isVoidTest'])
     assert.ok(정의식(이름).test(집[1]), `SJP_indexRecord 가 부르는 ${이름} 이 같은 파일(${집[0]})에 없다 — 색인이 조용히 멎는다`);
+  // 2026-09-26 저녁: 옛 비서가 부를 때만 실리게 되자 첫 저장이 190KB 를 기다렸다 → 색인은 늘 실리는 곳(index.html record-index)에만.
+  //   옛 비서에 사본이 남으면 실리는 순간 window 의 정의를 덮고, 두 곳 로직이 갈라진다.
+  assert.notEqual(집[0], 옛비서파일, 'SJP_indexRecord 가 옛 비서에만 있다 — 부를 때만 실리니 첫 저장 색인이 늦는다. index.html record-index 로');
+  assert.ok(!/window\.SJP_indexRecord\s*=\s*function/.test(옛비서), '옛 비서에 SJP_indexRecord 사본이 남았다 — 실리면 늘 실리는 정의를 덮는다');
+  assert.ok(!스텁들.includes('SJP_indexRecord'), '늘 실리는 정의가 있는데 싣개가 SJP_indexRecord 스텁을 또 세운다');
   for (const 이름 of ['REC_SPECS', 'getGatewayUrl', 'gatewayAuthHeaders'])
     assert.ok(new RegExp(`(?:var|let|const)\\s+${이름}\\s*=|function\\s+${이름}\\s*\\(`).test(집[1]),
       `SJP_indexRecord 가 쓰는 ${이름} 이 같은 파일(${집[0]})에 없다 — 옮길 때 같이 가져와라`);
@@ -79,7 +84,7 @@ T('옛 비서는 <script src> 로 늘 싣지 않고, 싣개 한 곳에만 주소
 });
 
 T('싣개의 스텁 이름은 모두 옛 비서가 실제로 만든다(안 만들면 스텁이 영영 경고만 한다)', () => {
-  assert.ok(스텁들.includes('SJP_indexRecord') && 스텁들.includes('toggleAiPanel'), '스텁 목록을 못 읽었다: ' + 스텁들.join(', '));
+  assert.ok(스텁들.includes('toggleAiPanel') && 스텁들.includes('sendAiMessage'), '스텁 목록을 못 읽었다: ' + 스텁들.join(', '));
   const 없음 = 스텁들.filter((x) => !정의식(x).test(옛비서));
   assert.deepEqual(없음, [], '옛 비서가 안 만드는 이름을 스텁으로 세웠다: ' + 없음.join(', '));
   // 스텁이 늘 실리는 곳의 진짜 정의와 겹치면 스텁이 그것을 덮어 버린다
@@ -96,7 +101,7 @@ T('?aipop=1 은 옛 비서를 싣고(스텁 toggleAiPanel 로) 패널을 연다'
   assert.ok(html.indexOf('<script id="old-ai-loader">') < a, '싣개가 aipop 블록보다 뒤에 있다 — 스텁이 서기 전에 부를 수 있다');
 });
 
-T('SJP_indexRecord 부르는 쪽은 window(.parent) 로만 닿고, 스텁은 그보다 먼저 선다', () => {
+T('SJP_indexRecord 부르는 쪽은 window(.parent) 로만 닿고, 정의(record-index)는 그보다 먼저 선다', () => {
   // 부르는 쪽(ncr·car·meeting·index.html)은 `const fn = window.parent.SJP_indexRecord` 처럼 **스텁을 잡아 둘 수 있다**.
   //   그래도 되는 이유는 스텁이 부를 때마다 window 에서 진짜를 다시 찾기 때문 — 아래 실행 검사가 그걸 본다.
   //   여기서는 다른 길(전역 맨이름·import 등)로 닿는 곳이 새로 생기지 않았는지만 본다.
@@ -104,7 +109,8 @@ T('SJP_indexRecord 부르는 쪽은 window(.parent) 로만 닿고, 스텁은 그
     for (const 줄 of 읽기(f).split('\n'))
       if (/SJP_indexRecord/.test(줄) && !/^\s*(\/\/|<!--)/.test(줄) && !줄.includes("'SJP_indexRecord'"))
         assert.ok(/(?:parent|window)\.SJP_indexRecord/.test(줄), `${f}: SJP_indexRecord 를 window/parent 밖에서 잡는다 — ${줄.trim().slice(0, 120)}`);
-  // 싣개는 늘 실리는 인라인(defer·module 아님)이라 파싱 도중에 서고, iframe 은 그 뒤에야 생긴다
+  // 싣개·색인은 늘 실리는 인라인(defer·module 아님)이라 파싱 도중에 서고, iframe 은 그 뒤에야 생긴다
+  assert.ok(/<script id="record-index">/.test(html), '<script id="record-index"> 를 못 찾았다(defer·async·module 로 바꾸면 iframe 저장보다 늦게 설 수 있다)');
   assert.ok(!/<script id="old-ai-loader"[^>]*\b(?:defer|async|type=)/.test(html), '싣개가 defer/async/module 이면 스텁이 늦게 선다');
 });
 
@@ -115,7 +121,7 @@ T('옛 비서가 window 에 내놓는 이름 중 부르는 쪽이 있는 것은 
   //   그래서 옛 비서의 `window.X =` 를 전부 뽑아, 부르는 쪽(모듈의 window/parent.X · index.html 의 맨이름 호출)이
   //   있으면 스텁 목록에 있거나 늘 실리는 곳에 정의가 있어야 한다고 못 박는다.
   const 이름들 = [...new Set([...옛비서.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=[^=]/g)].map((m) => m[1]))];
-  assert.ok(이름들.includes('SJP_indexRecord') && 이름들.length >= 10, '옛 비서의 전역을 못 읽었다: ' + 이름들.join(', '));
+  assert.ok(이름들.includes('toggleAiPanel') && 이름들.length >= 10, '옛 비서의 전역을 못 읽었다: ' + 이름들.join(', '));
   const 줄들 = html.split('\n').filter((줄) => !/^\s*(\/\/|<!--|\*)/.test(줄));
   const 맨부름 = (x) => 줄들.some((줄) => new RegExp(`(?<![.\\w$])${x.replace(/\$/g, '\\$')}\\s*\\(`).test(줄));
   const 끊김 = 이름들.filter((x) => (부르는곳(x).length || 맨부름(x)) && !정의됨(x))
@@ -143,14 +149,14 @@ function 싣개돌리기(실릴때) {
   // ① 정상: 스텁을 먼저 잡아 둔 쪽(iframe 의 const fn)도 진짜에 같은 인자로 닿고 결과를 받는다. 파일은 한 번만 붙인다.
   const 받은 = [];
   const 진짜 = (...a) => { 받은.push(a); return Promise.resolve({ ok: 1, id: a[1] }); };
-  const { 창, 붙인것, 경고 } = 싣개돌리기((w, s) => { w.SJP_indexRecord = 진짜; s.onload(); });
-  const 잡아둔스텁 = 창.SJP_indexRecord;
+  const { 창, 붙인것, 경고 } = 싣개돌리기((w, s) => { w.sendAiMessage = 진짜; s.onload(); });
+  const 잡아둔스텁 = 창.sendAiMessage;
   const [가, 나] = await Promise.all([
     잡아둔스텁('ncr', 'N1', '', '', { rec: { id: 'N1' } }),
-    창.SJP_indexRecord('doc', 'D1', '제목', '본문'),
+    창.sendAiMessage('doc', 'D1', '제목', '본문'),
   ]);
   assert.deepEqual([가, 나], [{ ok: 1, id: 'N1' }, { ok: 1, id: 'D1' }], '스텁이 진짜의 결과를 돌려주지 않는다');
-  assert.equal(창.SJP_indexRecord, 진짜, '실린 뒤 window.SJP_indexRecord 가 진짜가 아니다');
+  assert.equal(창.sendAiMessage, 진짜, '실린 뒤 window.sendAiMessage 가 진짜가 아니다');
   assert.deepEqual(await 잡아둔스텁('car', 'C1', '', '', { remove: true }), { ok: 1, id: 'C1' }, '실린 뒤에도 잡아 둔 스텁이 진짜로 안 간다');
   assert.equal(JSON.stringify(받은[0]), JSON.stringify(['ncr', 'N1', '', '', { rec: { id: 'N1' } }]), '진짜가 같은 인자를 못 받았다');
   assert.equal(받은.length, 3);
@@ -162,8 +168,8 @@ function 싣개돌리기(실릴때) {
 {
   // ② 파일은 실렸는데 이름을 안 만들었다: 자기 자신을 다시 부르며 끝없이 돌면 안 된다 — 경고 + skipped
   const { 창, 경고 } = 싣개돌리기((w, s) => s.onload());
-  assert.deepEqual(await 창.SJP_indexRecord('ncr', 'N1'), { skipped: 'no-hook' });
-  assert.ok(경고.some((w) => w.includes('SJP_indexRecord')), '이름이 안 생겼는데 경고가 없다');
+  assert.deepEqual(await 창.sendAiMessage('ncr', 'N1'), { skipped: 'no-hook' });
+  assert.ok(경고.some((w) => w.includes('sendAiMessage')), '이름이 안 생겼는데 경고가 없다');
   // ③ 네트워크 실패: 던지지 않고 skipped, 붙인 <script> 는 치우고 다음 부름에 다시 받는다
   let 번 = 0;
   const r = 싣개돌리기((w, s) => { if (++번 === 1) s.onerror(); else { w.toggleAiPanel = () => '열림'; s.onload(); } });
