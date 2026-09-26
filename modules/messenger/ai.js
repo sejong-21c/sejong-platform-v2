@@ -808,6 +808,31 @@ export function 화면고르기(글, 목록) {
 //   연 플랫폼 창(opener)이 바로 옆에 있는데도. iframe 이면 부모(전과 같다), 아니면 opener 를 쓰되
 //   같은 출처(다른 출처면 속성을 읽는 순간 던진다) · 안 닫힘 · 플랫폼 함수가 있음 · 같은 사람일 때만.
 //   홈 화면 앱은 opener 가 없어 그대로 null. **쓸 때마다 다시 부른다** — opener 는 나중에 닫히거나 다른 곳으로 간다.
+// ── 질문 속 날짜말은 코드가 푼다 (2026-09-26) ─────────────────────────────────
+// 왜: "다음 주 화요일 10시에 품질회의 일정 잡아 줘" 를 토요일(9/26)에 물었더니 카드가 9/30(수)로 잡혔다(맞는 날은 9/29).
+//   지침엔 "오늘은 2026년 9월 26일 토요일" 이 있었다 — 요일 셈을 모델에게 맡긴 게 잘못이다. 금액처럼 코드가 센다.
+//   주는 월요일에 시작한다(한국 달력 관례: 이번 주 = 이번 월~일). 요일만 말하면 오늘 뒤로 가장 가까운 그날.
+const 요일글 = ['일', '월', '화', '수', '목', '금', '토'];
+const 날짜꼴 = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}(${요일글[d.getDay()]})`;
+export function 날짜말풀기(질문, 지금 = new Date()) {
+  const q = String(질문 || '');
+  const 오늘 = new Date(지금.getFullYear(), 지금.getMonth(), 지금.getDate());
+  const 더한 = (n) => { const d = new Date(오늘); d.setDate(d.getDate() + n); return d; };
+  const 월요일 = 더한(-((오늘.getDay() + 6) % 7));                     // 이번 주 월요일
+  const 줄 = [];
+  const 넣 = (말, d) => { const s = `${말} = ${날짜꼴(d)}`; if (!줄.includes(s)) 줄.push(s); };
+  for (const [말, n] of [['오늘', 0], ['내일', 1], ['모레', 2], ['글피', 3], ['어제', -1]]) if (q.includes(말)) 넣(말, 더한(n));
+  for (const m of q.matchAll(/(\d{1,2})\s*(일|주)\s*(뒤|후)/g)) 넣(m[0], 더한(Number(m[1]) * (m[2] === '주' ? 7 : 1)));
+  for (const m of q.matchAll(/(다다음\s*주|다음\s*주|차주|담주|이번\s*주|금주|지난\s*주|저번\s*주)?\s*([월화수목금토일])요일/g)) {
+    const 요 = (요일글.indexOf(m[2]) + 6) % 7;                            // 월=0 … 일=6
+    const 주 = m[1] ? m[1].replace(/\s+/g, '') : null;
+    const 몇주 = { 다다음주: 2, 다음주: 1, 차주: 1, 담주: 1, 이번주: 0, 금주: 0, 지난주: -1, 저번주: -1 }[주];
+    if (몇주 != null) { const d = new Date(월요일); d.setDate(d.getDate() + 몇주 * 7 + 요); 넣(m[0].trim(), d); }
+    else { let n = (요 - (오늘.getDay() + 6) % 7 + 7) % 7; if (n === 0) n = 7; 넣(m[0].trim() + '(다가오는)', 더한(n)); }
+  }
+  return 줄;
+}
+
 export function 플랫폼창고르기(w, 나 = null) {
   try {
     if (w.parent && w.parent !== w) return w.parent;
