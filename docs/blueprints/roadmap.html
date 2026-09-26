@@ -42,7 +42,7 @@
 <body>
 <div class="wrap">
   <h1>세종 AI 로드맵 — 연말 시연회까지</h1>
-  <p class="sub">2026-09-26 오후 3시 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
+  <p class="sub">2026-09-26 저녁 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
 
   <div class="lead">
     <b>지금 어디까지 왔나.</b> 직원 개방 세 칸(사용자별 장부 · 개인 API 열쇠 · 개인 구독 연결)이 다 찼다.
@@ -97,7 +97,7 @@
   <div class="item"><div class="row"><span class="t">15. 시연 준비 ① — AI 방 첫 화면 · 준비 점검</span><span class="chip done">완료 9/26</span><span class="who">b109</span></div>
     <div class="d">처음 여는 직원에게 "등록·수정은 플랫폼에서 하세요"(b84 뒤로 틀린 말)가 떴다 → 라이브에서 돌려 본 질문 보기 여섯(누르면 입력칸에) · 카드로 제안·「실행」은 내가 · 내 Claude 연결 위치. 점검(맥 백업 사본, 읽기 0): 계정 12 · 14일 안 접속 6 · AI 방에 물어본 사람 2 · 개인 Claude 연결 1.</div></div>
 
-  <div class="item"><div class="row"><span class="t">16. 직원 실사용 — 2~3명 한 주</span><span class="chip next">다음</span><span class="who">부장님 공지 · 제가 장부로 확인</span></div>
+  <div class="item"><div class="row"><span class="t">16. 직원 실사용 — 2~3명 한 주</span><span class="chip next">준비 끝 · 공지 대기</span><span class="who">부장님 공지 · 제가 장부로 확인</span></div>
     <div class="d">시연 그림이 "직원 여럿이 쓰는 모습"이다. 최근 접속·부서로 본 후보: 품질관리부 두 분(한 분은 이미 2건 물어봄) · 기술부 한 분(부서 파일·규격). 공지 초안은 준비돼 있다. 한 주 뒤 게이트웨이 장부(기능·결과·토큰)와 이용 기록으로 무엇을 묻고 어디서 막혔는지 본다 — 막힌 질문이 다음 일감이 된다.</div></div>
 
   <div class="item"><div class="row"><span class="t">17. 개인 Claude 연결 — 1시간 뒤에도 붙어 있나</span><span class="chip done">서버 수리 9/26</span><span class="who">부장님 재연결 한 번 → 1시간 뒤 확인</span></div>
@@ -123,6 +123,15 @@
 
   <div class="item"><div class="row"><span class="t">24. 자잘한 정리 셋</span><span class="chip done">완료 9/26 · b111</span><span class="who">규칙 게시 · 메신저</span></div>
     <div class="d">① 옛 AI 사용 기록(aiUsage)에 열려 있던 <b>쓰기 규칙을 닫았다</b> — 쓰는 코드가 없는데 회사 계정이면 누구나 가짜 기록을 만들 수 있었다. 규칙 시험 60 통과 → 콘솔 게시(운영 규칙이 저장소 직전 판과 글자 단위로 같은 것을 먼저 확인 · 게시 뒤 다시 대조 EXACT · 사이트 콘솔 오류 0). ② <b>새 창·폰 앱 메신저의 읽기도 장부에 올린다</b> — 9/23 접속 813건 중 600건이 메신저였는데 계량기는 플랫폼 창 안에만 있었다. 제 몫은 msgApp 칸에 따로(실물: 메신저 창에서 조회 1건 → browser·msgApp +1). ③ 소제 중 두 개 더: 장부 보내기가 실패하면 <b>이미 보낸 몫까지 두 번 세던</b> 것 · b110 이 넣은 모듈이 <b>폰 앱 껍데기 목록에서 빠져 비행기 모드에서 앱이 안 뜨던</b> 것(이제 시험이 import 를 따라가 대조).</div></div>
+
+  <div class="item"><div class="row"><span class="t">25. pvcalc 읽기 계량</span><span class="chip done">완료 9/26 · a10</span><span class="who">원본 먼저 → 복사</span></div>
+    <div class="d">도구 화면 중 계량 밖에 남은 마지막 하나. 구독이 없고 로그인 직후 재료 표 1건 읽기가 전부라 "가려지면 쉬기"는 필요 없고 그 1건만 센다. 원본 저장소에서 고치고 시험(화면 201·엔진 362·DXF 58·손계산 225) 뒤 복사. 플랫폼 시험이 이제 tools/ 아래 화면도 본다.</div></div>
+
+  <div class="item"><div class="row"><span class="t">26. 직원 시범 전 대조와 수리</span><span class="chip done">완료 9/26 · b112 · 관문 v5.4</span><span class="who">에이전트 대조 12 · 수리 15</span></div>
+    <div class="d">공지 초안의 문장 하나하나를 <b>일반 직원 계정</b>으로 끝까지 되는지 코드·맥 로그로 대조하고(반박 검토 포함), 나온 것을 다섯 갈래로 고쳐 갈래마다 적대 검토를 붙였다.<br>
+    <b>보안</b> — ① NAS 표 세기에 같은 부서 동료의 <b>개인 자료 폴더 줄 161만 행</b>이 섞였다(표01 용접 기록 62만 → 6.3만) — 파이스가 표 보기에서 본인 것만 ② 경비 설정(카드 목록)·내역을 회사 계정이면 누구나 읽고 고치고 지웠다 → 재무부·임원만, 직원은 제 이름으로 올리기만 · 월 마감은 이름·카드 없는 lock 문서 ③ 남의 영수증 사진 주소를 받을 수 있었다 → 본인 함·재무부만 ④ <b>누구나 자기 users 문서로 부서·등급·이름을 바꿀 수 있었다</b>(검토자 둘이 따로 잡음 — 위 셋이 전부 이것 위에 선다) → 본인은 서명·캘린더 표시만 · 사전 등록은 관리 지정자만. 규칙 시험 97.<br>
+    <b>직원 쓰임</b> — 폰 앱·새 창에서 세기가 조용히 빠져 모델이 수를 짐작하던 것(실물: 새 창에서 "교정 만료 14건") · 거기서 안 되는 등록 카드 안내 · 실패 말풍선의 영어 원문·조직 id → 한국어 한 줄 · 하루 한도에 네 번 되풀이 · 회사 공용 한도가 차면 개인 열쇠로 한 번 · 맥이 꺼지면 "없다" 대신 "못 찾아봤다" · "내 업무 몇 건"이 NAS 표로 가던 것 · 내 업무·일정이 문서 조각에 밀려 잘리던 것 · NAS 파일 카드가 늘 잘려 나가던 것 · 못 하는 일은 "플랫폼이 못 한다" 대신 진짜 까닭 · AI 업무완료의 거짓 ✓ · 영수증 두 번 누르면 두 건·누구 것인지 모름 · AI 방 맨 위.<br>
+    <b>부장님께 여쭐 것</b>: 도면 표제란·도면 파일 이름이 규격 검색으로 groq 에 간다(9/21 (가)안대로면 의도) · groq 유료 전환(무료는 조직당 분당 8천·하루 약 20만 토큰 — 3명이면 오전에 찰 수 있다).</div></div>
 
   <div class="item"><div class="row"><span class="t">마지막. ChatGPT 연결 시험</span><span class="chip later">맨 끝</span><span class="who">회사 GPT 계정 구매 뒤 · 10분</span></div>
     <div class="d">Claude 는 끝까지 확인했다. ChatGPT 는 같은 표준이라 될 가능성이 높지만 아직 0건 — 안내문에 「시험 중」.<br>9/25 서버 쪽 준비 확인 — ChatGPT 콜백 등록·허용 화면 이동·메타데이터 OK. <b>남은 것은 ChatGPT 계정으로 끝까지 붙여 보는 것뿐</b>(연결하면 이용 기록으로 바로 보인다).</div></div>
