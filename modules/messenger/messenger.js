@@ -20,12 +20,12 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b118';
-import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b118';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b119';
+import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b119';
 import { 틀붙이기 } from '../shared/frame-fs.mjs?v=f1';
-import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b118';
-import * as L from './lib.js?v=b118';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b118';
+import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b119';
+import * as L from './lib.js?v=b119';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b119';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -73,7 +73,7 @@ if (window.parent === window) {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b118';
+const 빌드 = 'b119';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1254,7 +1254,7 @@ function 읽음기록(cid) {
   const now = Date.now(); ui.lastReadWrite[cid] = now;
   const fb = getFB(); if (!fb || !fb.db || !me()) return;
   fb.setDoc(fb.doc(fb.db, 'channelReads', cid + '_' + me()), plain({ channel: String(cid), uid: String(me()), lastRead: Number(now) }), { merge: true })
-    .catch((e) => console.warn('[읽음] 저장 실패', e && e.message));
+    .catch((e) => { 권한거부기록('읽음', e); console.warn('[읽음] 저장 실패', e && e.message); });
 }
 
 // 방 열기·닫기 -------------------------------------------------------
@@ -1266,7 +1266,7 @@ function openRoom(cid, opts = {}) {
   ui.cid = cid; ui.opened.add(cid); closeSheet(); closeDrawer();
   if (state.hidden[cid]) {   // 숨겨 둔 1:1 방을 다시 열면 숨김 해제(서버에도)
     delete state.hidden[cid];
-    const fb = getFB(); if (fb && fb.db) fb.setDoc(fb.doc(fb.db, 'channelReads', cid + '_' + me()), plain({ channel: String(cid), uid: String(me()), hidden: 0 }), { merge: true }).catch(() => {});
+    const fb = getFB(); if (fb && fb.db) fb.setDoc(fb.doc(fb.db, 'channelReads', cid + '_' + me()), plain({ channel: String(cid), uid: String(me()), hidden: 0 }), { merge: true }).catch((e) => 권한거부기록('숨김해제', e));
   }
   if (ui.search.open && !opts.keepSearch) ui.search.open = false;
   if (독립실행 && ui.layout === 'phone' && 새방 && !opts.fromHistory && !ui.pushed) { try { history.pushState({ sjm: 'room', cid }, ''); ui.pushed = true; } catch (e) { /* 무시 */ } }
@@ -1387,7 +1387,7 @@ function 새채팅(preset = {}) {
         state.channels.push({ id, ...payload });
         closeModal(); ui.tab = isProj ? ui.tab : 'chats'; openRoom(id);
         시스템메시지(id, `${나().name}님이 ${members.map((m) => getU(m).name).join(', ')}님을 초대했습니다.`);
-      } catch (e) { 토스트('채팅방을 만들지 못했습니다: ' + (e.message || e)); }
+      } catch (e) { 권한거부기록('그룹만들기', e); 토스트('채팅방을 만들지 못했습니다: ' + (e.message || e)); }
     }, '확인');
   const upd = () => { const n = $$('input[name="pickMember"]:checked').length; const ok = $('#mOk'); if (ok) ok.textContent = n ? `${n}명 선택` : '확인'; };
   $('#pickList')?.addEventListener('change', upd); upd();
@@ -1407,7 +1407,7 @@ function 초대하기(cid) {
       await fb.updateDoc(fb.doc(fb.db, 'channels', cid), plain({ members }));
       ch.members = members; closeModal(); closeDrawer(); 토스트('초대했습니다.'); render('all');
       시스템메시지(cid, `${나().name}님이 ${add.map((m) => getU(m).name).join(', ')}님을 초대했습니다.`);
-    } catch (e) { 토스트('초대하지 못했습니다: ' + (e.message || e)); }
+    } catch (e) { 권한거부기록('초대', e); 토스트('초대하지 못했습니다: ' + (e.message || e)); }
   }, '초대');
   const upd = () => { const n = $$('input[name="invMember"]:checked').length; const ok = $('#mOk'); if (ok) ok.textContent = n ? `${n}명 초대` : '초대'; };
   $('#pickList')?.addEventListener('change', upd);
@@ -1422,19 +1422,34 @@ function 사람필터(q) {
 
 // ───────────────────────────── 동작(쓰기) ─────────────────────────────
 // 전송 뒤 채널 문서에 마지막 말을 남겨 두면, 500건 창 밖으로 밀린 방도 목록에서 미리보기·시각이 비지 않는다.
+// 2026-09-27: 9/27 00:08 에 방·메시지·읽음 규칙을 조였다 — 직원 화면에서 막히는 쓰기를 알아야 한다. 메신저 쓰기 실패는 여기서 잡혀
+//   토스트·console 로만 끝나 오류 기록(errorLog, 관리 탭)에 안 남았다. **권한 거부만**, 곳마다 한 번(세션당 열 곳까지) 남긴다 — 아침 점검이 센다.
+const 거부남긴곳 = new Set();
+function 권한거부기록(곳, e) {
+  try {
+    if (!e || e.code !== 'permission-denied' || 거부남긴곳.has(곳) || 거부남긴곳.size >= 10) return;
+    const fb = getFB(); if (!fb || !fb.db || !me()) return;
+    거부남긴곳.add(곳);
+    const d = new Date();
+    fb.setDoc(fb.doc(fb.collection(fb.db, 'errorLog')), plain({
+      at: Date.now(), day: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+      uid: String(me()), user: String((나() || {}).name || ''), msg: 'permission-denied: 메신저 ' + 곳, src: 'messenger ' + 빌드, page: 'messenger',
+    })).catch(() => {});
+  } catch (x) { /* 기록 실패는 조용히 */ }
+}
 function 마지막말기록(ch, payload) {
   const fb = getFB(); if (!fb || !fb.db || !ch || ch.id === AI_CID) return;   // AI 방 미리보기를 channels 에 쓰면 전 직원이 읽는다
   // 미리보기(마지막 말)는 방 문서에 **안 쓴다**(2026-09-26) — 방 문서는 전 직원이 읽어(부팅이 통째 구독) 모든 1:1 의 마지막 말이 새어 나갔다.
   //   목록 미리보기는 내가 읽을 수 있는 메시지(내 readers)에서 만든다. 규칙도 lastText 는 지우기('')만 받는다.
   const doc_ = { lastAt: payload.createdAt, lastAuthor: payload.author };
   if (ch.가상) Object.assign(doc_, { name: ch.name, type: ch.type }, ch.deptId ? { deptId: ch.deptId } : {}, ch.projectId ? { projectId: ch.projectId } : {});
-  fb.setDoc(fb.doc(fb.db, 'channels', ch.id), plain(doc_), { merge: true }).catch((e) => console.warn('[마지막말]', e && e.message));
+  fb.setDoc(fb.doc(fb.db, 'channels', ch.id), plain(doc_), { merge: true }).catch((e) => { 권한거부기록('마지막말', e); console.warn('[마지막말]', e && e.message); });
 }
 async function 시스템메시지(cid, text) {
   const fb = getFB(); if (!fb || !fb.db || !me()) return;
   const createdTs = Date.now(), clientId = 새clientId(createdTs);
   const payload = 읽을사람박기(cid, { channel: String(cid), author: String(me()), text: String(text), type: 'system', system: true, clientId: String(clientId), at: nowStamp(), createdAt: createdTs });
-  try { await fb.setDoc(fb.doc(fb.db, 'messages', 'msg_' + clientId), plain(payload)); 마지막말기록(getChannel(cid), payload); } catch (e) { console.warn('[시스템 메시지]', e && e.message); }
+  try { await fb.setDoc(fb.doc(fb.db, 'messages', 'msg_' + clientId), plain(payload)); 마지막말기록(getChannel(cid), payload); } catch (e) { 권한거부기록('시스템말', e); console.warn('[시스템 메시지]', e && e.message); }
 }
 async function startDM(otherId) {
   const my = me();
@@ -1446,7 +1461,7 @@ async function startDM(otherId) {
     state.channels.push(dm);
     const fb = getFB();
     if (fb && fb.db) fb.setDoc(fb.doc(fb.db, 'channels', dm.id), plain({ name: dm.name, type: dm.type, members: dm.members, createdBy: my, createdAt: dm.createdAt }))
-      .catch((e) => 토스트('채팅방 생성 실패: ' + (e.message || e)));
+      .catch((e) => { 권한거부기록('1대1만들기', e); 토스트('채팅방 생성 실패: ' + (e.message || e)); });
   }
   closeModal(); closeSheet(); closeDrawer();
   ui.tab = 'chats';
@@ -1477,14 +1492,14 @@ async function sendMsg() {
   state.pending.push(pend);
   renderMessages(false);
   try { await 저장(pend, rawPayload, docId); state.pending = state.pending.filter((m) => m !== pend); }
-  catch (e) { console.error('[전송] 실패', e); pend._pending = false; pend._failed = true; 토스트('메시지를 보내지 못했습니다. 네트워크를 확인해 주세요.'); }
+  catch (e) { 권한거부기록('보내기', e); console.error('[전송] 실패', e); pend._pending = false; pend._failed = true; 토스트('메시지를 보내지 못했습니다. 네트워크를 확인해 주세요.'); }
   renderMessages(true);
 }
 async function 재전송(tempId) {
   const pend = state.pending.find((m) => m.id === tempId); if (!pend) return;
   pend._failed = false; pend._pending = true; renderMessages(true);
   try { await 저장(pend, pend._payload, pend._docId); state.pending = state.pending.filter((m) => m !== pend); }
-  catch (e) { pend._pending = false; pend._failed = true; 토스트('다시 보내지 못했습니다.'); }
+  catch (e) { 권한거부기록('다시보내기', e); pend._pending = false; pend._failed = true; 토스트('다시 보내지 못했습니다.'); }
   renderMessages(true);
 }
 async function sendFiles(fileList) {
@@ -1523,7 +1538,7 @@ async function sendFiles(fileList) {
       await fb.setDoc(fb.doc(fb.db, 'messages', docId), plain(rawPayload));
       마지막말기록(getChannel(chId), rawPayload);
     } catch (e) {
-      console.error('[첨부] 실패', e); 토스트(`"${f0.name}" 을 올리지 못했습니다. 다시 시도해 주세요.`, 4000);
+      권한거부기록('파일', e); console.error('[첨부] 실패', e); 토스트(`"${f0.name}" 을 올리지 못했습니다. 다시 시도해 주세요.`, 4000);
     } finally {
       state.pending = state.pending.filter((m) => m !== pend);
       renderMessages(true);
@@ -1548,7 +1563,7 @@ async function leaveChannel(cid) {
     if (!confirm('이 채팅방을 목록에서 지울까요?\n새 메시지가 오면 다시 표시됩니다.')) return;
     const now = Date.now(); state.hidden[cid] = now; ui.opened.delete(cid);
     try { if (fb && fb.db) await fb.setDoc(fb.doc(fb.db, 'channelReads', cid + '_' + me()), plain({ channel: String(cid), uid: String(me()), hidden: now }), { merge: true }); }
-    catch (e) { console.warn('[숨김]', e && e.message); }
+    catch (e) { 권한거부기록('숨김', e); console.warn('[숨김]', e && e.message); }
     closeDrawer(); closeSheet();
     if (ui.cid === cid) closeRoom(false); else render('all');
     return;
@@ -1562,7 +1577,7 @@ async function leaveChannel(cid) {
     ch.members = members; ui.opened.delete(cid); closeDrawer(); closeSheet();
     if (ui.cid === cid) closeRoom(false); else render('all');
     토스트('채팅방을 나갔습니다.');
-  } catch (e) { 토스트('채팅방을 나가지 못했습니다. 다시 시도해 주세요.'); console.warn(e); }
+  } catch (e) { 권한거부기록('나가기', e); 토스트('채팅방을 나가지 못했습니다. 다시 시도해 주세요.'); console.warn(e); }
 }
 async function togglePin(cid) {
   const next = !state.pins[cid];
@@ -1570,7 +1585,7 @@ async function togglePin(cid) {
   closeSheet(); closeDrawer(); render('all');
   const fb = getFB(); if (!fb || !fb.db) return;
   fb.setDoc(fb.doc(fb.db, 'channelReads', cid + '_' + me()), plain({ channel: String(cid), uid: String(me()), pinned: next }), { merge: true })
-    .catch((e) => 토스트('고정 상태를 저장하지 못했습니다: ' + (e.message || e)));
+    .catch((e) => { 권한거부기록('고정', e); 토스트('고정 상태를 저장하지 못했습니다: ' + (e.message || e)); });
   토스트(next ? '채팅방을 상단에 고정했습니다.' : '고정을 해제했습니다.');
 }
 async function 프로필저장(fields) {
