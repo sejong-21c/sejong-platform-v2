@@ -4,7 +4,7 @@
   // Firebase Firestore — 프로젝트 메타/WBS 데이터를 index.html과 공유 (같은 오리진이라 로그인 세션도 자동 공유됨)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { 에뮬붙이기 } from "../shared/emu.mjs?v=b114";
+  import { 에뮬붙이기 } from "../shared/emu.mjs?v=b115";
   import { disableNetwork, enableNetwork, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs, query, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { 틀붙이기 } from "../shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   const firebaseConfig = {

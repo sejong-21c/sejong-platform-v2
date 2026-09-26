@@ -568,7 +568,11 @@ export const 내업무물음인가 = (질문) => {
 export function 의도가르기(질문) {
   // '반출금지'(도면 등급)는 떼고 맞춘다 — 별칭 '반출' 이 측정기구 반출입으로 끌고 갔다(2026-09-26 대조).
   const g = 다듬(질문).replace(/반출금지|반입금지/g, '');
-  const 대상 = 셀것.filter((s) => s.별칭.some((a) => g.includes(다듬(a))));
+  // 영문 별칭(ncr·car·itp·wbs)은 **떨어진 낱말**일 때만 — 다듬기가 빈칸을 지워 "carbon steel 몇 개" 가 'carbonsteel' ⊃ 'car' 로
+  //   시정조치(CAR) 세기로 갔다(2026-09-26 범위 작업 중 발견). 뒤에 한글이 붙는 "NCR몇건" 은 그대로 맞는다.
+  const 원문 = String(질문 || '').toLowerCase();
+  const 맞나 = (a) => (/^[a-z0-9]+$/.test(a) ? new RegExp('(^|[^a-z])' + a + '([^a-z]|$)').test(원문) : g.includes(다듬(a)));
+  const 대상 = 셀것.filter((s) => s.별칭.some(맞나));
   const 축들 = 대상.length ? 축들고르기(질문, 대상[0]) : [];
   const 셈 = 세는질문인가(질문) || 축들.length > 0;
   if (대상.length && 셈) return { 갈래: '기록', 대상: 대상.slice(0, 3), 축: 축들[0] || null, 축2: 축들[1] || null, 기간: 기간뽑기(질문) };

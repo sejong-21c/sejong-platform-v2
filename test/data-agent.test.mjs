@@ -378,6 +378,11 @@ try {
   });
 } finally { console.warn = 원경고; }
 
+// 9/26: 영문 별칭은 떨어진 낱말일 때만 — "carbon steel 몇 개" 가 'carbonsteel' ⊃ 'car' 로 CAR 세기로 갔다
+await T('carbon steel 은 CAR 가 아니다', () => { const r = 의도가르기('carbon steel 자재 몇 개야?'); assert.ok(!(r.갈래 === '기록' && r.대상.some((s) => s.컬렉션 === 't_cars')), JSON.stringify(r)); });
+await T('CAR 는 여전히 CAR', () => { const r = 의도가르기('올해 CAR 몇 건이야?'); assert.strictEqual(r.갈래, '기록'); assert.strictEqual(r.대상[0].컬렉션, 't_cars'); });
+await T('한글이 붙어도(NCR몇건)', () => { const r = 의도가르기('이번달 NCR몇건?'); assert.strictEqual(r.갈래, '기록'); assert.strictEqual(r.대상[0].컬렉션, 't_ncrs'); });
+
 // 9/26: 날짜말은 코드가 푼다 — 토요일(9/26)에 "다음 주 화요일" 을 모델이 9/30(수)로 셌다. 주는 월요일에 시작.
 {
   const { 날짜말풀기 } = await import('../modules/messenger/ai.js');
