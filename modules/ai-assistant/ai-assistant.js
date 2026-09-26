@@ -1,6 +1,11 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.83: 개인 키 직접 호출은 **게이트웨이에 접속 자체가 안 될 때만**(workers.dev 가 막힌 PC — 부장님 결정 9/26).
+ *          예전엔 한 번 성공한 개인 키를 커서가 기억해 그 뒤로는 게이트웨이보다 먼저 직접 불렀고(장부 밖),
+ *          게이트웨이의 429(한도)·501(키 미등록)에도 개인 키로 비껴갔다. 이제 게이트웨이가 늘 먼저이고 그 응답이
+ *          무엇이든 개인 키로 안 간다. 개인 키로 답했으면 답 밑에 '장부 밖'이라고 드러낸다.
+ *          Claude 모델 Sonnet 4(단종 예정) → Sonnet 5, 생각은 끔(도구 턴을 생각 블록 없이 되살리므로).
  * v29.82.2: complete_task 에 권한 거름 — 남의 업무·부서 스케줄 대단락·OKR 자리표시를 빼고, 저장이 안 되면 실패로(9/26 직원 시범 전 대조).
  * v29.82.1: Claude 칸 안내에서 "ITP Builder와 공용"을 뺐다 — ITP Builder(c50)가 개인 키 직접 호출을
  *          그만두고 게이트웨이(회사 키)로 간다. 이 칸에 키를 넣어도 ITP 자동 분석과는 이제 상관없다.
@@ -180,7 +185,11 @@
   // 모델명은 각 회사에서 계속 갱신되므로 배열 앞에서부터 시도하고,
   // 없어진 모델(404/400)이면 자동으로 다음 모델을 시도한다.
   // Gemini 최신 모델 확인: https://ai.google.dev/gemini-api/docs/models
-  var CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+  // v29.83: Sonnet 4(claude-sonnet-4-20250514)는 단종 예정 → 같은 등급 후속 Sonnet 5 (ITP Builder c50 과 같다).
+  //   Sonnet 5 는 생각(thinking)이 기본으로 켜지는데, 이 패널은 도구 호출 턴을 claudeMessagesFromHistory 로
+  //   **생각 블록 없이** 다시 만든다 — 생각이 켜진 채 도구 결과를 돌려보내면 API 가 400 으로 거부한다.
+  //   그래서 callClaudeOnce 에서 thinking: disabled 로 보낸다(Sonnet 4 의 기본 동작과 같다).
+  var CLAUDE_MODEL = 'claude-sonnet-5';
   var PROVIDER_CHAIN = [
     // v29.45: 로컬 LLM — 이 컴퓨터에서 돌리면 0순위. 주소가 있는 기기에서만 활성(localStorage 저장).
     //   게이트웨이/키 목록을 쓰지 않고 로컬 주소로 직접 호출한다(localOnly). 모델은 tryProvider에서 결정.
@@ -2167,6 +2176,7 @@
       body: JSON.stringify({
         model: model,
         max_tokens: 4096, // v29.62: 1024는 긴 브리핑·표가 잘림 — OpenAI 호환 경로와 통일
+        thinking: { type: 'disabled' }, // v29.83: 도구 턴을 생각 블록 없이 되살리므로 끈다(CLAUDE_MODEL 주석)
         system: buildSystemInstruction(), // v29.58: 화면 문맥 포함
         messages: claudeMessagesFromHistory(h),
         tools: buildClaudeTools()
@@ -2474,18 +2484,53 @@
         return { result: rL, viaGateway: false };
       } catch (e) { clearTimeout(timerL); throw e; }
     }
-    var sources = [];                                   // null = 회사 게이트웨이, 문자열 = 내 키
-    if (getGatewayUrl()) sources.push(null);
-    if (!p.gatewayOnly) keysOf(p).forEach(function (k) { sources.push(k); });
-    var start = getCursor(p.id) % sources.length;
+    // v29.83: **게이트웨이가 늘 먼저, 개인 키는 게이트웨이에 '접속 자체'가 안 될 때만.**
+    //   예전엔 게이트웨이와 내 키를 한 줄에 세우고 마지막 성공 자리(커서)부터 돌았다. 그래서 내 키가
+    //   한 번 성공하면(예: 그날 한도 429) 그 뒤로는 게이트웨이가 멀쩡해도 늘 내 키로 **직접** 불렀다 —
+    //   장부(aiUsageDaily)에 안 잡히고 하루 한도도 안 걸렸다. 429(한도)·501(회사 키 미등록)·401/403
+    //   에도 내 키로 넘어가 게이트웨이의 한도 규칙을 비껴갔다(한도를 넘긴 사람은 게이트웨이에 맡긴
+    //   '개인 AI 열쇠'로 가는 게 규칙이다 — worker v4.1).
+    //   남긴 이유: 사내에 workers.dev 가 막힌 PC 가 있다(2026-07-24 신채완 과장). 거기서는 게이트웨이에
+    //   닿을 길이 없어 개인 키가 유일한 길이다 — 부장님 결정(2026-09-26). 그 경우만 장부 밖이다.
     var lastErr = null;
+    var gwUnreachable = !getGatewayUrl();              // 주소가 없으면 닿을 수 없는 것과 같다
+    if (!gwUnreachable) {
+      for (var gm = 0; gm < p.models.length; gm++) {
+        const ctlG = new AbortController();
+        // v29.64(A12): 45초는 '첫 응답까지'만 — 토큰이 흐르기 시작하면 '무응답 30초' 기준으로
+        // 전환한다. 긴 답변이 45초를 넘어도 스트리밍 중이면 끊지 않는다.
+        let timerG = setTimeout(function () { ctlG.abort(); }, 45000);
+        const onTokenIdleG = function (t) {
+          clearTimeout(timerG);
+          timerG = setTimeout(function () { ctlG.abort(); }, 30000);
+          if (onToken) onToken(t);
+        };
+        try {
+          var rg = await callOneModel(p, null, p.models[gm], h, ctlG.signal, onTokenIdleG);
+          clearTimeout(timerG);
+          return { result: rg, viaGateway: true };
+        } catch (eg) {
+          clearTimeout(timerG);
+          lastErr = eg;
+          if (eg.status === 400 || eg.status === 404) continue;      // 모델 문제 → 같은 게이트웨이로 다음 모델
+          // HTTP 상태가 없고 시간 초과도 아니다 = fetch 자체가 실패 = 이 PC 에서 게이트웨이에 못 닿는다
+          if (!eg.status && eg.name !== 'AbortError') { gwUnreachable = true; break; }
+          throw eg;   // 429·501·401/403·5xx·시간 초과 → 게이트웨이엔 닿았다. 내 키로 비껴가지 않고 다음 회사로
+        }
+      }
+      if (!gwUnreachable) throw lastErr || new Error('게이트웨이에서 쓸 수 있는 모델이 없습니다');
+    }
+    if (p.gatewayOnly) throw lastErr || new Error(p.label + '은(는) 회사 게이트웨이로만 쓸 수 있습니다');
+    // 여기까지 왔으면 게이트웨이에 못 닿는 PC 다 — 개인 키를 직접 쓴다(장부 밖, 위 설명).
+    // 커서는 이제 **내 키들 사이에서만** 돈다 — 게이트웨이 앞으로 끼어들 수 없다.
+    var sources = keysOf(p);
+    if (!sources.length) throw lastErr || new Error('회사 게이트웨이에 연결할 수 없고 ' + p.label + ' 개인 키도 없습니다');
+    var start = getCursor(p.id) % sources.length;
     for (var si = 0; si < sources.length; si++) {
       var idx = (start + si) % sources.length;
       var src = sources[idx];
       for (var mi = 0; mi < p.models.length; mi++) {
         const ctl = new AbortController();
-        // v29.64(A12): 45초는 '첫 응답까지'만 — 토큰이 흐르기 시작하면 '무응답 30초' 기준으로
-        // 전환한다. 긴 답변이 45초를 넘어도 스트리밍 중이면 끊지 않는다.
         let timer = setTimeout(function () { ctl.abort(); }, 45000);
         const onTokenIdle = function (t) {
           clearTimeout(timer);
@@ -2495,21 +2540,20 @@
         try {
           var r = await callOneModel(p, src, p.models[mi], h, ctl.signal, onTokenIdle);
           clearTimeout(timer);
-          setCursor(p.id, idx); // 이 소스가 살아있음 — 다음 질문도 여기부터
-          return { result: r, viaGateway: src === null };
+          setCursor(p.id, idx); // 이 키가 살아있음 — 다음에 게이트웨이에 못 닿으면 이 키부터
+          return { result: r, viaGateway: false };
         } catch (e) {
           clearTimeout(timer);
           lastErr = e;
           // v29.64(A7): Gemini는 불량 키를 400으로 반환 — 모델 문제로 오인해 같은 키로
-          // 다음 모델을 두드리지 말고, 다음 소스(키)로 넘어간다
+          // 다음 모델을 두드리지 말고, 다음 키로 넘어간다
           if (p.id === 'gemini' && e.status === 400 && /api[ _]?key.{0,30}not valid/i.test(e.message || '')) break;
           if (e.status === 400 || e.status === 404) continue;      // 모델 문제 → 다음 모델
-          if (e.status === 429 || e.status === 401 || e.status === 402 || e.status === 403 || e.status === 501) break; // 이 소스 소진/불량/플랜 미설정/게이트웨이 미설정 → 다음 소스
-          if (src === null && !e.status && e.name !== 'AbortError') break; // 게이트웨이 연결 실패 → 내 키로 폴백
+          if (e.status === 429 || e.status === 401 || e.status === 402 || e.status === 403) break; // 이 키 소진/불량/플랜 미설정 → 다음 키
           throw e; // 서버 오류·시간 초과·직접 연결 실패 → 회사 자체를 포기하고 다음 회사로
         }
       }
-      // 이 소스로 모든 모델이 실패 → 다음 소스 시도
+      // 이 키로 모든 모델이 실패 → 다음 키 시도
     }
     throw lastErr || new Error('사용 가능한 키/모델이 없습니다');
   }
@@ -2539,7 +2583,8 @@
       if (onStatus) onStatus(p.label + ' 응답 대기 중…');
       try {
         var r = await tryProvider(p, h, onToken);
-        lastProviderLabel = p.label + (r.viaGateway ? ' · 회사공용' : '');
+        // v29.83: 개인 키 직접 호출은 게이트웨이에 못 닿을 때만 일어난다 — 장부 밖이라는 걸 답 밑에 드러낸다
+        lastProviderLabel = p.label + (r.viaGateway ? ' · 회사공용' : p.localOnly ? '' : ' · 개인 키(게이트웨이 접속 불가 — 장부 밖)');
         return r.result;
       } catch (e) {
         // Gemini는 잘못된 키를 401이 아니라 400("API key not valid")으로 돌려주므로 본문도 확인
@@ -2560,7 +2605,10 @@
     if (_allNetFail) {
       throw new Error('회사 AI 게이트웨이에 연결할 수 없습니다 — 이 PC의 네트워크/보안 프로그램이 workers.dev 접속을 차단하는 것 같아요. 🔑 설정의 [🔌 연결 테스트]로 확인하고, 차단이 맞으면 전산 담당에게 게이트웨이 주소 허용을 요청하거나 개인 API 키를 등록해주세요.');
     }
-    throw new Error('모든 AI 호출 실패: ' + fails.join(', ') + ' — 잠시 후 다시 시도하거나 🔑에서 키를 확인해주세요.');
+    // v29.83: 게이트웨이에 닿는 PC 에서는 개인 키를 안 쓰므로 '🔑에서 키 확인'은 헛걸음이다 — 한도면 개인 AI 열쇠로 안내
+    throw new Error('모든 AI 호출 실패: ' + fails.join(', ') + ' — 잠시 후 다시 시도해 주세요.'
+      + (fails.some(function (f) { return f.indexOf('무료 한도 초과') !== -1; })
+        ? ' 오늘 회사 몫(하루 한도)을 다 쓰셨으면 오른쪽 위 내 메뉴 › 🔑 개인 AI 열쇠에 본인 키를 맡기면 계속 쓸 수 있습니다.' : ''));
   }
   window.SJP_AI_lastLocalFail = function () { return lastLocalFail; };
 
@@ -2865,9 +2913,9 @@
       docHtml +
       localHtml +
       gwHtml +
-      '<div style="font-size:12px;color:var(--text-light);margin:10px 0;line-height:1.6;">개인 키 사용 시: 위에서부터 순서대로 자동 사용하고, 한도 초과·오류 시 다음으로 자동 전환됩니다.<br><b>계정을 여러 개 만들어 받은 키는 한 칸에 줄바꿈으로 전부 붙여넣으세요</b> — 키 단위로도 자동 교대되어 무료 한도가 키 수만큼 늘어납니다.</div>' +
+      '<div style="font-size:12px;color:var(--text-light);margin:10px 0;line-height:1.6;">아래 개인 키는 <b>이 PC에서 회사 게이트웨이(workers.dev)에 접속 자체가 안 될 때만</b> 씁니다(사내 보안 프로그램이 막은 PC 등). 게이트웨이에 닿으면 쓰지 않습니다 — 오늘 회사 몫(하루 한도)을 다 썼을 때는 여기가 아니라 <b>오른쪽 위 내 메뉴 › 🔑 개인 AI 열쇠</b>에 맡기세요.<br>계정을 여러 개 만들어 받은 키는 한 칸에 줄바꿈으로 붙여넣으면 키 단위로 자동 교대됩니다.</div>' +
       fieldsHtml +
-      '<div style="font-size:11px;color:var(--text-lighter);line-height:1.6;">키는 각각 이 브라우저의 localStorage에만 저장되고, 해당 AI 회사 서버로만 직접 전송됩니다 — 저장소(git)나 세종플랫폼 서버로는 전송/저장되지 않습니다. 필드를 비운 채 저장하면 해당 키가 삭제됩니다.</div>',
+      '<div style="font-size:11px;color:var(--text-lighter);line-height:1.6;">키는 각각 이 브라우저의 localStorage에만 저장되고, 게이트웨이에 못 닿을 때 해당 AI 회사 서버로 직접 전송됩니다(그 호출은 회사 사용량 장부에 남지 않습니다) — 저장소(git)나 세종플랫폼 서버로는 전송/저장되지 않습니다. 필드를 비운 채 저장하면 해당 키가 삭제됩니다.</div>',
       function () {
         var gwEl = $id('aiGatewayUrlInput');
         lsSet(GATEWAY_URL_LS, gwEl ? gwEl.value.trim() : '');
