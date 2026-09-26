@@ -4165,12 +4165,9 @@ function startFirestoreSync() {
   // 최근 500개만 구독 — 무제한 증가 방지용 최소 가드 (오래된 메시지는 배지 계산에서 빠짐, MVP 트레이드오프)
   // v30.13(점검 B4): 500→200 — 이 구독은 '상단 알림 배지'(미읽음 수) 계산 전용이고 메신저 본문은
   //   messenger.html이 따로 받는다. 200건이면 실사용 미읽음 계산에 충분하고 부팅 전송량이 60% 줄어든다.
-  const msgQuery = fb.query(fb.collection(fb.db, 'messages'), fb.orderBy('createdAt', 'desc'), fb.limit(200));
-  _fsUnsubs.push(fb.onSnapshot(msgQuery, snap => {
-    잰다('messages(200)', snap);
-    state.messages = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    updateNotifBadge();
-  }, err => console.error('[Firestore] messages 동기화 오류:', err)));
+  // 2026-09-27: 이 구독(최근 200건 통째)은 9/21 메시지 규칙(내가 readers 인 것만 읽기)부터 **통째로 거부**돼 🤖 배지·알림 종의
+  //   안 읽은 수가 6일째 0이었다. 걸러 받게 고치면 접속마다 읽기 +200 — 대신 이미 받는 방 문서의 마지막 대화 시각(lastAt·lastAuthor,
+  //   메신저가 보낼 때 적는다)과 내 읽음 표시를 견준다(getUnreadCount). 메시지 본문은 메신저 창이 따로 받는다.
   // channelReads는 본인 것만 필요하므로 where로 좁혀서 실시간 구독 (일회성 조회 대신 —
   // 메신저 iframe 안에서 읽음 처리해도 부모 배지가 곧바로 갱신되도록)
   const readsQuery = fb.query(fb.collection(fb.db, 'channelReads'), fb.where('uid', '==', state.currentUser));
@@ -4432,7 +4429,7 @@ function getNotifications(includeAll) {
     var unreadN = getUnreadCount(c.id);
     if (unreadN <= 0) return;
     var chLabel = c.type === 'dm' ? (dmTitle(c) || c.name) : c.name;
-    notifs.push({ type: 'message', icon: '💬', title: chLabel + ' 채널에 읽지 않은 메시지 ' + unreadN + '개', sub: '메신저', proj: '', mail: false });
+    notifs.push({ type: 'message', icon: '💬', title: chLabel + ' 에 새 메시지가 있습니다', sub: '메신저', proj: '', mail: false });   // 방 단위(getUnreadCount)
   });
   if (b && b.autoRegistered) notifs.push({ type: 'autoReg', icon: '📦', title: b.autoRegistered + '개 워크오더 프로젝트 자동 등록됨', sub: 'Cowork WO 파이프라인', proj: '', mail: false });
   if (b && Array.isArray(b.pendingProjects) && b.pendingProjects.length) {
@@ -4458,6 +4455,7 @@ function clearAllNotifs() {
   document.getElementById('notifPanel').style.display = 'none';
 }
 function updateNotifBadge() {
+  try { updateMsgFabBadge(); } catch (e) {}   // 🤖 배지도 같이 — 방 문서·읽음 표시가 바뀔 때 여기로 온다(renderNav 때만 갱신되던 것)
   var badge = document.getElementById('notifBadge');
   if (!badge) return;
   var n = getNotifications().length;
@@ -7664,23 +7662,17 @@ async function seedMissingChannels() {
 }
 
 // 로그인 시 1회 로드 — 본인 읽음 상태만 필요하므로 실시간 리스너 대신 쿼리 1회 (여러 탭 동시 사용 시 수 초 지연은 허용 가능한 트레이드오프)
+// 2026-09-27: **방 단위**(안 읽은 방이면 1) — 방 문서의 마지막 대화(lastAt·lastAuthor)가 내 읽음 표시보다 늦고 내가 쓴 게 아니면.
+//   전엔 부팅 messages 200건 구독으로 셌는데 9/21 규칙부터 거부돼 늘 0이었다(위 구독 자리 주석). 추가 읽기 0.
 function getUnreadCount(channelId) {
-  const me = state.currentUser;
-  const lastRead = state.channelReads[channelId] || 0;
-  return state.messages.filter(m => {
-    if (m.channel !== channelId || m.author === me) return false;
-    let ts = m.createdAt || 0;
-    if (!ts && m.at) {
-      const parsed = Date.parse(m.at.replace(' ', 'T'));
-      if (!isNaN(parsed)) ts = parsed;
-    }
-    return ts > lastRead;
-  }).length;
+  const ch = (state.channels || []).find(c => c.id === channelId);
+  if (!ch || !ch.lastAt || ch.lastAuthor === state.currentUser) return 0;
+  return Number(ch.lastAt) > Number((state.channelReads || {})[channelId] || 0) ? 1 : 0;
 }
 
 // 메신저 UI 자체는 modules/messenger/messenger.html로 이동됨 (renderMessengerFrame() 참고).
 // dmTitle()만 getNotifications()의 안읽음 알림 문구에서 계속 사용되어 여기 남겨둔다.
-function dmTitle(ch){ const other=(ch.members||[]).find(id=>id!==state.currentUser); const ou=getU(other); return ou?`${ou.name} ${ou.title}`:''; }
+function dmTitle(ch){ const other=(ch.members||[]).find(id=>id!==state.currentUser); const ou=getU(other); return ou?[ou.name, ou.title].filter(Boolean).join(' '):''; }   // 직함 없는 계정(9/27 가입 신청은 직함이 비어 있다)이 "이름 undefined" 로 나오던 것
 
 
 /* ═════════════ 📋 제작 공정 관리 (Traveller) — v0.7 ═════════════

@@ -47,10 +47,20 @@ for (const [c, 왜] of Object.entries(금지)) {
   });
 }
 
-T('걸러 받는 둘은 그대로다 — messages 는 limit, channelReads 는 내 것만', () => {
-  assert.ok(/fb\.limit\(200\)/.test(부팅), 'messages 구독의 limit(200) 이 사라졌다');
+T('messages 는 부팅에서 아예 안 받고(안 읽은 수는 방 문서 lastAt 으로), channelReads 는 내 것만', () => {
+  // 9/27: 최근 200건 통째 구독은 9/21 규칙부터 거부돼 배지가 0이었다 — 방 문서로 센다(추가 읽기 0).
+  assert.ok(!/collection\(fb\.db,\s*'messages'\)/.test(부팅), 'messages 구독이 부팅에 돌아왔다 — 규칙이 통째 구독을 거부하고, 걸러 받으면 접속마다 +200');
   assert.ok(/'channelReads'\s*\)\s*,\s*fb\.where\('uid',\s*'==',\s*state\.currentUser\)/.test(부팅),
     'channelReads 가 내 것만 받는 where 를 잃었다');
+});
+
+T('안 읽은 수는 방 문서 lastAt·lastAuthor 와 내 읽음 표시로(방 단위 · 내가 쓴 건 빼고)', () => {
+  const src = (s.match(/function getUnreadCount\(channelId\) \{[\s\S]*?\n\}/) || [''])[0];
+  assert.ok(src, 'getUnreadCount 를 못 찾았다');
+  const state = { currentUser: 'me', channelReads: { c: 7 },
+    channels: [{ id: 'a', lastAt: 10, lastAuthor: 'u2' }, { id: 'b', lastAt: 10, lastAuthor: 'me' }, { id: 'c', lastAt: 5, lastAuthor: 'u2' }, { id: 'd' }] };
+  const f = new Function('state', src + '\nreturn getUnreadCount;')(state);
+  assert.deepEqual(['a', 'b', 'c', 'd', '없는방'].map(f), [1, 0, 0, 0, 0]);
 });
 
 // ── 계량기가 모든 구독에 붙어 있나 ────────────────────────────────────────
