@@ -839,12 +839,18 @@ function 영수증버튼(m) {
 // 영수증 거래일시 → 'YYYY-MM-DD'. 못 읽으면 '' (짐작하지 않는다).
 // 2026-09-26 직원 시범 전 대조: 마감 검사가 거래일시가 'YYYY-MM' 으로 시작할 때만 돌았다. 맥은 그 꼴로
 //   달라고 **부탁만** 한다(pais receipt.js) — '26.09.26'·'2026/9/26' 이 오면 마감한 달로도 들어가고
-//   날짜 칸도 비었다. 사이 글자는 두 개까지 본다('2026년 9월 26일' 의 '년 ').
-function 영수증날짜(s) {
-  const m = String(s || '').match(/(\d{2,4})\D{0,2}(\d{1,2})\D{0,2}(\d{1,2})/);
-  if (!m || m[1].length === 3) return '';
+//   날짜 칸도 비었다.
+// 9/26 검토: 숫자 경계·구분자를 안 보면 '26/09/2026' 이 2026-09-20, '26/09 14:30' 이 2026-09-14 로
+//   **그럴듯하게 틀린** 날이 됐다(마감 검사도 엉뚱한 달을 봄). 그래서 숫자 덩어리는 통째로만 잡고,
+//   구분자는 - . / 년 월 만(빈칸·: 은 날짜와 시각 사이다), 붙은 꼴은 8·6자리만, 오늘에서 400일 넘으면 버린다.
+function 영수증날짜(s, 지금 = Date.now()) {
+  const t = String(s || '');
+  const m = t.match(/(?<!\d)(\d{4}|\d{2})\s*[-./년월]\s*(\d{1,2})\s*[-./년월]\s*(\d{1,2})(?!\d)/)
+    || t.match(/(?<!\d)(\d{4}|\d{2})(\d{2})(\d{2})(?!\d)/);
+  if (!m) return '';
   const 해 = Number(m[1].length === 2 ? '20' + m[1] : m[1]), 월 = Number(m[2]), 일 = Number(m[3]);
-  if (해 < 2000 || 해 > 2099 || 월 < 1 || 월 > 12 || 일 < 1 || 일 > 31) return '';
+  if (월 < 1 || 월 > 12 || 일 < 1 || 일 > 31) return '';
+  if (Math.abs(Date.UTC(해, 월 - 1, 일) - 지금) > 400 * 864e5) return '';
   const p = (n) => String(n).padStart(2, '0');
   return `${해}-${p(월)}-${p(일)}`;
 }
@@ -882,6 +888,7 @@ async function 경비로등록(m, 고른, 단추) {
     const id = 'M_' + m.id + (고른 == null ? '' : '_' + 고른);
     // 재무부가 누구 영수증인지 알게 이름을 앞에 붙인다(올린이는 uid 라 화면에 안 보인다).
     const 이름 = (userMap.get(me()) || {}).name || '';
+    let 이미 = false;
     try {
       await fb.setDoc(fb.doc(fb.db, 't_expenseEntries', id), plain({
         id,
@@ -900,17 +907,25 @@ async function 경비로등록(m, 고른, 단추) {
         올린이: String(me()), 올린때: Date.now(),
       }));
     } catch (e) {
-      // 직원에게 거부가 나는 길은 "이미 있는 id 에 또 씀" 하나뿐이다(만들기는 제 이름이면 열려 있다).
-      if (e && e.code === 'permission-denied') { 토스트('이미 올린 영수증입니다.', 3800); return; }
-      console.error('[경비 등록]', e);
-      토스트('올리지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 4000);
-      return;
+      // 거부는 "이미 있는 id 에 또 씀"(직원 update 금지)만이 아니다 — 다른 탭에서 로그아웃·계정 바뀜도 거부다.
+      //   9/26 검토: 거부를 전부 「이미 올림」 으로 알리면 저장 안 된 영수증을 올렸다고 믿고 멈춘다.
+      //   문서가 정말 있는지 본다(제 것은 읽힌다 · 거부 때만 읽기 1회).
+      이미 = !!e && e.code === 'permission-denied' &&
+        await fb.getDoc(fb.doc(fb.db, 't_expenseEntries', id)).then((s) => s.exists()).catch(() => false);
+      if (!이미) {
+        console.error('[경비 등록]', e);
+        토스트(e && e.code === 'permission-denied'
+          ? '올리지 못했습니다 — 로그인이 풀렸거나 계정이 바뀌었습니다. 화면을 새로 열고 다시 올려 주세요.'
+          : '올리지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 5000);
+        return;
+      }
     }
     // 올렸다는 표시를 메시지에 남긴다 — 다음에 열어도 버튼 대신 「올림 ✓」.
     r.올림 = { id, 때: Date.now() }; m.영수증 = r;
     const 칸 = $(`.sjm-msg[data-mid="${CSS.escape(String(m.id))}"] .sjm-rcpt-go`);
     if (칸) 칸.outerHTML = 영수증버튼(m); else renderMessages(true);
-    토스트('경비 내역서에 올렸습니다 — ' + Number(돈.총금액 || 0).toLocaleString('ko-KR') + '원. 재무부가 확인합니다.', 3800);
+    토스트(이미 ? '이미 올린 영수증입니다.'
+      : '경비 내역서에 올렸습니다 — ' + Number(돈.총금액 || 0).toLocaleString('ko-KR') + '원. 재무부가 확인합니다.', 3800);
     try { await fb.setDoc(fb.doc(fb.db, AI_컬렉션, m.id), plain({ 영수증: { 올림: r.올림 } }), { merge: true }); }
     catch (e) { console.warn('[경비 등록] 올림 표시 저장 실패', e); }
   } finally {

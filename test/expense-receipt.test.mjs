@@ -24,10 +24,21 @@ const 떼기 = (소스, 머리) => {
 };
 
 // ── ② 날짜 맞추기 ──────────────────────────────────────────────────────
-const 날짜소스 = 떼기(앱, 'function 영수증날짜(s) {');
+const 날짜소스 = 떼기(앱, 'function 영수증날짜(');
 await T('영수증날짜() 를 떼어 올 수 있다 — 못 떼면 아래가 통째로 헛돈다', () => assert.ok(날짜소스.includes('match('), '영수증날짜 없음'));
-const 영수증날짜 = 날짜소스 ? new Function(날짜소스 + '\nreturn 영수증날짜;')() : () => 'x';
+const 날짜함수 = 날짜소스 ? new Function(날짜소스 + '\nreturn 영수증날짜;')() : () => 'x';
+const 오늘 = Date.UTC(2026, 8, 26);   // 400일 창을 고정한다 — 해가 바뀌어도 시험이 안 썩게
+const 영수증날짜 = (s) => 날짜함수(s, 오늘);
 for (const [넣음, 기대] of [
+  // 9/26 검토: 숫자 경계를 안 보던 때 그럴듯하게 **틀린** 날이 나오던 꼴 — 이제 '' 여야 한다
+  ['10/05/2026 14:30', ''],            // 예전 2010-05-20
+  ['26/09/2026', ''],                  // 예전 2026-09-20
+  ['05.10.2026', ''],                  // 예전 2005-10-20 — 마감 검사가 2005-10 을 봤다
+  ['26/09 14:30', ''],                 // 예전 2026-09-14 (해 없음 → 시각을 일로 읽음)
+  ['15.09.26', ''],                    // 일.월.해 → 2015-09-26 → 400일 창 밖
+  ['2010-05-20', ''],
+  ['2026. 9. 26.', '2026-09-26'],
+  ['260926', '2026-09-26'],
   ['2026-09-26 14:30', '2026-09-26'],
   ['2026/9/3', '2026-09-03'],
   ['26.09.26', '2026-09-26'],          // 두 자리 해 → 20xx
@@ -66,7 +77,42 @@ await T('경비로등록: id 가 메시지에 묶인다(무작위 id 금지)', (
 });
 await T('경비로등록: 누르는 동안 다시 못 누른다', () => assert.ok(/올리는중\.has\(m\.id\)/.test(등록소스)));
 await T('경비로등록: 올린 뒤 메시지에 올림 표시를 남긴다', () => assert.ok(/영수증: \{ 올림/.test(등록소스)));
-await T('경비로등록: 이미 있는 id 거부는 「이미 올린 영수증」 으로 알린다', () => assert.ok(/permission-denied[\s\S]{0,80}이미 올린 영수증/.test(등록소스)));
+// 거부 길을 가짜 저장소로 실제로 돌린다. 9/26 검토: 거부를 전부 「이미 올림」 으로 알렸다 —
+//   다른 탭에서 로그아웃해도 그렇게 떠서, 저장 안 된 영수증을 올렸다고 믿고 멈췄다.
+const 거부돌리기 = async (있나) => {
+  const 토스트들 = [], 쓴것 = [];
+  const 거부 = () => Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' });
+  const fb = {
+    db: {}, doc: (db, c, d) => c + '/' + d,
+    getDoc: async (경로) => {
+      if (경로 === 't_expense/lock') return { exists: () => false, data: () => ({}) };
+      if (있나 === '거부') throw 거부();                       // 로그아웃: 읽기도 거부
+      return { exists: () => 있나 };
+    },
+    setDoc: async (경로, 값) => { if (경로.startsWith('t_expenseEntries/')) throw 거부(); 쓴것.push([경로, 값]); },
+  };
+  const m = { id: 'a9', 영수증: { 금액: { 총금액: 1000 }, 거래일시: '2026-09-26' } };
+  const f = new Function('getFB', '토스트', '영수증날짜', 'userMap', 'me', 'plain', '$', 'CSS', 'renderMessages', '영수증버튼', 'AI_컬렉션', '올리는중',
+    등록소스 + '\nreturn 경비로등록;')(() => fb, (t) => 토스트들.push(t), () => '2026-09-26', new Map(), () => 'u1', (o) => o,
+    () => null, { escape: String }, () => {}, () => '', 't_aiChat', new Set());
+  const 원래 = console.error; console.error = () => {};   // 일부러 낸 거부 — 출력만 막는다
+  try { await f(m, null, null); } finally { console.error = 원래; }
+  return { 토스트: 토스트들.join(' | '), 올림: m.영수증.올림, 쓴것 };
+};
+await T('**거부 + 문서 없음(로그아웃 등)이면 「이미 올림」 이라 하지 않고 올림 표시도 안 남긴다**', async () => {
+  for (const 있나 of ['거부', false]) {
+    const r = await 거부돌리기(있나);
+    assert.ok(!r.토스트.includes('이미 올린'), `거짓 「이미 올림」: ${r.토스트}`);
+    assert.ok(r.토스트.includes('올리지 못했습니다'), `실패 안내 없음: ${r.토스트}`);
+    assert.ok(!r.올림 && r.쓴것.length === 0, '저장 안 됐는데 올림 표시를 남겼다');
+  }
+});
+await T('거부 + 제 문서가 정말 있으면 「이미 올린 영수증」 · 올림 표시를 남긴다', async () => {
+  const r = await 거부돌리기(true);
+  assert.ok(r.토스트.includes('이미 올린 영수증'), r.토스트);
+  assert.strictEqual(r.올림 && r.올림.id, 'M_a9');
+  assert.ok(r.쓴것.some(([경로, 값]) => 경로 === 't_aiChat/a9' && 값.영수증.올림), '메시지에 올림 표시를 안 썼다');
+});
 await T('경비로등록: 사용 내역 앞에 올린 사람 이름', () => assert.ok(/usage: \[이름, r\.덧말 \|\| r\.상호\]/.test(등록소스)));
 await T('경비로등록: 날짜를 맞춘 뒤 검사하고, 못 읽으면 메모에 남긴다', () => {
   assert.ok(/const 날 = 영수증날짜\(r\.거래일시\)/.test(등록소스));
