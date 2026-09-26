@@ -930,17 +930,51 @@ html.ai-popup #aiPanel { display: flex !important; position: fixed !important; l
     }
     if(window._positionAiPanel) window._positionAiPanel();
   };
-
-  /* v29.38: 진짜 toggleAiPanel/openAiKeyModal/sendAiMessage는 modules/ai-assistant/ai-assistant.js가
-     정의한다(파일 맨 아래에서 로드되며 아래 스텁을 덮어씀). 여기 스텁은 모듈 로드 실패 시 최소 동작용. */
-  if(typeof window.toggleAiPanel !== 'function'){
-    window.toggleAiPanel = function(){
-      const p = document.getElementById('aiPanel'); if(!p) return;
-      const opening = !p.classList.contains('open');
-      p.classList.toggle('open');
-      if(opening && window._positionAiPanel) window._positionAiPanel();
-    };
-  }
+  // 진짜 toggleAiPanel/openAiKeyModal/sendAiMessage 는 아래 old-ai-loader 가 부를 때 싣는다(2026-09-26).
+})();
+</script>
+<script id="old-ai-loader">
+// 2026-09-26: 옛 AI 비서(modules/ai-assistant/ai-assistant.js, 190KB)를 **부를 때만** 싣는다.
+//   전에는 맨 아래 <script defer> 로 방문마다 받고·파싱하고·돌렸다. 9/18 부터 🤖 는 메신저를 열고
+//   옛 패널은 ?aipop=1 비상구로만 뜨는데(9/19~26 사용 0건) 매번 190KB 를 치렀다.
+//   그런데 **그냥 지우면 조용히 죽는다**: SJP_indexRecord(NCR·CAR·회의록·문서 저장 때 AI 색인)가
+//   이 파일에만 있고 부르는 쪽이 전부 `if (fn)` 이라 없으면 건너뛴다(test/ai-assistant-reach.test.mjs).
+//   그래서 그 이름들을 여기서 스텁으로 먼저 세운다 — 스텁은 파일을 싣고 진짜(파일이 window 에 덮어쓴 것)를
+//   같은 인자로 불러 결과를 돌려준다. iframe 이 스텁을 미리 잡아 둬도(const fn = parent.SJP_indexRecord)
+//   스텁이 매번 window 에서 진짜를 다시 찾으니 계속 된다.
+//   실패(네트워크·파일이 이름을 안 만듦)는 던지지 않고 경고 + { skipped: 'no-hook' } — 부르는 쪽이 원래
+//   '훅 없음' 으로 알던 값이다(문서 저장이 색인됨:true 로 잘못 적지 않는다). 못 받았으면 다음 부름에 다시 받는다.
+//   ai-assistant.js 는 DOMContentLoaded 를 기다리지 않고 맨 위에서 바로 등록·연결하므로 늦게 실려도 된다.
+(function () {
+  var 주소 = 'modules/ai-assistant/ai-assistant.js?v=29.85.0';   // 캐시버스터는 여기 한 곳
+  var 싣는중 = null;
+  window.옛비서싣기 = function () {
+    return 싣는중 || (싣는중 = new Promise(function (끝) {
+      var s = document.createElement('script');
+      s.src = 주소;
+      s.onload = function () { 끝(true); };
+      s.onerror = function () {
+        console.warn('[옛 AI 비서] ' + 주소 + ' 를 못 불러왔다 — 다음에 부를 때 다시 받는다');
+        s.remove(); 싣는중 = null; 끝(false);
+      };
+      document.head.appendChild(s);
+    }));
+  };
+  // 이 이름들은 ai-assistant.js 가 실리면 window 에 덮어쓴다. 부르는 곳: 패널 단추 · ?aipop=1 · 기록 저장(색인)
+  ['SJP_indexRecord', 'toggleAiPanel', 'openAiKeyModal', 'sendAiMessage', 'aiPickFile', 'aiFileChanged', 'clearAiChat']
+    .forEach(function (이름) {
+      var 스텁 = window[이름] = function () {
+        var 인자 = arguments;
+        return window.옛비서싣기().then(function () {
+          var 진짜 = window[이름];
+          if (진짜 === 스텁) {   // 파일이 이 이름을 안 만들었다 — 자기를 다시 부르면 끝없이 돈다
+            console.warn('[옛 AI 비서] 실렸는데 ' + 이름 + ' 이 없다 — 건너뜀');
+            return { skipped: 'no-hook' };
+          }
+          return 진짜.apply(null, 인자);
+        });
+      };
+    });
 })();
 </script>
 <script>
@@ -962,7 +996,9 @@ html.ai-popup #aiPanel { display: flex !important; position: fixed !important; l
     if (window.toggleAiPanel) toggleAiPanel();
   };
   if (pop) document.addEventListener('DOMContentLoaded', function () {
-    // 부팅 뒤 패널을 연다 — toggleAiPanel 은 ai-assistant.js(defer) 가 덮어쓴 것이라 뇌·자리잡기까지 같이 돈다
+    // 2026-09-26: 팝업은 CSS 가 패널을 곧바로 보이므로 옛 비서를 지금 싣기 시작한다(단추가 기다리는 시간을 줄인다).
+    window.옛비서싣기();
+    // 부팅 뒤 패널을 연다 — toggleAiPanel 스텁이 싣기를 기다렸다 진짜를 부르므로 뇌·자리잡기까지 같이 돈다
     setTimeout(function () {
       var p = document.getElementById('aiPanel');
       if (p && !p.classList.contains('open') && window.toggleAiPanel) toggleAiPanel();
@@ -9953,9 +9989,7 @@ window.addEventListener('resize', () => {
 });
 
 </script>
-<!-- v30.13(점검 B2): defer — 119KB 파싱이 HTML 파싱·첫 화면 표시를 막지 않게.
-     이 파일 뒤에 오는 인라인 스크립트(lucide 옵저버)는 AI 함수를 참조하지 않으므로 순서 안전. -->
-<script defer src="modules/ai-assistant/ai-assistant.js?v=29.85.0"></script>
+<!-- 2026-09-26: 옛 AI 비서(ai-assistant.js)는 여기서 늘 싣지 않는다 — 위 <script id="old-ai-loader"> 가 부를 때 싣는다. -->
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.
