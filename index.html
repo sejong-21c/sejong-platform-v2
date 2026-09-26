@@ -1581,8 +1581,8 @@ function openProjectMembers(pid) {
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:4px;">
           ${list.map(u => `
             <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:2px 4px;">
-              <input type="checkbox" data-mdept="${d.id}" data-muid="${u.id}" ${assigned.has(u.id)?'checked':''}>
-              <span>${u.name} <span style="color:var(--text-lighter);">${u.title||''}</span>${u.pending?' <span style="font-size:10px;color:var(--warning,#d97706);font-weight:600;">대기</span>':''}</span>
+              <input type="checkbox" data-mdept="${d.id}" data-muid="${_escNote(u.id)}" ${assigned.has(u.id)?'checked':''}>
+              <span>${_escNote(u.name)} <span style="color:var(--text-lighter);">${_escNote(u.title||'')}</span>${u.pending?' <span style="font-size:10px;color:var(--warning,#d97706);font-weight:600;">대기</span>':''}</span>
             </label>
           `).join('')}
         </div>
@@ -1590,7 +1590,7 @@ function openProjectMembers(pid) {
   }).filter(Boolean).join('');
   openModal(`👥 팀 지정 — ${p.code} ${p.name}`, `
     <div style="font-size:11px;color:var(--text-lighter);margin-bottom:10px;">
-      각 부서에서 이 프로젝트를 담당할 직원을 지정하세요. 지정된 직원만 해당 부서 필터의 WBS를 편집·업무 등록할 수 있고, 변경 사항은 PM(${(getU(p.pm)||{}).name||'미지정'})의 결재 후 반영됩니다.
+      각 부서에서 이 프로젝트를 담당할 직원을 지정하세요. 지정된 직원만 해당 부서 필터의 WBS를 편집·업무 등록할 수 있고, 변경 사항은 PM(${_escNote((getU(p.pm)||{}).name||'미지정')})의 결재 후 반영됩니다.
     </div>
     ${deptHtml || '<div style="text-align:center;padding:16px;color:var(--text-lighter);font-size:12px;">등록된 사용자가 없습니다.</div>'}
   `, async () => {
@@ -2143,7 +2143,7 @@ function selectableUsers() {
   return [...(state.users || [])].sort(byName).concat(pend.sort(byName));
 }
 // 선택 옵션 라벨 — 대기 계정은 '· 대기' 표시
-function userOptLabel(u) { return `${u.name} ${u.title || ''}${u.pending ? ' · 대기' : ''}`; }
+function userOptLabel(u) { return `${_escNote(u.name)} ${_escNote(u.title || '')}${u.pending ? ' · 대기' : ''}`; }
 function getP(id) { return state.projects.find(p => p.id === id) || {}; }
 // v29.2: 프로젝트 상태 배지 — active(진행중)/done(완료)/pre-close(마감예정) 3종 공통 처리
 const PROJ_STATUS_META = {
@@ -3528,7 +3528,7 @@ function openProject(pid) {
   view.selectedProj = p;
   view.cur = 'projects';
   view.epcSelectedWBS = null;
-  document.getElementById('hTitle').innerHTML = `<button onclick="closeProject()" style="border:none;background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;cursor:pointer;margin-right:8px;flex-shrink:0;">← <span class="h-back-label">프로젝트 목록</span></button><span class="h-crumb-mid" style="color:var(--text-light);font-size:13px;">프로젝트</span> <span class="h-crumb-mid" style="color:var(--text-lighter);">›</span> <span style="font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:3px;flex-shrink:0;">${p.code}</span> <span class="h-crumb-ver" style="color:var(--text-lighter);font-size:12px;margin-left:4px;">· EPC Control v28.5</span>`;
+  document.getElementById('hTitle').innerHTML = `<button onclick="closeProject()" style="border:none;background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;cursor:pointer;margin-right:8px;flex-shrink:0;">← <span class="h-back-label">프로젝트 목록</span></button><span class="h-crumb-mid" style="color:var(--text-light);font-size:13px;">프로젝트</span> <span class="h-crumb-mid" style="color:var(--text-lighter);">›</span> <span style="font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:3px;flex-shrink:0;">${_escNote(p.code)}</span> <span class="h-crumb-ver" style="color:var(--text-lighter);font-size:12px;margin-left:4px;">· EPC Control v28.5</span>`;
   renderNav();
   render();
 }
@@ -4505,16 +4505,16 @@ function toggleNotifPanel(e) {
       var isExternal = href.indexOf('http') === 0;
       var arrow = href ? (isExternal ? ' ↗' : ' →') : '';
       var rowClick = href
-        ? 'onclick="goNotif(\'' + nid.replace(/'/g, "\\'") + '\',\'' + href.replace(/'/g, "\\'") + '\',' + isExternal + ')" style="cursor:pointer;"'
+        ? 'onclick="goNotif(' + _jsArg(nid) + ',' + _jsArg(href) + ',' + isExternal + ')" style="cursor:pointer;"'
         : '';
       return '<div ' + rowClick + ' style="padding:10px 16px;border-bottom:1px solid var(--border-light);border-left:3px solid ' + (colors[n.type] || '#e5e7eb') + ';' + (href ? 'cursor:pointer;' : '') + '" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'\'">' +
         '<div style="display:flex;gap:8px;align-items:flex-start;">' +
           '<span style="font-size:16px;flex-shrink:0;">' + n.icon + '</span>' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:13px;font-weight:500;line-height:1.4;color:var(--text);">' + n.title + arrow + '</div>' +
-            '<div style="font-size:11px;color:var(--text-light);margin-top:2px;">' + n.sub + (n.proj ? ' · ' + n.proj : '') + '</div>' +
+            '<div style="font-size:13px;font-weight:500;line-height:1.4;color:var(--text);">' + _escNote(n.title) + arrow + '</div>' +
+            '<div style="font-size:11px;color:var(--text-light);margin-top:2px;">' + _escNote(n.sub) + (n.proj ? ' · ' + _escNote(n.proj) : '') + '</div>' +
           '</div>' +
-          '<button onclick="event.stopPropagation();dismissNotif(\'' + nid.replace(/'/g, "\\'") + '\')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;color:var(--text-light);" title="확인 완료">✓</button>' +
+          '<button onclick="event.stopPropagation();dismissNotif(' + _jsArg(nid) + ')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;color:var(--text-light);" title="확인 완료">✓</button>' +
         '</div>' +
       '</div>';
     }).join('') : '<div style="padding:30px;text-align:center;color:var(--text-light);font-size:13px;">새 알림이 없습니다</div>');
@@ -4550,9 +4550,9 @@ function toggleUserMenu(e) {
   const g = GRADES[u.grade] || GRADES.member;
   menu.innerHTML = `
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-      <div style="font-weight:700;font-size:14px;">${u.name} ${u.title}</div>
-      <div style="font-size:11px;color:var(--text-light);margin-top:2px;">${u.email}</div>
-      <div style="margin-top:6px;"><span class="b-pill ${g.color}">${g.label}</span> <span style="font-size:11px;color:var(--text-light);">${u.dept}</span></div>
+      <div style="font-weight:700;font-size:14px;">${_escNote(u.name)} ${_escNote(u.title)}</div>
+      <div style="font-size:11px;color:var(--text-light);margin-top:2px;">${_escNote(u.email)}</div>
+      <div style="margin-top:6px;"><span class="b-pill ${g.color}">${g.label}</span> <span style="font-size:11px;color:var(--text-light);">${_escNote(u.dept)}</span></div>
     </div>
     <div class="um-item" onclick="closeUserMenu();openSignatureModal()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;">🖋 내 서명 등록${u.signatureUrl?' <span style="margin-left:auto;font-size:11px;color:var(--success);">등록됨</span>':''}</div>
     <div class="um-item" onclick="closeUserMenu();개인열쇠창()" style="padding:11px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;">🔑 개인 AI 열쇠</div>
@@ -4742,7 +4742,7 @@ async function 개인열쇠저장() {
     document.getElementById('열쇠값').value = '';
     알림.innerHTML = `<span style="color:var(--success);">맡았습니다 — ${r.제공자} …${r.끝네자리}</span>`;
     setTimeout(개인열쇠창, 900);
-  } catch (e) { 알림.innerHTML = `<span style="color:#991b1b;">${String(e.message || e)}</span>`; }
+  } catch (e) { 알림.innerHTML = `<span style="color:#991b1b;">${_escNote(String(e.message || e))}</span>`; }
 }
 async function 개인열쇠지우기() {
   try { await 열쇠부르기('del'); 개인열쇠창(); }
@@ -4757,7 +4757,7 @@ function openSignatureModal() {
       결재 문서 도장표(작성·검토·승인)에 이 서명 이미지가 표시됩니다. 배경이 흰색이나 투명한 PNG를 권장합니다.
     </div>
     <div id="sigPreviewBox" style="border:1px dashed var(--border);border-radius:8px;padding:16px;text-align:center;margin-bottom:12px;min-height:90px;display:flex;align-items:center;justify-content:center;">
-      ${u.signatureUrl ? `<img src="${u.signatureUrl}" style="max-height:70px;max-width:220px;object-fit:contain;">` : `<span style="color:var(--text-lighter);font-size:12px;">등록된 서명이 없습니다</span>`}
+      ${u.signatureUrl ? `<img src="${_safeUrl(u.signatureUrl)}" style="max-height:70px;max-width:220px;object-fit:contain;">` : `<span style="color:var(--text-lighter);font-size:12px;">등록된 서명이 없습니다</span>`}
     </div>
     <input type="file" id="sigFileInput" accept="image/*" onchange="_onSigFilePicked(this)" style="margin-bottom:12px;font-size:12px;">
     <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -5013,13 +5013,13 @@ function renderEPCControl() {
       </div>
       <div class="proj-grid">
         ${state.projects.map(p => `
-          <div class="proj" onclick="openProject('${p.id}')">
+          <div class="proj" onclick="openProject(${_jsArg(p.id)})">
             <div class="proj-open-hint">→ 열기</div>
-            <div class="proj-code">${p.code}</div>
-            <div class="proj-name">${p.name}</div>
-            <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
-            <div class="proj-meta"><span>PM: ${getU(p.pm).name}</span><span><b>${p.progress}%</b></span></div>
-            <div class="bar"><div class="bar-fill" style="width:${p.progress}%"></div></div>
+            <div class="proj-code">${_escNote(p.code)}</div>
+            <div class="proj-name">${_escNote(p.name)}</div>
+            <div class="proj-meta"><span>${_escNote(p.client)}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
+            <div class="proj-meta"><span>PM: ${_escNote(getU(p.pm).name)}</span><span><b>${_escNote(p.progress)}%</b></span></div>
+            <div class="bar"><div class="bar-fill" style="width:${_escNote(p.progress)}%"></div></div>
             <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">WBS ${getWBS(p.id).length}개 항목 · 아이템 ${getItems(p.id).length}개</div>
           </div>
         `).join('')}
@@ -5043,14 +5043,14 @@ function renderEPCControl() {
       <div style="flex:1;position:relative;overflow:hidden;background:#fff;">
         <iframe id="epcFrame" src="${epcPath}" 
                 style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;"
-                title="EPC Control - ${p.code}"
+                title="EPC Control - ${_escNote(p.code)}"
                 onload="this.nextElementSibling && this.nextElementSibling.remove();"></iframe>
         <div id="epcFallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:40px;background:#fff;">
           <div style="max-width:560px;text-align:center;">
             <div style="font-size:48px;margin-bottom:14px;">📊</div>
             <h2 style="margin-bottom:8px;color:var(--primary);">EPC Control v28.5</h2>
             <p style="color:var(--text-light);margin-bottom:18px;">
-              <strong>${p.code}</strong> ${p.name}<br>
+              <strong>${_escNote(p.code)}</strong> ${_escNote(p.name)}<br>
               WBS · 간트차트 · ITP · NCR 통합 관리 화면이 이 자리에 로드됩니다.
             </p>
             <div style="background:var(--bg);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);margin-bottom:14px;">
@@ -5150,8 +5150,8 @@ function openLinkDraftPicker(draftId) {
   }
   const rows = projs.map((p, i) => `
     <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;">
-      <input type="radio" name="linkTargetPid" value="${p.id}" ${i===0?'checked':''}>
-      <span><b>${p.code}</b> — ${p.name}</span>
+      <input type="radio" name="linkTargetPid" value="${_escNote(p.id)}" ${i===0?'checked':''}>
+      <span><b>${_escNote(p.code)}</b> — ${_escNote(p.name)}</span>
     </label>`).join('');
   openModal('🔗 프로젝트와 연동', `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:10px;">
@@ -5174,7 +5174,7 @@ function renderDraftSection(currentTool) {
       ${drafts.map(d => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;flex-wrap:wrap;">
           <div>
-            <div style="font-weight:600;">${d.label}</div>
+            <div style="font-weight:600;">${_escNote(d.label)}</div>
             <div style="font-size:10px;color:var(--text-lighter);">${new Date(d.createdAt).toLocaleString('ko-KR')}</div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -5222,15 +5222,15 @@ function renderITPProjects() {
         const itemCount = (state.items[p.id] || []).length;
         const isHidden = p.hidden;
         return `
-        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openITPProj('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
+        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openITPProj(${_jsArg(p.id)})">
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj(${_jsArg(p.id)});" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
           <div class="proj-open-hint">→ ITP 작성</div>
-          <div class="proj-code">${p.code}</div>
-          <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
-          <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
-          <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
-          <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
+          <div class="proj-code">${_escNote(p.code)}</div>
+          <div class="proj-name">${_escNote(p.name)}</div>
+          <div class="proj-meta"><span>${_escNote(p.client)}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
+          <div class="proj-meta"><span>PM: ${_escNote(getU(p.pm)?.name||'미지정')}</span><span><b>${_escNote(p.progress)}%</b></span></div>
+          <div class="bar"><div class="bar-fill" style="width:${_escNote(p.progress)}%;"></div></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${_escNote(p.start)} ~ ${_escNote(p.end)} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
         </div>
       `;}).join('')}
     </div>
@@ -5272,11 +5272,11 @@ function renderITPBuilder() {
         <button class="back-btn" onclick="closeITPProj()">← 프로젝트 목록</button>
         <div>
           <div class="mod-title" style="font-size:16px;">
-            <span style="color:var(--primary);font-size:13px;font-weight:700;background:var(--primary-lighter);padding:2px 8px;border-radius:4px;vertical-align:middle;">${p.code}</span>
-            ${p.name}
+            <span style="color:var(--primary);font-size:13px;font-weight:700;background:var(--primary-lighter);padding:2px 8px;border-radius:4px;vertical-align:middle;">${_escNote(p.code)}</span>
+            ${_escNote(p.name)}
             <span style="font-size:12px;color:var(--text-light);font-weight:400;">— ITP Builder v1.4</span>
           </div>
-          <div class="mod-sub">${p.client} · PM ${getU(p.pm).name} ${getU(p.pm).title} · Rev. 0</div>
+          <div class="mod-sub">${_escNote(p.client)} · PM ${_escNote(getU(p.pm).name)} ${_escNote(getU(p.pm).title)} · Rev. 0</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;">
@@ -5291,24 +5291,24 @@ function renderITPBuilder() {
       <div class="itp-side">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <strong style="font-size:13px;">📦 검사 대상 아이템 (${items.length})</strong>
-          <button class="btn btn-sm btn-primary" onclick="openNewTag('${p.id}')">+ 추가</button>
+          <button class="btn btn-sm btn-primary" onclick="openNewTag(${_jsArg(p.id)})">+ 추가</button>
         </div>
         ${items.length === 0 ? `
           <div style="padding:30px 14px;text-align:center;color:var(--text-lighter);font-size:12px;line-height:1.6;">
             <div style="font-size:32px;margin-bottom:8px;">📦</div>
             아이템이 없습니다.<br>
-            <button class="btn btn-sm btn-primary" style="margin-top:10px;" onclick="openNewTag('${p.id}')">+ 첫 아이템 등록</button>
+            <button class="btn btn-sm btn-primary" style="margin-top:10px;" onclick="openNewTag(${_jsArg(p.id)})">+ 첫 아이템 등록</button>
           </div>
         ` : items.map(it => `
-          <div class="itp-item-card${selectedItem && selectedItem.id===it.id?' sel':''}" data-itemid="${it.id}" onclick="setITPItem('${it.id}')" style="position:relative;">
-            <button onclick="event.stopPropagation();deleteITPItem('${p.id}','${it.id}');" title="삭제 (복구 가능)" style="position:absolute;top:6px;right:6px;width:18px;height:18px;line-height:16px;padding:0;font-size:11px;border:none;border-radius:50%;background:var(--bg);color:#c00;cursor:pointer;">✕</button>
+          <div class="itp-item-card${selectedItem && selectedItem.id===it.id?' sel':''}" data-itemid="${_escNote(it.id)}" onclick="setITPItem(${_jsArg(it.id)})" style="position:relative;">
+            <button onclick="event.stopPropagation();deleteITPItem(${_jsArg(p.id)},${_jsArg(it.id)});" title="삭제 (복구 가능)" style="position:absolute;top:6px;right:6px;width:18px;height:18px;line-height:16px;padding:0;font-size:11px;border:none;border-radius:50%;background:var(--bg);color:#c00;cursor:pointer;">✕</button>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-right:18px;">
-              <span class="itp-tag">${it.tag}</span>
+              <span class="itp-tag">${_escNote(it.tag)}</span>
             </div>
-            ${(() => { const nm = it.name || it.type; return `<div style="font-size:12px;font-weight:500;margin-bottom:2px;${nm?'':'color:var(--text-lighter);font-style:italic;'}">${nm || '(장비명 미입력)'}</div>`; })()}
-            ${it.spec ? `<div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">규격: ${it.spec}</div>` : ''}
-            ${it.material ? `<div style="font-size:10px;color:var(--text-lighter);">재질: ${it.material}</div>` : ''}
-            ${it.maker ? `<div style="font-size:10px;color:var(--text-lighter);">제작사: ${it.maker}</div>` : ''}
+            ${(() => { const nm = it.name || it.type; return `<div style="font-size:12px;font-weight:500;margin-bottom:2px;${nm?'':'color:var(--text-lighter);font-style:italic;'}">${_escNote(nm || '(장비명 미입력)')}</div>`; })()}
+            ${it.spec ? `<div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">규격: ${_escNote(it.spec)}</div>` : ''}
+            ${it.material ? `<div style="font-size:10px;color:var(--text-lighter);">재질: ${_escNote(it.material)}</div>` : ''}
+            ${it.maker ? `<div style="font-size:10px;color:var(--text-lighter);">제작사: ${_escNote(it.maker)}</div>` : ''}
           </div>
         `).join('')}
 
@@ -5318,10 +5318,10 @@ function renderITPBuilder() {
             ${view.itpShowDeletedItems ? hiddenItems.map(it => `
               <div class="itp-item-card" style="opacity:.6;cursor:default;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span class="itp-tag">${it.tag}</span>
-                  <button class="btn btn-sm" onclick="restoreITPItem('${p.id}','${it.id}')" style="font-size:10px;padding:2px 8px;">↺ 복구</button>
+                  <span class="itp-tag">${_escNote(it.tag)}</span>
+                  <button class="btn btn-sm" onclick="restoreITPItem(${_jsArg(p.id)},${_jsArg(it.id)})" style="font-size:10px;padding:2px 8px;">↺ 복구</button>
                 </div>
-                <div style="font-size:12px;margin-top:2px;">${it.name}</div>
+                <div style="font-size:12px;margin-top:2px;">${_escNote(it.name)}</div>
               </div>
             `).join('') : ''}
           </div>
@@ -5331,7 +5331,7 @@ function renderITPBuilder() {
           <div style="margin-top:14px;padding:10px;background:var(--primary-lighter);border-radius:5px;font-size:10px;line-height:1.6;">
             <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">→ 우측 ITP Builder에서</div>
             <div style="color:var(--text-light);">
-              현재 선택: <b id="itpCurSelTag" style="color:var(--primary);">${selectedItem.tag}</b><br>
+              현재 선택: <b id="itpCurSelTag" style="color:var(--primary);">${_escNote(selectedItem.tag)}</b><br>
               이 Tag를 기준으로 ITP를 작성하세요.
             </div>
           </div>
@@ -5340,16 +5340,16 @@ function renderITPBuilder() {
       
       <!-- 우측: 신과장 ITP Builder v1.4 iframe -->
       <div class="itp-main" style="padding:0;position:relative;overflow:hidden;">
-        <iframe id="itpFrame" key="${frameKey}" src="${itpPath}"
+        <iframe id="itpFrame" key="${_escNote(frameKey)}" src="${itpPath}"
                 style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#fff;"
-                title="ITP Builder v1.4 - ${p.code}${selectedItem?` · ${selectedItem.tag}`:''}"
+                title="ITP Builder v1.4 - ${_escNote(p.code)}${selectedItem?` · ${_escNote(selectedItem.tag)}`:''}"
                 onload="this.nextElementSibling && this.nextElementSibling.remove();"></iframe>
         <div id="itpFallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:30px;background:#fff;">
           <div style="max-width:480px;text-align:center;">
             <div style="font-size:42px;margin-bottom:12px;">📋</div>
             <h3 style="margin-bottom:6px;color:var(--primary);font-size:15px;">ITP Builder v1.4</h3>
             <p style="color:var(--text-light);margin-bottom:14px;font-size:12px;">
-              <strong>${p.code}</strong> ${p.name}${selectedItem?`<br>현재 Tag: <b>${selectedItem.tag}</b>`:''}<br>
+              <strong>${_escNote(p.code)}</strong> ${_escNote(p.name)}${selectedItem?`<br>현재 Tag: <b>${_escNote(selectedItem.tag)}</b>`:''}<br>
               신과장 ITP Builder가 이 자리에 로드됩니다.
             </p>
             <div style="background:var(--bg);padding:10px 12px;border-radius:5px;font-family:monospace;font-size:10px;color:var(--text-light);margin-bottom:12px;word-break:break-all;">
@@ -5454,15 +5454,15 @@ function renderQAProjects() {
         const itemCount = (state.items[p.id] || []).length;
         const isHidden = p.hidden;
         return `
-        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openQAProj('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
+        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openQAProj(${_jsArg(p.id)})">
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj(${_jsArg(p.id)});" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
           <div class="proj-open-hint">→ 문서 작성</div>
-          <div class="proj-code">${p.code}</div>
-          <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
-          <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
-          <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
-          <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
+          <div class="proj-code">${_escNote(p.code)}</div>
+          <div class="proj-name">${_escNote(p.name)}</div>
+          <div class="proj-meta"><span>${_escNote(p.client)}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
+          <div class="proj-meta"><span>PM: ${_escNote(getU(p.pm)?.name||'미지정')}</span><span><b>${_escNote(p.progress)}%</b></span></div>
+          <div class="bar"><div class="bar-fill" style="width:${_escNote(p.progress)}%;"></div></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${_escNote(p.start)} ~ ${_escNote(p.end)} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
         </div>
       `;}).join('')}
     </div>
@@ -5538,16 +5538,16 @@ function renderMobileProjects() {
         const isHidden = p.hidden;
         const draftCount = (state.mobileInspectionDrafts || []).filter(d => d.pid === p.id).length;
         return `
-        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openMobileProj('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
+        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openMobileProj(${_jsArg(p.id)})">
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj(${_jsArg(p.id)});" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
           <div class="proj-open-hint">→ 검사 등록</div>
-          <div class="proj-code">${p.code}</div>
-          <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
-          <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
-          <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
-          <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
-          ${draftCount>0?`<div onclick="event.stopPropagation();openMobileProj('${p.id}', true);" title="클릭하면 바로 이어서 작성할 수 있습니다" style="margin-top:6px;font-size:11px;color:#856404;background:#fff3cd;border-radius:6px;padding:3px 8px;display:inline-block;font-weight:600;cursor:pointer;">📝 임시저장 ${draftCount}건 · 이어서 작성 →</div>`:''}
+          <div class="proj-code">${_escNote(p.code)}</div>
+          <div class="proj-name">${_escNote(p.name)}</div>
+          <div class="proj-meta"><span>${_escNote(p.client)}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
+          <div class="proj-meta"><span>PM: ${_escNote(getU(p.pm)?.name||'미지정')}</span><span><b>${_escNote(p.progress)}%</b></span></div>
+          <div class="bar"><div class="bar-fill" style="width:${_escNote(p.progress)}%;"></div></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${_escNote(p.start)} ~ ${_escNote(p.end)} · 검사 대상 Tag <b style="color:var(--text);">${itemCount}개</b></div>
+          ${draftCount>0?`<div onclick="event.stopPropagation();openMobileProj(${_jsArg(p.id)}, true);" title="클릭하면 바로 이어서 작성할 수 있습니다" style="margin-top:6px;font-size:11px;color:#856404;background:#fff3cd;border-radius:6px;padding:3px 8px;display:inline-block;font-weight:600;cursor:pointer;">📝 임시저장 ${draftCount}건 · 이어서 작성 →</div>`:''}
         </div>
       `;}).join('')}
       ${draftsTile}
@@ -5591,13 +5591,13 @@ function renderMobileDraftsOverview() {
         const savedLabel = (d.savedAt || '').slice(0, 16).replace('T', ' ');
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);">
           <div style="min-width:0;flex:1;">
-            <div style="font-size:11px;color:var(--primary);font-weight:600;">${d.projLabel}</div>
-            <div style="font-size:13.5px;font-weight:600;margin-top:2px;">${d.item || '(품목명 없음)'} · ${d.itpName || ''}</div>
-            <div style="font-size:11px;color:var(--text-lighter);margin-top:2px;">${savedLabel} 저장</div>
+            <div style="font-size:11px;color:var(--primary);font-weight:600;">${_escNote(d.projLabel)}</div>
+            <div style="font-size:13.5px;font-weight:600;margin-top:2px;">${_escNote(d.item || '(품목명 없음)')} · ${_escNote(d.itpName || '')}</div>
+            <div style="font-size:11px;color:var(--text-lighter);margin-top:2px;">${_escNote(savedLabel)} 저장</div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button class="btn btn-sm btn-primary" onclick="resumeMobileDraftFromOverview('${d.pid}','${d.id}')">이어서 작성</button>
-            <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="deleteMobileDraft('${d.id}', '${(d.item||'').replace(/'/g,"\\'")} · ${(d.itpName||'').replace(/'/g,"\\'")}')">삭제</button>
+            <button class="btn btn-sm btn-primary" onclick="resumeMobileDraftFromOverview(${_jsArg(d.pid)},${_jsArg(d.id)})">이어서 작성</button>
+            <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="deleteMobileDraft(${_jsArg(d.id)}, ${_jsArg((d.item||'') + ' · ' + (d.itpName||''))})">삭제</button>
           </div>
         </div>`;
       }).join('')}
@@ -5651,16 +5651,16 @@ function renderDeptSelfGantt(rows, deptName) {
     const promotedOkrId = okrByTitle[(w.name||'').trim()];
     const promoteBtn = meCanPromote
       ? (promotedOkrId
-          ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;background:#dcfce7;color:#166534;border-color:#86efac;" onclick="event.stopPropagation();demoteWbsRowFromOkr('${promotedOkrId}')" title="클릭하면 부서 목표에서 내림">${LI('target','🎯')} 등록됨 · ✕ 취소</button>`
+          ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;background:#dcfce7;color:#166534;border-color:#86efac;" onclick="event.stopPropagation();demoteWbsRowFromOkr(${_jsArg(promotedOkrId)})" title="클릭하면 부서 목표에서 내림">${LI('target','🎯')} 등록됨 · ✕ 취소</button>`
           : `<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;white-space:nowrap;" onclick="event.stopPropagation();promoteWbsRowToOkr('dept_${myDeptId}',${wi})">${LI('target','🎯')} 목표로 승격</button>`)
       : '';
     return `
       <div class="utl-row" onclick="openDeptSchedProj('__self__')">
         <div class="utl-info">
-          <div class="utl-code">${w.code || ''}</div>
-          <div class="utl-name" title="${w.name || ''}">${w.name || '(제목 없음)'}</div>
+          <div class="utl-code">${_escNote(w.code || '')}</div>
+          <div class="utl-name" title="${_escNote(w.name || '')}">${_escNote(w.name || '(제목 없음)')}</div>
           <div class="utl-meta" style="display:flex;align-items:center;gap:6px;justify-content:space-between;">
-            <span>${period} · <b>${pct}%</b></span>
+            <span>${_escNote(period)} · <b>${pct}%</b></span>
             ${promoteBtn}
           </div>
         </div>
@@ -5668,7 +5668,7 @@ function renderDeptSelfGantt(rows, deptName) {
           <div class="utl-today" style="left:${todayPct}%;"></div>
           ${valid ? `<div class="utl-bar" style="left:${left}%;width:${width}%;background:${todoColor};">
             <div class="utl-bar-fill" style="width:${pct}%;background:${doneColor};"></div>
-            <span class="utl-bar-label">${w.code || ''} · ${pct}%</span>
+            <span class="utl-bar-label">${_escNote(w.code || '')} · ${pct}%</span>
           </div>` : ''}
         </div>
       </div>`;
@@ -5764,21 +5764,21 @@ function renderDeptSchedProjects() {
   const canEdit = canEditDeptSchedule(dept);
   const projs = state.projects.filter(p => !p.hidden);
   const projCards = projs.map(p => `
-    <div class="proj" onclick="openDeptSchedProj('${p.id}')">
-      <div class="proj-open-hint">→ ${dept} 스케줄</div>
-      <div class="proj-code">${p.code}</div>
-      <div class="proj-name">${p.name}</div>
-      <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
-      <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b>${p.progress}%</b></span></div>
-      <div class="bar"><div class="bar-fill" style="width:${p.progress}%;"></div></div>
-      <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</div>
+    <div class="proj" onclick="openDeptSchedProj(${_jsArg(p.id)})">
+      <div class="proj-open-hint">→ ${_escNote(dept)} 스케줄</div>
+      <div class="proj-code">${_escNote(p.code)}</div>
+      <div class="proj-name">${_escNote(p.name)}</div>
+      <div class="proj-meta"><span>${_escNote(p.client)}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
+      <div class="proj-meta"><span>PM: ${_escNote(getU(p.pm)?.name||'미지정')}</span><span><b>${_escNote(p.progress)}%</b></span></div>
+      <div class="bar"><div class="bar-fill" style="width:${_escNote(p.progress)}%;"></div></div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-lighter);">${_escNote(p.start)} ~ ${_escNote(p.end)} · WBS ${getWBS(p.id).length}개</div>
     </div>`).join('');
   const did = (DEPTS.find(d => d.name === dept) || {}).id || '';
   const selfPid = `dept_${did}`;
   const projListOpen = !!(view.deptSchedProjListOpenByDept && view.deptSchedProjListOpenByDept[dept]);
   return `
     <div class="mod-head" style="margin-bottom:12px;padding-bottom:0;">
-      <div style="font-size:12px;color:var(--text-light);">프로젝트를 선택하면 ${dept} 담당 WBS만 필터해서 편집합니다 · ${canEdit ? '편집 가능' : '조회 전용(부서장·관리자급만 편집)'}</div>
+      <div style="font-size:12px;color:var(--text-light);">프로젝트를 선택하면 ${_escNote(dept)} 담당 WBS만 필터해서 편집합니다 · ${canEdit ? '편집 가능' : '조회 전용(부서장·관리자급만 편집)'}</div>
       <button class="back-btn" onclick="closeTool()">← 도구함 닫기</button>
     </div>
     <div style="margin-bottom:18px;">
@@ -5790,12 +5790,12 @@ function renderDeptSchedProjects() {
       if (!bEvents.length) return '';
       return '<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-light);margin-bottom:8px;">' + LI('mail','📬') + ' Cowork 메일 자동 연동 일정 (' + bEvents.length + ')</div>' +
         '<div class="card">' + bEvents.map(function(e) {
-          return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">' + e.title + '</div><div style="font-size:12px;color:' + (e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)') + ';font-weight:600;white-space:nowrap;margin-left:8px;">' + e.date + (e.time ? ' ' + e.time : '') + '</div></div>';
+          return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);"><div style="font-size:13px;font-weight:500;">' + _escNote(e.title) + '</div><div style="font-size:12px;color:' + (e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)') + ';font-weight:600;white-space:nowrap;margin-left:8px;">' + _escNote(e.date) + (e.time ? ' ' + _escNote(e.time) : '') + '</div></div>';
         }).join('') + '</div></div>';
     })()}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text-light);">${LI('chart-gantt','📊')} 프로젝트별 ${dept} 스케줄 (${projs.length})</div>
-      <button class="btn btn-sm" onclick="toggleDeptSchedProjList('${dept}')" style="display:inline-flex;align-items:center;gap:4px;">${projListOpen ? '▼ 접기' : '▶ 펼치기'}</button>
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);">${LI('chart-gantt','📊')} 프로젝트별 ${_escNote(dept)} 스케줄 (${projs.length})</div>
+      <button class="btn btn-sm" onclick="toggleDeptSchedProjList(${_jsArg(dept)})" style="display:inline-flex;align-items:center;gap:4px;">${projListOpen ? '▼ 접기' : '▶ 펼치기'}</button>
     </div>
     ${projListOpen ? `<div class="proj-grid">${projCards || '<div style="color:var(--text-lighter);font-size:12px;padding:20px;">등록된 프로젝트가 없습니다.</div>'}</div>` : ''}
   `;
@@ -5824,14 +5824,14 @@ function renderDeptSchedFrame() {
   }
   return `<div style="display:flex;flex-direction:column;height:100%;">
     <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">
-      <button class="back-btn" onclick="closeDeptSchedProj()">← ${dept} 목록</button>
-      <span style="font-size:13px;font-weight:600;">${title}</span>
+      <button class="back-btn" onclick="closeDeptSchedProj()">← ${_escNote(dept)} 목록</button>
+      <span style="font-size:13px;font-weight:600;">${_escNote(title)}</span>
       ${canEdit==='0' ? '<span class="b-pill gray" style="margin-left:auto;">조회 전용</span>'
         : shadowUid ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;margin-left:auto;">🟡 변경 제안 모드 · 저장 시 PM 결재 대기</span>'
         : ''}
     </div>
     <div style="flex:1;position:relative;overflow:hidden;background:#fff;">
-      <iframe src="${src}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="${title}"></iframe>
+      <iframe src="${src}" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;" title="${_escNote(title)}"></iframe>
     </div>
   </div>`;
 }
@@ -5845,7 +5845,7 @@ function renderQADocFrame() {
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">
       <div style="display:flex;align-items:center;gap:8px;">
         <button class="back-btn" onclick="closeQAProj()">← 프로젝트 목록</button>
-        <span style="font-size:13px;"><span style="color:var(--primary);font-weight:700;background:var(--primary-lighter);padding:2px 7px;border-radius:4px;">${p.code}</span> ${p.name}</span>
+        <span style="font-size:13px;"><span style="color:var(--primary);font-weight:700;background:var(--primary-lighter);padding:2px 7px;border-radius:4px;">${_escNote(p.code)}</span> ${_escNote(p.name)}</span>
       </div>
       <a class="btn btn-sm" href="${qaPath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);">↗ 새 창</a>
     </div>
@@ -5884,7 +5884,7 @@ function renderMobileFrame() {
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:1px solid var(--border);">
       <div style="display:flex;align-items:center;gap:8px;">
         <button class="back-btn" onclick="closeMobileProj()">← 프로젝트 목록</button>
-        ${p?`<span style="font-size:13px;"><span style="color:var(--primary);font-weight:700;background:var(--primary-lighter);padding:2px 7px;border-radius:4px;">${p.code}</span> ${p.name}</span>`:''}
+        ${p?`<span style="font-size:13px;"><span style="color:var(--primary);font-weight:700;background:var(--primary-lighter);padding:2px 7px;border-radius:4px;">${_escNote(p.code)}</span> ${_escNote(p.name)}</span>`:''}
       </div>
       <a class="btn btn-sm" href="${mobilePath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);">↗ 새 창</a>
     </div>
@@ -5947,13 +5947,13 @@ function dashboard() {
   // 핵심 액션 (개인 브리핑 있을 때)
   const keyActionsCard = hasBriefing && b.keyActions ? `
     <div class="card" style="margin-bottom:14px;">
-      <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="flame"></i> 오늘 핵심 액션 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Cowork AI 자동 정리 (${b.generatedAt||''})</span></h3>
+      <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="flame"></i> 오늘 핵심 액션 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— Cowork AI 자동 정리 (${_escNote(b.generatedAt||'')})</span></h3>
       ${b.keyActions.map((a,i)=>`
         <div style="display:flex;gap:10px;padding:9px 0;${i<b.keyActions.length-1?'border-bottom:1px solid var(--border-light);':''}">
           <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:${a.priority==='high'?'var(--danger)':'var(--primary)'};color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;">${i+1}</span>
           <div style="flex:1;">
-            <div style="font-size:13px;">${a.text}</div>
-            <span style="font-size:10px;color:var(--primary);font-weight:600;background:var(--primary-lighter);padding:1px 6px;border-radius:3px;">${a.proj}</span>
+            <div style="font-size:13px;">${_escNote(a.text)}</div>
+            <span style="font-size:10px;color:var(--primary);font-weight:600;background:var(--primary-lighter);padding:1px 6px;border-radius:3px;">${_escNote(a.proj)}</span>
           </div>
         </div>
       `).join('')}
@@ -5964,9 +5964,9 @@ function dashboard() {
     <div class="card">
       <h3 style="margin-bottom:12px;font-size:14px;"><i data-lucide="triangle-alert"></i> 긴급 답변 대기 (${b.urgentList.length})</h3>
       ${b.urgentList.map(m=>`
-        <a href="${_gmailUrl(m.subject)}" target="_blank" style="padding:8px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:inherit;cursor:pointer;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${m.subject} <span style="font-size:10px;color:var(--primary);">↗ Gmail</span></div><div style="font-size:11px;color:var(--text-light);">${m.from}</div></div>
-          <span style="font-size:10px;color:var(--primary);font-weight:600;align-self:center;white-space:nowrap;">${m.proj}</span>
+        <a href="${_safeUrl(_gmailUrl(m.subject))}" target="_blank" style="padding:8px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:inherit;cursor:pointer;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${_escNote(m.subject)} <span style="font-size:10px;color:var(--primary);">↗ Gmail</span></div><div style="font-size:11px;color:var(--text-light);">${_escNote(m.from)}</div></div>
+          <span style="font-size:10px;color:var(--primary);font-weight:600;align-self:center;white-space:nowrap;">${_escNote(m.proj)}</span>
         </a>
       `).join('')}
     </div>` : '';
@@ -5975,15 +5975,15 @@ function dashboard() {
   const nuc = b && b.nuclear;
   const nuclearCard = nuc ? `
     <div class="card" style="margin-top:14px;">
-      <h3 style="margin-bottom:10px;font-size:14px;">☢️ 원자력사업부 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— ${nuc.summary||'메일 자동 분류'}</span></h3>
+      <h3 style="margin-bottom:10px;font-size:14px;">☢️ 원자력사업부 <span style="font-size:11px;color:var(--text-light);font-weight:400;">— ${_escNote(nuc.summary||'메일 자동 분류')}</span></h3>
       ${nuc.items ? nuc.items.map((it,i)=>`
         <div style="display:flex;gap:10px;padding:8px 0;${i<nuc.items.length-1?'border-bottom:1px solid var(--border-light);':''}">
           <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:${it.priority==='high'?'#dc2626':'#3b82f6'};color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;">${i+1}</span>
           <div style="flex:1;">
-            <div style="font-size:13px;">${it.text}</div>
+            <div style="font-size:13px;">${_escNote(it.text)}</div>
             <div style="display:flex;gap:6px;margin-top:3px;">
-              <span style="font-size:10px;color:#f59e0b;font-weight:600;background:#fef3c7;padding:1px 6px;border-radius:3px;">${it.category||'원자력'}</span>
-              <span style="font-size:10px;color:var(--primary);font-weight:600;background:var(--primary-lighter);padding:1px 6px;border-radius:3px;">${it.proj}</span>
+              <span style="font-size:10px;color:#f59e0b;font-weight:600;background:#fef3c7;padding:1px 6px;border-radius:3px;">${_escNote(it.category||'원자력')}</span>
+              <span style="font-size:10px;color:var(--primary);font-weight:600;background:var(--primary-lighter);padding:1px 6px;border-radius:3px;">${_escNote(it.proj)}</span>
             </div>
           </div>
         </div>
@@ -5993,8 +5993,8 @@ function dashboard() {
           <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:6px;">📅 원자력 관련 일정</div>
           ${nuc.schedule.map(s=>`
             <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;">
-              <span>${s.title}</span>
-              <span style="color:${s.color==='red'?'var(--danger)':s.color==='orange'?'var(--warning)':'var(--text-light)'};font-weight:600;white-space:nowrap;margin-left:8px;">${s.date}</span>
+              <span>${_escNote(s.title)}</span>
+              <span style="color:${s.color==='red'?'var(--danger)':s.color==='orange'?'var(--warning)':'var(--text-light)'};font-weight:600;white-space:nowrap;margin-left:8px;">${_escNote(s.date)}</span>
             </div>
           `).join('')}
         </div>
@@ -6008,7 +6008,7 @@ function dashboard() {
       ${Object.entries(b.teamManday).map(([uid,h])=>{
         const mu = getU(uid);
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-light);">
-          <div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:24px;height:24px;font-size:11px;">${mu?.name?.charAt(0)||'?'}</div><span style="font-size:13px;">${mu?.name||'?'} ${mu?.title||''}</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:24px;height:24px;font-size:11px;">${_escNote(mu?.name?.charAt(0)||'?')}</div><span style="font-size:13px;">${_escNote(mu?.name||'?')} ${_escNote(mu?.title||'')}</span></div>
           <b style="font-size:13px;color:var(--primary);">${h.toFixed(1)}H</b>
         </div>`;
       }).join('')}
@@ -6020,7 +6020,7 @@ function dashboard() {
       <h3 style="margin-bottom:14px;font-size:14px;">📋 내 업무</h3>
       ${my.slice(0,6).map(t => `
         <div style="padding:10px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${t.title}</div><div style="font-size:11px;color:var(--text-light);margin-top:2px;">${getP(t.proj)?.code||''} · 마감 ${t.due}</div></div>
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${_escNote(t.title)}</div><div style="font-size:11px;color:var(--text-light);margin-top:2px;">${_escNote(getP(t.proj)?.code||'')} · 마감 ${_escNote(t.due)}</div></div>
           <span class="b-pill ${t.priority==='high'?'red':t.priority==='mid'?'orange':'green'}">${t.priority==='high'?'높음':t.priority==='mid'?'보통':'낮음'}</span>
         </div>
       `).join('') || '<p style="color:var(--text-light);font-size:13px;padding:8px 0;">등록된 업무가 없습니다</p>'}
@@ -6037,7 +6037,7 @@ function dashboard() {
           return `<div onclick="openReport('${k}')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
             <div style="font-size:22px;margin-bottom:4px;">${ico}</div>
             <div style="font-size:13px;font-weight:600;">${lbl}</div>
-            <div style="font-size:10px;color:var(--text-light);margin-top:2px;">${rep?.date||'-'}</div>
+            <div style="font-size:10px;color:var(--text-light);margin-top:2px;">${_escNote(rep?.date||'-')}</div>
           </div>`;
         }).join('')}
       </div>
@@ -6046,8 +6046,8 @@ function dashboard() {
   return `
     <div class="mod-head">
       <div>
-        <div class="mod-title">안녕하세요, ${u.name} ${u.title}님 👋 <span class="b-pill ${scopeColor}" style="font-size:11px;vertical-align:middle;">${scopeLabel}</span></div>
-        <div class="mod-sub">${new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' })} · ${(b&&b.generatedAt)?`Cowork AI 브리핑 ${b.generatedAt} 기준`:'실시간'}</div>
+        <div class="mod-title">안녕하세요, ${_escNote(u.name)} ${_escNote(u.title)}님 👋 <span class="b-pill ${scopeColor}" style="font-size:11px;vertical-align:middle;">${_escNote(scopeLabel)}</span></div>
+        <div class="mod-sub">${new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' })} · ${(b&&b.generatedAt)?`Cowork AI 브리핑 ${_escNote(b.generatedAt)} 기준`:'실시간'}</div>
       </div>
       <button class="btn btn-primary" onclick="switchMod('tasks')">+ 빠른 등록</button>
     </div>
@@ -6056,9 +6056,9 @@ function dashboard() {
         <div style="font-size:34px;line-height:1;">☀️</div>
         <div style="flex:1;min-width:200px;">
           <div style="font-size:16px;font-weight:700;margin-bottom:3px;color:#075985;">오늘의 아침 브리핑이 준비됐습니다</div>
-          <div style="font-size:12px;color:#0369a1;opacity:.9;">${b.runAt||''} 기준 · Gmail·발주처·sejong-platform 통합 · 9개 섹션 자동 정리</div>
+          <div style="font-size:12px;color:#0369a1;opacity:.9;">${_escNote(b.runAt||'')} 기준 · Gmail·발주처·sejong-platform 통합 · 9개 섹션 자동 정리</div>
         </div>
-        <button onclick="window.open('${b.dashboardHtmlPath}', '_blank', 'noopener')" style="background:#0284c7;color:#fff;font-weight:700;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;box-shadow:0 2px 6px rgba(2,132,199,.25);">브리핑 열기 (새 창)</button>
+        <button onclick="window.open(${_jsArg(b.dashboardHtmlPath)}, '_blank', 'noopener')" style="background:#0284c7;color:#fff;font-weight:700;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;box-shadow:0 2px 6px rgba(2,132,199,.25);">브리핑 열기 (새 창)</button>
       </div>
     ` : ''}
     <div class="kpi-grid">${kpiCards}</div>
@@ -6068,8 +6068,8 @@ function dashboard() {
       ${(() => {
         const upcoming = allEvents().filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date)).slice(0,8);
         return `<div class="card"><h3 style="margin-bottom:14px;font-size:14px;">📅 다가오는 일정 (${upcoming.length})</h3>${upcoming.length ? upcoming.map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;">
-          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${e.title}</div></div>
-          <div style="text-align:right;flex-shrink:0;margin-left:8px;"><div style="font-size:12px;color:${e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)'};font-weight:600;">${e.date}</div>${e.time?'<div style="font-size:10px;color:var(--text-light);">'+e.time+'</div>':''}</div>
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;">${_escNote(e.title)}</div></div>
+          <div style="text-align:right;flex-shrink:0;margin-left:8px;"><div style="font-size:12px;color:${e.color==='red'?'var(--danger)':e.color==='orange'?'var(--warning)':'var(--text-light)'};font-weight:600;">${_escNote(e.date)}</div>${e.time?'<div style="font-size:10px;color:var(--text-light);">'+_escNote(e.time)+'</div>':''}</div>
         </div>`).join('') : `<p style="font-size:12px;color:var(--text-light);">다가오는 일정이 없습니다</p>`}</div>`;
       })()}
     </div>
@@ -6105,7 +6105,7 @@ function dashboard() {
           const c = _okrProgressColor(pct);
           return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-light);">
             <span class="b-pill ${o.scope==='dept'?'blue':'gray'}" style="flex-shrink:0;">${o.scope==='dept'?'🏛':'👤'}</span>
-            <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.title||''}</span>
+            <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escNote(o.title||'')}</span>
             <span style="width:100px;flex-shrink:0;"><div class="bar" style="height:6px;"><div class="bar-fill" style="width:${pct}%;background:${c};"></div></div></span>
             <span style="font-size:12px;font-weight:600;color:${c};min-width:38px;text-align:right;">${pct}%</span>
           </div>`;
@@ -6115,23 +6115,23 @@ function dashboard() {
           <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px;">📌 임박 마일스톤 (3건)</div>
           ${top3.map(x => `
             <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">
-              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${x.m.title} <span style="color:var(--text-lighter);">· ${x.okr.title}</span></span>
-              <span style="font-size:11px;color:var(--warning);font-weight:600;flex-shrink:0;">${x.m.due}</span>
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escNote(x.m.title)} <span style="color:var(--text-lighter);">· ${_escNote(x.okr.title)}</span></span>
+              <span style="font-size:11px;color:var(--warning);font-weight:600;flex-shrink:0;">${_escNote(x.m.due)}</span>
             </div>`).join('')}
         </div>` : ''}
       </div>`;
     })()}
     ${reportsCard}
     <div class="card" style="margin-top:14px;">
-      <h3 style="margin-bottom:14px;font-size:14px;">🏗️ ${isExec?'전사':isManager?u.dept:'참여'} 프로젝트 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(카드 클릭 → 상세)</span></h3>
+      <h3 style="margin-bottom:14px;font-size:14px;">🏗️ ${isExec?'전사':isManager?_escNote(u.dept):'참여'} 프로젝트 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(카드 클릭 → 상세)</span></h3>
       <div class="proj-grid">
         ${active.map(p => `
-          <div class="proj" onclick="openProject('${p.id}')">
+          <div class="proj" onclick="openProject(${_jsArg(p.id)})">
             <div class="proj-open-hint">→ 열기</div>
-            <div class="proj-code">${p.code}</div>
-            <div class="proj-name">${p.name}</div>
-            <div class="proj-meta"><span>${p.client}</span><span><b>${p.progress}%</b></span></div>
-            <div class="bar"><div class="bar-fill" style="width:${p.progress}%"></div></div>
+            <div class="proj-code">${_escNote(p.code)}</div>
+            <div class="proj-name">${_escNote(p.name)}</div>
+            <div class="proj-meta"><span>${_escNote(p.client)}</span><span><b>${_escNote(p.progress)}%</b></span></div>
+            <div class="bar"><div class="bar-fill" style="width:${_escNote(p.progress)}%"></div></div>
           </div>
         `).join('')}
       </div>
@@ -6146,9 +6146,9 @@ function openReport(key) {
   openModal(`${r.label} (${r.date})`, `
     <div style="text-align:center;padding:20px 0;">
       <div style="font-size:40px;margin-bottom:12px;">📄</div>
-      <p style="font-size:13px;margin-bottom:8px;">${r.label} — ${r.date}</p>
+      <p style="font-size:13px;margin-bottom:8px;">${_escNote(r.label)} — ${_escNote(r.date)}</p>
       <p style="font-size:12px;color:var(--text-light);">Cowork가 생성한 보고서입니다.</p>
-      <div style="background:var(--bg);padding:10px 14px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);margin-top:12px;">📁 Google Drive: Skill v2.0/${r.file}</div>
+      <div style="background:var(--bg);padding:10px 14px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);margin-top:12px;">📁 Google Drive: Skill v2.0/${_escNote(r.file)}</div>
       <p style="font-size:11px;color:var(--text-lighter);margin-top:12px;">※ Google Drive 연동 시 여기서 바로 열람됩니다 (현재 준비중)</p>
     </div>
   `);
@@ -6199,7 +6199,7 @@ function calendar() {
     const isT = ds === today;
     h += `<div class="cal-day ${isT?'today':''}" onclick="showDate('${ds}')">
       <div class="cal-date">${d}</div>
-      ${ev.slice(0,3).map(e=>`<div class="cal-event ${e.color}${e.extraClass?' '+e.extraClass:''}" title="${e.title}${e.done?' (완료)':''}">${e.done?'✓ ':''}${e.title}</div>`).join('')}
+      ${ev.slice(0,3).map(e=>`<div class="cal-event ${_escNote(e.color)}${e.extraClass?' '+e.extraClass:''}" title="${_escNote(e.title)}${e.done?' (완료)':''}">${e.done?'✓ ':''}${_escNote(e.title)}</div>`).join('')}
       ${ev.length>3?`<div style="font-size:10px;color:var(--text-light);">+${ev.length-3}</div>`:''}
     </div>`;
   }
@@ -6384,7 +6384,7 @@ async function doWorkspaceFetch() {
   catch (e) {
     status.innerHTML = `
       <div style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:12px;">
-        ❌ ${e.message}<br>
+        ❌ ${_escNote(e.message)}<br>
         <span style="font-size:11px;">Workspace 슈퍼관리자 계정으로 로그인했는지 확인하세요. 일반 사용자는 이 API에 접근할 수 없습니다.</span>
       </div>
       <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm" onclick="openCSVImport()">📋 CSV 붙여넣기로 대체</button></div>`;
@@ -6438,11 +6438,11 @@ function renderImportReviewTable(rawUsers, statusEl, resultEl) {
             const dOpts = DEPTS.map(d => `<option value="${d.name}" ${d.name===guessedDept?'selected':''}>${d.name}</option>`).join('');
             return `<tr>
               <td style="padding:6px 10px;text-align:center;"><input type="checkbox" class="wks-pick" data-i="${i}" onchange="updateWksSelCnt()" checked></td>
-              <td style="padding:6px 10px;font-family:monospace;font-size:11px;">${u.email}</td>
+              <td style="padding:6px 10px;font-family:monospace;font-size:11px;">${_escNote(u.email)}</td>
               <td style="padding:6px 10px;"><input type="text" class="wks-name" data-i="${i}" value="${(u.name||guessNameFromEmail(u.email)).replace(/"/g,'&quot;')}" style="width:110px;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;"></td>
               <td style="padding:6px 6px;"><select class="wks-dept" data-i="${i}" style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;">${dOpts}</select></td>
               <td style="padding:6px 6px;"><select class="wks-title" data-i="${i}" style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;">${(() => { const preTitle = TITLES.includes(u._csvTitle) ? u._csvTitle : '사원'; return TITLES.map(t=>`<option value="${t}" ${t===preTitle?'selected':''}>${t}</option>`).join(''); })()}</select></td>
-              <td style="padding:6px 6px;color:var(--text-lighter);font-size:10.5px;">${u.orgUnitPath || '-'}</td>
+              <td style="padding:6px 6px;color:var(--text-lighter);font-size:10.5px;">${_escNote(u.orgUnitPath || '-')}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -6450,7 +6450,7 @@ function renderImportReviewTable(rawUsers, statusEl, resultEl) {
     </div>
     <div style="margin-top:14px;text-align:right;">
       <button class="btn" onclick="closeModal()">취소</button>
-      <button class="btn btn-primary" onclick="doWksBulkRegister(${JSON.stringify(fresh).replace(/"/g,'&quot;')})">✅ 선택한 사용자 사전 등록</button>
+      <button class="btn btn-primary" onclick="doWksBulkRegister(${_escNote(JSON.stringify(fresh))})">✅ 선택한 사용자 사전 등록</button>
     </div>`;
 }
 function wksToggleAll(checked) {
@@ -6694,8 +6694,8 @@ function showDate(ds) {
   // 일정은 외부 자동화가 관리하는 데이터라 여기서 지우면 다음 동기화 때 다시 나타나므로 제외)
   openModal(`${ds} 일정`, `
     ${ev.map(e => `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-      <div><div style="font-weight:600;font-size:13px;">${e.title}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${e.time||'종일'}${e.source==='google'?' · 🔗 구글':''}${e.source==='holiday'?' · 🎌 공휴일':''}</div></div>
-      ${(e.source!=='briefing' && e.source!=='holiday') ? `<button class="btn btn-sm" style="color:#dc2626;flex-shrink:0;" onclick="deleteEvent('${e.id}')">삭제</button>` : ''}
+      <div><div style="font-weight:600;font-size:13px;">${_escNote(e.title)}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px;">${_escNote(e.time||'종일')}${e.source==='google'?' · 🔗 구글':''}${e.source==='holiday'?' · 🎌 공휴일':''}</div></div>
+      ${(e.source!=='briefing' && e.source!=='holiday') ? `<button class="btn btn-sm" style="color:#dc2626;flex-shrink:0;" onclick="deleteEvent(${_jsArg(e.id)})">삭제</button>` : ''}
     </div>`).join('')}
     <button class="btn btn-primary btn-sm" onclick="closeModal();openEvent('${ds}')">+ 이 날에 일정 추가</button>`);
 }
@@ -6776,7 +6776,7 @@ function projects() {
       const sm = { done:'#16a34a', doing:'#f59e0b', todo:'#94a3b8', delay:'#dc2626' };
       const bg = sm[w.status] || '#94a3b8';
       const top = 2 + i * (barH + 1);
-      return `<div style="position:absolute;left:${wl}%;width:${ww}%;top:${top}px;height:${barH}px;background:${bg};border-radius:2px;opacity:.85;" title="${w.code} ${w.name} (${w.pct||0}%)"></div>`;
+      return `<div style="position:absolute;left:${wl}%;width:${ww}%;top:${top}px;height:${barH}px;background:${bg};border-radius:2px;opacity:.85;" title="${_escNote(w.code)} ${_escNote(w.name)} (${_escNote(w.pct||0)}%)"></div>`;
     }).join('');
     
     return `
@@ -6811,19 +6811,19 @@ function projects() {
       ${visibleProjs.map(p => {
         const isHidden = p.hidden;
         return `
-        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openProject('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
-          ${canEditProject() ? `<button class="proj-edit-btn" onclick="event.stopPropagation();openEditProject('${p.id}');" title="프로젝트 수정">✏️</button>
-          <button class="proj-del-btn" onclick="event.stopPropagation();deleteProject('${p.id}');" title="프로젝트 삭제">🗑</button>` : ''}
+        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openProject(${_jsArg(p.id)})">
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj(${_jsArg(p.id)});" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
+          ${canEditProject() ? `<button class="proj-edit-btn" onclick="event.stopPropagation();openEditProject(${_jsArg(p.id)});" title="프로젝트 수정">✏️</button>
+          <button class="proj-del-btn" onclick="event.stopPropagation();deleteProject(${_jsArg(p.id)});" title="프로젝트 삭제">🗑</button>` : ''}
           <div class="proj-open-hint">→ 열기</div>
-          <div class="proj-code">${p.code}</div>
-          <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
-          <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||"미지정"}${canAssignPM()?` <button onclick="event.stopPropagation();openAssignPM('${p.id}')" style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 2px;" title="PM 지정/변경">✏️</button>`:""}</span><span><b>${p.progress}%</b></span></div>
-          <div class="bar"><div class="bar-fill" style="width:${p.progress}%"></div></div>
+          <div class="proj-code">${_escNote(p.code)}</div>
+          <div class="proj-name">${_escNote(p.name)}</div>
+          <div class="proj-meta"><span>${_escNote(p.client)}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
+          <div class="proj-meta"><span>PM: ${_escNote(getU(p.pm)?.name||"미지정")}${canAssignPM()?` <button onclick="event.stopPropagation();openAssignPM(${_jsArg(p.id)})" style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 2px;" title="PM 지정/변경">✏️</button>`:""}</span><span><b>${_escNote(p.progress)}%</b></span></div>
+          <div class="bar"><div class="bar-fill" style="width:${_escNote(p.progress)}%"></div></div>
           <div style="margin-top:6px;font-size:11px;color:var(--text-lighter);display:flex;justify-content:space-between;align-items:center;gap:6px;">
-            <span>${p.start} ~ ${p.end} · WBS ${getWBS(p.id).length}개</span>
-            ${canManageProjectMembers(p.id)?`<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;" onclick="event.stopPropagation();openProjectMembers('${p.id}')" title="부서별 담당 직원 지정">👥 팀 ${(function(){const m=p.members||{};let c=0;Object.values(m).forEach(l=>c+=(l||[]).length);return c;})()}</button>`:''}
+            <span>${_escNote(p.start)} ~ ${_escNote(p.end)} · WBS ${getWBS(p.id).length}개</span>
+            ${canManageProjectMembers(p.id)?`<button class="btn btn-sm" style="padding:2px 8px;font-size:10px;" onclick="event.stopPropagation();openProjectMembers(${_jsArg(p.id)})" title="부서별 담당 직원 지정">👥 팀 ${(function(){const m=p.members||{};let c=0;Object.values(m).forEach(l=>c+=(l||[]).length);return c;})()}</button>`:''}
           </div>
         </div>
       `;}).join('')}
@@ -6877,17 +6877,17 @@ function renderUnifiedTimeline(projs, yearStart, yearTotal, todayPct, months) {
     const pmName = getU(p.pm).name;
     
     return `
-      <div class="utl-row" onclick="openProject('${p.id}')">
+      <div class="utl-row" onclick="openProject(${_jsArg(p.id)})">
         <div class="utl-info">
-          <div class="utl-code">${p.code}</div>
-          <div class="utl-name" title="${p.name}">${p.name}</div>
-          <div class="utl-meta">PM ${pmName} · <b>${pct}%</b></div>
+          <div class="utl-code">${_escNote(p.code)}</div>
+          <div class="utl-name" title="${_escNote(p.name)}">${_escNote(p.name)}</div>
+          <div class="utl-meta">PM ${_escNote(pmName)} · <b>${_escNote(pct)}%</b></div>
         </div>
         <div class="utl-track">
           <div class="utl-today" style="left:${todayPct}%;"></div>
           <div class="utl-bar" style="left:${left}%;width:${width}%;background:${todoColor};">
-            <div class="utl-bar-fill" style="width:${pct}%;background:${doneColor};"></div>
-            <span class="utl-bar-label">${p.code} · ${pct}%</span>
+            <div class="utl-bar-fill" style="width:${_escNote(pct)}%;background:${doneColor};"></div>
+            <span class="utl-bar-label">${_escNote(p.code)} · ${_escNote(pct)}%</span>
           </div>
         </div>
       </div>
@@ -6965,14 +6965,14 @@ function openEditProject(pid) {
   const p = state.projects.find(x => x.id === pid);
   if (!p) return;
   openModal('✏ 프로젝트 수정', `
-    <div class="fg"><label class="fl">프로젝트 코드</label><input class="fi" id="epCode" value="${p.code||''}"></div>
-    <div class="fg"><label class="fl">프로젝트명</label><input class="fi" id="epName" value="${p.name||''}"></div>
-    <div class="fg"><label class="fl">고객사</label><input class="fi" id="epClient" value="${p.client||''}"></div>
+    <div class="fg"><label class="fl">프로젝트 코드</label><input class="fi" id="epCode" value="${_escNote(p.code||'')}"></div>
+    <div class="fg"><label class="fl">프로젝트명</label><input class="fi" id="epName" value="${_escNote(p.name||'')}"></div>
+    <div class="fg"><label class="fl">고객사</label><input class="fi" id="epClient" value="${_escNote(p.client||'')}"></div>
     <div class="fg" style="display:flex;gap:8px;">
-      <div style="flex:1;"><label class="fl">시작일</label><input class="fi" type="date" id="epStart" value="${p.start||''}"></div>
-      <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="epEnd" value="${p.end||''}"></div>
+      <div style="flex:1;"><label class="fl">시작일</label><input class="fi" type="date" id="epStart" value="${_escNote(p.start||'')}"></div>
+      <div style="flex:1;"><label class="fl">완료일</label><input class="fi" type="date" id="epEnd" value="${_escNote(p.end||'')}"></div>
     </div>
-    <div class="fg"><label class="fl">PM</label><select class="fs" id="epPm">${selectableUsers().map(u=>`<option value="${u.id}" ${u.id===p.pm?'selected':''}>${userOptLabel(u)}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">PM</label><select class="fs" id="epPm">${selectableUsers().map(u=>`<option value="${_escNote(u.id)}" ${u.id===p.pm?'selected':''}>${userOptLabel(u)}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">상태</label><select class="fs" id="epStatus"><option value="active" ${p.status==='active'||!p.status?'selected':''}>진행중</option><option value="done" ${p.status==='done'?'selected':''}>완료</option><option value="pre-close" ${p.status==='pre-close'?'selected':''}>마감예정</option></select></div>
   `, async () => {
     const code = document.getElementById('epCode').value.trim();
@@ -7040,11 +7040,11 @@ function openBriefingModal(path) {
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0b2545;color:#fff;">' +
       '<div style="font-size:14px;font-weight:700;">☀️ 오늘의 아침 통합 브리핑</div>' +
       '<div style="display:flex;gap:8px;">' +
-        '<a href="' + path + '" target="_blank" rel="noopener" style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;">↗ 새 창</a>' +
+        '<a href="' + _escNote(path) + '" target="_blank" rel="noopener" style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;">↗ 새 창</a>' +
         '<button onclick="closeBriefingModal()" style="background:#fff;color:#0b2545;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">✕ 닫기</button>' +
       '</div>' +
     '</div>' +
-    '<iframe src="' + path + '" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
+    '<iframe src="' + _escNote(path) + '" style="flex:1;width:100%;border:0;background:#fff;"></iframe>';
   document.body.appendChild(ov);
   // ESC로 닫기
   const escHandler = function(e) {
@@ -7144,10 +7144,10 @@ function openAssignPM(pid) {
   const p = getP(pid);
   if (!p) return;
   openModal(`PM 지정 — ${p.code}`, `
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">${p.name}</div>
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">${_escNote(p.name)}</div>
     <div class="fg"><label class="fl">프로젝트 매니저 (PM)</label>
       <select class="fs" id="pmSelect">
-        ${selectableUsers().map(u=>`<option value="${u.id}"${u.id===p.pm?' selected':''}>${u.name} ${u.title||''} (${u.dept||'-'})${u.pending?' · 대기':''}</option>`).join('')}
+        ${selectableUsers().map(u=>`<option value="${_escNote(u.id)}"${u.id===p.pm?' selected':''}>${_escNote(u.name)} ${_escNote(u.title||'')} (${_escNote(u.dept||'-')})${u.pending?' · 대기':''}</option>`).join('')}
       </select>
     </div>
   `, async () => {
@@ -7299,18 +7299,18 @@ function ciParseInput(text) {
   if (!text || !text.trim()) { _ciParsed = null; errBox.innerHTML = ''; prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
   let data;
   try { data = JSON.parse(text); }
-  catch (e) { _ciParsed = null; errBox.innerHTML = 'JSON 형식 오류: ' + e.message; prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
+  catch (e) { _ciParsed = null; errBox.innerHTML = 'JSON 형식 오류: ' + _escNote(e.message); prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
   const errors = ciValidate(data);
-  if (errors.length) { _ciParsed = null; errBox.innerHTML = errors.join('<br>'); prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
+  if (errors.length) { _ciParsed = null; errBox.innerHTML = errors.map(_escNote).join('<br>'); prevBox.innerHTML = ''; if (okBtn) okBtn.disabled = true; return; }
   _ciParsed = data;
   errBox.innerHTML = '';
   const scopesStr = Array.isArray(data.scopes) ? data.scopes.join(' / ') : '(없음)';
   const itemsStr = Array.isArray(data.items) && data.items.length ? data.items.map(it => `${it.no?'['+it.no+'] ':''}${it.name}`).join(', ') : '(없음)';
   prevBox.innerHTML = `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px;font-size:11px;line-height:1.6;">
     ✅ 검증 통과 — 아래 내용으로 프로젝트가 생성됩니다<br>
-    <b>${data.no}</b> ${data.name} · ${data.client}<br>
-    기간: ${data.s} ~ ${data.e} · WBS 대단락: ${scopesStr}<br>
-    Items: ${itemsStr}
+    <b>${_escNote(data.no)}</b> ${_escNote(data.name)} · ${_escNote(data.client)}<br>
+    기간: ${_escNote(data.s)} ~ ${_escNote(data.e)} · WBS 대단락: ${_escNote(scopesStr)}<br>
+    Items: ${_escNote(itemsStr)}
   </div>`;
   if (okBtn) okBtn.disabled = false;
 }
@@ -7578,18 +7578,18 @@ function tasks() {
               // v30 디자인: 원색 꽉 찬 뱃지 → 연한 배경+테두리+진한 글자 (정보는 유지, 소음만 감소)
               const _tint = { '#dc2626': ['#fef3f2', '#b42318', '#fecdca'], '#f59e0b': ['#fffaeb', '#b54708', '#fedf89'], '#3a6bb5': ['#eff4fb', '#2d5a96', '#c7d7f0'] }[t.sourceColor] || ['#f2f4f7', '#475467', '#d0d5dd'];
               const badge = t.virtual
-                ? `<span class="b-pill" style="background:${_tint[0]};color:${_tint[1]};border:1px solid ${_tint[2]};font-size:9px;padding:1px 6px;">${t.source||'자동'}</span>`
+                ? `<span class="b-pill" style="background:${_tint[0]};color:${_tint[1]};border:1px solid ${_tint[2]};font-size:9px;padding:1px 6px;">${_escNote(t.source||'자동')}</span>`
                 : '';
               const doneClass = t.status === 'done' ? ' done' : '';
               const virtStyle = t.virtual ? ' style="opacity:.95;"' : '';
               return `
-                <div class="task ${t.priority}${doneClass}"${virtStyle} draggable="true"
-                     ondragstart="onTaskDragStart(event,'${t.id}')" ondragend="onTaskDragEnd(event)">
+                <div class="task ${_escNote(t.priority)}${doneClass}"${virtStyle} draggable="true"
+                     ondragstart="onTaskDragStart(event,${_jsArg(t.id)})" ondragend="onTaskDragEnd(event)">
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">${badge}</div>
-                  <div class="task-title">${t.title}</div>
-                  <div class="task-meta"><span>${projCode}</span><span>${assigneeName}</span></div>
-                  ${t.subLine ? `<div class="task-meta" style="margin-top:4px;color:var(--text-lighter);">${t.subLine}</div>` : ''}
-                  ${t.due ? `<div class="task-meta" style="margin-top:4px;"><span style="color:var(--text-lighter);">마감 ${t.due}${t.status==='done'&&t.completedAt?' · 완료 '+String(t.completedAt).slice(0,10):''}</span></div>` : ''}
+                  <div class="task-title">${_escNote(t.title)}</div>
+                  <div class="task-meta"><span>${_escNote(projCode)}</span><span>${_escNote(assigneeName)}</span></div>
+                  ${t.subLine ? `<div class="task-meta" style="margin-top:4px;color:var(--text-lighter);">${_escNote(t.subLine)}</div>` : ''}
+                  ${t.due ? `<div class="task-meta" style="margin-top:4px;"><span style="color:var(--text-lighter);">마감 ${_escNote(t.due)}${t.status==='done'&&t.completedAt?' · 완료 '+_escNote(String(t.completedAt).slice(0,10)):''}</span></div>` : ''}
                 </div>
               `;
             }).join('')}
@@ -7602,7 +7602,7 @@ function tasks() {
 function openTask() {
   openModal('업무 추가', `
     <div class="fg"><label class="fl">업무명</label><input class="fi" id="tkT" placeholder="예: PV-101 후판 입고 검사"></div>
-    <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="tkP">${state.projects.map(p=>`<option value="${p.id}">${p.code} - ${p.name}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="tkP">${state.projects.map(p=>`<option value="${_escNote(p.id)}">${_escNote(p.code)} - ${_escNote(p.name)}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">담당자</label><select class="fs" id="tkA">${selectableUsers().map(u=>`<option value="${u.id}">${userOptLabel(u)}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="tkD"></div>
     <div class="fg"><label class="fl">우선순위</label><select class="fs" id="tkPr"><option value="high">높음</option><option value="mid" selected>보통</option><option value="low">낮음</option></select></div>
@@ -7798,13 +7798,13 @@ function renderTravellerProjects() {
       ${projStats.map(({p, items, totalSteps, passed, rejected, pct}) => {
         const isHidden = p.hidden;
         return `
-        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openTravProj('${p.id}')">
-          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj('${p.id}');" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
+        <div class="proj ${isHidden?'proj-hidden':''}" onclick="openTravProj(${_jsArg(p.id)})">
+          <button class="proj-hide-btn" onclick="event.stopPropagation();toggleHideProj(${_jsArg(p.id)});" title="${isHidden?'숨김 취소':'숨김'}">${isHidden?'🚫':'👁'}</button>
           <div class="proj-open-hint">→ 열기</div>
-          <div class="proj-code">${p.code}</div>
-          <div class="proj-name">${p.name}</div>
-          <div class="proj-meta"><span>${p.client}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
-          <div class="proj-meta"><span>PM: ${getU(p.pm)?.name||'미지정'}</span><span><b style="color:${rejected>0?'var(--danger)':'var(--primary)'};">${pct}%</b></span></div>
+          <div class="proj-code">${_escNote(p.code)}</div>
+          <div class="proj-name">${_escNote(p.name)}</div>
+          <div class="proj-meta"><span>${_escNote(p.client)}</span><span class="b-pill ${projStatusMeta(p).pill}">${projStatusMeta(p).label}</span></div>
+          <div class="proj-meta"><span>PM: ${_escNote(getU(p.pm)?.name||'미지정')}</span><span><b style="color:${rejected>0?'var(--danger)':'var(--primary)'};">${pct}%</b></span></div>
           <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${rejected>0?'var(--danger)':pct>=100?'var(--success)':'var(--primary)'};"></div></div>
           <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:11px;color:var(--text-lighter);">
             <span>장비 <b style="color:var(--text);">${items.length}개</b> · 공정 ${passed}/${totalSteps}단계</span>
@@ -7842,24 +7842,24 @@ function renderTravellerTagList() {
         <div class="epc-crumb">
           <span style="color:var(--text-light);">제작 공정 관리</span>
           <span class="sep">›</span>
-          <span class="pc">${p.code}</span>
-          <b>${p.name}</b>
+          <span class="pc">${_escNote(p.code)}</span>
+          <b>${_escNote(p.name)}</b>
           <span style="font-size:12px;color:var(--text-light);font-weight:400;margin-left:4px;">— 제작 공정 관리 (Traveller)</span>
         </div>
-        <span style="margin-left:auto;font-size:11px;color:var(--text-light);">${p.client} · PM ${getU(p.pm).name}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-light);">${_escNote(p.client)} · PM ${_escNote(getU(p.pm).name)}</span>
         <a class="btn btn-sm" href="${mmPath}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);">↗ 새 창</a>
       </div>
       <div style="flex:1;position:relative;overflow:hidden;background:#fff;">
         <iframe id="travFrame" src="${mmPath}" 
                 style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;"
-                title="Manufacture Manager - ${p.code}"
+                title="Manufacture Manager - ${_escNote(p.code)}"
                 onload="this.nextElementSibling && this.nextElementSibling.remove();"></iframe>
         <div id="travFallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:40px;background:#fff;">
           <div style="max-width:560px;text-align:center;">
             <div style="font-size:48px;margin-bottom:14px;">🔩</div>
             <h2 style="margin-bottom:8px;color:var(--primary);">Manufacture Manager</h2>
             <p style="color:var(--text-light);margin-bottom:18px;">
-              <strong>${p.code}</strong> ${p.name} — 제작 공정 관리 (Traveller)<br>
+              <strong>${_escNote(p.code)}</strong> ${_escNote(p.name)} — 제작 공정 관리 (Traveller)<br>
               장비(Tag)별 ITP 9개 공정 진척 관리 화면이 이 자리에 로드됩니다.
             </p>
             <div style="background:var(--bg);padding:12px 16px;border-radius:6px;font-family:monospace;font-size:11px;color:var(--text-light);margin-bottom:14px;word-break:break-all;">
@@ -7901,7 +7901,7 @@ function openNewTag(pid) {
     <div class="fg"><label class="fl">연동 WBS (선택)</label>
       <select class="fs" id="tgWbs">
         <option value="">- 미연동 -</option>
-        ${(state.wbs[pid]||[]).map(w => `<option value="${w.id}">${w.code} · ${w.name}</option>`).join('')}
+        ${(state.wbs[pid]||[]).map(w => `<option value="${_escNote(w.id)}">${_escNote(w.code)} · ${_escNote(w.name)}</option>`).join('')}
       </select>
     </div>
   `, () => {
@@ -7950,11 +7950,11 @@ function renderTravellerDetail() {
         <div class="epc-crumb">
           <span style="color:var(--text-light);">제작 공정 관리</span>
           <span class="sep">›</span>
-          <span class="pc">${item.tag}</span>
-          <b>${item.name}</b>
+          <span class="pc">${_escNote(item.tag)}</span>
+          <b>${_escNote(item.name)}</b>
         </div>
         <span style="margin-left:auto;font-size:11px;color:var(--text-light);">
-          ${item.proj.code} · ${item.type} · 진척 <b style="color:var(--primary);">${prog.pct}%</b>
+          ${_escNote(item.proj.code)} · ${_escNote(item.type)} · 진척 <b style="color:var(--primary);">${prog.pct}%</b>
         </span>
       </div>
       
@@ -7964,14 +7964,14 @@ function renderTravellerDetail() {
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
             <div>
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-                <span style="font-size:20px;font-weight:800;color:var(--primary);">${item.tag}</span>
-                <span style="font-size:15px;font-weight:600;">${item.name}</span>
+                <span style="font-size:20px;font-weight:800;color:var(--primary);">${_escNote(item.tag)}</span>
+                <span style="font-size:15px;font-weight:600;">${_escNote(item.name)}</span>
               </div>
               <div style="font-size:12px;color:var(--text-light);">
-                ${item.type} · ${item.spec} · ${item.material||'-'}
+                ${_escNote(item.type)} · ${_escNote(item.spec)} · ${_escNote(item.material||'-')}
               </div>
               <div style="font-size:11px;color:var(--text-lighter);margin-top:3px;">
-                프로젝트: <b style="color:var(--primary);">${item.proj.code}</b> ${item.proj.name} · WBS 연동: <code>${item.wbsLink||'-'}</code>
+                프로젝트: <b style="color:var(--primary);">${_escNote(item.proj.code)}</b> ${_escNote(item.proj.name)} · WBS 연동: <code>${_escNote(item.wbsLink||'-')}</code>
               </div>
             </div>
             <div style="display:flex;gap:18px;align-items:center;">
@@ -8008,7 +8008,7 @@ function renderTravellerDetail() {
                 const pt = PT_COLOR[stage.pt] || PT_COLOR.R;
                 const isCurrent = cur && cur.id === stage.id;
                 return `
-                  <div class="trav-stage ${(s.status||'pending')}${isCurrent?' current':''}" onclick="openSignModal('${itemId}','${stage.id}')">
+                  <div class="trav-stage ${_escNote(s.status||'pending')}${isCurrent?' current':''}" onclick="openSignModal(${_jsArg(itemId)},'${stage.id}')">
                     <div class="trav-stage-head">
                       <span class="trav-stage-no">${stage.id}</span>
                       <span class="pt-pill" style="background:${pt.bg};color:${pt.c};">${stage.pt}</span>
@@ -8019,11 +8019,11 @@ function renderTravellerDetail() {
                     <div class="trav-stage-status" style="color:${stinfo[0]};background:${stinfo[2]};">${stinfo[1]}</div>
                     ${s.status === 'passed' || s.status === 'rejected' ? `
                       <div class="trav-sign">
-                        <div>👷 작업자: <b>${s.worker?getU(s.worker).name:'-'}</b></div>
-                        <div>🔍 QC: <b>${s.qc?getU(s.qc).name:'-'}</b></div>
-                        ${s.witness ? `<div>👁 입회자: <b>${getU(s.witness).name}</b></div>` : ''}
-                        <div style="color:var(--text-light);font-size:10px;">📅 ${s.date||'-'}</div>
-                        ${s.memo ? `<div style="margin-top:4px;padding:4px 6px;background:var(--bg);border-radius:3px;font-size:10px;">${s.memo}</div>` : ''}
+                        <div>👷 작업자: <b>${_escNote(s.worker?getU(s.worker).name:'-')}</b></div>
+                        <div>🔍 QC: <b>${_escNote(s.qc?getU(s.qc).name:'-')}</b></div>
+                        ${s.witness ? `<div>👁 입회자: <b>${_escNote(getU(s.witness).name)}</b></div>` : ''}
+                        <div style="color:var(--text-light);font-size:10px;">📅 ${_escNote(s.date||'-')}</div>
+                        ${s.memo ? `<div style="margin-top:4px;padding:4px 6px;background:var(--bg);border-radius:3px;font-size:10px;">${_escNote(s.memo)}</div>` : ''}
                       </div>
                     ` : ''}
                   </div>
@@ -8061,9 +8061,9 @@ function openSignModal(itemId, stageId) {
     </div>
     <div class="fg" style="display:flex;gap:8px;">
       <div style="flex:1;"><label class="fl">👁 입회자 (Witness Only)</label><select class="fs" id="sgWit"><option value="">-</option>${userOpts.replace(new RegExp(`value="${current.witness}"`),`value="${current.witness}" selected`)}</select></div>
-      <div style="flex:1;"><label class="fl">📅 검사일</label><input class="fi" type="date" id="sgDate" value="${current.date||today}"></div>
+      <div style="flex:1;"><label class="fl">📅 검사일</label><input class="fi" type="date" id="sgDate" value="${_escNote(current.date||today)}"></div>
     </div>
-    <div class="fg"><label class="fl">📝 비고 / NCR 사유</label><textarea class="fi" id="sgMemo" rows="3" style="resize:vertical;">${current.memo||''}</textarea></div>
+    <div class="fg"><label class="fl">📝 비고 / NCR 사유</label><textarea class="fi" id="sgMemo" rows="3" style="resize:vertical;">${_escNote(current.memo||'')}</textarea></div>
   `, () => {
     const status = document.getElementById('sgStatus').value;
     const worker = document.getElementById('sgWorker').value;
@@ -8116,13 +8116,13 @@ function quotes() {
       <thead><tr><th>견적번호</th><th>고객</th><th>건명</th><th>금액</th><th>담당</th><th>상태</th><th>작성일</th></tr></thead>
       <tbody>
         ${state.quotes.map(q=>{const s=sm[q.status]||sm.draft;return `<tr>
-          <td style="font-weight:700;color:var(--primary);">${q.code}</td>
-          <td>${q.client}</td>
-          <td>${q.subject}</td>
+          <td style="font-weight:700;color:var(--primary);">${_escNote(q.code)}</td>
+          <td>${_escNote(q.client)}</td>
+          <td>${_escNote(q.subject)}</td>
           <td style="text-align:right;font-weight:600;">₩${fmt(q.amount)}</td>
-          <td>${getU(q.owner).name}</td>
+          <td>${_escNote(getU(q.owner).name)}</td>
           <td><span class="b-pill ${s[0]}">${s[1]}</span></td>
-          <td style="color:var(--text-light);">${q.date}</td>
+          <td style="color:var(--text-light);">${_escNote(q.date)}</td>
         </tr>`;}).join('')}
       </tbody>
     </table>
@@ -8226,17 +8226,17 @@ function _renderOkrCard(o) {
     <div class="card" style="margin-bottom:12px;padding:14px 16px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
         ${o.scope==='dept'
-          ? `<span class="b-pill blue">🏛 ${o.deptName||'부서'}</span>`
+          ? `<span class="b-pill blue">🏛 ${_escNote(o.deptName||'부서')}</span>`
           : `<span class="b-pill gray">👤 개인</span>`}
-        <span class="b-pill" style="background:#f1f5f9;color:var(--text-light);">${o.period||''}</span>
-        ${o.scope==='dept' && o.assigneeId ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${(getU(o.assigneeId)||{}).name||'담당자'}</span>` : ''}
-        ${o.scope==='personal' && o.ownerId && o.ownerId !== state.currentUser ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${(getU(o.ownerId)||{}).name||'대상자'}</span>` : ''}
-        <strong style="flex:1;font-size:14px;">${o.title||''}</strong>
+        <span class="b-pill" style="background:#f1f5f9;color:var(--text-light);">${_escNote(o.period||'')}</span>
+        ${o.scope==='dept' && o.assigneeId ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${_escNote((getU(o.assigneeId)||{}).name||'담당자')}</span>` : ''}
+        ${o.scope==='personal' && o.ownerId && o.ownerId !== state.currentUser ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;">👤 ${_escNote((getU(o.ownerId)||{}).name||'대상자')}</span>` : ''}
+        <strong style="flex:1;font-size:14px;">${_escNote(o.title||'')}</strong>
         <span class="b-pill ${dueClass}">${dueText}</span>
         <strong style="color:${color};font-size:15px;">${pct}%</strong>
         ${totalCount === 0 && o.pctManual != null && o.pctManual !== '' ? '<span class="b-pill" style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;" title="마일스톤이 없어 사용자가 직접 지정한 진행률입니다">✎ 수동</span>' : ''}
       </div>
-      ${o.why ? `<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;padding-left:2px;">${o.why}</div>` : ''}
+      ${o.why ? `<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;padding-left:2px;">${_escNote(o.why)}</div>` : ''}
       <div class="bar" style="margin-bottom:10px;"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
       <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;">📌 마일스톤 ${doneCount}/${totalCount}</div>
       ${(o.milestones||[]).map((m, mi) => {
@@ -8250,36 +8250,36 @@ function _renderOkrCard(o) {
         const pctPillBg = isFull ? '#dcfce7' : isPartial ? '#fef3c7' : '#f1f5f9';
         // v29.14: 마일스톤 담당자 배지 (부서 목표에서 특정 부서원에게 할당된 경우)
         const msAssignee = m.assigneeId ? getU(m.assigneeId) : null;
-        const assigneeBadge = msAssignee ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 6px;">👤 ${msAssignee.name||'담당'}</span>` : '';
+        const assigneeBadge = msAssignee ? `<span class="b-pill" style="background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 6px;">👤 ${_escNote(msAssignee.name||'담당')}</span>` : '';
         return `
         <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-light);">
-          <span onclick="${editable?`toggleOkrMilestone('${o.id}',${mi})`:''}"
+          <span onclick="${editable?`toggleOkrMilestone(${_jsArg(o.id)},${mi})`:''}"
                 title="${editable?'클릭: 0%↔100% 토글':''}"
                 style="width:18px;height:18px;border-radius:3px;border:1.5px solid ${boxBorder};background:${boxBg};color:#fff;font-size:12px;text-align:center;line-height:14px;flex-shrink:0;${editable?'cursor:pointer;':'cursor:not-allowed;opacity:.6;'}">${boxContent}</span>
-          <span style="flex:1;font-size:13px;${isFull?'text-decoration:line-through;color:var(--text-lighter);':''}">${m.title||''}</span>
+          <span style="flex:1;font-size:13px;${isFull?'text-decoration:line-through;color:var(--text-lighter);':''}">${_escNote(m.title||'')}</span>
           ${assigneeBadge}
-          <span onclick="${editable?`setMilestonePct('${o.id}',${mi})`:''}"
+          <span onclick="${editable?`setMilestonePct(${_jsArg(o.id)},${mi})`:''}"
                 title="${editable?'클릭: 진행률 % 지정':''}"
                 style="font-size:10px;font-weight:700;background:${pctPillBg};color:${pctPillColor};padding:2px 7px;border-radius:10px;${editable?'cursor:pointer;':''}min-width:36px;text-align:center;">${mPct}%</span>
-          <span style="font-size:11px;color:var(--text-lighter);">${isFull && m.at ? '완료 '+m.at : (m.due||'')}</span>
-          ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="openOkrMilestoneModal('${o.id}',${mi})" title="마일스톤 수정 (제목·마감일·담당자)">✎</button>` : ''}
-          ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="deleteOkrMilestone('${o.id}',${mi})" title="마일스톤 삭제">✕</button>` : ''}
+          <span style="font-size:11px;color:var(--text-lighter);">${_escNote(isFull && m.at ? '완료 '+m.at : (m.due||''))}</span>
+          ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="openOkrMilestoneModal(${_jsArg(o.id)},${mi})" title="마일스톤 수정 (제목·마감일·담당자)">✎</button>` : ''}
+          ${editable ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:10px;" onclick="deleteOkrMilestone(${_jsArg(o.id)},${mi})" title="마일스톤 삭제">✕</button>` : ''}
         </div>`;
       }).join('')}
       ${editable ? `
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
         ${totalCount === 0
-          ? `<button class="btn btn-sm" onclick="setOkrPctManual('${o.id}')" title="마일스톤이 없을 때는 전체 진행률을 직접 지정할 수 있습니다.">${o.pctManual!=null&&o.pctManual!==''?'✎ 수동 '+o.pctManual+'%':'✎ 진행률 지정'}</button>`
+          ? `<button class="btn btn-sm" onclick="setOkrPctManual(${_jsArg(o.id)})" title="마일스톤이 없을 때는 전체 진행률을 직접 지정할 수 있습니다.">${o.pctManual!=null&&o.pctManual!==''?'✎ 수동 '+_escNote(o.pctManual)+'%':'✎ 진행률 지정'}</button>`
           : ''}
-        <button class="btn btn-sm" onclick="openOkrMilestoneModal('${o.id}')">＋ 마일스톤</button>
-        <button class="btn btn-sm" onclick="openOkrModal('${o.id}')">✎ 편집</button>
-        <button class="btn btn-sm" onclick="deleteOkr('${o.id}')" style="color:var(--danger);">🗑 삭제</button>
+        <button class="btn btn-sm" onclick="openOkrMilestoneModal(${_jsArg(o.id)})">＋ 마일스톤</button>
+        <button class="btn btn-sm" onclick="openOkrModal(${_jsArg(o.id)})">✎ 편집</button>
+        <button class="btn btn-sm" onclick="deleteOkr(${_jsArg(o.id)})" style="color:var(--danger);">🗑 삭제</button>
       </div>
       ${totalCount > 0 ? '<div style="margin-top:4px;font-size:10px;color:var(--text-lighter);text-align:right;">💡 진행률은 각 마일스톤 % 평균으로 자동 계산됩니다. 개별 마일스톤의 % 값을 클릭해 수정하세요.</div>' : ''}
       ` : (o.scope === 'dept'
           ? `<div style="margin-top:6px;display:flex;justify-content:flex-end;align-items:center;gap:6px;">
                <span style="font-size:10px;color:var(--text-lighter);">조회 전용 (부서장·담당자만 편집)</span>
-               <button class="btn btn-sm" onclick="submitOkrChangeRequest('${o.id}')" title="부서장에게 이 목표의 변경을 결재로 요청합니다">📝 부서장에 변경 요청</button>
+               <button class="btn btn-sm" onclick="submitOkrChangeRequest(${_jsArg(o.id)})" title="부서장에게 이 목표의 변경을 결재로 요청합니다">📝 부서장에 변경 요청</button>
              </div>`
           : `<div style="margin-top:6px;font-size:10px;color:var(--text-lighter);text-align:right;">조회 전용 (편집 권한 없음)</div>`)}
     </div>`;
@@ -8323,7 +8323,7 @@ function okr() {
     <div class="mod-head">
       <div>
         <div class="mod-title">${LI('target','🎯')} 목표 관리</div>
-        <div class="mod-sub">부서 연간 · 개인 분기 목표 · 로그인 계정(${me.name||'-'}·${myDept||'-'}) 기준 · 마일스톤 체크 시 진척률 자동 반영</div>
+        <div class="mod-sub">부서 연간 · 개인 분기 목표 · 로그인 계정(${_escNote(me.name||'-')}·${_escNote(myDept||'-')}) 기준 · 마일스톤 체크 시 진척률 자동 반영</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
         ${totalDone > 0 ? `<button class="btn btn-sm" onclick="toggleOkrShowCompleted()" title="100% 달성 목표 표시/숨김 전환">${showCompleted ? '🙈 완료 숨기기' : '👁 완료 보기'} <span style="color:var(--text-lighter);font-weight:400;">(${totalDone})</span></button>` : ''}
@@ -8334,7 +8334,7 @@ function okr() {
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
       <div class="card" style="padding:14px 16px;">
-        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">🏛 ${myDept||'부서'} 연간 목표</div>
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px;">🏛 ${_escNote(myDept||'부서')} 연간 목표</div>
         <div style="font-size:24px;font-weight:700;">${deptGoals.length}<span style="font-size:12px;color:var(--text-light);font-weight:400;margin-left:6px;">개</span></div>
         <div class="bar" style="margin-top:6px;"><div class="bar-fill" style="width:${deptPct}%;background:${_okrProgressColor(deptPct)};"></div></div>
         <div style="font-size:11px;color:var(--text-light);margin-top:4px;">평균 진척률 ${deptPct}%</div>
@@ -8347,7 +8347,7 @@ function okr() {
       </div>
     </div>
 
-    <div style="font-size:13px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏛 ${myDept||'부서'} 연간 목표 (${deptGoals.length})</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text-light);margin-bottom:8px;">🏛 ${_escNote(myDept||'부서')} 연간 목표 (${deptGoals.length})</div>
     ${deptGoals.length ? deptGoals.map(_renderOkrCard).join('') : `<div class="card" style="text-align:center;padding:24px;color:var(--text-lighter);font-size:12px;">등록된 부서 목표가 없습니다.${(me.grade==='manager'||me.grade==='exec'||me.grade==='super')?' <a onclick="openOkrModal(null,\'dept\')" style="color:var(--primary);cursor:pointer;text-decoration:underline;">+ 첫 부서 목표 등록하기</a>':''}</div>`}
 
     <div style="font-size:13px;font-weight:700;color:var(--text-light);margin:18px 0 8px;">👤 내 분기 목표 (${personGoals.length})</div>
@@ -8379,13 +8379,13 @@ function openOkrModal(okrId, defaultScope) {
   const currentPersonalOwner = existing && existing.scope === 'personal' ? (existing.ownerId || state.currentUser) : state.currentUser;
   const scopeOpts = [
     `<option value="personal" ${scope==='personal'?'selected':''}>👤 개인 (본인 또는 부서원)</option>`,
-    canMakeDept ? `<option value="dept" ${scope==='dept'?'selected':''}>🏛 ${me.dept||'부서'} (부서장·관리자급만 편집)</option>` : ''
+    canMakeDept ? `<option value="dept" ${scope==='dept'?'selected':''}>🏛 ${_escNote(me.dept||'부서')} (부서장·관리자급만 편집)</option>` : ''
   ].join('');
   // 부서 목표 담당자 후보: 같은 부서 소속 유저 전체
   const deptMembers = (state.users || []).filter(u => u.dept === me.dept);
-  const assigneeOpts = deptMembers.map(u => `<option value="${u.id}" ${u.id===currentAssignee?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
+  const assigneeOpts = deptMembers.map(u => `<option value="${u.id}" ${u.id===currentAssignee?'selected':''}>${_escNote(u.name)} ${_escNote(u.title||'')}</option>`).join('');
   // 개인 목표 대상자 후보 (부서장·super·exec만 노출): 같은 부서 유저 전체
-  const personalOwnerOpts = deptMembers.map(u => `<option value="${u.id}" ${u.id===currentPersonalOwner?'selected':''}>${u.name} ${u.title||''}${u.id===state.currentUser?' (본인)':''}</option>`).join('');
+  const personalOwnerOpts = deptMembers.map(u => `<option value="${u.id}" ${u.id===currentPersonalOwner?'selected':''}>${_escNote(u.name)} ${_escNote(u.title||'')}${u.id===state.currentUser?' (본인)':''}</option>`).join('');
   openModal(existing ? '목표 수정' : '신규 목표 등록', `
     <div class="fg"><label class="fl">스코프</label><select class="fs" id="okrScope"${existing?' disabled':''} onchange="document.getElementById('okrAssigneeRow').style.display=this.value==='dept'?'block':'none';document.getElementById('okrOwnerRow').style.display=(this.value==='personal'&&${canSetPersonalOwner?'true':'false'})?'block':'none';">${scopeOpts}</select>${existing?'<div style="font-size:10px;color:var(--text-lighter);margin-top:4px;">스코프는 생성 후 변경할 수 없습니다.</div>':''}</div>
     ${canSetPersonalOwner ? `
@@ -8401,11 +8401,11 @@ function openOkrModal(okrId, defaultScope) {
     </div>
     <div class="fg"><label class="fl">목표 (Objective)</label><input class="fi" id="okrTitle" placeholder="예: ASME 재갱신 완료" value="${title.replace(/"/g,'&quot;')}"></div>
     <div class="fg"><label class="fl">왜 이 목표인지 (선택)</label><input class="fi" id="okrWhy" placeholder="예: 3년 갱신 필수 · 실패 시 원자력 수주 불가" value="${why.replace(/"/g,'&quot;')}"></div>
-    <div class="fg"><label class="fl">기간</label><input class="fi" id="okrPeriod" placeholder="예: 2026 연간, 2026 Q3" value="${period}"></div>
-    <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="okrEnd" value="${end}"></div>
+    <div class="fg"><label class="fl">기간</label><input class="fi" id="okrPeriod" placeholder="예: 2026 연간, 2026 Q3" value="${_escNote(period)}"></div>
+    <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="okrEnd" value="${_escNote(end)}"></div>
     ${(existing && (existing.milestones||[]).length > 0)
       ? '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;padding:8px 10px;background:#f8fafc;border-radius:4px;">💡 마일스톤이 있어 전체 진행률은 각 마일스톤 % 평균으로 자동 계산됩니다. 카드에서 마일스톤별로 % 값을 직접 지정하세요.</div>'
-      : '<div class="fg"><label class="fl">진행률 % (선택 · 마일스톤이 없을 때만 이 값이 사용됩니다)</label><input class="fi" type="number" min="0" max="100" id="okrPctManual" placeholder="예: 42" value="' + (existing && existing.pctManual!=null ? existing.pctManual : '') + '"></div>'}
+      : '<div class="fg"><label class="fl">진행률 % (선택 · 마일스톤이 없을 때만 이 값이 사용됩니다)</label><input class="fi" type="number" min="0" max="100" id="okrPctManual" placeholder="예: 42" value="' + _escNote(existing && existing.pctManual!=null ? existing.pctManual : '') + '"></div>'}
     <div style="font-size:11px;color:var(--text-lighter);margin-top:8px;">저장 후 하단 "＋ 마일스톤" 버튼으로 마일스톤을 추가하세요.</div>
   `, async () => {
     const t = document.getElementById('okrTitle').value.trim();
@@ -8470,10 +8470,10 @@ function openOkrMilestoneModal(okrId, msIdx) {
   const deptMembers = showAssigneeSel ? (state.users || []).filter(u => u.dept === me.dept) : [];
   const curAssignee = editing ? (editing.assigneeId || o.assigneeId || '') : (o.assigneeId || '');
   const assigneeOpts = '<option value="">— 지정 안 함 (목표 담당자로 자동 귀속) —</option>' +
-    deptMembers.map(u => `<option value="${u.id}" ${u.id===curAssignee?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
+    deptMembers.map(u => `<option value="${u.id}" ${u.id===curAssignee?'selected':''}>${_escNote(u.name)} ${_escNote(u.title||'')}</option>`).join('');
   openModal(editing ? '마일스톤 수정' : '마일스톤 추가', `
     <div class="fg"><label class="fl">마일스톤 내용</label><input class="fi" id="msTitle" placeholder="예: 예비 감사 통과" value="${editing?(editing.title||'').replace(/"/g,'&quot;'):''}"></div>
-    <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="msDue" value="${editing?(editing.due||''):''}"></div>
+    <div class="fg"><label class="fl">마감일</label><input class="fi" type="date" id="msDue" value="${editing?_escNote(editing.due||''):''}"></div>
     ${showAssigneeSel ? `
     <div class="fg"><label class="fl">담당자 (선택)</label>
       <select class="fs" id="msAssignee">${assigneeOpts}</select>
@@ -8941,7 +8941,7 @@ async function loadAiUsage(새로) {
 
   const barRow = ([k, v], max, 색) => `
     <div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px;">
-      <div style="width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escA(k)}">${escA(k)}</div>
+      <div style="width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${_escNote(k)}">${escA(k)}</div>
       <div style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden;">
         <div style="width:${Math.round(v / max * 100)}%;height:100%;background:${색 || 'var(--primary)'};border-radius:4px;"></div>
       </div>
@@ -9014,7 +9014,7 @@ async function loadAiUsage(새로) {
       </div>
       <div style="font-size:11px;color:var(--text-light);line-height:1.6;">
         ${읽기 ? `브라우저 <b>${브.toLocaleString()}</b>건(직원 접속 전부, <b>아래로 센 값</b>${수(읽기.한번상한) ? ` · 한 번 조회는 최대 ${수(읽기.한번상한).toLocaleString()}건` : ''}) + 게이트웨이 <b>${관문.toLocaleString()}</b>건(야간 백업) + 파이스 약 3,000건.
-        한도일 ${읽기.한도날} · 마지막 기록 ${읽기.마지막}` : '아직 오늘 기록이 없습니다(또는 읽기 한도가 이미 찼습니다).'}
+        한도일 ${_escNote(읽기.한도날)} · 마지막 기록 ${_escNote(읽기.마지막)}` : '아직 오늘 기록이 없습니다(또는 읽기 한도가 이미 찼습니다).'}
         ${짐작 > 40000 ? '<br><b style="color:#dc2626;">한도에 가깝습니다 — 오늘은 큰 배치·새로고침을 미루세요.</b>' : ''}
       </div>
     </div>`;
@@ -9096,16 +9096,16 @@ function org() {
     const extras = [mpChips.join(''), legacyChips].filter(Boolean).join('');
     let btns = '';
     if (isSuper) {
-      btns += `<button class="org-ico-btn" onclick="openExtraPerms('${u.id}')" title="개별 권한 부여">⚙️</button>`;
+      btns += `<button class="org-ico-btn" onclick="openExtraPerms(${_jsArg(u.id)})" title="개별 권한 부여">⚙️</button>`;
       if (u.grade !== 'super') {
-        btns += `<button class="org-ico-btn" onclick="openEditUserProfile('${u.id}')" title="부서/직급 수정">✏️</button>`;
-        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled('${u.id}')" title="${u.disabled?'계정 활성화':'계정 비활성화 (로그인 차단, 기록 유지)'}">${u.disabled?'🔓':'🔒'}</button>`;
-        btns += `<button class="org-ico-btn" style="color:#991b1b;" onclick="hardDeleteUser('${u.id}')" title="계정 완전 삭제 (users 문서 제거)">🗑️</button>`;
+        btns += `<button class="org-ico-btn" onclick="openEditUserProfile(${_jsArg(u.id)})" title="부서/직급 수정">✏️</button>`;
+        btns += `<button class="org-ico-btn" style="color:#dc2626;" onclick="toggleUserDisabled(${_jsArg(u.id)})" title="${u.disabled?'계정 활성화':'계정 비활성화 (로그인 차단, 기록 유지)'}">${u.disabled?'🔓':'🔒'}</button>`;
+        btns += `<button class="org-ico-btn" style="color:#991b1b;" onclick="hardDeleteUser(${_jsArg(u.id)})" title="계정 완전 삭제 (users 문서 제거)">🗑️</button>`;
       }
     }
     return `<tr style="${u.disabled?'opacity:.5;':''}">
-      <td style="white-space:nowrap;"><div style="display:flex;align-items:center;gap:7px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0;">${(u.name||'?').charAt(0)}</div><div><span style="font-weight:600;font-size:12px;">${u.name}</span> <span style="font-size:11px;color:var(--text-light);">${u.title}</span>${u.disabled?' <span style="font-size:9px;color:var(--danger);">●비활성</span>':''}</div></div></td>
-      <td style="font-size:11px;color:var(--text-lighter);">${u.email||''}</td>
+      <td style="white-space:nowrap;"><div style="display:flex;align-items:center;gap:7px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0;">${_escNote((u.name||'?').charAt(0))}</div><div><span style="font-weight:600;font-size:12px;">${_escNote(u.name)}</span> <span style="font-size:11px;color:var(--text-light);">${_escNote(u.title)}</span>${u.disabled?' <span style="font-size:9px;color:var(--danger);">●비활성</span>':''}</div></div></td>
+      <td style="font-size:11px;color:var(--text-lighter);">${_escNote(u.email||'')}</td>
       <td><span class="b-pill ${g.color}">${g.label}</span></td>
       <td>${extras||'<span style="color:var(--text-lighter);font-size:11px;">—</span>'}</td>
       <td style="text-align:right;white-space:nowrap;">${btns}</td>
@@ -9124,7 +9124,7 @@ function org() {
           <td>${_escNote(u.name || '-')}${u.신청.이름 && u.신청.이름 !== u.name ? ' / ' + _escNote(u.신청.이름) : ''}</td>
           <td>${_escNote(u.신청.dept || '-')} · ${_escNote(u.신청.title || '-')}</td>
           <td style="color:var(--text-lighter);">${u.신청.at ? new Date(u.신청.at).toISOString().slice(0, 10) : '-'}</td>
-          <td style="text-align:right;white-space:nowrap;"><button class="btn btn-primary btn-sm" onclick="openEditUserProfile('${u.id}')">승인·수정</button></td>
+          <td style="text-align:right;white-space:nowrap;"><button class="btn btn-primary btn-sm" onclick="openEditUserProfile(${_jsArg(u.id)})">승인·수정</button></td>
         </tr>`).join('')}</tbody>
       </table>
     </div>` : '';
@@ -9140,13 +9140,13 @@ function org() {
       <table class="org-table" style="font-size:12px;">
         <thead><tr><th>이메일</th><th>이름</th><th>부서/직급</th><th>등록일</th><th style="text-align:right;">관리</th></tr></thead>
         <tbody>${pending.map(p => `<tr>
-          <td style="font-family:monospace;font-size:11px;">${p.email||'-'}</td>
-          <td>${p.name||'-'}</td>
-          <td>${p.dept||'-'} · ${p.title||'-'}</td>
+          <td style="font-family:monospace;font-size:11px;">${_escNote(p.email||'-')}</td>
+          <td>${_escNote(p.name||'-')}</td>
+          <td>${_escNote(p.dept||'-')} · ${_escNote(p.title||'-')}</td>
           <td style="color:var(--text-lighter);">${p.createdAt?new Date(p.createdAt).toISOString().slice(0,10):'-'}</td>
           <td style="text-align:right;white-space:nowrap;">
-            <button class="org-ico-btn" onclick="openPendingUser('${p.id}')" title="수정">✏️</button>
-            <button class="org-ico-btn" style="color:#dc2626;" onclick="deletePendingUser('${p.id}')" title="삭제">🗑️</button>
+            <button class="org-ico-btn" onclick="openPendingUser(${_jsArg(p.id)})" title="수정">✏️</button>
+            <button class="org-ico-btn" style="color:#dc2626;" onclick="deletePendingUser(${_jsArg(p.id)})" title="삭제">🗑️</button>
           </td>
         </tr>`).join('')}</tbody>
       </table>
@@ -9239,11 +9239,11 @@ function openExtraPerms(uid) {
   });
   const legacy = (u.extraPerms||[]).length ? `
     <div style="margin-top:14px;padding:9px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;">
-      ⚠️ 이전 방식의 추가 권한 남아있음: ${(u.extraPerms||[]).map(k => EXTRA_PERMS[k]?.label || k).join(', ')} — 계속 유지됩니다. 신 방식으로 이관하려면 위 표에서 다시 설정하세요.
+      ⚠️ 이전 방식의 추가 권한 남아있음: ${_escNote((u.extraPerms||[]).map(k => EXTRA_PERMS[k]?.label || k).join(', '))} — 계속 유지됩니다. 신 방식으로 이관하려면 위 표에서 다시 설정하세요.
     </div>` : '';
   openModal(`⚙️ 개별 권한 — ${u.name} ${u.title}`, `
     <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;line-height:1.6;">
-      등급 <b>${(GRADES[u.grade]||{}).label}</b> · 부서 <b>${u.dept||'-'}</b><br>
+      등급 <b>${(GRADES[u.grade]||{}).label}</b> · 부서 <b>${_escNote(u.dept||'-')}</b><br>
       각 액션마다 <b>기본</b> (도구별 기본 규칙 따름) / <b>👍 개별 허용</b> / <b>🚫 개별 차단</b> 셋 중 하나를 선택합니다.<br>
       <span style="color:var(--text-lighter);font-size:11px;">"기본 부여 대상" 옆 <span style="color:#059669;">✓</span>는 이 사용자가 기본으로 자격이 있음을 뜻합니다.</span>
     </div>
@@ -9301,8 +9301,8 @@ async function openPendingUser(pendingId) {
     <div style="font-size:11px;color:var(--text-light);background:var(--bg);padding:9px 12px;border-radius:6px;margin-bottom:14px;line-height:1.55;">
       💡 이 이메일 계정으로 사용자가 처음 Google 로그인하면, 아래 입력한 부서·직급 정보로 자동으로 계정이 생성됩니다. 소속 입력 화면을 건너뛰게 하는 관리 편의 기능.
     </div>
-    <div class="fg"><label class="fl">이메일 <span style="color:var(--danger);">*</span></label><input class="fi" id="puEmail" placeholder="name@sejong-21c.com" value="${p.email||''}" ${editing?'readonly style="background:#f5f5f5;"':''}></div>
-    <div class="fg"><label class="fl">이름</label><input class="fi" id="puName" placeholder="홍길동" value="${p.name||''}"></div>
+    <div class="fg"><label class="fl">이메일 <span style="color:var(--danger);">*</span></label><input class="fi" id="puEmail" placeholder="name@sejong-21c.com" value="${_escNote(p.email||'')}" ${editing?'readonly style="background:#f5f5f5;"':''}></div>
+    <div class="fg"><label class="fl">이름</label><input class="fi" id="puName" placeholder="홍길동" value="${_escNote(p.name||'')}"></div>
     <div class="fg" style="display:flex;gap:8px;">
       <div style="flex:1;"><label class="fl">부서</label><select class="fs" id="puDept">${deptOpts}</select></div>
       <div style="flex:1;"><label class="fl">직급</label><select class="fs" id="puTitle">${titleOpts}</select></div>
@@ -9560,7 +9560,7 @@ function _renderStampBox(line) {
   const cells = line.map(s => {
     const u = getU(s.uid) || {};
     let stamp;
-    if (s.status === 'approved' && u.signatureUrl) stamp = `<img src="${u.signatureUrl}" style="max-height:36px;max-width:56px;object-fit:contain;margin:2px auto;display:block;" title="개인 서명">`;
+    if (s.status === 'approved' && u.signatureUrl) stamp = `<img src="${_safeUrl(u.signatureUrl)}" style="max-height:36px;max-width:56px;object-fit:contain;margin:2px auto;display:block;" title="개인 서명">`;
     else if (s.status === 'approved') stamp = `<div style="border:1.5px solid var(--success);color:var(--success);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
     else if (s.status === 'rejected') stamp = `<div style="border:1.5px solid var(--danger);color:var(--danger);border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">반려</div>`;
     else if (s.status === 'skipped')  stamp = `<div style="color:var(--text-lighter);font-size:10px;padding:12px 0;" title="상위 결재권자 전결 승인으로 생략됨">전결<br>생략</div>`;
@@ -9572,14 +9572,16 @@ function _renderStampBox(line) {
   const bd = 'border:0.5px solid var(--border);';
   return `<table style="border-collapse:collapse;font-size:11px;text-align:center;">
     <tr><td rowspan="4" style="${bd}padding:4px;color:var(--text-light);background:var(--bg);writing-mode:vertical-rl;">결재</td>
-      ${cells.map(c=>`<td style="${bd}padding:2px 8px;color:var(--text-light);">${c.role}</td>`).join('')}</tr>
-    <tr>${cells.map(c=>`<td style="${bd}padding:2px 8px;">${c.name}</td>`).join('')}</tr>
+      ${cells.map(c=>`<td style="${bd}padding:2px 8px;color:var(--text-light);">${_escNote(c.role)}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}padding:2px 8px;">${_escNote(c.name)}</td>`).join('')}</tr>
     <tr>${cells.map(c=>`<td style="${bd}height:40px;width:56px;">${c.stamp}</td>`).join('')}</tr>
     <tr>${cells.map(c=>`<td style="${bd}font-size:10px;color:var(--text-lighter);padding:2px;">${c.dt||'-'}</td>`).join('')}</tr>
   </table>`;
 }
 // ── 결재선 흐름(칩) 렌더 ──
 function _escNote(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _safeUrl(u) { const s = String(u == null ? '' : u).trim(); return /^(https?:|data:image\/|blob:|\/|\.\/|#)/i.test(s) ? _escNote(s) : ''; }
+function _jsArg(v) { return _escNote(JSON.stringify(String(v == null ? '' : v))); }
 function _renderLineFlow(line) {
   if (!line) return '';
   const chips = `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">` + line.map((s,i) => {
@@ -9591,14 +9593,14 @@ function _renderLineFlow(line) {
     else if (s.status==='pending'){ bg='#fef3c7'; col='#92400e'; bd='none'; ic='⏳'; }
     else { col='var(--text-lighter)'; ic='…'; }
     const arrow = i>0 ? `<span style="color:var(--text-lighter);">→</span>` : '';
-    return `${arrow}<span style="background:${bg};color:${col};border:${bd};border-radius:20px;padding:4px 10px;font-size:12px;">${ic} ${s.role} · ${u.name||'-'}</span>`;
+    return `${arrow}<span style="background:${bg};color:${col};border:${bd};border-radius:20px;padding:4px 10px;font-size:12px;">${ic} ${_escNote(s.role)} · ${_escNote(u.name||'-')}</span>`;
   }).join('') + `</div>`;
   // v30.x: 검토·승인 단계마다 남긴 결재 의견("apDecNote")이 그동안 approvalLine의
   // 각 step.note에 저장은 됐지만 어디에도 표시가 안 됐다(최종 결정의 decisionNote만
   // 노출, 그마저 다음 단계가 처리되면 덮어써짐) — 단계별 코멘트를 전부 보이게 한다.
   const notes = line.filter(s => s.note && String(s.note).trim()).map(s => {
     const u = getU(s.uid) || {};
-    return `<div style="font-size:12px;color:var(--text-light);margin-top:4px;padding:4px 8px;background:var(--bg);border-radius:4px;"><b>${s.role} · ${u.name||'-'}</b>: ${_escNote(s.note)}</div>`;
+    return `<div style="font-size:12px;color:var(--text-light);margin-top:4px;padding:4px 8px;background:var(--bg);border-radius:4px;"><b>${_escNote(s.role)} · ${_escNote(u.name||'-')}</b>: ${_escNote(s.note)}</div>`;
   }).join('');
   return chips + notes;
 }
@@ -9612,26 +9614,26 @@ function _renderApprovalRow(a, mode) {
     const done = line.filter(x => x.status === 'approved').length;
     const cur = apPendingStep(a);
     progress = `<span style="color:var(--text-light);">${done}/${line.length}</span>`
-      + (cur ? ` · <b>${(getU(cur.uid)||{}).name||''}</b> 차례` : (a.status==='approved'?' · 완결':''))
+      + (cur ? ` · <b>${_escNote((getU(cur.uid)||{}).name||'')}</b> 차례` : (a.status==='approved'?' · 완결':''))
       + (apCanJeonGyeol(a, state.currentUser) ? ' <span style="font-size:10px;background:#fffbeb;color:#b45309;border:1px solid #fbbf24;border-radius:8px;padding:1px 6px;" title="중간 단계를 건너뛰고 바로 승인 가능">⚡ 전결 가능</span>' : '');
   } else {
-    progress = (getU(a.approver || a.to) || {}).name || '-';
+    progress = _escNote((getU(a.approver || a.to) || {}).name || '-');
   }
   // mode='mine' → 상신 취소 버튼, mode='done' → 삭제 버튼 (행 클릭과 분리)
   let actionCell = '';
   if (mode === 'mine') {
-    actionCell = `<td style="text-align:center;" onclick="event.stopPropagation()"><button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);font-size:11px;" onclick="cancelApproval('${a.id}')">↩ 상신 취소</button></td>`;
+    actionCell = `<td style="text-align:center;" onclick="event.stopPropagation()"><button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);font-size:11px;" onclick="cancelApproval(${_jsArg(a.id)})">↩ 상신 취소</button></td>`;
   } else if (mode === 'done') {
-    actionCell = `<td style="text-align:center;" onclick="event.stopPropagation()"><button class="btn btn-sm" style="color:var(--danger);font-size:11px;" onclick="deleteApproval('${a.id}')">🗑 삭제</button></td>`;
+    actionCell = `<td style="text-align:center;" onclick="event.stopPropagation()"><button class="btn btn-sm" style="color:var(--danger);font-size:11px;" onclick="deleteApproval(${_jsArg(a.id)})">🗑 삭제</button></td>`;
   }
-  return `<tr onclick="openApprovalDetail('${a.id}')" style="cursor:pointer;" onmouseover="this.style.background='var(--primary-lighter)'" onmouseout="this.style.background=''">
-    <td style="font-weight:600;">${a.title||'(제목 없음)'}</td>
-    <td><span class="b-pill gray" style="font-size:10px;">${_approvalTypeLabel(a.type)}</span></td>
-    <td>${auth.name||'-'}</td>
+  return `<tr onclick="openApprovalDetail(${_jsArg(a.id)})" style="cursor:pointer;" onmouseover="this.style.background='var(--primary-lighter)'" onmouseout="this.style.background=''">
+    <td style="font-weight:600;">${_escNote(a.title||'(제목 없음)')}</td>
+    <td><span class="b-pill gray" style="font-size:10px;">${_escNote(_approvalTypeLabel(a.type))}</span></td>
+    <td>${_escNote(auth.name||'-')}</td>
     <td style="font-size:12px;">${progress}</td>
     <td style="text-align:right;">${amt || '-'}</td>
     <td><span class="b-pill ${s.pill}">${s.label}</span></td>
-    <td style="color:var(--text-light);">${a.date||''}</td>
+    <td style="color:var(--text-light);">${_escNote(a.date||'')}</td>
     ${actionCell}
   </tr>`;
 }
@@ -9801,47 +9803,47 @@ function openApprovalDetail(aid) {
   const typeLabel = _approvalTypeLabel(a.type);
   const decisionInfo = (a.status === 'approved' || a.status === 'rejected')
     ? `<div style="padding:10px;background:${a.status==='approved'?'#dcfce7':'#fee2e2'};border-radius:4px;font-size:12px;">
-         <b>${a.status==='approved'?'최종 승인 완결':'반려됨'}</b> · ${(getU(a.decidedBy)||{}).name||'-'} · ${a.decidedAt?new Date(a.decidedAt).toLocaleString('ko-KR'):''}
-         ${a.decisionNote?`<div style="margin-top:6px;color:var(--text);">${a.decisionNote}</div>`:''}
+         <b>${a.status==='approved'?'최종 승인 완결':'반려됨'}</b> · ${_escNote((getU(a.decidedBy)||{}).name||'-')} · ${a.decidedAt?new Date(a.decidedAt).toLocaleString('ko-KR'):''}
+         ${a.decisionNote?`<div style="margin-top:6px;color:var(--text);">${_escNote(a.decisionNote)}</div>`:''}
        </div>`
     : '';
   const body = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:12px;border-bottom:2px solid var(--text);padding-bottom:12px;">
       <div>
         <div style="font-size:12px;color:var(--text-light);margin-bottom:6px;">
-          <span class="b-pill gray">${typeLabel}</span>
+          <span class="b-pill gray">${_escNote(typeLabel)}</span>
           <span class="b-pill ${meta.pill}" style="margin-left:4px;">${meta.label}</span>
         </div>
-        <div style="font-size:16px;font-weight:700;">${a.title||'(제목 없음)'}</div>
-        ${a.projCode?`<div style="font-size:12px;color:var(--text-light);margin-top:4px;">${a.projCode}${a.projName?' · '+a.projName:''}</div>`:''}
+        <div style="font-size:16px;font-weight:700;">${_escNote(a.title||'(제목 없음)')}</div>
+        ${a.projCode?`<div style="font-size:12px;color:var(--text-light);margin-top:4px;">${_escNote(a.projCode)}${a.projName?' · '+_escNote(a.projName):''}</div>`:''}
       </div>
       ${_renderStampBox(line)}
     </div>
     ${a.type==='itp' && a.projId?`
       <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-primary" onclick="openItpApprovalDoc('${a.id}')">${LI('file-text','📄')} 결재 문서 확인 (ITP 열람)</button>
-        ${a.status==='approved'?`<button class="btn btn-sm" title="이 결재는 승인완료인데 ITP 조회에는 미승인으로 보인다면 눌러주세요" onclick="resyncItpApprovalStamp('${a.id}')">${LI('refresh-cw','🔄')} ITP 조회 상태 재동기화</button>`:''}
+        <button class="btn btn-sm btn-primary" onclick="openItpApprovalDoc(${_jsArg(a.id)})">${LI('file-text','📄')} 결재 문서 확인 (ITP 열람)</button>
+        ${a.status==='approved'?`<button class="btn btn-sm" title="이 결재는 승인완료인데 ITP 조회에는 미승인으로 보인다면 눌러주세요" onclick="resyncItpApprovalStamp(${_jsArg(a.id)})">${LI('refresh-cw','🔄')} ITP 조회 상태 재동기화</button>`:''}
       </div>
     `:''}
     ${a.type==='calib-request'?`
       <div style="margin-bottom:10px;">
-        <button class="btn btn-sm btn-primary" onclick="openCalibRequestDoc('${a.id}')">${LI('file-text','📄')} 견적의뢰서 문서 보기 (인쇄/PDF)</button>
+        <button class="btn btn-sm btn-primary" onclick="openCalibRequestDoc(${_jsArg(a.id)})">${LI('file-text','📄')} 견적의뢰서 문서 보기 (인쇄/PDF)</button>
       </div>
     `:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px;">
-      <div><span style="color:var(--text-light);">기안자:</span> <b>${authName}</b></div>
-      <div><span style="color:var(--text-light);">기안일:</span> ${a.date||''}</div>
+      <div><span style="color:var(--text-light);">기안자:</span> <b>${_escNote(authName)}</b></div>
+      <div><span style="color:var(--text-light);">기안일:</span> ${_escNote(a.date||'')}</div>
       ${a.amount?`<div><span style="color:var(--text-light);">금액:</span> <b style="color:var(--primary);">₩${Number(a.amount).toLocaleString('ko-KR')}</b></div>`:''}
-      ${a.baseRev!=null?`<div><span style="color:var(--text-light);">기준 Rev.</span> ${a.baseRev}</div>`:''}
+      ${a.baseRev!=null?`<div><span style="color:var(--text-light);">기준 Rev.</span> ${_escNote(a.baseRev)}</div>`:''}
     </div>
     ${line?`<div style="margin-bottom:10px;">${_renderLineFlow(line)}</div>`:''}
-    ${a.description?`<div style="padding:10px;background:var(--bg);border-radius:4px;white-space:pre-wrap;font-size:13px;line-height:1.5;margin-bottom:10px;">${a.description}</div>`:''}
+    ${a.description?`<div style="padding:10px;background:var(--bg);border-radius:4px;white-space:pre-wrap;font-size:13px;line-height:1.5;margin-bottom:10px;">${_escNote(a.description)}</div>`:''}
     ${decisionInfo}
     ${canDecide?`
       <div class="fg" style="margin-top:12px;"><label class="fl">결재 의견 (선택)</label><input class="fi" id="apDecNote" placeholder="필요 시 승인·반려 사유를 남기세요"></div>
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px;">
-        <button class="btn" style="background:var(--danger);color:#fff;" onclick="decideApproval('${a.id}','rejected')">✕ 반려</button>
-        <button class="btn btn-primary" onclick="decideApproval('${a.id}','approved')">✓ 승인</button>
+        <button class="btn" style="background:var(--danger);color:#fff;" onclick="decideApproval(${_jsArg(a.id)},'rejected')">✕ 반려</button>
+        <button class="btn btn-primary" onclick="decideApproval(${_jsArg(a.id)},'approved')">✓ 승인</button>
       </div>
     `:''}
     ${apCanJeonGyeol(a, uid)?`
@@ -9851,18 +9853,18 @@ function openApprovalDetail(aid) {
         </div>
         <div class="fg"><label class="fl">결재 의견 (선택)</label><input class="fi" id="apDecNote" placeholder="예: 긴급 건 전결 처리"></div>
         <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-          <button class="btn" style="background:#d97706;color:#fff;border-color:#d97706;" onclick="jeonGyeolApproval('${a.id}')">⚡ 전결 승인 (중간 단계 생략)</button>
+          <button class="btn" style="background:#d97706;color:#fff;border-color:#d97706;" onclick="jeonGyeolApproval(${_jsArg(a.id)})">⚡ 전결 승인 (중간 단계 생략)</button>
         </div>
       </div>
     `:''}
     ${(a.author===uid && (a.status==='pending'||a.status==='review'))?`
       <div style="display:flex;justify-content:flex-end;margin-top:${canDecide?'8':'12'}px;border-top:1px solid var(--border);padding-top:10px;">
-        <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="cancelApproval('${a.id}')">↩ 이 결재 상신 취소</button>
+        <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="cancelApproval(${_jsArg(a.id)})">↩ 이 결재 상신 취소</button>
       </div>
     `:''}
     ${(a.status==='approved'||a.status==='rejected')?`
       <div style="display:flex;justify-content:flex-end;margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
-        <button class="btn btn-sm" style="color:var(--danger);" onclick="deleteApproval('${a.id}')">🗑 이 결재 기록 삭제</button>
+        <button class="btn btn-sm" style="color:var(--danger);" onclick="deleteApproval(${_jsArg(a.id)})">🗑 이 결재 기록 삭제</button>
       </div>
     `:''}
   `;
@@ -10077,7 +10079,7 @@ async function decideApproval(aid, decision) {
 let _draftLine = [];
 let _draftTpl = 'iso';
 function _lineUserOpts(sel) {
-  return (state.users || []).map(u => `<option value="${u.id}" ${u.id===sel?'selected':''}>${u.name} ${u.title||''} · ${u.dept||''}</option>`).join('');
+  return (state.users || []).map(u => `<option value="${u.id}" ${u.id===sel?'selected':''}>${_escNote(u.name)} ${_escNote(u.title||'')} · ${_escNote(u.dept||'')}</option>`).join('');
 }
 function _renderLineEditor() {
   const box = document.getElementById('apLineBox');

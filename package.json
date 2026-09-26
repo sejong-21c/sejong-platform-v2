@@ -6,7 +6,7 @@
   "scripts": {
     "rules": "firebase emulators:exec --only firestore --project demo-sejong \"node test/rules.test.mjs\"",
     "build": "node test/build-version.test.mjs",
-    "test": "node test/messenger-lib.test.mjs && node test/pwa-w1.test.mjs && node test/ai-perm.test.mjs && node test/ai-action.test.mjs && node test/data-agent.test.mjs && node test/prompt-budget.test.mjs && node test/ai-actions-registry.test.mjs && node test/wbs-rollup.test.mjs && node test/emu-wiring.test.mjs && node test/quiet.test.mjs && node test/read-meter.test.mjs && node test/read-ledger.test.mjs && node test/frame-fs.test.mjs && node test/boot-reads.test.mjs && node test/ai-assistant-reach.test.mjs && node test/expense-receipt.test.mjs && node tools/pvcalc/web/test_core.mjs && node tools/pvcalc/web/test_dxf.mjs && node test/build-version.test.mjs",
+    "test": "node test/messenger-lib.test.mjs && node test/pwa-w1.test.mjs && node test/ai-perm.test.mjs && node test/ai-action.test.mjs && node test/data-agent.test.mjs && node test/prompt-budget.test.mjs && node test/ai-actions-registry.test.mjs && node test/wbs-rollup.test.mjs && node test/emu-wiring.test.mjs && node test/quiet.test.mjs && node test/read-meter.test.mjs && node test/read-ledger.test.mjs && node test/frame-fs.test.mjs && node test/boot-reads.test.mjs && node test/ai-assistant-reach.test.mjs && node test/expense-receipt.test.mjs && node test/xss-index.test.mjs && node tools/pvcalc/web/test_core.mjs && node tools/pvcalc/web/test_dxf.mjs && node test/build-version.test.mjs",
     "emu": "firebase emulators:start --only firestore,auth --project sejong-platform",
     "emu:seed": "node test/seed-emulator.mjs",
     "serve": "node test/serve.mjs"
