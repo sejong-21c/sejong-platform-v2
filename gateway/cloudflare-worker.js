@@ -25,6 +25,10 @@
  *     그 주소·키·모델을 env 보다 **먼저** 썼다. 그 문서는 사내 계정 누구나 고칠 수 있었다 — 한 명이 주소를
  *     바꾸면 전 직원의 CAR 요약·품질 보고서·AI 비서 질문(회사 자료)이 그 서버로 갔다. 지금 라우터는 맥미니의
  *     omniroute(바깥 주소 https://router.sejong21c.com/v1) — NINEROUTER_BASE 에 넣는다. 규칙도 관리자 전용으로 닫았다.
+ *  3-g) v5.7(2026-09-26 보안 전수 대조): 파일 올리기(/file/put)는 직원 로그인이면 **새 파일만** — 첨부(att/)·본인 영수증함 안에서.
+ *     전에는 경비 밖 열쇠는 아무나 덮어썼다. 열쇠는 사내 누구나 읽는 t_ncrs·t_cars 에 있으니 남의 NCR·CAR 증거 사진·도면을
+ *     같은 이름으로 바꿔치기할 수 있었다(기록 판·이력에도 안 남고 R2 는 백업도 없다). 재무부(expense/ 안)·서버 토큰은 그대로.
+ *     /file/get: 그림·PDF·글 말고는 내려받기로(Content-Disposition) + nosniff — 올린 HTML·SVG 가 이 주소에서 페이지로 뜨지 않게.
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
@@ -1186,7 +1190,14 @@ async function handleFile(request, env, url, cors) {
     const obj = 머리만 ? await env.FILES.head(k) : await env.FILES.get(k);
     if (!obj) return json(404, { error: '없는 파일' }, cors);
     const h = new Headers(cors);
-    h.set('Content-Type', obj.httpMetadata?.contentType || 'application/octet-stream');
+    const 꼴 = obj.httpMetadata?.contentType || 'application/octet-stream';
+    h.set('Content-Type', 꼴);
+    // v5.7: 올린 사람이 정한 Content-Type 을 그대로 돌려준다 — HTML·SVG 면 이 주소에서 페이지(스크립트)로 떴다.
+    //   그림·PDF·글·소리·영상만 바로 보이고 나머지는 내려받기. nosniff 로 브라우저가 꼴을 짐작해 바꾸지 못하게.
+    h.set('X-Content-Type-Options', 'nosniff');
+    if (!/^(image\/(png|jpe?g|gif|webp|bmp|avif|heic|heif)|application\/pdf|text\/plain|audio\/[\w.+-]+|video\/[\w.+-]+)(;|$)/i.test(꼴)) {
+      h.set('Content-Disposition', 'attachment');
+    }
     // **크기를 반드시 준다.** 이관 스크립트는 조각을 지우기 전에 HEAD 로 크기를 대조하는데,
     // 이게 없으면 "0바이트로 저장됐다" 로 읽혀 멀쩡한 이관이 통째로 멈춘다(2026-09-20 실제로 그랬다).
     if (Number.isFinite(obj.size)) h.set('Content-Length', String(obj.size));
@@ -1206,6 +1217,12 @@ async function handleFile(request, env, url, cors) {
     const k = String(url.searchParams.get('key') || '');
     if (!안전한키(k)) return json(400, { error: 'key 가 올바르지 않습니다' }, cors);
     if ((await 못만지는경비열쇠(env, auth, [k])).length) return json(403, { error: '경비 파일은 본인 영수증함(expense/inbox/<내 uid>_)이나 재무부만 올릴 수 있습니다' }, cors);
+    // v5.7: 직원은 **새 파일만** — 올리는 화면은 전부 매번 새 열쇠를 만든다(attach.mjs 새열쇠 · 메신저 영수증함 시각).
+    //   재무부는 expense/ 안에서 덮어쓴다(경비 화면이 같은 번호 영수증·로고를 같은 열쇠로 다시 올린다). 서버 토큰(auth null)은 그대로.
+    if (auth && !(k.startsWith('expense/') && await 재무부인가(env, auth))) {
+      if (!k.startsWith('att/') && !k.startsWith('expense/')) return json(403, { error: '첨부(att/)나 본인 영수증함에만 올릴 수 있습니다' }, cors);
+      if (await env.FILES.head(k)) return json(409, { error: '이미 있는 파일은 덮어쓸 수 없습니다 — 새 이름으로 올려 주세요' }, cors);
+    }
     const ct = request.headers.get('Content-Type') || 'application/octet-stream';
     const 최대 = 25 * 1024 * 1024;
     const len = Number(request.headers.get('Content-Length') || 0);

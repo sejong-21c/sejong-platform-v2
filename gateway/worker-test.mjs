@@ -1104,7 +1104,7 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
 {
   const 파일통 = new Map();
   const 파일env = { ...env, FILE_SIGN_KEY: 'test-sign-key', MIGRATE_TOKEN: 'SERVER-TOKEN-TEST',
-    FILES: { put: async (k, v) => { 파일통.set(k, v); }, get: async () => null, head: async () => null } };
+    FILES: { put: async (k, v) => { 파일통.set(k, v); }, get: async () => null, head: async (k) => (파일통.has(k) ? { size: 3 } : null) } };
   const 서명 = async (토큰, keys) => (await worker.fetch(new Request('https://gw.test/file/sign', {
     method: 'POST', headers: { Authorization: 'Bearer ' + 토큰, 'Content-Type': 'application/json' }, body: JSON.stringify({ keys }) }), 파일env)).json();
   const 올리기 = (토큰, 키) => worker.fetch(new Request('https://gw.test/file/put?key=' + encodeURIComponent(키), {
@@ -1113,7 +1113,7 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   const 내것 = 'expense/inbox/u_staffsejong-21c.com_1727300000000.jpg';
   const 남의것 = 'expense/inbox/u_othersejong-21c.com_1727300000000.jpg';
   const 재무자리 = 'expense/E123/0.jpg';
-  const 딴것 = 'ncr/N1/0.jpg';
+  const 딴것 = 'att/ncr/20260926/n1abc123';
   fsStore['users/u_fin@sejong-21c.com'] = { name: { stringValue: '재무담당' }, dept: { stringValue: '재무부' }, grade: { stringValue: 'member' } };
   fsStore['users/u_boss@sejong-21c.com'] = { name: { stringValue: '임원' }, dept: { stringValue: '영업부' }, grade: { stringValue: 'exec' } };
   fsStore['users/u_fsdown@sejong-21c.com'] = { name: { stringValue: '재무신입' }, dept: { stringValue: '재무부' }, grade: { stringValue: 'member' } };
@@ -1150,6 +1150,36 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   check('경비 v5.4: users 를 못 읽는 날 — 남의 경비 파일은 막고(fail closed) 자기 영수증함은 된다',
     !!(s6.urls || {})[모름내것] && (s6.denied || []).includes(남의것) && p6.status === 200 && p7.status === 403,
     JSON.stringify({ urls: Object.keys(s6.urls || {}), denied: s6.denied, p6: p6.status, p7: p7.status }));
+
+  // v5.7(9/26 보안 전수 대조): 열쇠는 사내 누구나 읽는 t_ncrs·t_cars 에 있다 — 덮어쓰면 남의 증거 사진을 바꿔치기한다.
+  파일통.set(딴것, 'jpg');
+  const 바꿔치기 = await 올리기(staffToken, 딴것), 내것다시 = await 올리기(staffToken, 내것);
+  const 딴자리 = await 올리기(staffToken, 'ncr/N1/0.jpg'), 규격자리 = await 올리기(staffToken, 'asme/fig1.png');
+  check('파일 v5.7: 직원은 **있는 파일을 못 덮는다**(남의 NCR 첨부·자기 영수증도) — 409',
+    바꿔치기.status === 409 && 내것다시.status === 409 && 파일통.get(딴것) === 'jpg', [바꿔치기.status, 내것다시.status].join(','));
+  check('파일 v5.7: 직원은 첨부(att/)·영수증함 밖에는 못 올린다 — 403', 딴자리.status === 403 && 규격자리.status === 403 && !파일통.has('ncr/N1/0.jpg'),
+    [딴자리.status, 규격자리.status].join(','));
+  check('파일 v5.7: 새 첨부는 된다(att/ 새 열쇠)', (await 올리기(staffToken, 'att/ncr/20260926/n2zz99')).status === 200);
+  check('파일 v5.7: 재무부는 expense/ 안에서 덮어쓴다(같은 번호 영수증·로고) · 서버 토큰은 어디든',
+    (await 올리기(재무, 재무자리)).status === 200 && (await 올리기('SERVER-TOKEN-TEST', 딴것)).status === 200
+    && (await 올리기(재무, 딴것)).status === 409);
+}
+
+// v5.7: 내려받기는 올린 사람이 정한 꼴을 그대로 돌려줬다 — HTML·SVG 면 게이트웨이 주소에서 페이지로 떴다.
+{
+  const 꼴들 = { 'att/a.html': 'text/html', 'att/b.svg': 'image/svg+xml', 'att/c.png': 'image/png', 'att/d.pdf': 'application/pdf' };
+  const 파일env = { ...env, FILE_SIGN_KEY: 'test-sign-key', MIGRATE_TOKEN: 'SERVER-TOKEN-TEST',
+    FILES: { get: async (k) => (꼴들[k] ? { body: 'x', size: 1, httpMetadata: { contentType: 꼴들[k] } } : null), head: async () => null, put: async () => {} } };
+  const s = await (await worker.fetch(new Request('https://gw.test/file/sign', { method: 'POST',
+    headers: { Authorization: 'Bearer SERVER-TOKEN-TEST', 'Content-Type': 'application/json' }, body: JSON.stringify({ keys: Object.keys(꼴들) }) }), 파일env)).json();
+  const 머리 = {};
+  for (const k of Object.keys(꼴들)) {
+    const r = await worker.fetch(new Request(s.urls[k]), 파일env);
+    머리[k] = { st: r.status, cd: r.headers.get('Content-Disposition'), ns: r.headers.get('X-Content-Type-Options') };
+  }
+  check('파일 v5.7: HTML·SVG 는 내려받기(attachment) · 그림·PDF 는 바로 보기 · 전부 nosniff',
+    머리['att/a.html'].cd === 'attachment' && 머리['att/b.svg'].cd === 'attachment' && !머리['att/c.png'].cd && !머리['att/d.pdf'].cd
+    && Object.values(머리).every((x) => x.st === 200 && x.ns === 'nosniff'), JSON.stringify(머리));
 }
 
 // ── v5.5: 범위를 모르는 날 (2026-09-26) ─────────────────────────────────────
