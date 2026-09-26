@@ -4392,12 +4392,16 @@ function MCP연결확인() {
   const 나 = getU(state.currentUser) || {};
   const 누구 = (나.name || '') + (나.dept ? ' · ' + 나.dept : '') + ' (' + ((fb.auth.currentUser && fb.auth.currentUser.email) || '') + ')';
   const 부서말 = 나.grade === 'super' ? '전 부서 자료(비밀 도면·인사기록 제외)' : `<b>${esc(나.dept || '소속 부서')}</b> 와 전사 공용 자료`;
+  // 2026-09-26 직원 시범 전 대조에서 발견: 규격·NAS 표만 적혀 있었는데 직원 도구(파이스 src/mcp_oauth.js 직원도구)는
+  //   부서 파일 찾기·원본 읽기·기록 세기(9/25)까지 늘었다 — 동의 화면은 넘기는 것을 빠짐없이 적는다.
+  //   기록 세기(count_records)는 범위를 안 받아 전사 건수다 → 따로 적는다.
   openModal('🔌 내 AI 에 회사 자료 연결', `
     <div style="font-size:13px;line-height:1.75;color:var(--text);">
       <b>${esc(요청.앱 || 'AI 앱')}</b>${요청.어디 ? ` <span style="color:var(--text-light);font-size:12px;">(${esc(요청.어디)})</span>` : ''} 이
       <b>${esc(누구)}</b> 님 이름으로 회사 자료를 <b>읽도록</b> 연결을 요청했습니다.
       <div class="card" style="padding:10px 12px;margin:10px 0;font-size:12px;">
-        <div>✅ 읽을 수 있는 것 — 사내 규격·기준·도면 표제란 검색, NAS 표 조회. 범위: ${부서말}</div>
+        <div>✅ 읽을 수 있는 것 — 사내 규격·기준·도면 표제란 검색, NAS 부서 파일 찾기와 <b>원본 내용 읽기</b>(PDF·엑셀·워드·한글 등, 개인 자료 폴더는 본인 것만), NAS 표 조회. 범위: ${부서말}</div>
+        <div style="margin-top:4px;">📊 플랫폼 기록 세기 — NCR·CAR·회의록·측정기구·자산·라이선스·스케줄 공정 건수를 <b>전사 기준</b>으로 묶어 셉니다(사람 이름별로는 세지 않음).</div>
         <div style="margin-top:4px;">🚫 못 하는 것 — 쓰기·결재·메신저·B등급(반출금지) 도면</div>
         <div style="margin-top:4px;">💳 비용 — 회사 부담 0. 답을 만드는 건 <b>본인 구독</b>의 모델입니다.</div>
       </div>
@@ -4433,8 +4437,8 @@ async function 내AI연결창() {
   openModal('🔌 내 Claude·ChatGPT 연결', `
     <div style="font-size:12.5px;line-height:1.75;color:var(--text);">
       <b>본인</b>이 쓰는 Claude·ChatGPT 에 회사 자료를 붙입니다. 답을 만드는 건 본인 구독의 모델이고
-      <b>회사 비용은 0</b> 입니다. 연결하면 그 앱에서 사내 규격·도면 표제란·NAS 표를 <b>본인 부서 범위</b>로 읽을 수 있습니다
-      (쓰기·결재·메신저·B등급 도면은 안 됩니다).
+      <b>회사 비용은 0</b> 입니다. 연결하면 그 앱에서 사내 규격·도면 표제란·NAS 부서 파일(원본 내용까지)·NAS 표를 <b>본인 부서 범위</b>로 읽고,
+      플랫폼 기록(NCR·CAR·회의록 등) 건수를 전사 기준으로 셀 수 있습니다 (쓰기·결재·메신저·B등급 도면은 안 됩니다).
       <div style="font-weight:700;margin:12px 0 6px;">커넥터 주소</div>
       <div style="display:flex;gap:6px;"><input id="BYO주소" class="input" readonly value="${esc(주소)}" style="flex:1;font-family:monospace;font-size:12px;">
         <button class="btn btn-sm" onclick="(async()=>{const i=document.getElementById('BYO주소');try{await navigator.clipboard.writeText(i.value);this.textContent='복사됨';}catch(e){i.select();}})()">복사</button></div>
