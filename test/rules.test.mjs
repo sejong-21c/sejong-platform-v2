@@ -32,6 +32,7 @@ const 사람 = {
   품질원: { uid: 'u_qa',    email: 'qa@sejong-21c.com',     dept: '품질관리부', grade: 'member' },
   생산원: { uid: 'u_prod',  email: 'prod@sejong-21c.com',   dept: '생산부',    grade: 'member' },
   임원:   { uid: 'u_exec',  email: 'exec@sejong-21c.com',   dept: '총무부',    grade: 'exec' },
+  재무원: { uid: 'u_fin',   email: 'fin@sejong-21c.com',    dept: '재무부',    grade: 'member' },
   예외:   { uid: 'u_edu',   email: 'hkaiedu@naver.com',     dept: '',          grade: 'member' },
   외부인: { uid: 'u_out',   email: 'someone@gmail.com',     dept: '',          grade: 'member' },
 };
@@ -207,6 +208,56 @@ await T('CAR 도 같은 잣대', async () => {
 await T('새 기록은 판 없이도 만들 수 있다(만들 때는 이력이 만듦 한 줄)', async () => {
   await assertSucceeds(setDoc(doc(로그인(사람.품질원), 't_ncrs', 'ncr_new'), { title: '새 부적합', rev: 1 }));
 });
+
+// 2026-09-26 직원 시범 전 대조: t_expense·t_expenseEntries 가 범용 t_ 규칙에 걸려
+//   사내 누구나 카드 목록·전 직원 경비를 읽고 지울 수 있었다. 재무부(또는 super·exec)만 본다.
+console.log('\n── 업무 경비 — 직원은 제 것만 올린다 (2026-09-26)');
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 't_expense', 'main'), { cards: [{ id: 'c1', name: '법인카드' }], 마감: { '2026-08': { 때: 1, 누가: '재무' } } });
+  await setDoc(doc(db, 't_expense', 'lock'), { 마감: { '2026-08': { 때: 1 } } });
+  await setDoc(doc(db, 't_expenseEntries', 'M_qa_1'), { id: 'M_qa_1', amount: 1000, 올린이: 사람.품질원.uid });
+  await setDoc(doc(db, 't_expenseEntries', 'E_fin_1'), { id: 'E_fin_1', amount: 5000, cardId: 'c1' });
+});
+const 경비 = (uid, id) => ({ id, amount: 12000, usage: '주유', 올린이: uid });
+await T('직원은 제 이름으로 경비를 올린다', () =>
+  assertSucceeds(setDoc(doc(로그인(사람.생산원), 't_expenseEntries', 'M_prod_1'), 경비(사람.생산원.uid, 'M_prod_1'))));
+await T('**같은 영수증을 또 올리면 거부** — 두 번째 setDoc 은 update 다(중복 방지)', () =>
+  assertFails(setDoc(doc(로그인(사람.생산원), 't_expenseEntries', 'M_prod_1'), 경비(사람.생산원.uid, 'M_prod_1'))));
+await T('남의 이름으로는 못 올린다', () =>
+  assertFails(setDoc(doc(로그인(사람.생산원), 't_expenseEntries', 'M_prod_2'), 경비(사람.품질원.uid, 'M_prod_2'))));
+await T('올린이 없이는 직원이 못 만든다', () =>
+  assertFails(setDoc(doc(로그인(사람.생산원), 't_expenseEntries', 'M_prod_3'), { id: 'M_prod_3', amount: 1 })));
+await T('제가 올린 것은 읽는다', () => assertSucceeds(getDoc(doc(로그인(사람.생산원), 't_expenseEntries', 'M_prod_1'))));
+await T('**남의 경비는 못 읽는다**', () => assertFails(getDoc(doc(로그인(사람.생산원), 't_expenseEntries', 'M_qa_1'))));
+await T('**경비 내역을 통째로 훑으면 거부**', () => assertFails(getDocs(collection(로그인(사람.생산원), 't_expenseEntries'))));
+await T('직원은 제 것도 못 지운다(재무부가 본다)', () => assertFails(deleteDoc(doc(로그인(사람.생산원), 't_expenseEntries', 'M_prod_1'))));
+await T('직원은 남의 것을 못 지운다', () => assertFails(deleteDoc(doc(로그인(사람.생산원), 't_expenseEntries', 'E_fin_1'))));
+await T('**직원은 경비 설정(카드 목록)을 못 읽는다**', () => assertFails(getDoc(doc(로그인(사람.생산원), 't_expense', 'main'))));
+await T('직원은 경비 설정을 못 쓴다', () => assertFails(setDoc(doc(로그인(사람.생산원), 't_expense', 'main'), { cards: [] })));
+await T('직원도 마감 표시(lock)는 읽는다 — 메신저가 올리기 전에 본다', () =>
+  assertSucceeds(getDoc(doc(로그인(사람.생산원), 't_expense', 'lock'))));
+await T('직원은 마감 표시를 못 쓴다', () => assertFails(setDoc(doc(로그인(사람.생산원), 't_expense', 'lock'), { 마감: {} })));
+await T('사외 계정은 마감 표시도 못 읽는다', () => assertFails(getDoc(doc(로그인(사람.외부인), 't_expense', 'lock'))));
+await T('재무부는 설정을 읽고 쓴다', async () => {
+  await assertSucceeds(getDoc(doc(로그인(사람.재무원), 't_expense', 'main')));
+  await assertSucceeds(setDoc(doc(로그인(사람.재무원), 't_expense', 'main'), { cards: [], updatedAt: 2 }));
+  await assertSucceeds(setDoc(doc(로그인(사람.재무원), 't_expense', 'lock'), { 마감: { '2026-08': { 때: 2 } } }));
+});
+await T('재무부는 내역 전체를 읽는다 — expense.html 이 쓰는 바로 그 질의(getDocs 통째로)', () =>
+  assertSucceeds(getDocs(collection(로그인(사람.재무원), 't_expenseEntries'))));
+await T('재무부는 남이 올린 내역을 고치고 지운다', async () => {
+  await assertSucceeds(setDoc(doc(로그인(사람.재무원), 't_expenseEntries', 'M_qa_1'), { id: 'M_qa_1', amount: 1000, cardId: 'c1', 올린이: 사람.품질원.uid }));
+  await assertSucceeds(deleteDoc(doc(로그인(사람.재무원), 't_expenseEntries', 'M_prod_1')));
+});
+await T('재무부는 올린이 없이 손으로 내역을 넣는다', () =>
+  assertSucceeds(setDoc(doc(로그인(사람.재무원), 't_expenseEntries', 'E_fin_2'), { id: 'E_fin_2', amount: 3000, cardId: 'c1' })));
+await T('임원은 설정과 내역을 읽는다', async () => {
+  await assertSucceeds(getDoc(doc(로그인(사람.임원), 't_expense', 'main')));
+  await assertSucceeds(getDocs(collection(로그인(사람.임원), 't_expenseEntries')));
+});
+await T('super 도 내역을 읽는다', () => assertSucceeds(getDocs(collection(로그인(사람.부장), 't_expenseEntries'))));
+await T('다른 부서 직원(품질)은 설정을 못 읽는다', () => assertFails(getDoc(doc(로그인(사람.품질원), 't_expense', 'main'))));
 
 await env.cleanup();
 console.log(`\n통과 ${통과} · 실패 ${실패}`);

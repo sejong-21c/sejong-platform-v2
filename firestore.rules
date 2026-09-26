@@ -198,12 +198,38 @@ service cloud.firestore {
       allow create: if isCompanyUser() && request.resource.data.uid == request.auth.uid;
       allow update, delete: if isCompanyUser() && resource.data.uid == request.auth.uid;
     }
+    // ── 업무 경비 (2026-09-26 직원 시범 전 대조에서 발견) ──────────────────────
+    // 그전에는 둘 다 맨 아래 범용 t_ 규칙에 걸려 있었다 — 사내 계정이면 누구나 t_expense/main
+    //   (카드 목록·마감)과 t_expenseEntries(전 직원 금액·상호·승인번호)를 읽고 고치고 지웠다.
+    // 재무부 판정은 화면 canSeeDept('재무부')(index.html: super·exec 이거나 dept 가 같다)와 같다.
+    //   게이트웨이 /file/sign 의 expense/ 열쇠도 같은 판정이다 — 셋이 갈라지면 한쪽만 열린다.
+    function isFinanceOrExec() {
+      let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isCompanyUser() && (u.get('dept', '') == '재무부' || u.get('grade', '') in ['super', 'exec']);
+    }
+    // lock 은 마감한 달→{때} 만 담은 작은 문서다(이름·카드 없음). 메신저가 올리기 전에 본다.
+    //   앞의 lock 비교가 참이면 users 조회를 안 한다(직원이 올릴 때마다 읽기 1회가 더 붙지 않게).
+    match /t_expense/{docId} {
+      allow read: if (isCompanyUser() && docId == 'lock') || isFinanceOrExec();
+      allow write: if isFinanceOrExec();
+    }
+    // 직원은 **제 이름으로 만들기만** 한다(메신저 「경비 내역서에 올리기」). 읽기는 제 것만.
+    //   id 가 메시지에 묶여 있어(M_<메시지id>) 두 번 누르면 두 번째는 update 가 되어 여기서 거부된다.
+    //   필드 이름이 한글이라 점 대신 get('올린이', '') 로 읽는다(점으로 쓰면 규칙이 컴파일되지 않는다).
+    match /t_expenseEntries/{id} {
+      allow create: if (isCompanyUser() && request.resource.data.get('올린이', '') == request.auth.uid)
+                    || isFinanceOrExec();
+      allow read: if (isCompanyUser() && resource.data.get('올린이', '') == request.auth.uid)
+                  || isFinanceOrExec();
+      allow update, delete: if isFinanceOrExec();
+    }
     match /{col}/{docId} {
       // **여기서 빼야 위 규칙이 실제로 걸린다.** Firestore 는 어느 한 규칙이 허용하면 통과한다 —
       // t_ncrs·t_cars·t_recordLog 가 여기 남아 있으면 판 강제도 덧붙이기 전용도 아무 소용이 없다.
       allow read, write: if isCompanyUser() && col.matches('^t_.*')
                          && col != 't_userProfile' && col != 't_aiChat'
-                         && col != 't_recordLog' && col != 't_ncrs' && col != 't_cars';
+                         && col != 't_recordLog' && col != 't_ncrs' && col != 't_cars'
+                         && col != 't_expense' && col != 't_expenseEntries';
     }
   }
 }
