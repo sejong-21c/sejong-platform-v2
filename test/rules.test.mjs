@@ -138,9 +138,11 @@ await T('방은 지울 수 없다', () => assertFails(deleteDoc(doc(로그인(�
 await T('t_userProfile 은 본인만 쓴다', () => assertFails(setDoc(doc(로그인(사람.생산원), 't_userProfile', 사람.부장.uid), { phone: '010-9999-9999' })));
 await T('t_userProfile 도 내 것은 쓴다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 't_userProfile', 사람.부장.uid), { phone: '010-1111-1111' })));
 await T('접속 기록은 만들 수만 있다(고치기 금지)', () => assertFails(setDoc(doc(로그인(사람.부장), 'accessLog', 'a1'), { at: 1 }).then(() => setDoc(doc(로그인(사람.부장), 'accessLog', 'a1'), { at: 2 }))));
-await T('AI 사용 기록도 고칠 수 없다', async () => {
-  await assertSucceeds(setDoc(doc(로그인(사람.품질원), 'aiUsage', 'u1'), { uid: 사람.품질원.uid, at: 1 }));
-  await assertFails(setDoc(doc(로그인(사람.품질원), 'aiUsage', 'u1'), { at: 2 }, { merge: true }));
+// 9/26: 옛 aiUsage 는 닫았다 — 코드는 b108 부터 안 쓴다(장부는 게이트웨이 aiUsageDaily). 읽기만 남는다.
+await T('옛 AI 사용 기록은 새로 못 만든다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'aiUsage', 'u1'), { uid: 사람.품질원.uid, at: 1 })));
+await T('옛 AI 사용 기록은 읽는다', async () => {
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'aiUsage', 'old1'), { uid: 'x', at: 1 }); });
+  await assertSucceeds(getDoc(doc(로그인(사람.품질원), 'aiUsage', 'old1')));
 });
 // v3.9(2026-09-23): 게이트웨이 장부. 브라우저가 쓸 수 있으면 자기 횟수를 0 으로 되돌려
 //   하루 한도를 빠져나간다 — 그러면 한도는 장식이다. super 도 못 쓴다(게이트웨이만 쓴다).
