@@ -20,6 +20,11 @@
  *     limit: 'user_daily'(사람별 하루 한도) | 'company_quota'(회사 열쇠가 전부 429 · retryAfter 초 · upstream 원문 200자).
  *     회사 몫이 마르면 ① 6초 이하면 한 번 기다렸다 ② 맡긴 개인 열쇠로 한 번 ③ 그래도 안 되면 company_quota.
  *     /file/sign·/file/put: expense/ 는 본인 영수증함(expense/inbox/<uid>_)·재무부(dept 재무부 또는 super/exec)·서버 토큰만.
+ *  3-f) v5.6(2026-09-26): **9Router 길은 이 워커의 설정만 믿는다**(NINEROUTER_BASE·NINEROUTER_KEYS·NINEROUTER_MODEL).
+ *     전에는 Firestore t_aiSharedConfig/config(옛 AI 비서의 '로컬 LLM 공용 공유')를 부른 직원의 토큰으로 읽어
+ *     그 주소·키·모델을 env 보다 **먼저** 썼다. 그 문서는 사내 계정 누구나 고칠 수 있었다 — 한 명이 주소를
+ *     바꾸면 전 직원의 CAR 요약·품질 보고서·AI 비서 질문(회사 자료)이 그 서버로 갔다. 지금 라우터는 맥미니의
+ *     omniroute(바깥 주소 https://router.sejong21c.com/v1) — NINEROUTER_BASE 에 넣는다. 규칙도 관리자 전용으로 닫았다.
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
@@ -113,9 +118,10 @@ const PROVIDERS = {
       if (!headers.has('anthropic-version')) headers.set('anthropic-version', '2023-06-01');
     },
   },
-  // 9Router Proxy (OpenAI 호환). 공용 사용 시에는 상시 실행되는 9Router 서버를
-  // Cloudflare Tunnel 등의 HTTPS 주소로 노출하고, 그 주소를 NINEROUTER_BASE에 넣는다.
-  // (9Router의 기본 localhost:20128은 Cloudflare Worker에서 접근할 수 없다.)
+  // 9Router Proxy (OpenAI 호환). 이름은 역사적 — 지금은 맥미니의 omniroute 가 이 자리다(2026-09 맥 이사 뒤
+  // 옛 9Router 터널은 없다). 바깥 주소(예: https://router.sejong21c.com/v1)를 NINEROUTER_BASE 에, 키를
+  // NINEROUTER_KEYS 에 넣는다. (localhost 주소는 Cloudflare Worker 에서 닿지 않는다.)
+  // v5.6: 주소·키·모델은 **env 에서만** 읽는다 — Firestore 공용 설정은 안 믿는다(머리 3-f).
   '9router': {
     envKey: 'NINEROUTER_KEYS',
     baseEnv: 'NINEROUTER_BASE',
@@ -601,27 +607,7 @@ async function handleRag(request, env, path, cors) {
   return json(404, { error: 'usage: POST /rag/search · /rag/table · /rag/upload · /rag/record · /rag/record-status' }, cors);
 }
 
-// v2: 9Router 동적 설정 — 부장님이 플랫폼 🔑에서 '전 직원 공용 공유'한 터널 주소/키/모델
-// (Firestore t_aiSharedConfig/config)을 호출한 직원의 Firebase 토큰으로 그대로 읽는다.
-// → 터널 주소가 바뀌어도 Cloudflare 대시보드 수정 불필요 (플랫폼에서 공유 갱신만 하면 됨).
-// Firestore 규칙상 t_* 컬렉션은 사내 계정 토큰이면 read 허용이므로 별도 서비스 계정이 필요 없다.
-async function fetchSharedNineRouter(env, request) {
-  try {
-    const projectId = 프로젝트id(env);
-    const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i);
-    if (!projectId || !match) return null;
-    const r = await fetch(
-      'https://firestore.googleapis.com/v1/projects/' + projectId + '/databases/(default)/documents/t_aiSharedConfig/config',
-      { headers: { Authorization: 'Bearer ' + match[1] } }
-    );
-    if (!r.ok) return null;
-    const f = ((await r.json()) || {}).fields || {};
-    const sv = k => (f[k] && f[k].stringValue) ? String(f[k].stringValue).trim() : '';
-    const base = sv('localUrl').replace(/\/+$/, '');
-    if (!base) return null;
-    return { base, key: sv('localKey'), model: sv('localModel') };
-  } catch (e) { return null; }
-}
+// (v5.6 에서 지움) fetchSharedNineRouter — t_aiSharedConfig 를 직원 토큰으로 읽어 9Router 주소로 쓰던 것. 머리 3-f 참고.
 
 // ── v3.1: 능동 알림 (Cron) — Firestore REST + 서비스 계정 ─────────
 // 서비스 계정 키(FIREBASE_SA_KEY)로 액세스 토큰을 만들어 Firestore를 읽고 쓴다.
@@ -1610,12 +1596,10 @@ export default {
       return out;
     };
 
-    // v2: 9router는 플랫폼에서 공유한 동적 설정(터널 주소/키/모델)을 먼저 쓰고, env를 폴백으로.
-    const dyn = m[1] === '9router' ? await fetchSharedNineRouter(env, request) : null;
-
+    // v5.6: 9router 도 env 만 — Firestore 공용 설정(t_aiSharedConfig)은 누구나 고칠 수 있었다(머리 3-f).
     let keys = (env[provider.envKey] || '').split(/[\s,;]+/).filter(Boolean);
-    if (dyn && dyn.key) keys = [dyn.key];
-    if (!keys.length && m[1] === '9router' && dyn) keys = ['9router'];   // 9Router 기본 키 관례
+    // 9Router 기본 키 관례('9router') — 주소는 있는데 키를 안 넣었을 때. 전엔 공용 설정에만 걸려 있었다.
+    if (!keys.length && m[1] === '9router' && (env[provider.baseEnv] || '').trim()) keys = ['9router'];
     // v4.1: 한도를 넘은 사람은 **자기 열쇠 하나만** 쓴다. 회사 열쇠를 뒤에 붙이면
     //   자기 열쇠가 잠깐 실패했을 때 조용히 회사 몫으로 넘어가 한도가 무의미해진다.
     if (개인열쇠) keys = [개인열쇠];
@@ -1623,11 +1607,10 @@ export default {
 
     let body = await request.text();
     let baseUrl = (provider.baseEnv ? (env[provider.baseEnv] || '') : provider.base || '').trim().replace(/\/+$/, '');
-    if (dyn && dyn.base) baseUrl = dyn.base;
-    if (!baseUrl) return 끝(json(501, { error: m[1] + ' base URL not configured on gateway (플랫폼 🔑에서 로컬 LLM 공용 공유를 하거나 NINEROUTER_BASE를 설정하세요)' }, cors));
+    if (!baseUrl) return 끝(json(501, { error: m[1] + ' base URL not configured on gateway (워커 Secret NINEROUTER_BASE 에 omniroute 바깥 주소를 넣으세요 — 예: https://router.sejong21c.com/v1)' }, cors));
     if (provider.modelEnv) {
-      // v2: 모델 우선순위 — 공유 설정 > env > 클라이언트가 보낸 model 그대로 (없어도 501 내지 않음)
-      const model = (dyn && dyn.model) || (env[provider.modelEnv] || '').trim();
+      // v5.6: 모델 우선순위 — env > 클라이언트가 보낸 model 그대로 (없어도 501 내지 않음). 공용 설정은 안 본다
+      const model = (env[provider.modelEnv] || '').trim();
       if (model) {
         try {
           const payload = JSON.parse(body);

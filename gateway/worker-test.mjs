@@ -68,12 +68,20 @@ let 사용자읽기고장 = false; // v5.4: users 문서 읽기가 429 인 날 �
 let 커밋던짐 = false; // v5.3: Firestore 로 가는 fetch 자체가 던지는 날(서비스 계정 토큰 실패도 같은 길)
 let 제공자답 = null;  // v5.3: null 이면 200+usage. {status:413} 이면 그 상태, {sse:true} 면 SSE 로 답한다
 let 제공자차례 = [];  // v5.4: 호출마다 앞에서 하나씩 꺼내 제공자답 대신 쓴다 — {status, message, headers}. 비면 제공자답
+let 공용설정읽음 = 0; // v5.6: t_aiSharedConfig 를 워커가 읽은 횟수 — 0 이어야 한다
+let 라우터부름 = [];   // v5.6: 9Router 자리(omniroute·evil)로 실제로 나간 호출
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input.url;
   const method = (init && init.method) || 'GET';
   let body = null;
   if (init && init.body) { try { body = JSON.parse(init.body); } catch (e) {} } // OAuth 본문은 폼 형식 — JSON 아님
+  if (url.includes('/t_aiSharedConfig/')) 공용설정읽음++;   // v5.6: 게이트웨이는 이 문서를 **읽으면 안 된다**
+  if (url.startsWith('https://omniroute.test/') || url.startsWith('https://evil.test/')) {   // v5.6: 9Router 자리 모의
+    const 열 = (init?.headers && (init.headers.get ? init.headers.get('Authorization') : init.headers.Authorization)) || '';
+    라우터부름.push({ url, 열쇠: String(열).replace(/^Bearer /, ''), 모델: body && body.model });
+    return Response.json({ choices: [{ message: { content: '네' } }], usage: { prompt_tokens: 5, completion_tokens: 1 } });
+  }
   if (url.includes('googleapis.com/service_accounts/v1/jwk/')) {
     return Response.json({ keys: [pubJwk] });
   }
@@ -1197,6 +1205,36 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   맥응답 = null;
   check('범위모름 v5.5: users 가 읽히면 평소대로 — 범위에 부서가 실리고 범위모름 은 없다',
     !!맥에보낸몸 && !('범위모름' in 맥에보낸몸) && (맥에보낸몸.범위 || []).includes('부서:설계부') && !('범위모름' in d4), JSON.stringify(맥에보낸몸));
+}
+
+// ── 9Router 길은 워커 설정만 (v5.6, 2026-09-26) ──────────────────────
+// 전에는 t_aiSharedConfig/config(사내 계정 누구나 고칠 수 있던 문서)의 주소를 env 보다 먼저 믿었다.
+{
+  const 토큰9 = await makeToken('nine@sejong-21c.com');
+  fsStore['t_aiSharedConfig/config'] = { localUrl: { stringValue: 'https://evil.test/v1' }, localKey: { stringValue: 'EVIL-KEY' }, localModel: { stringValue: 'evil/model' } };
+  const 부르기9 = async (더env) => {
+    const ps = [];
+    const r = await worker.fetch(new Request('https://gw.test/v1/9router/chat/completions', { method: 'POST',
+      headers: { Authorization: 'Bearer ' + 토큰9, 'Content-Type': 'application/json', 'x-sj-feature': 'car' },
+      body: JSON.stringify({ model: 'cc/claude-opus-4-7', messages: [] }) }), { ...env, ...더env }, { waitUntil: (p) => ps.push(p) });
+    await r.text(); await Promise.all(ps);
+    return r;
+  };
+  공용설정읽음 = 0; 라우터부름 = [];
+  const r1 = await 부르기9({ NINEROUTER_BASE: 'https://omniroute.test/v1', NINEROUTER_KEYS: 'OMNI-KEY' });
+  check('9Router v5.6: 공용 설정에 다른 주소가 있어도 **워커 설정(omniroute)으로만** 간다 — 키·모델도 워커/보낸 그대로',
+    r1.status === 200 && 라우터부름.length === 1 && 라우터부름[0].url === 'https://omniroute.test/v1/chat/completions'
+      && 라우터부름[0].열쇠 === 'OMNI-KEY' && 라우터부름[0].모델 === 'cc/claude-opus-4-7', JSON.stringify(라우터부름));
+  check('9Router v5.6: 게이트웨이는 t_aiSharedConfig 를 아예 안 읽는다', 공용설정읽음 === 0, '읽음=' + 공용설정읽음);
+  라우터부름 = [];
+  const r2 = await 부르기9({});
+  check('9Router v5.6: 워커에 주소가 없으면 501 — 공용 설정 주소로 물러서지 않는다',
+    r2.status === 501 && 라우터부름.length === 0, 'status=' + r2.status + ' ' + JSON.stringify(라우터부름));
+  라우터부름 = [];
+  await 부르기9({ NINEROUTER_BASE: 'https://omniroute.test/v1', NINEROUTER_MODEL: 'cc/claude-sonnet-5' });
+  check('9Router v5.6: 모델은 워커 설정(NINEROUTER_MODEL)이 이긴다 · 키가 없으면 관례 키(9router)',
+    라우터부름.length === 1 && 라우터부름[0].모델 === 'cc/claude-sonnet-5' && 라우터부름[0].열쇠 === '9router', JSON.stringify(라우터부름));
+  delete fsStore['t_aiSharedConfig/config'];
 }
 
 let fails = 0;
