@@ -42,7 +42,7 @@
 <body>
 <div class="wrap">
   <h1>세종 AI 로드맵 — 연말 시연회까지</h1>
-  <p class="sub">2026-09-26 오후 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
+  <p class="sub">2026-09-26 오전 11시 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
 
   <div class="lead">
     <b>지금 어디까지 왔나.</b> 직원 개방 세 칸(사용자별 장부 · 개인 API 열쇠 · 개인 구독 연결)이 다 찼다.
@@ -112,8 +112,11 @@
   <div class="item"><div class="row"><span class="t">20. 연말 판단 보고서</span><span class="chip done">도구 9/26 · 첫 보고 10/10</span><span class="who">맥 · 백업 사본 · 읽기 0</span></div>
     <div class="d">장부가 9/26 부터 기능·결과·토큰을 센다. 두 주 뒤 맥 백업 사본에서 하루 호출·토큰·413 비율·한도 걸린 사람·기능별 몫을 뽑아 "유료 모델로 가나 · 얼마나 드나" 한 장으로.<br><b>9/26</b> — scripts/ai-usage-report.mjs(기능·결과·모델·사람·날별 · 단가는 박지 않고 연말에 넣음). 10/10(토) 09:30 첫 보고서 자동 예약.</div></div>
 
-  <div class="item"><div class="row"><span class="t">21. 아침 8시에 읽기 한도가 찬 원인</span><span class="chip next">오늘 17:45 자동 분석</span><span class="who">맥 백업 사본 · 읽기 0</span></div>
-    <div class="d">9/26 08:21 Firestore 하루 읽기 5만이 이미 차 있었다(06:05 추정 약 6천). 파이스 장부 6,322 · 제가 연 브라우저 탭 셋 합 235 — 나머지 4만여 건이 어디서 읽혔는지 모른다. 한도가 풀린 뒤 17:20 백업 사본(readDaily·접속 기록)으로 가리도록 예약해 두었다. 그 사이 직원 화면은 캐시로만 돈다.</div></div>
+  <div class="item"><div class="row"><span class="t">21. 새벽에 읽기 한도가 찬 원인</span><span class="chip done">찾고 막음 9/26 · b110</span><span class="who">콘솔 사용량</span></div>
+    <div class="d">9/26 08:21 Firestore 하루 읽기 5만이 이미 차 있었다(06:05 추정 약 6천). 파이스 장부 6,322 · 제가 연 브라우저 탭 셋 합 235 — 나머지 4만여 건이 어디서 읽혔는지 모른다. 한도가 풀린 뒤 17:20 백업 사본(readDaily·접속 기록)으로 가리도록 예약해 두었다. 그 사이 직원 화면은 캐시로만 돈다.<br><b>9/26 원인 확정 — 제가 검증하고 안 닫은 Aside 플랫폼 탭 셋.</b> Firebase 콘솔 사용량: 읽기 16만 · 새벽 2시대 한 시간 2.2만 · 그 시간 쓰기 0 · 리스너 48(탭 하나 16 → 셋). 뒤에 숨은 탭이 연결을 끊었다 잇기를 되풀이하며 구독을 다시 걸었고, 계량기는 캐시와 같으면 0 으로 세서 아무도 몰랐다. 탭을 비웠고, <b>b110: 30분 넘게 가려진 탭은 Firestore 연결을 쉰다</b>(직원 PC 에 밤새 켠 탭도 이제 안 태운다). 개인 Claude 재연결이 안 되던 것도 이 한도 탓이었다(맥 백업 사본으로 사용자 찾기로 수리).</div></div>
+
+  <div class="item"><div class="row"><span class="t">22. 읽기 새는 자리 셋 막기</span><span class="chip next">후보</span><span class="who">코드 훑기에서 나온 구조적 위험</span></div>
+    <div class="d">이번 주범은 아니지만 같은 종류로 커질 수 있는 자리: ① 관리 탭 기록 화면(오류·접속·작업 활동)이 다시 그릴 때마다 300건을 다시 읽는다(기준 시각이 매번 달라 캐시도 안 먹는다) → AI 사용량처럼 5분 쥐기 ② QA 문서 생성기가 5초마다 문서를 묻는다 → 바뀔 때만 받기(onSnapshot) ③ 한 번 조회(getDocs)는 계량기에 안 잡힌다 → 감싸서 센다. 끝나면 장부 합이 콘솔과 자릿수라도 맞게.</div></div>
 
   <div class="item"><div class="row"><span class="t">마지막. ChatGPT 연결 시험</span><span class="chip later">맨 끝</span><span class="who">회사 GPT 계정 구매 뒤 · 10분</span></div>
     <div class="d">Claude 는 끝까지 확인했다. ChatGPT 는 같은 표준이라 될 가능성이 높지만 아직 0건 — 안내문에 「시험 중」.<br>9/25 서버 쪽 준비 확인 — ChatGPT 콜백 등록·허용 화면 이동·메타데이터 OK. <b>남은 것은 ChatGPT 계정으로 끝까지 붙여 보는 것뿐</b>(연결하면 이용 기록으로 바로 보인다).</div></div>
