@@ -1,6 +1,7 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.82.2: complete_task 에 권한 거름 — 남의 업무·부서 스케줄 대단락·OKR 자리표시를 빼고, 저장이 안 되면 실패로(9/26 직원 시범 전 대조).
  * v29.82.1: Claude 칸 안내에서 "ITP Builder와 공용"을 뺐다 — ITP Builder(c50)가 개인 키 직접 호출을
  *          그만두고 게이트웨이(회사 키)로 간다. 이 칸에 키를 넣어도 ITP 자동 분석과는 이제 상관없다.
  * v29.82: 옛 사용 기록(aiUsage, 질문 1건당 문서 1개)을 그만 쓴다 — 메신저를 못 보는 장부라 연말 판단에 못 썼다.
@@ -450,14 +451,23 @@
     resolve: function (v) {
       var t = String(v.title || '').toLowerCase().trim();
       if (!t) return { error: '어떤 업무인지 이름을 알려주세요.' };
+      // v29.82.2(2026-09-26): 메신저 업무완료(index.html)와 같은 거름 — 부서 스케줄 대단락(wbsBacked, 담당이 '나'로 만들어진다)은
+      //   부서 스케줄 권한이 있어야, OKR 자리표시는 빼고, 남의 업무는 judgeEditTask 로 거른다. 옛 판은 권한 검사가 없어
+      //   일반 직원이 남의 업무·부서 스케줄 줄까지 완료로 바꿀 수 있었다(직원 시범 전 대조에서 index 갈래가 짚음).
+      var me = (typeof getU === 'function' ? getU(state.currentUser) : null);
+      var 부서줄되나 = typeof canEditDeptSchedule === 'function' && canEditDeptSchedule((me || {}).dept);
       var pool = (typeof allKanbanTasks === 'function' ? allKanbanTasks() : (state.tasks || []))
-        .filter(function (x) { return x.status !== 'done'; });
+        .filter(function (x) { return x.status !== 'done' && !x.okrPlaceholder && (!x.wbsBacked || 부서줄되나); });
       var hits = pool.filter(function (x) { return (x.title || '').toLowerCase().indexOf(t) !== -1; });
       if (!hits.length) return { error: '"' + v.title + '" 업무를 찾지 못했습니다 (완료되지 않은 업무에서 검색).' };
       if (hits.length > 1) {
         return { error: '해당하는 업무가 ' + hits.length + '개입니다. 정확한 이름을 알려주세요: ' + hits.slice(0, 5).map(function (x) { return '"' + x.title + '"'; }).join(', ') + (hits.length > 5 ? ' 외' : '') };
       }
       var x = hits[0];
+      if (!x.wbsBacked) {
+        var perm = judgeEditTask(me, x, (state.projects || []).find(function (p) { return p.id === x.proj; }), state.users);
+        if (!perm.ok) return { error: perm.why };
+      }
       var u = (state.users || []).find(function (z) { return z.id === x.assignee; });
       return {
         taskId: x.id,
@@ -471,7 +481,11 @@
     },
     commit: function (resolved) {
       if (typeof moveTask !== 'function') throw new Error('이 화면에서는 업무 상태를 바꿀 수 없습니다.');
-      return moveTask(resolved.taskId, 'done');
+      // moveTask 는 저장이 끝나야 true 를 돌려준다(index.html 9/26) — 아니면 실패를 카드로 올린다(옛 판은 ✓ 거짓 성공).
+      return Promise.resolve(moveTask(resolved.taskId, 'done')).then(function (ok) {
+        if (ok !== true) throw new Error('완료로 바꾸지 못했습니다 — 권한이 없거나 저장에 실패했습니다.');
+        return ok;
+      });
     }
   });
 

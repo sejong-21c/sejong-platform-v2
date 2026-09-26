@@ -50,13 +50,15 @@ await 앱fb.getDocs();
 assert.deepStrictEqual(계2.셈(), { 과금: 5, 상한: 9, 보낸과금: 0, 보낸상한: 0 }, '구독 4 + 한 번 조회 1 · 상한 9');
 
 // ⑥ 불변식 — 메신저는 독립 실행일 때만 붙이고, window.잰다 는 안 만든다(방 구독이 부르는 window.parent.잰다 와 두 번 센다)
-const 앱 = readFileSync(new URL('../modules/messenger/messenger.js', import.meta.url), 'utf8');
+// 줄바꿈은 LF 로 맞춰 읽는다 — core.autocrlf 작업 사본(CRLF)에서는 아래 '\n' 정규식이 안 맞아 멀쩡한 코드를 틀렸다고 했다(9/26 통합 때).
+const 읽기 = (p) => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const 앱 = 읽기('../modules/messenger/messenger.js');
 const 블록 = (앱.match(/if \(window\.parent === window\) \{\n  const 계량기 = 계량기만들기[\s\S]*?\n\}/) || [''])[0];
 assert.ok(블록.includes("틀붙이기(fbDb, window.fb, '메신저', { 부모: 계량기 })") && 블록.includes('계량기.켜기(window)'), '독립 실행 메신저는 계량기를 부모로 틀붙이기 하고 켠다');
 assert.ok(!/window\.잰다\s*=/.test(앱), 'messenger.js 는 window.잰다 를 만들지 않는다');
 
 // ⑦ 두 벌 대조 — index.html 의 셈과 칸 이름·날짜 규칙이 같아야 한 장부에 더해진다
-const 본체 = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const 본체 = 읽기('../index.html');
 const 보내기 = (본체.match(/async function 읽기장부보내기\(\) \{[\s\S]*?\n\}/) || [''])[0];
 for (const 칸 of ['browser: fb.increment(델타)', 'browserOnceMax: fb.increment(상한델타)', 'sessions: fb.increment(1)']) assert.ok(보내기.includes(칸), 'index.html 장부 칸: ' + 칸);
 assert.ok(본체.includes("function 한도날() { return new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10); }"), 'index.html 한도날도 UTC-8 고정');

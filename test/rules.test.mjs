@@ -88,9 +88,36 @@ await T('사외 이메일은 아무 컬렉션도 못 읽는다', () => assertFai
 
 console.log('\n── 직원 명부');
 await T('남의 users 문서는 못 고친다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.생산원.uid), { grade: 'super' }, { merge: true })));
-await T('내 users 문서는 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { name: '나' }, { merge: true })));
+// 9/26: 본인 문서는 서명·캘린더 연결 표시만 — 옛 규칙은 자기 dept·grade·name 을 마음대로 바꿀 수 있었다
+//   (재무부 경비·게이트웨이 부서 범위·개인 자료 주인 판정이 한꺼번에 뚫린다. 직원 시범 전 검토자 둘이 잡음)
+await T('내 서명은 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { signatureUrl: 'data:x' }, { merge: true })));
+await T('내 캘린더 연결 표시는 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { gcalConnected: true }, { merge: true })));
+await T('내 부서를 재무부로 못 바꾼다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { dept: '재무부' }, { merge: true })));
+await T('내 등급을 super 로 못 올린다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { grade: 'super' }, { merge: true })));
+await T('내 이름을 못 바꾼다(개인 자료 주인 판정)', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { name: '남의 이름' }, { merge: true })));
+await T('서명에 등급을 끼워 넣어도 안 된다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { signatureUrl: 'y', grade: 'exec' }, { merge: true })));
 await T('super 는 남의 users 를 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 'users', 사람.생산원.uid), { name: '고침' }, { merge: true })));
 await T('일반 직원은 남을 못 지운다', () => assertFails(deleteDoc(doc(로그인(사람.품질원), 'users', 사람.생산원.uid))));
+const 새사람 = { uid: 'u_new', email: 'new@sejong-21c.com' };
+await T('첫 로그인에 super 로는 못 만든다', () => assertFails(setDoc(doc(로그인(새사람), 'users', 새사람.uid), { name: '새', email: 새사람.email, dept: '생산부', grade: 'super' })));
+await T('첫 로그인 소속 입력(member)은 만든다', () => assertSucceeds(setDoc(doc(로그인(새사람), 'users', 새사람.uid), { name: '새', email: 새사람.email, dept: '생산부', title: '사원', grade: 'member', disabled: false })));
+
+console.log('\n── 사전 등록(pendingUsers)');
+// 9/26: 옛 규칙은 사내 누구나 썼다 — 새 이메일로 grade 를 박아 두면 그 계정이 첫 로그인 때 그 등급으로 승격됐다
+await env.withSecurityRulesDisabled(async (c) => {
+  await setDoc(doc(c.firestore(), 'adminAccess', 'config'), { uids: [사람.임원.uid] });
+  await setDoc(doc(c.firestore(), 'pendingUsers', 'pu_new2'), { email: 'new2@sejong-21c.com', name: '새2', dept: '생산부', grade: 'member' });
+});
+const 새사람2 = { uid: 'u_new2', email: 'new2@sejong-21c.com' };
+await T('일반 직원은 사전 등록을 못 만든다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'pendingUsers', 'pu_x'), { email: 'x@sejong-21c.com', grade: 'exec' })));
+await T('super 는 사전 등록을 만든다', () => assertSucceeds(setDoc(doc(로그인(사람.부장), 'pendingUsers', 'pu_s'), { email: 's@sejong-21c.com', grade: 'member' })));
+await T('관리 지정자(adminAccess/config)도 만든다', () => assertSucceeds(setDoc(doc(로그인(사람.임원), 'pendingUsers', 'pu_a'), { email: 'a@sejong-21c.com', grade: 'manager' })));
+await T('사전 등록에 super 는 못 박는다', () => assertFails(setDoc(doc(로그인(사람.부장), 'pendingUsers', 'pu_ss'), { email: 'ss@sejong-21c.com', grade: 'super' })));
+await T('승격된 본인은 자기 문서에 승격 표시를 남긴다', () => assertSucceeds(setDoc(doc(로그인(새사람2), 'pendingUsers', 'pu_new2'), { promotedTo: 새사람2.uid, promotedAt: 1 }, { merge: true })));
+await T('승격된 본인도 등급은 못 고친다', () => assertFails(setDoc(doc(로그인(새사람2), 'pendingUsers', 'pu_new2'), { grade: 'exec' }, { merge: true })));
+await T('남의 사전 등록은 못 지운다', () => assertFails(deleteDoc(doc(로그인(사람.품질원), 'pendingUsers', 'pu_new2'))));
+await T('승격된 본인은 자기 사전 등록을 지운다', () => assertSucceeds(deleteDoc(doc(로그인(새사람2), 'pendingUsers', 'pu_new2'))));
+await T('사전 등록 목록은 사내 누구나 읽는다(첫 로그인 이메일 조회)', () => assertSucceeds(getDoc(doc(로그인(사람.품질원), 'pendingUsers', 'pu_s'))));
 
 console.log('\n── 메시지 쓰기');
 await T('내 이름으로만 보낼 수 있다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'messages', 'n1'), { channel: 'dept_quality', author: 사람.품질원.uid, text: 'ㅇㅇ', createdAt: 9 })));

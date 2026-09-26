@@ -22,12 +22,26 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade in ['super', 'exec', 'manager'];
     }
 
+    // 관리 탭 지정자(adminAccess/config.uids) 또는 super — 사전 등록(pendingUsers)을 만들고 고친다.
+    function isSuperOrAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('grade', '') == 'super'
+        || (exists(/databases/$(database)/documents/adminAccess/config)
+            && request.auth.uid in get(/databases/$(database)/documents/adminAccess/config).data.get('uids', []));
+    }
+
+    // 2026-09-26: 본인 문서는 **서명·구글 캘린더 연결 표시만** 고친다. 옛 규칙은 칸 제한이 없어
+    //   누구나 개발자 도구로 자기 dept·grade·name 을 바꿀 수 있었다 — 그러면 재무부 경비(isFinanceOrExec)·
+    //   게이트웨이 부서 범위(grade super = 모든부서)·개인 자료 주인 판정(이름)이 한꺼번에 뚫린다.
+    //   직원 시범 전 대조의 두 검토자가 따로 잡았다. 소속·등급·이름 바꾸기는 super 가 관리 탭에서.
+    //   만들 때(첫 로그인 소속 입력·사전 등록 승격)는 super 로는 못 만든다(사전 등록도 gradeByTitle 이라 super 가 안 나온다).
     match /users/{userId} {
       allow read: if isCompanyUser();
       allow create: if request.auth != null && request.auth.uid == userId
-                    && isAllowedEmail();
+                    && isAllowedEmail()
+                    && request.resource.data.get('grade', 'member') != 'super';
       allow update: if request.auth != null && (
-        request.auth.uid == userId ||
+        (request.auth.uid == userId && isAllowedEmail()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signatureUrl', 'gcalConnected'])) ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade == 'super'
       );
       allow delete: if request.auth != null
@@ -37,8 +51,20 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid
                         && isAllowedEmail();
     }
+    // 2026-09-26: 옛 규칙은 사내 누구나 쓸 수 있었다 — 새 이메일로 grade 를 박은 사전 등록을 만들면
+    //   그 계정이 첫 로그인 때 그 등급으로 승격됐다. 만들기·고치기는 관리 지정자만, 승격된 본인은
+    //   자기 이메일 문서에 승격 표시(promotedTo·promotedAt)를 남기거나 지우기만.
     match /pendingUsers/{docId} {
-      allow read, write: if isCompanyUser();
+      allow read: if isCompanyUser();
+      allow create: if isCompanyUser() && isSuperOrAdmin()
+                    && request.resource.data.get('grade', 'member') != 'super';
+      allow update: if isCompanyUser() && (
+        (isSuperOrAdmin() && request.resource.data.get('grade', 'member') != 'super') ||
+        (resource.data.get('email', '') == request.auth.token.email.lower()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['promotedTo', 'promotedAt']))
+      );
+      allow delete: if isCompanyUser() && (isSuperOrAdmin()
+                    || resource.data.get('email', '') == request.auth.token.email.lower());
     }
 
     match /channels/{channelId} {
