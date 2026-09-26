@@ -114,7 +114,7 @@ const TYPE_LABEL = { project:'프로젝트', ncr:'NCR', car:'CAR', meeting:'회�
 const NCR_GRADE = { major:'중대', minor:'일반', obs:'경미' };
 const NCR_STATUS = { open:'진행중', closed:'종결' };
 const CAR_STATUS = { 'in-progress':'조치중', closed:'완료' };
-const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const notChunk = d => d.id && !d.id.startsWith('chunk__') && !d.id.startsWith('dwg_');
 
 async function loadAll(){

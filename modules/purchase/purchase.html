@@ -879,19 +879,19 @@ html, body { margin:0; padding:0; height:100%; background:#FAF8F3; }
       groups[proj].sort((a,b)=> (b.dateAdded||'').localeCompare(a.dateAdded||''));
       groups[proj].forEach(t=>{
         const status = computeStatus(t);
-        html += `<div class="dd-task ${status}" data-id="${t.id}">
+        html += `<div class="dd-task ${status}" data-id="${escapeHtml(t.id)}">
           <span class="dd-task-badge">${statusLabel(status)}</span>
           <div class="dd-task-main">
             <div class="dd-task-content">${escapeHtml(t.content)}</div>
             ${t.detail ? `<div class="dd-task-detail">${escapeHtml(t.detail)}</div>` : ''}
             <div class="dd-task-meta">
-              <span>등록 ${fmtDate(t.dateAdded)}</span>
+              <span>등록 ${escapeHtml(fmtDate(t.dateAdded))}</span>
               ${t.requester ? `<span>${escapeHtml(t.requester)}</span>` : ''}
             </div>
           </div>
           <div class="dd-task-actions">
-            ${status !== 'done' ? `<button class="dd-icon-btn resolve" data-action="resolve" data-id="${t.id}">완료 처리</button>` : `<button class="dd-icon-btn resolve" data-action="reopen" data-id="${t.id}">다시 열기</button>`}
-            <button class="dd-icon-btn del" data-action="delete" data-id="${t.id}">삭제</button>
+            ${status !== 'done' ? `<button class="dd-icon-btn resolve" data-action="resolve" data-id="${escapeHtml(t.id)}">완료 처리</button>` : `<button class="dd-icon-btn resolve" data-action="reopen" data-id="${escapeHtml(t.id)}">다시 열기</button>`}
+            <button class="dd-icon-btn del" data-action="delete" data-id="${escapeHtml(t.id)}">삭제</button>
           </div>
         </div>`;
       });
@@ -1083,7 +1083,7 @@ html, body { margin:0; padding:0; height:100%; background:#FAF8F3; }
   function poFmtDate(d){
     if(!d) return '<span style="color:var(--ink-soft);">-</span>';
     if(d === 'ASAP') return '<span style="color:var(--ink-soft);">A.S.A.P</span>';
-    return d;
+    return escapeHtml(d);
   }
   function poIsOverdue(r){
     if(r.delivered === 'O') return false;
@@ -1136,7 +1136,7 @@ html, body { margin:0; padding:0; height:100%; background:#FAF8F3; }
 
   function poStampCell(id, field, value){
     const label = value === 'O' ? 'O' : value === 'X' ? 'X' : '—';
-    return `<div class="po-stamp" data-v="${value||''}" data-id="${id}" data-field="${field}">${label}</div>`;
+    return `<div class="po-stamp" data-v="${escapeHtml(value||'')}" data-id="${escapeHtml(id)}" data-field="${field}">${label}</div>`;
   }
 
   function poRenderTable(){
@@ -1165,7 +1165,7 @@ html, body { margin:0; padding:0; height:100%; background:#FAF8F3; }
           <div class="p1">${escapeHtml(r.project||'-')}</div>
           <div class="p2">${escapeHtml(r.supplier||'-')}${r.supplierContact? ' · '+escapeHtml(r.supplierContact):''}</div>
         </td>
-        <td>${r.orderDate||'-'}</td>
+        <td>${escapeHtml(r.orderDate||'-')}</td>
         <td>${poFmtDate(r.dueDate)}</td>
         <td><span class="po-amount">₩${poFmtAmount(r.amount)}</span></td>
         <td style="text-align:center">${poStampCell(r.id,'ordered', r.ordered)}</td>
@@ -1174,8 +1174,8 @@ html, body { margin:0; padding:0; height:100%; background:#FAF8F3; }
         <td style="text-align:center">${poStampCell(r.id,'paid', r.paid)}</td>
         <td>${overdue? '<span class="po-badge overdue">지연</span>' : (r.delivered==='O' ? '<span class="po-badge ontime">정상</span>' : '')}</td>
         <td style="white-space:nowrap;">
-          <button class="po-rowbtn" data-action="po-edit" data-id="${r.id}">수정</button>
-          <button class="po-rowbtn danger" data-action="po-delete" data-id="${r.id}">삭제</button>
+          <button class="po-rowbtn" data-action="po-edit" data-id="${escapeHtml(r.id)}">수정</button>
+          <button class="po-rowbtn danger" data-action="po-delete" data-id="${escapeHtml(r.id)}">삭제</button>
         </td>
       </tr>`;
     }).join('');

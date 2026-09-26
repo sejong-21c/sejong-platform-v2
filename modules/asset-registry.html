@@ -351,6 +351,8 @@ function toast(msg, err=false) {
   setTimeout(() => t.classList.remove('on'), 2500);
 }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// onclick="fn(...)" 인자 — esc 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v) { return esc(JSON.stringify(String(v ?? ''))); }
 // 아이콘 렌더 헬퍼 — lucide 로드 실패 시 <i> 안의 이모지가 그대로 보임(안전 폴백)
 function LI(li, emoji) { return li ? `<i data-lucide="${li}">${emoji || ''}</i>` : (emoji || ''); }
 function typeName(t) { return {desktop:'Desktop', laptop:'Laptop', tablet:'Tablet', mini:'Mini PC'}[t] || t; }
@@ -493,16 +495,16 @@ function renderDevices() {
     const isRet = eff === 'retired' || eff === 'lost';
     const codeStyle = isRet ? 'color:var(--ink-3);text-decoration:line-through;' : '';
     const rowStyle = isRet ? 'color:var(--ink-3);' : '';
-    return `<tr onclick="openDeviceModal('${d.id}')" style="${rowStyle}">
+    return `<tr onclick="openDeviceModal(${jsArg(d.id)})" style="${rowStyle}">
       <td class="code" style="${codeStyle}">${esc(d.code || '')}</td>
-      <td><span class="pill ${typeClass(d.type)}">${typeName(d.type)}</span></td>
+      <td><span class="pill ${typeClass(d.type)}">${esc(typeName(d.type))}</span></td>
       <td>${esc(d.purchaseYear || '')}</td>
       <td class="b">${esc(d.model || '')}${d.note ? ` <span style="font-size:10px;color:var(--ink-3);">· ${esc(d.note)}</span>` : ''}</td>
       <td>${esc(d.userName || '─')}</td>
       <td>${esc(d.useDept || '')}</td>
       <td>${esc(d.location || '')}</td>
       <td class="sw">${swSummaryCell(d.softwareInstalled)}</td>
-      <td><span class="pill ${statusClass(eff)}">${statusName(eff)}</span></td>
+      <td><span class="pill ${esc(statusClass(eff))}">${esc(statusName(eff))}</span></td>
     </tr>`;
   }).join('');
   wrap.innerHTML = `<table>
@@ -568,7 +570,7 @@ function renderLicenses() {
   }
   const rows = list.map(l => {
     const serial = l.serialNumber || l.serialLabel || '';
-    return `<tr onclick="openLicenseModal('${l.id}')">
+    return `<tr onclick="openLicenseModal(${jsArg(l.id)})">
       <td><span class="pill cat-${esc(l.category)}">${esc(l.category)}</span></td>
       <td class="b">${esc(l.programName)}</td>
       <td>${esc(l.acquiredYear || '')}</td>

@@ -602,6 +602,10 @@ function getHydroPartsForItem(pid,itemId){
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// onclick="fn(...)" 인자 — escapeHtml 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v){ return escapeHtml(JSON.stringify(String(v ?? ''))); }
+// 기록(다른 직원이 쓴 Firestore 문서)의 사진 주소는 javascript: 따위를 막는다
+function safeUrl(u){ const s=String(u ?? '').trim(); return /^(https?:|data:image\/|blob:|\/|\.\/|#)/i.test(s) ? s : ''; }
 // BOM 연동 select에서 "직접 입력..."을 고르면 select 대신 바로 뒤 텍스트
 // 입력이 실제 값(insp-field)을 담당하도록 전환한다 — collectInspData()가
 // 같은 data-key를 가진 요소를 중복으로 읽지 않도록 항상 한쪽만 활성화한다.
@@ -2376,16 +2380,16 @@ function fmtFieldValue(f, data){
   if(f.type==='minmax'){
     const min=data[dk+'.min'], max=data[dk+'.max'];
     if(!min && !max) return '—';
-    return `${f.minLabel||'MIN'} ${min||'—'} / ${f.maxLabel||'MAX'} ${max||'—'}`;
+    return `${f.minLabel||'MIN'} ${escapeHtml(min||'—')} / ${f.maxLabel||'MAX'} ${escapeHtml(max||'—')}`;
   }
   if(f.type==='multi-zone'){
     const zones=f.zones||['A','B','C','D'];
-    return zones.map(z=>`${z}:${data[dk+'.'+z]||'—'}`).join(' · ');
+    return zones.map(z=>`${z}:${escapeHtml(data[dk+'.'+z]||'—')}`).join(' · ');
   }
   if(f.type==='datetime-pair'){
     const s=data[dk+'.start'], e=data[dk+'.end'];
     if(!s && !e) return '—';
-    return `${(s||'—').replace('T',' ')} ~ ${(e||'—').replace('T',' ')}`;
+    return `${escapeHtml(String(s||'—').replace('T',' '))} ~ ${escapeHtml(String(e||'—').replace('T',' '))}`;
   }
   if(f.type==='checkbox'){
     const v=data[dk];
@@ -2941,7 +2945,7 @@ function renderEquipmentChips(){
     const calNote = e.unregistered ? '' : (days==null?'' : (days<0?` · 검교정 ${Math.abs(days)}일 경과`:` · 검교정 D-${days}`));
     return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 8px 5px 10px;border-radius:14px;background:${bg};color:${fg};font-size:11.5px;font-weight:600">
       ${label}${calNote}
-      <button type="button" onclick="removeEquipment('${e.code.replace(/'/g,"\\'")}')" style="background:none;border:none;color:${fg};cursor:pointer;font-size:13px;padding:0;line-height:1">✕</button>
+      <button type="button" onclick="removeEquipment(${jsArg(e.code)})" style="background:none;border:none;color:${fg};cursor:pointer;font-size:13px;padding:0;line-height:1">✕</button>
     </span>`;
   }).join('');
 }
@@ -3399,7 +3403,7 @@ function renderItpChecklistForItem(item){
     const detailHtml = recsForStep.map(r=>`
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;font-size:12px;border-top:1px solid #f0ede8">
         <span>${escapeHtml(r.date.replace('T',' '))} · ${statusBadgeHtml(r.result)} · 사진 ${r.photos.length}장</span>
-        <button type="button" onclick="event.stopPropagation();openDetail(${r.id})" style="font-size:11px;padding:3px 10px;border:1px solid #d6d3cb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap">상세보기</button>
+        <button type="button" onclick="event.stopPropagation();openDetail(${escapeHtml(JSON.stringify(r.id))})" style="font-size:11px;padding:3px 10px;border:1px solid #d6d3cb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap">상세보기</button>
       </div>`).join('');
     return `<div style="border:1px solid #e5e2da;border-radius:10px;margin-bottom:6px;overflow:hidden;background:#fff">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;${recsForStep.length?'cursor:pointer':''}"${recsForStep.length?' onclick="toggleChecklistStep(this)"':''}>
@@ -3445,11 +3449,11 @@ function renderHist(){
       d.className='hist-item';
       d.onclick=()=>openDetail(r.id);
       d.innerHTML=`
-        ${thumb?`<img class="hist-thumb" src="${thumb}" alt="썸네일">`:`<div class="hist-thumb" style="border-radius:7px;background:#e0ddd6"></div>`}
+        ${thumb?`<img class="hist-thumb" src="${escapeHtml(safeUrl(thumb))}" alt="썸네일">`:`<div class="hist-thumb" style="border-radius:7px;background:#e0ddd6"></div>`}
         <div class="hist-info">
-          <div class="hi-proj">${r.proj}</div>
-          <div class="hi-meta">${r.item||''} · ${r.stage} · ${r.date.replace('T',' ')}</div>
-          ${r.note?`<div class="hi-meta" style="color:#aaa">${r.note}</div>`:''}
+          <div class="hi-proj">${escapeHtml(r.proj)}</div>
+          <div class="hi-meta">${escapeHtml(r.item||'')} · ${escapeHtml(r.stage)} · ${escapeHtml(r.date.replace('T',' '))}</div>
+          ${r.note?`<div class="hi-meta" style="color:#aaa">${escapeHtml(r.note)}</div>`:''}
         </div>
         <div class="hist-cnt">${r.photos.length}장 <i class="ti ti-chevron-right" style="font-size:14px;vertical-align:-2px"></i></div>`;
       el.appendChild(d);
@@ -3502,7 +3506,7 @@ function renderRegGrid(rec){
   rec.photos.forEach((p,i)=>{
     const div=document.createElement('div');
     div.className='reg-item';
-    div.innerHTML=`<img src="${p.dataUrl||''}" alt="사진${i+1}"><div class="overlay"><i class="ti ti-trash"></i></div>
+    div.innerHTML=`<img src="${escapeHtml(safeUrl(p.dataUrl||''))}" alt="사진${i+1}"><div class="overlay"><i class="ti ti-trash"></i></div>
       <button type="button" class="reg-dl-btn" title="사진 다운로드" style="position:absolute;top:5px;right:5px;width:26px;height:26px;border:none;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2"><i class="ti ti-download" aria-hidden="true"></i></button>`;
     div.onclick=()=>askDel(i,p.dataUrl);
     div.querySelector('.reg-dl-btn').onclick=(e)=>{ e.stopPropagation(); downloadPhoto(p, rec, i); };
@@ -3522,7 +3526,7 @@ function downloadPhoto(p, rec, idx){
   const mimeMatch=/^data:image\/(\w+);/.exec(p.dataUrl);
   const ext=mimeMatch ? (mimeMatch[1]==='jpeg'?'jpg':mimeMatch[1]) : 'jpg';
   const a=document.createElement('a');
-  a.href=p.dataUrl;
+  a.href=safeUrl(p.dataUrl);
   a.download=`${safeItem}_${safeStage}_${(rec.date||'').slice(0,10)}_${idx+1}.${ext}`;
   document.body.appendChild(a); a.click(); a.remove();
 }
@@ -3640,7 +3644,7 @@ function renderPageBuilder(){
       const photoIdx=pg.slots[si];
       slot.className='pg-photo-slot'+(photoIdx!==null?' filled':'');
       if(photoIdx!==null && sheetRec.photos[photoIdx]){
-        slot.innerHTML=`<img src="${sheetRec.photos[photoIdx].dataUrl}" alt="사진${photoIdx+1}">
+        slot.innerHTML=`<img src="${escapeHtml(safeUrl(sheetRec.photos[photoIdx].dataUrl))}" alt="사진${photoIdx+1}">
           <span class="slot-order">${si+1}</span>
           <button class="slot-clear" onclick="event.stopPropagation();clearSlot(${pi},${si})"><i class="ti ti-x" style="font-size:9px" aria-hidden="true"></i></button>`;
       }else{
@@ -3661,8 +3665,8 @@ function renderPageBuilder(){
         const row=document.createElement('div');
         row.className='pg-caption-row';
         row.innerHTML=`<span class="cap-num">${si+1}</span>
-          <img src="${p.dataUrl}" alt="사진${idx+1}">
-          <input type="text" placeholder="사진 ${idx+1}" value="${p.caption?p.caption.replace(/"/g,'&quot;'):''}" oninput="onCaptionInput(${idx},this.value)">`;
+          <img src="${escapeHtml(safeUrl(p.dataUrl))}" alt="사진${idx+1}">
+          <input type="text" placeholder="사진 ${idx+1}" value="${escapeHtml(p.caption||'')}" oninput="onCaptionInput(${idx},this.value)">`;
         capList.appendChild(row);
       });
       card.appendChild(capList);
@@ -3686,7 +3690,7 @@ function openPicker(pi,si){
   sheetRec.photos.forEach((p,idx)=>{
     const div=document.createElement('div');
     div.className='picker-item'+(used.has(idx)?' used':'');
-    div.innerHTML=`<img src="${p.dataUrl}" alt="사진${idx+1}"><span class="pi-num">${idx+1}</span>`;
+    div.innerHTML=`<img src="${escapeHtml(safeUrl(p.dataUrl))}" alt="사진${idx+1}"><span class="pi-num">${idx+1}</span>`;
     div.onclick=()=>{
       if(used.has(idx))return;
       sheetPages[pi].slots[si]=idx;
@@ -3765,27 +3769,27 @@ function buildSheet(){
     info.innerHTML=`
       <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;grid-column:1/-1;overflow:hidden">
         <div style="font-size:10px;color:#999">프로젝트</div>
-        <div style="font-size:12px;font-weight:600;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rec.proj}</div>
+        <div style="font-size:12px;font-weight:600;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(rec.proj)}</div>
       </div>
       <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;grid-column:1/-1;overflow:hidden">
         <div style="font-size:10px;color:#999">아이템</div>
-        <div style="font-size:12px;font-weight:600;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rec.item||'—'}</div>
+        <div style="font-size:12px;font-weight:600;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(rec.item||'—')}</div>
       </div>
       <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;overflow:hidden">
         <div style="font-size:10px;color:#999">검사 단계</div>
-        <div style="font-size:12px;font-weight:600;margin-top:1px">${rec.stage}</div>
+        <div style="font-size:12px;font-weight:600;margin-top:1px">${escapeHtml(rec.stage)}</div>
       </div>
       <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;overflow:hidden">
         <div style="font-size:10px;color:#999">검사 일시</div>
-        <div style="font-size:12px;font-weight:600;margin-top:1px">${rec.date.replace('T',' ')}</div>
+        <div style="font-size:12px;font-weight:600;margin-top:1px">${escapeHtml(rec.date.replace('T',' '))}</div>
       </div>
       <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;overflow:hidden">
         <div style="font-size:10px;color:#999">검사자</div>
-        <div style="font-size:12px;font-weight:600;margin-top:1px">${(rec.inspectors&&rec.inspectors.length)?rec.inspectors.join(', '):'—'}</div>
+        <div style="font-size:12px;font-weight:600;margin-top:1px">${escapeHtml((rec.inspectors&&rec.inspectors.length)?rec.inspectors.join(', '):'—')}</div>
       </div>
       <div style="background:#f7f6f3;border-radius:5px;padding:6px 10px;overflow:hidden">
         <div style="font-size:10px;color:#999">합부 판정</div>
-        <div style="font-size:12px;font-weight:600;margin-top:1px">${rec.note||'—'}</div>
+        <div style="font-size:12px;font-weight:600;margin-top:1px">${escapeHtml(rec.note||'—')}</div>
       </div>`;
     page.appendChild(info);
 
@@ -3804,8 +3808,8 @@ function buildSheet(){
       box.style.cssText='display:flex;flex-direction:column;border:0.5px solid #e0ddd6;border-radius:6px;overflow:hidden;min-height:0';
       if(idx!==null && idx!==undefined && rec.photos[idx]){
         const caption=rec.photos[idx].caption||`사진 ${idx+1}`;
-        box.innerHTML=`<img src="${rec.photos[idx].dataUrl}" style="flex:1;width:100%;object-fit:cover;display:block;min-height:0">
-          <div style="font-size:11px;color:#666;padding:5px 10px;background:#f9f9f7;border-top:0.5px solid #e0ddd6;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${caption}</div>`;
+        box.innerHTML=`<img src="${escapeHtml(safeUrl(rec.photos[idx].dataUrl))}" style="flex:1;width:100%;object-fit:cover;display:block;min-height:0">
+          <div style="font-size:11px;color:#666;padding:5px 10px;background:#f9f9f7;border-top:0.5px solid #e0ddd6;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(caption)}</div>`;
       }else{
         box.style.border='1px dashed #e8e6e0';
         box.innerHTML='<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:13px">—</div>';

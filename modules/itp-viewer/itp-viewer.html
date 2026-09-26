@@ -239,7 +239,11 @@ function startSync() {
   }, e => console.warn('[projects]', e));
 }
 
-function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// onclick="fn(...)" 인자 — esc 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v) { return esc(JSON.stringify(String(v ?? ''))); }
+// 자료에서 온 주소(서명 그림 등)는 javascript: 따위를 막는다 — users 서명 칸은 본인이 쓸 수 있다
+function safeUrl(u) { const s = String(u ?? '').trim(); return /^(https?:|data:image\/|blob:|\/|\.\/|#)/i.test(s) ? s : ''; }
 function projLabel(doc) {
   const p = state.projects.find(x => x.id === doc.pid);
   const proj = doc.proj || {};
@@ -288,7 +292,7 @@ function renderList() {
     });
     const editing = anyEditing
       ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:9px;padding:1px 7px;margin-left:6px;" title="ITP Builder에서 일부 아이템이 결재중/개정 편집 중입니다">✏ 개정 작업 중</span>` : '';
-    return `<div class="proj-card" onclick="goProj('${esc(d.pid)}')">
+    return `<div class="proj-card" onclick="goProj(${jsArg(d.pid)})">
       <div class="code">${esc(d.code)}${editing}</div>
       <div class="name">${esc(d.name)}</div>
       ${d.client ? `<div class="client">${esc(d.client)}</div>` : ''}
@@ -343,7 +347,7 @@ function renderProj() {
         ${_itpDocNo(doc, it) ? `<span class="badge">${esc(_itpDocNo(doc, it))}${_itpRev(doc,it)?' Rev.'+esc(_itpRev(doc,it)):''}</span>` : ''}
         ${itemBadge}
       </div>
-      <button onclick="event.stopPropagation();deleteItpItem('${esc(doc.pid)}','${esc(it.id||'')}',${i},'${esc(label)}')" title="이 아이템만 삭제" style="flex-shrink:0;background:#fff5f5;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;">${LI('trash-2','🗑')}</button>
+      <button onclick="event.stopPropagation();deleteItpItem(${jsArg(doc.pid)},${jsArg(it.id||'')},${i},${jsArg(label)})" title="이 아이템만 삭제" style="flex-shrink:0;background:#fff5f5;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;">${LI('trash-2','🗑')}</button>
       <div class="arrow">›</div>
     </div>`;
   }).join('');
@@ -361,7 +365,7 @@ function renderProj() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 목록</button>
-        <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}')">${LI('clipboard-list','📋')} Builder 열기</button>
+        <button class="btn btn-primary" onclick="openBuilder(${jsArg(doc.pid)})">${LI('clipboard-list','📋')} Builder 열기</button>
       </div>
     </div>
     <div class="section">
@@ -431,7 +435,7 @@ function _itpApprStampBoxHtml(line, nameOf, fmtDate, sigOf) {
   const cells = line.map(s => {
     let stampHtml;
     const sig = s.status === 'approved' && sigOf ? sigOf(s.uid) : null;
-    if (sig)                          stampHtml = `<img src="${sig}" style="max-height:32px;max-width:48px;object-fit:contain;margin:2px auto;display:block;" title="개인 서명">`;
+    if (sig)                          stampHtml = `<img src="${esc(safeUrl(sig))}" style="max-height:32px;max-width:48px;object-fit:contain;margin:2px auto;display:block;" title="개인 서명">`;
     else if (s.status === 'approved') stampHtml = `<div style="border:1.5px solid #2E7D32;color:#2E7D32;border-radius:50%;width:30px;height:30px;line-height:30px;margin:2px auto;font-size:10px;">승인</div>`;
     else if (s.status === 'rejected') stampHtml = `<div style="border:1.5px solid #C62828;color:#C62828;border-radius:50%;width:30px;height:30px;line-height:30px;margin:2px auto;font-size:10px;">반려</div>`;
     else if (s.status === 'skipped')  stampHtml = `<div style="color:#999;font-size:9px;padding:10px 0;">전결<br>생략</div>`;
@@ -547,7 +551,7 @@ function renderItem() {
       <div class="hd no-print"><div><div class="sub">이 아이템은 아직 승인되지 않았습니다.</div></div>
         <div style="display:flex;gap:8px;">
           <button class="btn" onclick="goBack()">← 아이템 목록</button>
-          <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', '${esc(it.id)}', '${esc(it.tag||'')}')">${LI('clipboard-list','📋')} Builder에서 결재 상신</button>
+          <button class="btn btn-primary" onclick="openBuilder(${jsArg(doc.pid)}, ${jsArg(it.id)}, ${jsArg(it.tag||'')})">${LI('clipboard-list','📋')} Builder에서 결재 상신</button>
         </div>
       </div>
       <div class="empty">"${esc(it.name||it.tag||'이 아이템')}"은(는) 아직 결재 승인이 완료되지 않아 조회할 수 없습니다.<br>ITP Builder에서 결재 상신 후 승인되면 여기서 볼 수 있습니다.</div>
@@ -594,7 +598,7 @@ function renderItem() {
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 아이템 목록</button>
         <button class="btn" onclick="window.print()">${LI('printer','🖨')} 인쇄</button>
-        <button class="btn btn-primary" onclick="openBuilder('${esc(doc.pid)}', '${esc(it.id)}', '${esc(it.tag||'')}')">${LI('clipboard-list','📋')} Builder 편집</button>
+        <button class="btn btn-primary" onclick="openBuilder(${jsArg(doc.pid)}, ${jsArg(it.id)}, ${jsArg(it.tag||'')})">${LI('clipboard-list','📋')} Builder 편집</button>
       </div>
     </div>
     ${renderItpCoverHtml(doc, it)}

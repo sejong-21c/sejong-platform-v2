@@ -836,7 +836,7 @@ function refreshLogos(){
   const hasLogo = !!(DATA.companyInfo && DATA.companyInfo.logo);
   if (headerContainer){
     if (hasLogo){
-      headerContainer.innerHTML = `<img src="${DATA.companyInfo.logo}" style="height:42px;object-fit:contain;display:block;">`;
+      headerContainer.innerHTML = `<img src="${esc(safeUrl(DATA.companyInfo.logo))}" style="height:42px;object-fit:contain;display:block;">`;
       if (headerText) headerText.style.display = 'none';
     } else {
       headerContainer.innerHTML = `<svg viewBox="0 0 110 105" xmlns="http://www.w3.org/2000/svg" style="width:60px;height:52px;display:block;"><circle cx="35" cy="35" r="30" fill="#2735D8"/><circle cx="80" cy="30" r="22" fill="#2735D8"/><circle cx="42" cy="75" r="26" fill="#A0EDF3"/></svg>`;
@@ -845,7 +845,7 @@ function refreshLogos(){
   }
   if (previewContainer){
     previewContainer.innerHTML = hasLogo
-      ? `<img src="${DATA.companyInfo.logo}" style="max-width:280px;max-height:80px;object-fit:contain;border:1px solid #e0e6ee;padding:8px;border-radius:4px;background:#fff;">`
+      ? `<img src="${esc(safeUrl(DATA.companyInfo.logo))}" style="max-width:280px;max-height:80px;object-fit:contain;border:1px solid #e0e6ee;padding:8px;border-radius:4px;background:#fff;">`
       : `<div style="color:#888;font-style:italic;font-size:12px;">업로드된 로고 없음 (기본 그래픽 사용 중)</div>`;
   }
 }
@@ -858,7 +858,7 @@ function getReportLogoHTML(){
     const 부모로고 = window.parent && window.parent !== window
       && window.parent.document.querySelector('.sb-logo-img, .sb-logo img');
     if (부모로고 && 부모로고.src) {
-      return `<img src="${부모로고.src}" style="max-width:108px;max-height:48px;object-fit:contain;display:block;margin:0 auto;">`;
+      return `<img src="${esc(부모로고.src)}" style="max-width:108px;max-height:48px;object-fit:contain;display:block;margin:0 auto;">`;
     }
   } catch (e) { /* 크로스오리진이면 기본 그래픽 */ }
   return `<svg viewBox="0 0 380 115" xmlns="http://www.w3.org/2000/svg" style="width:108px;height:38px;">
@@ -913,22 +913,22 @@ function renderCards(){
   tb.innerHTML = DATA.cards.map((c,i)=>`
     <tr>
       <td class="ctr">${i+1}</td>
-      <td class="ctr"><span class="tag ${c.type==='법인카드'?'corp':'priv'}">${c.type}</span></td>
+      <td class="ctr"><span class="tag ${c.type==='법인카드'?'corp':'priv'}">${esc(c.type)}</span></td>
       <td>${esc(c.name)}</td>
       <td class="ctr">${esc(c.no)}</td>
       <td class="ctr">${esc(c.owner)}</td>
       <td>${esc(c.memo)}</td>
-      <td class="ctr"><button class="btn sm danger" onclick="deleteCard('${c.id}')">삭제</button></td>
+      <td class="ctr"><button class="btn sm danger" onclick="deleteCard(${jsArg(c.id)})">삭제</button></td>
     </tr>`).join('');
 }
 function refreshCardSelects(){
   const html = '<option value="">— 카드 선택 —</option>' +
-    DATA.cards.map(c=>`<option value="${c.id}">[${c.type}] ${esc(c.name)} (${esc(c.no)})</option>`).join('');
+    DATA.cards.map(c=>`<option value="${esc(c.id)}">[${esc(c.type)}] ${esc(c.name)} (${esc(c.no)})</option>`).join('');
   ['e-card','filter-card','daily-card','rpt-card'].forEach(id=>{
     const el = document.getElementById(id);
     const cur = el.value;
     if (id==='filter-card' || id==='daily-card') {
-      el.innerHTML = '<option value="">전체</option>' + DATA.cards.map(c=>`<option value="${c.id}">[${c.type}] ${esc(c.name)}</option>`).join('');
+      el.innerHTML = '<option value="">전체</option>' + DATA.cards.map(c=>`<option value="${esc(c.id)}">[${esc(c.type)}] ${esc(c.name)}</option>`).join('');
     } else {
       el.innerHTML = html;
     }
@@ -967,7 +967,7 @@ function renderWriters(){
       <td class="ctr">${esc(w.rank)}</td>
       <td class="ctr">${esc(w.name)}</td>
       <td class="ctr">${esc(w.dept)} ${esc(w.rank)} ${esc(w.name)}</td>
-      <td class="ctr"><button class="btn sm danger" onclick="deleteWriter('${w.id}')">삭제</button></td>
+      <td class="ctr"><button class="btn sm danger" onclick="deleteWriter(${jsArg(w.id)})">삭제</button></td>
     </tr>`).join('');
 }
 function refreshWriterSelects(){
@@ -982,7 +982,7 @@ function refreshWriterSelects(){
     }
   } catch (e) { /* 혼자 열었으면 예전처럼 DATA.writers 를 쓴다 */ }
   const html = '<option value="">— 작성자 선택 —</option>' +
-    DATA.writers.map(w=>`<option value="${w.id}">${esc(w.dept)} ${esc(w.rank)} ${esc(w.name)}</option>`).join('');
+    DATA.writers.map(w=>`<option value="${esc(w.id)}">${esc(w.dept)} ${esc(w.rank)} ${esc(w.name)}</option>`).join('');
   document.getElementById('rpt-writer').innerHTML = html;
 }
 
@@ -1014,7 +1014,7 @@ function renderPlaces(){
       <td>${esc(p.name)}</td>
       <td>${esc(p.area)}</td>
       <td>${esc(p.alias)}</td>
-      <td class="ctr"><button class="btn sm danger" onclick="deletePlace('${p.id}')">삭제</button></td>
+      <td class="ctr"><button class="btn sm danger" onclick="deletePlace(${jsArg(p.id)})">삭제</button></td>
     </tr>`).join('');
 }
 
@@ -1025,7 +1025,7 @@ function refreshAICardSelect(){
   const cur = el.value;
   el.innerHTML = '<option value="__auto__">🤖 AI 자동 분류 (영수증 카드번호로 자동 매칭)</option>' +
     '<option value="" disabled>───── 단일 카드로 강제 통일 ─────</option>' +
-    DATA.cards.map(c=>`<option value="${c.id}">[${c.type}] ${esc(c.name)} (${esc(c.no)})</option>`).join('');
+    DATA.cards.map(c=>`<option value="${esc(c.id)}">[${esc(c.type)}] ${esc(c.name)} (${esc(c.no)})</option>`).join('');
   el.value = cur || '__auto__';
 }
 
@@ -1547,11 +1547,11 @@ function renderAIResults(){
           const srcLabel = `#${(r.source_index||0)+1}`;
           const rcpHtml = !rcp ? '-' :
             (rcp.isPdf
-              ? `<div class="thumb-pdf" style="width:32px;height:32px;font-size:8px;" onclick="window.open('${볼주소(rcp)}','_blank')"><div class="pdf-icon" style="font-size:12px;">📄</div>PDF</div>`
-              : `<img class="thumb" style="width:32px;height:32px;" src="${볼주소(rcp)}" onclick="openModal('${볼주소(rcp)}')">`);
+              ? `<div class="thumb-pdf" style="width:32px;height:32px;font-size:8px;" onclick="window.open(${jsArg(safeUrl(볼주소(rcp)))},'_blank','noopener')"><div class="pdf-icon" style="font-size:12px;">📄</div>PDF</div>`
+              : `<img class="thumb" style="width:32px;height:32px;" src="${esc(safeUrl(볼주소(rcp)))}" onclick="openModal(${jsArg(safeUrl(볼주소(rcp)))})">`);
           // 카드 셀렉트
           const cardOpts = '<option value="">⚠ 카드 선택</option>' +
-            DATA.cards.map(c=>`<option value="${c.id}" ${r.cardId===c.id?'selected':''}>[${c.type[0]}] ${esc(c.name)} ${esc(String(c.no||'').replace(/[^0-9]/g,'').slice(-4))}</option>`).join('');
+            DATA.cards.map(c=>`<option value="${esc(c.id)}" ${r.cardId===c.id?'selected':''}>[${esc(c.type[0])}] ${esc(c.name)} ${esc(String(c.no||'').replace(/[^0-9]/g,'').slice(-4))}</option>`).join('');
           const matchedCard = DATA.cards.find(c=>c.id===r.cardId);
           const cardBg = matchedCard ? (matchedCard.type==='법인카드'?'#dbeafe':'#fef3c7') : '#fee2e2';
           const last4Hint = (r.card_last4 || r.card_partial) ? `<div style="font-size:9px;color:#888;text-align:center;margin-top:2px;">영수증: ${esc(r.card_partial || ('****-'+r.card_last4))}</div>` : '';
@@ -1564,8 +1564,8 @@ function renderAIResults(){
               ${rcpHtml}
               <div style="margin-top:3px;"><button class="btn sm sec" style="font-size:9px;padding:2px 6px;" onclick="openBboxModal(${i})" title="영역 다시 선택">✂ 조정</button></div>
             </td>
-            <td><input type="date" value="${r.date||''}" onchange="aiResults[${i}].date=this.value" style="width:100%;"></td>
-            <td><input type="number" value="${r.amount||0}" onchange="aiResults[${i}].amount=parseFloat(this.value)||0" style="width:100%;text-align:right;"></td>
+            <td><input type="date" value="${esc(r.date||'')}" onchange="aiResults[${i}].date=this.value" style="width:100%;"></td>
+            <td><input type="number" value="${esc(r.amount||0)}" onchange="aiResults[${i}].amount=parseFloat(this.value)||0" style="width:100%;text-align:right;"></td>
             <td><input type="text" value="${esc(r.usage||'')}" onchange="aiResults[${i}].usage=this.value" style="width:100%;" placeholder="${esc(r.merchant||'')}"></td>
             <td>
               <select onchange="aiResults[${i}].cardId=this.value;renderAIResults();" style="width:100%;background:${cardBg};">${cardOpts}</select>
@@ -1737,15 +1737,15 @@ function renderClose() {
       .map(([n, v]) => `${esc(n)} ${num(v)}`).join(' · ');
     const 푼수 = ((DATA.마감[m] || {}).푼기록 || []).length;
     return `<tr${잠 ? ' style="background:#f8fafc;"' : ''}>
-        <td><b>${m}</b></td>
+        <td><b>${esc(m)}</b></td>
         <td>${g.건수}건</td>
         <td><b>${num(g.합계)} 원</b></td>
         <td style="font-size:11px;color:#555;">${카드별}</td>
         <td>${잠
       ? `<div style="font-size:11px;color:#166534;">🔒 ${esc(DATA.마감[m].누가 || '')} · ${new Date(DATA.마감[m].때).toLocaleDateString('ko-KR')}</div>
-             <button class="btn" style="background:#b45309;font-size:11px;padding:3px 9px;margin-top:3px;" onclick="마감풀기('${m}')">마감 풀기</button>
+             <button class="btn" style="background:#b45309;font-size:11px;padding:3px 9px;margin-top:3px;" onclick="마감풀기(${jsArg(m)})">마감 풀기</button>
              ${푼수 ? `<div style="font-size:10px;color:#b45309;margin-top:2px;">푼 적 ${푼수}회</div>` : ''}`
-      : `<button class="btn" style="font-size:11px;padding:3px 9px;" onclick="달마감('${m}')">이 달 마감</button>`}</td>
+      : `<button class="btn" style="font-size:11px;padding:3px 9px;" onclick="달마감(${jsArg(m)})">이 달 마감</button>`}</td>
       </tr>`;
   }).join('')}</tbody></table>`;
 }
@@ -1883,27 +1883,27 @@ function renderEntries(){
   if (!list.length){ tb.innerHTML='<tr><td colspan="8" class="empty">등록된 내역이 없습니다.</td></tr>'; return; }
   tb.innerHTML = list.map(e=>{
     const card = DATA.cards.find(c=>c.id===e.cardId);
-    const cardLabel = card ? `<span class="tag ${card.type==='법인카드'?'corp':'priv'}">${card.type}</span> ${esc(card.name)}` : '<span style="color:#c00;">(삭제됨)</span>';
+    const cardLabel = card ? `<span class="tag ${card.type==='법인카드'?'corp':'priv'}">${esc(card.type)}</span> ${esc(card.name)}` : '<span style="color:#c00;">(삭제됨)</span>';
     const thumbs = e.receipts.map(r=>{
-      if (r.isPdf) return `<div class="thumb-pdf" style="width:36px;height:36px;font-size:8px;" onclick="window.open('${볼주소(r)}','_blank')"><div class="pdf-icon" style="font-size:14px;">📄</div>PDF</div>`;
-      return `<img class="thumb" style="width:36px;height:36px;" src="${볼주소(r)}" onclick="openModal('${볼주소(r)}')">`;
+      if (r.isPdf) return `<div class="thumb-pdf" style="width:36px;height:36px;font-size:8px;" onclick="window.open(${jsArg(safeUrl(볼주소(r)))},'_blank','noopener')"><div class="pdf-icon" style="font-size:14px;">📄</div>PDF</div>`;
+      return `<img class="thumb" style="width:36px;height:36px;" src="${esc(safeUrl(볼주소(r)))}" onclick="openModal(${jsArg(safeUrl(볼주소(r)))})">`;
     }).join('');
 
     // ★ 수정 모드: input 필드로 전환 ★
     if (editingEntryId === e.id) {
       const cardOptions = DATA.cards.map(c =>
-        `<option value="${c.id}" ${c.id===e.cardId?'selected':''}>[${c.type}] ${esc(c.name)}</option>`
+        `<option value="${esc(c.id)}" ${c.id===e.cardId?'selected':''}>[${esc(c.type)}] ${esc(c.name)}</option>`
       ).join('');
       return `<tr style="background:#fff7e0;">
-        <td class="ctr"><input type="date" id="edit-date-${e.id}" value="${e.date}" style="width:140px;"></td>
-        <td><select id="edit-card-${e.id}" style="width:100%;min-width:160px;">${cardOptions}</select></td>
-        <td><input type="text" id="edit-usage-${e.id}" value="${esc(e.usage).replace(/"/g,'&quot;')}" style="width:100%;min-width:180px;"></td>
-        <td class="num"><input type="number" id="edit-amount-${e.id}" value="${e.amount}" style="width:100px;text-align:right;"></td>
-        <td class="ctr"><input type="text" id="edit-loc-${e.id}" value="${esc(e.loc).replace(/"/g,'&quot;')}" style="width:120px;"></td>
-        <td class="ctr"><input type="text" id="edit-qty-${e.id}" value="${esc(e.qty).replace(/"/g,'&quot;')}" style="width:60px;text-align:center;"></td>
+        <td class="ctr"><input type="date" id="edit-date-${esc(e.id)}" value="${esc(e.date)}" style="width:140px;"></td>
+        <td><select id="edit-card-${esc(e.id)}" style="width:100%;min-width:160px;">${cardOptions}</select></td>
+        <td><input type="text" id="edit-usage-${esc(e.id)}" value="${esc(e.usage).replace(/"/g,'&quot;')}" style="width:100%;min-width:180px;"></td>
+        <td class="num"><input type="number" id="edit-amount-${esc(e.id)}" value="${esc(e.amount)}" style="width:100px;text-align:right;"></td>
+        <td class="ctr"><input type="text" id="edit-loc-${esc(e.id)}" value="${esc(e.loc).replace(/"/g,'&quot;')}" style="width:120px;"></td>
+        <td class="ctr"><input type="text" id="edit-qty-${esc(e.id)}" value="${esc(e.qty).replace(/"/g,'&quot;')}" style="width:60px;text-align:center;"></td>
         <td><div class="thumb-grid">${thumbs||'<span style="color:#aaa;">-</span>'}</div></td>
         <td class="ctr" style="white-space:nowrap;">
-          <button class="btn sm" onclick="saveEditEntry('${e.id}')">💾 저장</button>
+          <button class="btn sm" onclick="saveEditEntry(${jsArg(e.id)})">💾 저장</button>
           <button class="btn sm sec" onclick="cancelEditEntry()">취소</button>
         </td>
       </tr>`;
@@ -1911,7 +1911,7 @@ function renderEntries(){
 
     // 일반 모드
     return `<tr>
-      <td class="ctr">${formatDate(e.date)}</td>
+      <td class="ctr">${esc(formatDate(e.date))}</td>
       <td>${cardLabel}</td>
       <td>${esc(e.usage)}${e.메모 ? `<div style="font-size:10px;color:#888;">${esc(e.메모)}</div>` : ''}</td>
       <td class="num">${num(e.amount)}</td>
@@ -1919,8 +1919,8 @@ function renderEntries(){
       <td class="ctr">${esc(e.qty)}</td>
       <td><div class="thumb-grid">${thumbs||'<span style="color:#aaa;">-</span>'}</div></td>
       <td class="ctr" style="white-space:nowrap;">
-        <button class="btn sm" onclick="editEntry('${e.id}')">✏️ 수정</button>
-        <button class="btn sm danger" onclick="deleteEntry('${e.id}')">삭제</button>
+        <button class="btn sm" onclick="editEntry(${jsArg(e.id)})">✏️ 수정</button>
+        <button class="btn sm danger" onclick="deleteEntry(${jsArg(e.id)})">삭제</button>
       </td>
     </tr>`;
   }).join('');
@@ -1949,13 +1949,13 @@ function renderDaily(){
     return `
     <div class="receipt-day ${!isLast?'page-break':''}">
       <div class="receipt-day-header">
-        <div class="dt">📅 ${formatDate(dt)}</div>
+        <div class="dt">📅 ${esc(formatDate(dt))}</div>
         <div class="sum">일일 합계: <b>${num(sum)} 원</b> · 사용 ${items.length}건</div>
       </div>
       ${items.map(e=>{
         const card = DATA.cards.find(c=>c.id===e.cardId);
         const cardLabel = card
-          ? `<span class="tag ${card.type==='법인카드'?'corp':'priv'}">${card.type}</span> ${esc(card.name)} (${esc(card.no)})`
+          ? `<span class="tag ${card.type==='법인카드'?'corp':'priv'}">${esc(card.type)}</span> ${esc(card.name)} (${esc(card.no)})`
           : '<span style="color:#c00;">(삭제된 카드)</span>';
         return `<div class="receipt-entry">
           <div class="receipt-entry-info">
@@ -1985,13 +1985,13 @@ function renderDaily(){
                   return `<div class="receipt-pdf-wrap">
                     <div class="receipt-pdf-header">
                       <span>📄 ${esc(r.name||'영수증.pdf')}</span>
-                      <button class="btn sm sec no-print" onclick="openEntryReceipt('${e.id}', ${ri})">🔍 새 창에서 열기</button>
+                      <button class="btn sm sec no-print" onclick="openEntryReceipt(${jsArg(e.id)}, ${ri})">🔍 새 창에서 열기</button>
                     </div>
-                    <embed src="${r.data}" type="application/pdf" class="receipt-pdf-embed">
+                    <embed src="${esc(safeUrl(r.data))}" type="application/pdf" class="receipt-pdf-embed">
                   </div>`;
                 } else {
                   return `<div class="receipt-image-wrap">
-                    <img class="receipt-img" src="${r.data}" onclick="openEntryReceipt('${e.id}', ${ri})" alt="영수증" title="클릭하여 확대 보기">
+                    <img class="receipt-img" src="${esc(safeUrl(r.data))}" onclick="openEntryReceipt(${jsArg(e.id)}, ${ri})" alt="영수증" title="클릭하여 확대 보기">
                     <div class="receipt-img-caption">${esc(r.name||'영수증')}</div>
                   </div>`;
                 }
@@ -2068,7 +2068,7 @@ function renderReport(){
           <td class="lbl">카드번호</td><td class="val">${esc(card.no)}</td>
         </tr>
         <tr>
-          <td class="lbl">발생일자</td><td class="val"><b>${fmtRpt(from)} ~ ${fmtRpt(to)}</b></td>
+          <td class="lbl">발생일자</td><td class="val"><b>${esc(fmtRpt(from))} ~ ${esc(fmtRpt(to))}</b></td>
           <td class="lbl">작성자</td><td class="val">${esc(writerLabel)}</td>
         </tr>
       </table>
@@ -2099,7 +2099,7 @@ function renderReport(){
             const isLast = (idx === list.length-1) && fill===0;
             return `
             <tr${isLast?' class="last-data"':''}>
-              <td class="dt">${formatDate(e.date)}</td>
+              <td class="dt">${esc(formatDate(e.date))}</td>
               <td class="usg">${esc(e.usage)}</td>
               <td class="amt">${num(e.amount)}</td>
               <td class="loc">${esc(e.loc)}</td>
@@ -2138,7 +2138,11 @@ function formatDate(d){
   return `${y.slice(2)}.${m}.${dd}`;
 }
 function num(n){ return Number(n||0).toLocaleString('ko-KR'); }
-function esc(s){ return String(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+function esc(s){ return String(s||'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); }
+// onclick="fn(...)" 인자 — esc 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v){ return esc(JSON.stringify(String(v ?? ''))); }
+// 자료에서 온 주소(영수증·로고)는 javascript: 따위를 막는다. 영수증 PDF 는 data:application/pdf 로도 산다.
+function safeUrl(u){ const s = String(u ?? '').trim(); return /^(https?:|data:(image\/|application\/pdf)|blob:|\/|\.\/|#)/i.test(s) ? s : ''; }
 // 안전한 인쇄 함수 (모달 닫기 + 약간의 딜레이로 렌더링 대기)
 function safePrint(){
   const modal = document.getElementById('modal-bg');
@@ -2234,14 +2238,16 @@ function openInNewTab(dataUrl){
   try {
     const arr = dataUrl.split(',');
     const mimeMatch = arr[0].match(/:(.*?);/);
-    const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+    // 자료가 적은 형식을 그대로 믿으면 data:text/html·image/svg+xml 이 같은 출처 blob 창으로 떠 스크립트가 돈다
+    const mime0 = mimeMatch ? mimeMatch[1] : '';
+    const mime = /^(application\/pdf|image\/(png|jpe?g|gif|webp|bmp))$/i.test(mime0) ? mime0 : 'application/octet-stream';
     const bstr = atob(arr[1]);
     let n = bstr.length;
     const u8arr = new Uint8Array(n);
     while(n--){ u8arr[n] = bstr.charCodeAt(n); }
     const blob = new Blob([u8arr], {type: mime});
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    window.open(url, '_blank', 'noopener');
     setTimeout(()=>URL.revokeObjectURL(url), 60000);
   } catch(e) {
     alert('파일 열기 실패: ' + e.message);

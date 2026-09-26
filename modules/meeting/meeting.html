@@ -168,7 +168,9 @@ const DEMO=qs.get('demo')==='1'||location.hash==='#demo';
 let S={tab:'rooms', weekOff:0, room:'all', resv:[], mins:[], me:null, selMin:null, modal:null};
 let REC={on:false,paused:false,startAt:0,elapsed:0,lines:[],interim:'',recog:null,media:null,chunks:[],audioUrl:'',timer:null,meta:null};
 const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// 자료에서 온 주소는 javascript: 등을 막는다 — 회의록 문서에 audioUrl 을 심으면 누르는 사람 세션으로 돈다
+const safeUrl=u=>/^(https?:|data:image\/|blob:|\/|\.\/|#)/i.test(String(u??'').trim())?String(u).trim():'';
 const pad=n=>String(n).padStart(2,'0');
 const todayStr=()=>{const d=new Date();return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
 const m2t=m=>`${pad(Math.floor(m/60))}:${pad(m%60)}`;
@@ -270,8 +272,8 @@ function rRooms(){
   const cards=ROOMS.map(r=>{
     const cur=S.resv.find(v=>v.room===r.id&&v.date===td&&t2m(v.s)<=nm&&nm<t2m(v.e));
     const next=S.resv.filter(v=>v.room===r.id&&v.date===td&&t2m(v.s)>nm).sort((a,b)=>t2m(a.s)-t2m(b.s))[0];
-    const st=cur?`<span class="st-dot busy"></span><b class="busy">사용중</b> ${esc(cur.byName)} · ~${cur.e}<br>${esc(cur.title)}`
-             :`<span class="st-dot free"></span><b class="free">비어있음</b>${next?`<br>다음: ${next.s} ${esc(next.title)}`:''}`;
+    const st=cur?`<span class="st-dot busy"></span><b class="busy">사용중</b> ${esc(cur.byName)} · ~${esc(cur.e)}<br>${esc(cur.title)}`
+             :`<span class="st-dot free"></span><b class="free">비어있음</b>${next?`<br>다음: ${esc(next.s)} ${esc(next.title)}`:''}`;
     return`<div class="room-card${S.room===r.id?' on':''}" style="--rc:${r.color}" data-a="pickRoom" data-v="${r.id}"><div class="rn">${RI(r)} ${r.name}</div><div class="st">${st}</div></div>`;
   }).join('');
   // 주간 그리드
@@ -286,7 +288,7 @@ function rRooms(){
       const top=(t2m(v.s)-DAY_S)*PXMIN, h=Math.max((t2m(v.e)-t2m(v.s))*PXMIN-2,16);
       let left='2px',width='calc(100% - 4px)';
       if(S.room==='all'){const li=ROOMS.findIndex(x=>x.id===v.room);left=`calc(${li*20}% + 1px)`;width='calc(20% - 2px)';}
-      return`<div class="rblk" data-a="openResv" data-id="${v.id}" style="top:${top}px;height:${h}px;left:${left};width:${width};background:${r.color}" title="${esc(r.name)} · ${v.s}~${v.e} · ${esc(v.title)} · ${esc(v.byName)}"><div class="bt">${esc(v.title)}</div><div class="bw">${esc(v.byName)}</div></div>`;
+      return`<div class="rblk" data-a="openResv" data-id="${esc(v.id)}" style="top:${top}px;height:${h}px;left:${left};width:${width};background:${r.color}" title="${esc(r.name)} · ${esc(v.s)}~${esc(v.e)} · ${esc(v.title)} · ${esc(v.byName)}"><div class="bt">${esc(v.title)}</div><div class="bw">${esc(v.byName)}</div></div>`;
     }).join('');
     const nowln=(d.date===td&&nm>=DAY_S&&nm<=DAY_E)?`<div class="nowline" style="top:${(nm-DAY_S)*PXMIN}px"></div>`:'';
     return`<div class="daycol">${bg}${blocks}${nowln}</div>`;
@@ -317,9 +319,9 @@ function rMinutes(){
   const items=list.sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:0)).map(m=>{
     const r=roomOf(m.room);
     const st=m.status==='rec'?'<span class="bdg rec">● 녹음중</span>':m.status==='draft'?'<span class="bdg draft">초안</span>':'<span class="bdg done">완료</span>';
-    return`<div class="mm-item${S.selMin?.id===m.id?' on':''}" data-a="selMin" data-id="${m.id}">
+    return`<div class="mm-item${S.selMin?.id===m.id?' on':''}" data-a="selMin" data-id="${esc(m.id)}">
       <div class="t">${esc(m.title||m.topic||'(제목 없음)')}</div>
-      <div class="m">${m.date} ${m.timeS||''}${m.timeE?'~'+m.timeE:''} · ${r.name} · ${esc(m.byName||'')} ${st}</div></div>`;
+      <div class="m">${esc(m.date)} ${esc(m.timeS||'')}${esc(m.timeE?'~'+m.timeE:'')} · ${esc(r.name)} · ${esc(m.byName||'')} ${st}</div></div>`;
   }).join('');
   let main='';
   if(REC.on)main=rRecording();
@@ -349,7 +351,7 @@ function rRecording(){
       ${REC.paused?'<span style="font-size:14px">⏸</span>':'<span class="rec-dot"></span>'}
       <span class="rec-timer" id="recTimer">${fmtEl(REC.elapsed)}</span>
       <span style="font-weight:700">${esc(meta.title||'회의 녹음')}</span>
-      <span style="font-size:11px;color:#6b7280">${roomOf(meta.room).name} · ${meta.date||todayStr()}</span>
+      <span style="font-size:11px;color:#6b7280">${esc(roomOf(meta.room).name)} · ${esc(meta.date||todayStr())}</span>
       <span style="margin-left:auto"></span>
       ${REC.paused?'<button class="btn grn" data-a="recResume"><i data-lucide="play"></i>재개</button>':'<button class="btn" data-a="recPause"><i data-lucide="pause"></i>일시정지</button>'}
       <button class="btn red" data-a="recStop"><i data-lucide="square"></i>녹음 종료</button>
@@ -392,14 +394,14 @@ function rEditor(m){
       ${m.status==='draft'?'<span class="bdg draft">초안</span>':'<span class="bdg done">완료</span>'}
       <span style="font-size:11px;color:#6b7280">작성 ${esc(m.byName||'')}</span>
       <span style="margin-left:auto"></span>
-      ${m.transcript&&!m.aiDone?`<button class="btn pur" data-a="aiGen" data-id="${m.id}"><i data-lucide="sparkles"></i>AI 회의록 생성</button>`:''}
-      ${m.transcript&&m.aiDone?`<button class="btn" data-a="aiGen" data-id="${m.id}" title="전사본으로 다시 생성 (현재 내용 덮어씀)"><i data-lucide="refresh-cw"></i>AI 재생성</button>`:''}
+      ${m.transcript&&!m.aiDone?`<button class="btn pur" data-a="aiGen" data-id="${esc(m.id)}"><i data-lucide="sparkles"></i>AI 회의록 생성</button>`:''}
+      ${m.transcript&&m.aiDone?`<button class="btn" data-a="aiGen" data-id="${esc(m.id)}" title="전사본으로 다시 생성 (현재 내용 덮어씀)"><i data-lucide="refresh-cw"></i>AI 재생성</button>`:''}
       <button class="btn grn" data-a="saveMin"><i data-lucide="save"></i>저장</button>
       <button class="btn" data-a="xlsx"><i data-lucide="download"></i>Excel 다운로드</button>
-      <button class="btn" data-a="delMinBtn" data-id="${m.id}"><i data-lucide="trash-2"></i></button>
+      <button class="btn" data-a="delMinBtn" data-id="${esc(m.id)}"><i data-lucide="trash-2"></i></button>
       <button class="btn" data-a="closeMin">닫기</button>
     </div>
-    ${m.audioUrl?`<div style="margin-bottom:10px"><audio controls src="${m.audioUrl}" style="width:100%;height:36px"></audio> <a href="${m.audioUrl}" download="회의녹음_${m.date}.webm" style="font-size:11px">녹음 파일 저장</a></div>`:''}
+    ${m.audioUrl?`<div style="margin-bottom:10px"><audio controls src="${esc(safeUrl(m.audioUrl))}" style="width:100%;height:36px"></audio> <a href="${esc(safeUrl(m.audioUrl))}" download="회의녹음_${esc(m.date)}.webm" style="font-size:11px">녹음 파일 저장</a></div>`:''}
     ${tr}
     <div class="ed-grid">
       <div><div class="fl">회의 주제</div><input class="fi" data-ed="topic" value="${esc(m.topic||m.title||'')}"/></div>
@@ -407,7 +409,7 @@ function rEditor(m){
     </div>
     <div style="margin-bottom:9px"><div class="fl">회의 내용 (한 줄 요약)</div><input class="fi" data-ed="summary" value="${esc(m.summary||'')}"/></div>
     <div class="ed-grid">
-      <div><div class="fl">회의 일시</div><div style="display:flex;gap:5px"><input class="fi" type="date" data-ed="date" value="${m.date||todayStr()}" style="flex:1.2"/><input class="fi" type="time" data-ed="timeS" value="${m.timeS||''}"/><input class="fi" type="time" data-ed="timeE" value="${m.timeE||''}"/></div></div>
+      <div><div class="fl">회의 일시</div><div style="display:flex;gap:5px"><input class="fi" type="date" data-ed="date" value="${esc(m.date||todayStr())}" style="flex:1.2"/><input class="fi" type="time" data-ed="timeS" value="${esc(m.timeS||'')}"/><input class="fi" type="time" data-ed="timeE" value="${esc(m.timeE||'')}"/></div></div>
       <div><div class="fl">회의 장소</div><select class="fi" data-ed="room">${ROOMS.map(x=>`<option value="${x.id}"${m.room===x.id?' selected':''}>${x.name}</option>`).join('')}<option value="etc"${m.room==='etc'?' selected':''}>기타</option></select></div>
     </div>
     <div style="margin-bottom:9px"><div class="fl">참석 인원 <button class="btn" data-a="addAtt" style="font-size:10px;padding:2px 8px">+ 추가</button></div>${atts}</div>
@@ -442,7 +444,7 @@ function renderModal(){
       <div style="margin-bottom:9px"><div class="fl">회의 제목 *</div><input class="fi" id="mTitle" value="${esc(M.title||'')}" placeholder="예: 주간 생산회의"/></div>
       <div class="frow">
         <div><div class="fl">회의실 *</div><select class="fi" id="mRoom">${ROOMS.map(r=>`<option value="${r.id}"${M.room===r.id?' selected':''}>${r.name}</option>`).join('')}</select></div>
-        <div><div class="fl">날짜 *</div><input class="fi" type="date" id="mDate" value="${M.date||todayStr()}"/></div>
+        <div><div class="fl">날짜 *</div><input class="fi" type="date" id="mDate" value="${esc(M.date||todayStr())}"/></div>
       </div>
       <div class="frow">
         <div><div class="fl">시작</div><select class="fi" id="mS">${opts(M.s??t2m('09:00'))}</select></div>
@@ -451,26 +453,26 @@ function renderModal(){
       <div style="margin-bottom:12px"><div class="fl">목적 / 비고</div><input class="fi" id="mNote" value="${esc(M.note||'')}"/></div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
         <button class="btn" data-a="mdClose">취소</button>
-        <button class="btn pri" data-a="mdSave" data-eid="${M.editId||''}">${M.editId?'수정 저장':'예약하기'}</button></div></div>`;
+        <button class="btn pri" data-a="mdSave" data-eid="${esc(M.editId||'')}">${M.editId?'수정 저장':'예약하기'}</button></div></div>`;
   }else if(M.type==='detail'){
     const v=S.resv.find(x=>x.id===M.id);if(!v){S.modal=null;return;}
     const r=roomOf(v.room);const mine=DEMO||(S.me&&v.byUid===S.me.uid);
-    ov.innerHTML=`<div class="mdl"><h3>${RI(r)} ${r.name}</h3>
+    ov.innerHTML=`<div class="mdl"><h3>${RI(r)} ${esc(r.name)}</h3>
       <div style="font-size:15px;font-weight:800;margin-bottom:8px">${esc(v.title)}</div>
       <div style="font-size:12.5px;line-height:2;color:#374151">
-        <i data-lucide="calendar"></i> <b>${v.date}</b> &nbsp; <i data-lucide="clock"></i> <b>${v.s} ~ ${v.e}</b><br>
+        <i data-lucide="calendar"></i> <b>${esc(v.date)}</b> &nbsp; <i data-lucide="clock"></i> <b>${esc(v.s)} ~ ${esc(v.e)}</b><br>
         <i data-lucide="user"></i> 예약자: <b>${esc(v.byName)}</b>${v.dept?` (${esc(v.dept)})`:''}<br>
         ${v.note?`<i data-lucide="pin"></i> ${esc(v.note)}<br>`:''}
         <span style="font-size:10.5px;color:#9ca3af">등록: ${new Date(v.createdAt).toLocaleString('ko-KR')}</span></div>
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
-        <button class="btn red" data-a="recFromResv" data-id="${v.id}"><i data-lucide="mic"></i>이 회의 녹음 시작</button>
+        <button class="btn red" data-a="recFromResv" data-id="${esc(v.id)}"><i data-lucide="mic"></i>이 회의 녹음 시작</button>
         <span style="flex:1"></span>
-        ${mine?`<button class="btn" data-a="editResv" data-id="${v.id}"><i data-lucide="pencil"></i>수정</button><button class="btn" data-a="delResvBtn" data-id="${v.id}"><i data-lucide="trash-2"></i>삭제</button>`:''}
+        ${mine?`<button class="btn" data-a="editResv" data-id="${esc(v.id)}"><i data-lucide="pencil"></i>수정</button><button class="btn" data-a="delResvBtn" data-id="${esc(v.id)}"><i data-lucide="trash-2"></i>삭제</button>`:''}
         <button class="btn" data-a="mdClose">닫기</button></div></div>`;
   }else if(M.type==='setup'){
     const tdResv=S.resv.filter(v=>v.date===todayStr()).sort((a,b)=>t2m(a.s)-t2m(b.s));
     ov.innerHTML=`<div class="mdl"><h3><i data-lucide="mic"></i> 회의 녹음 시작</h3>
-      ${tdResv.length?`<div style="margin-bottom:9px"><div class="fl">오늘 예약과 연결 (선택)</div><select class="fi" id="sResv"><option value="">— 연결 안 함 —</option>${tdResv.map(v=>`<option value="${v.id}"${M.resvId===v.id?' selected':''}>${v.s} ${roomOf(v.room).name} · ${esc(v.title)}</option>`).join('')}</select></div>`:''}
+      ${tdResv.length?`<div style="margin-bottom:9px"><div class="fl">오늘 예약과 연결 (선택)</div><select class="fi" id="sResv"><option value="">— 연결 안 함 —</option>${tdResv.map(v=>`<option value="${esc(v.id)}"${M.resvId===v.id?' selected':''}>${esc(v.s)} ${esc(roomOf(v.room).name)} · ${esc(v.title)}</option>`).join('')}</select></div>`:''}
       <div style="margin-bottom:9px"><div class="fl">회의 제목 *</div><input class="fi" id="sTitle" value="${esc(M.title||'')}" placeholder="예: SJ428-25 공정 점검 회의"/></div>
       <div class="frow"><div><div class="fl">회의실</div><select class="fi" id="sRoom">${ROOMS.map(r=>`<option value="${r.id}"${M.room===r.id?' selected':''}>${r.name}</option>`).join('')}<option value="etc">기타</option></select></div></div>
       <div style="margin-bottom:12px"><div class="fl">참석자 (쉼표로 구분)</div><input class="fi" id="sAtt" value="${esc(M.att||'')}" placeholder="예: 곽노한 부장, 김철우 과장, 이재규 부장"/></div>

@@ -167,7 +167,11 @@ function startSync() {
   }, e => console.warn('[projects]', e));
 }
 
-function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// onclick="fn(...)" 인자 — esc 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v) { return esc(JSON.stringify(String(v ?? ''))); }
+// 자료에서 온 주소(사진 dataURL 등)는 javascript: 따위를 막는다
+function safeUrl(u) { const s = String(u ?? '').trim(); return /^(https?:|data:image\/|blob:|\/|\.\/|#)/i.test(s) ? s : ''; }
 function projInfo(doc) {
   const p = state.projects.find(x => x.id === doc.pid);
   const proj = doc.proj || {};
@@ -230,7 +234,7 @@ async function hydratePhotos(coll) {
     const total = parseInt(el.getAttribute('data-total')) || 0;
     // DB 밖(R2)에 있는 사진은 조각 수가 0 이다 — 서명된 주소를 그대로 img 에 물린다.
     if (window.첨부 && window.첨부.밖에있나(chunkId)) {
-      try { el.innerHTML = `<img src="${await window.첨부.주소(chunkId)}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/>`; }
+      try { el.innerHTML = `<img src="${esc(await window.첨부.주소(chunkId))}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/>`; }
       catch (e) { el.className = 'ph-fail'; el.textContent = '사진을 불러오지 못했습니다'; }
       continue;
     }
@@ -240,7 +244,7 @@ async function hydratePhotos(coll) {
       for (let i = 0; i < total; i++) jobs.push(fb.getDoc(fb.doc(fb.db, coll, `${chunkId}__${i}`)));
       const snaps = await Promise.all(jobs);
       const dataUrl = snaps.map(s => (s.data && s.data()) ? (s.data().data || '') : '').join('');
-      if (dataUrl) { el.innerHTML = `<img src="${dataUrl}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/>`; }
+      if (dataUrl) { el.innerHTML = `<img src="${esc(safeUrl(dataUrl))}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/>`; }
       else { el.className = 'ph-fail'; el.textContent = '사진을 불러오지 못했습니다'; }
     } catch (e) {
       el.className = 'ph-fail'; el.textContent = '사진 로드 실패(오프라인일 수 있음)';
@@ -251,9 +255,9 @@ function photoSlots(d, keys) {
   const out = [];
   for (const k of keys) {
     const inline = imgOf(d)[k];
-    if (typeof inline === 'string' && inline.startsWith('data:')) { out.push(`<div class="photo-slot"><img src="${inline}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/></div>`); continue; }
+    if (typeof inline === 'string' && inline.startsWith('data:')) { out.push(`<div class="photo-slot"><img src="${esc(safeUrl(inline))}" style="max-width:100%;border:1px solid var(--border-light);border-radius:6px;"/></div>`); continue; }
     const ptr = chunksOf(d)[k];
-    if (ptr && ptr.chunkId) out.push(`<div class="photo-slot" data-chunkid="${esc(ptr.chunkId)}" data-total="${ptr.totalChunks||0}">${LI('camera','📷')} 사진 불러오는 중…</div>`);
+    if (ptr && ptr.chunkId) out.push(`<div class="photo-slot" data-chunkid="${esc(ptr.chunkId)}" data-total="${esc(ptr.totalChunks||0)}">${LI('camera','📷')} 사진 불러오는 중…</div>`);
   }
   return out.join('');
 }
@@ -363,7 +367,7 @@ function renderList() {
   const cards = merged.map(d => {
     const items = d.items || [];
     const savedAt = (d.updatedAt || d.savedAt || d.createdAt) ? new Date(d.updatedAt || d.savedAt || d.createdAt).toISOString().slice(0,10) : '';
-    return `<div class="proj-card" onclick="goProj('${esc(d.pid)}','${d._src}')">
+    return `<div class="proj-card" onclick="goProj(${jsArg(d.pid)},${jsArg(d._src)})">
       <div class="code">${esc(d.code)} <span class="src-tag ${d._src==='live'?'live':'snap'}">${d._src==='live'?'LIVE':'스냅샷'}</span></div>
       <div class="name">${esc(d.name)}</div>
       ${d.client ? `<div class="client">${esc(d.client)}</div>` : ''}
@@ -404,7 +408,7 @@ function renderProj() {
     const filled = DOC_TYPES.filter(dt => present.has(dt.key));
     const badges = filled.length ? filled.map(dt => `<span class="badge" style="background:${dt.color}18;color:${dt.color};">${dt.key}</span>`).join('')
                                  : `<span class="badge gray">문서 없음</span>`;
-    return `<div class="item-row" onclick="goItem('${esc(it.id)}')">
+    return `<div class="item-row" onclick="goItem(${jsArg(it.id)})">
       <div class="no">${esc(it.tag || it.id)}</div>
       <div class="nm">${esc(it.name || '(이름 없음)')}</div>
       <div class="badges">${badges}</div>
@@ -421,7 +425,7 @@ function renderProj() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 목록</button>
-        <button class="btn btn-primary" onclick="openGenerator('${esc(doc.pid)}')">${LI('file-text','📄')} Generator 열기</button>
+        <button class="btn btn-primary" onclick="openGenerator(${jsArg(doc.pid)})">${LI('file-text','📄')} Generator 열기</button>
       </div>
     </div>
     <div class="section">
@@ -462,7 +466,7 @@ function renderItem() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 아이템 목록</button>
-        <button class="btn btn-primary" onclick="openGenerator('${esc(doc.pid)}')">${LI('file-text','📄')} Generator 편집</button>
+        <button class="btn btn-primary" onclick="openGenerator(${jsArg(doc.pid)})">${LI('file-text','📄')} Generator 편집</button>
       </div>
     </div>
     <div class="section">
@@ -495,7 +499,7 @@ function renderDoc() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="goBack()">← 문서 목록</button>
-        <button class="btn btn-primary" style="background:${dt?.color||'var(--primary)'};border-color:${dt?.color||'var(--primary)'};" onclick="openGenerator('${esc(doc.pid)}')">${LI('file-text','📄')} Generator에서 편집</button>
+        <button class="btn btn-primary" style="background:${dt?.color||'var(--primary)'};border-color:${dt?.color||'var(--primary)'};" onclick="openGenerator(${jsArg(doc.pid)})">${LI('file-text','📄')} Generator에서 편집</button>
       </div>
     </div>
     <div class="section">${body}</div>

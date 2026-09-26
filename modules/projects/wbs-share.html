@@ -85,7 +85,9 @@ function boot(){
   });
 }
 
-function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+// onclick="fn(...)" 인자 — esc 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v){ return esc(JSON.stringify(String(v ?? ""))); }
 
 let ROWS = [], META = {}, collapsed = new Set();
 let GS, GE, months = [], todayX = 0;
@@ -169,7 +171,7 @@ function paintShell(){
   document.getElementById("app").innerHTML = `
     <header>
       <h1>📊 ${esc(d.no)} ${esc(d.name)} — MASTER SCHEDULE <span class="ro-badge">조회 전용</span></h1>
-      <div class="sub">${d.client?esc(d.client)+" · ":""}PM ${esc(d.pm||"-")} · Rev. ${d.rev||0}${d.dept?" · "+esc(d.dept)+" 범위":""} · 공유 시점: ${at} · ㈜세종기술</div>
+      <div class="sub">${d.client?esc(d.client)+" · ":""}PM ${esc(d.pm||"-")} · Rev. ${esc(d.rev||0)}${d.dept?" · "+esc(d.dept)+" 범위":""} · 공유 시점: ${at} · ㈜세종기술</div>
     </header>
     <div class="toolbar">
       <button class="tb-btn" onclick="setFold('lv1')">▣ 대단락만</button>
@@ -207,7 +209,7 @@ function paintBody(){
     const l = dp(w._bs), wd = Math.max(dp(w._be)-l, .5);
     const kids = hasKids(i);
     const tglBtn = kids
-      ? `<button class="tgl" onclick="tg('${esc(w.id)}')">${collapsed.has(w.id)?"▶":"▼"}</button>`
+      ? `<button class="tgl" onclick="tg(${jsArg(w.id)})">${collapsed.has(w.id)?"▶":"▼"}</button>`
       : `<span class="tgl-ph"></span>`;
     html.push(`<tr class="lv${lv}">
       <td style="color:#4a7fc1;font-weight:700;padding-left:${8+lv*4}px">${tglBtn}${esc(w.code)}</td>

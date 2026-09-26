@@ -601,9 +601,9 @@ function resultPanel() {
         <tr><td>바닥간극 C</td><td class="num">${(g.C * 1000).toFixed(0)}</td><td>mm (C/T=${n2(g.C_T, 3)})</td></tr>
         ${g.elevations.map((e, i) => `<tr><td>${i + 1}단 설치높이</td><td class="num">${(e * 1000).toFixed(0)}</td><td>mm</td></tr>`).join('')}
         ${g.spacing ? `<tr><td>임펠러 간격 S</td><td class="num">${(g.spacing * 1000).toFixed(0)}</td><td>mm (S/D=${n2(g.spacing_over_D, 2)})</td></tr>` : ''}
-        ${g.baffled ? `<tr><td>배플</td><td class="num">${g.n_baffles}매 × ${(g.B * 1000).toFixed(0)}</td><td>mm (벽간극 ${(g.B_wall_clearance * 1000).toFixed(0)})</td></tr>` : `<tr><td>배플</td><td class="num">—</td><td>무배플</td></tr>`}
+        ${g.baffled ? `<tr><td>배플</td><td class="num">${esc(g.n_baffles)}매 × ${(g.B * 1000).toFixed(0)}</td><td>mm (벽간극 ${(g.B_wall_clearance * 1000).toFixed(0)})</td></tr>` : `<tr><td>배플</td><td class="num">—</td><td>무배플</td></tr>`}
         ${g.blade_thk ? `<tr><td>날개 두께</td><td class="num">${(g.blade_thk * 1000).toFixed(0)}</td><td>mm</td></tr>` : ''}
-        ${g.n_blades ? `<tr><td>날개 수</td><td class="num">${g.n_blades}</td><td>매</td></tr>` : ''}
+        ${g.n_blades ? `<tr><td>날개 수</td><td class="num">${esc(g.n_blades)}</td><td>매</td></tr>` : ''}
       </table>
     </div>
   </div>
@@ -889,7 +889,7 @@ function savedTab() {
         <td>${esc(d.project || '—')}</td>
         <td><b>${esc(d.item || '—')}</b></td>
         <td>${esc(d.V)}m³ · ${esc(Number(d.mu).toLocaleString())}cP · ${esc(d.rho)}</td>
-        <td>${esc(d.impellerType || '')} D${d.D_mm || '?'} · ${d.rpm || '?'}rpm · ${d.motor_kW || '?'}kW</td>
+        <td>${esc(d.impellerType || '')} D${esc(d.D_mm || '?')} · ${esc(d.rpm || '?')}rpm · ${esc(d.motor_kW || '?')}kW</td>
         <td>${esc(d.savedBy || '')}<div class="hint">${esc((d.savedAt || '').slice(0, 10))}</div></td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" data-load="${esc(d.id)}">${LI('upload')} 불러오기</button>

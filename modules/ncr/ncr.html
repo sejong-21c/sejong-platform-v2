@@ -678,7 +678,9 @@ function findItemById(itemId) {
 
 function _toBlobUrl(dataUrl) {
   const [header, b64] = dataUrl.split(',');
-  const mime = header.match(/:(.*?);/)?.[1] || 'application/octet-stream';
+  // 자료가 적은 형식을 그대로 믿으면 text/html·svg 가 같은 출처 blob 창으로 떠 스크립트가 돈다 — 보고서 형식만 통과
+  const mime0 = header.match(/:(.*?);/)?.[1] || '';
+  const mime = /^(application\/pdf|image\/(png|jpe?g|gif|webp|bmp)|application\/msword|application\/vnd\.openxmlformats-officedocument\.[\w.+-]+)$/i.test(mime0) ? mime0 : 'application/octet-stream';
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
@@ -760,11 +762,11 @@ function render() {
       const names = [...new Set(ncrs.filter(n=>n.proj==='__direct__').map(n=>n.meta?.projDirect||'직접입력'))];
       names.forEach(name => {
         const key = `__direct__::${name}`;
-        projDropdown.push(`<option value="${key}" ${filterState.proj===key?'selected':''}>${name}</option>`);
+        projDropdown.push(`<option value="${_htmlEsc(key)}" ${filterState.proj===key?'selected':''}>${_htmlEsc(name)}</option>`);
       });
     } else {
       const p = getP(pid);
-      if (p?.id) projDropdown.push(`<option value="${pid}" ${filterState.proj===pid?'selected':''}>${p.code} ${p.name}</option>`);
+      if (p?.id) projDropdown.push(`<option value="${_htmlEsc(pid)}" ${filterState.proj===pid?'selected':''}>${_htmlEsc(p.code)} ${_htmlEsc(p.name)}</option>`);
     }
   });
 
@@ -781,14 +783,14 @@ function render() {
         const ru = getU(r.requestedBy);
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-light);gap:8px;">
           <div style="flex:1;">
-            <div style="font-size:13px;font-weight:600;">${r.ncrId}</div>
-            <div style="font-size:11px;color:var(--text-light);">요청: ${ru?.name||'-'} · ${r.requestedAt} · 사유: ${r.reason||'-'}</div>
-            <div style="font-size:11px;color:var(--text-light);margin-top:2px;">${n?.desc||''}</div>
+            <div style="font-size:13px;font-weight:600;">${_htmlEsc(r.ncrId)}</div>
+            <div style="font-size:11px;color:var(--text-light);">요청: ${_htmlEsc(ru?.name||'-')} · ${_htmlEsc(r.requestedAt)} · 사유: ${_htmlEsc(r.reason||'-')}</div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:2px;">${_htmlEsc(n?.desc||'')}</div>
             <div style="font-size:11px;color:var(--danger);margin-top:2px;">${LI('hourglass','⏳')} ${fmtNCRRemain((r.scheduledDeleteAt||0) - Date.now())}</div>
           </div>
           <div style="display:flex;gap:6px;">
-            <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" onclick="approveNCRDelete('${r.id}')">조기승인(즉시삭제)</button>
-            <button class="btn btn-sm" onclick="rejectNCRDelete('${r.id}')">반려</button>
+            <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" onclick="approveNCRDelete(${jsArg(r.id)})">조기승인(즉시삭제)</button>
+            <button class="btn btn-sm" onclick="rejectNCRDelete(${jsArg(r.id)})">반려</button>
           </div>
         </div>`;
       }).join('')}
@@ -823,9 +825,9 @@ function render() {
       ${pending.map(p => {
         const it = findItemById(p.itemId);
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-light);gap:8px;">
-          <div style="flex:1;"><div style="font-size:13px;font-weight:500;">${it?.tag||p.itemId} — ${p.stage} 공정</div>
-          <div style="font-size:11px;color:var(--text-light);">${p.memo} · ${p.date||''}</div></div>
-          <button class="btn btn-sm" onclick="issueNCRFromTrav('${p.itemId}','${p.stage}')">→ NCR 발행</button>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:500;">${_htmlEsc(it?.tag||p.itemId)} — ${_htmlEsc(p.stage)} 공정</div>
+          <div style="font-size:11px;color:var(--text-light);">${_htmlEsc(p.memo)} · ${_htmlEsc(p.date||'')}</div></div>
+          <button class="btn btn-sm" onclick="issueNCRFromTrav(${jsArg(p.itemId)},${jsArg(p.stage)})">→ NCR 발행</button>
         </div>`;
       }).join('')}
     </div>` : ''}
@@ -843,7 +845,7 @@ function render() {
         <option value="open"    ${filterState.status==='open'   ?'selected':''}>진행중</option>
         <option value="closed"  ${filterState.status==='closed' ?'selected':''}>종결</option>
       </select>
-      <input id="ncr-search-input" placeholder="🔍 검색 (No./내용/프로젝트)" value="${filterState.search}"
+      <input id="ncr-search-input" placeholder="🔍 검색 (No./내용/프로젝트)" value="${_htmlEsc(filterState.search)}"
         oninput="filterState.search=this.value;render()" style="min-width:200px;">
       ${(filterState.proj||filterState.grade||filterState.status||filterState.search)
         ? `<button class="btn btn-sm" onclick="filterState={proj:'',grade:'',status:'',search:''};render()">✕ 초기화</button>` : ''}
@@ -867,26 +869,26 @@ function render() {
             const delBtn = pendingReq
               ? `<span style="font-size:10px;color:var(--danger);white-space:nowrap;" title="${fmtNCRRemain((pendingReq.scheduledDeleteAt||0) - Date.now())}">삭제대기</span>`
                 + ((pendingReq.requestedBy === state.currentUser || canDeleteNCR)
-                  ? `<button class="org-ico-btn" onclick="cancelNCRDelete('${pendingReq.id}')" title="삭제 요청 취소" style="color:var(--text-light);">${LI('corner-up-left','↩')}</button>` : '')
+                  ? `<button class="org-ico-btn" onclick="cancelNCRDelete(${jsArg(pendingReq.id)})" title="삭제 요청 취소" style="color:var(--text-light);">${LI('corner-up-left','↩')}</button>` : '')
               : (canDeleteNCR || canRegisterNCR)
-                ? `<button class="org-ico-btn" onclick="requestNCRDelete('${n.id}')" title="삭제 요청 (24시간 대기 후 삭제)" style="color:var(--danger);">${LI('trash-2','🗑️')}</button>`
+                ? `<button class="org-ico-btn" onclick="requestNCRDelete(${jsArg(n.id)})" title="삭제 요청 (24시간 대기 후 삭제)" style="color:var(--danger);">${LI('trash-2','🗑️')}</button>`
                 : '';
             return `<tr>
-              <td style="font-weight:700;font-size:11px;white-space:nowrap;">${n.id}</td>
-              <td style="font-size:11px;max-width:120px;">${projName}</td>
-              <td style="font-size:12px;">${n.item||'-'}</td>
+              <td style="font-weight:700;font-size:11px;white-space:nowrap;">${_htmlEsc(n.id)}</td>
+              <td style="font-size:11px;max-width:120px;">${_htmlEsc(projName)}</td>
+              <td style="font-size:12px;">${_htmlEsc(n.item||'-')}</td>
               <td><span class="b-pill ${g[0]}">${g[1]}</span></td>
-              <td style="font-size:12px;max-width:220px;">${n.desc}</td>
-              <td style="font-size:11px;white-space:nowrap;">${n.issuedAt||'-'}</td>
-              <td style="font-size:11px;">${n.disposition ? `<span class="b-pill ${(NCR_DISP[n.disposition]||['gray'])[0]}">${n.disposition}</span>` : '-'}</td>
-              <td style="font-size:11px;white-space:nowrap;color:${n.closedAt?'var(--success)':'var(--text-light)'};">${n.closedAt||'-'}</td>
+              <td style="font-size:12px;max-width:220px;">${_htmlEsc(n.desc)}</td>
+              <td style="font-size:11px;white-space:nowrap;">${_htmlEsc(n.issuedAt||'-')}</td>
+              <td style="font-size:11px;">${n.disposition ? `<span class="b-pill ${(NCR_DISP[n.disposition]||['gray'])[0]}">${_htmlEsc(n.disposition)}</span>` : '-'}</td>
+              <td style="font-size:11px;white-space:nowrap;color:${n.closedAt?'var(--success)':'var(--text-light)'};">${_htmlEsc(n.closedAt||'-')}</td>
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
               <td style="font-size:11px;white-space:nowrap;">${_htmlEsc(_custodyHolder(n))}</td>
               <td style="white-space:nowrap;">
-                <button class="org-ico-btn" onclick="openNCRMgr('${n.id}')" title="상세">${LI('clipboard-list','📋')}</button>
-                ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewNCRFile('${n.id}')" title="파일 보기">${LI('file-text','📄')}</button>` : ''}
-                ${!n.carId && n.status!=='closed' ? `<button class="org-ico-btn" onclick="createCARfromNCR('${n.id}')" title="CAR 발행">${LI('wrench','🔧')}</button>` : ''}
-                ${n.carId ? `<span style="font-size:10px;color:var(--primary);">${n.carId}</span>` : ''}
+                <button class="org-ico-btn" onclick="openNCRMgr(${jsArg(n.id)})" title="상세">${LI('clipboard-list','📋')}</button>
+                ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button class="org-ico-btn" onclick="viewNCRFile(${jsArg(n.id)})" title="파일 보기">${LI('file-text','📄')}</button>` : ''}
+                ${!n.carId && n.status!=='closed' ? `<button class="org-ico-btn" onclick="createCARfromNCR(${jsArg(n.id)})" title="CAR 발행">${LI('wrench','🔧')}</button>` : ''}
+                ${n.carId ? `<span style="font-size:10px;color:var(--primary);">${_htmlEsc(n.carId)}</span>` : ''}
                 ${delBtn}
               </td>
             </tr>`;
@@ -905,15 +907,15 @@ function render() {
 function openNewNCR() {
   const projOpts = [
     '<option value="__direct__">✏️ 직접 입력</option>',
-    ...(state.projects||[]).filter(p=>!p.hidden).map(p=>`<option value="${p.id}">${p.code} ${p.name}</option>`)
+    ...(state.projects||[]).filter(p=>!p.hidden).map(p=>`<option value="${_htmlEsc(p.id)}">${_htmlEsc(p.code)} ${_htmlEsc(p.name)}</option>`)
   ].join('');
-  const locOpts  = ['', ...(state.ncrLists?.location||NCR_LOCATION_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
-  const causeOpts= ['', ...(state.ncrLists?.cause||NCR_CAUSE_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
-  const detailOpts=['', ...(state.ncrLists?.detail||NCR_DETAIL_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
-  const vendorOpts=['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
-  const dispOpts = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${v}">${v||'— 미선택 —'}</option>`).join('');
+  const locOpts  = ['', ...(state.ncrLists?.location||NCR_LOCATION_DEF)].map(v=>`<option value="${_htmlEsc(v)}">${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
+  const causeOpts= ['', ...(state.ncrLists?.cause||NCR_CAUSE_DEF)].map(v=>`<option value="${_htmlEsc(v)}">${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
+  const detailOpts=['', ...(state.ncrLists?.detail||NCR_DETAIL_DEF)].map(v=>`<option value="${_htmlEsc(v)}">${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
+  const vendorOpts=['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${_htmlEsc(v)}">${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
+  const dispOpts = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${_htmlEsc(v)}">${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
-  const issuerOpts = (state.users||[]).map(u=>`<option value="${u.id}" ${u.id===state.currentUser?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
+  const issuerOpts = (state.users||[]).map(u=>`<option value="${_htmlEsc(u.id)}" ${u.id===state.currentUser?'selected':''}>${_htmlEsc(u.name)} ${_htmlEsc(u.title||'')}</option>`).join('');
 
   openModal('+ NCR 발행', `
     <div class="fg">
@@ -1017,25 +1019,25 @@ function openNCRMgr(ncrId) {
   const st = NCR_STATUS[n.status] || NCR_STATUS.open;
   const p  = getP(n.proj);
   const projName = n.proj==='__direct__' ? (n.meta?.projDirect||'직접입력') : (p?.code ? `${p.code} ${p.name}` : '-');
-  const locOpts   = ['', ...(state.ncrLists?.location||NCR_LOCATION_DEF)].map(v=>`<option value="${v}" ${v===n.location?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
-  const causeOpts = ['', ...(state.ncrLists?.cause||NCR_CAUSE_DEF)].map(v=>`<option value="${v}" ${v===n.cause?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
-  const detailOpts= ['', ...(state.ncrLists?.detail||NCR_DETAIL_DEF)].map(v=>`<option value="${v}" ${v===n.causeDetail?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
-  const vendorOpts= ['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${v}" ${v===n.vendor?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
-  const dispOpts  = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${v}" ${v===n.disposition?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
+  const locOpts   = ['', ...(state.ncrLists?.location||NCR_LOCATION_DEF)].map(v=>`<option value="${_htmlEsc(v)}" ${v===n.location?'selected':''}>${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
+  const causeOpts = ['', ...(state.ncrLists?.cause||NCR_CAUSE_DEF)].map(v=>`<option value="${_htmlEsc(v)}" ${v===n.cause?'selected':''}>${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
+  const detailOpts= ['', ...(state.ncrLists?.detail||NCR_DETAIL_DEF)].map(v=>`<option value="${_htmlEsc(v)}" ${v===n.causeDetail?'selected':''}>${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
+  const vendorOpts= ['', ...(state.ncrLists?.vendor||NCR_VENDOR_DEF)].map(v=>`<option value="${_htmlEsc(v)}" ${v===n.vendor?'selected':''}>${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
+  const dispOpts  = ['', ...Object.keys(NCR_DISP)].map(v=>`<option value="${_htmlEsc(v)}" ${v===n.disposition?'selected':''}>${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
-  const custodyUserOpts = (state.users||[]).map(u=>`<option value="${u.id}" data-name="${_htmlEsc(u.name||'')}" data-dept="${_htmlEsc(u.dept||'')}">${u.name} ${u.title||''}</option>`).join('');
+  const custodyUserOpts = (state.users||[]).map(u=>`<option value="${_htmlEsc(u.id)}" data-name="${_htmlEsc(u.name||'')}" data-dept="${_htmlEsc(u.dept||'')}">${_htmlEsc(u.name)} ${_htmlEsc(u.title||'')}</option>`).join('');
   const custodyLogHtml = (n.custodyLog||[]).length
-    ? [...n.custodyLog].reverse().map(c=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border-light);"><b>${_htmlEsc(c.holder)}</b>${c.dept?` <span style="color:var(--text-light);">(${_htmlEsc(c.dept)})</span>`:''} <span style="color:var(--text-light);">· ${c.date}${c.note?' · '+_htmlEsc(c.note):''}</span></div>`).join('')
+    ? [...n.custodyLog].reverse().map(c=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border-light);"><b>${_htmlEsc(c.holder)}</b>${c.dept?` <span style="color:var(--text-light);">(${_htmlEsc(c.dept)})</span>`:''} <span style="color:var(--text-light);">· ${_htmlEsc(c.date)}${c.note?' · '+_htmlEsc(c.note):''}</span></div>`).join('')
     : `<div style="font-size:11px;color:var(--text-light);">이동 이력 없음 (발행자가 보관 중)</div>`;
 
   openModal(`📋 NCR 관리 — ${n.id}`, `
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
       <span class="b-pill ${g[0]}">${g[1]}</span>
       <span class="b-pill ${st[0]}">${st[1]}</span>
-      <span style="font-size:12px;color:var(--text-light);">${projName} · 발행일: ${n.issuedAt||'-'}</span>
+      <span style="font-size:12px;color:var(--text-light);">${_htmlEsc(projName)} · 발행일: ${_htmlEsc(n.issuedAt||'-')}</span>
     </div>
-    <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="mgr-desc" rows="3">${n.desc}</textarea></div>
-    <div class="fg"><label class="fl">아이템</label><input class="fi" id="mgr-item" value="${n.item||''}"></div>
+    <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="mgr-desc" rows="3">${_htmlEsc(n.desc)}</textarea></div>
+    <div class="fg"><label class="fl">아이템</label><input class="fi" id="mgr-item" value="${_htmlEsc(n.item||'')}"></div>
     <div class="fg">
       <label class="fl">발행자 <span style="font-size:11px;color:var(--text-light);">(실제 원본 서류 작성자 — 전산 등록자와 다를 수 있음)</span></label>
       <div style="display:flex;gap:4px;">
@@ -1076,7 +1078,7 @@ function openNCRMgr(ncrId) {
     </div>
     <div class="fg">
       <label class="fl">종결일 <span style="font-size:11px;color:var(--text-light);">(입력 시 자동 종결)</span></label>
-      <input class="fi" type="date" id="mgr-closed" value="${n.closedAt||''}">
+      <input class="fi" type="date" id="mgr-closed" value="${_htmlEsc(n.closedAt||'')}">
     </div>
     <div class="fg">
       <label class="fl">${LI('package','📦')} 원본 서류 이동 이력 <span style="font-size:11px;color:var(--text-light);">현재 보관: <b>${_htmlEsc(_custodyHolder(n))}</b></span></label>
@@ -1092,15 +1094,15 @@ function openNCRMgr(ncrId) {
         </div>
         <input class="fi" type="date" id="mgr-custody-date" value="${new Date().toISOString().slice(0,10)}" style="width:130px;">
         <input class="fi" id="mgr-custody-note" placeholder="비고(선택)" style="flex:1;min-width:100px;">
-        <button type="button" class="btn btn-sm" onclick="addNCRCustodyEntry('${n.id}')">전달 등록</button>
+        <button type="button" class="btn btn-sm" onclick="addNCRCustodyEntry(${jsArg(n.id)})">전달 등록</button>
       </div>
     </div>
     <div class="fg">
       <label class="fl">첨부파일 업데이트</label>
       <div style="display:flex;gap:8px;align-items:center;">
         <button type="button" class="btn btn-sm" onclick="document.getElementById('mgr-file-input').click()">${LI('paperclip','📎')} 파일 선택</button>
-        <span id="mgr-file-name" style="font-size:12px;color:var(--text-light);">${n.meta?.fileName||'없음'}</span>
-        ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button type="button" class="btn btn-sm" onclick="viewNCRFile('${n.id}')">${LI('file-text','📄')} 현재 파일 보기</button>` : ''}
+        <span id="mgr-file-name" style="font-size:12px;color:var(--text-light);">${_htmlEsc(n.meta?.fileName||'없음')}</span>
+        ${(n.meta?.fileChunkId || n.meta?.fileUrl || n.meta?.fileDataUrl) ? `<button type="button" class="btn btn-sm" onclick="viewNCRFile(${jsArg(n.id)})">${LI('file-text','📄')} 현재 파일 보기</button>` : ''}
       </div>
       <input type="file" id="mgr-file-input" accept=".pdf,.docx" style="display:none" onchange="(function(inp){
         const f=inp.files[0]; if(!f) return;
@@ -1186,9 +1188,9 @@ function closeNCR(ncrId) {
 function createCARfromNCR(ncrId) {
   const n = (state.ncrs||[]).find(x => x.id === ncrId);
   if (!n) return;
-  const userOpts = (state.users||[]).map(u=>`<option value="${u.id}">${u.name} ${u.title}</option>`).join('');
+  const userOpts = (state.users||[]).map(u=>`<option value="${_htmlEsc(u.id)}">${_htmlEsc(u.name)} ${_htmlEsc(u.title)}</option>`).join('');
   openModal(`🔧 CAR 발행 — ${ncrId}`, `
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">${n.desc}</div>
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">${_htmlEsc(n.desc)}</div>
     <div class="fg"><label class="fl">시정조치 내용</label><textarea class="fi" id="carAction" rows="3" placeholder="필요한 시정조치를 기재하세요"></textarea></div>
     <div class="fg" style="display:flex;gap:8px;">
       <div style="flex:1;"><label class="fl">담당자</label><select class="fs" id="carAssignee">${userOpts}</select></div>
@@ -1228,11 +1230,11 @@ function issueNCRFromTrav(itemId, stage) {
   const pid = it?.__projId__ || '';
   const projOpts = [
     '<option value="__direct__">✏️ 직접 입력</option>',
-    ...(state.projects||[]).filter(p=>!p.hidden).map(p=>`<option value="${p.id}" ${p.id===pid?'selected':''}>${p.code} ${p.name}</option>`)
+    ...(state.projects||[]).filter(p=>!p.hidden).map(p=>`<option value="${_htmlEsc(p.id)}" ${p.id===pid?'selected':''}>${_htmlEsc(p.code)} ${_htmlEsc(p.name)}</option>`)
   ].join('');
   openModal(`🔧 NCR 발행 — ${it?.tag||itemId} ${stage}`, `
     <div class="fg"><label class="fl">프로젝트</label><select class="fs" id="travProj">${projOpts}</select></div>
-    <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="travDesc" rows="3">${data.memo||''}</textarea></div>
+    <div class="fg"><label class="fl">부적합 내용</label><textarea class="fi" id="travDesc" rows="3">${_htmlEsc(data.memo||'')}</textarea></div>
     <div class="fg">
       <label class="fl">등급</label>
       <select class="fs" id="travGrade"><option value="major">중대</option><option value="minor" selected>일반</option><option value="obs">경미</option></select>
@@ -1412,8 +1414,8 @@ function addToNcrList(type, selectId) {
   openModal(`📋 ${labels[type]||type} 목록 관리`, `
     <div style="margin-bottom:12px;">
       ${list.map(v => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border-light);">
-        <span style="font-size:13px;">${v}</span>
-        <button onclick="removeNcrListItem('${type}','${v.replace(/'/g,"\\'")}','${selectId}')" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:16px;padding:0 4px;">×</button>
+        <span style="font-size:13px;">${_htmlEsc(v)}</span>
+        <button onclick="removeNcrListItem('${type}',${jsArg(v)},'${selectId}')" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:16px;padding:0 4px;">×</button>
       </div>`).join('')}
       ${list.length === 0 ? '<div style="font-size:12px;color:var(--text-light);padding:8px 0;">항목이 없습니다</div>' : ''}
     </div>
@@ -1452,17 +1454,17 @@ async function viewNCRFile(ncrId) {
     try {
       // DB 밖(R2)에 있는 첨부는 서명된 주소로 바로 연다 — base64 로 되받을 이유가 없다.
       if (window.첨부 && window.첨부.밖에있나(n.meta.fileChunkId)) {
-        window.open(await window.첨부.주소(n.meta.fileChunkId), '_blank');
+        window.open(await window.첨부.주소(n.meta.fileChunkId), '_blank', 'noopener');
         return;
       }
       const dataUrl = await loadAttachmentDataUrl('ncr', n.meta.fileChunkId, n.meta.fileChunks || 0);
       if (!dataUrl) { alert('파일을 불러오지 못했습니다.'); return; }
-      window.open(_toBlobUrl(dataUrl), '_blank');
+      window.open(_toBlobUrl(dataUrl), '_blank', 'noopener');
     } catch (e) { alert('파일을 불러오는 데 실패했습니다: ' + (e.message || e)); }
     return;
   }
-  if (n?.meta?.fileUrl) { window.open(n.meta.fileUrl, '_blank'); return; } // 구버전 레코드(Storage 방식) 호환
-  if (n?.meta?.fileDataUrl) { window.open(_toBlobUrl(n.meta.fileDataUrl), '_blank'); return; } // 구버전 레코드(용량 제한 이전) 호환
+  if (n?.meta?.fileUrl) { window.open(safeUrl(n.meta.fileUrl), '_blank', 'noopener'); return; } // 구버전 레코드(Storage 방식) 호환
+  if (n?.meta?.fileDataUrl) { window.open(_toBlobUrl(n.meta.fileDataUrl), '_blank', 'noopener'); return; } // 구버전 레코드(용량 제한 이전) 호환
   alert('저장된 파일이 없습니다.');
 }
 
@@ -1473,16 +1475,16 @@ function openNCRTrend() {
   const ncrs = state.ncrs || [];
   const years = [...new Set(ncrs.map(n => (n.issuedAt||'').slice(0,4)).filter(Boolean))].sort();
   const yrSel = document.getElementById('ntr-year');
-  yrSel.innerHTML = '<option value="">전체 연도</option>' + years.map(y=>`<option value="${y}">${y}년</option>`).join('');
+  yrSel.innerHTML = '<option value="">전체 연도</option>' + years.map(y=>`<option value="${_htmlEsc(y)}">${_htmlEsc(y)}년</option>`).join('');
   const projs = [...new Set(ncrs.map(n => n.proj))];
   const pSel = document.getElementById('ntr-proj');
   pSel.innerHTML = '<option value="">전체 프로젝트</option>' + projs.map(pid => {
     if (pid === '__direct__') {
       return [...new Set(ncrs.filter(n=>n.proj==='__direct__').map(n=>n.meta?.projDirect||'직접입력'))]
-        .map(name=>`<option value="__direct__::${name}">${name}</option>`).join('');
+        .map(name=>`<option value="__direct__::${_htmlEsc(name)}">${_htmlEsc(name)}</option>`).join('');
     }
     const p = getP(pid);
-    return p?.id ? `<option value="${pid}">${p.code} ${p.name}</option>` : '';
+    return p?.id ? `<option value="${_htmlEsc(pid)}">${_htmlEsc(p.code)} ${_htmlEsc(p.name)}</option>` : '';
   }).join('');
   document.getElementById('ncr-trend-modal').classList.add('open');
   renderNCRTrend();
@@ -1533,8 +1535,12 @@ function _drillEsc(s) {
 // v29.43: 차트 라벨(프로젝트 직접입력명 등 자유 텍스트 포함)이 innerHTML로
 // 그대로 삽입되므로, 표시용 텍스트도 이스케이프해 저장형 XSS를 막는다.
 function _htmlEsc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// onclick="fn(...)" 인자 — NCR 번호는 등록자가 직접 적는다(문서 id). esc 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v) { return _htmlEsc(JSON.stringify(String(v ?? ''))); }
+// 자료에서 온 주소는 javascript: 따위를 막는다 — window.open('javascript:…') 은 이 화면과 같은 출처에서 돈다
+function safeUrl(u) { const s = String(u ?? '').trim(); return /^(https?:|data:image\/|blob:|\/|\.\/|#)/i.test(s) ? s : ''; }
 function toggleNtrDrill(field, val) {
   if (ntrDrill[field] === val) delete ntrDrill[field];
   else ntrDrill[field] = val;
@@ -1546,7 +1552,7 @@ function _ntrDrillChips() {
   const keys = Object.keys(ntrDrill);
   if (!keys.length) return '';
   const chips = keys.map(k => {
-    const val = k==='ym' ? (()=>{ const [y,m]=ntrDrill[k].split('-'); return `${y}년 ${parseInt(m)}월`; })() : _htmlEsc(ntrDrill[k]);
+    const val = k==='ym' ? (()=>{ const [y,m]=ntrDrill[k].split('-'); return `${_htmlEsc(y)}년 ${parseInt(m)}월`; })() : _htmlEsc(ntrDrill[k]);
     return `<span class="ntr-filter-chip" onclick="toggleNtrDrill('${k}','${_drillEsc(ntrDrill[k])}')">${LABELS[k]||k}: ${val} ✕</span>`;
   }).join('');
   return `<div class="ntr-filter-row">${chips}<span class="ntr-filter-clear" onclick="clearNtrDrill()">전체 해제</span></div>`;
@@ -1668,7 +1674,7 @@ function _lineSvg(monthData, H=160, extraStyle='', onClickField) {
     return `<g${gAttrs}>
     ${clickable ? `<circle cx="${x}" cy="${ys[i]}" r="10" fill="transparent"/>` : ''}
     <circle cx="${x}" cy="${ys[i]}" r="${selected?5:3.5}" fill="#7c3aed"${selected?' stroke="#111" stroke-width="1.5"':''}/>
-    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="${selected?'#111':'#888'}" font-weight="${selected?'700':'400'}">${lbl}</text>
+    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="${selected?'#111':'#888'}" font-weight="${selected?'700':'400'}">${_htmlEsc(lbl)}</text>
     <text x="${x}" y="${BASE+27}" text-anchor="middle" font-size="9" font-weight="${v>0?'700':'400'}" fill="${v>0?'#7c3aed':'#bbb'}">(${v})</text>
     </g>`;
   }).join('');
@@ -1702,10 +1708,10 @@ function renderNCRTrend() {
       ? `onclick="viewNCRFile('${_drillEsc(n.id)}')" title="클릭하면 등록된 보고서를 새 탭으로 엽니다"`
       : `onclick="closeNCRTrend();openNCRMgr('${_drillEsc(n.id)}')" title="첨부 보고서가 없어 상세 화면을 엽니다"`;
     return `<tr style="cursor:pointer;" ${clickAttr}>
-      <td style="font-weight:700;color:var(--primary);">${n.id} ${hasFile?LI('file-text','📄'):LI('arrow-up-right','↗')}</td>
-      <td>${p}</td><td>${n.item||'-'}</td>
-      <td>${n.location||'-'}${n.location==='협력사'&&n.vendor?' ('+_htmlEsc(n.vendor)+')':''}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
-      <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
+      <td style="font-weight:700;color:var(--primary);">${_htmlEsc(n.id)} ${hasFile?LI('file-text','📄'):LI('arrow-up-right','↗')}</td>
+      <td>${_htmlEsc(p)}</td><td>${_htmlEsc(n.item||'-')}</td>
+      <td>${_htmlEsc(n.location||'-')}${n.location==='협력사'&&n.vendor?' ('+_htmlEsc(n.vendor)+')':''}</td><td>${_htmlEsc(n.cause||'-')}</td><td>${_htmlEsc(n.causeDetail||'-')}</td>
+      <td>${_htmlEsc(n.disposition||'-')}</td><td>${_htmlEsc(n.issuedAt||'-')}</td><td>${_htmlEsc(n.closedAt||'-')}</td>
       <td><span class="b-pill ${n.status==='closed'?'green':'red'}">${n.status==='closed'?'종결':'진행중'}</span></td>
     </tr>`;
   }).join('');
@@ -1759,7 +1765,7 @@ function printNCRTrend() {
   // 어떤 조건이 걸려있는지 상단 메타 정보에 같이 표기한다.
   const DRILL_LABELS = { location:'발생장소', vendor:'협력사명', cause:'불량원인', causeDetail:'불량원인상세', disposition:'처리방안', projLabel:'프로젝트', ym:'월' };
   const drillDesc = Object.keys(ntrDrill).map(k => {
-    const val = k==='ym' ? (()=>{ const [y,m]=ntrDrill[k].split('-'); return `${y}년 ${parseInt(m)}월`; })() : _htmlEsc(ntrDrill[k]);
+    const val = k==='ym' ? (()=>{ const [y,m]=ntrDrill[k].split('-'); return `${_htmlEsc(y)}년 ${parseInt(m)}월`; })() : _htmlEsc(ntrDrill[k]);
     return `${DRILL_LABELS[k]||k}=${val}`;
   }).join(', ');
   const ncrs = _ntrFiltered();
@@ -1782,9 +1788,9 @@ function printNCRTrend() {
   const tableRows = ncrs.map(n => {
     const p = n.proj==='__direct__'?(n.meta?.projDirect||'직접입력'):(getP(n.proj)?.code||'-');
     const st = n.status==='closed';
-    return `<tr><td style="font-weight:700;">${n.id}</td><td>${p}</td><td>${n.item||'-'}</td>
-      <td>${n.location||'-'}${n.location==='협력사'&&n.vendor?' ('+_htmlEsc(n.vendor)+')':''}</td><td>${n.cause||'-'}</td><td>${n.causeDetail||'-'}</td>
-      <td>${n.disposition||'-'}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
+    return `<tr><td style="font-weight:700;">${_htmlEsc(n.id)}</td><td>${_htmlEsc(p)}</td><td>${_htmlEsc(n.item||'-')}</td>
+      <td>${_htmlEsc(n.location||'-')}${n.location==='협력사'&&n.vendor?' ('+_htmlEsc(n.vendor)+')':''}</td><td>${_htmlEsc(n.cause||'-')}</td><td>${_htmlEsc(n.causeDetail||'-')}</td>
+      <td>${_htmlEsc(n.disposition||'-')}</td><td>${_htmlEsc(n.issuedAt||'-')}</td><td>${_htmlEsc(n.closedAt||'-')}</td>
       <td><span class="b-pill ${st?'green':'red'}">${st?'종결':'진행중'}</span></td></tr>`;
   }).join('');
 
@@ -1821,7 +1827,7 @@ function printNCRTrend() {
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
     <div class="hdr"><h1>${LI('chart-column','📊')} NCR 품질 경향분석 보고서</h1>
-      <span class="meta">작성일: ${today} &nbsp;|&nbsp; 기간: ${yr}년 ${mo}월 &nbsp;|&nbsp; 프로젝트: ${proj}${drillDesc ? ` &nbsp;|&nbsp; 선택 필터: ${drillDesc}` : ''} &nbsp;|&nbsp; 세종기술 품질관리부</span></div>
+      <span class="meta">작성일: ${today} &nbsp;|&nbsp; 기간: ${_htmlEsc(yr)}년 ${_htmlEsc(mo)}월 &nbsp;|&nbsp; 프로젝트: ${_htmlEsc(proj)}${drillDesc ? ` &nbsp;|&nbsp; 선택 필터: ${drillDesc}` : ''} &nbsp;|&nbsp; 세종기술 품질관리부</span></div>
     <div class="kpi-row">
       <div class="kpi"><div class="v">${ncrs.length}</div><div class="l">전체 건수</div></div>
       <div class="kpi"><div class="v" style="color:#dc2626;">${ncrs.filter(n=>n.status!=='closed').length}</div><div class="l">진행 중</div></div>
@@ -1977,11 +1983,11 @@ function showNCRParseModal(p) {
   const projOpts = (state.projects||[]).filter(pr=>!pr.hidden).map(pr => {
     const isMatch = titleKey && (pr.name+' '+pr.code).toLowerCase().includes(titleKey);
     if (isMatch) matched = true;
-    return `<option value="${pr.id}" ${isMatch?'selected':''}>${pr.code} ${pr.name}</option>`;
+    return `<option value="${_htmlEsc(pr.id)}" ${isMatch?'selected':''}>${_htmlEsc(pr.code)} ${_htmlEsc(pr.name)}</option>`;
   }).join('');
   const gradeOpts  = [['major','중대'],['minor','일반'],['obs','경미']].map(([v,l])=>`<option value="${v}" ${p.grade===v?'selected':''}>${l}</option>`).join('');
   const statusOpts = [['open','진행중'],['closed','종결']].map(([v,l])=>`<option value="${v}" ${p.status===v?'selected':''}>${l}</option>`).join('');
-  const mkOpts = (arr, sel='') => ['', ...arr].map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v||'— 미선택 —'}</option>`).join('');
+  const mkOpts = (arr, sel='') => ['', ...arr].map(v=>`<option value="${_htmlEsc(v)}" ${v===sel?'selected':''}>${_htmlEsc(v||'— 미선택 —')}</option>`).join('');
   const locOpts  = mkOpts(state.ncrLists?.location||NCR_LOCATION_DEF);
   const causeOpts= mkOpts(state.ncrLists?.cause   ||NCR_CAUSE_DEF);
   const detailOpts=mkOpts(state.ncrLists?.detail  ||NCR_DETAIL_DEF);
@@ -1989,7 +1995,7 @@ function showNCRParseModal(p) {
   const dispOpts = mkOpts(Object.keys(NCR_DISP));
   const addBtn = (type, sid) => `<button type="button" onclick="addToNcrList('${type}','${sid}')" style="padding:0 7px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:16px;line-height:1;color:var(--primary);flex-shrink:0;height:36px;">+</button>`;
   const badge = v => v ? '<span class="npm-parse-badge found">자동감지</span>' : '<span class="npm-parse-badge manual">직접입력</span>';
-  const issuerOpts = (state.users||[]).map(u=>`<option value="${u.id}" ${u.id===state.currentUser?'selected':''}>${u.name} ${u.title||''}</option>`).join('');
+  const issuerOpts = (state.users||[]).map(u=>`<option value="${_htmlEsc(u.id)}" ${u.id===state.currentUser?'selected':''}>${_htmlEsc(u.name)} ${_htmlEsc(u.title||'')}</option>`).join('');
 
   const filePanel = document.getElementById('ncr-parse-file');
   if (filePanel) {
@@ -1999,7 +2005,7 @@ function showNCRParseModal(p) {
     } else if (p.fileDataUrl?.startsWith('data:application/pdf')) {
       filePanel.innerHTML = `<iframe src="${_toBlobUrl(p.fileDataUrl)}" style="flex:1;border:none;width:100%;height:100%;"></iframe>`;
     } else if (p.fileDataUrl) {
-      filePanel.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-light);">${LI('file-text','📄')} ${p.fileName||'파일'}<br><span style="font-size:11px;">PDF가 아닌 파일은 미리보기를 지원하지 않습니다.</span></div>`;
+      filePanel.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-light);">${LI('file-text','📄')} ${_htmlEsc(p.fileName||'파일')}<br><span style="font-size:11px;">PDF가 아닌 파일은 미리보기를 지원하지 않습니다.</span></div>`;
     }
   }
   window._ncrParseFileDataUrl = p.fileDataUrl||null;
@@ -2012,19 +2018,19 @@ function showNCRParseModal(p) {
       ${p.ocrFailed?LI('triangle-alert','⚠️')+' 스캔본 자동 인식 불가 — 직접 입력하세요':LI('circle-check','✅')+' 문서 파싱 완료 — 확인 후 등록하세요'}
     </div>
     <div class="npm-row">
-      <div class="npm-field"><label>NCR No. ${badge(p.ncrNo)}</label><input id="np-ncrno" value="${p.ncrNo||''}" placeholder="예: SJ-NCR-2026-01"></div>
-      <div class="npm-field"><label>발행일자 ${badge(p.issuedAt)}</label><input id="np-date" type="date" value="${p.issuedAt||''}"></div>
+      <div class="npm-field"><label>NCR No. ${badge(p.ncrNo)}</label><input id="np-ncrno" value="${_htmlEsc(p.ncrNo||'')}" placeholder="예: SJ-NCR-2026-01"></div>
+      <div class="npm-field"><label>발행일자 ${badge(p.issuedAt)}</label><input id="np-date" type="date" value="${_htmlEsc(p.issuedAt||'')}"></div>
     </div>
     <div class="npm-field">
-      <label>프로젝트 (계약명: ${p.projTitle||'미감지'}) ${badge(p.projTitle)}</label>
+      <label>프로젝트 (계약명: ${_htmlEsc(p.projTitle||'미감지')}) ${badge(p.projTitle)}</label>
       <select id="np-proj" onchange="document.getElementById('np-proj-direct').style.display=this.value==='__direct__'?'block':'none'">
         <option value="__direct__" ${!matched?'selected':''}>✏️ 직접 입력</option>${projOpts}
       </select>
-      <input id="np-proj-direct" placeholder="프로젝트명 직접 입력" value="${p.projTitle||''}" style="margin-top:6px;display:${!matched?'block':'none'};">
+      <input id="np-proj-direct" placeholder="프로젝트명 직접 입력" value="${_htmlEsc(p.projTitle||'')}" style="margin-top:6px;display:${!matched?'block':'none'};">
     </div>
     <div class="npm-row">
-      <div class="npm-field"><label>고객명 ${badge(p.client)}</label><input id="np-client" value="${p.client||''}" placeholder="예: ASK CHEMICALS"></div>
-      <div class="npm-field"><label>부품명(번호) ${badge(p.partName)}</label><input id="np-item" value="${p.partName||''}" placeholder="예: CD-02-703"></div>
+      <div class="npm-field"><label>고객명 ${badge(p.client)}</label><input id="np-client" value="${_htmlEsc(p.client||'')}" placeholder="예: ASK CHEMICALS"></div>
+      <div class="npm-field"><label>부품명(번호) ${badge(p.partName)}</label><input id="np-item" value="${_htmlEsc(p.partName||'')}" placeholder="예: CD-02-703"></div>
     </div>
     <div class="npm-field">
       <label>발행자 <span style="font-size:11px;color:var(--text-light);">(실제 원본 서류 작성자 — 전산 등록자와 다를 수 있음)</span></label>
@@ -2036,10 +2042,10 @@ function showNCRParseModal(p) {
       <input id="np-issuer-direct" placeholder="이름 직접 입력(외부 등)" style="margin-top:6px;display:none;">
     </div>
     <div class="npm-row">
-      <div class="npm-field"><label>도면번호 ${badge(p.dwgNo)}</label><input id="np-dwg" value="${p.dwgNo||''}" placeholder="예: 25-ASK-CD02703-01"></div>
-      <div class="npm-field"><label>W.R No. ${badge(p.wrNo)}</label><input id="np-wr" value="${p.wrNo||''}" placeholder="예: SJ433-25"></div>
+      <div class="npm-field"><label>도면번호 ${badge(p.dwgNo)}</label><input id="np-dwg" value="${_htmlEsc(p.dwgNo||'')}" placeholder="예: 25-ASK-CD02703-01"></div>
+      <div class="npm-field"><label>W.R No. ${badge(p.wrNo)}</label><input id="np-wr" value="${_htmlEsc(p.wrNo||'')}" placeholder="예: SJ433-25"></div>
     </div>
-    <div class="npm-field"><label>불일치 내용 ${badge(p.desc)}</label><textarea id="np-desc" rows="3">${p.desc||''}</textarea></div>
+    <div class="npm-field"><label>불일치 내용 ${badge(p.desc)}</label><textarea id="np-desc" rows="3">${_htmlEsc(p.desc||'')}</textarea></div>
     <div class="npm-row">
       <div class="npm-field"><label>등급</label><select id="np-grade">${gradeOpts}</select></div>
       <div class="npm-field"><label>상태</label><select id="np-status">${statusOpts}</select></div>

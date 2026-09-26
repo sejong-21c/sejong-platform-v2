@@ -557,6 +557,8 @@ function escapeHtml(s) {
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   })[c]);
 }
+// onclick="fn(...)" 인자 — escapeHtml 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v) { return escapeHtml(JSON.stringify(String(v ?? ''))); }
 
 // ============ 저장소 ============
 async function safeGet(key) {
@@ -680,13 +682,13 @@ function renderPreview(results) {
       validCount++;
       const md = ((r.regular + r.ot) / 8).toFixed(2);
       html += `<div class="preview-item">
-        <div class="preview-row"><span class="k">날짜</span><span class="v">${r.date}</span></div>
+        <div class="preview-row"><span class="k">날짜</span><span class="v">${escapeHtml(r.date)}</span></div>
         <div class="preview-row"><span class="k">검사관</span><span class="v"><strong style="color:var(--accent-dark);">${escapeHtml(currentUser.name)} ${escapeHtml(currentUser.title||'')}</strong> <small style="color:var(--text-soft);">(자동)</small></span></div>
         <div class="preview-row"><span class="k">프로젝트</span><span class="v"><strong>${escapeHtml(r.projCode)}</strong> ${escapeHtml(r.projName)}</span></div>
         <div class="preview-row"><span class="k">아이템/업무</span><span class="v">${escapeHtml(r.item)} · ${escapeHtml(r.work)}</span></div>
         <div class="preview-row"><span class="k">시간</span><span class="v">
-          <span class="badge badge-regular">정규 ${r.regular}h</span>
-          ${r.ot > 0 ? `<span class="badge badge-ot">야근 ${r.ot}h</span>` : ''}
+          <span class="badge badge-regular">정규 ${escapeHtml(r.regular)}h</span>
+          ${r.ot > 0 ? `<span class="badge badge-ot">야근 ${escapeHtml(r.ot)}h</span>` : ''}
           <strong style="margin-left:8px; color:var(--accent-dark);">= ${md} M/D</strong>
         </span></div>
       </div>`;
@@ -771,10 +773,10 @@ function clearManual() {
 // ============ 렌더 ============
 function renderDropdowns() {
   const proj = state.projects;
-  const projOpts = proj.map(p => `<option value="${p.id}">${escapeHtml(p.code)} · ${escapeHtml(p.name)}</option>`).join('');
+  const projOpts = proj.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.code)} · ${escapeHtml(p.name)}</option>`).join('');
   $('#m-project').innerHTML = projOpts || '<option value="">(관리 탭에서 프로젝트 등록 필요)</option>';
   const insp = state.inspectors;
-  $('#f-inspector').innerHTML = '<option value="">전체</option>' + insp.map(i => `<option value="${i.id}">${escapeHtml(i.name)} ${escapeHtml(i.title||'')}</option>`).join('');
+  $('#f-inspector').innerHTML = '<option value="">전체</option>' + insp.map(i => `<option value="${escapeHtml(i.id)}">${escapeHtml(i.name)} ${escapeHtml(i.title||'')}</option>`).join('');
   $('#f-project').innerHTML = '<option value="">전체</option>' + proj.map(p => `<option value="${escapeHtml(p.code)}">${escapeHtml(p.code)} · ${escapeHtml(p.name)}</option>`).join('');
 }
 
@@ -797,13 +799,13 @@ function renderRecent() {
     const canDelete = isAdmin || e.inspectorId === currentUser.id;
     return `<div class="list-item">
       <div class="info">
-        <strong>${e.date}</strong>
+        <strong>${escapeHtml(e.date)}</strong>
         ${isAdmin ? `<small>${escapeHtml(e.inspectorName||'')} ${escapeHtml(e.inspectorTitle||'')}</small>` : ''}
         <small>· ${escapeHtml(e.projCode)} ${escapeHtml(e.projName)}</small>
         <small>· ${escapeHtml(e.item)} ${escapeHtml(e.work)}</small>
-        <br><small><span class="badge badge-regular">정규 ${e.regular}h</span> ${e.ot>0?`<span class="badge badge-ot">야근 ${e.ot}h</span>`:''} <strong style="color:var(--accent-dark);">${md} M/D</strong></small>
+        <br><small><span class="badge badge-regular">정규 ${escapeHtml(e.regular)}h</span> ${e.ot>0?`<span class="badge badge-ot">야근 ${escapeHtml(e.ot)}h</span>`:''} <strong style="color:var(--accent-dark);">${md} M/D</strong></small>
       </div>
-      ${canDelete ? `<button class="danger small" onclick="deleteEntry('${e.id}')">삭제</button>` : ''}
+      ${canDelete ? `<button class="danger small" onclick="deleteEntry(${jsArg(e.id)})">삭제</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -814,7 +816,7 @@ function renderProjectList() {
   list.innerHTML = state.projects.map(p => `
     <div class="list-item">
       <div class="info"><strong>${escapeHtml(p.code)}</strong> <small>${escapeHtml(p.name)}</small></div>
-      <button class="danger small" onclick="deleteProject('${p.id}')">삭제</button>
+      <button class="danger small" onclick="deleteProject(${jsArg(p.id)})">삭제</button>
     </div>
   `).join('');
 }
@@ -839,8 +841,8 @@ function renderInspectorList() {
         ${isMe ? '<small style="color:var(--accent-strong);">· 나</small>' : ''}
       </div>
       <div class="actions">
-        ${!isMe ? `<button class="secondary small" onclick="resetPin('${i.id}')">PIN 초기화</button>` : ''}
-        ${!isMe ? `<button class="danger small" onclick="deleteInspector('${i.id}')">삭제</button>` : ''}
+        ${!isMe ? `<button class="secondary small" onclick="resetPin(${jsArg(i.id)})">PIN 초기화</button>` : ''}
+        ${!isMe ? `<button class="danger small" onclick="deleteInspector(${jsArg(i.id)})">삭제</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -928,16 +930,16 @@ function renderDashboard() {
       const md = ((e.regular + e.ot) / 8).toFixed(2);
       const canDelete = isAdmin || e.inspectorId === currentUser.id;
       return `<tr>
-        <td>${e.date}</td>
+        <td>${escapeHtml(e.date)}</td>
         <td>${escapeHtml(e.inspectorName||'')} ${escapeHtml(e.inspectorTitle||'')}</td>
         <td>${escapeHtml(e.projCode)}</td>
         <td>${escapeHtml(e.projName)}</td>
         <td>${escapeHtml(e.item)}</td>
         <td>${escapeHtml(e.work)}</td>
-        <td>${e.regular}h</td>
-        <td style="color:#c77a33;">${e.ot>0?e.ot+'h':'-'}</td>
+        <td>${escapeHtml(e.regular)}h</td>
+        <td style="color:#c77a33;">${escapeHtml(e.ot>0?e.ot+'h':'-')}</td>
         <td><strong style="color:var(--accent-dark);">${md}</strong></td>
-        <td>${canDelete ? `<button class="danger small" onclick="deleteEntry('${e.id}')">삭제</button>` : '-'}</td>
+        <td>${canDelete ? `<button class="danger small" onclick="deleteEntry(${jsArg(e.id)})">삭제</button>` : '-'}</td>
       </tr>`;
     }).join('');
   }

@@ -444,6 +444,10 @@ function addMonths(dateStr, months) {
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
 function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// onclick="fn(...)" 인자 — esc 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v) { return esc(JSON.stringify(String(v ?? ''))); }
+// 자료에서 온 주소(서명·성적서)는 javascript: 따위를 막는다 — users 서명 칸은 본인이 쓸 수 있다
+function safeUrl(u) { const s = String(u ?? '').trim(); return /^(https?:|data:image\/|blob:|\/|\.\/|#)/i.test(s) ? s : ''; }
 function uid() { return 'mt-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function coId() { return 'co-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -757,12 +761,12 @@ function renderDashboard() {
           <tr class="${st.level==='danger'?'row-danger':(st.level==='warn'?'row-warn':'')}">
             <td><strong>${esc(t.code)}</strong></td>
             <td>${esc(t.name)} <span style="color:var(--text-lighter);font-size:11px;">${esc(t.maker||'')}${t.model?' · '+esc(t.model):''}</span></td>
-            <td>${fmtDate(t.nextCalibration)}</td>
+            <td>${esc(fmtDate(t.nextCalibration))}</td>
             <td class="${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">${st.label}</td>
             <td>${isCheckedOut(t)?`<span class="status-pill status-out">반출 · ${esc(t.currentCheckout.site)}</span>`:esc(t.location||'-')}</td>
             <td>
-              <button class="ico-btn" onclick="openDetail('${t.id}')">상세</button>
-              ${isQADept() ? `<button class="ico-btn" onclick="openCal('${t.id}')">검교정</button>` : ''}
+              <button class="ico-btn" onclick="openDetail(${jsArg(t.id)})">상세</button>
+              ${isQADept() ? `<button class="ico-btn" onclick="openCal(${jsArg(t.id)})">검교정</button>` : ''}
             </td>
           </tr>
         `).join('')}
@@ -786,7 +790,7 @@ function renderDashboard() {
               <td>${esc(l.toolName)}</td>
               <td>${esc(l.userName)}</td>
               <td>${esc(l.site)}</td>
-              <td>${fmtDateTime(l.checkedOutAt)}</td>
+              <td>${esc(fmtDateTime(l.checkedOutAt))}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -839,7 +843,7 @@ function renderScan() {
               <span style="font-size:16px;">${r.ok?(r.action==='in'?LI('download','📥'):LI('upload','📤')):LI('x','❌')}</span>
               <div style="flex:1;min-width:0;">
                 <div style="font-weight:600;color:${r.ok?'var(--text)':'var(--danger)'};">${esc(r.msg)}</div>
-                <div style="font-size:11px;color:var(--text-lighter);">${fmtDateTime(r.time)} · ${esc(r.code)}</div>
+                <div style="font-size:11px;color:var(--text-lighter);">${esc(fmtDateTime(r.time))} · ${esc(r.code)}</div>
               </div>
             </div>
           `).join('')}
@@ -924,9 +928,9 @@ function renderActive() {
               <td>${esc(l.toolName)}</td>
               <td>${esc(l.userName)}</td>
               <td>${esc(l.site)}</td>
-              <td>${fmtDateTime(l.checkedOutAt)}</td>
+              <td>${esc(fmtDateTime(l.checkedOutAt))}</td>
               <td>${days>=0?`${days}일`:'-'}</td>
-              <td><button class="ico-btn" onclick="openDetail('${l.toolId}')">상세</button></td>
+              <td><button class="ico-btn" onclick="openDetail(${jsArg(l.toolId)})">상세</button></td>
             </tr>
           `;
         }).join('')}
@@ -997,7 +1001,7 @@ function renderMaster() {
       ${filtered.length === 0 ? `<div class="empty-hint"><div class="big">${LI('search','🔍')}</div>일치하는 측정기구가 없습니다.</div>` : `
       <table class="mt-table">
         <thead><tr>
-          ${qa ? `<th style="width:32px;"><input type="checkbox" ${filtered.length>0 && filtered.every(t=>view.selectedIds.has(t.id))?'checked':''} onchange='toggleSelectAll(this.checked, ${JSON.stringify(filtered.map(t=>t.id))})'></th>` : ''}
+          ${qa ? `<th style="width:32px;"><input type="checkbox" ${filtered.length>0 && filtered.every(t=>view.selectedIds.has(t.id))?'checked':''} onchange='toggleSelectAll(this.checked, ${esc(JSON.stringify(filtered.map(t=>t.id)))})'></th>` : ''}
           <th style="width:56px;"></th>
           <th style="width:100px;">관리번호<br><span style="font-weight:400;color:var(--text-lighter);">ID No.</span></th>
           <th style="width:100px;">기기번호<br><span style="font-weight:400;color:var(--text-lighter);">Serial No.</span></th>
@@ -1015,7 +1019,7 @@ function renderMaster() {
           const rowClass = st.level === 'danger' ? 'row-danger' : (st.level === 'warn' ? 'row-warn' : '');
           return `
             <tr class="${rowClass}">
-              ${qa ? `<td><input type="checkbox" ${view.selectedIds.has(t.id)?'checked':''} onchange="toggleSelect('${t.id}', this.checked)"></td>` : ''}
+              ${qa ? `<td><input type="checkbox" ${view.selectedIds.has(t.id)?'checked':''} onchange="toggleSelect(${jsArg(t.id)}, this.checked)"></td>` : ''}
               <td>${t.photo?`<img src="${esc(t.photo)}" class="photo-thumb">`:`<div class="photo-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--text-lighter);">${LI('camera','📷')}</div>`}</td>
               <td class="nowrap"><strong>${esc(t.code)}</strong></td>
               <td class="nowrap" style="font-family:monospace;font-size:12px;">${esc(t.serialNo||'-')}</td>
@@ -1025,15 +1029,15 @@ function renderMaster() {
               <td class="nowrap">${esc(t.spec||'-')}</td>
               <td>${statusPill(t)}</td>
               <td class="nowrap ${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">
-                ${fmtDate(t.nextCalibration)}
+                ${esc(fmtDate(t.nextCalibration))}
                 <div style="font-size:11px;font-weight:400;">${st.label}</div>
               </td>
               <td class="actions">
-                <button class="ico-btn" onclick="openDetail('${t.id}')">상세</button>
+                <button class="ico-btn" onclick="openDetail(${jsArg(t.id)})">상세</button>
                 ${qa ? `
-                  <button class="ico-btn" onclick="openTool('${t.id}')">수정</button>
-                  <button class="ico-btn" onclick="openCal('${t.id}')">검교정</button>
-                  <button class="ico-btn" onclick="deleteTool('${t.id}')" style="color:var(--danger);">삭제</button>
+                  <button class="ico-btn" onclick="openTool(${jsArg(t.id)})">수정</button>
+                  <button class="ico-btn" onclick="openCal(${jsArg(t.id)})">검교정</button>
+                  <button class="ico-btn" onclick="deleteTool(${jsArg(t.id)})" style="color:var(--danger);">삭제</button>
                 ` : ''}
               </td>
             </tr>
@@ -1094,7 +1098,7 @@ function openQuoteModal() {
   const isHeadSelf = !!(cur && (cur.title === '부장' || cur.grade === 'manager' || cur.grade === 'super'));
   const deptUsers = (state.users || []).filter(u => u.dept === '품질관리부' && u.id !== curUid);
   const headCandidate = deptUsers.find(u => u.title === '부장') || deptUsers.find(u => u.grade === 'manager') || deptUsers.find(u => u.grade === 'super');
-  const userOpt = (u, selectedId) => `<option value="${u.id}" ${u.id===selectedId?'selected':''}>${esc(u.name)}${u.title?' ('+esc(u.title)+')':''}</option>`;
+  const userOpt = (u, selectedId) => `<option value="${esc(u.id)}" ${u.id===selectedId?'selected':''}>${esc(u.name)}${u.title?' ('+esc(u.title)+')':''}</option>`;
   const noOthers = deptUsers.length === 0;
   document.getElementById('quote-body').innerHTML = `
     <div style="margin-bottom:14px;padding:10px 12px;background:var(--primary-lighter);border-radius:6px;font-size:13px;">
@@ -1279,7 +1283,7 @@ function _apprStampBoxHtml(line) {
   const cells = line.map(s => {
     let stampHtml;
     const sig = s.status === 'approved' ? _sigOf(s.uid) : null;
-    if (sig)                          stampHtml = `<img src="${sig}" style="max-height:36px;max-width:56px;object-fit:contain;margin:2px auto;display:block;" title="개인 서명">`;
+    if (sig)                          stampHtml = `<img src="${esc(safeUrl(sig))}" style="max-height:36px;max-width:56px;object-fit:contain;margin:2px auto;display:block;" title="개인 서명">`;
     else if (s.status === 'approved')      stampHtml = `<div style="border:1.5px solid #2E7D32;color:#2E7D32;border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">승인</div>`;
     else if (s.status === 'rejected') stampHtml = `<div style="border:1.5px solid #C62828;color:#C62828;border-radius:50%;width:34px;height:34px;line-height:34px;margin:2px auto;font-size:11px;">반려</div>`;
     else if (s.status === 'skipped')  stampHtml = `<div style="color:#999;font-size:10px;padding:12px 0;">전결<br>생략</div>`;
@@ -1294,7 +1298,7 @@ function _apprStampBoxHtml(line) {
       ${cells.map(c=>`<td style="${bd}padding:2px 8px;color:#666;">${esc(c.role)}</td>`).join('')}</tr>
     <tr>${cells.map(c=>`<td style="${bd}padding:2px 8px;">${esc(c.name)}</td>`).join('')}</tr>
     <tr>${cells.map(c=>`<td style="${bd}height:40px;width:56px;">${c.stampHtml}</td>`).join('')}</tr>
-    <tr>${cells.map(c=>`<td style="${bd}font-size:10px;color:#999;padding:2px;">${c.dt||'-'}</td>`).join('')}</tr>
+    <tr>${cells.map(c=>`<td style="${bd}font-size:10px;color:#999;padding:2px;">${esc(c.dt||'-')}</td>`).join('')}</tr>
   </table>`;
 }
 function _buildQuoteRequestHtml(a) {
@@ -1345,14 +1349,14 @@ function _buildQuoteRequestHtml(a) {
         <div class="doc-title">교정 견적의뢰서</div>
       </div>
       <div>
-        <div class="doc-no">문서번호: ${esc(a.quoteDocNo||'-')}<br>작성일: ${fmtDate(a.date)}</div>
+        <div class="doc-no">문서번호: ${esc(a.quoteDocNo||'-')}<br>작성일: ${esc(fmtDate(a.date))}</div>
         ${stampHtml}
       </div>
     </div>
     <table class="meta-tbl">
       <tr><td class="k">수신</td><td>${esc(a.quoteOrg||'')} 귀중</td><td class="k">발신</td><td>(주)세종기술 품질관리부</td></tr>
       <tr><td class="k">담당자</td><td>${esc(a.contactName)||'-'}</td><td class="k">연락처</td><td>${esc(a.contactPhone)||'-'}</td></tr>
-      <tr><td class="k">이메일</td><td>${esc(a.contactEmail)||'-'}</td><td class="k">희망 회신일</td><td>${a.dueDate?fmtDate(a.dueDate):'-'}</td></tr>
+      <tr><td class="k">이메일</td><td>${esc(a.contactEmail)||'-'}</td><td class="k">희망 회신일</td><td>${esc(a.dueDate?fmtDate(a.dueDate):'-')}</td></tr>
     </table>
     <div class="body-text">
       귀사의 무궁한 발전을 기원합니다.<br>
@@ -1515,8 +1519,8 @@ function renderHistory() {
             <td>${esc(l.toolName)}</td>
             <td>${esc(l.userName)}</td>
             <td>${esc(l.site)}</td>
-            <td>${fmtDateTime(l.checkedOutAt)}</td>
-            <td>${l.checkedInAt ? fmtDateTime(l.checkedInAt) : '<span class="b-pill orange">반출중</span>'}</td>
+            <td>${esc(fmtDateTime(l.checkedOutAt))}</td>
+            <td>${l.checkedInAt ? esc(fmtDateTime(l.checkedInAt)) : '<span class="b-pill orange">반출중</span>'}</td>
           </tr>
         `).join('')}
         </tbody>
@@ -1604,7 +1608,7 @@ function toolFormHTML(t) {
       </div>
       <div class="fg">
         <label class="fl">검교정 주기 (개월)</label>
-        <input class="fi" type="number" id="tm-cycle" value="${v.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH}" min="1" max="60"
+        <input class="fi" type="number" id="tm-cycle" value="${esc(v.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH)}" min="1" max="60"
           onchange="autoCalcNext()">
       </div>
       <div class="fg">
@@ -1629,7 +1633,7 @@ function toolFormHTML(t) {
       </div>
       <div class="fg">
         <label class="fl">구매가</label>
-        <input class="fi" type="number" id="tm-price" value="${v.purchasePrice||''}" placeholder="₩">
+        <input class="fi" type="number" id="tm-price" value="${esc(v.purchasePrice||'')}" placeholder="₩">
       </div>
       <div class="fg full">
         <label class="fl">비고</label>
@@ -1748,7 +1752,7 @@ function openDetail(id) {
     <div style="display:grid;grid-template-columns:180px 1fr;gap:20px;margin-bottom:16px;">
       <div>
         ${t.photo?`<img src="${esc(t.photo)}" class="photo-large">`:`<div class="photo-large" style="display:flex;align-items:center;justify-content:center;color:var(--text-lighter);">${LI('camera','📷')} 사진 없음</div>`}
-        <div id="qr-preview-${t.id}" style="text-align:center;margin-top:14px;"></div>
+        <div id="qr-preview-${esc(t.id)}" style="text-align:center;margin-top:14px;"></div>
         <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:4px;">QR 코드 = ${esc(t.code)}</div>
       </div>
       <div>
@@ -1760,20 +1764,20 @@ function openDetail(id) {
           <tr><td style="padding:5px 8px;color:var(--text-light);">범위 <span style="color:var(--text-lighter);font-size:11px;">(Range)</span></td><td>${esc(t.spec||'-')}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">보관장소</td><td>${esc(t.location||'-')}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">소유부서</td><td>${esc(t.ownerDept||'-')}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">최근 검교정 <span style="color:var(--text-lighter);font-size:11px;">(Cal. Date)</span></td><td>${fmtDate(t.lastCalibration)}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">유효기한 <span style="color:var(--text-lighter);font-size:11px;">(Validity)</span></td><td>${validityText(t.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH)} (${t.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH}개월)</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">교정 만료일 <span style="color:var(--text-lighter);font-size:11px;">(Expiry)</span></td><td class="${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">${fmtDate(t.nextCalibration)} · ${st.label}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">최근 검교정 <span style="color:var(--text-lighter);font-size:11px;">(Cal. Date)</span></td><td>${esc(fmtDate(t.lastCalibration))}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">유효기한 <span style="color:var(--text-lighter);font-size:11px;">(Validity)</span></td><td>${validityText(t.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH)} (${esc(t.calibrationCycle||DEFAULT_CAL_CYCLE_MONTH)}개월)</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">교정 만료일 <span style="color:var(--text-lighter);font-size:11px;">(Expiry)</span></td><td class="${st.level==='danger'?'cal-danger':(st.level==='warn'?'cal-warn':'cal-ok')}">${esc(fmtDate(t.nextCalibration))} · ${st.label}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">교정 계획일 <span style="color:var(--text-lighter);font-size:11px;">(Planned)</span></td><td>${fmtDate(plannedCalDate(t.nextCalibration))}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);">검교정기관</td><td>${esc(t.calibrationOrg||'-')}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">성적서</td><td>${t.certificateUrl?`<a href="${esc(t.certificateUrl)}" target="_blank">${LI('file-text','📄')} 열기</a>`:'-'}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">구매</td><td>${fmtDate(t.purchaseDate)} ${t.purchasePrice?' · '+Number(t.purchasePrice).toLocaleString()+'원':''}</td></tr>
-          <tr><td style="padding:5px 8px;color:var(--text-light);">현재 반출</td><td>${isCheckedOut(t)?`<strong>${esc(t.currentCheckout.userName)}</strong> → ${esc(t.currentCheckout.site)} (${fmtDateTime(t.currentCheckout.checkedOutAt)})`:'-'}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">성적서</td><td>${t.certificateUrl?`<a href="${esc(safeUrl(t.certificateUrl))}" target="_blank" rel="noopener">${LI('file-text','📄')} 열기</a>`:'-'}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">구매</td><td>${esc(fmtDate(t.purchaseDate))} ${t.purchasePrice?' · '+Number(t.purchasePrice).toLocaleString()+'원':''}</td></tr>
+          <tr><td style="padding:5px 8px;color:var(--text-light);">현재 반출</td><td>${isCheckedOut(t)?`<strong>${esc(t.currentCheckout.userName)}</strong> → ${esc(t.currentCheckout.site)} (${esc(fmtDateTime(t.currentCheckout.checkedOutAt))})`:'-'}</td></tr>
           <tr><td style="padding:5px 8px;color:var(--text-light);vertical-align:top;">비고</td><td>${esc(t.note||'-').replace(/\n/g,'<br>')}</td></tr>
         </table>
         <div style="margin-top:14px;">
-          <button class="btn btn-sm" onclick="printOne('${t.id}')">${LI('printer','🖨')} 라벨 인쇄</button>
-          ${isQADept()?`<button class="btn btn-sm" onclick="closeDetailModal();openTool('${t.id}')">${LI('pencil','✏️')} 수정</button>`:''}
-          ${isQADept()?`<button class="btn btn-sm" onclick="openCal('${t.id}')">${LI('calendar-days','🗓')} 검교정 등록</button>`:''}
+          <button class="btn btn-sm" onclick="printOne(${jsArg(t.id)})">${LI('printer','🖨')} 라벨 인쇄</button>
+          ${isQADept()?`<button class="btn btn-sm" onclick="closeDetailModal();openTool(${jsArg(t.id)})">${LI('pencil','✏️')} 수정</button>`:''}
+          ${isQADept()?`<button class="btn btn-sm" onclick="openCal(${jsArg(t.id)})">${LI('calendar-days','🗓')} 검교정 등록</button>`:''}
         </div>
       </div>
     </div>
@@ -1786,8 +1790,8 @@ function openDetail(id) {
           <tr>
             <td>${esc(l.userName)}</td>
             <td>${esc(l.site)}</td>
-            <td>${fmtDateTime(l.checkedOutAt)}</td>
-            <td>${l.checkedInAt?fmtDateTime(l.checkedInAt):'<span class="b-pill orange">반출중</span>'}</td>
+            <td>${esc(fmtDateTime(l.checkedOutAt))}</td>
+            <td>${l.checkedInAt?esc(fmtDateTime(l.checkedInAt)):'<span class="b-pill orange">반출중</span>'}</td>
           </tr>
         `).join('')}</tbody>
       </table>
@@ -1819,7 +1823,7 @@ function openCal(id) {
   document.getElementById('cal-body').innerHTML = `
     <div style="margin-bottom:14px;padding:10px 12px;background:var(--primary-lighter);border-radius:6px;font-size:13px;">
       <strong>${esc(t.name)}</strong> · 관리번호 ${esc(t.code)}<br>
-      <span style="color:var(--text-light);">이전 검교정: ${fmtDate(t.lastCalibration)}</span>
+      <span style="color:var(--text-light);">이전 검교정: ${esc(fmtDate(t.lastCalibration))}</span>
     </div>
     <div class="form-grid">
       <div class="fg">
@@ -1828,7 +1832,7 @@ function openCal(id) {
       </div>
       <div class="fg">
         <label class="fl">주기 (개월)</label>
-        <input class="fi" type="number" id="cal-cycle" value="${cycle}" onchange="calCalcNext()">
+        <input class="fi" type="number" id="cal-cycle" value="${esc(cycle)}" onchange="calCalcNext()">
       </div>
       <div class="fg">
         <label class="fl">다음 검교정일 <span style="color:var(--text-lighter);font-weight:400;">(자동)</span></label>
@@ -1911,7 +1915,7 @@ function buildPrintGrid(list) {
   const grid = document.getElementById('print-grid');
   grid.innerHTML = list.map(t => `
     <div class="qr-label">
-      <div id="print-qr-${t.id}"></div>
+      <div id="print-qr-${esc(t.id)}"></div>
       <div class="qr-label-code">${esc(t.code)}</div>
       <div class="qr-label-name">${esc(t.name)}${t.spec?' · '+esc(t.spec):''}</div>
     </div>

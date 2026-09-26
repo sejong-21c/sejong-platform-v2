@@ -269,8 +269,12 @@ function _qdEsc(v) {
   return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/"/g,'&quot;');
 }
 function _qdHtmlEsc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// onclick="fn(...)" 인자 — esc 만으로는 &#39; 가 속성에서 ' 로 되돌아가 JS 문자열을 깬다
+function jsArg(v) { return _qdHtmlEsc(JSON.stringify(String(v ?? ''))); }
+// 자료에서 온 주소는 javascript: 따위를 막는다 — window.open('javascript:…') 은 이 화면과 같은 출처에서 돈다
+function safeUrl(u) { const s = String(u ?? '').trim(); return /^(https?:|data:image\/|blob:|\/|\.\/|#)/i.test(s) ? s : ''; }
 let qdDrill = { ncr: {}, car: {} };
 function qdDrillToggle(tool, field, val) {
   if (!qdDrill[tool]) qdDrill[tool] = {};
@@ -314,7 +318,7 @@ function barSvg(entries, colors, clickSpec) {
     const clickAttr = _qdClickAttr(clickSpec, entries[i][2] !== undefined ? entries[i][2] : label);
     return `<g${clickAttr}><rect x="${cx - bW/2}" y="${by}" width="${bW}" height="${bH}" rx="3" fill="${colors[i % colors.length]}"/>
       <text x="${cx}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${val}</text>
-      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="#666"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${lbl}</text></g>`;
+      <text x="${cx}" y="${lblY}" text-anchor="${anchor}" font-size="9" fill="#666"${rotate ? ` transform="rotate(-40,${cx},${lblY})"` : ''}>${_qdHtmlEsc(lbl)}</text></g>`;
   }).join('');
   return `<svg viewBox="-2 -4 ${W+4} ${H+8}" style="width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible;">
     <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="#e0e0e0" stroke-width="1"/>
@@ -350,7 +354,7 @@ function donutSvg(entries, colors, clickSpec) {
     const clickAttr = _qdClickAttr(clickSpec, entries[i][2] !== undefined ? entries[i][2] : label);
     return `<g transform="translate(${LX},${(H-entries.length*rowH)/2+i*rowH})"${clickAttr}>
       <rect width="10" height="10" rx="2" fill="${colors[i%colors.length]}"/>
-      <text x="15" y="9" font-size="11" fill="#444">${lbl} (${val})</text>
+      <text x="15" y="9" font-size="11" fill="#444">${_qdHtmlEsc(lbl)} (${val})</text>
     </g>`;
   });
   return `<svg viewBox="0 0 290 ${H}" style="width:100%;max-width:380px;margin:0 auto;display:block;overflow:visible;">
@@ -380,7 +384,7 @@ function lineSvg(periodData) {
     const lx = i===0 ? Math.max(x, PL) : i===xs.length-1 ? Math.min(x, W-PR) : x;
     return `<circle cx="${x}" cy="${ys[i]}" r="3.5" fill="#1976D2"/>
     <text x="${x}" y="${valY}" text-anchor="middle" font-size="10" fill="#333">${vals[i]}</text>
-    <text x="${lx}" y="${H-10}" text-anchor="${anchor}" font-size="9" fill="#888">${keys[i]}</text>`;
+    <text x="${lx}" y="${H-10}" text-anchor="${anchor}" font-size="9" fill="#888">${_qdHtmlEsc(keys[i])}</text>`;
   }).join('');
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:760px;margin:0 auto;display:block;overflow:visible;">
     <path d="${area}" fill="#1976D2" opacity="0.08"/>
@@ -761,7 +765,7 @@ function _trLineSvgBase(monthData, accent, H=160) {
     const v = vals[i];
     return `<g>
     <circle cx="${x}" cy="${ys[i]}" r="3.5" fill="${accent}"/>
-    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="#888">${lbl}</text>
+    <text x="${x}" y="${BASE+13}" text-anchor="middle" font-size="8" fill="#888">${_qdHtmlEsc(lbl)}</text>
     <text x="${x}" y="${BASE+27}" text-anchor="middle" font-size="9" font-weight="${v>0?'700':'400'}" fill="${v>0?accent:'#bbb'}">(${v})</text>
     </g>`;
   }).join('');
@@ -824,7 +828,7 @@ function qtNcrTrendListHtml(ncrs) {
     const st = n.status==='closed';
     return `<tr><td style="font-weight:700;">${_qdHtmlEsc(n.id)}</td><td>${_qdHtmlEsc(p)}</td><td>${_qdHtmlEsc(n.item||'-')}</td>
       <td>${_qdHtmlEsc(n.location||'-')}${n.location==='협력사'&&n.vendor?' ('+_qdHtmlEsc(n.vendor)+')':''}</td><td>${_qdHtmlEsc(n.cause||'-')}</td><td>${_qdHtmlEsc(n.causeDetail||'-')}</td>
-      <td>${_qdHtmlEsc(n.disposition||'-')}</td><td>${n.issuedAt||'-'}</td><td>${n.closedAt||'-'}</td>
+      <td>${_qdHtmlEsc(n.disposition||'-')}</td><td>${_qdHtmlEsc(n.issuedAt||'-')}</td><td>${_qdHtmlEsc(n.closedAt||'-')}</td>
       <td><span class="b-pill ${st?'green':'red'}">${st?'종결':'진행중'}</span></td></tr>`;
   }).join('');
   return `<div style="font-size:12px;font-weight:700;color:#7c3aed;margin:0 0 6px;">📋 상세 목록 (${ncrs.length}건)</div>
@@ -863,7 +867,7 @@ function qtCarTrendListHtml(cars) {
     const st=CAR_STATUS[c.status]||CAR_STATUS['in-progress'];
     return `<tr><td style="font-weight:700;">${_qdHtmlEsc(c.id)}</td>
       <td>${_qdHtmlEsc(_trFmtDept(c.reqDept))}</td><td>${_qdHtmlEsc(c.qualReq||'-')}</td><td>${_qdHtmlEsc(c.field||'-')}</td><td>${_qdHtmlEsc(c.cause||'-')}</td>
-      <td>${c.issuedAt||'-'}</td><td>${c.replyDue||'-'}</td><td>${c.repliedAt||'-'}</td><td>${c.actionAt||'-'}</td><td>${c.closedAt||'-'}</td>
+      <td>${_qdHtmlEsc(c.issuedAt||'-')}</td><td>${_qdHtmlEsc(c.replyDue||'-')}</td><td>${_qdHtmlEsc(c.repliedAt||'-')}</td><td>${_qdHtmlEsc(c.actionAt||'-')}</td><td>${_qdHtmlEsc(c.closedAt||'-')}</td>
       <td><span class="b-pill ${st[0]}">${st[1]}</span></td></tr>`;
   }).join('');
   return `<div style="font-size:9px;font-weight:700;color:#0369a1;margin:0 0 4px;">📋 상세 목록 (${cars.length}건)</div>
@@ -1056,11 +1060,11 @@ function qtPanelHtml() {
       <b style="font-size:13px;">${LI('file-chart-column','📈')} 품질경향분석 보고서</b>
       <select onchange="qtLoadReport(this.value)">
         <option value="">+ 새 보고서 작성</option>
-        ${sorted.map(r => `<option value="${r.id}" ${c.id===r.id?'selected':''}>${r.docNo} (${r.analysisDate||'-'})</option>`).join('')}
+        ${sorted.map(r => `<option value="${_qdHtmlEsc(r.id)}" ${c.id===r.id?'selected':''}>${_qdHtmlEsc(r.docNo)} (${_qdHtmlEsc(r.analysisDate||'-')})</option>`).join('')}
       </select>
       <span style="margin-left:auto;display:flex;gap:6px;">
         <button class="btn" onclick="qtPrint()">${LI('printer','🖨️')} 인쇄/PDF</button>
-        ${c.id ? `<button class="btn" style="color:var(--danger);" onclick="qtDeleteReport('${c.id}')">${LI('trash-2','🗑️')} 삭제</button>` : ''}
+        ${c.id ? `<button class="btn" style="color:var(--danger);" onclick="qtDeleteReport(${jsArg(c.id)})">${LI('trash-2','🗑️')} 삭제</button>` : ''}
         <button class="btn" onclick="qtClosePanel()">${LI('x','✕')} 닫기</button>
       </span>
     </div>
@@ -1218,7 +1222,7 @@ function render() {
     <div class="filter-bar">
       <select onchange="setFilter('year', this.value)">
         <option value="">전체 연도</option>
-        ${years.map(y => `<option value="${y}" ${qf.year===y?'selected':''}>${y}년</option>`).join('')}
+        ${years.map(y => `<option value="${_qdHtmlEsc(y)}" ${qf.year===y?'selected':''}>${_qdHtmlEsc(y)}년</option>`).join('')}
       </select>
       <select onchange="setFilter('quarter', this.value)">
         <option value="">전체 분기</option>
@@ -1226,7 +1230,7 @@ function render() {
       </select>
       <select onchange="setFilter('proj', this.value)">
         <option value="">전체 프로젝트</option>
-        ${projIds.map(pid => `<option value="${pid}" ${qf.proj===pid?'selected':''}>${projFullLabel({proj:pid, meta:(state.ncrs||[]).find(n=>n.proj===pid)?.meta})}</option>`).join('')}
+        ${projIds.map(pid => `<option value="${_qdHtmlEsc(pid)}" ${qf.proj===pid?'selected':''}>${_qdHtmlEsc(projFullLabel({proj:pid, meta:(state.ncrs||[]).find(n=>n.proj===pid)?.meta}))}</option>`).join('')}
       </select>
       <span class="cnt">NCR ${ncrs.length}건 · CAR ${cars.length}건</span>
     </div>
@@ -1251,7 +1255,7 @@ function render() {
     <div class="qd-section">
       <h4>${issues.length ? LI('siren','🚨') : LI('circle-check','✅')} 데이터 정합성 검사 (${issues.length}건) <span style="font-size:11px;color:var(--text-lighter);font-weight:400;">— 필터와 무관하게 전체 NCR/CAR 대상, 자동 점검</span></h4>
       ${issues.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
-        ${issues.map(i => `<div style="font-size:12px;padding:6px 10px;border-radius:6px;background:${i.sev==='red'?'#FFEBEE':'#FFF3E0'};color:${i.sev==='red'?'#C62828':'#E65100'};">${i.sev==='red'?LI('ban','⛔'):LI('triangle-alert','⚠️')} ${i.text}</div>`).join('')}
+        ${issues.map(i => `<div style="font-size:12px;padding:6px 10px;border-radius:6px;background:${i.sev==='red'?'#FFEBEE':'#FFF3E0'};color:${i.sev==='red'?'#C62828':'#E65100'};">${i.sev==='red'?LI('ban','⛔'):LI('triangle-alert','⚠️')} ${_qdHtmlEsc(i.text)}</div>`).join('')}
       </div>` : `<div style="font-size:12px;color:var(--text-light);">깨진 참조·누락 항목이 발견되지 않았습니다.</div>`}
     </div>
 
@@ -1270,7 +1274,7 @@ function render() {
             const projLabel = r.proj==='__direct__' ? ((state.ncrs||[]).find(n=>n.proj==='__direct__')?.meta?.projDirect||'직접입력') : ((state.projects||[]).find(p=>p.id===r.proj)?.code||'미지정');
             const isSel = qdDrill.ncr && qdDrill.ncr.projLabel === projLabel;
             return `<tr style="cursor:pointer;${isSel?'background:#F0F7FF;outline:2px solid var(--primary);outline-offset:-2px;':''}" onclick="qdDrillToggle('ncr','projLabel','${_qdEsc(projLabel)}')" title="클릭하면 이 프로젝트의 NCR 상세 목록이 아래에 표시됩니다">
-            <td style="font-weight:700;color:var(--primary);">${projFullLabel({proj:r.proj, meta:(state.ncrs||[]).find(n=>n.proj===r.proj)?.meta})} ${isSel?'●':'↓'}</td>
+            <td style="font-weight:700;color:var(--primary);">${_qdHtmlEsc(projFullLabel({proj:r.proj, meta:(state.ncrs||[]).find(n=>n.proj===r.proj)?.meta}))} ${isSel?'●':'↓'}</td>
             <td>${r.total}</td>
             <td style="color:var(--danger);">${r.major||0}</td>
             <td style="color:var(--warning);">${r.minor||0}</td>
@@ -1279,7 +1283,7 @@ function render() {
             <td>${r.closed}</td>
             <td>${r.carCount}</td>
             <td style="color:${r.carOpen?'var(--warning)':'var(--text-lighter)'};">${r.carOpen}</td>
-            <td>${r.latest||'-'}</td>
+            <td>${_qdHtmlEsc(r.latest||'-')}</td>
           </tr>`;
           }).join('') : `<tr><td colspan="10" class="empty-note">해당 조건의 데이터가 없습니다</td></tr>`}
         </tbody>
@@ -1338,12 +1342,12 @@ function render() {
             const st = CAR_STATUS[c.status] || CAR_STATUS['in-progress'];
             const lateDays = daysBetween(c.replyDue, today);
             return `<tr>
-              <td style="font-weight:700;">${c.id}</td>
-              <td style="color:var(--primary);">${c.ncrId || '단독'}</td>
-              <td>${n ? projLabel(n) : (getP(c.proj)?.code || '-')}</td>
-              <td>${c.reqDept || '-'}</td>
-              <td>${c.field || '-'}</td>
-              <td style="color:var(--danger);">${c.replyDue}</td>
+              <td style="font-weight:700;">${_qdHtmlEsc(c.id)}</td>
+              <td style="color:var(--primary);">${_qdHtmlEsc(c.ncrId || '단독')}</td>
+              <td>${_qdHtmlEsc(n ? projLabel(n) : (getP(c.proj)?.code || '-'))}</td>
+              <td>${_qdHtmlEsc(c.reqDept || '-')}</td>
+              <td>${_qdHtmlEsc(c.field || '-')}</td>
+              <td style="color:var(--danger);">${_qdHtmlEsc(c.replyDue)}</td>
               <td style="color:var(--danger);font-weight:700;">${lateDays}일</td>
               <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
             </tr>`;
@@ -1466,8 +1470,8 @@ function qdRenderDrillSection(ncrs, cars) {
       <td>${_qdHtmlEsc(n.cause||'-')}</td>
       <td>${_qdHtmlEsc(n.causeDetail||'-')}</td>
       <td>${_qdHtmlEsc(n.disposition||'-')}</td>
-      <td>${n.issuedAt||'-'}</td>
-      <td>${n.closedAt||'-'}</td>
+      <td>${_qdHtmlEsc(n.issuedAt||'-')}</td>
+      <td>${_qdHtmlEsc(n.closedAt||'-')}</td>
       <td><span class="b-pill ${n.status==='closed'?'green':'red'}">${n.status==='closed'?'종결':'진행중'}</span></td>
     </tr>`;
   }).join('');
@@ -1480,9 +1484,9 @@ function qdRenderDrillSection(ncrs, cars) {
       <td>${_qdHtmlEsc(c.reqDept||'-')}</td>
       <td>${_qdHtmlEsc(c.field||'-')}</td>
       <td>${_qdHtmlEsc(c.cause||'-')}</td>
-      <td>${c.issuedAt||'-'}</td>
-      <td>${c.replyDue||'-'}</td>
-      <td>${c.closedAt||'-'}</td>
+      <td>${_qdHtmlEsc(c.issuedAt||'-')}</td>
+      <td>${_qdHtmlEsc(c.replyDue||'-')}</td>
+      <td>${_qdHtmlEsc(c.closedAt||'-')}</td>
       <td><span class="b-pill ${st[0]}">${st[1]}</span></td>
     </tr>`;
   }).join('');
@@ -1519,17 +1523,17 @@ async function qdOpenReport(tool, id) {
     try {
       // DB 밖(R2)에 있는 첨부는 서명된 주소로 바로 연다.
       if (window.첨부 && window.첨부.밖에있나(rec.meta.fileChunkId)) {
-        window.open(await window.첨부.주소(rec.meta.fileChunkId), '_blank');
+        window.open(await window.첨부.주소(rec.meta.fileChunkId), '_blank', 'noopener');
         return;
       }
       const dataUrl = await qdLoadAttachment(tool === 'ncr' ? 't_ncrs' : 't_cars', rec.meta.fileChunkId, rec.meta.fileChunks || 0);
       if (!dataUrl) { alert('보고서 파일을 불러오지 못했습니다.'); return; }
-      window.open(_qdToBlobUrl(dataUrl), '_blank');
+      window.open(_qdToBlobUrl(dataUrl), '_blank', 'noopener');
     } catch (e) { alert('보고서 파일을 여는 중 오류: ' + (e.message || e)); }
     return;
   }
-  if (rec.meta?.fileUrl) { window.open(rec.meta.fileUrl, '_blank'); return; }
-  if (rec.meta?.fileDataUrl) { window.open(_qdToBlobUrl(rec.meta.fileDataUrl), '_blank'); return; }
+  if (rec.meta?.fileUrl) { window.open(safeUrl(rec.meta.fileUrl), '_blank', 'noopener'); return; }
+  if (rec.meta?.fileDataUrl) { window.open(_qdToBlobUrl(rec.meta.fileDataUrl), '_blank', 'noopener'); return; }
   alert('이 ' + tool.toUpperCase() + '에는 등록된 보고서 파일이 없습니다.');
 }
 // chunk 문서 병합 (ncr.html의 loadAttachmentDataUrl 이식). 컬렉션에 chunk__<id>__<i> 형식으로 저장됨.
@@ -1547,13 +1551,14 @@ async function qdLoadAttachment(coll, chunkId, totalChunks) {
 function _qdToBlobUrl(dataUrl) {
   try {
     const m = /^data:([^;]+);base64,(.*)$/.exec(dataUrl);
-    if (!m) return dataUrl;
-    const mime = m[1];
+    if (!m) return safeUrl(dataUrl);
+    // 자료가 적은 형식을 그대로 믿으면 text/html·svg 가 같은 출처 blob 창으로 떠 스크립트가 돈다 — 보고서 형식만 통과
+    const mime = /^(application\/pdf|image\/(png|jpe?g|gif|webp|bmp)|application\/msword|application\/vnd\.openxmlformats-officedocument\.[\w.+-]+)$/i.test(m[1]) ? m[1] : 'application/octet-stream';
     const bin = atob(m[2]);
     const buf = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
     return URL.createObjectURL(new Blob([buf], { type: mime }));
-  } catch(e) { return dataUrl; }
+  } catch(e) { return safeUrl(dataUrl); }
 }
 
 loadState();
