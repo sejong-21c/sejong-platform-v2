@@ -249,6 +249,9 @@ const ai = 읽기('modules/messenger/ai.js');
     /isSys = m\.author === 'SYSTEM' \|\| \(m\.system === true && !!u\.name && String\(m\.text \|\| ''\)\.startsWith\(u\.name \+ '님이'\)\)/.test(코드));
   확인('방 문서에 미리보기(lastText)를 안 쓴다 — 방 문서는 전 직원이 읽는다', !/lastText:/.test(코드));
   // 9/27 규칙을 조인 뒤 직원 화면에서 막히는 쓰기를 알려면 거부가 오류 기록(errorLog)에 남아야 한다(잡힌 실패는 토스트로만 끝났다).
+  // 9/27: 검교정·AI 알림은 목록에 아예 없었고 readers 도 없어 아무도 못 읽었다 — 이제 내 알림이 있을 때만 뜨고 사람은 못 쓴다.
+  확인('시스템 알림 방은 내 알림(readers 로 받은 메시지)이 있을 때만 목록에 · 입력 잠금',
+    /if \(c\.type === 'system' && 방메시지\(c\.id\)\.length\) add\(c\);/.test(코드) && /\|\| ch\.type === 'system';/.test(코드));
   확인('메신저 쓰기의 권한 거부는 errorLog 에 남긴다(보내기·1대1·그룹·초대·나가기·시스템말·마지막말·읽음)',
     ['보내기', '1대1만들기', '그룹만들기', '초대', '나가기', '시스템말', '마지막말', '읽음'].every((곳) => 코드.includes(`권한거부기록('${곳}', e)`))
     && /e\.code !== 'permission-denied'/.test(코드) && /fb\.collection\(fb\.db, 'errorLog'\)/.test(코드));

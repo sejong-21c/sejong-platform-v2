@@ -1,6 +1,7 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.85.2: 옛 비서의 메시지 보내기가 받는 사람(readers)을 박는다 — 9/21 규칙부터 아무도 못 읽었다.
  * v29.85.1: 기록 색인(SJP_indexRecord 등)을 index.html 로 옮겼다 — 첫 저장이 이 파일(190KB)을 받느라 늦던 것.
  * v29.85: 로컬 LLM 칸은 이 PC(루프백) 주소만 — localhost·127.x.x.x·[::1]. 바깥 주소(회사 라우터 등)를 넣으면
  *          게이트웨이를 안 거쳐 장부 밖으로 나갔다. 저장 때 거르고, 예전에 저장된 바깥 주소는 무시(🔑 창에 경고).
@@ -680,10 +681,26 @@
       return { channelId: ch.id, channelName: ch.name, text: v.text };
     },
     commit: function (resolved) {
-      return fb.setDoc(fb.doc(fb.collection(fb.db, 'messages')), {
-        channel: resolved.channelId, author: state.currentUser, text: resolved.text,
-        at: new Date().toLocaleString('ko-KR'), createdAt: Date.now()
-      });
+      // v29.85.2(2026-09-27): 받는 사람(readers)을 메신저(lib.js 읽을사람)와 같은 규칙으로 박는다 — 9/21 메시지 규칙(내가 readers 인 것만
+      //   읽기)부터 readers 없는 이 메시지는 아무도 못 읽었다. 공지는 readers 없이(규칙이 공지 방은 누구나 읽게 한다).
+      var ch = (state.channels || []).find(function (c) { return c.id === resolved.channelId; }) || {};
+      var 활성 = (state.users || []).filter(function (u) { return u && !u.disabled; });
+      var ids = null;
+      if (ch.type === 'dm' || ch.type === 'group') ids = ch.members || [];
+      else if (ch.type === 'dept') ids = 활성.filter(function (u) { return u.dept === (ch.name || ch.deptName); }).map(function (u) { return u.id; });
+      else if (ch.type === 'project') {
+        var p = (state.projects || []).find(function (x) { return x && x.id === (ch.projectId || String(ch.id || '').replace(/^proj_/, '')); });
+        if (p) { ids = [p.pm || p.manager]; var mem = p.members || p.assignees || p.team || p.users;
+          if (Array.isArray(mem)) ids = ids.concat(mem);
+          else if (mem && typeof mem === 'object') Object.keys(mem).forEach(function (k) { ids = ids.concat(Array.isArray(mem[k]) ? mem[k] : [mem[k]]); }); }
+      }
+      var doc = { channel: resolved.channelId, author: state.currentUser, text: resolved.text,
+        at: new Date().toLocaleString('ko-KR'), createdAt: Date.now() };
+      if (ids) {
+        var 산 = ids.filter(function (id, i, a) { return id && a.indexOf(id) === i && 활성.some(function (u) { return u.id === id; }); });
+        if (산.length) doc.readers = 산;
+      }
+      return fb.setDoc(fb.doc(fb.collection(fb.db, 'messages')), doc);
     }
   });
 

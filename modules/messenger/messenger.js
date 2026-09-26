@@ -20,12 +20,12 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b119';
-import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b119';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b120';
+import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b120';
 import { 틀붙이기 } from '../shared/frame-fs.mjs?v=f1';
-import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b119';
-import * as L from './lib.js?v=b119';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b119';
+import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b120';
+import * as L from './lib.js?v=b120';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b120';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -73,7 +73,7 @@ if (window.parent === window) {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b119';
+const 빌드 = 'b120';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -280,6 +280,7 @@ function 타일줄(줄들, key, cls = '') {
 }
 function 방아바타(ch, cls = '') {
   if (ch.type === 'announce') return 타일('공지', 'announce', cls);
+  if (ch.type === 'system') return 타일('알림', 'system:' + ch.id, cls);
   if (ch.type === 'dept') return 타일(String(ch.name || '부서').slice(0, 2), 'dept:' + (ch.deptId || ch.name), cls);
   if (ch.type === 'project') {
     const p = state.projects.find((x) => x.id === (ch.projectId || String(ch.id).replace(/^proj_/, '')));
@@ -369,6 +370,8 @@ function 보이는방() {
       add(c);
     }
   }
+  // 시스템 방(검교정 알림·AI 알림)은 **내 알림이 있을 때만**(2026-09-27) — readers 로 받은 메시지가 있는 방. 전엔 목록에 아예 없었다.
+  for (const c of state.channels) { if (c.type === 'system' && 방메시지(c.id).length) add(c); }
   for (const cid of ui.opened) { if (!out.has(cid)) add(getChannel(cid)); }
   return Array.from(out.values());
 }
@@ -680,10 +683,11 @@ function renderRoom() {
   }
   const isAI = ch.type === 'ai';
   // 공지는 부서장 이상만(부장님 지시 2026-09-18). 화면에서 입력창을 접고, 저장소 규칙도 같은 기준으로 막는다.
-  const 잠김 = ch.type === 'announce' && !L.공지쓰기가능(나());
+  // 알림 방(system)에는 사람이 못 쓴다 — 받는 사람(readers)이 안 정해져 아무도 못 읽는 글이 된다(2026-09-27).
+  const 잠김 = (ch.type === 'announce' && !L.공지쓰기가능(나())) || ch.type === 'system';
   const comp = $('#composer');
   if (comp) {
-    if (잠김) comp.setAttribute('data-locked', '공지는 부서장 이상만 올릴 수 있습니다.');
+    if (잠김) comp.setAttribute('data-locked', ch.type === 'system' ? '알림 방에는 글을 쓸 수 없습니다.' : '공지는 부서장 이상만 올릴 수 있습니다.');
     else comp.removeAttribute('data-locked');
   }
   const inp0 = $('#msgInput'); if (inp0) inp0.placeholder = isAI ? 'AI 비서에게 물어보기' : '메시지 입력';

@@ -29,6 +29,7 @@
  *     전에는 경비 밖 열쇠는 아무나 덮어썼다. 열쇠는 사내 누구나 읽는 t_ncrs·t_cars 에 있으니 남의 NCR·CAR 증거 사진·도면을
  *     같은 이름으로 바꿔치기할 수 있었다(기록 판·이력에도 안 남고 R2 는 백업도 없다). 재무부(expense/ 안)·서버 토큰은 그대로.
  *     /file/get: 그림·PDF·글 말고는 내려받기로(Content-Disposition) + nosniff — 올린 HTML·SVG 가 이 주소에서 페이지로 뜨지 않게.
+ *  3-h) v5.8(2026-09-27): 아침 알림(ai-alerts)에 받는 사람(readers)을 박는다 — 9/21 메시지 규칙부터 아무도 못 읽고 있었다.
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
@@ -1027,15 +1028,21 @@ async function 한도찼다고적는다(env, token) {
   } catch (e) { console.warn('[backup] 한도 표시:', e && e.message); }
 }
 
-async function postAlertMessage(env, token, channelId, text) {
+// v5.8(2026-09-27): **받는 사람(readers)을 박는다.** 9/21 메시지 규칙(내가 readers 인 것만 읽기)부터 readers 없는 알림은
+//   아무도 못 읽었다 — 매일 아침 쓰기만 하고 6일째 한 명도 못 봤다(보안 전수 대조의 곁가지로 발견). 메신저는 시스템 방을
+//   내 알림이 있을 때만 목록에 띄운다. 받는 사람은 그 알림에 걸린 사람들(내일 마감 = 담당자 · 오래 기다리는 결재 = 기안자·결재자).
+async function postAlertMessage(env, token, channelId, text, readers) {
   // 채널 문서 보장 (있으면 그대로 둠 — 통째 PATCH로 members를 지우지 않도록 GET 먼저)
   if (!(await fsGetDoc(env, token, 'channels/' + channelId))) {
     await fsSetDoc(env, token, 'channels/' + channelId, { name: '🤖 AI 알림', type: 'system', members: [] });
   }
+  const 받는 = Array.from(new Set((readers || []).filter((x) => typeof x === 'string' && x)));
+  if (!받는.length) return false;   // 받을 사람이 없으면 쓰지 않는다(아무도 못 읽는 글)
   await fsAddDoc(env, token, 'messages', {
     channel: channelId, author: 'SYSTEM', system: true,
-    text, at: new Date().toISOString(), createdAt: Date.now(),
+    text, at: new Date().toISOString(), createdAt: Date.now(), readers: 받는,
   });
+  return true;
 }
 
 async function runDailyAlerts(env) {
@@ -1056,7 +1063,7 @@ async function runDailyAlerts(env) {
   }
   if (freshD1.length) {
     const lines = freshD1.map(t => '· ' + (t.title || '(제목 없음)') + ' — 담당 ' + nameOf(t.assignee) + ', 마감 ' + t.due);
-    await postAlertMessage(env, token, channelId, '🔔 내일 마감 업무 ' + freshD1.length + '건\n' + lines.join('\n'));
+    await postAlertMessage(env, token, channelId, '🔔 내일 마감 업무 ' + freshD1.length + '건\n' + lines.join('\n'), freshD1.map(t => t.assignee));
     for (const t of freshD1) {
       await fsSetDoc(env, token, 'aiNotifMarkers/taskD1_' + t.__id + '_' + tomorrow, { type: 'taskD1', at: Date.now() });
     }
@@ -1075,7 +1082,8 @@ async function runDailyAlerts(env) {
       const days = Math.floor((Date.now() - a.createdAt) / 86400e3);
       return '· ' + (a.title || '(제목 없음)') + ' — 기안 ' + nameOf(a.author) + ', ' + days + '일째 대기';
     });
-    await postAlertMessage(env, token, channelId, '⏳ 3일 이상 대기 중인 결재 ' + freshStale.length + '건\n' + lines.join('\n'));
+    await postAlertMessage(env, token, channelId, '⏳ 3일 이상 대기 중인 결재 ' + freshStale.length + '건\n' + lines.join('\n'),
+      freshStale.flatMap(a => [a.author, a.to || a.approver]));
     for (const a of freshStale) {
       await fsSetDoc(env, token, 'aiNotifMarkers/apStale_' + a.__id, { type: 'apStale', at: Date.now() });
     }

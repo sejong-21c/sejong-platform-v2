@@ -620,7 +620,10 @@ async function maybeSendCalibrationAlerts() {
           text: line,
           at: new Date().toISOString(),
           createdAt: Date.now(),
-          system: true
+          system: true,
+          // 2026-09-27: 받는 사람 = 품질관리부. 9/21 메시지 규칙(내가 readers 인 것만 읽기)부터 readers 없는 이 알림은 아무도 못 읽었다.
+          //   메신저는 시스템 방을 내 알림이 있을 때만 목록에 띄운다.
+          readers: (state.users || []).filter(u => u && !u.disabled && u.dept === '품질관리부').map(u => String(u.id))
         }
       );
       // 채널 등록 (없으면 생성)

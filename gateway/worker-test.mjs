@@ -481,6 +481,10 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   check('지연 결재 메시지: 5일 대기만 포함(1일·승인건 제외)', stMsg && stMsg.text.stringValue.includes('5일 대기 기안') && !stMsg.text.stringValue.includes('1일 대기'), stMsg && stMsg.text.stringValue);
   check('SYSTEM 메시지 형태(author/system/channel)', d1Msg && d1Msg.author.stringValue === 'SYSTEM' && d1Msg.system.booleanValue === true && d1Msg.channel.stringValue === 'ai-alerts');
   check('채널 문서 자동 생성(🤖 AI 알림)', fsStore['channels/ai-alerts'] && fsStore['channels/ai-alerts'].name.stringValue === '🤖 AI 알림');
+  // v5.8(9/27): readers 없는 알림은 9/21 메시지 규칙부터 아무도 못 읽었다 — 걸린 사람에게만 간다.
+  const 받는 = (m) => ((m && m.readers && m.readers.arrayValue && m.readers.arrayValue.values) || []).map((v) => v.stringValue);
+  check('v5.8: 알림에 받는 사람이 박힌다 — 내일 마감 = 담당자(u1) · 지연 결재 = 기안자(u2)',
+    JSON.stringify(받는(d1Msg)) === '["u1"]' && JSON.stringify(받는(stMsg)) === '["u2"]', JSON.stringify({ d1: 받는(d1Msg), st: 받는(stMsg) }));
   check('중복 방지 마커 생성', !!fsStore['aiNotifMarkers/taskD1_t1_' + tomorrow] && !!fsStore['aiNotifMarkers/apStale_a1']);
 }
 {
