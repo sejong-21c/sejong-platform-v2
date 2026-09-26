@@ -156,6 +156,21 @@ const sdk앱 = [...앱.matchAll(/gstatic\.com\/firebasejs\/([\d.]+)\//g)].map((m
 확인('SDK 파일 4개(app·auth·firestore·storage)', sdk앱.length === 4, `${sdk앱.length}개 — pwa-live-check 가 캐시 4개를 기대한다`);
 확인('껍데기 프리캐시(html·css·js·lib·manifest·icon)',
   ['./messenger.html', './messenger.css', './messenger.js', './lib.js', './manifest.json', './icons/icon-192.png'].every((f) => sw.includes(`'${f}'`)));
+// 9/26: b110 이 quiet.mjs 를 정적 import 해 놓고 껍데기에 안 넣었다 — 비행기 모드에서 앱이 통째로 안 뜬다(조용히, 온라인에선 멀쩡).
+//   messenger.js 에서 따라가 닿는 상대 경로 정적 import 는 전부 껍데기에 있어야 한다(frame-fs → quiet 처럼 한 단계 건너도).
+{
+  const 닿는 = new Set(), 할일 = ['modules/messenger/messenger.js'];
+  while (할일.length) {
+    const 파일 = 할일.pop();
+    for (const m of 읽기(파일).matchAll(/^\s*import\s[^'"]*?['"](\.{1,2}\/[^'"?]+)(?:\?[^'"]*)?['"]/gm)) {
+      const 다음 = join(dirname(파일), m[1]).replace(/\\/g, '/');
+      if (!닿는.has(다음)) { 닿는.add(다음); 할일.push(다음); }
+    }
+  }
+  const 껍데기에 = (p) => { const 상대 = p.startsWith('modules/messenger/') ? './' + p.slice('modules/messenger/'.length) : '../' + p.slice('modules/'.length); return sw.includes(`'${상대}'`); };
+  const 빠진 = [...닿는].filter((p) => !껍데기에(p));
+  확인('messenger.js 가 정적으로 닿는 파일은 전부 껍데기 프리캐시에 있다', 닿는.size >= 5 && 빠진.length === 0, 빠진.join(', ') || `${닿는.size}개`);
+}
 const 허용 = [...sw.matchAll(/'(https:\/\/[^']+)'/g)].map((m) => m[1]).filter((u) => !u.includes('${'));
 확인('데이터 API 는 캐시 대상이 아니다', !허용.some((u) => /googleapis\.com/.test(u) && !/fonts\.googleapis/.test(u)), 허용.join(' '));
 확인('버전 문자열 v2 이상', /const 버전 = 'sj-msg-v([2-9]|\d{2,})'/.test(sw));
