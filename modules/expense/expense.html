@@ -503,7 +503,7 @@ table .ctr { text-align:center; }
       영수증을 여러 장 한꺼번에 올리고 <b>🖥 맥으로 인식</b>을 누르면, 사내 맥미니가 한 장씩 읽어
       <b>일자·금액·상호·카드 끝 네 자리</b>를 표로 정리해 줍니다. API 키는 필요 없고 영수증 그림을 클라우드 AI(Claude·Gemini 등)로 보내지 않습니다.
       플랫폼에 로그인한 상태에서만 됩니다.<br>
-      ※ <b>파일 하나 = 영수증 한 장</b>으로 읽습니다. PDF 는 끌어다 놓으면 쪽마다 한 장으로 나눠 읽지만,
+      ※ <b>파일 하나 = 영수증 한 장</b>으로 읽습니다. PDF 는 쪽마다 한 장으로 나눠 읽지만,
       <b>한 쪽에 여러 장이 붙어 있으면 나눠 주지 않습니다</b> — 한 장씩 따로 찍거나 스캔해 올려 주세요.
     </p>
     <div style="background:#fff7ed; border-left:4px solid #f59e0b; padding:10px 12px; border-radius:4px; margin-bottom:12px; font-size:12px; color:#7c3a00; line-height:1.7;">
@@ -515,11 +515,11 @@ table .ctr { text-align:center; }
     </div>
     <div class="row">
       <div style="flex:1;">
-        <label>영수증 일괄 업로드 (이미지 다중 선택 가능)</label>
+        <label>영수증 일괄 업로드 (이미지·PDF 여러 개 선택 가능)</label>
         <div id="ai-drop-zone" style="border:2px dashed #1e3a8a; border-radius:5px; padding:20px; text-align:center; color:#1e3a8a; cursor:pointer; background:#f0f4fa;">
-          📎 영수증 이미지를 끌어다 놓거나 클릭하여 일괄 선택
+          📎 영수증 이미지·PDF를 끌어다 놓거나 클릭하여 일괄 선택
         </div>
-        <input type="file" id="ai-files" multiple accept="image/*" style="display:none;">
+        <input type="file" id="ai-files" multiple accept="image/*,application/pdf,.pdf" style="display:none;">
       </div>
     </div>
     <div class="row" id="ai-pending-row" style="display:none;">
