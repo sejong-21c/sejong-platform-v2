@@ -451,6 +451,21 @@
     }
   });
 
+  // 2026-09-26: 수정 액션의 권한·검증은 modules/shared/ai-perm.mjs 하나가 원본이다(index.html 이 window.AIPERM 으로 싣고,
+  //   메신저 AI 행위도 그것을 쓴다). 여기 있던 인라인 사본 다섯은 "동기 유지(검증: ai-perm.test.mjs)" 라고 적혀 있었지만
+  //   그 시험은 이 파일을 읽지 않았다 — 원본을 조여도 ?aipop=1 패널만 옛 규칙으로 쓰기를 허용할 수 있었다(리뷰에서 발견).
+  //   모듈을 못 읽었으면 거부한다(열린 쪽으로 넘어지지 않게). 시험: node test/ai-perm.test.mjs 끝 절.
+  function aiPerm(name) {
+    return function () {
+      var m = window.AIPERM;
+      if (!m || typeof m[name] !== 'function') return { ok: false, why: '권한 모듈을 아직 못 읽었습니다 — 새로고침 후 다시 시도해주세요' };
+      return m[name].apply(null, arguments);
+    };
+  }
+  var judgeEditProject = aiPerm('judgeEditProject'), judgeEditTask = aiPerm('judgeEditTask'),
+    checkScheduleChange = aiPerm('checkScheduleChange'), checkProjectStatusChange = aiPerm('checkProjectStatusChange'),
+    checkReassign = aiPerm('checkReassign');
+
   // v29.61(로드맵 16단계): 업무 완료 처리 — 유일한 '수정' 액션. 확인 카드 필수.
   // 부모 moveTask()가 실제 tasks 문서/부서 WBS/브리핑 가상 업무를 유형별로 알아서 저장한다.
   registerAction('complete_task', {
@@ -501,43 +516,8 @@
   // ── v29.75 (로드맵 17-a): 프로젝트 일정 변경 — 두 번째 '수정' 액션 ──────
   // complete_task와 같은 기계(direct + resolve/commit + 확인 카드)를 쓴다.
   // 권한 문지기: PM 또는 관리자(grade super/exec)만. 권한이 없으면 카드를 아예 만들지 않는다.
-  // 아래 두 순수 함수는 modules/shared/ai-perm.mjs와 동기 유지 (검증: node test/ai-perm.test.mjs).
   // 안전 확인(2026-08-21): projects의 start/end는 merge setDoc으로만 갱신되고 wbsData로
   // 연쇄되는 경로 없음 (v30.3부터 자동 코드의 wbsData 쓰기 자체가 금지·제거됨).
-  function judgeEditProject(me, proj, users) {
-    me = me || {};
-    if (!me.id) return { ok: false, why: '로그인 정보를 읽지 못했습니다 — 새로고침 후 다시 시도해주세요' };
-    if (me.grade === 'super' || me.grade === 'exec') return { ok: true, why: '관리자' };
-    if (proj && proj.pm && proj.pm === me.id) return { ok: true, why: '이 프로젝트 PM' };
-    var pm = (users || []).find(function (u) { return u.id === (proj && proj.pm); });
-    return {
-      ok: false,
-      why: pm
-        ? ('이 프로젝트의 PM은 ' + pm.name + '님입니다 — PM 또는 관리자만 일정을 바꿀 수 있습니다')
-        : '이 프로젝트의 PM 또는 관리자만 일정을 바꿀 수 있습니다',
-    };
-  }
-  function checkScheduleChange(proj, start, end) {
-    var D = /^\d{4}-\d{2}-\d{2}$/;
-    proj = proj || {};
-    var upd = {};
-    var given = false;
-    if (start != null && String(start).trim() !== '') {
-      given = true; start = String(start).trim();
-      if (!D.test(start)) return { ok: false, why: '시작일 형식이 잘못됐습니다 (YYYY-MM-DD로 주세요): ' + start };
-      if (start !== proj.start) upd.start = start;
-    }
-    if (end != null && String(end).trim() !== '') {
-      given = true; end = String(end).trim();
-      if (!D.test(end)) return { ok: false, why: '마감일 형식이 잘못됐습니다 (YYYY-MM-DD로 주세요): ' + end };
-      if (end !== proj.end) upd.end = end;
-    }
-    if (!given) return { ok: false, why: '바꿀 날짜(시작일 또는 마감일)를 알려주세요.' };
-    if (!Object.keys(upd).length) return { ok: false, why: '이미 그 값입니다 — 바뀌는 내용이 없습니다.' };
-    var ns = upd.start || proj.start, ne = upd.end || proj.end;
-    if (ns && ne && ns > ne) return { ok: false, why: '시작일(' + ns + ')이 마감일(' + ne + ')보다 늦습니다 — 날짜를 확인해주세요.' };
-    return { ok: true, updates: upd };
-  }
 
   registerAction('update_project_schedule', {
     description: '프로젝트 시작일/마감일 변경 — PM 또는 관리자만 가능. 확인 카드에서 사용자가 [일정 변경]을 눌러야 실제 반영된다. "SJE2026-001 마감을 4월 말로 미뤄줘" 같은 요청에 사용',
@@ -583,74 +563,7 @@
 
   // ── v29.76 (로드맵 17-b): 상태·진행률 / 업무 담당 변경 ──────────────
   // 문지기는 17-a 것을 그대로 쓰고, 업무는 '내 업무는 내가 넘길 수 있다' 한 겹만 더한다.
-  // ai-perm.mjs와 동기 유지 (검증: node test/ai-perm.test.mjs).
-  function judgeEditTask(me, task, proj, users) {
-    me = me || {};
-    if (!me.id) return { ok: false, why: '로그인 정보를 읽지 못했습니다 — 새로고침 후 다시 시도해주세요' };
-    if (me.grade === 'super' || me.grade === 'exec') return { ok: true, why: '관리자' };
-    if (task && task.assignee === me.id) return { ok: true, why: '내 업무' };
-    if (proj && proj.pm && proj.pm === me.id) return { ok: true, why: '이 프로젝트 PM' };
-    var who = (users || []).find(function (u) { return u.id === (task && task.assignee); });
-    return {
-      ok: false,
-      why: who
-        ? ('이 업무 담당자는 ' + who.name + '님입니다 — 담당자·PM·관리자만 바꿀 수 있습니다')
-        : '이 업무의 담당자·PM 또는 관리자만 바꿀 수 있습니다',
-    };
-  }
   var PROJ_STATUS_KO = { active: '진행중', done: '완료', 'pre-close': '마감예정' };
-  function checkProjectStatusChange(proj, status, progress, wbsProgress) {
-    proj = proj || {};
-    var upd = {}, given = false;
-    if (status != null && String(status).trim() !== '') {
-      given = true;
-      var s = String(status).trim();
-      if (!PROJ_STATUS_KO[s]) {
-        var hit = Object.keys(PROJ_STATUS_KO).find(function (k) { return PROJ_STATUS_KO[k] === s; });
-        if (!hit) return { ok: false, why: '상태는 진행중·완료·마감예정 중 하나여야 합니다 (받은 값: ' + s + ')' };
-        s = hit;
-      }
-      if (wbsProgress != null && s === 'done' && wbsProgress < 100) {
-        return { ok: false, why: 'WBS 진척률이 ' + wbsProgress + '%라 완료로 바꾸면 자동으로 되돌아갑니다 — WBS를 100%로 채우거나 마감예정을 쓰세요.' };
-      }
-      if (wbsProgress != null && s === 'active' && wbsProgress >= 100) {
-        return { ok: false, why: 'WBS 진척률이 100%라 진행중으로 바꾸면 자동으로 되돌아갑니다 — WBS를 먼저 조정하세요.' };
-      }
-      if (s !== (proj.status || 'active')) upd.status = s;
-    }
-    if (progress != null && String(progress).trim() !== '') {
-      given = true;
-      var n = Number(progress);
-      if (!isFinite(n) || n < 0 || n > 100) return { ok: false, why: '진행률은 0~100 사이 숫자여야 합니다 (받은 값: ' + progress + ')' };
-      n = Math.round(n);
-      if (wbsProgress != null) {
-        return { ok: false, why: '이 프로젝트 진행률은 WBS에서 자동 계산됩니다(현재 ' + wbsProgress + '%) — 여기서 바꿔도 되돌아가니 WBS 화면에서 조정하세요.' };
-      }
-      if (n !== (proj.progress || 0)) upd.progress = n;
-    }
-    if (!given) return { ok: false, why: '바꿀 상태나 진행률을 알려주세요.' };
-    if (!Object.keys(upd).length) return { ok: false, why: '이미 그 값입니다 — 바뀌는 내용이 없습니다.' };
-    return { ok: true, updates: upd, label: upd.status ? PROJ_STATUS_KO[upd.status] : null };
-  }
-  function checkReassign(task, assigneeId, due) {
-    var D = /^\d{4}-\d{2}-\d{2}$/;
-    task = task || {};
-    var upd = {}, given = false;
-    if (assigneeId != null && String(assigneeId).trim() !== '') {
-      given = true;
-      var a = String(assigneeId).trim();
-      if (a !== task.assignee) upd.assignee = a;
-    }
-    if (due != null && String(due).trim() !== '') {
-      given = true;
-      var d = String(due).trim();
-      if (!D.test(d)) return { ok: false, why: '마감일 형식이 잘못됐습니다 (YYYY-MM-DD로 주세요): ' + d };
-      if (d !== task.due) upd.due = d;
-    }
-    if (!given) return { ok: false, why: '바꿀 담당자나 마감일을 알려주세요.' };
-    if (!Object.keys(upd).length) return { ok: false, why: '이미 그 값입니다 — 바뀌는 내용이 없습니다.' };
-    return { ok: true, updates: upd };
-  }
   // 17-a의 프로젝트 찾기를 두 액션이 함께 쓴다
   function findProjectForEdit(q) {
     q = String(q || '').toLowerCase().trim();

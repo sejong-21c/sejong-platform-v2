@@ -1,5 +1,6 @@
 // AI 비서 — 수정 권한·검증 순수 함수 (로드맵 17-a, 2026-08-21)
-// ai-assistant.js의 인라인본과 반드시 동기 유지 (tool-calc.mjs와 같은 관례).
+// 이 파일이 유일한 원본이다(2026-09-26) — index.html 이 window.AIPERM 으로 싣고 메신저 AI 행위와
+//   옛 비서(ai-assistant.js 의 aiPerm)가 둘 다 그것을 부른다. 인라인 사본을 다시 만들지 말 것.
 // 검증: node test/ai-perm.test.mjs — 이 테스트가 안 돌면 17단계는 완료가 아니다.
 
 // 관리자 판정은 실측 기준 grade(super/exec)다 — 설계서 초안의 role==='admin'은

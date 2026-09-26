@@ -2,6 +2,8 @@
 // 실행: node test/ai-perm.test.mjs
 import { judgeEditProject, checkScheduleChange, judgeEditTask, checkProjectStatusChange, checkReassign } from '../modules/shared/ai-perm.mjs';
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 const users = [
   { id: 'u1', name: '김철우', grade: 'super' },
@@ -71,4 +73,23 @@ assert.equal(checkReassign(task, null, '2026-09-01').ok, false, '같은 마감�
 assert.equal(checkReassign(task, null, '10/1').ok, false, '형식 오류 거부');
 assert.equal(checkReassign(task, null, null).ok, false, '아무것도 안 주면 거부');
 
-console.log('ai-perm 테스트 전체 통과 (17-a 17개 + 17-b 26개 = 43개)');
+// ── 원본은 하나 (2026-09-26) ──
+// 옛 비서(ai-assistant.js)에 이 다섯의 인라인 사본이 있었고 주석은 "동기 유지(검증: 이 시험)" 라 했지만 이 시험은
+//   그 파일을 읽지 않았다 — 여기를 조여도 ?aipop=1 패널은 옛 규칙으로 쓰기를 허용할 수 있었다(리뷰에서 발견).
+//   이제 옛 비서는 window.AIPERM(이 모듈)을 부르고, 못 읽었으면 거부한다. 사본이 되살아나면 여기서 멈춘다.
+const 옛비서 = readFileSync(new URL('../modules/ai-assistant/ai-assistant.js', import.meta.url), 'utf8');
+const 다섯 = { judgeEditProject, checkScheduleChange, judgeEditTask, checkProjectStatusChange, checkReassign };
+for (const 이름 of Object.keys(다섯)) {
+  assert.ok(!new RegExp(`function\\s+${이름}\\s*\\(`).test(옛비서), `ai-assistant.js 에 ${이름} 사본이 다시 생겼다 — window.AIPERM 을 불러라`);
+  assert.ok(new RegExp(`${이름}\\s*=\\s*aiPerm\\('${이름}'\\)`).test(옛비서), `ai-assistant.js 의 ${이름} 이 aiPerm('${이름}') 을 거치지 않는다`);
+}
+const 몸 = 옛비서.match(/function aiPerm\(name\) \{[\s\S]*?\r?\n {2}\}/);
+assert.ok(몸, 'ai-assistant.js 에서 aiPerm 을 못 찾았다');
+const 창 = {};
+const aiPerm = vm.runInNewContext(`(${몸[0]})`, { window: 창 });
+assert.equal(aiPerm('judgeEditProject')(users[0], proj, users).ok, false, '권한 모듈을 못 읽었으면 관리자라도 거부(열린 쪽으로 넘어지지 않는다)');
+창.AIPERM = 다섯;
+assert.deepEqual(aiPerm('judgeEditTask')(users[2], { assignee: 'u2' }, proj, users), judgeEditTask(users[2], { assignee: 'u2' }, proj, users), '모듈을 읽었으면 그대로 넘긴다');
+assert.deepEqual(aiPerm('checkReassign')(task, 'u2', '2026-10-01'), checkReassign(task, 'u2', '2026-10-01'), '인자 셋도 그대로');
+
+console.log('ai-perm 테스트 전체 통과 (17-a 17개 + 17-b 26개 = 43개 · 옛 비서 사본 없음·못 읽으면 거부)');

@@ -24,7 +24,8 @@ const html = 읽기('index.html');
 // index.html 이 <script src> 로 늘 싣는 우리 파일(CDN 빼고, ?v= 떼고) + 인라인 전부
 const 실린것 = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)]
   .map((m) => m[1]).filter((s) => !/^https?:/.test(s)).map((s) => s.split('?')[0]);
-const 늘실림 = html + '\n' + 실린것.map(읽기).join('\n');
+const 조각 = [['index.html', html], ...실린것.map((f) => [f, 읽기(f)])];
+const 늘실림 = 조각.map((c) => c[1]).join('\n');
 const 정의됨 = (이름) => new RegExp(`(?:window\\.${이름}\\s*=[^=]|function\\s+${이름}\\s*\\()`).test(늘실림);
 
 let n = 0;
@@ -45,6 +46,15 @@ T('SJP_indexRecord — 부르는 쪽이 있으면 늘 실리는 스크립트에 
   assert.ok(정의됨('SJP_indexRecord'),
     'SJP_indexRecord 를 부르는 곳(' + 곳.join(', ') + ')이 있는데 index.html 이 늘 싣는 스크립트에 정의가 없다. '
     + '옛 비서(ai-assistant.js)를 걷어냈다면 SJP_indexRecord·SJP_buildRecordText·SJP_isVoidTest 를 먼저 옮겨라');
+  // 2026-09-26 리뷰: 이름 하나만 보면 SJP_indexRecord 만 옮기고 나머지를 두고 와도 통과했다. 그러면 NCR·CAR 저장마다
+  //   'SJP_isVoidTest is not a function' 이 나는데 부르는 쪽이 결과를 안 기다려 저장은 멀쩡하고 색인만 멎는다.
+  //   전역 둘은 늘 실리는 곳에, 파일 속 도우미 셋(REC_SPECS·getGatewayUrl·gatewayAuthHeaders)은 같은 파일에 있어야 한다.
+  for (const 이름 of ['SJP_buildRecordText', 'SJP_isVoidTest'])
+    assert.ok(정의됨(이름), `SJP_indexRecord 가 부르는 ${이름} 이 늘 실리는 스크립트에 없다 — 색인이 조용히 멎는다`);
+  const 집 = 조각.find((c) => /window\.SJP_indexRecord\s*=[^=]/.test(c[1]));
+  for (const 이름 of ['REC_SPECS', 'getGatewayUrl', 'gatewayAuthHeaders'])
+    assert.ok(new RegExp(`(?:var|let|const)\\s+${이름}\\s*=|function\\s+${이름}\\s*\\(`).test(집[1]),
+      `SJP_indexRecord 가 쓰는 ${이름} 이 같은 파일(${집[0]})에 없다 — 옮길 때 같이 가져와라`);
 });
 
 T('옛 패널(?aipop=1 비상구)의 단추가 부르는 함수가 모두 정의돼 있다', () => {
