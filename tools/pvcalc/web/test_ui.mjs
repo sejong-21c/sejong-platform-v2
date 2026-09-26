@@ -8,7 +8,7 @@
  * (jsdom은 이 테스트 전용. 웹 자체는 의존성 없음.)
  */
 import { JSDOM } from "jsdom";
-import { writeFileSync, existsSync, unlinkSync } from "node:fs";
+import { writeFileSync, existsSync, unlinkSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
@@ -770,6 +770,14 @@ console.log("== 부서 공유 저장 seam ==");
   /* 빈 원격값은 무시하고 로컬로 되돌아감 */
   w.pvcalcAttachRemote({ edition: "빈-판", materials: [] }, null);
   ok("빈 원격값은 미적용", !$("matbar").classList.contains("on"));
+}
+/* 2026-09-26: 플랫폼 안(?fb=1)에서 재료 표 읽기 1건을 부모 계량기(한번읽기셈)에 센다 — 하루 읽기 5만 장부에
+   도구 화면 중 여기만 안 잡히고 있었다. 구독(onSnapshot)을 새로 걸면 "가려지면 쉬기"도 필요해진다 — 그때 여기서 걸린다. */
+{
+  const 브리지 = (readFileSync(DIR + "/index.html", "utf8").match(/<script type="module">\s*if \(new URLSearchParams[\s\S]*?<\/script>/) || [""])[0];
+  ok("부서 공유 브리지를 찾았다", 브리지.includes("t_pvcalcMaterials"));
+  ok("재료 표 읽기를 부모 계량기에 센다(서버에서 온 것만)", /!snap\.metadata\.fromCache && window\.parent !== window[^\n]*window\.parent\.한번읽기셈\(1, 1\)/.test(브리지));
+  ok("구독이 없다(있으면 가려지면 쉬기·구독 계량도 붙여야 한다)", !/onSnapshot/.test(브리지));
 }
 
 /* ══ 외형도(견적용 GA · DXF) — 2026-09-25 ════════════════════ */

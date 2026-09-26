@@ -2609,6 +2609,10 @@ if (new URLSearchParams(location.search).get("fb") === "1") {
       if (!user) { note("⚠ 로그인되지 않아 부서 공유 표를 불러오지 못했습니다."); return; }
       try {
         const snap = await fs.getDoc(ref);
+        /* 2026-09-26: 세종플랫폼 안이면 이 읽기 1건을 부모 계량기(index.html 의 한번읽기셈)에 센다 —
+           무료 하루 읽기 5만 장부(readDaily)에 도구 화면 중 여기만 안 잡히고 있었다. 구독이 없어
+           "가려지면 쉬기"는 붙일 게 없다(쉴 연결이 없다). 단독 실행판엔 부모가 없어 아무 일도 안 한다. */
+        try { if (!snap.metadata.fromCache && window.parent !== window && typeof window.parent.한번읽기셈 === "function") window.parent.한번읽기셈(1, 1); } catch (_) { /* 다른 출처 — 조용히 */ }
         const data = snap.exists() ? snap.data().data : null;
         window.pvcalcAttachRemote(data, push);
       } catch (e) {

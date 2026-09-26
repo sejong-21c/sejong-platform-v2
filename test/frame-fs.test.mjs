@@ -40,4 +40,13 @@ const 연다 = 파일들.filter((p) => /initializeFirestore\(|getFirestore\(/.te
 const 빠진 = 연다.filter((p) => !/틀붙이기\(window\.fb\.db, window\.fb, '/.test(readFileSync(p, 'utf8')));
 assert.ok(연다.length >= 16, '도구 화면을 찾았다: ' + 연다.length);
 assert.deepStrictEqual(빠진, [], '자기 Firestore 를 여는 도구 화면은 틀붙이기를 불러야 한다(새 화면을 만들면 여기서 걸린다)');
-console.log(`frame-fs 테스트 전체 통과 (감싸기 7 · 도구 화면 ${연다.length}개 모두 틀붙이기)`);
+
+// ③ tools/ 아래 단독 실행판(pvcalc — 원본 저장소가 따로라 shared 를 import 못 한다)도 계량 밖이면 안 된다(9/26 a10).
+//   구독이 없으면 한 번 조회만 부모 한번읽기셈으로 세면 된다 · 구독을 걸기 시작하면 틀붙이기 급(쉬기·구독 계량)이 필요하다.
+const 도구파일 = []; const 걷기2 = (d) => { for (const n of readdirSync(d)) { if (n === 'node_modules') continue; const p = join(d, n); if (statSync(p).isDirectory()) 걷기2(p); else if (n.endsWith('.html')) 도구파일.push(p); } };
+걷기2(fileURLToPath(new URL('../tools/', import.meta.url)));
+const 도구연다 = 도구파일.filter((p) => /initializeFirestore\(|getFirestore\(/.test(readFileSync(p, 'utf8')));
+const 도구빠진 = 도구연다.filter((p) => { const s = readFileSync(p, 'utf8'); return !(/틀붙이기\(/.test(s) || (!/onSnapshot/.test(s) && /한번읽기셈\(/.test(s))); });
+assert.ok(도구연다.length >= 1, 'tools/ 아래 Firestore 여는 화면을 찾았다(pvcalc): ' + 도구연다.length);
+assert.deepStrictEqual(도구빠진, [], 'tools/ 아래 Firestore 화면은 틀붙이기 또는 (구독 없음 + 한번읽기셈)');
+console.log(`frame-fs 테스트 전체 통과 (감싸기 7 · 도구 화면 ${연다.length}개 모두 틀붙이기 · tools/ ${도구연다.length}개 계량)`);
