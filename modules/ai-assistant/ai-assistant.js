@@ -1,6 +1,8 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.85: 로컬 LLM 칸은 이 PC(루프백) 주소만 — localhost·127.x.x.x·[::1]. 바깥 주소(회사 라우터 등)를 넣으면
+ *          게이트웨이를 안 거쳐 장부 밖으로 나갔다. 저장 때 거르고, 예전에 저장된 바깥 주소는 무시(🔑 창에 경고).
  * v29.84: 로컬 LLM '전 직원 공용 공유'(t_aiSharedConfig) 삭제 — 누구나 고칠 수 있는 문서라 주소를 바꾸면 전 직원의
  *          질문이 그 서버로 갔고, 키가 모든 브라우저에 내려갔으며, 여기서 부른 호출은 장부 밖이었다. 회사 라우터
  *          (omniroute)는 게이트웨이 '9router' 칸(worker v5.6, 워커 설정만)이 맡는다. 로컬 LLM 은 이 기기 주소만.
@@ -135,9 +137,21 @@
   //   부르는 호출은 게이트웨이를 안 거쳐 장부에 안 남았다. 회사 라우터(omniroute)는 PROVIDER_CHAIN 의 '9router'
   //   (게이트웨이 경유, 워커 설정만 믿음 — worker v5.6)가 맡는다. 규칙도 관리자 전용으로 닫았다(2026-09-26).
   //   이제 로컬 LLM 은 **이 기기 localStorage 에 넣은 주소만** 쓴다.
+  // v29.85: 로컬 LLM 은 **이 PC(루프백) 주소만** — localhost · 127.x.x.x · [::1].
+  //   회사 라우터(omniroute) 같은 바깥 주소를 여기 넣으면 게이트웨이를 안 거쳐 장부 밖으로 직접 나갔다.
+  //   예전에 저장된 바깥 주소(옛 9Router 터널 등)는 지우지 않고 **무시**한다 — 🔑 창에 경고로 보인다.
+  //   주소는 URL 로 풀어 hostname 만 본다 — 'localhost.evil.com'·'http://localhost@evil.com' 같은 속임수를 거른다.
+  function isLoopbackUrl(u) {
+    try {
+      var x = new URL(String(u || '').trim());
+      if (x.protocol !== 'http:' && x.protocol !== 'https:') return false;
+      var h = x.hostname.toLowerCase();
+      return h === 'localhost' || h === '[::1]' || /^127(\.\d{1,3}){3}$/.test(h);
+    } catch (e) { return false; }
+  }
   function getLocalUrl() {
     var u = lsGet(LOCAL_URL_LS).trim();
-    return u ? u.replace(/\/+$/, '') : '';
+    return (u && isLoopbackUrl(u)) ? u.replace(/\/+$/, '') : '';
   }
   function getLocalKey() {
     return lsGet(LOCAL_KEY_LS).trim() || '9router';   // 키가 없으면 옛 관례값 — 로컬 서버는 보통 무시한다
@@ -2762,13 +2776,17 @@
       '<input class="fi" id="aiLocalUrlInput" spellcheck="false" autocomplete="off" style="margin-bottom:6px;"' +
       ' placeholder="주소 — LM Studio: http://localhost:1234/v1  ·  Ollama: http://localhost:11434/v1"' +
       ' value="' + lsGet(LOCAL_URL_LS).replace(/"/g, '&quot;') + '">' +
+      // v29.85: 예전에 넣어 둔 바깥 주소는 쓰지 않는다 — 왜 안 쓰이는지 여기서 보인다
+      (lsGet(LOCAL_URL_LS).trim() && !isLoopbackUrl(lsGet(LOCAL_URL_LS))
+        ? '<div style="font-size:11px;color:#b91c1c;margin:-2px 0 6px;">⚠ 저장된 주소는 이 PC 주소가 아니라서 쓰지 않습니다 — 지우거나 localhost 주소로 바꾸세요.</div>'
+        : '') +
       '<input class="fi" id="aiLocalKeyInput" type="password" spellcheck="false" autocomplete="off" style="margin-bottom:6px;"' +
       ' placeholder="API 키 (선택 — 로컬 서버가 키를 요구할 때만)"' +
       ' value="' + lsGet(LOCAL_KEY_LS).replace(/"/g, '&quot;') + '">' +
       '<input class="fi" id="aiLocalModelInput" spellcheck="false" autocomplete="off"' +
       ' placeholder="모델 이름 (비워두면 자동 감지 — 예: qwen3.5)"' +
       ' value="' + lsGet(LOCAL_MODEL_LS).replace(/"/g, '&quot;') + '">' +
-      '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">이 PC에서 돌리는 모델 주소만 넣으세요. <b>회사 라우터(omniroute·9Router)는 넣지 마세요</b> — 회사 게이트웨이로 자동 연결되고 사용량이 장부에 남습니다. LM Studio는 Enable CORS가 필요합니다.</div>' +
+      '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;"><b>이 PC 주소(localhost·127.0.0.1)만 받습니다.</b> 회사 라우터(omniroute·9Router)는 회사 게이트웨이로 자동 연결되고 사용량이 장부에 남습니다. LM Studio는 Enable CORS가 필요합니다.</div>' +
       '</div>';
     // v29.56: 관리자용 사내 문서 등록(RAG) — 워커가 RAG_ADMIN_EMAILS로 최종 검증하므로
     // 여기 노출 조건(super/admin)은 UI 정리 목적일 뿐 보안 경계가 아니다.
@@ -2818,7 +2836,13 @@
         var gwEl = $id('aiGatewayUrlInput');
         lsSet(GATEWAY_URL_LS, gwEl ? gwEl.value.trim() : '');
         var luEl = $id('aiLocalUrlInput'), lkEl = $id('aiLocalKeyInput'), lmEl = $id('aiLocalModelInput');
-        lsSet(LOCAL_URL_LS, luEl ? luEl.value.trim() : '');
+        // v29.85: 이 PC 주소가 아니면 저장하지 않는다(getLocalUrl 위 설명). 저장해 봐야 무시되니 비운다.
+        var luVal = luEl ? luEl.value.trim() : '';
+        if (luVal && !isLoopbackUrl(luVal)) {
+          appendMsg('system', '로컬 LLM 주소는 이 PC 주소(localhost·127.0.0.1)만 받습니다 — "' + luVal.slice(0, 80) + '" 은(는) 저장하지 않았습니다. 회사 라우터(omniroute)는 회사 게이트웨이로 자동 연결됩니다.');
+          luVal = '';
+        }
+        lsSet(LOCAL_URL_LS, luVal);
         lsSet(LOCAL_KEY_LS, lkEl ? lkEl.value.trim() : '');
         lsSet(LOCAL_MODEL_LS, lmEl ? lmEl.value.trim() : '');
         _localModelCache = '';   // 주소·모델 바뀌었으니 자동 감지 캐시 초기화
