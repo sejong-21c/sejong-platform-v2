@@ -816,62 +816,106 @@ async function 영수증보내기(파일) {
 //   사람이 "확인하고 저장" 하려면 무엇을 보고 그렇게 읽었는지 보여야 한다.
 function 영수증달기(m) {
   const r = m.영수증; if (!r) return '';
-  const 돈글 = (n) => Number(n || 0).toLocaleString('ko-KR');
-  const 후보 = Array.isArray(r.금액후보) ? r.금액후보 : [];
   const 원문 = Array.isArray(r.원문) ? r.원문 : [];
-  const 버튼 = r.금액
-    ? `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}">경비 내역서에 올리기</button>`
-    : 후보.map((c, i) => `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}" data-pick="${i}">${돈글(c.총금액)}원으로 올리기</button>`).join('');
   const 원문칸 = 원문.length
     ? `<details class="sjm-rcpt-raw"><summary>읽은 원문 ${원문.length}줄</summary><pre>${esc(원문.join('\n'))}</pre></details>`
     : '';
-  return `<div class="sjm-md-go">${버튼}</div>${원문칸}`;
+  return 영수증버튼(m) + 원문칸;
+}
+// 2026-09-26 직원 시범 전 대조: 올린 뒤에도 버튼이 그대로라 또 누르면 한 건이 더 생겼다.
+//   올렸으면(영수증.올림) 버튼 대신 「올림 ✓」. 올린 직후 이 칸만 바꿔 끼운다(경비로등록).
+function 영수증버튼(m) {
+  const r = m.영수증 || {};
+  const 돈글 = (n) => Number(n || 0).toLocaleString('ko-KR');
+  const 후보 = Array.isArray(r.금액후보) ? r.금액후보 : [];
+  const 버튼 = r.올림
+    ? '<div class="sjm-act sjm-act-ok">올림 ✓ 경비 내역서에 올라갔습니다</div>'
+    : r.금액
+      ? `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}">경비 내역서에 올리기</button>`
+      : 후보.map((c, i) => `<button class="sjm-go-btn" data-act="reg-task" data-mid="${esc(m.id)}" data-pick="${i}">${돈글(c.총금액)}원으로 올리기</button>`).join('');
+  return `<div class="sjm-md-go sjm-rcpt-go">${버튼}</div>`;
+}
+
+// 영수증 거래일시 → 'YYYY-MM-DD'. 못 읽으면 '' (짐작하지 않는다).
+// 2026-09-26 직원 시범 전 대조: 마감 검사가 거래일시가 'YYYY-MM' 으로 시작할 때만 돌았다. 맥은 그 꼴로
+//   달라고 **부탁만** 한다(pais receipt.js) — '26.09.26'·'2026/9/26' 이 오면 마감한 달로도 들어가고
+//   날짜 칸도 비었다. 사이 글자는 두 개까지 본다('2026년 9월 26일' 의 '년 ').
+function 영수증날짜(s) {
+  const m = String(s || '').match(/(\d{2,4})\D{0,2}(\d{1,2})\D{0,2}(\d{1,2})/);
+  if (!m || m[1].length === 3) return '';
+  const 해 = Number(m[1].length === 2 ? '20' + m[1] : m[1]), 월 = Number(m[2]), 일 = Number(m[3]);
+  if (해 < 2000 || 해 > 2099 || 월 < 1 || 월 > 12 || 일 < 1 || 일 > 31) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${해}-${p(월)}-${p(일)}`;
 }
 
 // 사람이 확인한 뒤에만 여기 온다. **AI 가 스스로 저장하지 않는다** — 회사 원칙이다.
 // 2026-09-23 부장님: 영수증은 업무관리가 아니라 **경비 내역서**로 간다. 직원은 메신저에서
 //   사진 한 장과 한 줄만 올리고, 재무부가 「업무 경비 내역서」에서 카드를 맞추고 확인한다.
 //   그래서 내역은 한 건에 문서 하나다(t_expenseEntries) — 재무부 화면이 통째로 덮어써도 안 지워진다.
-async function 경비로등록(m, 고른) {
+const 올리는중 = new Set();   // 메시지 id — 저장이 끝날 때까지 다시 못 누른다(말풍선을 다시 그려도)
+async function 경비로등록(m, 고른, 단추) {
   const fb = getFB(); if (!fb || !fb.db) { 토스트('저장소에 연결되어 있지 않습니다.'); return; }
   const r = m.영수증 || {};
+  if (r.올림) { 토스트('이미 올린 영수증입니다.'); return; }
+  if (올리는중.has(m.id)) return;
   const 돈 = 고른 == null ? r.금액 : (r.금액후보 || [])[고른];
   if (!돈) { 토스트('금액을 고르지 못했습니다.'); return; }
-  const 날 = String(r.거래일시 || '').slice(0, 10);
-  // 2026-09-23: 재무부가 **마감한 달**로는 못 들어간다. 내역서를 뽑아 결재를 올린 뒤에
-  //   뒤늦게 한 건이 끼어들면 결재받은 종이와 화면 숫자가 갈라진다 — 그게 언제 갈라졌는지
-  //   아무도 모른다. 설정 문서 한 건만 읽는다(읽기 1회).
-  if (/^\d{4}-\d{2}/.test(날)) {
-    try {
-      const s = await fb.getDoc(fb.doc(fb.db, 't_expense', 'main'));
-      const 잠 = s.exists() && ((s.data() || {}).마감 || {})[날.slice(0, 7)];
-      if (잠 && 잠.때) {
-        토스트(`${날.slice(0, 7)} 은 재무부가 마감한 달입니다 — 등록되지 않았습니다. 재무부에 말씀해 주세요.`, 5000);
-        return;
-      }
-    } catch (e) { /* 설정을 못 읽으면 막지 않는다 — 올리는 쪽을 세우는 게 더 나쁘다 */ }
-  }
-  const id = 'E' + Date.now() + Math.random().toString(36).slice(2, 6);
+  올리는중.add(m.id); if (단추) 단추.disabled = true;
   try {
-    await fb.setDoc(fb.doc(fb.db, 't_expenseEntries', id), plain({
-      id,
-      date: /^\d{4}-\d{2}-\d{2}$/.test(날) ? 날 : '',
-      cardId: '',                      // **짐작하지 않는다.** 카드는 재무부가 맞춘다
-      amount: Number(돈.총금액) || 0,
-      loc: '-', qty: '-',
-      usage: String(r.덧말 || r.상호 || '').slice(0, 300),   // 올릴 때 같이 친 그 줄이 사용 내역이다
-      receipts: r.파일열쇠 ? [{ name: String(r.파일이름 || '영수증'), key: r.파일열쇠,
-        mime: r.isPdf ? 'application/pdf' : 'image/jpeg', isPdf: !!r.isPdf }] : [],
-      메모: [r.상호 && ('상호 ' + r.상호), r.거래일시 && ('일시 ' + r.거래일시),
-        r.사업자번호 && ('사업자 ' + r.사업자번호), r.카드사 && ('카드 ' + r.카드사),
-        r.승인번호 && ('승인 ' + r.승인번호), 돈.공급가액 != null && ('공급가액 ' + 돈.공급가액),
-        돈.부가세 != null && ('부가세 ' + 돈.부가세)].filter(Boolean).join(' · '),
-      올린이: String(me()), 올린때: Date.now(),
-    }));
+    const 날 = 영수증날짜(r.거래일시);
+    // 2026-09-23: 재무부가 **마감한 달**로는 못 들어간다. 내역서를 뽑아 결재를 올린 뒤에
+    //   뒤늦게 한 건이 끼어들면 결재받은 종이와 화면 숫자가 갈라진다 — 그게 언제 갈라졌는지
+    //   아무도 모른다. 9/26: main(카드 목록)은 재무부만 읽으므로 마감 사본 lock 만 읽는다(읽기 1회).
+    if (날) {
+      try {
+        const s = await fb.getDoc(fb.doc(fb.db, 't_expense', 'lock'));
+        const 잠 = s.exists() && ((s.data() || {}).마감 || {})[날.slice(0, 7)];
+        if (잠 && 잠.때) {
+          토스트(`${날.slice(0, 7)} 은 재무부가 마감한 달입니다 — 등록되지 않았습니다. 재무부에 말씀해 주세요.`, 5000);
+          return;
+        }
+      } catch (e) { /* 마감 표시를 못 읽으면 막지 않는다 — 올리는 쪽을 세우는 게 더 나쁘다 */ }
+    }
+    // id 를 메시지에 묶는다(9/26) — 예전엔 누를 때마다 무작위 id 라 두 번 누르면 두 건이 됐다.
+    //   이제 두 번째 setDoc 은 같은 문서의 update 이고, 규칙이 직원의 update 를 거부한다.
+    const id = 'M_' + m.id + (고른 == null ? '' : '_' + 고른);
+    // 재무부가 누구 영수증인지 알게 이름을 앞에 붙인다(올린이는 uid 라 화면에 안 보인다).
+    const 이름 = (userMap.get(me()) || {}).name || '';
+    try {
+      await fb.setDoc(fb.doc(fb.db, 't_expenseEntries', id), plain({
+        id,
+        date: 날,
+        cardId: '',                      // **짐작하지 않는다.** 카드는 재무부가 맞춘다
+        amount: Number(돈.총금액) || 0,
+        loc: '-', qty: '-',
+        usage: [이름, r.덧말 || r.상호].filter(Boolean).join(' · ').slice(0, 300),   // 올릴 때 같이 친 그 줄이 사용 내역이다
+        receipts: r.파일열쇠 ? [{ name: String(r.파일이름 || '영수증'), key: r.파일열쇠,
+          mime: r.isPdf ? 'application/pdf' : 'image/jpeg', isPdf: !!r.isPdf }] : [],
+        메모: [r.상호 && ('상호 ' + r.상호), r.거래일시 && ('일시 ' + r.거래일시),
+          !날 && '날짜 못 읽음',
+          r.사업자번호 && ('사업자 ' + r.사업자번호), r.카드사 && ('카드 ' + r.카드사),
+          r.승인번호 && ('승인 ' + r.승인번호), 돈.공급가액 != null && ('공급가액 ' + 돈.공급가액),
+          돈.부가세 != null && ('부가세 ' + 돈.부가세)].filter(Boolean).join(' · '),
+        올린이: String(me()), 올린때: Date.now(),
+      }));
+    } catch (e) {
+      // 직원에게 거부가 나는 길은 "이미 있는 id 에 또 씀" 하나뿐이다(만들기는 제 이름이면 열려 있다).
+      if (e && e.code === 'permission-denied') { 토스트('이미 올린 영수증입니다.', 3800); return; }
+      console.error('[경비 등록]', e);
+      토스트('올리지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 4000);
+      return;
+    }
+    // 올렸다는 표시를 메시지에 남긴다 — 다음에 열어도 버튼 대신 「올림 ✓」.
+    r.올림 = { id, 때: Date.now() }; m.영수증 = r;
+    const 칸 = $(`.sjm-msg[data-mid="${CSS.escape(String(m.id))}"] .sjm-rcpt-go`);
+    if (칸) 칸.outerHTML = 영수증버튼(m); else renderMessages(true);
     토스트('경비 내역서에 올렸습니다 — ' + Number(돈.총금액 || 0).toLocaleString('ko-KR') + '원. 재무부가 확인합니다.', 3800);
-  } catch (e) {
-    console.error('[경비 등록]', e);
-    토스트('올리지 못했습니다: ' + String(e && e.message || e).slice(0, 60), 4000);
+    try { await fb.setDoc(fb.doc(fb.db, AI_컬렉션, m.id), plain({ 영수증: { 올림: r.올림 } }), { merge: true }); }
+    catch (e) { console.warn('[경비 등록] 올림 표시 저장 실패', e); }
+  } finally {
+    올리는중.delete(m.id);
+    if (단추 && 단추.isConnected) 단추.disabled = false;
   }
 }
 
@@ -1843,7 +1887,7 @@ function 행동(el) {
     case 'reg-task': {
       const m = 메시지찾기(el.dataset.mid);
       if (!m || !m.영수증) { 토스트('영수증 내용을 찾지 못했습니다.'); break; }
-      경비로등록(m, el.dataset.pick == null ? null : Number(el.dataset.pick));
+      경비로등록(m, el.dataset.pick == null ? null : Number(el.dataset.pick), el);
       break;
     }
     case 'act-run': {

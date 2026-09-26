@@ -1483,6 +1483,8 @@ async function 경비불러오기() {
     DATA = Object.assign({ cards: [], writers: [], places: [], companyInfo: {} }, 설정만, { entries: [] });
     _서버시각 = Number(설정.updatedAt || 0);
     _마지막판 = JSON.stringify(저장할판());
+    // main 을 제대로 읽었을 때만 lock 을 맞춘다 — 못 읽고 빈 판으로 맞추면 마감이 전부 풀려 보인다.
+    잠금맞추기(true).catch((e) => console.warn('[마감 잠금]', e));
 
     // 내역 — 제 칸에서 읽는다. 옛 문서 안에 남아 있던 내역도 한 번은 같이 살린다(이사).
     const 것 = [];
@@ -1767,7 +1769,24 @@ function 달마감(m) {
   renderClose(); renderEntries();
   // **바로 저장한다.** 자동 저장은 4초 주기라, 마감하고 곧장 화면을 떠나면 안 남는다
   //   (시험에서 실제로 그랬다). 마감은 결정이지 타이핑이 아니다 — 기다리게 두면 안 된다.
-  경비저장().catch((e) => alert('마감을 저장하지 못했습니다: ' + (e.message || e)));
+  경비저장().then(() => 잠금맞추기(false)).catch((e) => alert('마감을 저장하지 못했습니다: ' + (e.message || e)));
+}
+
+// 마감 표시 사본 t_expense/lock = { 마감: { 'YYYY-MM': { 때 } } } — 이름·카드 없이 때만.
+// 2026-09-26 직원 시범 전 대조: 메신저가 마감 한 칸을 보려고 main(카드 목록 포함)을 통째로 읽었다.
+//   이제 main 은 재무부만 읽는다(firestore.rules). 원본은 그대로 DATA.마감(main)이고 lock 은 사본이다.
+//   화면을 열 때도 맞춘다(먼저읽기) — 전에 마감한 달이 처음 열 때 옮겨지고, 어긋나도 스스로 낫는다.
+async function 잠금맞추기(먼저읽기) {
+  const fb = 부모fb(); if (!fb || _멈춤) return;     // 설정 저장이 멈췄으면 main 에 없는 마감을 lock 에 내지 않는다
+  const 마감 = {};
+  for (const [m, v] of Object.entries(DATA.마감 || {})) if (v && v.때) 마감[m] = { 때: Number(v.때) };
+  const 판 = (o) => JSON.stringify(Object.keys(o).sort().map((m) => [m, Number((o[m] || {}).때) || 0]));
+  if (먼저읽기) {
+    const s = await fb.getDoc(fb.doc(fb.db, 경비칸, 'lock'));
+    if (판((s.exists() && (s.data() || {}).마감) || {}) === 판(마감)) return;
+  }
+  const 부모JSON = (window.parent && window.parent !== window && window.parent.JSON) || JSON;
+  await fb.setDoc(fb.doc(fb.db, 경비칸, 'lock'), 부모JSON.parse(JSON.stringify({ 마감, updatedAt: Date.now() })));
 }
 
 function 마감풀기(m) {
@@ -1782,7 +1801,7 @@ function 마감풀기(m) {
   칸.때 = null; 칸.누가 = '';
   DATA.마감[m] = 칸;
   renderClose(); renderEntries();
-  경비저장().catch((e) => alert('마감 풀기를 저장하지 못했습니다: ' + (e.message || e)));
+  경비저장().then(() => 잠금맞추기(false)).catch((e) => alert('마감 풀기를 저장하지 못했습니다: ' + (e.message || e)));
 }
 
 function addEntry(){
@@ -1894,7 +1913,7 @@ function renderEntries(){
     return `<tr>
       <td class="ctr">${formatDate(e.date)}</td>
       <td>${cardLabel}</td>
-      <td>${esc(e.usage)}</td>
+      <td>${esc(e.usage)}${e.메모 ? `<div style="font-size:10px;color:#888;">${esc(e.메모)}</div>` : ''}</td>
       <td class="num">${num(e.amount)}</td>
       <td class="ctr">${esc(e.loc)}</td>
       <td class="ctr">${esc(e.qty)}</td>
