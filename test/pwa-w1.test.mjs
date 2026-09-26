@@ -240,6 +240,9 @@ const ai = 읽기('modules/messenger/ai.js');
     /const 넘기기 = \(부모, x\) => 부모\.JSON\.parse\(JSON\.stringify\(x \?\? null\)\);/.test(코드)
     && /부모\.AI행위풀기\(날것\.행위, 넘기기\(부모, 날것\.인자\), 넘기기\(부모, \{ 본문 \}\)\)/.test(코드));
   확인('「화면 열기」 버튼도 부모창 기준', /function 화면달기\(m\) \{\s*if \(!부모창\(\)\) return '';/.test(코드));
+  // 크롬은 다른 창의 focus() 를 대개 무시한다 — ⧉ 새 창이 앞에 남아 아무 일도 안 난 것처럼 보였다(9/26 남은 것).
+  확인('⧉ 새 창의 「화면 열기」 는 플랫폼 창에서 열렸다고 말하고, 연 창이 닫혔으면 열었다고 하지 않는다',
+    /case 'open-screen': \{\s*const 부모 = 부모창\(\);\s*if \(!부모\) \{ 토스트\([^\n]*break; \}[\s\S]{0,300}if \(부모 !== 품은창\(\)\) \{[^\n]*토스트\('플랫폼 창에서 열었습니다/.test(코드));
 
   const { 플랫폼창고르기 } = await import('../modules/messenger/ai.js');
   const 창 = (더 = {}) => { const w = { ...더 }; if (!('parent' in 더)) w.parent = w; return w; };

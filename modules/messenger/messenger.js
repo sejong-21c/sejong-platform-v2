@@ -20,12 +20,12 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b116';
-import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b116';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b117';
+import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b117';
 import { 틀붙이기 } from '../shared/frame-fs.mjs?v=f1';
-import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b116';
-import * as L from './lib.js?v=b116';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b116';
+import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b117';
+import * as L from './lib.js?v=b117';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b117';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -73,7 +73,7 @@ if (window.parent === window) {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b116';
+const 빌드 = 'b117';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -1967,11 +1967,14 @@ function 행동(el) {
     case 'open-screen': {
       // 부모 앱에게 열라고 시킨다. nav 는 switchMod 가 권한을 한 번 더 본다. ⧉ 새 창이면 연 창에서 연다(그사이 닫혔으면 부모 null).
       const 부모 = 부모창();
+      if (!부모) { 토스트('플랫폼 창이 닫혀 있어 열지 못했습니다 — 플랫폼에서 메신저를 다시 열어 주세요.', 4000); break; }
       try { 부모.화면열기(el.dataset.kind, el.dataset.id, el.dataset.dept || ''); }
       catch (e) { 토스트('화면을 열지 못했습니다.'); break; }
       // 메신저 창은 비킨다 — 열어 준 화면이 뒤에 가려 있으면 아무 일도 안 난 것처럼 보인다.
       //   iframe 이면 패널을 닫고, ⧉ 새 창이면 연 창을 앞으로 부른다(연 창 패널은 이미 닫혀 있어 토글하면 도리어 열린다).
-      try { if (부모 !== 품은창()) 부모.focus(); else if (typeof 부모.toggleMsgPanel === 'function') 부모.toggleMsgPanel(); } catch (e) {}
+      //   크롬은 다른 창의 focus() 를 대개 무시해서 ⧉ 새 창이 그대로 앞에 남는다 — 어디서 열렸는지 말해 준다(9/26 남은 것).
+      if (부모 !== 품은창()) { try { 부모.focus(); } catch (e) {} 토스트('플랫폼 창에서 열었습니다 — 그 창으로 가 보세요.', 3200); }
+      else try { if (typeof 부모.toggleMsgPanel === 'function') 부모.toggleMsgPanel(); } catch (e) {}
       break;
     }
     case 'search-open': ui.search.open = true; ui.search.q = ''; ui.search.stab = 'all'; render('pane'); break;
