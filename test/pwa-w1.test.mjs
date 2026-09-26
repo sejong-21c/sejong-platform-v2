@@ -240,6 +240,14 @@ const ai = 읽기('modules/messenger/ai.js');
     /const 넘기기 = \(부모, x\) => 부모\.JSON\.parse\(JSON\.stringify\(x \?\? null\)\);/.test(코드)
     && /부모\.AI행위풀기\(날것\.행위, 넘기기\(부모, 날것\.인자\), 넘기기\(부모, \{ 본문 \}\)\)/.test(코드));
   확인('「화면 열기」 버튼도 부모창 기준', /function 화면달기\(m\) \{\s*if \(!부모창\(\)\) return '';/.test(코드));
+  // 2026-09-26 보안 전수 대조: 전사 messages 는 누구나 칸을 넣을 수 있었다 — 규칙이 칸을 막아도 화면이 한 번 더 막는다.
+  확인('확인 카드·영수증 버튼은 AI 방 메시지에서만 찾는다(가짜 카드가 누른 사람 권한으로 돌던 것)',
+    (코드.match(/const m = AI메시지찾기\(el\.dataset\.mid\);/g) || []).length === 3
+    && /const AI메시지찾기 = \(mid\) => state\.aiMsgs\.find\(\(x\) => x\.id === mid\) \|\| null;/.test(코드));
+  확인('md(서식·카드) 는 AI 방만 그린다', /\} else if \(m\.md && m\.channel === AI_CID\) \{/.test(코드));
+  확인('이름 없는 시스템 말은 SYSTEM 이거나 보낸 사람 이름으로 시작할 때만(익명 공지 흉내 막음)',
+    /isSys = m\.author === 'SYSTEM' \|\| \(m\.system === true && !!u\.name && String\(m\.text \|\| ''\)\.startsWith\(u\.name \+ '님이'\)\)/.test(코드));
+  확인('방 문서에 미리보기(lastText)를 안 쓴다 — 방 문서는 전 직원이 읽는다', !/lastText:/.test(코드));
   // 크롬은 다른 창의 focus() 를 대개 무시한다 — ⧉ 새 창이 앞에 남아 아무 일도 안 난 것처럼 보였다(9/26 남은 것).
   확인('⧉ 새 창의 「화면 열기」 는 플랫폼 창에서 열렸다고 말하고, 연 창이 닫혔으면 열었다고 하지 않는다',
     /case 'open-screen': \{\s*const 부모 = 부모창\(\);\s*if \(!부모\) \{ 토스트\([^\n]*break; \}[\s\S]{0,300}if \(부모 !== 품은창\(\)\) \{[^\n]*토스트\('플랫폼 창에서 열었습니다/.test(코드));

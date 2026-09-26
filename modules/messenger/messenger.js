@@ -20,12 +20,12 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b117';
-import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b117';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b118';
+import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b118';
 import { 틀붙이기 } from '../shared/frame-fs.mjs?v=f1';
-import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b117';
-import * as L from './lib.js?v=b117';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b117';
+import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b118';
+import * as L from './lib.js?v=b118';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b118';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -73,7 +73,7 @@ if (window.parent === window) {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b117';
+const 빌드 = 'b118';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -375,7 +375,7 @@ function 보이는방() {
 function 채팅목록() {
   return 보이는방().map((ch) => {
     const { last, lastAt } = 마지막활동(ch);
-    return { ch, last, lastAt, unread: 미읽음(ch.id), pinned: !!state.pins[ch.id], name: 방이름(ch), preview: last ? L.미리보기(last) : (ch.lastText || '') };
+    return { ch, last, lastAt, unread: 미읽음(ch.id), pinned: !!state.pins[ch.id], name: 방이름(ch), preview: last ? L.미리보기(last) : '' };
   }).sort(L.채팅정렬);
 }
 function getChannel(cid) {
@@ -556,7 +556,7 @@ function 프로젝트화면() {
   if (!ps.length) return `<div class="sjm-empty">${ICON.folder}<div>진행 중인 프로젝트가 없습니다.<br>프로젝트는 플랫폼에서 등록합니다.</div></div>`;
   const groups = [['active', '진행중'], ['pre-close', '마감예정'], ['done', '완료']];
   const rowsByCid = new Map(채팅목록().map((r) => [r.ch.id, r]));
-  const rowOf = (ch) => rowsByCid.get(ch.id) || (() => { const { last, lastAt } = 마지막활동(ch); return { ch, last, lastAt, unread: 미읽음(ch.id), pinned: !!state.pins[ch.id], name: 방이름(ch), preview: last ? L.미리보기(last) : (ch.lastText || '') }; })();
+  const rowOf = (ch) => rowsByCid.get(ch.id) || (() => { const { last, lastAt } = 마지막활동(ch); return { ch, last, lastAt, unread: 미읽음(ch.id), pinned: !!state.pins[ch.id], name: 방이름(ch), preview: last ? L.미리보기(last) : '' }; })();
   return groups.map(([st, label]) => {
     const list = ps.filter((p) => (p.status || 'active') === st)
       .map((p) => ({ p, rooms: 프로젝트방들(p) }))
@@ -615,7 +615,7 @@ function 검색결과() {
   for (const dn of 검색부서) { const c = 부서방(dn); if (!pool.has(c.id)) pool.set(c.id, c); }
   for (const p of 보이는프로젝트()) { const c = 프로젝트기본방(p); if (!pool.has(c.id)) pool.set(c.id, c); }
   const chats = Array.from(pool.values()).filter((c) => L.이름일치(방이름(c), q) > 0)
-    .map((ch) => { const { last, lastAt } = 마지막활동(ch); return { ch, last, lastAt, unread: 미읽음(ch.id), pinned: !!state.pins[ch.id], name: 방이름(ch), preview: last ? L.미리보기(last) : (ch.lastText || '') }; })
+    .map((ch) => { const { last, lastAt } = 마지막활동(ch); return { ch, last, lastAt, unread: 미읽음(ch.id), pinned: !!state.pins[ch.id], name: 방이름(ch), preview: last ? L.미리보기(last) : '' }; })
     .sort(L.채팅정렬);
   const visible = new Set(보이는방().map((c) => c.id));
   const messages = state.messages.filter((m) => visible.has(m.channel) && String(m.text || '').toLowerCase().includes(lq)).reverse().slice(0, 100);
@@ -708,8 +708,11 @@ function 안읽은수(m, members) {
 }
 function 말풍선(m, info, members, readMarkBefore) {
   const my = me();
-  const isMe = m.author === my, isSys = m.author === 'SYSTEM' || m.system === true;
   const u = getU(m.author);
+  // 이름을 숨기는 시스템 말은 SYSTEM(검교정 알림)이거나 **보낸 사람 이름으로 시작하는**(초대·나가기 — '홍길동님이 …') 것만.
+  //   2026-09-26 전수 대조: system:true 만 보면 누구나 남의 방에 이름 없는 "시스템 공지"를 띄울 수 있었다.
+  const isMe = m.author === my,
+    isSys = m.author === 'SYSTEM' || (m.system === true && !!u.name && String(m.text || '').startsWith(u.name + '님이'));
   const t = L.메시지시각ms(m);
   let body;
   if (isSys) {
@@ -719,8 +722,8 @@ function 말풍선(m, info, members, readMarkBefore) {
       : `<div class="sjm-bubble">${ICON.image} ${esc(m.file || '사진')}</div>`;
   } else if (m.file) {
     body = `<a class="sjm-bubble is-file sjm-file" ${m.fileUrl ? `href="${esc(m.fileUrl)}" target="_blank" rel="noopener"` : ''}>${ICON.file}<span><div class="sjm-file-name">${esc(m.file)}</div><div class="sjm-file-size">${esc(m.fileSize || '')}</div></span></a>`;
-  } else if (m.md) {
-    // AI 답변 — 글머리표·표를 그대로 그린다. 방 안 검색 하이라이트는 여기 안 붙는다(서식 태그를 깨뜨린다).
+  } else if (m.md && m.channel === AI_CID) {
+    // AI 답변 — 글머리표·표를 그대로 그린다. **AI 방만**(2026-09-26): 전사 메시지에 md·제안 칸을 넣으면 남의 방에 가짜 AI 확인 카드가 떴다. 방 안 검색 하이라이트는 여기 안 붙는다(서식 태그를 깨뜨린다).
     body = `<div class="sjm-bubble is-md">${L.서식(m.text || '')}${그림달기(m)}${화면달기(m)}${제안달기(m)}${영수증달기(m)}${표달기(m)}${범위알림달기(m)}${출처달기(m)}</div>`;
   } else {
     let text = esc(m.text || '');
@@ -1146,6 +1149,8 @@ function 출처달기(m) {
   return `<div class="sjm-md-src" title="${esc((m.sources || []).join('\n'))}">${ICON.file}<span>${src.map((x) => esc(x)).join(' · ')}</span></div>`;
 }
 const 메시지찾기 = (mid) => state.messages.find((x) => x.id === mid) || state.aiMsgs.find((x) => x.id === mid) || null;
+// 확인 카드·영수증 버튼은 **AI 방 메시지에서만** 찾는다(2026-09-26 전수 대조) — 전사 messages 에서 찾으면 남이 끼워 넣은 가짜 카드가 누른 사람 권한으로 돌았다.
+const AI메시지찾기 = (mid) => state.aiMsgs.find((x) => x.id === mid) || null;
 function 방전체메시지(cid) {
   const list = 방메시지(cid).slice();
   for (const p of state.pending) if (p.channel === cid) list.push(p);
@@ -1419,7 +1424,9 @@ function 사람필터(q) {
 // 전송 뒤 채널 문서에 마지막 말을 남겨 두면, 500건 창 밖으로 밀린 방도 목록에서 미리보기·시각이 비지 않는다.
 function 마지막말기록(ch, payload) {
   const fb = getFB(); if (!fb || !fb.db || !ch || ch.id === AI_CID) return;   // AI 방 미리보기를 channels 에 쓰면 전 직원이 읽는다
-  const doc_ = { lastText: L.미리보기(payload), lastAt: payload.createdAt, lastAuthor: payload.author };
+  // 미리보기(마지막 말)는 방 문서에 **안 쓴다**(2026-09-26) — 방 문서는 전 직원이 읽어(부팅이 통째 구독) 모든 1:1 의 마지막 말이 새어 나갔다.
+  //   목록 미리보기는 내가 읽을 수 있는 메시지(내 readers)에서 만든다. 규칙도 lastText 는 지우기('')만 받는다.
+  const doc_ = { lastAt: payload.createdAt, lastAuthor: payload.author };
   if (ch.가상) Object.assign(doc_, { name: ch.name, type: ch.type }, ch.deptId ? { deptId: ch.deptId } : {}, ch.projectId ? { projectId: ch.projectId } : {});
   fb.setDoc(fb.doc(fb.db, 'channels', ch.id), plain(doc_), { merge: true }).catch((e) => console.warn('[마지막말]', e && e.message));
 }
@@ -1947,19 +1954,19 @@ function 행동(el) {
     case 'tbl-chart': 차트보이기(el.dataset.mid); break;
     case 'tbl-xlsx': 엑셀받기(el.dataset.mid); break;
     case 'reg-task': {
-      const m = 메시지찾기(el.dataset.mid);
+      const m = AI메시지찾기(el.dataset.mid);
       if (!m || !m.영수증) { 토스트('영수증 내용을 찾지 못했습니다.'); break; }
       경비로등록(m, el.dataset.pick == null ? null : Number(el.dataset.pick), el);
       break;
     }
     case 'act-run': {
-      const m = 메시지찾기(el.dataset.mid);
+      const m = AI메시지찾기(el.dataset.mid);
       if (!m || !m.제안 || m.제안.안됨 || m.제안.결과) break;
       제안실행(m, el);
       break;
     }
     case 'act-cancel': {
-      const m = 메시지찾기(el.dataset.mid);
+      const m = AI메시지찾기(el.dataset.mid);
       if (!m || !m.제안) break;
       제안결과쓰기(m, { 안됨: '취소했습니다. 아무것도 바꾸지 않았습니다.' });
       break;

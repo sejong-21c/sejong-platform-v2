@@ -264,8 +264,8 @@ try {
       && p.channel === 'dm1' && p.text === '시험 메시지' && typeof p.createdAt === 'number',
     JSON.stringify(전송.last ? { id: 전송.last.id, ...p } : null));
   확인('전송: 내 말풍선 1개 늘고 전송 중 표시 없음', 전송.mine === dm.n + 1 && 전송.pending === 0, `${dm.n} → ${전송.mine} · pending ${전송.pending}`);
-  if (전송.chWrites) 확인('전송: channels.lastText 갱신', true, `${전송.chWrites}건`);
-  else 메모('전송: channels.lastText 갱신', '없음 — 미구현(목록은 메시지 창 500건에서 계산)');
+  // 2026-09-26 보안 전수 대조: 방 문서는 전 직원이 읽는다 — 미리보기(마지막 말)를 쓰면 모든 1:1 의 마지막 말이 샌다. 규칙도 거부한다.
+  확인('전송: 방 문서에 미리보기(lastText)를 안 쓴다', !전송.chWrites, `${전송.chWrites}건`);
 
   // ⑧ 방 안 검색(g1 에 '도면' 3건)
   await 클릭('[data-act="back"]');

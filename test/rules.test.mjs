@@ -13,7 +13,7 @@
 // `[2단계 끝]` 로 시작하는 것은 2026-09-21 에 뒤집은 것이다 — 그전에는 "지금은 통과한다" 였다.
 // 되돌리면 남의 1:1 대화가 다시 열린다. 이 줄들이 그 작업의 정의였다.
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,7 +90,7 @@ console.log('\n── 직원 명부');
 await T('남의 users 문서는 못 고친다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.생산원.uid), { grade: 'super' }, { merge: true })));
 // 9/26: 본인 문서는 서명·캘린더 연결 표시만 — 옛 규칙은 자기 dept·grade·name 을 마음대로 바꿀 수 있었다
 //   (재무부 경비·게이트웨이 부서 범위·개인 자료 주인 판정이 한꺼번에 뚫린다. 직원 시범 전 검토자 둘이 잡음)
-await T('내 서명은 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { signatureUrl: 'data:x' }, { merge: true })));
+await T('내 서명은 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { signatureUrl: 'data:image/png;base64,iVBORw0KGgo=' }, { merge: true })));
 await T('내 캘린더 연결 표시는 고친다', () => assertSucceeds(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { gcalConnected: true }, { merge: true })));
 await T('내 부서를 재무부로 못 바꾼다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { dept: '재무부' }, { merge: true })));
 await T('내 등급을 super 로 못 올린다', () => assertFails(setDoc(doc(로그인(사람.품질원), 'users', 사람.품질원.uid), { grade: 'super' }, { merge: true })));
@@ -353,6 +353,99 @@ await T('super 는 읽고 쓴다', async () => {
   await assertSucceeds(setDoc(doc(로그인(사람.부장), 't_aiSharedConfig', 'config'), { localUrl: '', localKey: '', localModel: '' }));
 });
 await T('관리 지정자(adminAccess/config)도 읽는다', () => assertSucceeds(getDoc(doc(로그인(사람.임원), 't_aiSharedConfig', 'config'))));
+
+// ── 2026-09-26 보안 전수 대조: 메신저 방 문서·메시지·읽음 표시 ─────────────────────────────
+// 보내는 쪽 화면이 받는 사람(readers)을 방 문서로 정한다 — 방 문서를 누구나 고치면 앞으로의 대화를 엿듣는다.
+console.log('\n── 메신저 방 문서 (엿듣기)');
+await env.withSecurityRulesDisabled(async (c) => {
+  const f = c.firestore();
+  await setDoc(doc(f, 'channels', 'g100'), { name: '품질 소모임', type: 'group', members: [사람.부장.uid, 사람.품질원.uid] });
+  await setDoc(doc(f, 'channels', 'dept_finance'), { name: '재무부', type: 'dept', lastText: '옛 미리보기' });
+});
+await T('남의 1:1 에 자기를 붙이지 못한다(앞으로의 대화 엿듣기)', () =>
+  assertFails(updateDoc(doc(로그인(사람.생산원), 'channels', 'dm1'), { members: [사람.부장.uid, 사람.품질원.uid, 사람.생산원.uid] })));
+await T('1:1 은 그 방 사람도 사람을 못 더한다', () =>
+  assertFails(updateDoc(doc(로그인(사람.품질원), 'channels', 'dm1'), { members: [사람.부장.uid, 사람.품질원.uid, 사람.생산원.uid] })));
+await T('남의 그룹에 자기를 붙이지 못한다', () =>
+  assertFails(updateDoc(doc(로그인(사람.생산원), 'channels', 'g100'), { members: [사람.부장.uid, 사람.품질원.uid, 사람.생산원.uid] })));
+await T('그룹 사람은 초대·나가기를 한다', async () => {
+  await assertSucceeds(updateDoc(doc(로그인(사람.품질원), 'channels', 'g100'), { members: [사람.부장.uid, 사람.품질원.uid, 사람.재무원.uid] }));
+  await assertSucceeds(updateDoc(doc(로그인(사람.재무원), 'channels', 'g100'), { members: [사람.부장.uid, 사람.품질원.uid] }));
+});
+await T('**재무부 방 이름을 자기 부서로 바꾸지 못한다**(부서 방 받는 사람 = 방 이름의 부서)', () =>
+  assertFails(updateDoc(doc(로그인(사람.생산원), 'channels', 'dept_finance'), { name: '생산부' })));
+await T('부서 방을 그룹으로 바꿔 사람을 박지 못한다', () =>
+  assertFails(setDoc(doc(로그인(사람.생산원), 'channels', 'dept_finance'), { type: 'group', members: [사람.재무원.uid, 사람.생산원.uid] }, { merge: true })));
+await T('**미리보기(마지막 말)를 방 문서에 못 쓴다** — 지우기만', async () => {
+  await assertFails(updateDoc(doc(로그인(사람.재무원), 'channels', 'dept_finance'), { lastText: '예산 얘기', lastAt: 9 }));
+  await assertSucceeds(updateDoc(doc(로그인(사람.부장), 'channels', 'dept_finance'), { lastText: '' }));
+  await assertSucceeds(updateDoc(doc(로그인(사람.재무원), 'channels', 'dept_finance'), { lastAt: 10, lastAuthor: 사람.재무원.uid }));
+});
+await T('같은 값으로 다시 심기(merge)는 된다 — ensureDeptChannel·검교정 방', () =>
+  assertSucceeds(setDoc(doc(로그인(사람.생산원), 'channels', 'dept_quality'), { name: '품질관리부', type: 'dept' }, { merge: true })));
+await T('방 만들기는 모양대로만: 1:1(나 포함 2명) · 그룹(나 포함) · 부서(이름=id) · 프로젝트(id=proj_+projectId) · 시스템', async () => {
+  const 나 = 로그인(사람.생산원);
+  await assertSucceeds(setDoc(doc(나, 'channels', 'dm200'), { name: 'DM', type: 'dm', members: [사람.생산원.uid, 사람.품질원.uid], createdBy: 사람.생산원.uid, createdAt: 1 }));
+  await assertFails(setDoc(doc(나, 'channels', 'dm201'), { name: 'DM', type: 'dm', members: [사람.부장.uid, 사람.품질원.uid] }));   // 나 없음
+  await assertFails(setDoc(doc(나, 'channels', 'dm202'), { name: 'DM', type: 'dm', members: [사람.생산원.uid, 사람.부장.uid, 사람.품질원.uid] }));
+  await assertSucceeds(setDoc(doc(나, 'channels', 'g300'), { name: '새 모임', type: 'group', members: [사람.생산원.uid, 사람.재무원.uid] }));
+  await assertFails(setDoc(doc(나, 'channels', 'dept_safety'), { name: '재무부', type: 'dept' }));   // 없는 부서 방을 남의 부서 이름으로 선점
+  await assertSucceeds(setDoc(doc(나, 'channels', 'dept_safety'), { name: '안전관리부', type: 'dept', deptId: 'safety' }));
+  await assertSucceeds(setDoc(doc(나, 'channels', 'proj_P9'), { name: '탱크', type: 'project', projectId: 'P9' }));
+  await assertFails(setDoc(doc(나, 'channels', 'proj_P10'), { name: '탱크', type: 'project', projectId: 'P1' }));
+  await assertSucceeds(setDoc(doc(나, 'channels', 'qa-calibration-alert'), { name: '검교정 알림', type: 'system', members: [] }, { merge: true }));
+  await assertFails(setDoc(doc(나, 'channels', 'c2'), { name: '가짜 공지', type: 'announce' }));
+  await assertFails(setDoc(doc(나, 'channels', 'g301'), { name: '미리보기', type: 'group', members: [사람.생산원.uid], lastText: '몰래' }));
+});
+
+console.log('\n── 메시지 끼워 넣기');
+await T('남의 1:1 에 메시지를 끼워 넣지 못한다', () =>
+  assertFails(setDoc(doc(로그인(사람.생산원), 'messages', 'x1'), { channel: 'dm1', author: 사람.생산원.uid, text: '끼어듦', readers: [사람.부장.uid, 사람.품질원.uid], createdAt: 9 })));
+await T('1:1 사람은 보낸다 — 받는 사람이 방 사람 밖이면 거부', async () => {
+  await assertSucceeds(setDoc(doc(로그인(사람.품질원), 'messages', 'x2'), { channel: 'dm1', author: 사람.품질원.uid, text: 'ㅇㅇ', readers: [사람.부장.uid, 사람.품질원.uid], createdAt: 9, clientId: 'c', at: 'x', type: 'text' }));
+  await assertFails(setDoc(doc(로그인(사람.품질원), 'messages', 'x3'), { channel: 'dm1', author: 사람.품질원.uid, text: '엿보기', readers: [사람.부장.uid, 사람.품질원.uid, 사람.생산원.uid], createdAt: 9 }));
+});
+await T('방 문서가 아직 없는 1:1 첫 말은 된다(방 쓰기를 안 기다린다)', () =>
+  assertSucceeds(setDoc(doc(로그인(사람.생산원), 'messages', 'x4'), { channel: 'dm999', author: 사람.생산원.uid, text: '첫 말', readers: [사람.생산원.uid, 사람.품질원.uid], createdAt: 9 })));
+await T('**AI 확인 카드·md·영수증 칸은 메시지에 못 넣는다**(누른 사람 권한으로 실행되던 가짜 카드)', async () => {
+  const 나 = 로그인(사람.생산원);
+  await assertFails(setDoc(doc(나, 'messages', 'x5'), { channel: 'dept_production', author: 사람.생산원.uid, text: '확인', md: true, 제안: { 행위: '업무완료' }, createdAt: 9 }));
+  await assertFails(setDoc(doc(나, 'messages', 'x6'), { channel: 'dept_production', author: 사람.생산원.uid, text: '영수증', 영수증: { 금액: { 총금액: 1 } }, createdAt: 9 }));
+});
+await T('파일 메시지·시스템말(초대·나가기) 꼴은 그대로 된다', async () => {
+  const 나 = 로그인(사람.품질원);
+  await assertSucceeds(setDoc(doc(나, 'messages', 'x7'), { channel: 'g100', author: 사람.품질원.uid, file: 'a.pdf', fileUrl: 'https://x/a.pdf', fileSize: '1', type: 'file', clientId: 'c', at: 'x', createdAt: 9, readers: [사람.부장.uid, 사람.품질원.uid] }));
+  await assertSucceeds(setDoc(doc(나, 'messages', 'x8'), { channel: 'g100', author: 사람.품질원.uid, text: 'qa님이 나갔습니다.', type: 'system', system: true, clientId: 'c', at: 'x', createdAt: 9, readers: [사람.부장.uid] }));
+});
+
+console.log('\n── 읽음 표시·자산·결재선·서명');
+await env.withSecurityRulesDisabled(async (c) => {
+  await setDoc(doc(c.firestore(), 'channelReads', 'dm1_' + 사람.부장.uid), { channel: 'dm1', uid: 사람.부장.uid, lastRead: 5 });
+  await setDoc(doc(c.firestore(), 't_licenses', 'L1'), { name: 'CAD', serialNumber: 'AAAA-BBBB' });
+});
+await T('남의 읽음 표시 문서를 uid=나 로 덮어쓰지 못한다', () =>
+  assertFails(setDoc(doc(로그인(사람.생산원), 'channelReads', 'dm1_' + 사람.부장.uid), { channel: 'dm1', uid: 사람.생산원.uid, hidden: 0 })));
+await T('내 읽음 표시는 쓴다(cid_나)', async () => {
+  await assertSucceeds(setDoc(doc(로그인(사람.생산원), 'channelReads', 'dept_production_' + 사람.생산원.uid), { channel: 'dept_production', uid: 사람.생산원.uid, lastRead: 1 }, { merge: true }));
+  await assertSucceeds(setDoc(doc(로그인(사람.부장), 'channelReads', 'dm1_' + 사람.부장.uid), { channel: 'dm1', uid: 사람.부장.uid, pinned: 1 }, { merge: true }));
+});
+await T('라이선스(시리얼)는 총무부·임원만 — 일반 직원은 못 읽는다', async () => {
+  await assertFails(getDoc(doc(로그인(사람.품질원), 't_licenses', 'L1')));
+  await assertFails(setDoc(doc(로그인(사람.품질원), 't_devices', 'D1'), { name: 'PC' }));
+  await assertSucceeds(getDoc(doc(로그인(사람.임원), 't_licenses', 'L1')));   // 임원(총무부)
+  await assertSucceeds(getDoc(doc(로그인(사람.부장), 't_licenses', 'L1')));   // super
+});
+await T('결재선 기억은 본인 것만', async () => {
+  await assertFails(setDoc(doc(로그인(사람.생산원), 't_approvalLinePrefs', 사람.부장.uid), { byTemplate: {} }));
+  await assertSucceeds(setDoc(doc(로그인(사람.생산원), 't_approvalLinePrefs', 사람.생산원.uid), { byTemplate: {} }, { merge: true }));
+});
+await T('**서명은 그림 dataURL·null 만** — 따옴표로 img 를 빠져나오는 값 거부', async () => {
+  const 나 = 로그인(사람.품질원);
+  await assertFails(setDoc(doc(나, 'users', 사람.품질원.uid), { signatureUrl: 'x" onerror="alert(1)' }, { merge: true }));
+  await assertFails(setDoc(doc(나, 'users', 사람.품질원.uid), { signatureUrl: 'data:image/png;base64,AAAA" onerror="x' }, { merge: true }));
+  await assertSucceeds(setDoc(doc(나, 'users', 사람.품질원.uid), { signatureUrl: 'data:image/png;base64,iVBORw0KGgo=' }, { merge: true }));
+  await assertSucceeds(setDoc(doc(나, 'users', 사람.품질원.uid), { signatureUrl: null }, { merge: true }));
+});
 
 await env.cleanup();
 console.log(`\n통과 ${통과} · 실패 ${실패}`);
