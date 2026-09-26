@@ -247,4 +247,97 @@ await T('기록세기 — 거른 것을 결과에 밝힌다', async () => {
   assert.deepEqual(r.줄, [{ 프로젝트: 'SJ435', 건수: 1 }]);
 });
 
-console.log(`data-agent 테스트 ${n}개 전체 통과 (의도 가르기 · 기간 · 묶어 세기 · 읽기 길)`);
+// ── 2026-09-26 직원 시범 전 대조에서 잡힌 것들 ─────────────────────────────────────────
+const { 사내문서, 표묻기, 실패말 } = await import('../modules/messenger/ai.js');
+await T('새 창·앱(세기 없는 fb) — 조용히 [] 가 아니라 대상마다 "셀 수 없다"(모델이 조각으로 어림하지 않게)', async () => {
+  const { getCountFromServer, ...세기없음 } = 가짜fb(기록);
+  assert.deepEqual(await 기록세기('올해 NCR 몇 건이야?', 세기없음), [{ 이름: '부적합(NCR)', 오류: '이 창에서는 셀 수 없다' }]);
+  assert.deepEqual(await 기록세기('작년 견적 재료비 총액', 세기없음), [], '기록 갈래가 아니면 여전히 빈 것');
+});
+await T('자산·라이선스는 총무부·임원·최고관리자만 센다 — 나머지는 읽지 않고 "권한 범위 밖"', async () => {
+  const 사원 = 가짜fb([{ id: 'd1', type: 'laptop' }]);
+  assert.deepEqual(await 기록세기('노트북 몇 개야?', 사원, { 권한: { 등급: 'staff', dept: '품질관리부' } }), [{ 이름: '자산 기기', 오류: '권한 범위 밖' }]);
+  assert.deepEqual(await 기록세기('라이선스 몇 개야?', 사원), [{ 이름: '소프트웨어 라이선스', 오류: '권한 범위 밖' }], '권한을 모르면 막는다');
+  assert.equal(사원.한일.length, 0, '막힌 대상은 한 건도 읽지 않는다');
+  for (const 권한 of [{ 등급: 'staff', dept: '총무부' }, { 등급: 'exec', dept: '영업부' }, { 등급: 'super', dept: '품질관리부' }]) {
+    const [r] = await 기록세기('노트북 몇 개야?', 가짜fb([{ id: 'd1', type: 'laptop' }]), { 권한 });
+    assert.equal(r.수, 1, JSON.stringify(권한));
+  }
+});
+await T('"내 업무·내 일정" 은 세는 말이 있어도 찾기(맥락이 이미 싣는다) · "반출금지 도면" 은 측정기구 반출입이 아니다', () => {
+  for (const q of ['내 업무 몇 건이야?', '이번 달 내 일정 몇 개야?', '나의 할 일 몇 개 남았어?', '제 업무 몇 건이에요?']) assert.equal(의도가르기(q).갈래, '찾기', q);
+  assert.equal(의도가르기('사내 일정 몇 개야?').갈래, '표', '앞이 한글이면("사내") 내 일정이 아니다');
+  const 도면 = 의도가르기('반출금지 도면 몇 장 있어?');
+  assert.ok(!(도면.대상 || []).some((s) => s.컬렉션 === 'measurementCheckouts'), '반출금지 도면이 측정기구 반출입으로 갔다');
+  assert.equal(의도가르기('이번 달 반출입 몇 건?').대상[0].컬렉션, 'measurementCheckouts');
+  assert.ok(의도가르기('측정기구 반출 몇 건?').대상.some((s) => s.컬렉션 === 'measurementCheckouts'));
+});
+
+// 가짜 fetch — 주소마다 응답을 고른다. 부른 주소를 남긴다.
+const 가짜망 = async (고르기, 할일) => {
+  const 부른 = [];
+  const 원fetch = globalThis.fetch;
+  globalThis.fetch = async (url, o) => { 부른.push(String(url)); return 고르기(String(url), 부른.length - 1, o); };
+  try { return { r: await 할일(), 부른 }; } catch (e) { return { e, 부른 }; } finally { globalThis.fetch = 원fetch; }
+};
+const 로그인fb = { auth: { currentUser: { getIdToken: async () => 't' } } };
+const 응답 = (status, 몸) => ({ ok: status < 300, status, json: async () => 몸 });
+await T('맥이 꺼져 기록 색인으로 물러서면 사내문서 결과에 오류 표시가 달린다 · 표 목록이 오류면 "세지 못했다"', async () => {
+  const { r: 문서 } = await 가짜망(() => 응답(200, { matches: [{ docName: 'NCR-1', score: 0.6 }], source: '기록(맥 실패로 물러섬)', paisError: 'connect ECONNREFUSED' }), () => 사내문서('수압시험 기준', 로그인fb));
+  assert.equal(문서.length, 1);
+  assert.ok(/ECONNREFUSED/.test(문서.오류), '오류 표시가 없다');
+  const { r: 성한 } = await 가짜망(() => 응답(200, { matches: [{ docName: 'A', score: 0.7 }], source: 'pais' }), () => 사내문서('수압시험 기준', 로그인fb));
+  assert.equal(성한.오류, undefined, '성하면 표시 없음');
+  const { r: 표 } = await 가짜망(() => 응답(200, { 줄: [], error: '표 서버(맥)에 닿지 못했습니다: timeout' }), () => 표묻기('작년 견적 재료비 총액', 로그인fb));
+  assert.deepEqual(표, { sql: null, 줄: [], 오류: '표 서버(맥)에 닿지 못했습니다: timeout' });
+});
+
+// 실패 안내 — 말풍선엔 한국어 한 줄, 원문(제공자·org id)은 e.원문 에만
+const 묻기 = () => 답하기({ 질문: '올해 NCR 몇 건?', 히스토리: [], 맥락: '짧은 맥락', 권한: {}, fb: 로그인fb });
+const 원경고 = console.warn;
+console.warn = () => {};
+try {
+  await T('네 곳 다 429(제공자) — "사용량이 몰려" 한 줄 · groq·org_ 는 원문에만', async () => {
+    const { e, 부른 } = await 가짜망(() => 응답(429, { error: { message: 'Rate limit reached for model openai/gpt-oss-120b in organization org_01abcXYZ on tokens per minute (TPM)' } }), 묻기);
+    assert.equal(부른.length, 4, '체인 넷을 다 돈다');
+    assert.equal(e.message, '지금 AI 사용량이 몰려 답하지 못했습니다. 1분쯤 뒤 다시 물어봐 주세요.');
+    assert.ok(!/groq|org_|[A-Za-z]{4,}/.test(e.message), e.message);
+    assert.ok(/org_01abcXYZ/.test(e.원문) && 실패말(e).글 === e.message && 실패말(e).원문 === e.원문);
+  });
+  await T('groq 429 두 번 + gemini 400(지역) + cerebras 402 — 늘 죽어 있는 뒤 둘 때문에 "기타" 로 가지 않는다', async () => {
+    const { e } = await 가짜망((u) => (/groq/.test(u) ? 응답(429, { error: { message: 'Rate limit' } }) : /gemini/.test(u) ? 응답(400, { error: { message: 'User location is not supported' } }) : 응답(402, { error: 'payment required' })), 묻기);
+    assert.equal(e.message, '지금 AI 사용량이 몰려 답하지 못했습니다. 1분쯤 뒤 다시 물어봐 주세요.');
+  });
+  const 하루말 = '오늘 회사 몫 300번을 다 쓰셨습니다. 한국 시간 자정에 다시 열립니다. 지금 바로 더 쓰시려면 **내 설정 › 개인 AI 열쇠**에 본인 열쇠를 등록하세요';
+  await T('내 하루 한도(limit: user_daily) — 딱 한 번 부르고 멈춘다 · 관문 안내 그대로, ** 는 뗀다', async () => {
+    const { e, 부른 } = await 가짜망(() => 응답(429, { error: 하루말, limit: 'user_daily', 하루한도: 300, 오늘쓴횟수: 301 }), 묻기);
+    assert.equal(부른.length, 1, '다음 회사로 다시 보내면 내 셈이 네 번 는다');
+    assert.ok(e.message.startsWith('오늘 회사 몫 300번') && !e.message.includes('**'), e.message);
+  });
+  await T('옛 관문(limit 칸 없음)의 하루 한도도 알아본다 — 하루한도 칸·"하루"+"한도"', async () => {
+    const { e, 부른 } = await 가짜망(() => 응답(429, { error: 하루말, 하루한도: 300, 오늘쓴횟수: 301 }), 묻기);
+    assert.equal(부른.length, 1);
+    assert.ok(!e.message.includes('**'));
+  });
+  await T('회사 몫(limit: company_quota)은 다음 모델로 넘어간다', async () => {
+    const { r, 부른 } = await 가짜망((u, i) => (i === 0 ? 응답(429, { error: '회사 몫이 찼습니다', limit: 'company_quota' }) : 응답(200, { choices: [{ message: { content: '22건입니다.' } }] })), 묻기);
+    assert.equal(부른.length, 2);
+    assert.equal(r.text, '22건입니다.');
+  });
+  await T('망이 끊기면(Failed to fetch) 망 안내 · 40초 초과면 시간 안내', async () => {
+    const { e } = await 가짜망(() => { throw new TypeError('Failed to fetch'); }, 묻기);
+    assert.equal(e.message, 'AI 서버에 닿지 못했습니다 — 회사망·인터넷 연결을 확인해 주세요.');
+    const { e: 늦음 } = await 가짜망(() => { throw Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' }); }, 묻기);
+    assert.equal(늦음.message, '답이 너무 오래 걸려 멈췄습니다. 질문을 조금 짧게 해서 다시 물어봐 주세요.');
+  });
+  await T('표 질의(두뇌하나)도 내 하루 한도면 한 번만 부른다', async () => {
+    const { 부른 } = await 가짜망((u) => (/rag\/table/.test(u) ? 응답(200, { 표: '표01 [2024-01~2025-12] 금액' }) : 응답(429, { error: 하루말, limit: 'user_daily' })), () => 표묻기('작년 견적 재료비 총액', 로그인fb));
+    assert.equal(부른.filter((u) => /\/v1\//.test(u)).length, 1);
+  });
+  await T('실패말 — 영어 원문(Firestore 등)은 한 줄로 바꾸고 원문은 따로 · 우리 한국어 안내는 그대로', () => {
+    assert.deepEqual(실패말(new Error('Missing or insufficient permissions.')), { 글: 'AI가 답하지 못했습니다. 잠시 뒤 다시 해 주세요.', 원문: 'Missing or insufficient permissions.' });
+    assert.equal(실패말(new Error('회사 계정으로 로그인해야 AI 비서를 쓸 수 있습니다.')).글, '회사 계정으로 로그인해야 AI 비서를 쓸 수 있습니다.');
+  });
+} finally { console.warn = 원경고; }
+
+console.log(`data-agent 테스트 ${n}개 전체 통과 (의도 가르기 · 기간 · 묶어 세기 · 읽기 길 · 실패 안내)`);

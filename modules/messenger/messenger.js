@@ -14,7 +14,7 @@ import { getAuth, onAuthStateChanged, signOut, connectAuthEmulator } from 'https
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot, query, where, orderBy, limit,
-  connectFirestoreEmulator, disableNetwork, enableNetwork, increment,
+  connectFirestoreEmulator, disableNetwork, enableNetwork, increment, getCountFromServer,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
@@ -25,7 +25,7 @@ import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b111';
 import { 틀붙이기 } from '../shared/frame-fs.mjs?v=f1';
 import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b111';
 import * as L from './lib.js?v=b111';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 답하기, 사내문서, 실행뽑기, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b111';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 답하기, 사내문서, 시키는질문인가, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b111';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -53,6 +53,7 @@ window.fb = {
   auth: msgAuth, db: fbDb, storage: getStorage(fbApp),
   onAuthStateChanged, signOut,
   doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, onSnapshot, query, where, orderBy, limit,
+  getCountFromServer,   // 2026-09-26 직원 시범 전 대조: 없어서 새 창·홈 화면 앱의 AI 가 기록을 못 세고 조각으로 어림했다(ai.js 기록세기)
   ref, uploadBytes, getDownloadURL,
 };
 // b111: 새 창·홈 화면 앱 메신저의 읽기도 장부(readDaily)에 올린다 — 9/23 접속 813건 중 600건이 메신저였는데
@@ -61,6 +62,10 @@ window.fb = {
 if (window.parent === window) {
   const 계량기 = 계량기만들기({ auth: msgAuth, db: fbDb, setDoc, doc, increment });
   틀붙이기(fbDb, window.fb, '메신저', { 부모: 계량기 });
+  // 세기도 장부에 — index.html 감싼세기와 같은 셈(1천 건당 1, 0건이어도 1). frame-fs 는 세기를 안 감싼다.
+  window.fb.getCountFromServer = (...a) => getCountFromServer(...a).then((s) => {
+    const n = Math.max(1, Math.ceil((Number(s.data().count) || 0) / 1000)); 계량기.한번읽기셈(n, n); return s;
+  });
   계량기.켜기(window);
 }
 
@@ -205,6 +210,17 @@ function 할수있는행위() {
     return Array.isArray(것) ? 것 : [];
   } catch (e) { return []; }
 }
+// 이 사람이 **못 하는** 일과 까닭 [{ 이름, 까닭 }] — 부모 index.html 의 window.AI못하는행위. 없으면 [].
+//   2026-09-26 직원 시범 전 대조: 비품질 직원이 "NCR 하나 올려줘" 하면 "아직 플랫폼이 못 하는 일" 이라는 틀린 까닭을 들었다.
+function 못하는행위() {
+  try {
+    if (독립실행 || !window.parent || typeof window.parent.AI못하는행위 !== 'function') return [];
+    const 것 = window.parent.AI못하는행위();
+    return Array.isArray(것) ? 것 : [];
+  } catch (e) { return []; }
+}
+// 새 창·홈 화면 앱(독립실행)에는 부모 앱이 없어 등록 카드를 풀지도 실행하지도 못한다 — 어디서 되는지 말한다.
+const 등록은PC에서 = '일정·업무 등록 카드는 PC 플랫폼 화면의 🤖 메신저에서 됩니다.';
 // iframe 안에서 만든 객체를 부모 Firestore 에 넘기면 "custom Object" 오류가 난다 → 실제로 쓰는 fb 가 사는 realm 의 JSON 으로 다시 만든다.
 // (부모에 fb 가 없어 자기 fb 를 쓸 때 부모 JSON 으로 만들면 거꾸로 같은 오류가 난다 — W1 시험대에서 잡힘)
 function plain(obj) {
@@ -953,6 +969,11 @@ async function 제안결과쓰기(m, 결과) {
 const 시간초과 = Symbol('시간초과');
 const 시간제한 = (p, 초) => Promise.race([p, new Promise((r) => setTimeout(() => r(시간초과), 초 * 1000))]);
 async function 제안실행(m, btn) {
+  // 2026-09-26 직원 시범 전 대조: PC 패널에서 만든 옛 카드를 새 창·앱에서 누르면 window.parent.AI행위실행 이 없어 TypeError →
+  //   '바꾸지 못했습니다' 가 카드에 **영영 저장**됐다. 부모가 없으면 부르지도 남기지도 않는다.
+  let 부모있다 = false;
+  try { 부모있다 = !독립실행 && !!window.parent && typeof window.parent.AI행위실행 === 'function'; } catch (e) { /* 다른 출처 */ }
+  if (!부모있다) { 토스트(등록은PC에서, 3600); return; }
   if (btn) { btn.disabled = true; btn.textContent = '실행 중…'; }
   let 결과;
   try {
@@ -1106,10 +1127,10 @@ function 제안달기(m) {
     <div class="sjm-act-head">${esc(p.제목 || '')}</div>
     ${p.머리 ? `<div class="sjm-act-sub">${esc(p.머리)}</div>` : ''}
     <div class="sjm-act-list">${보일것.map((t) => `<div class="sjm-act-row">${esc(t)}</div>`).join('')}${더}</div>
-    <div class="sjm-act-btns">
+    ${독립실행 ? `<div class="sjm-act-sub">${esc(등록은PC에서)}</div>` : `<div class="sjm-act-btns">
       <button class="sjm-act-run" data-act="act-run" data-mid="${esc(m.id)}">${esc(p.확인 || '실행')}</button>
       <button class="sjm-act-cancel" data-act="act-cancel" data-mid="${esc(m.id)}">취소</button>
-    </div>
+    </div>`}
   </div>`;
 }
 
@@ -1591,9 +1612,11 @@ const AI보기 = [
   '다음 주 화요일 10시에 품질회의 일정 잡아 줘',
 ];
 function AI첫화면() {
+  // 독립실행(새 창·홈 화면 앱)에는 등록 카드가 없다 — 시키는 보기('일정 잡아 줘')를 빼고 어디서 되는지 말한다(2026-09-26 직원 시범 전 대조).
+  const 보기 = 독립실행 ? AI보기.filter((q) => !시키는질문인가(q)) : AI보기;
   return 'AI 비서입니다. 회사 기록·규격·NAS 파일·내 업무를 물어보세요.'
-    + `<div class="sjm-ai-ex">${AI보기.map((q) => `<button type="button" class="sjm-chip" data-act="ai-ex" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`
-    + '<span class="sjm-note">보이는 범위는 내 권한을 따릅니다. 일정·업무 등록은 AI 가 카드로 제안하고 「실행」은 내가 누릅니다.<br>'
+    + `<div class="sjm-ai-ex">${보기.map((q) => `<button type="button" class="sjm-chip" data-act="ai-ex" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`
+    + `<span class="sjm-note">보이는 범위는 내 권한을 따릅니다. ${독립실행 ? 등록은PC에서 : '일정·업무 등록은 AI 가 카드로 제안하고 「실행」은 내가 누릅니다.'}<br>`
     + '영수증 사진을 올리면 경비 내역으로 정리해 줍니다. 내 Claude·ChatGPT 에서도 쓰려면 — 플랫폼 오른쪽 위 내 이름 › 🔌 내 Claude·ChatGPT 연결.</span>';
 }
 
@@ -1655,7 +1678,8 @@ async function AI맥락(문서, 표 = null, 센것 = [], 갈래 = '찾기', 물�
   //   이건 Firestore 가 센 수라 어림이 없다. 검색 조각으로 세면 "조각 열 개 = 열 건" 이 된다.
   if (센것.length) {
     const 센 = (글) => 넣(글, 급.센수);
-    센("\n## 플랫폼 기록에서 **직접 센 수** (보안 규칙이 걸러 준 범위)");
+    // 머리: 회사 전체 수다(보안 규칙은 사내 계정이면 다 연다). 전엔 "보안 규칙이 걸러 준 범위" 라서 모델이 "우리 부서" 수처럼 말했다(9/26 대조).
+    센("\n## 플랫폼 기록에서 **직접 센 수** (회사 전체 기록 — 부서로 거르지 않았다)");
     for (const c of 센것) {
       if (c.오류) { 센(`- ${c.이름}: 세지 못했다(${c.오류}). 모른다고 답할 것.`); continue; }
       센(`- ${c.이름} ${c.기간 || '전체'}${c.기준 ? `(${c.기준} 기준)` : ''}${c.거름 ? ` · ${c.거름}` : ''}: ${c.수}건${c.뺀것 ? ` (무효 처리된 시험 기록 ${c.뺀것}건은 뺐다 — 말할 필요 없다)` : ''}`);
@@ -1736,11 +1760,15 @@ async function AI맥락(문서, 표 = null, 센것 = [], 갈래 = '찾기', 물�
   넣(`\n## 프로젝트 ${프.length}건 (내 권한 범위)`, 급.프로젝트, { 무리: '프로젝트', 머리: true });
   for (const pj of 프.slice(0, 40)) 넣([pj.code, pj.name, pj.client, pj.status && ('상태 ' + pj.status), pj.pm && ('PM ' + getU(pj.pm).name)].filter(Boolean).join(' · '), 짚었나(pj.code, pj.name) ? 급.짚은것 : 급.프로젝트, { 무리: '프로젝트', 잘림말: '(프로젝트 목록 일부만 실었다)' });
   // 업무와 일정은 따로 묶는다 — 한 무리면 일정 머리말만 남고 줄은 없는 꼴이 된다(9/25 검토).
+  // 물음에 업무·일정 말이 있으면 문서보다 위로(ai.js 업무급), 잘리면 잘렸다고 — 9/26 대조: 말없이 잘려 "일정이 없습니다" 가 나왔다.
   let 업무무리 = '업무';
+  const 업무몫 = 업무급(물음, 갈래);
   for (const 글 of await 내업무일정()) {
-    if (/^\n?##/.test(글)) { 업무무리 = /일정/.test(글) ? '일정' : '업무'; 넣(글, 급.업무, { 무리: 업무무리, 머리: true }); }
-    else 넣(글, 급.업무, { 무리: 업무무리 });
+    if (/^\n?##/.test(글)) { 업무무리 = /일정/.test(글) ? '일정' : '업무'; 넣(글, 업무몫, { 무리: 업무무리, 머리: true }); }
+    else 넣(글, 업무몫, { 무리: 업무무리, 잘림말: '(업무·일정 목록 일부만 실었다)' });
   }
+  // 규격·NAS 검색 서버가 꺼졌으면 밝히게 한다(ai.js 사내문서 오류) — 9/26 대조: 못 찾아본 것을 "찾지 못했다" 고 답했다.
+  if (문서 && 문서.오류) 넣('\n## 규격·NAS 검색 서버에 닿지 못했다 — "없다"가 아니라 "지금 찾아볼 수 없었다"고 밝혀라', 급.안뺌);
   if (문서 && 문서.length) {
     const 문급 = 갈래 === '찾기' ? 급.문서찾기 : 급.문서세기;
     넣('\n## 사내 문서에서 찾은 부분 (답의 근거로 쓰고, 문서 이름을 밝힐 것)', 문급, { 무리: '문서', 머리: true });
@@ -1793,7 +1821,7 @@ async function AI에게묻기(질문) {
     const [문서, 표, 센것] = await Promise.all([
       사내문서(물음, fb),
       뜻.갈래 === '표' ? 표묻기(물음, fb) : Promise.resolve(null),
-      뜻.갈래 === '기록' ? 기록세기(물음, fb, { 의도: 뜻, 프로젝트이름 }) : Promise.resolve([]),
+      뜻.갈래 === '기록' ? 기록세기(물음, fb, { 의도: 뜻, 프로젝트이름, 권한: 내권한() }) : Promise.resolve([]),
     ]);
     // 축별로 묶은 것이 있으면 NAS 표와 같은 자리(엑셀·차트 버튼)에 붙인다.
     const 묶음 = 센것.find((c) => c.줄 && c.줄.length) || null;
@@ -1805,7 +1833,8 @@ async function AI에게묻기(질문) {
     const 싣는다 = 뜻.갈래 === '찾기' && !!뜻.시킴;
     const 고칠것 = 싣는다 ? 고칠수있는프로젝트() : [];
     const 행위들 = 싣는다 ? 할수있는행위() : [];
-    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표, 센것, 뜻.갈래, 물음), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length), 화면들: 화면목록, 고칠프로젝트: 고칠것, 행위들 });
+    const 못하는 = 싣는다 ? 못하는행위() : [];
+    const 답 = await 답하기({ 질문: 물음, 히스토리: AI히스토리().slice(0, -1), 맥락: await AI맥락(문서, 표, 센것, 뜻.갈래, 물음), 권한: 내권한(), fb, 표있다: !!(표 && 표.줄 && 표.줄.length), 화면들: 화면목록, 고칠프로젝트: 고칠것, 행위들, 못하는 });
     // 답 끝에 붙은 ```실행 덩이를 떼어낸다. 뗀 글만 말풍선에 보이고, 덩이는 확인 카드가 된다.
     const { 글: 답글, 제안: 날것 } = 실행뽑기(답.text, 행위들.map((a) => a.이름));
     // **모델 말을 그대로 쓰지 않는다.** 대상을 실제 자료에서 찾고 권한을 보고 무엇이 바뀌는지
@@ -1872,9 +1901,11 @@ async function AI에게묻기(질문) {
   } catch (e) {
     // warn 이지 error 가 아니다: 여기 오는 건 "한도 초과·로그인 만료·시간 초과" 처럼 늘 있을 수 있는 일이고,
     // 사용자에게는 아래에서 말풍선으로 그대로 보여 준다. error 는 진짜 예상 못 한 것에만 남긴다(시험대가 error 0건을 본다).
-    console.warn('[AI]', e && e.message ? e.message : e);
+    // 말풍선엔 한국어 한 줄만, 제공자 원문은 콘솔과 안 보이는 칸(실패원문)에만 — 9/26 직원 시범 전 대조: 'groq 413 … org_…' 가 그대로 떴다(ai.js 실패말).
+    const 실패 = 실패말(e);
+    console.warn('[AI]', 실패.원문 || 실패.글);
     // 오류도 대화에 남긴다 — 왜 답이 없었는지 나중에 봐야 한다. 실패한 줄은 다음 질문의 맥락에서 뺀다.
-    try { await AI쓰기({ author: AI_UID, role: 'ai', text: String(e && e.message || e), type: 'text', md: false, 실패: true, at: nowStamp(), createdAt: Date.now() }); }
+    try { await AI쓰기({ author: AI_UID, role: 'ai', text: 실패.글, ...(실패.원문 ? { 실패원문: String(실패.원문).slice(0, 2000) } : {}), type: 'text', md: false, 실패: true, at: nowStamp(), createdAt: Date.now() }); }
     catch (e2) { 토스트('AI가 답하지 못했습니다.'); }
   } finally { ui.aiThinking = false; renderMessages(false); 읽음처리(AI_CID); }
 }

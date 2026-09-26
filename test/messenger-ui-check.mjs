@@ -200,7 +200,7 @@ try {
   const 채팅 = await 안(`
     const C = $('.sjm-screen[data-screen="chats"]'), rows = $$('.sjm-chat[data-cid]', C), cids = rows.map(r=>r.dataset.cid), g1 = $('.sjm-chat[data-cid="g1"]', C);
     const empties = rows.filter(r => !r.querySelector('.sjm-chat-last')?.textContent.trim() || !r.querySelector('.sjm-chat-time')?.textContent.trim()).map(r=>r.dataset.cid);
-    return { cids, first: cids[0], g1pin: !!g1?.querySelector('.sjm-pin'), g1badge: g1?.querySelector('.sjm-badge')?.textContent.trim(), empties,
+    return { cids, first: cids[0], second: cids[1], g1pin: !!g1?.querySelector('.sjm-pin'), g1badge: g1?.querySelector('.sjm-badge')?.textContent.trim(), empties,
       p1time: $('.sjm-chat[data-cid="proj_p1"] .sjm-chat-time', C)?.textContent.trim(), chips: $$('.sjm-chips .sjm-chip[data-act="chip"][data-chip]', C).map(e=>e.dataset.chip),
       opened: [...(w.SJM.ui?.opened || [])], readDocs: [...(w.SJM.state.readDocs || [])] };`);
   확인('채팅: dept_quality(내 부서) 있음', 채팅.cids.includes('dept_quality'), 채팅.cids.join(','));
@@ -211,7 +211,8 @@ try {
   확인('채팅: proj_p2(메시지·고정·읽음문서 없음) 없음', !채팅.cids.includes('proj_p2'),
     채팅.cids.includes('proj_p2') ? '보임 — 코드가 아직 "members 에 내가 있으면 보임" 규칙(p2 pm=u_kim)' : '');
   확인('채팅: proj_p1(메시지 있음) 있음', 채팅.cids.includes('proj_p1'));
-  확인('채팅: 첫 줄 g1(고정) + .sjm-pin', 채팅.first === 'g1' && 채팅.g1pin, `첫 줄 ${채팅.first} · pin ${채팅.g1pin}`);
+  // 2026-09-26: AI 비서가 늘 첫 줄(안 써 본 직원에게 맨 밑에 깔렸다 — lib.js 채팅정렬), 고정 방은 그다음
+  확인('채팅: 첫 줄 AI 비서 · 둘째 g1(고정) + .sjm-pin', 채팅.first === 'ai' && 채팅.second === 'g1' && 채팅.g1pin, `첫 줄 ${채팅.first} · 둘째 ${채팅.second} · pin ${채팅.g1pin}`);
   확인('채팅: g1 .sjm-badge "2"', 채팅.g1badge === '2', String(채팅.g1badge));
   확인('채팅: 모든 줄에 마지막 말·시각 있음', 채팅.empties.length === 0, 채팅.empties.length ? '빈 줄: ' + 채팅.empties.join(',') : `${채팅.cids.length}줄`);
   확인('채팅: 2024년만 있는 방(proj_p1) 시각 "2024. " 시작', String(채팅.p1time).startsWith('2024. '), String(채팅.p1time));

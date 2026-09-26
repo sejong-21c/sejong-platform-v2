@@ -205,6 +205,19 @@ const ai = 읽기('modules/messenger/ai.js');
   'channels.lastText 는 전 직원이 읽는다 — 개인 AI 대화가 새는 자리');
 확인('AI 대화 구독은 내 uid 로만', /AI_컬렉션\), fb\.where\('uid', '==', me\(\)\)/.test(앱));
 확인('서비스워커가 ai.js 도 미리 받는다', sw.includes("'./ai.js'"));
+// 2026-09-26 직원 시범 전 대조 — 새 창(⧉)·홈 화면 앱(독립실행)에서만 조용히 틀리던 것들
+확인('독립실행 window.fb 에 getCountFromServer — 없으면 AI 가 기록을 못 세고 조각으로 어림한다',
+  /getCountFromServer,\s*\} from 'https:\/\/www\.gstatic\.com\/firebasejs\/[\d.]+\/firebase-firestore\.js'/.test(앱)
+  && /window\.fb = \{[\s\S]*?getCountFromServer,[\s\S]*?\};/.test(앱));
+확인('독립실행 세기도 장부에 — 1천 건당 1(index.html 감싼세기와 같은 셈)',
+  /if \(window\.parent === window\) \{[\s\S]*?window\.fb\.getCountFromServer = \(\.\.\.a\) => getCountFromServer\(\.\.\.a\)[\s\S]*?Math\.ceil\(\(Number\(s\.data\(\)\.count\) \|\| 0\) \/ 1000\)[\s\S]*?계량기\.한번읽기셈\(n, n\)/.test(앱));
+확인('독립실행 첫 화면은 시키는 보기를 빼고 "PC 에서 된다" 고 말한다',
+  /function AI첫화면\(\) \{[\s\S]{0,400}독립실행 \? AI보기\.filter\(\(q\) => !시키는질문인가\(q\)\)[\s\S]{0,500}독립실행 \? 등록은PC에서/.test(앱));
+확인('독립실행 카드는 「실행」 대신 안내 · 부모 없이 누르면 부르지도 남기지도 않는다',
+  /function 제안달기\(m\) \{[\s\S]*?\$\{독립실행 \? `<div class="sjm-act-sub">\$\{esc\(등록은PC에서\)\}<\/div>`/.test(앱)
+  && /async function 제안실행\(m, btn\) \{[\s\S]{0,600}if \(!부모있다\) \{ 토스트\(등록은PC에서, 3600\); return; \}[\s\S]{0,300}시간제한\(window\.parent\.AI행위실행\(/.test(앱));
+확인('규격·NAS 검색 서버가 꺼졌으면 맥락에 밝힌다(ai.js 사내문서 오류)', /if \(문서 && 문서\.오류\) 넣\(/.test(앱));
+확인('실패 말풍선은 실패말(한국어 한 줄) · 원문은 안 보이는 칸', /const 실패 = 실패말\(e\);/.test(앱) && /text: 실패\.글/.test(앱) && !/text: String\(e && e\.message \|\| e\), type: 'text', md: false, 실패: true/.test(앱));
 
 // ── 게이트웨이(Cloudflare Worker) ──
 const 워커 = 읽기('gateway/cloudflare-worker.js');

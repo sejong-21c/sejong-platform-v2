@@ -187,8 +187,11 @@ export function 방멤버(ch, users, projects) {
     default: return 전원;
   }
 }
-/** 채팅 목록 정렬: 고정 먼저 → 마지막 활동 내림차순(0 은 맨 뒤) → 이름 */
+/** 채팅 목록 정렬: AI 비서 → 고정 → 마지막 활동 내림차순(0 은 맨 뒤) → 이름 */
+// AI 비서는 늘 맨 위(2026-09-26 직원 시범 전 대조): 안 써 본 사람은 lastAt 이 0 이라 채팅 탭 맨 밑에 깔려 못 찾았다.
 export function 채팅정렬(a, b) {
+  const ai = (r) => !!(r.ch && r.ch.type === 'ai');
+  if (ai(a) !== ai(b)) return ai(a) ? -1 : 1;
   if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
   const la = a.lastAt || 0, lb = b.lastAt || 0;
   if (la !== lb) { if (!la) return 1; if (!lb) return -1; return lb - la; }
@@ -293,12 +296,16 @@ export function 서식(text) {
 //   super·exec → 전사 / manager → 자기 부서 / 그 외 → 본인 것만.
 // 주의: 1단계에서 AI 는 그 사람 브라우저 안에서 돈다. 여기서 거르는 건 "AI 에게 무엇을 보여줄까"이지
 // 데이터베이스 방어선이 아니다(그건 규칙이 한다). 봇이 서버로 가는 단계에서 같은 함수를 서버에서 쓴다.
+// 설명(2026-09-26 직원 시범 전 대조): 사원에게 "본인 업무와 공개 문서" 라고 했는데 실제와 달랐다. 실제는 —
+//   플랫폼 기록은 보안 규칙이 사내 계정이면 다 연다(회사 전체) · 규격·NAS 는 관문이 토큰으로 회사 공용 + 자기 부서 폴더
+//   (최고관리자만 전 부서) · 개인 폴더는 본인만. 범위(전사·부서·본인)는 직원·프로젝트 목록을 추리는 데만 쓴다.
 export function AI권한(user) {
   const u = user || {};
   const g = String(u.grade || '');
-  if (g === 'super' || g === 'exec') return { 범위: '전사', 등급: g || 'exec', dept: u.dept || '', uid: u.id || '', 설명: '전사 자료를 볼 수 있습니다' };
-  if (g === 'manager') return { 범위: '부서', 등급: g, dept: u.dept || '', uid: u.id || '', 설명: `${u.dept || '소속 부서'} 자료와 본인 업무를 볼 수 있습니다` };
-  return { 범위: '본인', 등급: g || 'staff', dept: u.dept || '', uid: u.id || '', 설명: '본인 업무와 공개 문서를 볼 수 있습니다' };
+  const 설명 = `플랫폼 기록은 회사 전체, 규격·NAS 자료는 ${g === 'super' ? '전 부서 폴더' : `회사 공용과 ${u.dept || '소속 부서'} 폴더`}, 개인 폴더는 본인 것만 볼 수 있습니다`;
+  if (g === 'super' || g === 'exec') return { 범위: '전사', 등급: g || 'exec', dept: u.dept || '', uid: u.id || '', 설명 };
+  if (g === 'manager') return { 범위: '부서', 등급: g, dept: u.dept || '', uid: u.id || '', 설명 };
+  return { 범위: '본인', 등급: g || 'staff', dept: u.dept || '', uid: u.id || '', 설명 };
 }
 /** 권한 범위로 거른다. row 에서 담당자·부서를 어떻게 꺼낼지는 뽑기 함수로 받는다(컬렉션마다 필드가 다르다). */
 export function 권한거르기(rows, perm, 뽑기 = (r) => ({ uid: r.assignee || r.author || r.writerId, dept: r.dept })) {

@@ -108,6 +108,8 @@ const rows = [
   { name: '다', pinned: true, lastAt: 5 }, { name: '라', pinned: false, lastAt: 200 },
 ];
 확인('채팅정렬', rows.slice().sort(L.채팅정렬).map((r) => r.name), ['다', '라', '가', '나']);
+// 2026-09-26 직원 시범 전 대조: 안 써 본 AI 방(lastAt 0)이 채팅 탭 맨 밑에 깔렸다 — 고정 방보다도 위, 늘 첫째
+확인('채팅정렬 AI 비서는 늘 첫째', [...rows, { name: 'AI 비서', pinned: false, lastAt: 0, ch: { id: 'ai', type: 'ai' } }].sort(L.채팅정렬).map((r) => r.name), ['AI 비서', '다', '라', '가', '나']);
 
 // AI 답변 서식 — 말풍선 안에 들어갈 HTML.  (줄바꿈은 nl 로 만든다 — 이 파일을 만드는 도구가 역슬래시를 먹는다)
 const nl = String.fromCharCode(10);
@@ -132,6 +134,11 @@ const nl = String.fromCharCode(10);
 확인('권한 부서장', L.AI권한({ grade: 'manager', dept: '품질관리부' }).범위, '부서');
 확인('권한 사원', L.AI권한({ dept: '생산부', id: 'u9' }).범위, '본인');
 확인('권한 등급 없음도 본인', L.AI권한({}).범위, '본인');
+// 설명은 실제 범위대로(2026-09-26 직원 시범 전 대조: 사원에게 "본인 업무와 공개 문서" 라고 했다)
+확인('권한 설명 사원 — 기록 전사 · NAS 공용+내 부서 · 개인은 본인', L.AI권한({ dept: '생산부' }).설명,
+  '플랫폼 기록은 회사 전체, 규격·NAS 자료는 회사 공용과 생산부 폴더, 개인 폴더는 본인 것만 볼 수 있습니다');
+확인('권한 설명 최고관리자 — NAS 전 부서', /전 부서 폴더/.test(L.AI권한({ grade: 'super', dept: '품질관리부' }).설명), true);
+확인('권한 설명 임원도 NAS 는 공용+자기 부서(관문은 super 만 모든부서)', /회사 공용과 영업부 폴더/.test(L.AI권한({ grade: 'exec', dept: '영업부' }).설명), true);
 const 업무 = [
   { id: 't1', assignee: 'u_kim', dept: '품질관리부' },
   { id: 't2', assignee: 'u_shin', dept: '품질관리부' },
