@@ -108,6 +108,21 @@ T('SJP_indexRecord 부르는 쪽은 window(.parent) 로만 닿고, 스텁은 그
   assert.ok(!/<script id="old-ai-loader"[^>]*\b(?:defer|async|type=)/.test(html), '싣개가 defer/async/module 이면 스텁이 늦게 선다');
 });
 
+T('옛 비서가 window 에 내놓는 이름 중 부르는 쪽이 있는 것은 모두 닿는다(스텁이거나 늘 실리는 곳에 정의)', () => {
+  // 2026-09-26 리뷰: 위 검사들은 SJP_indexRecord 와 패널 onclick 이름만 본다. 스텁 목록은 사람이 손으로 맞추므로
+  //   옛 비서에 새 전역(가령 window.SJP_indexAttachment)이 생기고 ncr.html 이 `const fn = window.parent.X; if (fn)` 로
+  //   부르면 — 전에는 파일이 방문마다 실려 됐지만 이제는 싣는 것이 없어 `if (fn)` 이 늘 거짓, 색인이 조용히 멎는다.
+  //   그래서 옛 비서의 `window.X =` 를 전부 뽑아, 부르는 쪽(모듈의 window/parent.X · index.html 의 맨이름 호출)이
+  //   있으면 스텁 목록에 있거나 늘 실리는 곳에 정의가 있어야 한다고 못 박는다.
+  const 이름들 = [...new Set([...옛비서.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=[^=]/g)].map((m) => m[1]))];
+  assert.ok(이름들.includes('SJP_indexRecord') && 이름들.length >= 10, '옛 비서의 전역을 못 읽었다: ' + 이름들.join(', '));
+  const 줄들 = html.split('\n').filter((줄) => !/^\s*(\/\/|<!--|\*)/.test(줄));
+  const 맨부름 = (x) => 줄들.some((줄) => new RegExp(`(?<![.\\w$])${x.replace(/\$/g, '\\$')}\\s*\\(`).test(줄));
+  const 끊김 = 이름들.filter((x) => (부르는곳(x).length || 맨부름(x)) && !정의됨(x))
+    .map((x) => `${x}(${[...부르는곳(x), ...(맨부름(x) ? ['index.html 맨이름'] : [])].join(', ')})`);
+  assert.deepEqual(끊김, [], '옛 비서에만 있는 전역을 부르는데 스텁도 늘 실리는 정의도 없다 — 싣개 스텁 목록에 넣어라: ' + 끊김.join(' · '));
+});
+
 // 싣개를 가짜 document 로 실제로 돌린다. 스크립트가 "실리면" 옛 비서처럼 window 에 진짜를 덮어쓴다.
 function 싣개돌리기(실릴때) {
   const 붙인것 = [], 경고 = [];
