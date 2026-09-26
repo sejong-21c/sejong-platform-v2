@@ -2427,6 +2427,9 @@ function renderNav() {
       if (unread > 0) {
         badgeHtml = `<span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:2px 5px;margin-left:6px;">${unread>99?'99+':unread}</span>`;
       }
+    } else if (n.id === 'org') {
+      const 신청수 = (state.users || []).filter(u => u.신청).length;   // 2026-09-26: 가입 승인 대기(조직/권한은 super 만 보인다)
+      if (신청수) badgeHtml = `<span style="background:#f59e0b;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:2px 5px;margin-left:6px;" title="가입 승인 대기">${신청수}</span>`;
     }
     html.push(`<div class="nav-item${isActive?' active':''}${n.wip?' nav-wip-item':''}" onclick="switchMod('${n.id}')">
       <span class="nav-icon">${LI(n.li, n.icon)}</span><span class="nav-label" style="display:flex;align-items:center;">${n.label}${subHtml}${statusHtml}${wipHtml}${badgeHtml}</span>
@@ -3762,7 +3765,7 @@ function showProfileSetup(fu) {
       <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:38px 36px;width:420px;max-width:90vw;">
         <div style="text-align:center;margin-bottom:22px;">
           <div style="font-size:20px;font-weight:700;color:#1e3a5f;">👋 첫 로그인입니다</div>
-          <div style="font-size:12px;color:var(--text-light);margin-top:8px;">${fu.email} · 소속 정보를 입력하고 시작하세요.</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:8px;">${fu.email} · 부서·직급을 신청하세요 — 관리자가 승인하면 권한이 열립니다.</div>
         </div>
         <div class="fg"><label class="fl">이름</label><input class="fi" id="psName" value="${(fu.displayName||'').replace(/"/g,'&quot;')}"></div>
         <div class="fg"><label class="fl">부서</label><select class="fs" id="psDept">${deptOpts}</select></div>
@@ -3782,11 +3785,15 @@ async function doProfileSetup(uid) {
   const title = document.getElementById('psTitle').value;
   if (!name) { err.textContent = '이름을 입력해주세요.'; err.style.display = 'block'; return; }
   try {
-    const email = fb.auth.currentUser.email;
+    // 2026-09-26: 스스로 고른 부서·직급은 **신청**으로만 남는다 — 관리자(super)가 조직/권한에서 승인해야 들어간다.
+    //   전에는 여기서 고른 값이 그대로 권한이었다(재무부 → 경비 전체 · 이사 → 임원 · 남의 이름 → 남의 개인 자료).
+    //   이름도 구글 계정 이름으로 둔다(규칙이 토큰의 이름과 대조). 친 이름은 신청 칸에 같이 남겨 관리자가 본다.
+    const cu = fb.auth.currentUser;
     await fb.setDoc(fb.doc(fb.db, 'users', uid), {
-      name, email, dept, title, grade: gradeByTitle(title), disabled: false, createdAt: Date.now(),
+      name: cu.displayName || '', email: String(cu.email || '').toLowerCase(), dept: '', title: '', grade: 'member',
+      disabled: false, createdAt: Date.now(), 신청: { dept, title, 이름: name, at: Date.now() },
     });
-    ensureDeptChannel(dept).catch(() => {});
+    alert('가입 신청이 접수됐습니다.\n\n관리자가 부서·직급(' + dept + ' · ' + title + ')을 승인하면 부서 자료와 권한이 열립니다. 그때까지는 전사 자료만 보입니다.');
     await hydrateUsersAndEnter(uid);
   } catch (e) {
     console.error(e);
@@ -4254,6 +4261,8 @@ async function promotePendingUser(fu) {
   // 여러 개면 첫 번째만 사용 (같은 이메일로 중복 등록됐다면 이후 정리 필요)
   const doc = snap.docs[0];
   const p = doc.data();
+  // 2026-09-26: 규칙이 pendingId 로 그 사전 등록 문서를 읽어 부서·직급·등급·이름·권한이 **글자 그대로** 같은지 본다
+  //   (전에는 화면이 옮겨 적는 값을 믿었다). 등급이 super 인 사전 등록은 규칙이 거부 → 아래 catch → 가입 신청 화면으로 간다.
   const userDoc = {
     name:  p.name || fu.displayName || '',
     email,
@@ -4264,6 +4273,7 @@ async function promotePendingUser(fu) {
     createdAt: Date.now(),
     createdVia: 'preRegistered',
     preRegisteredBy: p.createdBy || null,
+    pendingId: doc.id,
   };
   if (Array.isArray(p.extraPerms) && p.extraPerms.length) userDoc.extraPerms = p.extraPerms;
   if (p.modulePerms && Object.keys(p.modulePerms).length) userDoc.modulePerms = p.modulePerms;
@@ -9095,6 +9105,23 @@ function org() {
     </tr>`;
   };
 
+  // 2026-09-26: 스스로 가입한 사람의 부서·직급 신청 — 승인 전엔 일반·부서 없음이라 부서 목록에도 안 나온다. ✏️ 로 승인(신청 값이 채워져 열린다).
+  const 신청들 = (state.users || []).filter(u => u.신청);
+  const 신청Html = (isSuper && 신청들.length) ? `
+    <div class="card" style="margin-bottom:14px;padding:14px 16px;border-left:3px solid #f59e0b;">
+      <h3 style="font-size:13px;margin-bottom:10px;">📝 가입 승인 대기 <span style="font-size:11px;color:var(--text-light);font-weight:400;">(${신청들.length}명 · 승인 전엔 전사 자료만 봅니다)</span></h3>
+      <table class="org-table" style="font-size:12px;">
+        <thead><tr><th>이메일</th><th>구글 이름 / 친 이름</th><th>신청 부서·직급</th><th>신청일</th><th style="text-align:right;">관리</th></tr></thead>
+        <tbody>${신청들.map(u => `<tr>
+          <td style="font-family:monospace;font-size:11px;">${_escNote(u.email || '-')}</td>
+          <td>${_escNote(u.name || '-')}${u.신청.이름 && u.신청.이름 !== u.name ? ' / ' + _escNote(u.신청.이름) : ''}</td>
+          <td>${_escNote(u.신청.dept || '-')} · ${_escNote(u.신청.title || '-')}</td>
+          <td style="color:var(--text-lighter);">${u.신청.at ? new Date(u.신청.at).toISOString().slice(0, 10) : '-'}</td>
+          <td style="text-align:right;white-space:nowrap;"><button class="btn btn-primary btn-sm" onclick="openEditUserProfile('${u.id}')">승인·수정</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>` : '';
+
   // v29.9: 사전 등록 대기 계정 (아직 Google 로그인 안 한 미리 등록된 계정들)
   // v29.18: promotedTo 마킹된 항목은 이미 실계정 승격 완료(지정 승계만 남음) → 목록에서 제외
   const pending = (state.pendingUsers || []).filter(p => !p.promotedTo);
@@ -9126,6 +9153,7 @@ function org() {
     </div>` : ''}
   </div>
 
+  ${신청Html}
   ${pendingHtml}
 
   <details style="margin-bottom:14px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);">
@@ -9317,10 +9345,13 @@ function openEditUserProfile(uid) {
   if (!me || me.grade !== 'super') return;
   const u = getU(uid);
   if (!u || u.grade === 'super') return;
-  const deptOpts = DEPTS.map(d=>`<option value="${d.name}" ${d.name===u.dept?'selected':''}>${d.name}</option>`).join('');
-  const titleOpts = TITLES.map(t=>`<option value="${t}" ${t===u.title?'selected':''}>${t}</option>`).join('');
-  const gradeOpts = Object.keys(GRADES).map(g=>`<option value="${g}" ${g===u.grade?'selected':''}>${GRADES[g].label}</option>`).join('');
-  openModal(`✏️ ${u.name} 정보 수정`, `
+  // 2026-09-26: 가입 신청이 있으면 신청 값으로 채워 연다 — 저장하면 승인(신청 칸은 지운다).
+  const 신 = u.신청 || null;
+  const 부서0 = 신 ? 신.dept : u.dept, 직급0 = 신 ? 신.title : u.title, 등급0 = 신 ? gradeByTitle(신.title) : u.grade;
+  const deptOpts = DEPTS.map(d=>`<option value="${d.name}" ${d.name===부서0?'selected':''}>${d.name}</option>`).join('');
+  const titleOpts = TITLES.map(t=>`<option value="${t}" ${t===직급0?'selected':''}>${t}</option>`).join('');
+  const gradeOpts = Object.keys(GRADES).map(g=>`<option value="${g}" ${g===등급0?'selected':''}>${GRADES[g].label}</option>`).join('');
+  openModal(신 ? `📝 ${_escNote(u.name || u.email)} 가입 승인` : `✏️ ${u.name} 정보 수정`, `
     <div class="fg"><label class="fl">부서</label><select class="fs" id="euDept">${deptOpts}</select></div>
     <div class="fg"><label class="fl">직급</label><select class="fs" id="euTitle" onchange="document.getElementById('euGrade').value = gradeByTitle(this.value);">${titleOpts}</select></div>
     <div class="fg"><label class="fl">권한 등급</label><select class="fs" id="euGrade">${gradeOpts}</select></div>
@@ -9331,8 +9362,9 @@ function openEditUserProfile(uid) {
     const grade = document.getElementById('euGrade').value;
     if (grade === 'super' && !confirm(`${u.name} 님에게 슈퍼관리자 권한을 부여합니다. 시스템 전체 관리 권한이 주어지는데 계속할까요?`)) return;
     try {
-      await fb.updateDoc(fb.doc(fb.db, 'users', uid), { dept, title, grade });
+      await fb.updateDoc(fb.doc(fb.db, 'users', uid), 신 ? { dept, title, grade, 신청: null, 승인: { by: state.currentUser, at: Date.now() } } : { dept, title, grade });
       u.dept = dept; u.title = title; u.grade = grade;
+      if (신) { u.신청 = null; try { ensureDeptChannel(dept); } catch (e) {} }
       closeModal();
       render();
     } catch (e) {

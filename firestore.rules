@@ -34,11 +34,45 @@ service cloud.firestore {
     //   게이트웨이 부서 범위(grade super = 모든부서)·개인 자료 주인 판정(이름)이 한꺼번에 뚫린다.
     //   직원 시범 전 대조의 두 검토자가 따로 잡았다. 소속·등급·이름 바꾸기는 super 가 관리 탭에서.
     //   만들 때(첫 로그인 소속 입력·사전 등록 승격)는 super 로는 못 만든다(사전 등록도 gradeByTitle 이라 super 가 안 나온다).
+    // ── 첫 로그인(users 문서 만들기)은 세 꼴뿐이다 (2026-09-26) ─────────────────────────────
+    // 옛 규칙은 "super 만 아니면" 이었다 — 회사 구글 계정이면 누구나 첫 로그인 화면에서 **재무부**(경비 전체) · **이사**(임원 =
+    //   경비 전체) · **남의 이름**(개인 자료 주인 판정)을 골라 들어올 수 있었고, 사전 등록 길도 내용을 안 봤다(화면이 옮겨 적을 뿐).
+    // ① 스스로 가입: 일반 · 부서·직급 비움 · 이름은 구글 계정 이름. 고른 부서·직급은 「신청」 칸에만 — super 가 승인한다.
+    // ② 사전 등록: 그 이메일의 pendingUsers 문서(super·관리 지정자만 씀)와 부서·직급·등급·이름·권한이 글자 그대로 같을 때만.
+    // ③ 예외 계정(isAllowedEmail 의 외부 주소): 화면 EXTRA_ACCOUNTS 와 같은 꼴.
+    function selfSignupShape(d) {
+      return d.keys().hasOnly(['name', 'email', 'dept', 'title', 'grade', 'disabled', 'createdAt', '신청'])
+        && d.get('grade', 'member') == 'member' && d.get('dept', '') == '' && d.get('title', '') == ''
+        && d.get('disabled', false) == false
+        && d.get('name', '') == request.auth.token.get('name', '');
+    }
+    function matchesPending(d) {
+      let p = get(/databases/$(database)/documents/pendingUsers/$(d.pendingId)).data;
+      return d.keys().hasOnly(['name', 'email', 'dept', 'title', 'grade', 'disabled', 'createdAt', 'createdVia',
+                               'preRegisteredBy', 'extraPerms', 'modulePerms', 'pendingId'])
+        && p.get('email', '') == request.auth.token.email.lower()
+        && p.get('grade', 'member') != 'super'
+        && d.get('dept', '') == p.get('dept', '') && d.get('title', '') == p.get('title', '사원')
+        && d.get('grade', '') == p.get('grade', 'member')
+        && d.get('extraPerms', []) == p.get('extraPerms', []) && d.get('modulePerms', {}) == p.get('modulePerms', {})
+        && d.get('disabled', false) == false
+        && ((p.get('name', '') != '' && d.get('name', '') == p.get('name', ''))
+            || (p.get('name', '') == '' && d.get('name', '') == request.auth.token.get('name', '')));
+    }
+    function extraAccountShape(d) {
+      return request.auth.token.email == 'hkaiedu@naver.com'
+        && d.keys().hasOnly(['name', 'email', 'dept', 'title', 'grade', 'disabled', 'createdAt', 'createdVia'])
+        && d.get('grade', '') == 'exec' && d.get('dept', '') == '' && d.get('title', '') == '대표이사';
+    }
     match /users/{userId} {
       allow read: if isCompanyUser();
       allow create: if request.auth != null && request.auth.uid == userId
                     && isAllowedEmail()
-                    && request.resource.data.get('grade', 'member') != 'super';
+                    && request.resource.data.get('email', '') == request.auth.token.email.lower()
+                    && (selfSignupShape(request.resource.data)
+                        || ('pendingId' in request.resource.data && request.resource.data.pendingId is string
+                            && matchesPending(request.resource.data))
+                        || extraAccountShape(request.resource.data));
       allow update: if request.auth != null && (
         (request.auth.uid == userId && isAllowedEmail()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signatureUrl', 'gcalConnected'])) ||

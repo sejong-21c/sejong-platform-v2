@@ -100,7 +100,59 @@ await T('super 는 남의 users 를 고친다', () => assertSucceeds(setDoc(doc(
 await T('일반 직원은 남을 못 지운다', () => assertFails(deleteDoc(doc(로그인(사람.품질원), 'users', 사람.생산원.uid))));
 const 새사람 = { uid: 'u_new', email: 'new@sejong-21c.com' };
 await T('첫 로그인에 super 로는 못 만든다', () => assertFails(setDoc(doc(로그인(새사람), 'users', 새사람.uid), { name: '새', email: 새사람.email, dept: '생산부', grade: 'super' })));
-await T('첫 로그인 소속 입력(member)은 만든다', () => assertSucceeds(setDoc(doc(로그인(새사람), 'users', 새사람.uid), { name: '새', email: 새사람.email, dept: '생산부', title: '사원', grade: 'member', disabled: false })));
+
+// 2026-09-26: 옛 규칙은 "super 만 아니면" — 회사 구글 계정이면 첫 로그인 화면에서 재무부·이사·남의 이름을 골라 들어왔다.
+//   가입은 세 꼴뿐: ① 스스로 가입(일반·부서 비움·구글 이름, 고른 값은 신청 칸) ② 사전 등록 그대로 ③ 예외 계정.
+console.log('\n── 첫 로그인 — 가입 세 꼴');
+const 가입 = (uid, email, name) => env.authenticatedContext(uid, { email, email_verified: true, ...(name ? { name } : {}) }).firestore();
+const 스스로 = (uid, 덧) => ({ name: '새 사람', email: uid + '@sejong-21c.com', dept: '', title: '', grade: 'member', disabled: false, createdAt: 1,
+  신청: { dept: '재무부', title: '이사', 이름: '새사람', at: 1 }, ...덧 });
+const 스스로해보기 = (uid, 덧, 이름 = '새 사람') => setDoc(doc(가입(uid, uid + '@sejong-21c.com', 이름), 'users', uid), 스스로(uid, 덧));
+await T('① 스스로 가입: 일반·부서 비움·구글 이름 + 신청 칸은 만든다', () => assertSucceeds(스스로해보기('s1', {})));
+await T('① 스스로 가입으로 **재무부**는 못 고른다(경비 전체)', () => assertFails(스스로해보기('s2', { dept: '재무부' })));
+await T('① 스스로 가입으로 **임원(exec)** 은 못 된다', () => assertFails(스스로해보기('s3', { grade: 'exec' })));
+await T('① 직급 칸도 비워야 한다(신청 칸에만)', () => assertFails(스스로해보기('s4', { title: '이사' })));
+await T('① **남의 이름**은 못 쓴다 — 구글 계정 이름과 대조(개인 자료 주인 판정)', () => assertFails(스스로해보기('s5', { name: '김철우' })));
+await T('① 권한 칸(extraPerms·modulePerms)을 끼워 넣지 못한다', async () => {
+  await assertFails(스스로해보기('s6', { extraPerms: ['ncrDelete'] }));
+  await assertFails(스스로해보기('s7', { modulePerms: { ncr: { delete: true } } }));
+});
+await T('① 이메일 칸은 로그인한 계정과 같아야 한다', () => assertFails(스스로해보기('s8', { email: 'boss@sejong-21c.com' })));
+await T('① 구글 이름이 없는 계정은 이름을 비운다(지어 넣지 못한다)', async () => {
+  await assertSucceeds(setDoc(doc(가입('s9', 's9@sejong-21c.com'), 'users', 's9'), 스스로('s9', { name: '' })));
+  await assertFails(setDoc(doc(가입('s10', 's10@sejong-21c.com'), 'users', 's10'), 스스로('s10', { name: '아무개' })));
+});
+
+await env.withSecurityRulesDisabled(async (c) => {
+  const f = c.firestore();
+  await setDoc(doc(f, 'pendingUsers', 'pu_p1'), { email: 'p1@sejong-21c.com', name: '사전일', dept: '재무부', title: '차장', grade: 'member' });
+  await setDoc(doc(f, 'pendingUsers', 'pu_p2'), { email: 'p2@sejong-21c.com', name: '', dept: '기술부', title: '부장', grade: 'manager', extraPerms: ['itpApprove'] });
+  await setDoc(doc(f, 'pendingUsers', 'pu_boss'), { email: 'ceo@sejong-21c.com', name: '대표', dept: '영업부', title: '대표이사', grade: 'super' });
+});
+const 사전 = (uid, pid, p, 덧) => ({ name: p.name, email: uid + '@sejong-21c.com', dept: p.dept, title: p.title, grade: p.grade, disabled: false,
+  createdAt: 1, createdVia: 'preRegistered', preRegisteredBy: null, pendingId: pid, ...덧 });
+const P1 = { name: '사전일', dept: '재무부', title: '차장', grade: 'member' };
+await T('② 사전 등록 그대로면 만든다(재무부여도 — super 가 정한 값)', () =>
+  assertSucceeds(setDoc(doc(가입('p1', 'p1@sejong-21c.com', '구글이름'), 'users', 'p1'), 사전('p1', 'pu_p1', P1))));
+await T('② 사전 등록과 부서·등급이 다르면 거부', async () => {
+  await assertFails(setDoc(doc(가입('p1b', 'p1@sejong-21c.com'), 'users', 'p1b'), 사전('p1', 'pu_p1', P1, { dept: '총무부' })));
+  await assertFails(setDoc(doc(가입('p1c', 'p1@sejong-21c.com'), 'users', 'p1c'), 사전('p1', 'pu_p1', P1, { grade: 'exec' })));
+});
+await T('② 남의 사전 등록(pendingId)을 빌려 쓰지 못한다 — 이메일 대조', () =>
+  assertFails(setDoc(doc(가입('x1', 'x1@sejong-21c.com'), 'users', 'x1'), 사전('x1', 'pu_p1', P1))));
+await T('② 사전 등록 이름이 비었으면 구글 이름, 권한 칸은 사전 등록과 같게', async () => {
+  const P2 = { name: '구글둘', dept: '기술부', title: '부장', grade: 'manager' };
+  await assertFails(setDoc(doc(가입('p2', 'p2@sejong-21c.com', '구글둘'), 'users', 'p2'), 사전('p2', 'pu_p2', P2)));   // extraPerms 빠짐
+  await assertSucceeds(setDoc(doc(가입('p2', 'p2@sejong-21c.com', '구글둘'), 'users', 'p2'), 사전('p2', 'pu_p2', P2, { extraPerms: ['itpApprove'] })));
+});
+await T('② 사전 등록 등급이 super 여도 super 로는 못 만든다(승인 신청으로 간다)', () =>
+  assertFails(setDoc(doc(가입('ceo', 'ceo@sejong-21c.com'), 'users', 'ceo'),
+    사전('ceo', 'pu_boss', { name: '대표', dept: '영업부', title: '대표이사', grade: 'super' }))));
+await T('③ 예외 계정은 화면과 같은 꼴(대표이사·exec)로만', async () => {
+  const 예외 = { name: 'hk', email: 'hkaiedu@naver.com', dept: '', title: '대표이사', grade: 'exec', disabled: false, createdAt: 1, createdVia: 'extraAllowlist' };
+  await assertFails(setDoc(doc(가입('ex2', 'hkaiedu@naver.com'), 'users', 'ex2'), { ...예외, dept: '재무부' }));
+  await assertSucceeds(setDoc(doc(가입('ex1', 'hkaiedu@naver.com'), 'users', 'ex1'), 예외));
+});
 
 console.log('\n── 사전 등록(pendingUsers)');
 // 9/26: 옛 규칙은 사내 누구나 썼다 — 새 이메일로 grade 를 박아 두면 그 계정이 첫 로그인 때 그 등급으로 승격됐다
