@@ -60,6 +60,10 @@
 - 게이트웨이 Claude(/v1/claude/messages)는 Worker Secret **`CLAUDE_KEYS`** 가 있어야 돈다 — 없으면 501.
   ITP 자동 분석(c50)·옛 AI 비서 Claude 칸이 쓴다. gateway/README 의 "유료 키 넣지 말라"는 로그인 검증(v3.4)
   전 경고다. 게이트웨이의 개인 AI 열쇠(/key/set)는 **하루 한도를 넘긴 뒤에만** 쓰인다.
+- 게이트웨이 9Router 칸(/v1/9router — 지금은 맥미니 omniroute)은 **워커 설정만** 믿는다: NINEROUTER_BASE(바깥 주소
+  https://router.sejong21c.com/v1)·NINEROUTER_KEYS (worker v5.6). 라우터 주소·키를 Firestore 에 두고 게이트웨이나
+  브라우저가 따르게 하지 않는다 — 9/26 t_aiSharedConfig 가 사내 계정 누구나 고칠 수 있어 주소 하나로 전 직원 질문을
+  빼돌릴 수 있었다(규칙 관리자 전용·게이트웨이 v5.6·AI 비서 v29.84 로 닫음).
 - Claude Sonnet 5 는 생각(thinking)이 기본으로 켜진다 — 생각 토큰도 max_tokens 에 들어가고(ITP 는 16000),
   도구 호출 대화를 생각 블록 없이 다시 조립하는 곳(ai-assistant.js claudeMessagesFromHistory)은
   `thinking: {type:'disabled'}` 필수(켜 두면 도구 결과를 돌려보낼 때 400).

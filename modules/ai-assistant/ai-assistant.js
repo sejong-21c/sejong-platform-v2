@@ -1,6 +1,9 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.84: 로컬 LLM '전 직원 공용 공유'(t_aiSharedConfig) 삭제 — 누구나 고칠 수 있는 문서라 주소를 바꾸면 전 직원의
+ *          질문이 그 서버로 갔고, 키가 모든 브라우저에 내려갔으며, 여기서 부른 호출은 장부 밖이었다. 회사 라우터
+ *          (omniroute)는 게이트웨이 '9router' 칸(worker v5.6, 워커 설정만)이 맡는다. 로컬 LLM 은 이 기기 주소만.
  * v29.83.1: 수정 액션의 권한 판정은 modules/shared/ai-perm.mjs(window.AIPERM) 하나만 — 인라인 사본 다섯을 걷었다(못 읽으면 거부). 9/26 리뷰.
  * v29.83: 개인 키 직접 호출은 **게이트웨이에 접속 자체가 안 될 때만**(workers.dev 가 막힌 PC — 부장님 결정 9/26).
  *          예전엔 한 번 성공한 개인 키를 커서가 기억해 그 뒤로는 게이트웨이보다 먼저 직접 불렀고(장부 밖),
@@ -124,36 +127,23 @@
   //   HTTPS 페이지에서 http://localhost 호출은 브라우저가 예외 허용(localhost는 신뢰 출처).
   //   단, LM Studio는 "Enable CORS", Ollama는 OLLAMA_ORIGINS 설정이 있어야 브라우저가 접근 가능.
   //   주소·모델은 이 컴퓨터 localStorage에만 저장 → 설정한 기기에서만 로컬 모델이 쓰인다.
-  var LOCAL_URL_LS = 'sjp_ai_local_url';       // 예: http://localhost:1234/v1  (LM Studio) / http://localhost:11434/v1 (Ollama) / https://... (9Router)
-  var LOCAL_KEY_LS = 'sjp_ai_local_key';       // 9Router 등 인증이 필요한 로컬/터널 프록시 API 키
+  var LOCAL_URL_LS = 'sjp_ai_local_url';       // 예: http://localhost:1234/v1  (LM Studio) / http://localhost:11434/v1 (Ollama)
+  var LOCAL_KEY_LS = 'sjp_ai_local_key';       // 로컬 서버가 키를 요구할 때만(선택)
   var LOCAL_MODEL_LS = 'sjp_ai_local_model';   // 비우면 서버에 로드된 모델을 자동 감지
-  // v29.48: 전 직원 공용 로컬 LLM/9Router 설정 — 부장님이 한 번 공유하면(Firestore
-  // t_aiSharedConfig/config) 모든 직원이 각자 입력 없이 자동 사용. 기기별 localStorage
-  // 값이 있으면 그게 우선(개인 재정의), 없으면 공용값 사용.
-  var sharedLocal = null;
-  function loadSharedAiCfg() {
-    if (!window.fb || !fb.db || !fb.getDoc || !fb.auth || !fb.auth.currentUser) { setTimeout(loadSharedAiCfg, 1200); return; }
-    fb.getDoc(fb.doc(fb.db, 't_aiSharedConfig', 'config')).then(function (snap) {
-      if (snap && snap.exists()) { var d = snap.data(); if (d && d.localUrl) sharedLocal = d; }
-    }).catch(function () {});
-  }
-  loadSharedAiCfg();
+  // v29.84: '전 직원 공용 공유'(v29.48, Firestore t_aiSharedConfig/config)를 없앴다. 그 문서는 사내 계정 누구나
+  //   고칠 수 있었고(주소를 바꾸면 전 직원의 질문이 그 서버로 갔다), 키가 모든 브라우저에 내려갔으며, 여기서
+  //   부르는 호출은 게이트웨이를 안 거쳐 장부에 안 남았다. 회사 라우터(omniroute)는 PROVIDER_CHAIN 의 '9router'
+  //   (게이트웨이 경유, 워커 설정만 믿음 — worker v5.6)가 맡는다. 규칙도 관리자 전용으로 닫았다(2026-09-26).
+  //   이제 로컬 LLM 은 **이 기기 localStorage 에 넣은 주소만** 쓴다.
   function getLocalUrl() {
     var u = lsGet(LOCAL_URL_LS).trim();
-    if (u) return u.replace(/\/+$/, '');
-    var sv = (sharedLocal && sharedLocal.localUrl) ? String(sharedLocal.localUrl).trim() : '';
-    return sv ? sv.replace(/\/+$/, '') : '';
+    return u ? u.replace(/\/+$/, '') : '';
   }
   function getLocalKey() {
-    var k = lsGet(LOCAL_KEY_LS).trim();
-    if (k) return k;
-    if (sharedLocal && sharedLocal.localKey) return sharedLocal.localKey;
-    return '9router';
+    return lsGet(LOCAL_KEY_LS).trim() || '9router';   // 키가 없으면 옛 관례값 — 로컬 서버는 보통 무시한다
   }
   function getLocalModel() {
-    var m = lsGet(LOCAL_MODEL_LS).trim();
-    if (m) return m;
-    return (sharedLocal && sharedLocal.localModel) || '';
+    return lsGet(LOCAL_MODEL_LS).trim();
   }
   var _localModelCache = '';
   async function resolveLocalModel(base, signal, key) {
@@ -2765,26 +2755,20 @@
       '<button type="button" onclick="testAiGateway()" style="font-size:11px;padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;">🔌 연결 테스트</button>' +
       '<span id="aiGwTestResult" style="font-size:11px;color:var(--text-light);"></span></div>' +
       '</div>';
-    // v29.45: 로컬 LLM (LM Studio / Ollama / 9Router) — 설정한 기기에서만 0순위로 사용. 다른 직원 PC엔 영향 없음.
+    // v29.45: 로컬 LLM (LM Studio / Ollama) — 설정한 기기에서만 0순위로 사용. 다른 직원 PC엔 영향 없음.
+    //   v29.84: 전 직원 공용 공유 칸을 없앴다(getLocalUrl 위 설명). 회사 라우터는 게이트웨이가 맡는다.
     var localHtml = '<div class="fg" style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">' +
-      '<label class="fl">🖥 내 컴퓨터 LLM / 9Router 터널 — 켜져 있으면 <b>0순위</b>로 이 모델이 먼저 답합니다</label>' +
+      '<label class="fl">🖥 내 컴퓨터 LLM (LM Studio·Ollama) — 켜져 있으면 <b>0순위</b>로 이 모델이 먼저 답합니다</label>' +
       '<input class="fi" id="aiLocalUrlInput" spellcheck="false" autocomplete="off" style="margin-bottom:6px;"' +
-      ' placeholder="주소 — 9Router: https://your-tunnel/v1  ·  LM Studio: http://localhost:1234/v1"' +
+      ' placeholder="주소 — LM Studio: http://localhost:1234/v1  ·  Ollama: http://localhost:11434/v1"' +
       ' value="' + lsGet(LOCAL_URL_LS).replace(/"/g, '&quot;') + '">' +
       '<input class="fi" id="aiLocalKeyInput" type="password" spellcheck="false" autocomplete="off" style="margin-bottom:6px;"' +
-      ' placeholder="API 키 (선택 — 9Router 키가 필요한 경우 입력, 기본값: 9router)"' +
+      ' placeholder="API 키 (선택 — 로컬 서버가 키를 요구할 때만)"' +
       ' value="' + lsGet(LOCAL_KEY_LS).replace(/"/g, '&quot;') + '">' +
       '<input class="fi" id="aiLocalModelInput" spellcheck="false" autocomplete="off"' +
-      ' placeholder="모델 이름 (비워두면 자동 감지 — 예: cc/claude-opus-4-7, qwen3.5)"' +
+      ' placeholder="모델 이름 (비워두면 자동 감지 — 예: qwen3.5)"' +
       ' value="' + lsGet(LOCAL_MODEL_LS).replace(/"/g, '&quot;') + '">' +
-      '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">9Router 터널 주소(https://...) 및 키를 넣으면 0순위로 9Router를 호출합니다. LM Studio는 Enable CORS가 필요합니다.</div>' +
-      // v29.48: 전 직원 공용 공유 — 체크하고 저장하면 모든 직원이 각자 입력 없이 이 설정을 사용
-      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-top:8px;cursor:pointer;font-weight:600;">' +
-      '<input type="checkbox" id="aiLocalShareChk"' + (sharedLocal && sharedLocal.localUrl ? ' checked' : '') + '>' +
-      ' 이 주소·키·모델을 <b style="color:var(--primary);">전 직원 공용</b>으로 공유 (다른 직원은 입력 불필요)</label>' +
-      (sharedLocal && sharedLocal.localUrl
-        ? '<div style="font-size:10px;color:var(--text-lighter);margin-top:3px;">현재 공용 설정: ' + String(sharedLocal.localUrl).replace(/&/g, '&amp;').replace(/</g, '&lt;') + (sharedLocal.byName ? ' · ' + String(sharedLocal.byName).replace(/</g, '&lt;') + ' 공유' : '') + '</div>'
-        : '') +
+      '<div style="font-size:11px;color:var(--text-lighter);margin-top:4px;">이 PC에서 돌리는 모델 주소만 넣으세요. <b>회사 라우터(omniroute·9Router)는 넣지 마세요</b> — 회사 게이트웨이로 자동 연결되고 사용량이 장부에 남습니다. LM Studio는 Enable CORS가 필요합니다.</div>' +
       '</div>';
     // v29.56: 관리자용 사내 문서 등록(RAG) — 워커가 RAG_ADMIN_EMAILS로 최종 검증하므로
     // 여기 노출 조건(super/admin)은 UI 정리 목적일 뿐 보안 경계가 아니다.
@@ -2837,34 +2821,6 @@
         lsSet(LOCAL_URL_LS, luEl ? luEl.value.trim() : '');
         lsSet(LOCAL_KEY_LS, lkEl ? lkEl.value.trim() : '');
         lsSet(LOCAL_MODEL_LS, lmEl ? lmEl.value.trim() : '');
-        // v29.48: 전 직원 공용 공유 저장/해제
-        (function () {
-          var chk = $id('aiLocalShareChk');
-          if (!chk || !window.fb || !fb.db) return;
-          var lu = luEl ? luEl.value.trim().replace(/\/+$/, '') : '';
-          var me = (window.state && state.users || []).find(function (x) { return x.id === (window.state && state.currentUser); });
-          if (chk.checked && lu) {
-            fb.setDoc(fb.doc(fb.db, 't_aiSharedConfig', 'config'), {
-              localUrl: lu,
-              localKey: lkEl ? lkEl.value.trim() : '',
-              localModel: lmEl ? lmEl.value.trim() : '',
-              updatedAt: Date.now(), byUid: (window.state && state.currentUser) || null, byName: (me && me.name) || ''
-            }).then(function () {
-              sharedLocal = { localUrl: lu, localKey: lkEl ? lkEl.value.trim() : '', localModel: lmEl ? lmEl.value.trim() : '', byUid: (window.state && state.currentUser) || null, byName: (me && me.name) || '' };
-              appendMsg('system', '✓ 로컬 LLM/9Router 설정이 전 직원 공용으로 공유됐습니다 — 다른 직원은 입력 없이 바로 사용합니다.');
-            }).catch(function (e) { appendMsg('system', '공용 공유 저장 실패: ' + (e.message || e)); });
-          } else if (!chk.checked && sharedLocal && sharedLocal.localUrl) {
-            // 해제는 공유한 본인 또는 super만 — 다른 직원이 실수로 회사 공용을 끄는 것 방지
-            var isOwner = sharedLocal.byUid && window.state && sharedLocal.byUid === state.currentUser;
-            var isSuper = me && me.grade === 'super';
-            if (isOwner || isSuper) {
-              fb.setDoc(fb.doc(fb.db, 't_aiSharedConfig', 'config'), { localUrl: '', localKey: '', localModel: '', updatedAt: Date.now(), byUid: (window.state && state.currentUser) || null }).then(function () {
-                sharedLocal = null;
-                appendMsg('system', '전 직원 공용 로컬 LLM 설정을 해제했습니다.');
-              }).catch(function () {});
-            }
-          }
-        })();
         _localModelCache = '';   // 주소·모델 바뀌었으니 자동 감지 캐시 초기화
         _localCooldownUntil = 0; // v29.64: 설정을 바꿨으니 쿨다운도 해제 — 바로 재시도 가능
         localFailHintShown = false;   // 설정을 바꿨으니 실패 안내를 다시 볼 수 있게
