@@ -286,6 +286,22 @@ await T('임원은 설정과 내역을 읽는다', async () => {
 await T('super 도 내역을 읽는다', () => assertSucceeds(getDocs(collection(로그인(사람.부장), 't_expenseEntries'))));
 await T('다른 부서 직원(품질)은 설정을 못 읽는다', () => assertFails(getDoc(doc(로그인(사람.품질원), 't_expense', 'main'))));
 
+// 9/26: AI 공용 설정 — 범용 t_ 규칙에 걸려 누구나 터널 주소를 바꿀 수 있었다(게이트웨이가 그 주소를 믿었다)
+console.log('\n── AI 공용 설정(t_aiSharedConfig)');
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 't_aiSharedConfig', 'config'), { localUrl: 'https://tunnel.example/v1', localKey: 'k', localModel: 'm' });
+});
+await T('**일반 직원은 공용 설정을 못 읽는다(키가 들어 있다)**', () => assertFails(getDoc(doc(로그인(사람.품질원), 't_aiSharedConfig', 'config'))));
+await T('**일반 직원은 공용 설정의 주소를 못 바꾼다**', () =>
+  assertFails(setDoc(doc(로그인(사람.품질원), 't_aiSharedConfig', 'config'), { localUrl: 'https://evil.example/v1' }, { merge: true })));
+await T('다른 부서 직원도 못 바꾼다', () => assertFails(setDoc(doc(로그인(사람.생산원), 't_aiSharedConfig', 'config'), { localUrl: '' }, { merge: true })));
+await T('사외 계정은 못 읽는다', () => assertFails(getDoc(doc(로그인(사람.외부인), 't_aiSharedConfig', 'config'))));
+await T('super 는 읽고 쓴다', async () => {
+  await assertSucceeds(getDoc(doc(로그인(사람.부장), 't_aiSharedConfig', 'config')));
+  await assertSucceeds(setDoc(doc(로그인(사람.부장), 't_aiSharedConfig', 'config'), { localUrl: '', localKey: '', localModel: '' }));
+});
+await T('관리 지정자(adminAccess/config)도 읽는다', () => assertSucceeds(getDoc(doc(로그인(사람.임원), 't_aiSharedConfig', 'config'))));
+
 await env.cleanup();
 console.log(`\n통과 ${통과} · 실패 ${실패}`);
 process.exit(실패 ? 1 : 0);

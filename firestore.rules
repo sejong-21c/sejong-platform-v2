@@ -249,13 +249,23 @@ service cloud.firestore {
                   || isFinanceOrExec();
       allow update, delete: if isFinanceOrExec();
     }
+    // ── AI 공용 설정 (2026-09-26) ──────────────────────────────────────────────
+    // 옛 AI 비서의 '로컬 LLM 전 직원 공용 공유'가 여기에 터널 주소·키·모델을 적었다. 범용 t_ 규칙에 걸려
+    //   **사내 계정이면 누구나 읽고 고칠 수 있었다** — 게이트웨이 9Router 길이 이 주소를 자기 설정보다 먼저
+    //   믿었으니, 직원 하나가 주소를 바꾸면 전 직원의 CAR 요약·품질 보고서·AI 비서 질문(회사 자료가 담긴)이
+    //   그 서버로 갔다. 키도 누구나 읽었다. 이제 super·관리 지정자만 읽고 쓴다.
+    //   게이트웨이(v5.4)와 AI 비서(v29.84)는 이 문서를 더는 안 읽는다 — 남은 값은 관리자가 지우면 된다.
+    match /t_aiSharedConfig/{docId} {
+      allow read, write: if isCompanyUser() && isSuperOrAdmin();
+    }
     match /{col}/{docId} {
       // **여기서 빼야 위 규칙이 실제로 걸린다.** Firestore 는 어느 한 규칙이 허용하면 통과한다 —
       // t_ncrs·t_cars·t_recordLog 가 여기 남아 있으면 판 강제도 덧붙이기 전용도 아무 소용이 없다.
       allow read, write: if isCompanyUser() && col.matches('^t_.*')
                          && col != 't_userProfile' && col != 't_aiChat'
                          && col != 't_recordLog' && col != 't_ncrs' && col != 't_cars'
-                         && col != 't_expense' && col != 't_expenseEntries';
+                         && col != 't_expense' && col != 't_expenseEntries'
+                         && col != 't_aiSharedConfig';
     }
   }
 }
