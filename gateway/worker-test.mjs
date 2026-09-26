@@ -1207,6 +1207,63 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
     !!맥에보낸몸 && !('범위모름' in 맥에보낸몸) && (맥에보낸몸.범위 || []).includes('부서:설계부') && !('범위모름' in d4), JSON.stringify(맥에보낸몸));
 }
 
+// ── 되찾은범위 (2026-09-26) ─────────────────────────────────────
+// 범위모름 날 파이스가 '백업' 으로 범위를 되살려도 Vectorize 기록은 '전사' 로 걸러져 제 부서 기록이 빠졌다.
+//   이제 맥이 준 되찾은범위(모양이 맞을 때만)로 기록을 거르고, 그 배열은 브라우저에 안 넘긴다.
+{
+  const 맥env = { ...env, PAIS_URL: 'https://pais.test', PAIS_TOKEN: 'tok' };
+  const 부르기 = (길, 토큰, 몸) => worker.fetch(new Request('https://gw.test' + 길, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + 토큰, 'Content-Type': 'application/json' }, body: JSON.stringify(몸) }), 맥env);
+  const 질의 = '되찾은범위 품질 부적합 기록';
+  vecStore.set('되찾기시험::0', { id: '되찾기시험::0', values: fakeEmbed(질의),
+    metadata: { docName: 'NCR-되찾기', chunkIndex: 0, text: '품질관리부 기록', kind: 'ncr', recId: 'r_되찾기', 범위: '부서:품질관리부' } });
+  const 모름토큰 = await makeToken('recovered@sejong-21c.com');   // 이 isolate 가 한 번도 못 본 사람
+  const 찾기 = async (복구, 되찾은범위, 토큰 = 모름토큰) => {
+    맥응답 = { 결과: [{ 점수: 0.5, 문서: '맥규격', 글: '맥조각' }], 범위복구: 복구, ...(되찾은범위 === undefined ? {} : { 되찾은범위 }) };
+    const d = await (await 부르기('/rag/search', 토큰, { query: 질의, topK: 5 })).json();
+    return { d, 기록있다: (d.matches || []).some((m) => m.recId === 'r_되찾기') };
+  };
+  사용자읽기고장 = true;
+  try {
+    const 좋은것 = ['전사', '부서:품질관리부', '사람:홍길동'];
+    const a = await 찾기('백업', 좋은것);
+    check('되찾은범위: 범위모름 + 백업 + 부서:품질관리부 → 그 부서 기록이 남는다', a.기록있다, JSON.stringify(a.d.matches));
+    check('되찾은범위: 브라우저 답엔 되찾은범위가 없고 범위 칸도 전사 그대로(사람:·부서: 안 샌다)',
+      !('되찾은범위' in a.d) && JSON.stringify(a.d.범위) === '["전사"]' && !JSON.stringify(a.d).includes('사람:홍길동') && !JSON.stringify(a.d).includes('부서:품질관리부'),
+      JSON.stringify(a.d));
+    const b = await 찾기('실패', 좋은것);
+    check('되찾은범위: 범위복구 가 실패 면 되찾은범위가 와도 안 쓴다 → 부서 기록 빠진다', !b.기록있다, JSON.stringify(b.d.matches));
+    const 나쁜것 = {
+      '배열 아님': '부서:품질관리부',
+      '21칸': ['부서:품질관리부', ...Array.from({ length: 20 }, (_, i) => '사람:' + i)],
+      '빈 배열': [],
+      '모르는 머리': ['전사', '부서:품질관리부', '팀:품질'],
+      '비밀': ['전사', '부서:품질관리부', '비밀'],
+      '글자 아님': ['전사', '부서:품질관리부', 7],
+      '부서: 뒤 빈칸': ['전사', '부서:품질관리부', '부서:'],
+    };
+    for (const [이름, 값] of Object.entries(나쁜것)) {
+      const c = await 찾기('백업', 값);
+      check('되찾은범위: 모양이 틀리면(' + 이름 + ') 통째로 버리고 전사 → 부서 기록 빠진다', !c.기록있다 && !('되찾은범위' in c.d), JSON.stringify(c.d.matches));
+    }
+    const e = await 찾기('백업', ['전사', '모든부서']);
+    check('되찾은범위: 모양만 본다 — 모든부서 는 받는다(부서 기록 남는다)', e.기록있다, JSON.stringify(e.d.matches));
+    const f = await 찾기('백업', ['부서:품질관리부', ...Array.from({ length: 19 }, (_, i) => '사람:' + i)]);
+    check('되찾은범위: 20칸까지는 받는다(경계)', f.기록있다, JSON.stringify(f.d.matches));
+
+    맥응답 = { 줄: [{ n: 1 }], 쓴표: ['표01'], 범위복구: '백업', 되찾은범위: 좋은것 };
+    const t = await (await 부르기('/rag/table', 모름토큰, { sql: 'select 1' })).json();
+    check('되찾은범위: /rag/table 답에서도 떼어 낸다(표 답은 통째로 펴 넘기므로)', !('되찾은범위' in t) && t.범위복구 === '백업' && t.줄.length === 1, JSON.stringify(t));
+  } finally { 사용자읽기고장 = false; 맥응답 = null; }
+
+  // 평소 날: 파이스가 (잘못) 되찾은범위를 보내도 안 쓴다 — 오늘과 같다.
+  const n = await 찾기('백업', ['전사', '부서:품질관리부'], staffToken);
+  check('되찾은범위: 범위를 아는 날엔 맥이 보내도 무시 — 생산부 직원에게 품질관리부 기록 안 나간다',
+    !n.기록있다 && !('되찾은범위' in n.d) && !('범위모름' in n.d), JSON.stringify(n.d.matches));
+  맥응답 = null;
+  vecStore.delete('되찾기시험::0');
+}
+
 // ── 9Router 길은 워커 설정만 (v5.6, 2026-09-26) ──────────────────────
 // 전에는 t_aiSharedConfig/config(사내 계정 누구나 고칠 수 있던 문서)의 주소를 env 보다 먼저 믿었다.
 {

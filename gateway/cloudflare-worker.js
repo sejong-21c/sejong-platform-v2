@@ -32,6 +32,7 @@
  *          ['전사','부서:…'] 로 맥·Vectorize 양쪽에 건다. body 의 범위는 안 믿는다.
  *          (2026-09-26) users 를 못 읽고 기억도 없는 날엔 맥에 {uid, 범위모름:true} 를 더 보내고(맥이 users 백업으로
  *          되살린다), /rag/search·/rag/table 답에 {범위모름:true, 범위복구:'백업'|'실패'} 를 싣는다.
+ *          맥이 '백업' 과 함께 준 되찾은범위(모양이 맞을 때만)로 Vectorize 기록도 거른다 — 브라우저엔 안 넘긴다.
  *     POST /rag/table   {sql} 또는 {목록:true}    — v4.1: NAS 표(SQLite 20표 323만 행)에 SQL 로 묻는다.
  *          세는 질문("작년 견적 재료비 총액")은 검색으로 못 푼다 — 몇 줄만 보고 답하게 된다.
  *          **SQL 을 브라우저에서 받아도 안전하다**: 범위를 SQL 로 막지 않고 맥의 SQLite
@@ -271,6 +272,13 @@ async function ragEmbed(env, texts) {
 const 범위모름몸 = (auth, 알기) => (알기.모름 ? { uid: auth.uid, 범위모름: true } : {});
 // 브라우저에 돌려줄 칸. 파이스가 답하지 못했으면(꺼짐·옛 판) '실패' 다 — 약속된 두 값 밖은 실패로 친다.
 const 범위모름답 = (알기, 복구) => (알기.모름 ? { 범위모름: true, 범위복구: 복구 === '백업' ? '백업' : '실패' } : {});
+// 2026-09-26: 범위모름 날 파이스가 되살린 범위(되찾은범위)를 Vectorize 기록 거름에도 쓴다. 전에는 맥 결과만
+//   되살아나고 기록(NCR·CAR·회의록)은 여전히 '전사' 로 걸러져 제 부서 기록이 빠졌다(범위복구 계약 검토에서 발견).
+//   모양만 본다: 1~20칸, 칸마다 전사 | 모든부서 | 부서:… | 사람:… . 한 칸이라도 밖이면 통째로 버린다(null → 호출부가 '전사').
+//   받은 것보다 넓히지 않는다 — 고치지 않고 그대로 쓴다. 정규식에 \b 를 안 쓴다(한글 경계에서 안 걸린다).
+const 되찾은범위모양 = /^(전사|모든부서|부서:.+|사람:.+)$/;
+const 되찾은범위검사 = (v) => (Array.isArray(v) && v.length >= 1 && v.length <= 20
+  && v.every((s) => typeof s === 'string' && 되찾은범위모양.test(s)) ? v : null);
 
 async function 맥검색(env, query, topK, 범위, 더 = {}) {
   const 기한 = AbortSignal.timeout(Number(env.PAIS_TIMEOUT_MS) || 12000);
@@ -284,7 +292,7 @@ async function 맥검색(env, query, topK, 범위, 더 = {}) {
   if (!r.ok) throw new Error('pais ' + r.status);
   const j = await r.json();
   if (!Array.isArray(j.결과)) throw new Error('pais 응답 모양이 다르다');
-  return { 범위복구: j.범위복구, 것: j.결과.map((c) => ({
+  return { 범위복구: j.범위복구, 되찾은범위: j.되찾은범위, 것: j.결과.map((c) => ({
     score: c.점수,
     docName: c.문서 || '',
     chunkIndex: undefined,
@@ -355,7 +363,8 @@ async function handleRag(request, env, path, cors) {
     if (!env.PAIS_URL) return json(501, { error: '표 질의는 맥(PAIS_URL)이 있어야 합니다' }, cors);
     const 알기 = await 볼수있는범위(env, auth);
     try {
-      const 표 = await 맥표(env, body, 알기.범위, 범위모름몸(auth, 알기));
+      // 되찾은범위는 게이트웨이 안에서만 쓴다 — 표 답을 통째로 펴 넘기므로 여기서 떼어 낸다(2026-09-26).
+      const { 되찾은범위: _, ...표 } = await 맥표(env, body, 알기.범위, 범위모름몸(auth, 알기));
       return json(200, { ...표, source: 'pais', ...범위모름답(알기, 표.범위복구) }, cors);
     } catch (e) {
       // ai.js 는 !r.ok 면 조용히 건너뛴다 — 이유가 보이게 200 으로 준다.
@@ -405,8 +414,8 @@ async function handleRag(request, env, path, cors) {
     const 답 = (몸) => json(200, { ...몸, ...범위모름답(알기, 복구) }, cors);
 
     if (env.PAIS_URL) {
-      let 맥것 = null;
-      try { ({ 것: 맥것, 범위복구: 복구 } = await 맥검색(env, query, topK, 범위, 범위모름몸(auth, 알기))); }
+      let 맥것 = null, 되찾은 = null;
+      try { ({ 것: 맥것, 범위복구: 복구, 되찾은범위: 되찾은 } = await 맥검색(env, query, topK, 범위, 범위모름몸(auth, 알기))); }
       catch (e) {
         // 맥이 꺼져 있다. **물러선 사실과 이유를 반드시 응답에 남긴다** — 조용히 물러서면
         // 맥 색인이 안 붙은 걸 아무도 모른 채 옛 답이 나간다(2026-09-19 첫 배포에서 실제로 그랬다).
@@ -423,7 +432,10 @@ async function handleRag(request, env, path, cors) {
         //   맥에는 규격·도면·NAS 파일이, Vectorize 에는 플랫폼 기록이 있다 — 서로 딴 것을 들고 있으니
         //   한쪽만 보면 반드시 반쪽 답이 된다.
         try {
-          const 기록 = await 기록검색(query, topK, 범위);
+          // 평소엔 범위 그대로. 모르는 날 맥이 '백업' 으로 되살렸으면 그 범위로(모양이 틀리면 '전사' 인 범위 그대로).
+          //   답의 범위 칸은 안 바꾼다 — 되찾은 배열을 브라우저에 넘기지 않는다는 약속.
+          const 기록범위 = (알기.모름 && 복구 === '백업' && 되찾은범위검사(되찾은)) || 범위;
+          const 기록 = await 기록검색(query, topK, 기록범위);
           if (!기록.length) return 답({ matches: 맥것, source: 'pais', 범위 });
           // **자리는 점수가 정한다.** 둘 다 bge-m3(1024차원)이라 눈금이 같아서 비교해도 된다.
           //   고정 몫(1/3)으로 해 봤더니 "부적합 NCR 현황" 에서 NCR(0.59)이 세 자리로 묶이고
