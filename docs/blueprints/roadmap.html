@@ -42,7 +42,7 @@
 <body>
 <div class="wrap">
   <h1>세종 AI 로드맵 — 연말 시연회까지</h1>
-  <p class="sub">2026-09-26 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
+  <p class="sub">2026-09-26 오후 갱신 · 품질관리부 · <a href="index.html">청사진 모음</a> · <a href="blueprint-progress.html">진행 표시본</a></p>
 
   <div class="lead">
     <b>지금 어디까지 왔나.</b> 직원 개방 세 칸(사용자별 장부 · 개인 API 열쇠 · 개인 구독 연결)이 다 찼다.
@@ -100,17 +100,20 @@
   <div class="item"><div class="row"><span class="t">16. 직원 실사용 — 2~3명 한 주</span><span class="chip next">다음</span><span class="who">부장님 공지 · 제가 장부로 확인</span></div>
     <div class="d">시연 그림이 "직원 여럿이 쓰는 모습"이다. 최근 접속·부서로 본 후보: 품질관리부 두 분(한 분은 이미 2건 물어봄) · 기술부 한 분(부서 파일·규격). 공지 초안은 준비돼 있다. 한 주 뒤 게이트웨이 장부(기능·결과·토큰)와 이용 기록으로 무엇을 묻고 어디서 막혔는지 본다 — 막힌 질문이 다음 일감이 된다.</div></div>
 
-  <div class="item"><div class="row"><span class="t">17. 개인 Claude 연결 — 1시간 뒤에도 붙어 있나</span><span class="chip next">다음</span><span class="who">claude.ai 에서 한 번 써 보기 · 10분</span></div>
-    <div class="d">9/26 관찰: 부장님 OAuth 커넥터가 출입 토큰(1시간) 만료 뒤 "서버 오류" 만 내고 <b>갱신 요청이 서버에 안 왔다</b>. 서버는 401 + 안내를 제대로 준다. 직원에게 권하기 전에 claude.ai 웹에서 한 번 써서 갱신이 되는지 본다 — 이제 갱신·실패가 이용 기록에 남는다. 안 되면 원인을 찾고(재연결 안내 또는 토큰 수명), 되면 직원 안내에 그대로.</div></div>
+  <div class="item"><div class="row"><span class="t">17. 개인 Claude 연결 — 1시간 뒤에도 붙어 있나</span><span class="chip done">서버 수리 9/26</span><span class="who">부장님 재연결 한 번 → 1시간 뒤 확인</span></div>
+    <div class="d">9/26 관찰: 부장님 OAuth 커넥터가 출입 토큰(1시간) 만료 뒤 "서버 오류" 만 내고 <b>갱신 요청이 서버에 안 왔다</b>. 서버는 401 + 안내를 제대로 준다. 직원에게 권하기 전에 claude.ai 웹에서 한 번 써서 갱신이 되는지 본다 — 이제 갱신·실패가 이용 기록에 남는다. 안 되면 원인을 찾고(재연결 안내 또는 토큰 수명), 되면 직원 안내에 그대로.<br><b>9/26 원인 둘을 찾아 고쳤다</b> — ① 만료 토큰의 401 에 <code>error="invalid_token"</code> 이 없어 claude.ai 가 갱신을 안 보냈다(붙이자 바로 갱신 요청이 왔다) ② 갱신 중 사용자 확인 읽기가 <b>Firestore 하루 읽기 한도(429)</b>에 걸려 500 으로 죽었다 → 못 읽으면 적어 둔 부서 범위로 다시 낸다. 실패한 갱신 뒤 claude.ai 가 연결을 "다시 연결 필요" 로 둔 듯해 <b>부장님이 한 번 재연결</b>해 주시면 1시간 뒤 자동 갱신을 기록으로 확인한다.</div></div>
 
-  <div class="item"><div class="row"><span class="t">18. 옛 형식 파일 카드에도 요약</span><span class="chip next">후보</span><span class="who">맥 · 밤 배치 · 무료</span></div>
-    <div class="d">파일 카드 217만 장 중 옛 형식(.hwp·.doc·.xls·.ppt)은 색인 때 요약을 건너뛰었다(그땐 못 읽었다). 이제 읽으니 밤마다 조금씩 요약을 채우면 "내용 요약 없음" 카드가 줄고 검색이 본문으로 걸린다. 원본 읽기는 이미 되니 급하지 않다.</div></div>
+  <div class="item"><div class="row"><span class="t">18. 파일 카드에 요약 채우기(밤 배치)</span><span class="chip done">가동 9/26</span><span class="who">맥 · 매일 01:00 · 무료</span></div>
+    <div class="d">파일 카드 217만 장 중 옛 형식(.hwp·.doc·.xls·.ppt)은 색인 때 요약을 건너뛰었다(그땐 못 읽었다). 이제 읽으니 밤마다 조금씩 요약을 채우면 "내용 요약 없음" 카드가 줄고 검색이 본문으로 걸린다. 원본 읽기는 이미 되니 급하지 않다.<br><b>9/26 가동</b> — 재 보니 옛 형식만이 아니었다: 표본으로 PDF 94% · 엑셀 96% · 한글·워드 100% 가 요약이 없었다. 맥 별도 프로세스가 매일 01:00 부터 150분(옛 형식 → 새 형식 → PDF, 후보 약 27만 장 · 한 밤 3만 장까지), 05:30 의미색인이 바뀐 카드만 다시 계산한다. 울타리는 원본 읽기와 같은 함수(비밀·super·개인 자료 폴더 제외 · 도면·반출금지 · 급여·계약·통장 같은 개인 자료 이름 · 요약에 주민번호 꼴이면 안 씀). <b>적대 검토가 잡은 것</b>: 도면 거름이 실제 도면 이름(DWG_·P&amp;ID·제작도·배치도 …)을 대부분 놓쳤다(원본 읽기도 같은 구멍 — 같이 막음) · 전사 폴더에 잘못 놓인 급여명세서 요약 15장 → 즉시 되돌림(색인엔 안 들어감) · NAS 가 끊기면 수만 장에 "원본 없음" 을 영구로 찍을 뻔. 실전 686장 채움 · 오류 0 · 밤 채점이 매일 본다.</div></div>
 
-  <div class="item"><div class="row"><span class="t">19. 10/1 작업 기록 첫 자동 정리 확인</span><span class="chip next">10/1</span><span class="who">17:50 · 제 몫</span></div>
+  <div class="item"><div class="row"><span class="t">19. 10/1 작업 기록 첫 자동 정리 확인</span><span class="chip done">예약 9/26</span><span class="who">10/1 18:30 자동 확인 · 밤 채점</span></div>
     <div class="d">보관본 셋(맥·R2·드라이브) → 대조 → 지우기가 처음 실전으로 돈다. 그날 로그와 DB 건수를 본다.</div></div>
 
-  <div class="item"><div class="row"><span class="t">20. 연말 판단 보고서</span><span class="chip later">자료가 2주 쌓인 뒤</span><span class="who">맥 · 백업 사본 · 읽기 0</span></div>
-    <div class="d">장부가 9/26 부터 기능·결과·토큰을 센다. 두 주 뒤 맥 백업 사본에서 하루 호출·토큰·413 비율·한도 걸린 사람·기능별 몫을 뽑아 "유료 모델로 가나 · 얼마나 드나" 한 장으로.</div></div>
+  <div class="item"><div class="row"><span class="t">20. 연말 판단 보고서</span><span class="chip done">도구 9/26 · 첫 보고 10/10</span><span class="who">맥 · 백업 사본 · 읽기 0</span></div>
+    <div class="d">장부가 9/26 부터 기능·결과·토큰을 센다. 두 주 뒤 맥 백업 사본에서 하루 호출·토큰·413 비율·한도 걸린 사람·기능별 몫을 뽑아 "유료 모델로 가나 · 얼마나 드나" 한 장으로.<br><b>9/26</b> — scripts/ai-usage-report.mjs(기능·결과·모델·사람·날별 · 단가는 박지 않고 연말에 넣음). 10/10(토) 09:30 첫 보고서 자동 예약.</div></div>
+
+  <div class="item"><div class="row"><span class="t">21. 아침 8시에 읽기 한도가 찬 원인</span><span class="chip next">오늘 17:45 자동 분석</span><span class="who">맥 백업 사본 · 읽기 0</span></div>
+    <div class="d">9/26 08:21 Firestore 하루 읽기 5만이 이미 차 있었다(06:05 추정 약 6천). 파이스 장부 6,322 · 제가 연 브라우저 탭 셋 합 235 — 나머지 4만여 건이 어디서 읽혔는지 모른다. 한도가 풀린 뒤 17:20 백업 사본(readDaily·접속 기록)으로 가리도록 예약해 두었다. 그 사이 직원 화면은 캐시로만 돈다.</div></div>
 
   <div class="item"><div class="row"><span class="t">마지막. ChatGPT 연결 시험</span><span class="chip later">맨 끝</span><span class="who">회사 GPT 계정 구매 뒤 · 10분</span></div>
     <div class="d">Claude 는 끝까지 확인했다. ChatGPT 는 같은 표준이라 될 가능성이 높지만 아직 0건 — 안내문에 「시험 중」.<br>9/25 서버 쪽 준비 확인 — ChatGPT 콜백 등록·허용 화면 이동·메타데이터 OK. <b>남은 것은 ChatGPT 계정으로 끝까지 붙여 보는 것뿐</b>(연결하면 이용 기록으로 바로 보인다).</div></div>
