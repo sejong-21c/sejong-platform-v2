@@ -16,6 +16,10 @@
  *  3-d) v5.3(2026-09-26): **장부 하나로** — 같은 줄에 호출 **뒤** 결과까지 얹는다(쓰기 1회 더).
  *     기능(x-sj-feature 헤더)·제공자·모델·결과(ok·e413·e429·lim…)·토큰(회사 몫 ti/to, 개인 열쇠 ki/ko).
  *     옛 aiUsage(브라우저가 적던 것)는 메신저를 못 봐서 연말 판단에 못 쓴다 — 이제 여기가 유일하다.
+ *  3-e) v5.4(2026-09-26, 직원 시범 전 대조): **게이트웨이가 만드는 429 몸은 { error(한국어), limit }** —
+ *     limit: 'user_daily'(사람별 하루 한도) | 'company_quota'(회사 열쇠가 전부 429 · retryAfter 초 · upstream 원문 200자).
+ *     회사 몫이 마르면 ① 6초 이하면 한 번 기다렸다 ② 맡긴 개인 열쇠로 한 번 ③ 그래도 안 되면 company_quota.
+ *     /file/sign·/file/put: expense/ 는 본인 영수증함(expense/inbox/<uid>_)·재무부(dept 재무부 또는 super/exec)·서버 토큰만.
  *  4) v3(로드맵 8단계): 사내 문서 검색(RAG) — Vectorize(벡터 DB) + Workers AI(임베딩)
  *     POST /rag/upload  {docName, chunks:[...]}  — 문서 등록 (RAG_ADMIN_EMAILS만)
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
@@ -214,7 +218,8 @@ async function 볼수있는범위(env, auth) {
     // v5.1(2026-09-25): **개인 자료는 본인만** — 파이스가 NAS 카드의 개인 자료 폴더 주인을 이 이름으로 가린다.
     //   범위를 넓히지 않는다(어떤 문서 범위와도 안 맞는 표시일 뿐). 없으면 파이스는 개인 자료를 아예 안 준다.
     if (u && u.name) 범위.push('사람:' + String(u.name).trim());
-    범위캐시.set(auth.uid, { 범위, exp: Date.now() + 범위수명밀리초, 안전기한: Date.now() + 마지막기억밀리초 });
+    // 부서·등급도 같이 쥔다 — 경비 파일 문지기(재무부인가)가 users 문서를 따로 또 읽지 않게.
+    범위캐시.set(auth.uid, { 범위, 부서: u && u.dept, 등급: u && u.grade, exp: Date.now() + 범위수명밀리초, 안전기한: Date.now() + 마지막기억밀리초 });
     return 범위;
   } catch (e) {
     // **마지막으로 알던 범위로 버틴다.** 2026-09-21: Firestore 하루 읽기 한도가 차서
@@ -411,7 +416,11 @@ async function handleRag(request, env, path, cors) {
           const 문턱 = 점수들.length ? 점수들[Math.floor(점수들.length / 2)] : -1;
           const 이긴기록 = 기록.filter((r) => (r.score || 0) > 문턱).length;
           const 뒤 = 기록.slice(0, Math.min(기록.length, Math.max(1, topK - 3), Math.max(1, 이긴기록)));
-          const 앞 = 맥것.slice(0, topK - 뒤.length);
+          // 파이스는 규격 조각을 앞에, 볼트(NAS 파일 카드)를 **맨 뒤에** 준다(규격 7 + 볼트 3). 꼬리를 자르면
+          //   기록이 한 자리만 가져가도 볼트부터 사라졌다(2026-09-26 직원 시범 전 대조에서 발견) — 규격부터 줄인다.
+          const 자리 = topK - 뒤.length;
+          const 볼트 = 맥것.filter((m) => m.kind === '볼트').slice(0, 자리);
+          const 앞 = [...맥것.filter((m) => m.kind !== '볼트').slice(0, 자리 - 볼트.length), ...볼트];
           return json(200, { matches: [...앞, ...뒤], source: 'pais+기록', 범위, 기록: 뒤.length, 진단: { 문턱, 이긴기록, 맥수: 맥것.length, 기록수: 기록.length, 기록점수: 기록.slice(0, 5).map((r) => r.score) } }, cors);
         } catch (e) {
           // 기록 색인이 잠깐 안 되더라도 규격 답은 그대로 나가야 한다.
@@ -763,6 +772,16 @@ function 칸(s) {
 }
 const 결과말 = (s) => s < 300 ? 'ok' : s === 413 ? 'e413' : s === 429 ? 'e429' : s === 501 ? 'cfg' : s < 500 ? 'e4xx' : 'e5xx';
 
+// v5.4(2026-09-26): 제공자 429 가 말하는 "몇 초 뒤". retry-after 머리 > groq 'try again in 1m2.5s'·'450ms' >
+//   gemini "retryDelay": "23s". 모르면 null. 분당 한도(TPM)면 몇 초, 하루 한도(TPD)면 몇 시간이 온다.
+function 다시까지초(헤더, 글) {
+  const h = parseFloat(헤더.get('retry-after') || '');
+  if (h >= 0) return Math.ceil(h);
+  const m = /(?:try again in|retryDelay"?\s*:\s*")\s*(?:(\d+)h)?(?:(\d+)m(?!s))?(?:([\d.]+)(ms|s))?/i.exec(String(글));
+  if (!m || !(m[1] || m[2] || m[3])) return null;
+  return Math.ceil((+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) / (m[4] === 'ms' ? 1000 : 1));
+}
+
 // 응답 복제본을 끝까지 읽어 토큰을 뽑는다. 클라이언트 쪽은 기다리지 않는다(ctx.waitUntil 에서 돈다).
 //   JSON 이면 usage(openai 꼴·claude) / usageMetadata(gemini), SSE 면 **마지막** usage 조각(groq 는 x_groq.usage).
 //   못 뽑으면 null(토큰만 빈다). ⚠ 여기 CPU 는 무료 워커의 요청당 10ms 에 들어간다 — 넘으면 **답이 중간에 끊긴다.**
@@ -853,6 +872,10 @@ async function 열기(env, 덩이) {
 //   하루 읽기 한도(5만)를 열쇠 조회로 태운다 — 한도를 넘긴 사람일수록 더 자주 온다.
 const 열쇠캐시 = new Map();              // uid → { 열쇠, provider, exp }
 const 열쇠수명밀리초 = 5 * 60 * 1000;
+
+// 직원에게 가리키는 메뉴. 2026-09-26 직원 시범 전 대조에서 발견: 있지도 않은 '내 설정 › 개인 AI 열쇠' 를 가리키고 있었다.
+//   진짜 자리는 index.html 오른쪽 위 내 이름 메뉴(um-item). 폰 앱(메신저 단독)에는 이 메뉴가 없다.
+const 열쇠메뉴 = '플랫폼(PC) 화면 오른쪽 위 내 이름 › 🔑 개인 AI 열쇠(폰 앱에는 없습니다)';
 
 // { 열쇠, 못읽음 } — **"없다" 와 "못 읽었다" 는 다르다.** 둘을 같게 다루면 읽기 한도가 찬 날
 //   열쇠를 맡긴 사람에게 "등록하세요" 라고 말하게 된다. 맡겼는데.
@@ -1065,6 +1088,27 @@ const 안전한키 = (k) => /^[A-Za-z0-9._\-/]{1,300}$/.test(k) && !k.includes('
 // 그래서 회사 자산끼리 붙인다: 회사 클라우드플레어 계정의 R2 + 이 게이트웨이 + 서버 전용 비밀값.
 // 범위는 **올리기·서명받기뿐**이다. 내려받기는 원래 서명만 보므로 여기서 손댈 게 없다.
 //   npx wrangler secret put MIGRATE_TOKEN
+// v5.4(2026-09-26): **expense/ 는 주인과 재무부만.** 직원 시범 전 대조에서 발견 — /file/sign 이 로그인만 보고
+//   아무 열쇠에나 서명해 줬다. 열쇠는 사내 누구나 읽는 t_expenseEntries 에 있으니 남의 영수증 사진이 열렸고,
+//   /file/put 으로는 남의 영수증을 덮어쓸 수도 있었다. 직원은 메신저가 만드는 자기 함
+//   `expense/inbox/<uid 거른 것>_…` 만(messenger.js 영수증파일올리기와 같은 거름), 재무부는 expense/ 전부.
+// 재무부 판정은 index.html canSeeDept('재무부')·firestore.rules 와 **같아야 한다**: dept==='재무부' 또는 grade super/exec.
+//   users 문서는 볼수있는범위 가 읽어 캐시에 얹은 것을 쓴다. 못 읽었고 옛 기억도 없으면 재무부가 아니다(fail closed).
+async function 재무부인가(env, auth) {
+  await 볼수있는범위(env, auth);
+  const c = 범위캐시.get(auth.uid);
+  return !!c && Date.now() < c.안전기한 && (c.부서 === '재무부' || c.등급 === 'super' || c.등급 === 'exec');
+}
+// 이 사람이 못 만지는 열쇠들. auth 가 null 이면 서버 토큰(맥 배치) — 전부 된다. expense/ 밖은 그대로다.
+async function 못만지는경비열쇠(env, auth, 열쇠들) {
+  if (!auth) return [];
+  const 거른uid = String(auth.uid || '').replace(/[^A-Za-z0-9._-]/g, '');
+  const 내함 = 거른uid ? 'expense/inbox/' + 거른uid + '_' : null;
+  const 남의것 = 열쇠들.filter((k) => k.startsWith('expense/') && !(내함 && k.startsWith(내함)));
+  if (!남의것.length || await 재무부인가(env, auth)) return [];
+  return 남의것;
+}
+
 function 서버토큰인가(request, env) {
   const 비밀 = String(env.MIGRATE_TOKEN || '').trim();
   if (!비밀) return false;
@@ -1083,22 +1127,26 @@ async function handleFile(request, env, url, cors) {
   const key = await 서명키(env);
   if (!key) return json(501, { error: 'FILE_SIGN_KEY 시크릿이 없습니다 — wrangler secret put FILE_SIGN_KEY' }, cors);
 
-  // 1) 서명 받기 — 로그인 확인. { keys:[...] } → { urls: {키: 주소} }
+  // 1) 서명 받기 — 로그인 확인. { keys:[...] } → { urls: {키: 주소}, denied?: [못 받은 키] }
   if (url.pathname === '/file/sign') {
     if (request.method !== 'POST') return json(405, { error: 'POST only' }, cors);
+    let auth = null;
     if (!서버토큰인가(request, env)) {
-      const auth = await verifyCompanyFirebaseToken(request, env);
+      auth = await verifyCompanyFirebaseToken(request, env);
       if (auth.status) return json(auth.status, { error: auth.error }, cors);
     }
     let body; try { body = await request.json(); } catch (e) { return json(400, { error: 'invalid JSON' }, cors); }
     const keys = (Array.isArray(body.keys) ? body.keys : []).map(String).filter(안전한키).slice(0, 50);
     if (!keys.length) return json(400, { error: 'keys 가 필요합니다' }, cors);
+    // 남의 경비 열쇠만 빼고 나머지는 서명한다 — 한 장 때문에 화면 전체가 안 뜨면 안 된다
+    const denied = await 못만지는경비열쇠(env, auth, keys);
     const exp = Math.floor(Date.now() / 1000) + 서명수명초;
     const urls = {};
     for (const k of keys) {
+      if (denied.includes(k)) continue;
       urls[k] = `${url.origin}/file/get/${k}?e=${exp}&s=${await 서명하기(key, k + '|' + exp)}`;
     }
-    return json(200, { urls, expiresAt: exp }, cors);
+    return json(200, { urls, expiresAt: exp, ...(denied.length ? { denied } : {}) }, cors);
   }
 
   // 2) 내려받기 — 서명만 본다(로그인 헤더를 못 싣는 img 태그용)
@@ -1128,12 +1176,14 @@ async function handleFile(request, env, url, cors) {
   // 3) 올리기 — 로그인 확인. 키는 ?key= 로, 내용은 본문 그대로.
   if (url.pathname === '/file/put') {
     if (request.method !== 'PUT' && request.method !== 'POST') return json(405, { error: 'PUT/POST only' }, cors);
+    let auth = null;
     if (!서버토큰인가(request, env)) {
-      const auth = await verifyCompanyFirebaseToken(request, env);
+      auth = await verifyCompanyFirebaseToken(request, env);
       if (auth.status) return json(auth.status, { error: auth.error }, cors);
     }
     const k = String(url.searchParams.get('key') || '');
     if (!안전한키(k)) return json(400, { error: 'key 가 올바르지 않습니다' }, cors);
+    if ((await 못만지는경비열쇠(env, auth, [k])).length) return json(403, { error: '경비 파일은 본인 영수증함(expense/inbox/<내 uid>_)이나 재무부만 올릴 수 있습니다' }, cors);
     const ct = request.headers.get('Content-Type') || 'application/octet-stream';
     const 최대 = 25 * 1024 * 1024;
     const len = Number(request.headers.get('Content-Length') || 0);
@@ -1517,13 +1567,14 @@ export default {
         개인열쇠 = 내것.열쇠;
         if (!개인열쇠) {
           뒤에(결과를적는다(env, 누구, 날, { 결과: 'lim', 기능 }));   // 제공자는 안 불렀다 — c.* 에는 안 얹는다
+          // limit: 받는 쪽이 한국어 문구를 파싱하지 않고 가르는 칸(ASCII). 옛 칸(하루한도…)은 옛 화면 몫으로 둔다.
           return json(429, {
             error: `오늘 회사 몫 ${한도}번을 다 쓰셨습니다. 한국 시간 자정에 다시 열립니다.`
               + (내것.못읽음
                 ? ' (맡기신 개인 열쇠가 있는지 지금 확인하지 못했습니다 — 잠시 뒤 다시 해 보세요.)'
-                : ' 지금 바로 더 쓰시려면 **내 설정 › 개인 AI 열쇠**에 본인 열쇠를 등록하세요 —'
+                : ` 지금 바로 더 쓰시려면 ${열쇠메뉴}에 본인 열쇠를 등록하세요 —`
                   + ' 그 뒤로는 회사 몫과 상관없이 쓰실 수 있습니다.'),
-            하루한도: 한도, 오늘쓴횟수: 쓴횟수, 개인열쇠필요: !내것.못읽음,
+            limit: 'user_daily', 하루한도: 한도, 오늘쓴횟수: 쓴횟수, 개인열쇠필요: !내것.못읽음,
           }, cors);
         }
       }
@@ -1571,25 +1622,41 @@ export default {
     const upstreamUrl = baseUrl + '/' + m[2] + url.search;
 
     // 키 교대: 마지막으로 성공한 키부터 시작, 한도 초과/불량 키면 다음 키
-    const start = (keyCursor[m[1]] || 0) % keys.length;
-    let lastResp = null;
-    for (let i = 0; i < keys.length; i++) {
-      const idx = (start + i) % keys.length;
+    const 교대할 = (s) => s === 429 || s === 401 || s === 402 || s === 403;
+    const 보내기 = (열쇠) => {
       const headers = new Headers({ 'Content-Type': 'application/json' });
       // Claude 호출에 필요한 헤더는 브라우저가 보낸 것을 그대로 전달
       const av = request.headers.get('anthropic-version');
       if (av) headers.set('anthropic-version', av);
-      provider.auth(headers, keys[idx]);
-
+      provider.auth(headers, 열쇠);
+      return fetch(upstreamUrl, { method: 'POST', headers, body });
+    };
+    const 흘려보내기 = (resp) => {
+      const out = new Response(resp.body, resp);
+      Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
+      return 끝(out);
+    };
+    let 찼다 = null;   // v5.4: 429 로 돌려보낸 마지막 열쇠 { idx, 초, 글 } — 몸은 여기서 한 번 읽는다
+    const 찼다고적기 = async (resp, idx) => {
+      const 글 = await resp.text().catch(() => '');
+      찼다 = { idx, 초: 다시까지초(resp.headers, 글), 글 };
+      // 몸을 다시 싼다 — 제공자 머리(content-length·encoding)는 이미 읽은 글과 안 맞으니 옮기지 않는다(gemini 400 과 같은 꼴)
+      return new Response(글, { status: resp.status, headers: { 'Content-Type': resp.headers.get('Content-Type') || 'application/json' } });
+    };
+    const start = (keyCursor[m[1]] || 0) % keys.length;
+    let lastResp = null;
+    for (let i = 0; i < keys.length; i++) {
+      const idx = (start + i) % keys.length;
       let resp;
       try {
-        resp = await fetch(upstreamUrl, { method: 'POST', headers, body });
+        resp = await 보내기(keys[idx]);
       } catch (e) {
         lastResp = json(502, { error: 'upstream fetch failed: ' + (e.message || e) }, cors);
         돌림++;
         continue;
       }
-      if (resp.status === 429 || resp.status === 401 || resp.status === 402 || resp.status === 403) {
+      if (교대할(resp.status)) {
+        if (resp.status === 429) resp = await 찼다고적기(resp, idx);
         lastResp = resp; // 이 키 소진/불량/플랜 미설정(402) → 다음 키
         돌림++;
         continue;
@@ -1608,9 +1675,37 @@ export default {
         return 끝(out400);
       }
       keyCursor[m[1]] = idx; // 이 키가 살아있음
-      const out = new Response(resp.body, resp);
-      Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
-      return 끝(out);
+      return 흘려보내기(resp);
+    }
+    // v5.4(2026-09-26): 회사 열쇠가 한도(429)로 다 돌려보내면 groq 영어 원문(조직 id·유료 권유)이 직원 말풍선에
+    //   그대로 떴다. 🔑 개인 열쇠도 사람별 300 에만 걸려 있어 회사 몫이 마른 날엔 소용이 없었다(직원 시범 전 대조에서 발견).
+    //   ① 분당 한도(몇 초면 풀림)면 한 번 기다려 같은 열쇠로 — 잠은 CPU 가 아니라 벽시계만 쓴다
+    //   ② 맡긴 개인 열쇠가 있으면 한 번 — 장부는 k·ki/ko(사람별 300 을 넘긴 길과 같다)
+    //   ③ 그래도 안 되면 한국어 429 + limit:'company_quota'. 상태는 429 그대로 — 클라이언트는 다음 모델로 넘어간다.
+    //   413 은 여기 안 온다(교대 대상이 아니다 — 클라이언트가 줄여 다시 보낸다).
+    if (찼다 && !개인열쇠) {
+      if (찼다.초 !== null && 찼다.초 <= 6) {
+        await new Promise((r) => setTimeout(r, 찼다.초 * 1000));
+        const 다시 = await 보내기(keys[찼다.idx]).catch(() => null);
+        if (다시 && !교대할(다시.status)) { keyCursor[m[1]] = 찼다.idx; return 흘려보내기(다시); }
+        if (다시 && 다시.status === 429) await 찼다고적기(다시, 찼다.idx);
+      }
+      const 내것 = await 개인열쇠읽기(env, 누구.uid, m[1]);
+      if (내것.열쇠) {
+        개인열쇠 = 내것.열쇠;
+        const r = await 보내기(개인열쇠).catch(() => null);
+        if (r && !교대할(r.status)) return 흘려보내기(r);
+      }
+      const 초 = 찼다.초;
+      const 언제 = 초 === null ? '1분쯤' : 초 < 90 ? Math.max(1, 초) + '초쯤' : 초 < 5400 ? Math.ceil(초 / 60) + '분쯤' : Math.round(초 / 3600) + '시간쯤';
+      let 원문 = 찼다.글;
+      try { const j = JSON.parse(찼다.글); 원문 = (j.error && (j.error.message || j.error)) || 원문; } catch { /* JSON 이 아니면 글 그대로 */ }
+      return 끝(json(429, {
+        error: `회사 공용 AI 한도가 잠시 찼습니다. ${언제} 뒤 다시 물어봐 주세요.`
+          + (내것.열쇠 ? ' (맡기신 개인 열쇠로도 지금은 답을 받지 못했습니다.)'
+            : 내것.못읽음 ? '' : ` 기다리기 어려우면 ${열쇠메뉴}에 본인 열쇠를 등록하면 바로 이어서 쓰실 수 있습니다.`),
+        limit: 'company_quota', retryAfter: 초, upstream: String(원문).slice(0, 200),
+      }, cors));
     }
     // 모든 키 실패 — 마지막 응답을 그대로 전달 (플랫폼이 상태코드 보고 다음 회사로 넘어감)
     if (lastResp instanceof Response && !lastResp.headers.get('Access-Control-Allow-Origin')) {

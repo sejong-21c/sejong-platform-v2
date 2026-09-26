@@ -64,8 +64,10 @@ let 부른열쇠 = [];    // v4.1: 그때 **어떤 열쇠**로 나갔나 — 회
 let 장부고장 = false; // v4.9: 하루 읽기 한도가 찬 날 — 장부(readDaily)부터 429
 let 목록한도 = null;  // v4.9: 이 컬렉션 목록을 받다 429 가 난다(백업 도중 한도가 차는 날)
 let 읽기고장 = false; // v4.1: Firestore 읽기 한도가 찬 날(429) 을 흉내낸다
+let 사용자읽기고장 = false; // v5.4: users 문서 읽기가 429 인 날 — 경비 파일 문지기는 좁은 쪽으로 가야 한다
 let 커밋던짐 = false; // v5.3: Firestore 로 가는 fetch 자체가 던지는 날(서비스 계정 토큰 실패도 같은 길)
 let 제공자답 = null;  // v5.3: null 이면 200+usage. {status:413} 이면 그 상태, {sse:true} 면 SSE 로 답한다
+let 제공자차례 = [];  // v5.4: 호출마다 앞에서 하나씩 꺼내 제공자답 대신 쓴다 — {status, message, headers}. 비면 제공자답
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -85,7 +87,8 @@ globalThis.fetch = async (input, init) => {
     if (url.endsWith('/models')) return Response.json({ data: [] });   // v4.1: 열쇠 등록 때 한 번 불러 본다
     부른모델.push(url);
     // v5.3: 진짜 제공자처럼 usage 를 준다. 제공자답 으로 상태(413 등)·SSE 를 흉내낸다
-    if (제공자답 && 제공자답.status) return Response.json({ error: { message: 'mock ' + 제공자답.status } }, { status: 제공자답.status });
+    const 차례 = 제공자차례.length ? 제공자차례.shift() : 제공자답;
+    if (차례 && 차례.status) return Response.json({ error: { message: 차례.message || ('mock ' + 차례.status) } }, { status: 차례.status, headers: 차례.headers || {} });
     if (제공자답 && 제공자답.긴sse) {   // 9/26 검토: 조각 수천 개(≈ 1MB) — 조각마다 꼬리를 다시 복사하면 CPU 가 제곱으로 는다
       const 조각 = 'data: {"choices":[{"delta":{"reasoning":"' + '생각'.repeat(40) + '","content":"네"}}]}\n\n';
       let k = 0;
@@ -179,6 +182,7 @@ globalThis.fetch = async (input, init) => {
     }
     if (method === 'GET') {
       if (읽기고장 && path.startsWith('aiUserKeys/')) return new Response('quota', { status: 429 });
+      if (사용자읽기고장 && path.startsWith('users/')) return new Response('quota', { status: 429 });
       if (장부고장 && path.startsWith('readDaily/')) return new Response('quota', { status: 429 });
       if (!fsStore[path]) return new Response('{}', { status: 404 });
       return Response.json({ name: 'projects/x/databases/(default)/documents/' + path, fields: fsStore[path] });
@@ -545,6 +549,18 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
     JSON.stringify({ 전체: (d.matches || []).length, 기록: 기록것.length }));
   check('맥+기록: 맥 조각이 앞자리 — 맥락은 앞이 우선순위다', d.matches[0] && d.matches[0].docName === '맥규격');
 
+  // 9/26 직원 시범 전 대조: 파이스는 볼트(NAS 파일 카드)를 **맨 뒤에** 준다(규격 7 + 볼트 3).
+  //   꼬리를 자르면 기록이 한 자리만 가져가도 볼트부터 사라졌다 — 규격부터 줄여야 한다.
+  맥응답 = { 결과: [
+    ...Array.from({ length: 7 }, (_, i) => ({ 점수: 0.9 - i * 0.01, 문서: '맥규격', 머리: '맥머리', 글: '맥조각' + i })),
+    ...Array.from({ length: 3 }, (_, i) => ({ 점수: 0.6 - i * 0.01, 문서: 'NAS카드' + i, 글: '경로' + i, 출처: '볼트' })),
+  ] };
+  const dv = await (await 맥post({ query: '용접 육안검사 결함 확인', topK: 10 })).json();
+  const 볼트수 = (dv.matches || []).filter(m => m.kind === '볼트').length;
+  check('맥+기록 v5.4: 기록이 자리를 가져가도 볼트 카드는 살아남는다(규격 조각부터 줄인다)',
+    dv.source === 'pais+기록' && dv.기록 >= 1 && 볼트수 === 3 && dv.matches.length === 10,
+    JSON.stringify({ source: dv.source, 볼트: 볼트수, 전체: (dv.matches || []).length, 기록: dv.기록 }));
+
   // 반대 방향: 기록이 더 맞는 질문이면 기록이 자리를 더 가져가야 한다.
   //   "부적합 NCR 현황" 에서 NCR(0.59)이 상관없는 ASME(0.48)에 밀리던 것이 이 시험의 이유다.
   // 기록 색인에 여러 조각을 넣어 둔다 — 시험 저장소에 기본으로 든 게 한둘뿐이라 자리다툼이 안 된다
@@ -605,6 +621,9 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
     부른모델.length === 0, JSON.stringify(부른모델));
   check('한도: 직원이 읽고 뭘 해야 할지 아는 말이 온다 (횟수·언제 풀리는지)',
     /자정/.test(j4.error || '') && j4.하루한도 === 3 && j4.오늘쓴횟수 === 4, JSON.stringify(j4));
+  // 9/26 직원 시범 전 대조: 없는 메뉴('내 설정 › 개인 AI 열쇠')를 가리켰다. 받는 쪽은 한국어 대신 limit 칸으로 가른다.
+  check('한도 v5.4: limit=user_daily · 진짜 메뉴(오른쪽 위 내 이름 › 🔑 개인 AI 열쇠)를 가리킨다',
+    j4.limit === 'user_daily' && /오른쪽 위 내 이름 › 🔑 개인 AI 열쇠/.test(j4.error || '') && !/내 설정/.test(j4.error || ''), JSON.stringify(j4));
 
   커밋고장 = true;
   부른모델 = [];
@@ -978,6 +997,137 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   const 앞 = await worker.fetch(new Request('https://gw.test/v1/groq/chat/completions', { method: 'OPTIONS', headers: { Origin: 'https://sejong21c.com' } }), env);
   check('장부 v5.3: preflight 가 x-sj-feature 를 허용한다 (빠지면 AI 호출이 전부 죽는다)',
     /x-sj-feature/i.test(앞.headers.get('Access-Control-Allow-Headers') || ''), 앞.headers.get('Access-Control-Allow-Headers'));
+}
+
+// ── v5.4: 회사 몫이 마른 날(회사 열쇠가 전부 429) ─────────────
+// 왜: 2026-09-26 직원 시범 전 대조 — groq 영어 원문(조직 id·유료 권유)이 직원 말풍선에 그대로 떴고,
+//   🔑 개인 열쇠는 사람별 300 에만 걸려 있어 회사 몫이 마른 날엔 소용이 없었다.
+{
+  const 오늘 = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const KS = Buffer.from(wc.getRandomValues(new Uint8Array(32))).toString('base64');
+  const 하루치 = 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_TEST` service tier `on_demand` on tokens per day (TPD): '
+    + 'Limit 200000, Used 199000, Requested 3000. Please try again in 1m30s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing';
+  const 찬답 = (message, headers) => ({ status: 429, message, headers });
+  const 부르기 = async (토큰, { 열쇠들 = 'C1,C2', 경로 = '/v1/groq/chat/completions', 몸 = { model: 'x', messages: [] } } = {}) => {
+    const ps = [];
+    const r = await worker.fetch(new Request('https://gw.test' + 경로, { method: 'POST', headers: { Authorization: 'Bearer ' + 토큰, 'Content-Type': 'application/json' }, body: JSON.stringify(몸) }),
+      { ...env, GROQ_KEYS: 열쇠들, AI_DAILY_LIMIT: '300', KEY_SECRET: KS }, { waitUntil: (p) => ps.push(p) });
+    const 본문 = await r.text();
+    await Promise.all(ps);
+    return { r, 본문, j: (() => { try { return JSON.parse(본문); } catch { return {}; } })() };
+  };
+  const 수 = (email, f) => Number(((fsStore['aiUsageDaily/' + 오늘 + '_u_' + email] || {})[f] || {}).integerValue || 0);
+
+  // ① 열쇠를 안 맡긴 사람
+  const 갑 = await makeToken('quota1@sejong-21c.com');
+  제공자차례 = [찬답(하루치), 찬답(하루치)]; 부른열쇠 = [];
+  const a = await 부르기(갑);
+  제공자차례 = [];
+  check('회사 몫 v5.4: 회사 열쇠가 전부 429 면 한국어 429 + limit=company_quota (groq 영어 원문을 흘려보내지 않는다)',
+    a.r.status === 429 && a.j.limit === 'company_quota' && /회사 공용 AI 한도/.test(a.j.error || '') && !/org_|Upgrade/.test(a.j.error || ''), a.본문.slice(0, 160));
+  check('회사 몫 v5.4: 몇 초 뒤인지(retryAfter, 1m30s → 90) · 원문 앞 200자(upstream)는 따로 싣는다',
+    a.j.retryAfter === 90 && /^Rate limit reached/.test(a.j.upstream || '') && a.j.upstream.length <= 200 && /2분쯤 뒤/.test(a.j.error || ''),
+    JSON.stringify({ retryAfter: a.j.retryAfter, error: a.j.error }));
+  check('회사 몫 v5.4: 두 회사 열쇠를 다 돌아 본 뒤에 막고, 열쇠 맡기는 자리를 알려 준다 · 장부는 e429',
+    부른열쇠.length === 2 && 부른열쇠.includes('C1') && 부른열쇠.includes('C2') && /오른쪽 위 내 이름 › 🔑 개인 AI 열쇠/.test(a.j.error || '')
+    && 수('quota1@sejong-21c.com', 'o.e429') === 1 && 수('quota1@sejong-21c.com', 'k') === 0, JSON.stringify(부른열쇠));
+
+  // ② 열쇠를 맡긴 사람 — 사람별 300 을 안 넘었어도 회사 몫이 마르면 자기 열쇠로 한 번
+  const 을 = await makeToken('quota2@sejong-21c.com');
+  const 을열쇠 = 'gsk_' + 'q'.repeat(48) + 'QTA2';
+  await 부르기(을, { 경로: '/key/set', 몸: { 제공자: 'groq', 열쇠: 을열쇠 } });
+  제공자차례 = [찬답(하루치), 찬답(하루치)]; 부른열쇠 = [];
+  const b = await 부르기(을);
+  제공자차례 = [];
+  check('회사 몫 v5.4: 맡긴 개인 열쇠가 있으면 그걸로 한 번 더 — 답이 온다',
+    b.r.status === 200 && 부른열쇠.length === 3 && 부른열쇠[2] === 을열쇠, JSON.stringify(부른열쇠.map(k => k.slice(-4))));
+  check('회사 몫 v5.4: 그 호출은 장부에 k·ki/ko — 회사 몫(ti/to)에 안 섞는다(사람별 300 을 넘긴 길과 같다)',
+    수('quota2@sejong-21c.com', 'k') === 1 && 수('quota2@sejong-21c.com', 'ki') === 12 && 수('quota2@sejong-21c.com', 'ko') === 3
+    && 수('quota2@sejong-21c.com', 'ti.groq') === 0 && 수('quota2@sejong-21c.com', 'o.ok') === 1, JSON.stringify(fsStore['aiUsageDaily/' + 오늘 + '_u_quota2@sejong-21c.com']));
+
+  // ③ 맡긴 열쇠까지 막히면 — "등록하세요" 라고 하면 거짓말이다
+  제공자차례 = [찬답(하루치), 찬답(하루치), 찬답(하루치)];
+  const c = await 부르기(을);
+  제공자차례 = [];
+  check('회사 몫 v5.4: 맡긴 열쇠까지 429 면 company_quota — "등록하세요" 대신 맡긴 열쇠도 안 됐다고',
+    c.r.status === 429 && c.j.limit === 'company_quota' && /맡기신 개인 열쇠로도/.test(c.j.error || '') && !/등록하면/.test(c.j.error || ''), c.j.error);
+
+  // ④ 분당 한도(몇 초면 풀림)는 한 번 기다렸다 같은 열쇠로. 머리(retry-after)가 본문보다 먼저다(본문 7.5s 면 안 기다린다)
+  const 병 = await makeToken('quota3@sejong-21c.com');
+  제공자차례 = [찬답('Rate limit reached on tokens per minute (TPM): Limit 8000. Please try again in 7.5s.', { 'retry-after': '1' })]; 부른열쇠 = [];
+  const t0 = Date.now();
+  const d = await 부르기(병, { 열쇠들: 'C1' });
+  제공자차례 = [];
+  check('회사 몫 v5.4: 분당 한도(retry-after ≤ 6초)면 한 번 기다렸다 같은 열쇠로 — 답이 온다',
+    d.r.status === 200 && 부른열쇠.length === 2 && 부른열쇠.every(k => k === 'C1') && Date.now() - t0 >= 900,
+    JSON.stringify({ s: d.r.status, 부름: 부른열쇠, ms: Date.now() - t0 }));
+
+  // ⑤ 6초 넘게 기다려야 하면 안 기다린다(직원 쪽 40초 시간초과 안에서 논다)
+  제공자차례 = [찬답('Please try again in 7.5s.')]; 부른열쇠 = [];
+  const e = await 부르기(병, { 열쇠들: 'C1' });
+  제공자차례 = [];
+  check('회사 몫 v5.4: 6초 넘게 기다려야 하면 바로 429 (retryAfter 8 · "8초쯤 뒤")',
+    e.r.status === 429 && 부른열쇠.length === 1 && e.j.retryAfter === 8 && /8초쯤 뒤/.test(e.j.error || ''), JSON.stringify(e.j));
+
+  // ⑥ 413 은 손대지 않는다 — 줄여 다시 보내는 건 클라이언트 몫
+  제공자차례 = [{ status: 413 }]; 부른열쇠 = [];
+  const f = await 부르기(병);
+  제공자차례 = [];
+  check('회사 몫 v5.4: 413 은 그대로 413 (교대·개인 열쇠·limit 칸 없음)', f.r.status === 413 && 부른열쇠.length === 1 && !f.j.limit, f.본문.slice(0, 80));
+}
+
+// ── v5.4: 경비 파일(expense/)은 주인과 재무부만 ─────────────
+// 왜: 2026-09-26 직원 시범 전 대조 — /file/sign 이 로그인만 보고 아무 열쇠에나 서명했다. 열쇠는 사내 누구나 읽는
+//   t_expenseEntries 에 있으니 남의 영수증 사진이 열렸고, /file/put 으로는 덮어쓸 수도 있었다.
+{
+  const 파일통 = new Map();
+  const 파일env = { ...env, FILE_SIGN_KEY: 'test-sign-key', MIGRATE_TOKEN: 'SERVER-TOKEN-TEST',
+    FILES: { put: async (k, v) => { 파일통.set(k, v); }, get: async () => null, head: async () => null } };
+  const 서명 = async (토큰, keys) => (await worker.fetch(new Request('https://gw.test/file/sign', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + 토큰, 'Content-Type': 'application/json' }, body: JSON.stringify({ keys }) }), 파일env)).json();
+  const 올리기 = (토큰, 키) => worker.fetch(new Request('https://gw.test/file/put?key=' + encodeURIComponent(키), {
+    method: 'PUT', headers: { Authorization: 'Bearer ' + 토큰, 'Content-Type': 'image/jpeg' }, body: 'jpg' }), 파일env);
+  // 토큰 sub 가 'u_' + 이메일 → 거르면 @ 가 빠진다(messenger.js 와 같은 거름)
+  const 내것 = 'expense/inbox/u_staffsejong-21c.com_1727300000000.jpg';
+  const 남의것 = 'expense/inbox/u_othersejong-21c.com_1727300000000.jpg';
+  const 재무자리 = 'expense/E123/0.jpg';
+  const 딴것 = 'ncr/N1/0.jpg';
+  fsStore['users/u_fin@sejong-21c.com'] = { name: { stringValue: '재무담당' }, dept: { stringValue: '재무부' }, grade: { stringValue: 'member' } };
+  fsStore['users/u_boss@sejong-21c.com'] = { name: { stringValue: '임원' }, dept: { stringValue: '영업부' }, grade: { stringValue: 'exec' } };
+  fsStore['users/u_fsdown@sejong-21c.com'] = { name: { stringValue: '재무신입' }, dept: { stringValue: '재무부' }, grade: { stringValue: 'member' } };
+  const 재무 = await makeToken('fin@sejong-21c.com');
+  const 임원 = await makeToken('boss@sejong-21c.com');
+  const 모름 = await makeToken('fsdown@sejong-21c.com');
+
+  const s1 = await 서명(staffToken, [내것, 남의것, 재무자리, 딴것]);
+  check('경비 v5.4: 직원은 자기 영수증함과 경비 밖 파일만 서명받고, 남의 경비 파일은 denied 로 (한 장 때문에 다 막지 않는다)',
+    !!(s1.urls || {})[내것] && !!(s1.urls || {})[딴것] && !(s1.urls || {})[남의것] && !(s1.urls || {})[재무자리]
+    && (s1.denied || []).length === 2 && s1.denied.includes(남의것) && s1.denied.includes(재무자리), JSON.stringify({ urls: Object.keys(s1.urls || {}), denied: s1.denied }));
+  const s2 = await 서명(재무, [남의것, 재무자리, 'expense/logo.png']);
+  const s3 = await 서명(임원, [남의것]);
+  const s4 = await 서명(adminToken, [남의것]);
+  check('경비 v5.4: 재무부·exec·super 는 expense/ 전부 (index.html canSeeDept(\'재무부\') 와 같은 판정)',
+    Object.keys(s2.urls || {}).length === 3 && !s2.denied && !!(s3.urls || {})[남의것] && !!(s4.urls || {})[남의것], JSON.stringify({ s2, s3: s3.denied, s4: s4.denied }));
+  const s5 = await 서명('SERVER-TOKEN-TEST', [남의것, 재무자리]);
+  check('경비 v5.4: 서버 토큰(맥 배치)은 그대로 전부', Object.keys(s5.urls || {}).length === 2 && !s5.denied, JSON.stringify(s5.denied));
+
+  check('경비 v5.4: 직원은 자기 영수증함에는 올린다', (await 올리기(staffToken, 내것)).status === 200 && 파일통.has(내것));
+  const p남 = await 올리기(staffToken, 남의것), p재 = await 올리기(staffToken, 재무자리), p딴 = await 올리기(staffToken, 딴것);
+  check('경비 v5.4: 남의 영수증함·재무부 자리에는 못 올린다(덮어쓰기) — 경비 밖은 그대로',
+    p남.status === 403 && p재.status === 403 && !파일통.has(남의것) && !파일통.has(재무자리) && p딴.status === 200,
+    [p남.status, p재.status, p딴.status].join(','));
+  check('경비 v5.4: 재무부는 expense/ 어디든 올린다', (await 올리기(재무, 재무자리)).status === 200 && 파일통.has(재무자리));
+
+  // users 를 못 읽는 날(429): 재무부 사람이라도 확인 못 했으면 남의 것은 막는다. 자기 함은 users 없이도 된다.
+  사용자읽기고장 = true;
+  const 모름내것 = 'expense/inbox/u_fsdownsejong-21c.com_1727300000001.jpg';
+  const s6 = await 서명(모름, [모름내것, 남의것]);
+  const p6 = await 올리기(모름, 모름내것);
+  const p7 = await 올리기(모름, 남의것);
+  사용자읽기고장 = false;
+  check('경비 v5.4: users 를 못 읽는 날 — 남의 경비 파일은 막고(fail closed) 자기 영수증함은 된다',
+    !!(s6.urls || {})[모름내것] && (s6.denied || []).includes(남의것) && p6.status === 200 && p7.status === 403,
+    JSON.stringify({ urls: Object.keys(s6.urls || {}), denied: s6.denied, p6: p6.status, p7: p7.status }));
 }
 
 let fails = 0;
