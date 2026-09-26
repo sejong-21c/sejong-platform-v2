@@ -301,8 +301,16 @@ await T('기록 물음 — 줄여도 기록 조각(kind ncr·car…)이 규격�
   assert.deepEqual(기록.남은조각, [0, 7, 8, 9], `기록 셋이 다 남고 남는 자리는 규격 1위: ${기록.남은조각}`);
   const 규격 = 맥락맞추기(문서조각(규격기록, '압력용기 수압시험 몇 배야?'), 자리);
   assert.deepEqual(규격.남은조각, [0, 1, 2, 3], `규격 물음은 전과 같이 규격이 먼저: ${규격.남은조각}`);
-  // 볼트는 기록이 아니다 — 기록 물음이라도 볼트는 전처럼(파일 물음이 아니면 뒤)
-  assert.deepEqual(문서순([{ kind: '' }, { kind: '볼트' }, { kind: 'ncr' }], 'NCR 원인'), [0, 1, -1]);
+  // 같은 날 검토: 관문은 기록에 일곱 자리(topK-3)까지 주고 파이스는 세 자리(규격 2 + 볼트 1)만 받는 날이 있다.
+  //   기록 말이 섞인 규격 물음('ISO 9001 시정조치 요구사항')에 기록을 다 지키면 규격이 0 이 됐다 — 규격 1위는 남아야 한다.
+  const 관문최악 = [규격기록[0], 규격기록[1], { docName: '볼트 0', kind: '볼트', text: 규격기록[0].text },
+    ...Array.from({ length: 7 }, (_, i) => ({ docName: '[자동] CAR ' + i, kind: 'car', recId: 'C' + i, text: 규격기록[7].text }))];
+  for (const q of ['ISO 9001 시정조치 요구사항이 뭐야?', 'KGS 부적합 판정 기준', 'ASME 검사 결과 기록 보존 기간']) {
+    const r = 맥락맞추기(문서조각(관문최악, q), 자리);
+    assert.ok(r.남은조각.includes(0), `${q} — 규격 1위가 빠졌다: ${r.남은조각}`);
+  }
+  // 볼트는 기록이 아니다 — 기록 물음이라도 볼트는 전처럼(파일 물음이 아니면 뒤). 규격 1위는 바닥(i - 2n)
+  assert.deepEqual(문서순([{ kind: '' }, { kind: '볼트' }, { kind: 'ncr' }], 'NCR 원인'), [-6, 1, -1]);
 });
 await T('messenger.js AI맥락 이 문서 조각에 문서순을 싣는다(빠지면 볼트가 다시 제일 먼저 빠진다)', () => {
   const m = readFileSync(new URL('../modules/messenger/messenger.js', import.meta.url), 'utf8');
