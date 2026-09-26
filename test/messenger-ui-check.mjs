@@ -326,7 +326,8 @@ try {
   확인('AI 답변에 출처 표시', /품질매뉴얼/.test(ai상세.출처 || ''), String(ai상세.출처));
   확인('남의 AI 대화는 안 보인다', !ai상세.남의것, 'uid 가 나인 문서만 구독해야 한다');
   // hidden 속성만 보면 안 된다 — CSS 가 이기면 속성은 붙어 있는데 화면엔 버튼이 그대로 보인다(실제로 한 번 그랬다).
-  확인('AI 방은 1단계에서 첨부 숨김(실제로 안 보임)', ai상세.첨부숨김 === 'none', String(ai상세.첨부숨김));
+  // 2026-09-22 부터 AI 방 첨부 = "읽어 달라"(영수증 OCR) — 보여야 한다. b31 의 "1단계에선 숨김" 기대가 그 뒤로 늘 실패로 남아 있었다(9/26 발견).
+  확인('AI 방은 첨부 단추가 실제로 보인다(영수증 읽기)', ai상세.첨부숨김 !== 'none', String(ai상세.첨부숨김));
   확인('AI 방 입력창 안내문', ai상세.안내 === 'AI 비서에게 물어보기', String(ai상세.안내));
   const before = await 안(`return { ai: fake.all('t_aiChat').length, msg: fake.writes.filter(x=>x.col==='messages').length };`);
   await 치기('#msgInput', '검사용 질문');

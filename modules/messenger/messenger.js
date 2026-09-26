@@ -20,12 +20,12 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 // ?v= 를 꼭 붙인다. 안 붙이면 messenger.js 만 새로 받고 lib.js·ai.js 는 브라우저 캐시(깃허브 페이지 10분)의
 // 옛 파일이 그대로 쓰인다 — 2026-09-18 실제로 그랬다(AI 제공자 목록을 고쳤는데 옛 오류가 계속 나왔다).
 // import 는 정적이라 import.meta 로 만들 수 없어 숫자를 손으로 맞춘다. 어긋나면 test/pwa-w1.test.mjs 가 잡는다.
-import { 에뮬붙이기 } from '../shared/emu.mjs?v=b115';
-import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b115';
+import { 에뮬붙이기 } from '../shared/emu.mjs?v=b116';
+import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b116';
 import { 틀붙이기 } from '../shared/frame-fs.mjs?v=f1';
-import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b115';
-import * as L from './lib.js?v=b115';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b115';
+import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b116';
+import * as L from './lib.js?v=b116';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 날짜말풀기, 답하기, 문서순, 범위못봄, 범위못봄알림, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b116';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -73,7 +73,7 @@ if (window.parent === window) {
 // 서비스워커가 같은 출처 정적 파일을 ignoreSearch 로 맞추기 때문에, 캐시에서 온 응답의 URL 에는 ?v= 가 없다.
 // 그래서 import.meta.url 만 믿으면 '나' 탭에 버전이 'dev' 로 찍힌다(실제로 그랬다). 아래 상수를 먼저 쓴다.
 // 이 숫자도 캐시 버스터와 같이 올려야 한다 — test/pwa-w1.test.mjs 가 어긋나면 잡는다.
-const 빌드 = 'b115';
+const 빌드 = 'b116';
 const 버전 = new URL(import.meta.url).searchParams.get('v') || 빌드;
 const 독립실행 = (window.parent === window);   // iframe 이 아니면 홈 화면 앱 또는 직접 열기
 const MSG_FILE_MAX_MB = 25;
@@ -897,11 +897,14 @@ async function 경비로등록(m, 고른, 단추) {
     }
     // id 를 메시지에 묶는다(9/26) — 예전엔 누를 때마다 무작위 id 라 두 번 누르면 두 건이 됐다.
     //   이제 두 번째 setDoc 은 같은 문서의 update 이고, 규칙이 직원의 update 를 거부한다.
-    const id = 'M_' + m.id + (고른 == null ? '' : '_' + 고른);
+    //   금액 후보를 골라도 같은 id — 영수증 한 장은 한 건이다(후보마다 id 가 달라 다른 후보를 또 누르면 두 건이 됐다).
+    const id = 'M_' + m.id;
     // 재무부가 누구 영수증인지 알게 이름을 앞에 붙인다(올린이는 uid 라 화면에 안 보인다).
     const 이름 = (userMap.get(me()) || {}).name || '';
-    let 이미 = false;
-    try {
+    // 재무부·임원은 규칙상 update 가 된다 — 올림 표시 저장이 실패했거나 다른 기기에서 또 누르면 두 번째 setDoc 이
+    //   재무부가 맞춘 카드·고친 금액을 통째로 덮었다. 이미 있으면 쓰지 않는다(누를 때 읽기 1회 · 못 읽으면 아래 규칙이 막는다).
+    let 이미 = await fb.getDoc(fb.doc(fb.db, 't_expenseEntries', id)).then((s) => s.exists()).catch(() => false);
+    if (!이미) try {
       await fb.setDoc(fb.doc(fb.db, 't_expenseEntries', id), plain({
         id,
         date: 날,

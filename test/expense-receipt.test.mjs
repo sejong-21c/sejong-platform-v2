@@ -113,6 +113,21 @@ await T('거부 + 제 문서가 정말 있으면 「이미 올린 영수증」 �
   assert.strictEqual(r.올림 && r.올림.id, 'M_a9');
   assert.ok(r.쓴것.some(([경로, 값]) => 경로 === 't_aiChat/a9' && 값.영수증.올림), '메시지에 올림 표시를 안 썼다');
 });
+// 재무부·임원은 update 가 허용된다 — 두 번째 누름이 재무부가 고친 내역을 덮으면 안 된다(9/26 남은 것).
+await T('**재무부가 또 눌러도 이미 있는 내역을 덮지 않는다** · 금액 후보를 골라도 id 는 M_<메시지id> 하나', async () => {
+  const 쓴것 = [], 토스트들 = [];
+  const fb = { db: {}, doc: (db, c, d) => c + '/' + d,
+    getDoc: async (경로) => (경로 === 't_expense/lock' ? { exists: () => false, data: () => ({}) } : { exists: () => true }),
+    setDoc: async (경로, 값) => { 쓴것.push([경로, 값]); } };            // 재무부: 규칙이 무엇이든 받아 준다
+  const m = { id: 'a9', 영수증: { 금액후보: [{ 총금액: 1000 }, { 총금액: 2000 }], 거래일시: '2026-09-26' } };
+  const f = new Function('getFB', '토스트', '영수증날짜', 'userMap', 'me', 'plain', '$', 'CSS', 'renderMessages', '영수증버튼', 'AI_컬렉션', '올리는중',
+    등록소스 + '\nreturn 경비로등록;')(() => fb, (t) => 토스트들.push(t), () => '2026-09-26', new Map(), () => 'u1', (o) => o,
+    () => null, { escape: String }, () => {}, () => '', 't_aiChat', new Set());
+  await f(m, 1, null);
+  assert.ok(!쓴것.some(([경로]) => 경로.startsWith('t_expenseEntries/')), '있는 내역을 또 썼다: ' + JSON.stringify(쓴것.map((x) => x[0])));
+  assert.ok(토스트들.join(' ').includes('이미 올린 영수증'), 토스트들.join(' | '));
+  assert.strictEqual(m.영수증.올림 && m.영수증.올림.id, 'M_a9', '후보를 골랐는데 id 가 M_a9 가 아니다');
+});
 await T('경비로등록: 사용 내역 앞에 올린 사람 이름', () => assert.ok(/usage: \[이름, r\.덧말 \|\| r\.상호\]/.test(등록소스)));
 await T('경비로등록: 날짜를 맞춘 뒤 검사하고, 못 읽으면 메모에 남긴다', () => {
   assert.ok(/const 날 = 영수증날짜\(r\.거래일시\)/.test(등록소스));
