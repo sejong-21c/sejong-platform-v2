@@ -532,7 +532,7 @@ table .ctr { text-align:center; }
       <div><label>사용 카드 (자동 인식되는 모든 영수증에 적용)</label>
         <select id="ai-card" style="width:280px;"></select>
       </div>
-      <button class="btn" onclick="맥인식()" id="ai-mac-btn" title="맥미니 붙박이 OCR — API 키 없이, 자료가 사내를 안 벗어납니다">🖥 맥으로 인식 (키 없이)</button>
+      <button class="btn" onclick="맥인식()" id="ai-mac-btn" title="맥미니 붙박이 OCR — API 키 없이, 영수증 그림을 클라우드 AI로 보내지 않습니다">🖥 맥으로 인식 (키 없이)</button>
       <button class="btn sec" onclick="clearAIPending()">초기화</button>
     </div>
     <div id="ai-status" style="font-size:12px; color:#1e3a8a; margin-top:6px;"></div>
@@ -1240,7 +1240,8 @@ function smartMatchCard(rec){
 // ===== 맥으로 인식 (2026-09-23) =====
 // 왜 이 길을 더했나: 옛 AI 인식은 **개인 Claude·Gemini API 키**로 브라우저에서 바로 불렀고, 회사
 //   영수증 그림이 그 회사 서버로 나갔다. 맥미니에 붙박이 OCR(Apple Vision)이 있고 실측 0.4초다 —
-//   요금도 하루 한도도 없고 재무 자료가 사내를 벗어나지 않는다.
+//   요금도 하루 한도도 없고 재무 자료가 클라우드 모델로 가지 않는다.
+//   ("사내를 안 벗어난다"고 쓰지 말 것 — 그림은 Cloudflare 게이트웨이를 거쳐 맥으로 간다. b14 에서 고쳤다.)
 //   옛 길(runAIRecognition·callClaude·callGemini)은 2026-09-26 걷어냈다 — 게이트웨이를 안 거쳐
 //   사용량 장부(aiUsageDaily)에 안 잡히는 직접 호출이었고, 부르는 곳이 한 군데도 없었다.
 // **금액은 맥에서 코드가 푼다.** 모델에게 검산을 시켰더니 63,637+363=64,000 으로 틀린 쪽을
