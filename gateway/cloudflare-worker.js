@@ -417,10 +417,14 @@ async function handleRag(request, env, path, cors) {
           const 이긴기록 = 기록.filter((r) => (r.score || 0) > 문턱).length;
           const 뒤 = 기록.slice(0, Math.min(기록.length, Math.max(1, topK - 3), Math.max(1, 이긴기록)));
           // 파이스는 규격 조각을 앞에, 볼트(NAS 파일 카드)를 **맨 뒤에** 준다(규격 7 + 볼트 3). 꼬리를 자르면
-          //   기록이 한 자리만 가져가도 볼트부터 사라졌다(2026-09-26 직원 시범 전 대조에서 발견) — 규격부터 줄인다.
+          //   기록이 한 자리만 가져가도 볼트부터 사라졌다(2026-09-26 직원 시범 전 대조에서 발견).
+          //   거꾸로 볼트를 다 살리면 기록이 일곱 자리를 가져간 날 맥 세 자리가 볼트 셋 = 규격 0 이 된다(같은 날 검토에서 발견).
+          //   그래서 파이스 server.js 와 같은 몫(자리의 1/3, 최소 1)으로 가르고 남는 자리는 서로 메운다.
           const 자리 = topK - 뒤.length;
-          const 볼트 = 맥것.filter((m) => m.kind === '볼트').slice(0, 자리);
-          const 앞 = [...맥것.filter((m) => m.kind !== '볼트').slice(0, 자리 - 볼트.length), ...볼트];
+          const 볼트것 = 맥것.filter((m) => m.kind === '볼트');
+          const 볼트몫 = Math.min(볼트것.length, Math.max(1, Math.round(자리 / 3)), 자리);
+          const 규격 = 맥것.filter((m) => m.kind !== '볼트').slice(0, 자리 - 볼트몫);
+          const 앞 = [...규격, ...볼트것.slice(0, 자리 - 규격.length)];
           return json(200, { matches: [...앞, ...뒤], source: 'pais+기록', 범위, 기록: 뒤.length, 진단: { 문턱, 이긴기록, 맥수: 맥것.length, 기록수: 기록.length, 기록점수: 기록.slice(0, 5).map((r) => r.score) } }, cors);
         } catch (e) {
           // 기록 색인이 잠깐 안 되더라도 규격 답은 그대로 나가야 한다.

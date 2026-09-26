@@ -574,6 +574,20 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
   check('맥+기록: 그래도 맥 몫 두 자리는 남긴다', (d3.matches || []).length - 기록3 >= 2,
     JSON.stringify({ 맥: (d3.matches || []).length - 기록3 }));
 
+  // 9/26 검토: 볼트를 다 살리면 기록이 일곱 자리를 가져간 날 맥 세 자리가 볼트 셋 = 규격 0 이 됐다.
+  //   파이스와 같은 몫(1/3, 최소 1)으로 — 규격도 볼트도 한 자리 이상.
+  await post('/rag/upload', adminToken, { docName: '기록뭉치2', chunks: ['용접 육안검사 결함 확인 기록 추가 0', '용접 육안검사 결함 확인 기록 추가 1'] });
+  맥응답 = { 결과: [
+    ...Array.from({ length: 7 }, (_, i) => ({ 점수: 0.01 - i * 0.001, 문서: '맥규격', 머리: '맥머리', 글: '맥조각' + i })),
+    ...Array.from({ length: 3 }, (_, i) => ({ 점수: 0.02 - i * 0.001, 문서: 'NAS카드' + i, 글: '경로' + i, 출처: '볼트' })),
+  ] };
+  const d7 = await (await 맥post({ query: '용접 육안검사 결함 확인', topK: 10 })).json();
+  const 규격7 = (d7.matches || []).filter(m => m.docName === '맥규격').length;
+  const 볼트7 = (d7.matches || []).filter(m => m.kind === '볼트').length;
+  check('맥+기록 v5.4: 기록이 일곱 자리를 가져가도 규격 조각이 남는다(볼트는 1/3 몫)',
+    d7.기록 === 7 && 규격7 === 2 && 볼트7 === 1,
+    JSON.stringify({ 기록: d7.기록, 규격: 규격7, 볼트: 볼트7 }));
+
   // 맥이 꺼진 날에도 기록 색인으로는 답해야 하고, 물러섰다는 사실이 응답에 남아야 한다
   맥응답 = null;                      // fetch 모의가 500 을 낸다
   const r2 = await 맥post({ query: '용접 육안검사 결함 확인', topK: 10 });
