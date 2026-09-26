@@ -9508,7 +9508,9 @@ function approval() {
 function openItpApprovalDoc(aid) {
   const a = (state.approvals || []).find(x => x.id === aid);
   if (!a || !a.projId) return;
-  const qs = new URLSearchParams({ pid: a.projId });
+  // v= 빌드 번호를 꼭 붙인다(v3.8 관례) — 없으면 브라우저가 옛 itp-builder.html 캐시를 계속 준다.
+  //   다른 진입점(프로젝트 목록·openDraftTool)은 붙이는데 여기만 빠져 있었다(2026-09-26, c50 배포 때 발견).
+  const qs = new URLSearchParams({ pid: a.projId, v: ITPBUILDER_BUILD });
   if (a.itemId) qs.set('iid', a.itemId);
   if (a.itemTag) qs.set('tag', a.itemTag);
   window.open('modules/itp-builder/itp-builder.html?' + qs.toString(), '_blank', 'noopener');
@@ -9516,7 +9518,8 @@ function openItpApprovalDoc(aid) {
 // 교정 견적의뢰서 — measurement-tools.html이 결재문서(approvals)에 저장해둔 정보로
 // 문서를 재구성해서 보여준다(딥링크: ?calReqId=<approvalId>).
 function openCalibRequestDoc(aid) {
-  window.open('modules/measurement-tools/measurement-tools.html?calReqId=' + encodeURIComponent(aid), '_blank', 'noopener');
+  // v= 는 iframe 진입(MTOOLS_BUILD)과 같게 — 빠지면 결재에서 열 때만 옛 캐시본이 뜬다(2026-09-26).
+  window.open('modules/measurement-tools/measurement-tools.html?calReqId=' + encodeURIComponent(aid) + '&v=' + MTOOLS_BUILD, '_blank', 'noopener');
 }
 // v30.x: 결재문서는 "승인완료"인데 ITP 조회엔 미승인으로 남는 사고 복구용 —
 // decideApproval의 ITP 스탬프 쓰기가 (예: Firestore 규칙 문제로) 조용히 실패했던
