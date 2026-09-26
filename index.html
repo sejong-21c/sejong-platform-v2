@@ -1575,7 +1575,7 @@ const QADASH_BUILD = 'b32'; // b32: 도구 화면 가려지면 쉬기·읽기 �
 // v3.8 fix — itp-builder.html / qa-doc-generator.html은 이 버전 번호 관례가 아예 빠져있었음.
 // 그래서 서버는 배포됐어도 브라우저가 예전 캐시를 계속 그대로 보여주는 문제가 있었음 (실사용자
 // 리포트로 확인: 서버 파일은 최신인데 며칠이 지나도 화면이 안 바뀜). WBS_BUILD와 동일한 관례로 추가.
-const ITPBUILDER_BUILD = 'c49'; // c49: 도구 화면 가려지면 쉬기·읽기 계량(shared/frame-fs.mjs, 9/26) · c48: 결재 도장표에 개인 서명 이미지 지원(등록 시 도장 대신 서명 표시)
+const ITPBUILDER_BUILD = 'c50'; // c50: AI 파싱을 회사 게이트웨이(/v1/claude/messages, 장부 기능 'itp')로 — 개인 키로 api.anthropic.com 을 바로 부르던 것(장부 밖) · 모델 Sonnet 4(단종 예정) → Sonnet 5 · 🔑 API 키 버튼 삭제 · c49: 도구 화면 가려지면 쉬기·읽기 계량(shared/frame-fs.mjs, 9/26) · c48: 결재 도장표에 개인 서명 이미지 지원(등록 시 도장 대신 서명 표시)
 const QADOC_BUILD = 'c26'; // c26: 도구 화면 가려지면 쉬기·읽기 계량(shared/frame-fs.mjs, 9/26) · c25: WPS·용접사·검사자 목록 5초 폴링 → 문서 구독(9/26 읽기 누수 후보) · c24: 클라우드 강제 불러오기 버튼(+pid 진단)
 const MTOOLS_BUILD = 'b14'; // b14: 도구 화면 가려지면 쉬기·읽기 계량(shared/frame-fs.mjs, 9/26) · b13: 결재 도장표에 개인 서명 이미지 지원(등록 시 도장 대신 서명 표시)
 // v30.16: 로그인 화면 배경 영상 경로. 비어 있으면 <video>를 렌더하지 않고 이미지 2컷 모션만 쓴다(불필요한 404 없음).
@@ -8696,7 +8696,7 @@ async function loadAiUsage(새로) {
   const 모아 = (칸) => { const t = {}; 줄.forEach(r => Object.entries(r[칸] || {}).forEach(([k, v]) => { t[k] = (t[k] || 0) + 수(v); })); return t; };
   const 이름 = (email) => { const u = (state.users || []).find(x => x.email && email && x.email.toLowerCase() === String(email).toLowerCase()); return u ? `${u.name} ${u.title || ''}`.trim() : (email || '(미확인)'); };
   const 칸말 = k => /^_[0-9]/.test(k) ? k.slice(1) : k;   // 게이트웨이가 숫자로 시작하는 이름 앞에 _ 를 붙였다(_9router)
-  const 기능말 = { msg_chat: '메신저 대화', msg_sql: '메신저 표 질문(SQL)', assistant: 'AI 비서(옛 패널)', meeting: '회의록', car: 'CAR 요약', qatrend: '품질 경향 보고서', none: '표시 없음(옛 화면·캐시)', etc: '기타' };
+  const 기능말 = { msg_chat: '메신저 대화', msg_sql: '메신저 표 질문(SQL)', assistant: 'AI 비서(옛 패널)', meeting: '회의록', car: 'CAR 요약', qatrend: '품질 경향 보고서', itp: 'ITP 도면·문서 분석', none: '표시 없음(옛 화면·캐시)', etc: '기타' };
   const 결과말 = { ok: '성공', e413: '413 너무 김(무료 8천 토큰)', e429: '429 제공자 한도', lim: '하루 한도(회사 몫)', e4xx: '4xx 기타', e5xx: '5xx·연결 실패', cfg: '설정 없음(501)' };
 
   const barRow = ([k, v], max, 색) => `
@@ -9911,7 +9911,7 @@ window.addEventListener('resize', () => {
 </script>
 <!-- v30.13(점검 B2): defer — 119KB 파싱이 HTML 파싱·첫 화면 표시를 막지 않게.
      이 파일 뒤에 오는 인라인 스크립트(lucide 옵저버)는 AI 함수를 참조하지 않으므로 순서 안전. -->
-<script defer src="modules/ai-assistant/ai-assistant.js?v=29.82.0"></script>
+<script defer src="modules/ai-assistant/ai-assistant.js?v=29.82.1"></script>
 <script>
 // v30 디자인: innerHTML이 갱신될 때마다 <i data-lucide>를 SVG 아이콘으로 자동 변환.
 // 렌더 함수가 수십 곳이라 개별 호출 대신 body 전체를 관찰(80ms 디바운스) — 이미 변환된 svg는 재처리 안 됨.

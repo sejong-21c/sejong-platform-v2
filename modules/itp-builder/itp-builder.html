@@ -341,7 +341,7 @@ body {
 .cowork-info-title { font-weight: 700; color: var(--sjp-primary); margin-bottom: 2px; }
 .cowork-info-sub { color: var(--sjp-text-sub); font-size: 10px; line-height: 1.5; }
 
-/* v1.7 — API 키 입력 모달 */
+/* 모달 공통 (v1.7 API 키 입력 모달에서 시작 — 그 모달은 c50 에서 없앴고, 결재선·복사·이력 모달이 쓴다) */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.35);
   display: flex; align-items: center; justify-content: center; z-index: 1000;
@@ -563,13 +563,19 @@ const DEF_ITEM = {
   dwgUrl:null, dwgName:""
 };
 
-// ════════ 2. AI 파싱 (v1.7 — 접속자 본인의 Claude API 키로 브라우저에서 직접 호출) ════════
-// 이 저장소(GitHub Pages)는 정적 파일만 서빙하므로 서버 프록시가 없다. 각 사용자가 자신의
-// Anthropic API 키를 브라우저 localStorage에 넣어두면, 그 브라우저에서만 api.anthropic.com을
-// 직접 호출한다. 키는 이 파일이나 git에 절대 저장되지 않고 사용자 로컬에만 남는다.
-const API_KEY_LS = "sjp_claude_api_key";
-const getApiKey = () => { try { return localStorage.getItem(API_KEY_LS) || ""; } catch(e) { return ""; } };
-const setStoredApiKey = (k) => { try { if (k) localStorage.setItem(API_KEY_LS, k); else localStorage.removeItem(API_KEY_LS); } catch(e){} };
+// ════════ 2. AI 파싱 — 회사 게이트웨이 경유 (c50, 2026-09-26) ════════
+// 예전(v1.7~c49)에는 접속자 본인의 Claude API 키(localStorage)로 브라우저가 api.anthropic.com 을
+// **직접** 불렀다. 그 길은 게이트웨이를 안 거쳐 사용량 장부(aiUsageDaily)에 안 잡히고 하루 한도도
+// 안 걸렸다. 이제 로그인 토큰을 붙여 게이트웨이 /v1/claude/messages 로 보낸다 — 회사 Claude 키
+// (CLAUDE_KEYS)로 나가고 장부에 기능 'itp' 로 남는다. 게이트웨이에 회사 키가 없으면 501 이 온다
+// → 오류 문구가 claude.ai 붙여넣기(PasteBox)로 안내한다.
+// 개인 키 입력(🔑 API 키) 버튼은 없앴다. 저장돼 있던 sjp_claude_api_key 는 **지우지 않는다** —
+// AI 비서가 같은 자리를 자기 개인 키로 읽는다(ai-assistant.js CLAUDE_KEY_LS).
+const AI_GATEWAY_DEFAULT = "https://sejong-ai-gateway.cwkim-65d.workers.dev";
+const aiGatewayUrl = () => {
+  try { return (localStorage.getItem("sjp_ai_gateway_url") || "").trim().replace(/\/+$/, "") || AI_GATEWAY_DEFAULT; }
+  catch(e) { return AI_GATEWAY_DEFAULT; }
+};
 const fileToBase64 = (file) => new Promise((res, rej) => {
   const r = new FileReader();
   r.onload = () => res(r.result.split(",")[1]);
@@ -583,21 +589,23 @@ const extractJSON = (text) => {
   return JSON.parse(m[0]);
 };
 const callAPI = async (body) => {
-  const key = getApiKey();
-  if (!key) throw new Error("Claude API 키가 설정되지 않았습니다 — 우측 상단 🔑 API 키에서 입력해주세요.");
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  await waitForFbAuth();   // 게이트웨이는 v3.4 부터 모든 호출에 회사 로그인 토큰을 요구한다
+  const token = await fb.auth.currentUser.getIdToken();
+  const r = await fetch(aiGatewayUrl() + "/v1/claude/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": key,
+      "Authorization": "Bearer " + token,
       "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
+      "x-sj-feature": "itp"   // 기능 칸: 게이트웨이 장부 v5.3
     },
     body: JSON.stringify(body)
   });
   if (!r.ok) {
     const e = await r.json().catch(()=>({}));
-    throw new Error(e.error?.message || `API ${r.status}`);
+    if (r.status === 501) throw new Error("회사 게이트웨이에 Claude 키가 아직 등록되지 않았습니다 — 관리자에게 요청하시거나, '📋 자동 분석이 안 될 때 — claude.ai 결과 붙여넣기'를 쓰세요.");
+    // 게이트웨이 자체 오류(로그인·하루 한도 429)는 error 가 글자, Anthropic 이 돌려준 오류는 error.message
+    throw new Error((typeof e.error === "string" ? e.error : e.error?.message) || `API ${r.status}`);
   }
   return r.json();
 };
@@ -1072,14 +1080,14 @@ function EPCSlots({jobNo}){
   )}</div>;
 }
 
-// v1.8 — API 키 없이도 쓸 수 있는 대안: claude.ai(이미 쓰고 있는 계정)에 PDF와 프롬프트를
+// v1.8 — 자동 분석이 안 될 때의 대안(c50: 게이트웨이에 회사 Claude 키가 없을 때 등): claude.ai(이미 쓰고 있는 계정)에 PDF와 프롬프트를
 // 직접 올려서 받은 JSON 결과를 붙여넣기만 하면 동일하게 반영됨. 별도 API 과금 없음.
 function PasteBox({kind, targetItemId, prompt, onApply, onCopyPrompt}){
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   return <div style={{marginTop:6}}>
     {!open
-      ? <button onClick={()=>setOpen(true)} className="btn-secondary" style={{fontSize:10}}>📋 API 키 없이 — claude.ai 결과 붙여넣기</button>
+      ? <button onClick={()=>setOpen(true)} className="btn-secondary" style={{fontSize:10}}>📋 자동 분석이 안 될 때 — claude.ai 결과 붙여넣기</button>
       : <div style={{border:"1px dashed var(--sjp-border-strong)", borderRadius:5, padding:8, marginTop:4}}>
           <div style={{fontSize:9.5, color:"var(--sjp-text-sub)", marginBottom:6, lineHeight:1.5}}>
             1) claude.ai 대화창에 이 PDF와 아래 프롬프트를 함께 올려서 물어보세요 → 2) 받은 JSON을 그대로 복사해 아래에 붙여넣고 "적용"을 누르세요.
@@ -1635,7 +1643,6 @@ function App(){
   // v1.3 — AI Provider 상태 제거 (Cowork 연동 대기)
   const [msg, setMsg] = useState("");
   const [parsing, setParsing] = useState(null);
-  const [showKeyModal, setShowKeyModal] = useState(false);
   // v3.3: ITP 결재선 지정 모달 상태. null=닫힘. 열리면 {users, pmUid, projCode, projName, includeReview, reviewerUid, approverUid}
   const [appvModal, setAppvModal] = useState(null);
   // v1.8: 프로젝트 태그 선택 가져오기 모달. null=닫힘. {list:[{id,tag,type,spec,name,already}], checked:{[tag]:bool}}
@@ -1644,7 +1651,6 @@ function App(){
   const [copyModal, setCopyModal] = useState(null);
   // v2.0: 다중태그 도면 확인 모달. null=닫힘. {tags:[], note, spec, dwgUrl, dwgName, existing:Set}
   const [sharedDwgModal, setSharedDwgModal] = useState(null);
-  const [keyInput, setKeyInput] = useState(() => getApiKey());
 
   // v1.3 — sjp-bridge.js 외부 의존성 제거 (안전한 optional chaining 유지)
   useEffect(() => {
@@ -1955,7 +1961,7 @@ function App(){
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // v1.8 — 파싱 결과를 상태에 반영하는 부분을 분리. API 키로 자동 호출하든, claude.ai에서
+  // v1.8 — 파싱 결과를 상태에 반영하는 부분을 분리. 게이트웨이로 자동 호출하든(c50), claude.ai에서
   // 수동으로 받은 JSON을 붙여넣든 동일한 로직으로 반영한다.
   const applyParsedResult = (kind, parsed, targetItemId=null, fileMeta=null) => {
     if (kind === "project") {
@@ -2123,7 +2129,7 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
 "type" must be one of: ${JSON.stringify(ITYPES)}. Use "" / false / [] for anything unreadable — do not guess or invent values.`;
   };
 
-  // v1.7 — 접속자 본인 API 키로 실제 AI 파싱 수행 (WO/시방서/견적서/도면)
+  // v1.7 — 실제 AI 파싱 수행 (WO/시방서/견적서/도면). c50 부터 회사 게이트웨이 경유(callAPI 참고).
   const handleFile = async (file, kind, targetItemId=null) => {
     const kindLabel = kind==="project"?"프로젝트 문서":kind==="wo"?"Work Order":kind==="spec"?"시방서":kind==="quote"?"견적서":"도면";
     setParsing(kind);
@@ -2135,10 +2141,16 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       const blockType = isPdf ? "document" : "image";
       const prompt = buildParsePrompt(kind);
       const res = await callAPI({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: kind === "dwg" ? 4096 : 2048, // v1.9 — 도면은 nozzles/joint_details/bom_rows 배열까지 뽑아서 응답이 길어짐
+        // c50: Sonnet 4(claude-sonnet-4-20250514)는 단종 예정 → 같은 등급의 후속 Sonnet 5.
+        model: "claude-sonnet-5",
+        // c50: Sonnet 5 는 생각(adaptive thinking)이 기본으로 켜지고 그 토큰도 max_tokens 에 든다.
+        //   예전 2048/4096(v1.9 — 도면은 nozzles/joint_details/bom_rows 배열까지 뽑아 길다) 그대로면
+        //   생각에 먹혀 JSON 이 중간에 잘린다. 상한일 뿐 쓴 만큼만 과금된다.
+        max_tokens: 16000,
         messages: [{role:"user", content:[{type:blockType, source:{type:"base64", media_type:mediaType, data:b64}}, {type:"text", text:prompt}]}]
       });
+      if (res.stop_reason === "max_tokens") throw new Error("AI 응답이 길이 한도에서 잘렸습니다 — 다시 시도하거나 문서를 나눠 올려 주세요");
+      if (res.stop_reason === "refusal") throw new Error("AI가 이 문서의 분석을 거절했습니다 — claude.ai 결과 붙여넣기를 써 주세요");
       const text = (res.content||[]).map(c=>c.text||"").join("");
       const parsed = extractJSON(text);
       applyParsedResult(kind, parsed, targetItemId, {b64, mediaType, name:file.name});
@@ -2810,7 +2822,6 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
       <div style={{flex:1}}/>
       <button onClick={forceReloadFromCloud} className="btn-secondary" style={{marginLeft:8}} title="다른 PC에서 저장한 최신본이 안 보일 때, 클라우드에서 강제로 다시 불러옵니다">🔄 클라우드 불러오기</button>
       <button onClick={openHistory} className="btn-secondary" style={{marginLeft:8}} title="이전 저장 버전으로 복원 (실수로 지우거나 덮어썼을 때)">🕘 저장 이력</button>
-      <button onClick={()=>setShowKeyModal(true)} className="btn-secondary" style={{marginLeft:8}}>🔑 API 키{getApiKey()?" ✓":""}</button>
       <button onClick={handleNew} className="btn-secondary" style={{marginLeft:8}}>🗋 New</button>
     </div>
 
@@ -2837,23 +2848,6 @@ Return ONLY valid JSON, no markdown fences: {"tag":"","tags":[],"req_qty":"","sh
         </div>
         <div style={{marginTop:12, paddingTop:10, borderTop:"0.5px solid var(--sjp-border)", display:"flex", justifyContent:"flex-end"}}>
           <button onClick={()=>setHistoryModal(null)} className="btn-secondary">닫기</button>
-        </div>
-      </div>
-    </div>}
-
-    {showKeyModal && <div className="modal-overlay no-print" onClick={()=>setShowKeyModal(false)}>
-      <div className="modal-box" onClick={e=>e.stopPropagation()}>
-        <div style={{fontWeight:700, marginBottom:8}}>🔑 Claude API 키</div>
-        <div style={{fontSize:10.5, color:"var(--sjp-text-sub)", marginBottom:10, lineHeight:1.5}}>
-          Work Order·시방서·견적서·도면 PDF 자동 파싱에 사용됩니다. 이 키는 이 브라우저의 localStorage에만 저장되며,
-          api.anthropic.com으로만 직접 전송됩니다 — 저장소(git)나 서버로는 전송/저장되지 않습니다.
-          공용 PC에서는 사용 후 "삭제"를 눌러주세요.
-        </div>
-        <input type="password" value={keyInput} onChange={e=>setKeyInput(e.target.value)} placeholder="sk-ant-..." style={{width:"100%", padding:"6px 8px", fontSize:12, border:"1px solid var(--sjp-border)", borderRadius:5, marginBottom:10}}/>
-        <div style={{display:"flex", gap:6, justifyContent:"flex-end"}}>
-          <button onClick={()=>{ setStoredApiKey(""); setKeyInput(""); showMsg("API 키를 삭제했습니다"); }} className="btn-secondary">삭제</button>
-          <button onClick={()=>setShowKeyModal(false)} className="btn-secondary">닫기</button>
-          <button onClick={()=>{ setStoredApiKey(keyInput.trim()); setShowKeyModal(false); showMsg("✓ API 키 저장 완료"); }} className="btn-primary">저장</button>
         </div>
       </div>
     </div>}

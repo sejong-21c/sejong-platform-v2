@@ -1,6 +1,8 @@
 /*
  * AI 비서 — 세종플랫폼 전체 조회/등록을 대화로 처리
  *
+ * v29.82.1: Claude 칸 안내에서 "ITP Builder와 공용"을 뺐다 — ITP Builder(c50)가 개인 키 직접 호출을
+ *          그만두고 게이트웨이(회사 키)로 간다. 이 칸에 키를 넣어도 ITP 자동 분석과는 이제 상관없다.
  * v29.82: 옛 사용 기록(aiUsage, 질문 1건당 문서 1개)을 그만 쓴다 — 메신저를 못 보는 장부라 연말 판단에 못 썼다.
  *          이제 게이트웨이 장부(v5.3)가 유일하다. 게이트웨이 길 호출에 x-sj-feature: assistant 를 붙여 기능을 센다.
  *          loopLimit 도 뺐다 — 쌓인 82건 중 true 0건, 읽는 곳도 없었다.
@@ -88,14 +90,15 @@
   // 단일 provider 선택 방식 → "키가 있는 회사를 순서대로 시도, 실패하면 자동으로 다음 회사"로 변경.
   // v29.39: 회사당 키 여러 개(여러 계정) 지원 — 한도 초과된 키는 자동으로 다음 키로 교대.
   //         Cerebras·Mistral 추가. 우선순위: Gemini → Groq → Cerebras → OpenRouter → Mistral → Claude(유료).
-  // itp-builder.html의 API_KEY_LS 패턴과 동일하게, 키를 소스에 박지 않고
+  // (예전 itp-builder.html 의 API_KEY_LS 패턴처럼) 키를 소스에 박지 않고
   // 각자 브라우저의 localStorage에 저장한다 — git 히스토리/배포 소스에 키가 남지 않음.
   var GEMINI_KEY_LS = 'sjp_gemini_api_key';
   var GROQ_KEY_LS = 'sjp_groq_api_key';
   var CEREBRAS_KEY_LS = 'sjp_cerebras_api_key';
   var OPENROUTER_KEY_LS = 'sjp_openrouter_api_key';
   var MISTRAL_KEY_LS = 'sjp_mistral_api_key';
-  // Claude 키 — itp-builder.html과 동일한 localStorage 키를 그대로 재사용한다.
+  // Claude 키 — 예전엔 itp-builder.html 과 같은 자리를 나눠 썼다. ITP 는 c50 부터 게이트웨이(회사 키)로
+  //   가서 이 자리를 안 읽는다. 이름은 이미 저장된 키를 살리려고 그대로 둔다.
   var CLAUDE_KEY_LS = 'sjp_claude_api_key';
   function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
@@ -212,7 +215,7 @@
       note: 'Mistral — 월 10억 토큰, 분당 2회 (선택)',
       models: ['mistral-small-latest', 'mistral-large-latest'] },
     { id: 'claude', label: 'Claude', ls: CLAUDE_KEY_LS, signup: 'https://console.anthropic.com',
-      note: 'Claude — 유료 (ITP Builder와 공용, 선택)',
+      note: 'Claude — 유료 (선택)',
       models: [CLAUDE_MODEL] }
   ];
   // v29.39: 한 회사에 키 여러 개(여러 계정) 등록 가능 — 줄바꿈·쉼표·공백으로 구분
