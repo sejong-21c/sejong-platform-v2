@@ -7,7 +7,8 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { disableNetwork, enableNetwork, getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 틀붙이기 } from "./shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -19,6 +20,7 @@
   };
   const fbApp = initializeApp(firebaseConfig);
   window.fb = { auth: getAuth(fbApp), db: getFirestore(fbApp), doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, writeBatch };
+  틀붙이기(window.fb.db, window.fb, 'asset-registry', { disableNetwork, enableNetwork });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js" defer onload="try{lucide.createIcons()}catch(e){}"></script>
 <style>

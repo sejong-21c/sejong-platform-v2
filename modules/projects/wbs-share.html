@@ -10,7 +10,8 @@
   // 공유하기 버튼이 wbsShares/{pid}에 저장한 스냅샷을 로그인 없이 읽는다
   // (Firestore 규칙에서 wbsShares 컬렉션만 공개 read 허용 — 쓰기는 사내 계정만).
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { disableNetwork, enableNetwork, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 틀붙이기 } from "../shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   import { 에뮬붙이기 } from "../shared/emu.mjs?v=b110";
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
@@ -30,6 +31,7 @@
   //   이 화면은 **로그인 없이 보는 공유 링크**라 auth 가 없다 — db 만 물린다.
   에뮬붙이기({ db, connectFirestoreEmulator });
   window.fb = { db, doc, getDoc };
+  틀붙이기(window.fb.db, window.fb, 'wbs-share', { disableNetwork, enableNetwork });
   window.dispatchEvent(new Event("fb-ready"));
 </script>
 <style>

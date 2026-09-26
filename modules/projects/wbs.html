@@ -5,7 +5,8 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { 에뮬붙이기 } from "../shared/emu.mjs?v=b110";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs, query, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { disableNetwork, enableNetwork, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs, query, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 틀붙이기 } from "../shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -26,6 +27,7 @@
   const wAuth = getAuth(fbApp);
   에뮬붙이기({ db, auth: wAuth, connectFirestoreEmulator, connectAuthEmulator });
   window.fb = { auth: wAuth, db, doc, getDoc, setDoc, deleteDoc, onSnapshot, onAuthStateChanged, collection, getDocs, query, where };
+  틀붙이기(window.fb.db, window.fb, 'wbs', { disableNetwork, enableNetwork });
 </script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}

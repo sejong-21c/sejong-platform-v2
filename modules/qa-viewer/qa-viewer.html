@@ -14,7 +14,8 @@
   // docData[itemId][docKey] 형태로 7가지 QA/QC 문서 데이터를 포함한다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, getDoc, doc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { disableNetwork, enableNetwork, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, getDoc, doc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 틀붙이기 } from "../shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -28,6 +29,7 @@
   // v1.1(점검 A3): IndexedDB 영속 캐시 — itp-viewer와 동일. 재방문 시 변경분만 수신.
   const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   window.fb = { auth: getAuth(fbApp), db, collection, onSnapshot, getDoc, doc, query, where, documentId };
+  틀붙이기(window.fb.db, window.fb, 'qa-viewer', { disableNetwork, enableNetwork });
   // 2026-09-19: 첨부·사진은 DB 밖(R2)에 둔다 — 본문 스크립트가 window.첨부 로 쓴다.
   import('../shared/attach.mjs').then((m) => { window.첨부 = m; }).catch((e) => console.warn('[첨부] 모듈 없음 — 옛 조각 방식으로', e));
 </script>

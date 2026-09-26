@@ -7,7 +7,8 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { disableNetwork, enableNetwork, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 틀붙이기 } from "../shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -23,6 +24,7 @@
   // 캐시가 없으면 그날 이 화면이 통째로 멈춘다 — 9/19 에 실제로 그랬다. 캐시가 있으면 어제 것이라도 뜬다.
   const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   window.fb = { auth: getAuth(fbApp), db, doc, setDoc, deleteDoc, collection, onSnapshot };
+  틀붙이기(window.fb.db, window.fb, 'measurement-tools', { disableNetwork, enableNetwork });
 </script>
 <!-- jsQR: 카메라 QR 인식 -->
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>

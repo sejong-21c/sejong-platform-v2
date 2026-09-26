@@ -21,7 +21,8 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { disableNetwork, enableNetwork, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 틀붙이기 } from "../shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   const app = initializeApp({
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -35,6 +36,7 @@
   // 캐시가 없으면 그날 이 화면이 통째로 멈춘다 — 9/19 에 실제로 그랬다. 캐시가 있으면 어제 것이라도 뜬다.
   const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   window.fb = { auth: getAuth(app), db, collection, getDocs, onAuthStateChanged };
+  틀붙이기(window.fb.db, window.fb, 'knowledge-map', { disableNetwork, enableNetwork });
   window.dispatchEvent(new Event("fb-ready"));
 </script>
 <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>

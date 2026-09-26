@@ -9,7 +9,8 @@
   // localStorage에만 저장되어 기기/브라우저마다 CAR 목록이 따로 놀았음(전사 공유 안 됨).
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { disableNetwork, enableNetwork, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 틀붙이기 } from "../shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   // v29.13.3 fix: Firebase Storage 업로드가 사내 방화벽/보안 정책에 막혀 응답이
   // 영원히 없는 환경이 있었음(Firestore는 정상 동작 확인됨). Storage를 아예 거치지
   // 않고, 첨부파일을 700KB씩 조각내 Firestore 문서 여러 개(fileChunks 컬렉션)로
@@ -29,6 +30,7 @@
   // 캐시가 없으면 그날 이 화면이 통째로 멈춘다 — 9/19 에 실제로 그랬다. 캐시가 있으면 어제 것이라도 뜬다.
   const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   window.fb = { auth: getAuth(fbApp), db, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot };
+  틀붙이기(window.fb.db, window.fb, 'car', { disableNetwork, enableNetwork });
   // 2026-09-19: 첨부는 DB 밖(R2)에 둔다 — 아래 본문 스크립트가 window.첨부 로 쓴다.
   // 못 불러오면(구형 브라우저·망 차단) 첨부는 옛 조각 방식으로 자동으로 물러선다.
   import('../shared/attach.mjs').then((m) => { window.첨부 = m; }).catch((e) => console.warn('[첨부] 모듈 없음 — 옛 조각 방식으로', e));

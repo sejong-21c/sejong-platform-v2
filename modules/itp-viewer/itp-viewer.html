@@ -11,7 +11,8 @@
   // 각 문서 = 프로젝트 1개, 문서 안 items[]에 각 아이템의 ITP rows·설계 데이터가 들어있다.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { disableNetwork, enableNetwork, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 틀붙이기 } from "../shared/frame-fs.mjs?v=f1";   // 9/26: 가려지면 쉬고 읽기를 부모 계량기로(shared/frame-fs.mjs)
   const firebaseConfig = {
     apiKey: "AIzaSyCmGyObjPd20Qf1MX0XAijYzSR4VitrjRg",
     authDomain: "sejong-platform.firebaseapp.com",
@@ -27,6 +28,7 @@
   // 같은 오리진에 iframe이 여러 개 떠서 multi-tab 매니저 필수 — 아니면 캐시가 조용히 꺼짐.
   const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   window.fb = { auth: getAuth(fbApp), db, collection, onSnapshot, doc, deleteDoc, getDocs, getDoc, setDoc, query, where, documentId };
+  틀붙이기(window.fb.db, window.fb, 'itp-viewer', { disableNetwork, enableNetwork });
 </script>
 <style>
 :root {
