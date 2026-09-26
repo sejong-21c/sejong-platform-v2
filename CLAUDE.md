@@ -23,6 +23,9 @@
 
 - AI 비서(modules/ai-assistant/ai-assistant.js)는 자체 버전 라인 **v29.x** (플랫폼은 v30.x).
   수정 시 **index.html의 `ai-assistant.js?v=` 캐시버스터를 같은 커밋에서 bump**.
+  ⚠ 2026-09-26 부터 이 파일은 **방문마다 싣지 않는다** — index.html `<script id="old-ai-loader">` 의 `var 주소 = '…ai-assistant.js?v=…'`
+  **한 곳**이 캐시버스터다. 맨 끝에 `<script defer src="modules/ai-assistant/ai-assistant.js">` 줄을 **다시 넣지 말 것**(두 번 실린다 ·
+  test/ai-assistant-reach.test.mjs 가 막는다). window 에 새 전역을 내놓고 다른 곳에서 부르면 싣개의 스텁 목록에도 더한다.
 - iframe 모듈 수정 시 해당 BUILD 상수 bump (예: 회의 모듈 = index.html `MEETING_BUILD`).
 - 모듈을 **새 창(window.open)으로 여는 곳도** 주소에 `v=<BUILD>` 를 붙인다 — 빠지면 그 진입점만 옛 캐시본이 뜬다
   (2026-09-26 결재 "문서 확인" 두 곳이 빠져 있었다).
