@@ -66,7 +66,8 @@
 - 게이트웨이 9Router 칸(/v1/9router — 지금은 맥미니 omniroute)은 **워커 설정만** 믿는다: NINEROUTER_BASE(바깥 주소
   https://router.sejong21c.com/v1)·NINEROUTER_KEYS (worker v5.6). 라우터 주소·키를 Firestore 에 두고 게이트웨이나
   브라우저가 따르게 하지 않는다 — 9/26 t_aiSharedConfig 가 사내 계정 누구나 고칠 수 있어 주소 하나로 전 직원 질문을
-  빼돌릴 수 있었다(규칙 관리자 전용·게이트웨이 v5.6·AI 비서 v29.84 로 닫음).
+  빼돌릴 수 있었다(규칙 관리자 전용·게이트웨이 v5.6·AI 비서 v29.84 로 닫음). 옛 AI 비서의 로컬 LLM 칸도
+  **이 PC(localhost·127.x·[::1]) 주소만** 받는다(v29.85) — 바깥 주소를 넣으면 장부 밖 직접 호출이 된다.
 - Claude Sonnet 5 는 생각(thinking)이 기본으로 켜진다 — 생각 토큰도 max_tokens 에 들어가고(ITP 는 16000),
   도구 호출 대화를 생각 블록 없이 다시 조립하는 곳(ai-assistant.js claudeMessagesFromHistory)은
   `thinking: {type:'disabled'}` 필수(켜 두면 도구 결과를 돌려보낼 때 400).
@@ -76,7 +77,10 @@
 - 코드 수정 후: `node --check` → 로컬 프리뷰(.claude/launch.json의 'static',
   localhost:8931)에서 부팅·콘솔 오류 확인 → 가능한 만큼 기능 시뮬레이션 →
   푸시 후 사용자 실질문 확인까지가 "완료".
-- 게이트웨이 워커 수정 시: `node gateway/worker-test.mjs` (27개 시나리오) 통과 필수.
+- 게이트웨이 워커 수정 시: `node gateway/worker-test.mjs` 전체 통과 필수.
+- 보안 규칙 시험(`npm run rules`)은 firebase-tools 가 없는 곳(클라우드 세션 등)에서도 돈다: `npm ci` 뒤
+  `npx -y firebase-tools@13 emulators:exec --only firestore --project demo-sejong "node test/rules.test.mjs"`
+  (Java 필요. 2026-09-26 클라우드에서 확인 — 규칙을 고쳤으면 이걸 통과한 뒤에 콘솔에 게시).
 - 메신저(modules/messenger) 수정 시 네 가지: `node test/pwa-w1.test.mjs`(불변식) · `node test/messenger-lib.test.mjs`(순수 함수)
   · `node test/messenger-ui-check.mjs`(가짜 Firestore 시험대 + 헤드리스 크롬 66개 시나리오, 375·1280 스크린샷 → test/shots/)
   · `node test/pwa-live-check.mjs`(서비스워커·매니페스트·오프라인). 배포본 확인은 둘 다 `BASE=https://sejong21c.com`.
