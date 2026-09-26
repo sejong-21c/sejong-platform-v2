@@ -285,6 +285,25 @@ await T('파일 물음 — 줄여도 볼트 카드가 남는다 · 규격 물음
   assert.ok(r.남은문서.length < 10, '이 시험은 줄이는 꼴이어야 뜻이 있다');
   for (const d of ['볼트 0', '볼트 1', '볼트 2']) assert.ok(r.남은문서.includes(d), d + ' 가 빠졌다');
 });
+// 2026-09-26: 기록 색인 조각(NCR·CAR·검사·ITP·회의록 — 관문이 Vectorize 에서 붙인다)도 파이스 것 **뒤에** 온다.
+//   같은 급이면 뒤부터 빠지니 기록을 묻는데 기록이 제일 먼저 사라졌다. 볼트와 같은 길(문서순)로 막는다.
+const { 기록물음인가 } = await import('../modules/messenger/ai.js');
+await T('기록 물음 — 줄여도 기록 조각(kind ncr·car…)이 규격보다 오래 남는다 · 규격 물음은 규격이 먼저', () => {
+  for (const q of ['올해 NCR 원인 뭐였어?', 'NCR-2026-003 처리 결과', 'CAR 조치 내용 알려줘', 'ITP 홀드 포인트', '부적합 보고서 내용', '시정조치 요구서', '지난달 회의록 요약', '검사 보고서 찾아줘']) assert.ok(기록물음인가(q), q);
+  // 규격을 굶기면 안 되는 물음 — 'carbon' 의 car, 낱말 '검사' 만으로는 안 건다
+  for (const q of ['수압시험 몇 배야?', 'carbon steel 허용응력', '육안검사 합격 기준', 'SA-516 carbide 석출', '비파괴검사 기준']) assert.ok(!기록물음인가(q), q);
+  // 관문 꼴: 파이스 규격 7(kind '') 뒤에 기록 3(kind ncr·car·meeting)
+  const 규격기록 = [...Array.from({ length: 7 }, (_, i) => ({ docName: '규격 ' + i, kind: '', text: '압력용기 수압시험 기준 '.repeat(40).slice(0, 690) })),
+    ...['ncr', 'car', 'meeting'].map((k, i) => ({ docName: '[자동] 기록 ' + i, kind: k, recId: 'R' + i, text: '부적합 원인 용접 결함 처리 '.repeat(40).slice(0, 690) }))];
+  const 한조각 = Math.max(...규격기록.map((m) => 추정토큰(`[${m.docName}] ${m.text}`) + 1));
+  const 자리 = 추정토큰('\n## 사내 문서에서 찾은 부분') + 1 + 한조각 * 4 + 20;
+  const 기록 = 맥락맞추기(문서조각(규격기록, '올해 NCR 원인 뭐였어?'), 자리);
+  assert.deepEqual(기록.남은조각, [0, 7, 8, 9], `기록 셋이 다 남고 남는 자리는 규격 1위: ${기록.남은조각}`);
+  const 규격 = 맥락맞추기(문서조각(규격기록, '압력용기 수압시험 몇 배야?'), 자리);
+  assert.deepEqual(규격.남은조각, [0, 1, 2, 3], `규격 물음은 전과 같이 규격이 먼저: ${규격.남은조각}`);
+  // 볼트는 기록이 아니다 — 기록 물음이라도 볼트는 전처럼(파일 물음이 아니면 뒤)
+  assert.deepEqual(문서순([{ kind: '' }, { kind: '볼트' }, { kind: 'ncr' }], 'NCR 원인'), [0, 1, -1]);
+});
 await T('messenger.js AI맥락 이 문서 조각에 문서순을 싣는다(빠지면 볼트가 다시 제일 먼저 빠진다)', () => {
   const m = readFileSync(new URL('../modules/messenger/messenger.js', import.meta.url), 'utf8');
   const 몸 = m.slice(m.indexOf('async function AI맥락('), m.indexOf('const AI히스토리'));
