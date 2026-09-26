@@ -16,12 +16,16 @@
   (`backup/YYYYMMDD-HHMMSS-SHA`, push마다 자동 생성)에서 파일을 가져와 새 커밋으로.
 - 커밋 메시지는 한국어, `feat(ai): ... (v29.xx, 로드맵 N단계)` 스타일.
 - RAG 문서고 작업은 `feature/rag-docs` 브랜치에서 → 단계 완성마다 main으로 merge.
+- index.html 의 `*_BUILD` 상수 줄은 여럿이 동시에 고친다 — **푸시 직전 `git fetch` 로 다시 받고**, 병합 뒤
+  충돌 표시(`<<<<<<<`)가 없는지 본다(2026-09-26 경비 b14·회의 b11 병합에 표시가 남아 긴급 수정 511f68c).
 
 ## 버전·캐시버스터 (중요 — 어기면 "배포했는데 안 바뀜" 사고)
 
 - AI 비서(modules/ai-assistant/ai-assistant.js)는 자체 버전 라인 **v29.x** (플랫폼은 v30.x).
   수정 시 **index.html의 `ai-assistant.js?v=` 캐시버스터를 같은 커밋에서 bump**.
 - iframe 모듈 수정 시 해당 BUILD 상수 bump (예: 회의 모듈 = index.html `MEETING_BUILD`).
+- 모듈을 **새 창(window.open)으로 여는 곳도** 주소에 `v=<BUILD>` 를 붙인다 — 빠지면 그 진입점만 옛 캐시본이 뜬다
+  (2026-09-26 결재 "문서 확인" 두 곳이 빠져 있었다).
 - 게이트웨이 워커는 gateway/cloudflare-worker.js 헤더의 v3.x 표기.
 
 ## 금지·주의 (과거 사고에서 나온 규칙)
@@ -49,6 +53,16 @@
 - **돈이 나갈 수 있는 곳을 알고 있을 것** (2026-09-19 확인):
   파이어베이스=무료라 청구 불가(대신 한도에 걸림) · 클라우드플레어 Workers=무료 · **R2=유료 구독**(10GB·100만 작업까지 무료) ·
   Vectorize 색인은 무료로 1024차원 기준 약 4,880조각까지(그 이상은 Workers Paid $5/월 필요).
+- **모델 호출은 전부 게이트웨이로** — 장부(aiUsageDaily)·하루 한도가 거기서만 선다. 브라우저가 공급사
+  (api.anthropic.com 등)를 직접 부르는 코드를 새로 만들지 않는다(2026-09-26 경비 b10·ITP c50 에서 걷어냄).
+  유일한 예외: 옛 AI 비서의 개인 키 — **게이트웨이에 접속 자체가 안 되는 PC**(workers.dev 차단)에서만
+  (부장님 결정 9/26, ai-assistant.js v29.83). 게이트웨이가 429·501 을 줬다고 개인 키로 비껴가면 안 된다.
+- 게이트웨이 Claude(/v1/claude/messages)는 Worker Secret **`CLAUDE_KEYS`** 가 있어야 돈다 — 없으면 501.
+  ITP 자동 분석(c50)·옛 AI 비서 Claude 칸이 쓴다. gateway/README 의 "유료 키 넣지 말라"는 로그인 검증(v3.4)
+  전 경고다. 게이트웨이의 개인 AI 열쇠(/key/set)는 **하루 한도를 넘긴 뒤에만** 쓰인다.
+- Claude Sonnet 5 는 생각(thinking)이 기본으로 켜진다 — 생각 토큰도 max_tokens 에 들어가고(ITP 는 16000),
+  도구 호출 대화를 생각 블록 없이 다시 조립하는 곳(ai-assistant.js claudeMessagesFromHistory)은
+  `thinking: {type:'disabled'}` 필수(켜 두면 도구 결과를 돌려보낼 때 400).
 
 ## 검증
 
@@ -76,5 +90,6 @@
 - **로드맵·진척 체크: roadmap.html** (플랫폼 메뉴 `로드맵·진척`, 상태는 t_roadmapState에 저장 —
   누가 어느 기기에서 체크해도 전원 공유. 항목 추가·수정은 roadmap.html의 ROADMAP 배열을 고쳐 배포)
 - AI 비서 실구현은 modules/ai-assistant/ai-assistant.js — index.html 쪽 동명 함수는 스텁.
+  이 옛 패널은 주소에 `?aipop=1` 을 붙여야만 뜬다. 🤖 버튼은 메신저 "AI 비서" 방(modules/messenger/ai.js).
 - t_ncrs/t_cars/t_itpBuilderDocs에는 첨부 조각 문서(chunk__*, dwg_*)가 섞여 있다 —
   조회·백업 시 반드시 걸러낼 것 (base64 수백 KB, 토큰·용량 폭탄).
