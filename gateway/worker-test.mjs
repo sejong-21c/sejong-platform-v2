@@ -1251,15 +1251,22 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
     const f = await 찾기('백업', ['부서:품질관리부', ...Array.from({ length: 19 }, (_, i) => '사람:' + i)]);
     check('되찾은범위: 20칸까지는 받는다(경계)', f.기록있다, JSON.stringify(f.d.matches));
 
-    맥응답 = { 줄: [{ n: 1 }], 쓴표: ['표01'], 범위복구: '백업', 되찾은범위: 좋은것 };
+    // 진짜 맥은 표 답에 늘 범위(범위펴기 한 되살린 범위)를 싣는다 — 모의 답에도 넣어야 새는 게 보인다.
+    맥응답 = { 줄: [{ n: 1 }], 쓴표: ['표01'], 범위: ['전사', '부서:품질관리부', '부서:총무부', '사람:홍길동'], 범위복구: '백업', 되찾은범위: 좋은것 };
     const t = await (await 부르기('/rag/table', 모름토큰, { sql: 'select 1' })).json();
     check('되찾은범위: /rag/table 답에서도 떼어 낸다(표 답은 통째로 펴 넘기므로)', !('되찾은범위' in t) && t.범위복구 === '백업' && t.줄.length === 1, JSON.stringify(t));
+    check('되찾은범위: /rag/table 모르는 날엔 맥의 범위 칸도 전사로 덮는다(사람:·부서: 안 샌다)',
+      JSON.stringify(t.범위) === '["전사"]' && !JSON.stringify(t).includes('사람:') && !JSON.stringify(t).includes('부서:'), JSON.stringify(t));
   } finally { 사용자읽기고장 = false; 맥응답 = null; }
 
   // 평소 날: 파이스가 (잘못) 되찾은범위를 보내도 안 쓴다 — 오늘과 같다.
   const n = await 찾기('백업', ['전사', '부서:품질관리부'], staffToken);
   check('되찾은범위: 범위를 아는 날엔 맥이 보내도 무시 — 생산부 직원에게 품질관리부 기록 안 나간다',
     !n.기록있다 && !('되찾은범위' in n.d) && !('범위모름' in n.d), JSON.stringify(n.d.matches));
+  맥응답 = { 줄: [{ n: 1 }], 범위: ['전사', '부서:생산부'], 범위복구: '전달' };
+  const nt = await (await 부르기('/rag/table', staffToken, { sql: 'select 1' })).json();
+  check('되찾은범위: 평소 날 /rag/table 의 범위 칸은 맥 것 그대로(오늘과 같다)',
+    JSON.stringify(nt.범위) === '["전사","부서:생산부"]' && !('범위모름' in nt), JSON.stringify(nt));
   맥응답 = null;
   vecStore.delete('되찾기시험::0');
 }
