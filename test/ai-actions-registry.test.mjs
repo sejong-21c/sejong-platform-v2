@@ -561,6 +561,8 @@ await 돌('행위목록은 할 수 있는 것만 준다', async () => {
 const allKanbanTasks = () => globalThis.칸반;
 const alert = (m) => globalThis.알림들.push(m);
 const view = {}; const render = () => {}; const savePartial = () => {};
+const getU = () => globalThis.state.currentUserObj;
+const canEditDeptSchedule = (dept) => (globalThis.부서권한 ? globalThis.부서권한(dept) : true);
 ${src.slice(ma, mb)}
 export { moveTask };`, 'utf8').toString('base64'));
   const 원fb = globalThis.fb;
@@ -579,6 +581,16 @@ export { moveTask };`, 'utf8').toString('base64'));
     assert.equal(await 돌려(부서줄, false), true);
     assert.notEqual(await 돌려(부서줄, true), true, '부서 스케줄 저장 실패');
     assert.notEqual(await 돌려({ id: 'okr_ph_o1', status: 'todo', virtual: true, okrPlaceholder: true }, false), true, '자리표는 저장이 없다');
+  });
+  // 9/26 대조: AI 쪽만 막고 moveTask 는 안 막아서 칸반 드래그로는 일반 직원이 부서 스케줄 줄을 완료로 바꿨다.
+  await 돌('moveTask — 부서 스케줄 권한이 없으면 칸반 드래그로도 부서 줄을 못 바꾼다', async () => {
+    state.wbs = { dept_quality: [{ lv: 0, name: 'ISO 내부심사' }] };
+    globalThis.부서권한 = () => false;
+    let 결;
+    try { 결 = await 돌려(부서줄, false); } finally { globalThis.부서권한 = undefined; }
+    assert.notEqual(결, true, '권한 없는 사람의 부서 줄 이동이 성공으로 나오면 안 된다');
+    assert.equal(state.wbs.dept_quality[0].status, undefined, '화면 상태도 안 바뀐다');
+    assert.ok(globalThis.알림들.some((m) => m.includes('부서장')), '까닭을 알려 준다: ' + globalThis.알림들);
   });
 }
 

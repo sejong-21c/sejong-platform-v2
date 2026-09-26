@@ -7289,6 +7289,12 @@ async function moveTask(taskId, newStatus) {
   }
   // 부서 자체 업무 WBS 대단락 — 문서 자체를 갱신 (부서 공유 상태)
   if (t.wbsBacked && t._wbsPid && t._wbsIdx != null) {
+    // 2026-09-26 직원 시범 전 대조에서 발견: 부서 스케줄 화면은 부서장·관리자급만 고치는데(renderDeptSchedFrame)
+    //   칸반 드래그·AI 업무완료·ai-assistant 는 여기로 와서 일반 직원도 대단락을 통째로 완료로 바꿨다(규칙도 안 막는다).
+    if (!canEditDeptSchedule((getU(state.currentUser) || {}).dept)) {
+      alert('부서 스케줄 항목은 부서장·관리자급만 상태를 바꿀 수 있습니다 — 부서장에게 요청해 주세요.');
+      return;
+    }
     const pid = t._wbsPid;
     const rows = (state.wbs[pid] || []).slice();
     if (rows[t._wbsIdx]) {
