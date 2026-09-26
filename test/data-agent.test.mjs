@@ -299,6 +299,37 @@ await T('맥이 꺼져 기록 색인으로 물러서면 사내문서 결과에 �
   assert.deepEqual(표, { sql: null, 줄: [], 오류: '표 서버(맥)에 닿지 못했습니다: timeout' });
 });
 
+// 2026-09-26: 관문이 users 읽기 한도로 범위를 몰랐던 날 — 결과에 범위모름·범위복구 가 실려야 AI맥락·말풍선이 밝힌다.
+//   전에는 부서 자료를 못 보고도 "부서 폴더 자료가 없다" 로 답했다.
+const { 범위못봄, 범위못봄알림 } = await import('../modules/messenger/ai.js');
+const { readFileSync } = await import('node:fs');
+await T('범위를 모른 날 — 사내문서·표묻기 결과에 범위모름·범위복구 가 실리고, 범위못봄 은 백업으로 못 되살렸을 때만', async () => {
+  const { r: 문서 } = await 가짜망(() => 응답(200, { matches: [{ docName: 'A', score: 0.7 }], source: 'pais', 범위모름: true, 범위복구: '실패' }), () => 사내문서('설계부 도면 기준', 로그인fb));
+  assert.deepEqual([문서.length, 문서.범위모름, 문서.범위복구], [1, true, '실패']);
+  assert.ok(범위못봄(문서, null), '실패면 못 봤다');
+  const { r: 되살림 } = await 가짜망(() => 응답(200, { matches: [], 범위모름: true, 범위복구: '백업' }), () => 사내문서('설계부 도면 기준', 로그인fb));
+  assert.equal(되살림.범위복구, '백업');
+  assert.ok(!범위못봄(되살림, null), '맥 백업으로 되살렸으면 본 것이다');
+  const { r: 평소 } = await 가짜망(() => 응답(200, { matches: [{ docName: 'A', score: 0.7 }], source: 'pais' }), () => 사내문서('설계부 도면 기준', 로그인fb));
+  assert.ok(!('범위모름' in 평소) && !범위못봄(평소, null), '평소엔 아무것도 안 붙는다');
+  // 표: 목록 → 두뇌(SQL) → 표 — 끝까지 가도 범위모름 이 남는다 · 표 서버가 꺼진 답에도
+  const { r: 표 } = await 가짜망((u) => (/rag\/table/.test(u)
+    ? 응답(200, { 표: '표01 [2024-01~2025-12] 금액', 줄: [{ 합: 3 }], 범위모름: true, 범위복구: '실패' })
+    : 응답(200, { choices: [{ message: { content: 'SELECT sum(1) FROM 표01' } }] })), () => 표묻기('작년 견적 재료비 총액', 로그인fb));
+  assert.deepEqual([표.줄.length, 표.범위모름, 표.범위복구], [1, true, '실패'], JSON.stringify(표));
+  assert.ok(범위못봄(평소, 표), '문서가 멀쩡해도 표가 못 봤으면 못 봤다');
+  const { r: 꺼진표 } = await 가짜망(() => 응답(200, { 줄: [], error: '표 서버(맥)에 닿지 못했습니다: timeout', 범위모름: true, 범위복구: '실패' }), () => 표묻기('작년 견적 재료비 총액', 로그인fb));
+  assert.deepEqual(꺼진표, { sql: null, 줄: [], 오류: '표 서버(맥)에 닿지 못했습니다: timeout', 범위모름: true, 범위복구: '실패' });
+  assert.ok(/^※ /.test(범위못봄알림) && !/[A-Za-z]/.test(범위못봄알림) && !범위못봄알림.includes('\n'), '말풍선 알림은 한국어 한 줄 · 코드 없이');
+});
+await T('messenger.js — 범위못봄이면 AI맥락에 안 빠지는 줄 · 말풍선에 알림 줄(둘 다 빠지면 다시 "부서 자료가 없다" 가 된다)', () => {
+  const m = readFileSync(new URL('../modules/messenger/messenger.js', import.meta.url), 'utf8');
+  const 맥락 = m.slice(m.indexOf('async function AI맥락('), m.indexOf('const AI히스토리'));
+  assert.ok(/if \(범위못봄\(문서, 표\)\) 넣\('[^']*부서 자료 범위를 확인하지 못했다[^']*', 급\.안뺌\)/.test(맥락), 'AI맥락에 급.안뺌 범위 줄이 없다');
+  assert.ok(/범위못봄\(문서, 표\) \? \{ 범위못봄: true \}/.test(m), '답 저장에 범위못봄 표시가 없다');
+  assert.ok(/\$\{범위알림달기\(m\)\}/.test(m) && /m\.범위못봄 \? `<div class="sjm-md-src">\$\{esc\(범위못봄알림\)\}/.test(m), '말풍선에 알림 줄을 안 그린다');
+});
+
 // 실패 안내 — 말풍선엔 한국어 한 줄, 원문(제공자·org id)은 e.원문 에만
 const 묻기 = () => 답하기({ 질문: '올해 NCR 몇 건?', 히스토리: [], 맥락: '짧은 맥락', 권한: {}, fb: 로그인fb });
 const 원경고 = console.warn;

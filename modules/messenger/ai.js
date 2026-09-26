@@ -64,9 +64,14 @@ export async function 사내문서(질문, fb, topK = 10) {
     // 2026-09-26 직원 시범 전 대조: 맥(규격·NAS 검색)이 꺼지면 관문은 기록 색인으로 물러서며 paisError(또는 error)를 싣는데
     //   여기서 버렸다 → 모델이 "찾지 못했다" 고 답했다(못 찾아본 것인데). 목록에 표시를 달아 AI맥락이 밝히게 한다.
     const 오류 = j.paisError || j.error;
-    return 오류 ? Object.assign(것, { 오류: String(오류).slice(0, 160) }) : 것;
+    return Object.assign(것, 오류 ? { 오류: String(오류).slice(0, 160) } : {}, 범위표(j));
   } catch (e) { return []; }
 }
+// 관문이 이 사람의 범위를 몰랐던 날(users 읽기 한도) — { 범위모름, 범위복구: '백업'|'실패' } 를 결과에 달아 둔다(2026-09-26).
+const 범위표 = (j) => (j && j.범위모름 ? { 범위모름: true, 범위복구: String(j.범위복구 || '실패') } : {});
+/** 부서 자료를 못 보고 답하나 — 관문이 범위를 몰랐고 맥 백업으로도 못 되살렸다. 문서·표 어느 쪽이든. */
+export const 범위못봄 = (...것들) => 것들.some((x) => !!x && x.범위모름 === true && x.범위복구 !== '백업');
+export const 범위못봄알림 = '※ 오늘은 서버 한도로 부서 자료를 못 봤습니다 — 회사 공용 자료만 찾았습니다';
 
 // ── 영수증 읽기 ─────────────────────────────────────────────────────────────
 // 눈은 맥에 있다(붙박이 Vision OCR). 왜 클라우드 비전이 아닌가: 회사 재무 자료가 밖으로
@@ -177,11 +182,18 @@ async function 두뇌하나(규칙, 물음, auth) {
   return '';
 }
 
-/** 세는 질문이면 표에 물어 본다. 못 하면 **조용히 null** — 답변 자체는 계속돼야 한다. */
+/** 세는 질문이면 표에 물어 본다. 못 하면 **조용히 null** — 답변 자체는 계속돼야 한다.
+ *  관문이 범위를 몰랐던 날이면 결과에 범위모름·범위복구 를 단다(사내문서 와 같은 꼴). */
 export async function 표묻기(질문, fb) {
+  let 모름 = {};
+  const 부르기 = async (몸) => { const r = await 표부르기(fb, 몸); if (r && r.범위모름) 모름 = 범위표(r); return r; };
+  const 답 = await 표세기(질문, fb, 부르기);
+  return 답 ? Object.assign(답, 모름) : 답;
+}
+async function 표세기(질문, fb, 부르기) {
   if (!세는질문인가(질문)) return null;
   try {
-    const 목록 = await 표부르기(fb, { 목록: true });
+    const 목록 = await 부르기({ 목록: true });
     // 2026-09-26 직원 시범 전 대조: 맥이 꺼져 목록이 {error} 로 오면 null 을 돌려 "세지 못했다" 가 모델에게 안 닿았다.
     if (!목록 || !목록.표) return 목록 && 목록.error ? { sql: null, 줄: [], 오류: String(목록.error) } : null;
 
@@ -238,7 +250,7 @@ export async function 표묻기(질문, fb) {
       if (/^없음$/i.test(sql)) return null;            // 여기만 진짜 null — 표로 셀 질문이 아니다
       if (!sql) return { sql: null, 줄: [], 오류: "두뇌가 질의를 쓰지 못했다" };
       if (!/^\s*(select|with)\b/i.test(sql)) return { sql, 줄: [], 오류: "SELECT 가 아닌 것을 썼다" };
-      const r = await 표부르기(fb, { sql, 줄: 60 });
+      const r = await 부르기({ sql, 줄: 60 });
       if (r && !r.error && Array.isArray(r.줄)) return { sql, 줄: r.줄, 쓴표: r.쓴표 || [], 잘림: !!r.잘림 };
       마지막오류 = (r && r.error) || "알 수 없는 오류";
     }
