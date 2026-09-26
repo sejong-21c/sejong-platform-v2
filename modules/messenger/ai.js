@@ -814,8 +814,9 @@ export function 플랫폼창고르기(w, 나 = null) {
     const o = w.opener;
     if (!o || o === w || o.closed) return null;
     if (typeof o.AI행위목록 !== 'function' || !o.fb) return null;
-    // 연 창이 로그아웃했거나 다른 사람이면 그 사람 권한으로 카드를 풀게 된다
-    if (나 && String((o.state && o.state.currentUser) || '') !== String(나)) return null;
+    // 연 창이 로그아웃했거나 다른 사람이면 그 사람 권한으로 카드를 풀게 된다.
+    //   나를 모르면(로그아웃 도중·빠뜨린 호출) 통과가 아니라 막는다 — 신뢰 경계는 기본값이 '안 됨' 이어야 한다(9/26 검토).
+    if (!나 || String((o.state && o.state.currentUser) || '') !== String(나)) return null;
     return o;
   } catch (e) { return null; }
 }
