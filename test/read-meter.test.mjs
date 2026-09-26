@@ -5,6 +5,8 @@ import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 
 const 본체 = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+// 9/26: rebase 충돌 표시(<<<<<<< ======= >>>>>>>)가 남은 index.html 이 **그대로 올라갔다** — npm test 는 통과했다. 이제 여기서 걸린다.
+assert.ok(!/^(<{7}|={7}|>{7})( |$)/m.test(본체), 'index.html 에 병합 충돌 표시가 남아 있다');
 const fb묶음 = (본체.match(/window\.fb = \{[\s\S]*?\n  \};/) || [''])[0];
 assert.ok(/getDoc: 감싼getDoc\b/.test(fb묶음) && /getDocs: 감싼getDocs\b/.test(fb묶음), 'window.fb 의 getDoc·getDocs 는 감싼 것이어야 한다(한 번 조회 계량)');
 // ⚠ '감싼세기' 뒤엔 \b 를 못 쓴다 — 정규식 \b 는 한글 경계에 안 걸린다(처음 판에서 그래서 멀쩡한 코드를 틀렸다고 했다)
