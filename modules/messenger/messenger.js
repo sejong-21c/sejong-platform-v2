@@ -25,7 +25,7 @@ import { 가려지면쉬기 } from '../shared/quiet.mjs?v=b112';
 import { 틀붙이기 } from '../shared/frame-fs.mjs?v=f1';
 import { 계량기만들기 } from '../shared/read-ledger.mjs?v=b112';
 import * as L from './lib.js?v=b112';
-import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 답하기, 문서순, 사내문서, 시키는질문인가, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b112';
+import { AI_CID, AI_UID, AI_컬렉션, 급, 기록세기, 길설명빼기, 답하기, 문서순, 사내문서, 시키는질문인가, 플랫폼창고르기, 실패말, 실행뽑기, 업무급, 영수증읽기, 영수증파일올리기, 의도가르기, 표묻기, 화면고르기 } from './ai.js?v=b112';
 
 // ───────────────────────────── Firebase ─────────────────────────────
 // W1 함정: 예전 window.fb 에 updateDoc·deleteDoc 이 없어서 홈 화면 앱에서는 나가기·삭제가 조용히 죽었다. 이제 다 넣는다.
@@ -58,7 +58,8 @@ window.fb = {
 };
 // b111: 새 창·홈 화면 앱 메신저의 읽기도 장부(readDaily)에 올린다 — 9/23 접속 813건 중 600건이 메신저였는데
 //   계량기는 플랫폼 창 안에만 있었다(shared/read-ledger.mjs). 감싸기(구독·한 번 조회)는 도구 화면과 같은 틀붙이기.
-//   window.잰다 는 안 만든다 — 아래 방 구독들이 부르는 window.parent.잰다 는 여기선 없는 채로 두어야 두 번 안 센다.
+//   window.잰다 는 안 만든다 — 아래 방 구독들이 부르는 잰다(품은창 = iframe 부모 것만)와 두 번 세지 않게.
+//   ⧉ 새 창도 여기로 온다(opener 가 있어도 데이터는 자기 fb — 품은창 주석).
 if (window.parent === window) {
   const 계량기 = 계량기만들기({ auth: msgAuth, db: fbDb, setDoc, doc, increment });
   틀붙이기(fbDb, window.fb, '메신저', { 부모: 계량기 });
@@ -179,52 +180,47 @@ let userMap = new Map();      // uid → user
 let roomDom = { cid: null, ids: [] };   // 방 본문에 그려진 메시지 id (부분 렌더 판단)
 
 // ───────────────────────────── 공용 도우미 ─────────────────────────────
+// 창 둘을 가른다(2026-09-26 직원 시범 전 대조 뒤 남은 것 — ⧉ 새 창에 등록 카드가 없었다).
+//   품은창: iframe 부모 — **fb·state·계량기**를 빌리는 곳. ⧉ 새 창은 연 창(opener)이 있어도 자기 fb 를 쓴다:
+//     ① 연 창을 닫거나 다른 곳으로 가면 빌린 구독이 통째로 죽는다(새 창은 오래 켜 두는 창이다)
+//     ② 자기 fb 는 이미 자기 계량기(b111)가 센다 — 연 창 fb 로 갈아타면 한 창의 읽기가 두 장부로 갈려 놓치거나 두 번 센다.
+//   부모창: 등록 카드·「화면 열기」 를 맡길 **플랫폼 함수**가 사는 곳 — iframe 부모, 아니면 살아 있는 같은 출처 opener(ai.js 플랫폼창고르기).
+//     그 함수(AI행위풀기·실행 등)가 읽는 것은 연 창 fb 라 연 창 계량기가 센다 — 한 읽기는 한 장부에만 오른다.
+//     쓸 때마다 부른다(연 창은 나중에 닫힐 수 있다). 플랫폼 함수는 이 둘을 거쳐서만 부른다 — 시험(pwa-w1)이 막는다.
+const 품은창 = () => (독립실행 ? null : window.parent);
+const 부모창 = () => 플랫폼창고르기(window, state.me);
+// 연 창 함수에 넘기는 것은 **그 창의 JSON 으로** 다시 만든다 — 다른 창에서 만든 객체를 Firestore 가 "custom Object" 로 거부한다(plain 과 같은 까닭).
+const 넘기기 = (부모, x) => 부모.JSON.parse(JSON.stringify(x ?? null));
 function getFB() {
-  try { if (!독립실행 && window.parent && window.parent.fb) return window.parent.fb; } catch (e) { /* 크로스오리진 */ }
+  try { const p = 품은창(); if (p && p.fb) return p.fb; } catch (e) { /* 크로스오리진 */ }
   return window.fb;
 }
-function 부모상태() { try { return (!독립실행 && window.parent && window.parent.state) || null; } catch (e) { return null; } }
-// 왼쪽 메뉴에 **실제로** 보이는 화면들. 손으로 적어 두면 어긋나므로 부모 앱에서 받는다
-// (index.html 의 window.보이는화면들 — NAV·TOOLS 를 권한까지 걸러 준다).
-function 볼수있는화면() {
+function 부모상태() { try { const p = 품은창(); return (p && p.state) || null; } catch (e) { return null; } }
+function 부모목록(이름) {
   try {
-    if (독립실행 || !window.parent || typeof window.parent.보이는화면들 !== 'function') return [];
-    const 것 = window.parent.보이는화면들();
+    const 부모 = 부모창();
+    if (!부모 || typeof 부모[이름] !== 'function') return [];
+    const 것 = 부모[이름]();
     return Array.isArray(것) ? 것 : [];
   } catch (e) { return []; }   // 크로스오리진이거나 부모가 아직 안 떴을 때
 }
+// 왼쪽 메뉴에 **실제로** 보이는 화면들. 손으로 적어 두면 어긋나므로 부모 앱에서 받는다
+// (index.html 의 window.보이는화면들 — NAV·TOOLS 를 권한까지 걸러 준다).
+const 볼수있는화면 = () => 부모목록('보이는화면들');
 // 스케줄을 **고칠 수 있는** 프로젝트만 부모에게 묻는다(2026-09-23).
 // 조회만 되는 것은 부모가 안 준다 — 목록에 있으면 AI 가 제안하고, 제안이 거부되면 사람은 헛걸음만 한다.
-function 고칠수있는프로젝트() {
-  try {
-    if (독립실행 || !window.parent || typeof window.parent.고칠수있는프로젝트 !== 'function') return [];
-    const 것 = window.parent.고칠수있는프로젝트();
-    return Array.isArray(것) ? 것 : [];
-  } catch (e) { return []; }
-}
+const 고칠수있는프로젝트 = () => 부모목록('고칠수있는프로젝트');
 // 지금 이 사람이 **할 수 있는 일**만 부모가 걸러 준다. 등록소에 행위를 더하면 여기 저절로 따라온다.
-function 할수있는행위() {
-  try {
-    if (독립실행 || !window.parent || typeof window.parent.AI행위목록 !== 'function') return [];
-    const 것 = window.parent.AI행위목록();
-    return Array.isArray(것) ? 것 : [];
-  } catch (e) { return []; }
-}
+const 할수있는행위 = () => 부모목록('AI행위목록');
 // 이 사람이 **못 하는** 일과 까닭 [{ 이름, 까닭 }] — 부모 index.html 의 window.AI못하는행위. 없으면 [].
 //   2026-09-26 직원 시범 전 대조: 비품질 직원이 "NCR 하나 올려줘" 하면 "아직 플랫폼이 못 하는 일" 이라는 틀린 까닭을 들었다.
-function 못하는행위() {
-  try {
-    if (독립실행 || !window.parent || typeof window.parent.AI못하는행위 !== 'function') return [];
-    const 것 = window.parent.AI못하는행위();
-    return Array.isArray(것) ? 것 : [];
-  } catch (e) { return []; }
-}
-// 새 창·홈 화면 앱(독립실행)에는 부모 앱이 없어 등록 카드를 풀지도 실행하지도 못한다 — 어디서 되는지 말한다.
+const 못하는행위 = () => 부모목록('AI못하는행위');
+// 홈 화면 앱·연 창이 닫힌 새 창에는 플랫폼 창이 없어 등록 카드를 풀지도 실행하지도 못한다 — 어디서 되는지 말한다.
 const 등록은PC에서 = '일정·업무 등록 카드는 PC 플랫폼 화면의 🤖 메신저에서 됩니다.';
 // iframe 안에서 만든 객체를 부모 Firestore 에 넘기면 "custom Object" 오류가 난다 → 실제로 쓰는 fb 가 사는 realm 의 JSON 으로 다시 만든다.
 // (부모에 fb 가 없어 자기 fb 를 쓸 때 부모 JSON 으로 만들면 거꾸로 같은 오류가 난다 — W1 시험대에서 잡힘)
 function plain(obj) {
-  try { if (getFB() !== window.fb && window.parent && window.parent.JSON) return window.parent.JSON.parse(JSON.stringify(obj)); } catch (e) { /* 무시 */ }
+  try { const p = 품은창(); if (getFB() !== window.fb && p && p.JSON) return p.JSON.parse(JSON.stringify(obj)); } catch (e) { /* 무시 */ }
   return JSON.parse(JSON.stringify(obj));
 }
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -969,15 +965,17 @@ async function 제안결과쓰기(m, 결과) {
 const 시간초과 = Symbol('시간초과');
 const 시간제한 = (p, 초) => Promise.race([p, new Promise((r) => setTimeout(() => r(시간초과), 초 * 1000))]);
 async function 제안실행(m, btn) {
-  // 2026-09-26 직원 시범 전 대조: PC 패널에서 만든 옛 카드를 새 창·앱에서 누르면 window.parent.AI행위실행 이 없어 TypeError →
+  // 2026-09-26 직원 시범 전 대조: PC 패널에서 만든 옛 카드를 새 창·앱에서 누르면 부모의 AI행위실행 이 없어 TypeError →
   //   '바꾸지 못했습니다' 가 카드에 **영영 저장**됐다. 부모가 없으면 부르지도 남기지도 않는다.
+  //   ⧉ 새 창이면 연 플랫폼 창에 맡긴다 — 누를 때 다시 본다(그사이 연 창을 닫았을 수 있다).
+  const 부모 = 부모창();
   let 부모있다 = false;
-  try { 부모있다 = !독립실행 && !!window.parent && typeof window.parent.AI행위실행 === 'function'; } catch (e) { /* 다른 출처 */ }
+  try { 부모있다 = !!부모 && typeof 부모.AI행위실행 === 'function'; } catch (e) { /* 다른 출처 */ }
   if (!부모있다) { 토스트(등록은PC에서, 3600); return; }
   if (btn) { btn.disabled = true; btn.textContent = '실행 중…'; }
   let 결과;
   try {
-    결과 = await 시간제한(window.parent.AI행위실행(m.제안), 30);
+    결과 = await 시간제한(부모.AI행위실행(넘기기(부모, m.제안)), 30);
     // 쓰기가 늦게라도 끝났을 수 있다 — "못 바꿨다" 가 아니라 "확인해 달라" 고 말한다.
     if (결과 === 시간초과) 결과 = { 안됨: '30초 안에 끝나지 않았습니다. 바뀌었는지 해당 화면에서 확인해 주세요(새로 고침 후 다시 시도).' };
   }
@@ -1098,9 +1096,9 @@ async function 엑셀받기(mid) {
 //   지어냈다. 지침으로 네 번(b69~b72) 막아 봤지만 매번 졌다. 모델은 화면 이름만 알고
 //   버튼은 모르는데 말하라고 시켰으니 당연한 일이었다.
 //   이제 모델은 **이름만** 말하고, 누를 것은 여기서 진짜로 그린다. 눌리면 실제로 열린다.
-// 독립 실행(앱 밖에서 messenger.html 을 직접 열었을 때)에는 열 앱이 없으니 안 그린다.
+// 플랫폼 창이 없으면(홈 화면 앱·연 창이 닫힌 새 창) 열 앱이 없으니 안 그린다. ⧉ 새 창은 연 창에서 연다.
 function 화면달기(m) {
-  if (독립실행) return '';
+  if (!부모창()) return '';
   const 것 = (Array.isArray(m.화면) ? m.화면 : []).slice(0, 2);
   if (!것.length) return '';
   return `<div class="sjm-md-go">${것.map((s) => `<button class="sjm-go-btn" data-act="open-screen" data-kind="${esc(s.종류 || '')}" data-id="${esc(s.id || '')}" data-dept="${esc(s.부서 || '')}">「${esc(s.이름 || '')}」 열기</button>`).join('')}</div>`;
@@ -1127,7 +1125,7 @@ function 제안달기(m) {
     <div class="sjm-act-head">${esc(p.제목 || '')}</div>
     ${p.머리 ? `<div class="sjm-act-sub">${esc(p.머리)}</div>` : ''}
     <div class="sjm-act-list">${보일것.map((t) => `<div class="sjm-act-row">${esc(t)}</div>`).join('')}${더}</div>
-    ${독립실행 ? `<div class="sjm-act-sub">${esc(등록은PC에서)}</div>` : `<div class="sjm-act-btns">
+    ${!부모창() ? `<div class="sjm-act-sub">${esc(등록은PC에서)}</div>` : `<div class="sjm-act-btns">
       <button class="sjm-act-run" data-act="act-run" data-mid="${esc(m.id)}">${esc(p.확인 || '실행')}</button>
       <button class="sjm-act-cancel" data-act="act-cancel" data-mid="${esc(m.id)}">취소</button>
     </div>`}
@@ -1612,11 +1610,13 @@ const AI보기 = [
   '다음 주 화요일 10시에 품질회의 일정 잡아 줘',
 ];
 function AI첫화면() {
-  // 독립실행(새 창·홈 화면 앱)에는 등록 카드가 없다 — 시키는 보기('일정 잡아 줘')를 빼고 어디서 되는지 말한다(2026-09-26 직원 시범 전 대조).
-  const 보기 = 독립실행 ? AI보기.filter((q) => !시키는질문인가(q)) : AI보기;
+  // 플랫폼 창이 없으면(홈 화면 앱·연 창이 닫힌 새 창) 등록 카드가 없다 — 시키는 보기('일정 잡아 줘')를 빼고 어디서 되는지 말한다(2026-09-26 직원 시범 전 대조).
+  //   ⧉ 새 창은 연 플랫폼 창이 살아 있으면 카드가 되므로 안내를 안 띄운다.
+  const 카드없음 = !부모창();
+  const 보기 = 카드없음 ? AI보기.filter((q) => !시키는질문인가(q)) : AI보기;
   return 'AI 비서입니다. 회사 기록·규격·NAS 파일·내 업무를 물어보세요.'
     + `<div class="sjm-ai-ex">${보기.map((q) => `<button type="button" class="sjm-chip" data-act="ai-ex" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`
-    + `<span class="sjm-note">보이는 범위는 내 권한을 따릅니다. ${독립실행 ? 등록은PC에서 : '일정·업무 등록은 AI 가 카드로 제안하고 「실행」은 내가 누릅니다.'}<br>`
+    + `<span class="sjm-note">보이는 범위는 내 권한을 따릅니다. ${카드없음 ? 등록은PC에서 :'일정·업무 등록은 AI 가 카드로 제안하고 「실행」은 내가 누릅니다.'}<br>`
     + '영수증 사진을 올리면 경비 내역으로 정리해 줍니다. 내 Claude·ChatGPT 에서도 쓰려면 — 플랫폼 오른쪽 위 내 이름 › 🔌 내 Claude·ChatGPT 연결.</span>';
 }
 
@@ -1849,8 +1849,11 @@ async function AI에게묻기(질문) {
       //   **"저장할 초안이 없습니다"** 가 났다(2026-09-24 라이브). 이번 답이 짧으면 사람이 읽은 **바로 앞 AI 말풍선**을 넘긴다.
       const 앞초안 = () => (AI히스토리().slice(0, -1).reverse().find((h) => h.role === 'ai') || {}).text || '';
       const 본문 = 날것.행위 === '문서저장' && 답글.trim().length < 40 ? 앞초안() : 답글;
-      try {
-        제안 = await 시간제한(window.parent.AI행위풀기(날것.행위, 날것.인자, { 본문 }), 20);
+      // 목록은 물을 때 받았지만 답을 기다리는 사이 ⧉ 새 창의 연 창이 닫혔을 수 있다 — 다시 본다.
+      const 부모 = 부모창();
+      if (!부모) 제안 = { 안됨: 등록은PC에서 };
+      else try {
+        제안 = await 시간제한(부모.AI행위풀기(날것.행위, 넘기기(부모, 날것.인자), 넘기기(부모, { 본문 })), 20);
         if (제안 === 시간초과) 제안 = { 안됨: '자료를 20초 안에 읽지 못했습니다 — 화면을 새로 고친 뒤 다시 말씀해 주세요.' };
       }
       catch (e) { 제안 = { 안됨: '확인하지 못했습니다: ' + (e.message || e) }; }
@@ -1950,11 +1953,13 @@ function 행동(el) {
       break;
     }
     case 'open-screen': {
-      // 부모 앱에게 열라고 시킨다. nav 는 switchMod 가 권한을 한 번 더 본다.
-      try { window.parent.화면열기(el.dataset.kind, el.dataset.id, el.dataset.dept || ''); }
+      // 부모 앱에게 열라고 시킨다. nav 는 switchMod 가 권한을 한 번 더 본다. ⧉ 새 창이면 연 창에서 연다(그사이 닫혔으면 부모 null).
+      const 부모 = 부모창();
+      try { 부모.화면열기(el.dataset.kind, el.dataset.id, el.dataset.dept || ''); }
       catch (e) { 토스트('화면을 열지 못했습니다.'); break; }
-      // 메신저 창은 닫는다 — 열어 준 화면이 뒤에 가려 있으면 아무 일도 안 난 것처럼 보인다.
-      try { if (typeof window.parent.toggleMsgPanel === 'function') window.parent.toggleMsgPanel(); } catch (e) {}
+      // 메신저 창은 비킨다 — 열어 준 화면이 뒤에 가려 있으면 아무 일도 안 난 것처럼 보인다.
+      //   iframe 이면 패널을 닫고, ⧉ 새 창이면 연 창을 앞으로 부른다(연 창 패널은 이미 닫혀 있어 토글하면 도리어 열린다).
+      try { if (부모 !== 품은창()) 부모.focus(); else if (typeof 부모.toggleMsgPanel === 'function') 부모.toggleMsgPanel(); } catch (e) {}
       break;
     }
     case 'search-open': ui.search.open = true; ui.search.q = ''; ui.search.stab = 'all'; render('pane'); break;
@@ -2158,7 +2163,7 @@ function 방읽음구독(cid) {
   const fb = getFB(); if (!fb || !fb.db) return;
   try {
     구독.방 = fb.onSnapshot(fb.query(fb.collection(fb.db, 'channelReads'), fb.where('channel', '==', cid)), (snap) => {
-      try { window.parent.잰다 && window.parent.잰다('메신저:방읽음', snap); } catch (e) { /* 혼자 뜬 창 */ }
+      try { const p = 품은창(); p && p.잰다 && p.잰다('메신저:방읽음', snap); } catch (e) { /* 혼자 뜬 창 */ }
       const r = {}; snap.docs.forEach((d) => { const x = d.data(); if (x && x.uid) r[x.uid] = x.lastRead || 0; });
       state.roomReads = r; if (ui.cid === cid) renderMessages(false);
     }, (e) => console.warn('[읽음 구독]', e && e.message));
@@ -2171,7 +2176,8 @@ function 구독시작() {
   //   부팅 때 메시지만 500 + 공지 100 을 읽는데(위 메시지창·공지창) 지금까지 아무 데도 안 셌다.
   //   플랫폼 본체 부팅이 213건인데 메신저가 600건이니, 안 세면 하루 읽기를 **네 배 적게** 본다.
   //   메신저는 부모의 db 를 쓰므로(getFB) 부모 계량기에 넣는 게 맞다 — 같은 접속의 같은 지갑이다.
-  const 잰다 = (이름, snap) => { try { window.parent.잰다 && window.parent.잰다('메신저:' + 이름, snap); } catch (e) { /* 혼자 뜬 창 */ } };
+  //   품은창(iframe 부모)만 — ⧉ 새 창·홈 화면 앱은 자기 db 를 자기 계량기(b111 틀붙이기)가 이미 센다. 연 창 잰다에 또 얹으면 두 번 센다.
+  const 잰다 = (이름, snap) => { try { const p = 품은창(); p && p.잰다 && p.잰다('메신저:' + 이름, snap); } catch (e) { /* 혼자 뜬 창 */ } };
   const on = (q, cb, tag) => {
     const 실패 = (e) => {
       console.warn(`[${tag}]`, e && e.message);

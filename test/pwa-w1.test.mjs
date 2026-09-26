@@ -143,7 +143,8 @@ for (const id of ['photoInput', 'fileInput', 'cameraInput', 'albumInput', 'sheet
   && /type: \(f\.type \|\| ''\)\.indexOf\('image\/'\) === 0 \? 'image' : 'file'/.test(앱));
 확인('문서 id 가 clientId 에서 나온다(재시도해도 한 건)', (앱.match(/const docId = 'msg_' \+ clientId;/g) || []).length === 2);
 확인('읽음 기록 payload 는 플랫폼 배지 계약 그대로', /\{ channel: String\(cid\), uid: String\(me\(\)\), lastRead: Number\(now\) \}/.test(앱));
-확인('데이터 API 는 부모 fb 우선(iframe 브리지)', /window\.parent\.fb/.test(앱));
+확인('데이터 API 는 부모 fb 우선(iframe 브리지)', /const 품은창 = \(\) => \(독립실행 \? null : window\.parent\);/.test(앱)
+  && /function getFB\(\) \{\s*try \{ const p = 품은창\(\); if \(p && p\.fb\) return p\.fb; \}/.test(앱));
 확인('한글 조합 중 Enter 이중 전송 방지', /e\.isComposing\) return;/.test(앱));
 확인('인라인 onclick 없음(이벤트 위임)', !/onclick=/.test(앱) && /closest\('\[data-act\]'\)/.test(앱));
 확인('시험용 창 노출 SJM.me()', /window\.SJM = \{/.test(앱) && /me: \(\) => me\(\)/.test(앱));
@@ -211,11 +212,55 @@ const ai = 읽기('modules/messenger/ai.js');
   && /window\.fb = \{[\s\S]*?getCountFromServer,[\s\S]*?\};/.test(앱));
 확인('독립실행 세기도 장부에 — 1천 건당 1(index.html 감싼세기와 같은 셈)',
   /if \(window\.parent === window\) \{[\s\S]*?window\.fb\.getCountFromServer = \(\.\.\.a\) => getCountFromServer\(\.\.\.a\)[\s\S]*?Math\.ceil\(\(Number\(s\.data\(\)\.count\) \|\| 0\) \/ 1000\)[\s\S]*?계량기\.한번읽기셈\(n, n\)/.test(앱));
-확인('독립실행 첫 화면은 시키는 보기를 빼고 "PC 에서 된다" 고 말한다',
-  /function AI첫화면\(\) \{[\s\S]{0,400}독립실행 \? AI보기\.filter\(\(q\) => !시키는질문인가\(q\)\)[\s\S]{0,500}독립실행 \? 등록은PC에서/.test(앱));
-확인('독립실행 카드는 「실행」 대신 안내 · 부모 없이 누르면 부르지도 남기지도 않는다',
-  /function 제안달기\(m\) \{[\s\S]*?\$\{독립실행 \? `<div class="sjm-act-sub">\$\{esc\(등록은PC에서\)\}<\/div>`/.test(앱)
-  && /async function 제안실행\(m, btn\) \{[\s\S]{0,600}if \(!부모있다\) \{ 토스트\(등록은PC에서, 3600\); return; \}[\s\S]{0,300}시간제한\(window\.parent\.AI행위실행\(/.test(앱));
+// 9/26 뒤: 기준이 독립실행이 아니라 "플랫폼 창이 있나"(부모창) 다 — ⧉ 새 창은 연 창이 살아 있으면 카드가 된다.
+확인('플랫폼 창이 없으면 첫 화면은 시키는 보기를 빼고 "PC 에서 된다" 고 말한다',
+  /function AI첫화면\(\) \{[\s\S]{0,500}const 카드없음 = !부모창\(\);\s*const 보기 = 카드없음 \? AI보기\.filter\(\(q\) => !시키는질문인가\(q\)\)[\s\S]{0,500}카드없음 \? 등록은PC에서/.test(앱));
+확인('플랫폼 창이 없으면 카드는 「실행」 대신 안내 · 없이 누르면 부르지도 남기지도 않는다',
+  /function 제안달기\(m\) \{[\s\S]*?\$\{!부모창\(\) \? `<div class="sjm-act-sub">\$\{esc\(등록은PC에서\)\}<\/div>`/.test(앱)
+  && /async function 제안실행\(m, btn\) \{[\s\S]{0,700}const 부모 = 부모창\(\);[\s\S]{0,200}if \(!부모있다\) \{ 토스트\(등록은PC에서, 3600\); return; \}[\s\S]{0,300}시간제한\(부모\.AI행위실행\(넘기기\(부모, m\.제안\)\)/.test(앱));
+
+// ── ⧉ 새 창의 플랫폼 창 (2026-09-26 직원 시범 전 대조 뒤 남은 것) ──
+// 새 창은 window.parent === window 라 독립실행으로 돌아 등록 카드·「화면 열기」 가 없었다(연 창이 바로 옆인데).
+//   플랫폼 함수는 부모창()(= ai.js 플랫폼창고르기) 을 거쳐서만, fb·state·계량기는 품은창()(iframe 부모만)을 거쳐서만 부른다.
+{
+  const 코드 = 앱.replace(/\r\n/g, '\n').split('\n').filter((줄) => !/^\s*\/\//.test(줄)).join('\n');
+  const 남은부모 = [...코드.matchAll(/window\.parent(?!\s*===\s*window)/g)].length;
+  확인('window.parent 는 품은창 한 곳에서만 읽는다(나머지는 === window 비교뿐)',
+    남은부모 === 1 && /const 품은창 = \(\) => \(독립실행 \? null : window\.parent\);/.test(코드), `${남은부모}곳`);
+  확인('messenger.js 는 opener 를 직접 안 만진다(ai.js 플랫폼창고르기만)', !/(?<![a-z])opener/.test(코드.replace(/noopener/g, '')));
+  const 플랫폼함수 = /([\w가-힣$]+)\s*\.\s*(AI행위목록|AI못하는행위|AI행위풀기|AI행위실행|보이는화면들|고칠수있는프로젝트|화면열기|toggleMsgPanel)(?![\w가-힣])/g;
+  const 받는쪽 = [...코드.matchAll(플랫폼함수)].map((m) => m[1] + '.' + m[2]);
+  확인('플랫폼 함수는 부모창() 에서 받은 부모로만 부른다', 받는쪽.length >= 4 && 받는쪽.every((x) => x.startsWith('부모.')), 받는쪽.join(' '));
+  const 부모대입 = [...코드.matchAll(/const 부모 = ([^;]+);/g)].map((m) => m[1]);
+  확인('const 부모 는 늘 부모창() 이다(쓸 때마다 다시 고른다)', 부모대입.length >= 4 && 부모대입.every((x) => x === '부모창()'), 부모대입.join(' | '));
+  확인('부모창 = ai.js 플랫폼창고르기(window, 나)', /const 부모창 = \(\) => 플랫폼창고르기\(window, state\.me\);/.test(코드));
+  확인('계량(잰다)은 품은창(iframe 부모)에만 얹는다 — 새 창은 자기 계량기(b111)가 센다, 연 창에 얹으면 두 번 센다',
+    !/부모\.잰다|부모창\(\)\.잰다/.test(코드) && (코드.match(/const p = 품은창\(\); p && p\.잰다 && p\.잰다\(/g) || []).length === 2);
+  확인('연 창 함수에 넘기는 것은 그 창의 JSON 으로(다른 창 객체는 Firestore 가 거부한다)',
+    /const 넘기기 = \(부모, x\) => 부모\.JSON\.parse\(JSON\.stringify\(x \?\? null\)\);/.test(코드)
+    && /부모\.AI행위풀기\(날것\.행위, 넘기기\(부모, 날것\.인자\), 넘기기\(부모, \{ 본문 \}\)\)/.test(코드));
+  확인('「화면 열기」 버튼도 부모창 기준', /function 화면달기\(m\) \{\s*if \(!부모창\(\)\) return '';/.test(코드));
+
+  const { 플랫폼창고르기 } = await import('../modules/messenger/ai.js');
+  const 창 = (더 = {}) => { const w = { ...더 }; if (!('parent' in 더)) w.parent = w; return w; };
+  const 연창 = (더 = {}) => ({ closed: false, AI행위목록: () => [], fb: {}, state: { currentUser: 'u1' }, ...더 });
+  const P = {};
+  확인('고르기: iframe 이면 부모(전과 같다)', 플랫폼창고르기(창({ parent: P }), 'u1') === P);
+  const O = 연창();
+  확인('고르기: 새 창 + 살아 있는 같은 출처 연 창 → 연 창', 플랫폼창고르기(창({ opener: O }), 'u1') === O && 플랫폼창고르기(창({ opener: O })) === O);
+  확인('고르기: 홈 화면 앱(opener 없음) → null', 플랫폼창고르기(창({ opener: null }), 'u1') === null);
+  확인('고르기: 연 창을 닫았으면 → null(쓸 때마다 다시 본다)', 플랫폼창고르기(창({ opener: 연창({ closed: true }) }), 'u1') === null);
+  const 다른출처 = { closed: false };
+  Object.defineProperty(다른출처, 'AI행위목록', { get() { throw new Error('SecurityError: Blocked a frame with origin'); } });
+  확인('고르기: 연 창이 다른 출처로 갔으면(읽는 순간 던진다) → null, 던지지 않는다', 플랫폼창고르기(창({ opener: 다른출처 }), 'u1') === null);
+  확인('고르기: 플랫폼 함수·fb 가 없는 창(다른 화면으로 갔다·아직 안 떴다) → null',
+    플랫폼창고르기(창({ opener: { closed: false } }), 'u1') === null && 플랫폼창고르기(창({ opener: 연창({ fb: null }) }), 'u1') === null);
+  확인('고르기: 연 창이 다른 사람·로그아웃이면 → null(그 사람 권한으로 카드를 풀면 안 된다)',
+    플랫폼창고르기(창({ opener: 연창({ state: { currentUser: 'u2' } }) }), 'u1') === null
+    && 플랫폼창고르기(창({ opener: 연창({ state: { currentUser: null } }) }), 'u1') === null);
+  const 자기 = 창(); 자기.opener = 자기;
+  확인('고르기: opener 가 자기 자신이면 → null', 플랫폼창고르기(자기, 'u1') === null);
+}
 확인('규격·NAS 검색 서버가 꺼졌으면 맥락에 밝힌다(ai.js 사내문서 오류)', /if \(문서 && 문서\.오류\) 넣\(/.test(앱));
 확인('실패 말풍선은 실패말(한국어 한 줄) · 원문은 안 보이는 칸', /const 실패 = 실패말\(e\);/.test(앱) && /text: 실패\.글/.test(앱) && !/text: String\(e && e\.message \|\| e\), type: 'text', md: false, 실패: true/.test(앱));
 

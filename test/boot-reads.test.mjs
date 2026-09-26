@@ -84,15 +84,17 @@ T('계량기 자체가 살아 있다', () => {
 {
   const msg = readFileSync(new URL('../modules/messenger/messenger.js', import.meta.url), 'utf8');
   T('메신저 구독도 부모 계량기에 얹는다 — 안 얹으면 하루 읽기를 네 배 적게 본다', () => {
-    assert.ok(/window\.parent\.잰다/.test(msg), '메신저가 부모 계량기를 안 부른다');
+    // 9/26: 부모는 품은창()(iframe 부모만) 으로 읽는다 — ⧉ 새 창은 자기 계량기(b111)가 센다(pwa-w1 이 두 번 세기를 막는다).
+    assert.ok(/const p = 품은창\(\); p && p\.잰다 && p\.잰다\('메신저:' \+ 이름, snap\)/.test(msg), '메신저가 부모 계량기를 안 부른다');
     const i = msg.indexOf('const on = (q, cb, tag)');
     assert.ok(i > 0 && /잰다\(tag, snap\)/.test(msg.slice(i, i + 700)),
       '구독 헬퍼 on() 이 잰다() 를 안 거친다 — 여기를 지나야 메시지 500건이 잡힌다');
   });
   T('AI 행위 풀기·실행은 시간을 재고 끊는다 — 부모가 안 돌아오면 AI 방이 영영 멈춘다(b98)', () => {
-    assert.ok(/시간제한\(window\.parent\.AI행위풀기\(/.test(msg), '풀기가 시간제한 없이 불린다');
-    assert.ok(/시간제한\(window\.parent\.AI행위실행\(/.test(msg), '실행이 시간제한 없이 불린다');
-    assert.ok(!/await window\.parent\.AI행위(풀기|실행)\(/.test(msg), '시간제한을 안 거친 호출이 남아 있다');
+    // 9/26: 부모 = 부모창()(iframe 부모 또는 ⧉ 새 창의 연 창)
+    assert.ok(/시간제한\(부모\.AI행위풀기\(/.test(msg), '풀기가 시간제한 없이 불린다');
+    assert.ok(/시간제한\(부모\.AI행위실행\(/.test(msg), '실행이 시간제한 없이 불린다');
+    assert.ok(!/await (window\.parent|부모)\.AI행위(풀기|실행)\(/.test(msg), '시간제한을 안 거친 호출이 남아 있다');
   });
   T('부모의 잰다() 는 자식이 부를 수 있어야 한다 (최상위 function 이라 window 에 붙는다)', () => {
     assert.ok(/^function 잰다\(이름, snap\)/m.test(s),

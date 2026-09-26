@@ -802,6 +802,24 @@ export function 화면고르기(글, 목록) {
   return 고른.map(({ 종류, id, 이름, 부서 }) => ({ 종류, id, 이름, ...(부서 ? { 부서 } : {}) }));
 }
 
+// ── 등록 카드·「화면 열기」를 맡길 플랫폼 창 (2026-09-26) ─────────────────────────
+// 9/26 직원 시범 전 대조 뒤 남은 것: ⧉(index.html openMsgPopup)은 messenger.html 을 window.open 으로 연다 —
+//   그 창에선 window.parent === window 라 홈 화면 앱처럼 독립실행으로 돌아 등록 카드도 「화면 열기」 도 안 나왔다.
+//   연 플랫폼 창(opener)이 바로 옆에 있는데도. iframe 이면 부모(전과 같다), 아니면 opener 를 쓰되
+//   같은 출처(다른 출처면 속성을 읽는 순간 던진다) · 안 닫힘 · 플랫폼 함수가 있음 · 같은 사람일 때만.
+//   홈 화면 앱은 opener 가 없어 그대로 null. **쓸 때마다 다시 부른다** — opener 는 나중에 닫히거나 다른 곳으로 간다.
+export function 플랫폼창고르기(w, 나 = null) {
+  try {
+    if (w.parent && w.parent !== w) return w.parent;
+    const o = w.opener;
+    if (!o || o === w || o.closed) return null;
+    if (typeof o.AI행위목록 !== 'function' || !o.fb) return null;
+    // 연 창이 로그아웃했거나 다른 사람이면 그 사람 권한으로 카드를 풀게 된다
+    if (나 && String((o.state && o.state.currentUser) || '') !== String(나)) return null;
+    return o;
+  } catch (e) { return null; }
+}
+
 // ── 한 요청 크기 (2026-09-25) ──────────────────────────────────────────────
 // groq 무료(체인 맨 앞)는 **한 요청 8,000 토큰**이 끝이고, 답 몫(max_tokens 2,048)까지 더해 센다.
 //   9/25 "작년 견적 재료비 총액" 이 413(8,237)으로 통째로 실패했다 — 행위 둘을 더한 것만으로 선을 넘었다.
