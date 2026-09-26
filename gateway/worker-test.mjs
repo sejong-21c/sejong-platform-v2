@@ -1144,6 +1144,61 @@ const autoKeys = pre => [...vecStore.keys()].filter(k => k.startsWith(pre));
     JSON.stringify({ urls: Object.keys(s6.urls || {}), denied: s6.denied, p6: p6.status, p7: p7.status }));
 }
 
+// ── v5.5: 범위를 모르는 날 (2026-09-26) ─────────────────────────────────────
+// 한도 찬 날 users 를 못 읽고 isolate 기억도 없으면 조용히 ['전사'] 로 떨어졌다 — 직원에겐 "부서 자료가 없다" 로 보였다.
+//   이제 파이스에 uid + 범위모름 을 보내 맥의 users 백업으로 되살리게 하고, 브라우저에 범위모름·범위복구 를 돌려준다.
+{
+  const 맥env = { ...env, PAIS_URL: 'https://pais.test', PAIS_TOKEN: 'tok' };
+  const 부르기 = (길, 토큰, 몸) => worker.fetch(new Request('https://gw.test' + 길, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + 토큰, 'Content-Type': 'application/json' }, body: JSON.stringify(몸) }), 맥env);
+  fsStore['users/u_scopeless@sejong-21c.com'] = { name: { stringValue: '범위모름' }, dept: { stringValue: '설계부' }, grade: { stringValue: 'member' } };
+  const 처음 = await makeToken('scopeless@sejong-21c.com');   // 이 isolate 가 한 번도 못 본 사람
+  사용자읽기고장 = true;
+  try {
+    맥응답 = { 결과: [{ 점수: 0.9, 문서: '맥규격', 글: '맥조각' }], 범위복구: '백업' };
+    맥에보낸몸 = null;
+    const d1 = await (await 부르기('/rag/search', 처음, { query: '설계 기준', topK: 5 })).json();
+    check('범위모름 v5.5: users 를 못 읽고 기억도 없으면 파이스에 uid + 범위모름 을 보낸다(범위는 전사 그대로)',
+      !!맥에보낸몸 && 맥에보낸몸.uid === 'u_scopeless@sejong-21c.com' && 맥에보낸몸.범위모름 === true && JSON.stringify(맥에보낸몸.범위) === '["전사"]',
+      JSON.stringify(맥에보낸몸));
+    check('범위모름 v5.5: /rag/search 답에 범위모름 · 파이스의 범위복구 가 실린다',
+      d1.범위모름 === true && d1.범위복구 === '백업' && (d1.matches || []).length > 0, JSON.stringify({ 범위모름: d1.범위모름, 범위복구: d1.범위복구, n: (d1.matches || []).length }));
+
+    맥응답 = null;   // 맥이 꺼졌다 — 기록 색인으로 물러선 답에도 '실패' 가 실려야 한다
+    const d2 = await (await 부르기('/rag/search', 처음, { query: '설계 기준', topK: 5 })).json();
+    check('범위모름 v5.5: 파이스가 답하지 못하면 범위복구 는 실패', d2.범위모름 === true && d2.범위복구 === '실패', JSON.stringify({ 범위모름: d2.범위모름, 범위복구: d2.범위복구, source: d2.source }));
+
+    맥응답 = { 줄: [{ n: 1 }], 쓴표: ['표01'], 범위복구: '백업' };
+    맥에보낸몸 = null;
+    const t1 = await (await 부르기('/rag/table', 처음, { sql: 'select 1' })).json();
+    check('범위모름 v5.5: /rag/table 도 uid + 범위모름 을 보내고 범위모름 · 범위복구 를 돌려준다',
+      !!맥에보낸몸 && 맥에보낸몸.uid === 'u_scopeless@sejong-21c.com' && 맥에보낸몸.범위모름 === true && t1.범위모름 === true && t1.범위복구 === '백업' && t1.줄.length === 1,
+      JSON.stringify({ 몸: 맥에보낸몸, t1 }));
+    맥응답 = null;
+    const t2 = await (await 부르기('/rag/table', 처음, { 목록: true })).json();
+    check('범위모름 v5.5: 표 서버가 꺼져도 범위모름 · 실패 가 실린다', t2.범위모름 === true && t2.범위복구 === '실패' && !!t2.error, JSON.stringify(t2));
+
+    // 기억이 있으면(5분 캐시가 지났어도 12시간 안) 모르는 게 아니다 — 보내지도, 돌려주지도 않는다.
+    맥응답 = { 결과: [{ 점수: 0.9, 문서: '맥규격', 글: '맥조각' }] };
+    const 진짜now = Date.now;
+    Date.now = () => 진짜now() + 6 * 60 * 1000;
+    맥에보낸몸 = null;
+    let d3;
+    try { d3 = await (await 부르기('/rag/search', staffToken, { query: '설계 기준', topK: 5 })).json(); } finally { Date.now = 진짜now; }
+    check('범위모름 v5.5: isolate 기억이 있으면 uid·범위모름 을 안 보내고 답에도 없다',
+      !!맥에보낸몸 && !('uid' in 맥에보낸몸) && !('범위모름' in 맥에보낸몸) && (맥에보낸몸.범위 || []).includes('부서:생산부') && !('범위모름' in d3) && !('범위복구' in d3),
+      JSON.stringify({ 몸: 맥에보낸몸, 범위모름: d3.범위모름 }));
+  } finally { 사용자읽기고장 = false; 맥응답 = null; }
+
+  // users 가 읽히는 날엔 아무것도 안 붙는다(오늘과 같다)
+  맥응답 = { 결과: [{ 점수: 0.9, 문서: '맥규격', 글: '맥조각' }] };
+  맥에보낸몸 = null;
+  const d4 = await (await 부르기('/rag/search', 처음, { query: '설계 기준', topK: 5 })).json();
+  맥응답 = null;
+  check('범위모름 v5.5: users 가 읽히면 평소대로 — 범위에 부서가 실리고 범위모름 은 없다',
+    !!맥에보낸몸 && !('범위모름' in 맥에보낸몸) && (맥에보낸몸.범위 || []).includes('부서:설계부') && !('범위모름' in d4), JSON.stringify(맥에보낸몸));
+}
+
 let fails = 0;
 results.forEach(r => { if (!r.pass) fails++; console.log((r.pass ? 'PASS' : 'FAIL') + '  ' + r.name + (r.pass ? '' : '   << ' + r.detail)); });
 console.log('\n' + (fails ? fails + '개 실패' : '전체 ' + results.length + '개 통과'));

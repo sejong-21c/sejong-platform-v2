@@ -25,6 +25,8 @@
  *     POST /rag/search  {query, topK}            — 유사 대목 검색.
  *          v4.0: **범위로 거른다.** 부르는 사람의 부서를 검증된 토큰에서 뽑아
  *          ['전사','부서:…'] 로 맥·Vectorize 양쪽에 건다. body 의 범위는 안 믿는다.
+ *          (2026-09-26) users 를 못 읽고 기억도 없는 날엔 맥에 {uid, 범위모름:true} 를 더 보내고(맥이 users 백업으로
+ *          되살린다), /rag/search·/rag/table 답에 {범위모름:true, 범위복구:'백업'|'실패'} 를 싣는다.
  *     POST /rag/table   {sql} 또는 {목록:true}    — v4.1: NAS 표(SQLite 20표 323만 행)에 SQL 로 묻는다.
  *          세는 질문("작년 견적 재료비 총액")은 검색으로 못 푼다 — 몇 줄만 보고 답하게 된다.
  *          **SQL 을 브라우저에서 받아도 안전하다**: 범위를 SQL 로 막지 않고 맥의 SQLite
@@ -198,11 +200,15 @@ const 범위수명밀리초 = 5 * 60 * 1000;
 // 이걸 안 두면 한도 찬 날 전 직원이 '전사' 로 떨어져 제 부서 자료도 못 본다(2026-09-21 실제로 그랬다).
 const 마지막기억밀리초 = 12 * 60 * 60 * 1000;
 
+// 돌려주는 것: { 범위, 모름 }. 모름 = **users 를 못 읽었고 이 isolate 에 기억도 없어 '전사' 로 떨어졌다.**
+//   2026-09-26: 한도 찬 날 이 떨어짐이 조용했다 — 직원에겐 "부서 폴더 자료가 없다" 로 보였다(없는 게 아니라 못 본 것).
+//   이제 모름이면 파이스에 uid 를 같이 보내 맥의 하루치 users 백업으로 범위를 되살리게 하고(범위복구), 화면도 그 사실을 밝힌다.
+//   서비스 계정 키가 없는 것(설정)이나 users 문서가 없는 것(404)은 모름이 아니다 — 아는 것이 '전사' 다.
 async function 볼수있는범위(env, auth) {
   const 기본 = ['전사'];
-  if (!auth || !auth.uid || !env.FIREBASE_SA_KEY) return 기본;
+  if (!auth || !auth.uid || !env.FIREBASE_SA_KEY) return { 범위: 기본, 모름: false };
   const 캐시 = 범위캐시.get(auth.uid);
-  if (캐시 && Date.now() < 캐시.exp) return 캐시.범위;
+  if (캐시 && Date.now() < 캐시.exp) return { 범위: 캐시.범위, 모름: false };
   try {
     const token = await saAccessToken(env);
     const u = await fsGetDoc(env, token, 'users/' + encodeURIComponent(auth.uid));
@@ -220,7 +226,7 @@ async function 볼수있는범위(env, auth) {
     if (u && u.name) 범위.push('사람:' + String(u.name).trim());
     // 부서·등급도 같이 쥔다 — 경비 파일 문지기(재무부인가)가 users 문서를 따로 또 읽지 않게.
     범위캐시.set(auth.uid, { 범위, 부서: u && u.dept, 등급: u && u.grade, exp: Date.now() + 범위수명밀리초, 안전기한: Date.now() + 마지막기억밀리초 });
-    return 범위;
+    return { 범위, 모름: false };
   } catch (e) {
     // **마지막으로 알던 범위로 버틴다.** 2026-09-21: Firestore 하루 읽기 한도가 차서
     // 여기 fsGetDoc 이 429 로 죽었고, 그러면 조용히 ['전사'] 로 떨어졌다. 부장님은 super 인데
@@ -234,8 +240,8 @@ async function 볼수있는범위(env, auth) {
     // 고르는 값의 성질: 권한을 **빼앗은** 경우 최대 이 시간만큼 늦게 반영된다.
     // 사람이 몇 안 되고 등급을 바꾸는 일이 드물어서 12시간으로 뒀다. 바꾸려면 이 숫자만 만지면 된다.
     const 옛것 = 범위캐시.get(auth.uid);
-    if (옛것 && Date.now() < 옛것.안전기한) return 옛것.범위;
-    return 기본;                          // 정말 모르면 좁은 쪽으로
+    if (옛것 && Date.now() < 옛것.안전기한) return { 범위: 옛것.범위, 모름: false };
+    return { 범위: 기본, 모름: true };    // 정말 모르면 좁은 쪽으로 — 그리고 모른다고 말한다
   }
 }
 
@@ -254,19 +260,25 @@ async function ragEmbed(env, texts) {
 // 유료($5/월)로 넘어가야 했는데, 맥에 bge-m3 와 터널이 이미 있어 공짜로 되고 조각 수 상한도 없다.
 // 맥이 꺼져 있으면 아래 Vectorize 로 물러선다 — 그래야 맥 정전에 사내문서 검색이 통째로 죽지 않는다.
 // 응답 모양(matches)은 그대로 유지한다. 메신저(ai.js)를 안 고쳐도 되게.
-async function 맥검색(env, query, topK, 범위) {
+// 범위를 모르는 날(볼수있는범위 모름)에만 { uid, 범위모름: true } 를 몸에 얹는다 — 파이스가 맥의 users 백업으로 되살린다.
+//   uid 는 검증된 토큰의 것뿐이고, 파이스는 이 두 칸을 검색 전용 토큰으로 온 요청에서만 믿는다(범위와 같은 신뢰).
+const 범위모름몸 = (auth, 알기) => (알기.모름 ? { uid: auth.uid, 범위모름: true } : {});
+// 브라우저에 돌려줄 칸. 파이스가 답하지 못했으면(꺼짐·옛 판) '실패' 다 — 약속된 두 값 밖은 실패로 친다.
+const 범위모름답 = (알기, 복구) => (알기.모름 ? { 범위모름: true, 범위복구: 복구 === '백업' ? '백업' : '실패' } : {});
+
+async function 맥검색(env, query, topK, 범위, 더 = {}) {
   const 기한 = AbortSignal.timeout(Number(env.PAIS_TIMEOUT_MS) || 12000);
   const r = await fetch(String(env.PAIS_URL).replace(/\/$/, '') + '/api/rag/search', {
     method: 'POST', signal: 기한,
     // .trim() 이 꼭 필요하다 — 비밀값을 파이프로 넣으면(echo/PowerShell) 끝에 줄바꿈이 따라붙는데
     // 파이스는 고정시간 바이트 비교라 그 한 글자 때문에 401 이 난다(2026-09-19 실제로 그랬다).
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + String(env.PAIS_TOKEN || '').trim() },
-    body: JSON.stringify({ q: query, 개수: topK, 범위 }),
+    body: JSON.stringify({ q: query, 개수: topK, 범위, ...더 }),
   });
   if (!r.ok) throw new Error('pais ' + r.status);
   const j = await r.json();
   if (!Array.isArray(j.결과)) throw new Error('pais 응답 모양이 다르다');
-  return j.결과.map((c) => ({
+  return { 범위복구: j.범위복구, 것: j.결과.map((c) => ({
     score: c.점수,
     docName: c.문서 || '',
     chunkIndex: undefined,
@@ -280,18 +292,18 @@ async function 맥검색(env, query, topK, 범위) {
     ...(Array.isArray(c.그림) && c.그림.length
       ? { images: c.그림.map((g) => ({ no: g.번호, caption: g.캡션, page: g.쪽, url: g.주소 })) }
       : {}),
-  }));
+  })) };
 }
 
 // v4.1: NAS 표 질의를 맥으로 넘긴다. 검색과 달리 Vectorize 로 물러설 자리가 없다 —
 // 표는 맥에만 있다(1GB). 맥이 꺼져 있으면 그 사실을 그대로 알려 준다.
-async function 맥표(env, 몸, 범위) {
+async function 맥표(env, 몸, 범위, 더 = {}) {
   const 기한 = AbortSignal.timeout(Number(env.PAIS_TIMEOUT_MS) || 12000);
   const r = await fetch(String(env.PAIS_URL).replace(/\/$/, '') + '/api/rag/table', {
     method: 'POST', signal: 기한,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + String(env.PAIS_TOKEN || '').trim() },
     // **범위는 여기서 박는다.** 몸에 실려 온 범위는 쓰지 않는다 — 브라우저가 고쳐 보낼 수 있다.
-    body: JSON.stringify({ sql: 몸.sql ? String(몸.sql).slice(0, 4000) : '', 목록: !!몸.목록, 줄: 몸.줄, 범위 }),
+    body: JSON.stringify({ sql: 몸.sql ? String(몸.sql).slice(0, 4000) : '', 목록: !!몸.목록, 줄: 몸.줄, 범위, ...더 }),
   });
   if (!r.ok) throw new Error('pais ' + r.status);
   return await r.json();
@@ -335,11 +347,13 @@ async function handleRag(request, env, path, cors) {
 
   if (path === 'table') {
     if (!env.PAIS_URL) return json(501, { error: '표 질의는 맥(PAIS_URL)이 있어야 합니다' }, cors);
-    const 범위 = await 볼수있는범위(env, auth);
-    try { return json(200, { ...(await 맥표(env, body, 범위)), source: 'pais' }, cors); }
-    catch (e) {
+    const 알기 = await 볼수있는범위(env, auth);
+    try {
+      const 표 = await 맥표(env, body, 알기.범위, 범위모름몸(auth, 알기));
+      return json(200, { ...표, source: 'pais', ...범위모름답(알기, 표.범위복구) }, cors);
+    } catch (e) {
       // ai.js 는 !r.ok 면 조용히 건너뛴다 — 이유가 보이게 200 으로 준다.
-      return json(200, { 줄: [], error: '표 서버(맥)에 닿지 못했습니다: ' + String(e.message).slice(0, 120) }, cors);
+      return json(200, { 줄: [], error: '표 서버(맥)에 닿지 못했습니다: ' + String(e.message).slice(0, 120), ...범위모름답(알기) }, cors);
     }
   }
 
@@ -377,31 +391,34 @@ async function handleRag(request, env, path, cors) {
     if (!query) return json(400, { error: 'query required' }, cors);
     const topK = Math.min(Math.max(parseInt(body.topK, 10) || 5, 1), 10);
     // body.범위 는 **읽지 않는다.** 토큰에서 뽑는다.
-    const 범위 = await 볼수있는범위(env, auth);
+    const 알기 = await 볼수있는범위(env, auth);
+    const 범위 = 알기.범위;
     const 벡터있다 = !!(env.AI && env.VECTORIZE);
-    let 맥오류 = null;
+    let 맥오류 = null, 복구 = null;
+    // 모든 200 답에 범위모름·범위복구를 싣는다(모를 때만) — 맥이 꺼져 물러선 답에도(복구 '실패').
+    const 답 = (몸) => json(200, { ...몸, ...범위모름답(알기, 복구) }, cors);
 
     if (env.PAIS_URL) {
       let 맥것 = null;
-      try { 맥것 = await 맥검색(env, query, topK, 범위); }
+      try { ({ 것: 맥것, 범위복구: 복구 } = await 맥검색(env, query, topK, 범위, 범위모름몸(auth, 알기))); }
       catch (e) {
         // 맥이 꺼져 있다. **물러선 사실과 이유를 반드시 응답에 남긴다** — 조용히 물러서면
         // 맥 색인이 안 붙은 걸 아무도 모른 채 옛 답이 나간다(2026-09-19 첫 배포에서 실제로 그랬다).
         맥오류 = String(e.message).slice(0, 120);
         if (!벡터있다) {
-          return json(200, { matches: [], source: 'none', error: '사내문서 검색 서버(맥)에 닿지 못했습니다: ' + 맥오류 }, cors);
+          return 답({ matches: [], source: 'none', error: '사내문서 검색 서버(맥)에 닿지 못했습니다: ' + 맥오류 });
         }
       }
 
       if (맥것) {
-        if (!벡터있다) return json(200, { matches: 맥것, source: 'pais', 범위 }, cors);
+        if (!벡터있다) return 답({ matches: 맥것, source: 'pais', 범위 });
         // **둘 다 본다.** 2026-09-22 까지 여기서 맥 결과를 바로 돌려보내고 있었다. 그래서
         //   NCR·CAR·검사·회의록 색인이 9/19 부터 AI 에게 한 번도 닿지 않았다(부장님: "더 멍청해졌어").
         //   맥에는 규격·도면·NAS 파일이, Vectorize 에는 플랫폼 기록이 있다 — 서로 딴 것을 들고 있으니
         //   한쪽만 보면 반드시 반쪽 답이 된다.
         try {
           const 기록 = await 기록검색(query, topK, 범위);
-          if (!기록.length) return json(200, { matches: 맥것, source: 'pais', 범위 }, cors);
+          if (!기록.length) return 답({ matches: 맥것, source: 'pais', 범위 });
           // **자리는 점수가 정한다.** 둘 다 bge-m3(1024차원)이라 눈금이 같아서 비교해도 된다.
           //   고정 몫(1/3)으로 해 봤더니 "부적합 NCR 현황" 에서 NCR(0.59)이 세 자리로 묶이고
           //   상관없는 ASME 조각(0.48)이 일곱 자리를 차지했다(2026-09-22 실측).
@@ -425,17 +442,17 @@ async function handleRag(request, env, path, cors) {
           const 볼트몫 = Math.min(볼트것.length, Math.max(1, Math.round(자리 / 3)), 자리);
           const 규격 = 맥것.filter((m) => m.kind !== '볼트').slice(0, 자리 - 볼트몫);
           const 앞 = [...규격, ...볼트것.slice(0, 자리 - 규격.length)];
-          return json(200, { matches: [...앞, ...뒤], source: 'pais+기록', 범위, 기록: 뒤.length, 진단: { 문턱, 이긴기록, 맥수: 맥것.length, 기록수: 기록.length, 기록점수: 기록.slice(0, 5).map((r) => r.score) } }, cors);
+          return 답({ matches: [...앞, ...뒤], source: 'pais+기록', 범위, 기록: 뒤.length, 진단: { 문턱, 이긴기록, 맥수: 맥것.length, 기록수: 기록.length, 기록점수: 기록.slice(0, 5).map((r) => r.score) } });
         } catch (e) {
           // 기록 색인이 잠깐 안 되더라도 규격 답은 그대로 나가야 한다.
-          return json(200, { matches: 맥것, source: 'pais', 범위, 기록오류: String(e.message).slice(0, 120) }, cors);
+          return 답({ matches: 맥것, source: 'pais', 범위, 기록오류: String(e.message).slice(0, 120) });
         }
       }
     }
 
     // 맥이 없거나 꺼졌다 — 기록 색인만으로 답한다.
     const matches = await 기록검색(query, topK, 범위);
-    return json(200, { matches, source: 맥오류 ? '기록(맥 실패로 물러섬)' : '기록', ...(맥오류 ? { paisError: 맥오류 } : {}) }, cors);
+    return 답({ matches, source: 맥오류 ? '기록(맥 실패로 물러섬)' : '기록', ...(맥오류 ? { paisError: 맥오류 } : {}) });
   }
 
   if (path === 'upload') {
